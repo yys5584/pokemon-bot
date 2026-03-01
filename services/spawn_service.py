@@ -11,6 +11,7 @@ from database import queries
 from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_pokemon_boost
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
+from utils.helpers import close_button
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +195,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id,
             photo=card_buf,
             caption=caption,
+            reply_markup=close_button(),
         )
 
         # 6. Create spawn session AFTER image is sent
@@ -258,6 +260,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"흔들흔들... 💨 도망갔다!",
+                reply_markup=close_button(),
             )
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
@@ -298,6 +301,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"흔들흔들... 💨 도망갔다!",
+                reply_markup=close_button(),
             )
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
@@ -364,7 +368,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await queries.add_master_ball(winner_id)
             msg += "\n\n🟣 마스터볼을 획득했다!"
 
-        await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML")
+        await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML", reply_markup=close_button())
 
         # Check and unlock titles
         from utils.title_checker import check_and_unlock_titles
@@ -377,6 +381,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 chat_id=chat_id,
                 text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\nDM에서 '칭호'로 장착하세요!",
                 parse_mode="HTML",
+                reply_markup=close_button(),
             )
 
         # Also check titles for failed catchers

@@ -1,7 +1,14 @@
 """Utility functions for text formatting, titles, etc."""
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
 from config import TITLES, LEGEND_HUNTER_THRESHOLD, LEGEND_HUNTER_TITLE, RARITY_EMOJI, RARITY_LABEL
 from database import queries
+
+
+def close_button() -> InlineKeyboardMarkup:
+    """Return InlineKeyboardMarkup with ❌ close button for group messages."""
+    return InlineKeyboardMarkup([[InlineKeyboardButton("❌", callback_data="close_msg")]])
 
 
 def hearts_display(friendship: int) -> str:

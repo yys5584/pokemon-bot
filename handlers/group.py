@@ -10,9 +10,23 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from services.catch_service import can_attempt_catch, record_attempt
-from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name
+from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, close_button
 
 logger = logging.getLogger(__name__)
+
+
+async def close_message_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle ❌ button press — delete the bot message to reduce scroll clutter."""
+    query = update.callback_query
+    if not query:
+        return
+    try:
+        await query.message.delete()
+    except Exception:
+        # If delete fails (permissions, too old, etc.), just dismiss the callback
+        await query.answer("메시지를 삭제할 수 없습니다.")
+        return
+    await query.answer()
 
 
 async def on_chat_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -89,6 +103,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id,
             text=f"🎯 {decorated} 도전!",
             parse_mode="HTML",
+            reply_markup=close_button(),
         )
 
     except Exception as e:
@@ -121,7 +136,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Check if user has master balls
         balls = await queries.get_master_balls(user_id)
         if balls < 1:
-            await update.message.reply_text("🟣 마스터볼이 없습니다!")
+            await update.message.reply_text("🟣 마스터볼이 없습니다!", reply_markup=close_button())
             return
 
         # Use master ball
@@ -136,6 +151,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await context.bot.send_message(
             chat_id=chat_id,
             text=f"🟣 {display_name} 마스터볼 투척! (남은 마스터볼: {remaining}개)",
+            reply_markup=close_button(),
         )
 
     except Exception as e:
@@ -166,7 +182,7 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check cap (max 100 bonus)
     bonus = await queries.get_bonus_catches(user_id, today)
     if bonus >= 100:
-        await update.message.reply_text("🔴 오늘 포켓볼 충전 한도를 모두 사용했어요! (최대 100회)")
+        await update.message.reply_text("🔴 오늘 포켓볼 충전 한도를 모두 사용했어요! (최대 100회)", reply_markup=close_button())
         return
 
     # Grant +10 bonus catches
@@ -186,7 +202,8 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"🔴 포켓볼 충전 완료!\n"
-        f"🎁 {display_name}의 오늘 잡기 횟수 +10! (총 {total}회){title_msg}"
+        f"🎁 {display_name}의 오늘 잡기 횟수 +10! (총 {total}회){title_msg}",
+        reply_markup=close_button(),
     )
 
 
@@ -226,7 +243,7 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Check GLOBAL daily master ball limit (3 per day total)
     got_today = _love_hidden_global.get(today, 0)
     if got_today >= 3:
-        await update.message.reply_text(f"💕 문유: 고마워요~!{title_msg}")
+        await update.message.reply_text(f"💕 문유: 고마워요~!{title_msg}", reply_markup=close_button())
         return
 
     # Random chance (33%)
@@ -236,10 +253,11 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         remaining = 3 - got_today - 1
         await update.message.reply_text(
             f"💕 문유가 감동받았다!\n"
-            f"🟣 {display_name}에게 마스터볼 1개를 선물! (오늘 남은: {remaining}회){title_msg}"
+            f"🟣 {display_name}에게 마스터볼 1개를 선물! (오늘 남은: {remaining}회){title_msg}",
+            reply_markup=close_button(),
         )
     else:
-        await update.message.reply_text(f"💕 문유: 고마워요~!{title_msg}")
+        await update.message.reply_text(f"💕 문유: 고마워요~!{title_msg}", reply_markup=close_button())
 
 
 async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -266,14 +284,14 @@ async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 html=True,
             )
             lines.append(
-                f"{medal} {decorated} — {r['caught_count']}/151"
+                f"{medal} {decorated} — {r['caught_count']}/251"
             )
 
-        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML", reply_markup=close_button())
 
     except Exception as e:
         logger.error(f"Ranking handler error: {e}")
-        await update.message.reply_text("랭킹을 불러올 수 없습니다.")
+        await update.message.reply_text("랭킹을 불러올 수 없습니다.", reply_markup=close_button())
 
 
 async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -299,11 +317,11 @@ async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{ago} {log['pokemon_emoji']} {log['pokemon_name']} {result}"
             )
 
-        await update.message.reply_text("\n".join(lines))
+        await update.message.reply_text("\n".join(lines), reply_markup=close_button())
 
     except Exception as e:
         logger.error(f"Log handler error: {e}")
-        await update.message.reply_text("기록을 불러올 수 없습니다.")
+        await update.message.reply_text("기록을 불러올 수 없습니다.", reply_markup=close_button())
 
 
 async def dashboard_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -315,4 +333,5 @@ async def dashboard_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "교환왕, 올빼미족 등 재미있는 통계를 확인하세요!",
         parse_mode="HTML",
         disable_web_page_preview=True,
+        reply_markup=close_button(),
     )

@@ -19,7 +19,7 @@ from database.seed import seed_pokemon_data
 from database import queries
 
 from handlers.start import start_handler, help_handler
-from handlers.group import catch_handler, master_ball_handler, love_easter_egg, love_hidden_handler, ranking_handler, log_handler, dashboard_handler, on_chat_activity
+from handlers.group import catch_handler, master_ball_handler, love_easter_egg, love_hidden_handler, ranking_handler, log_handler, dashboard_handler, on_chat_activity, close_message_callback
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler
 from handlers.dm_nurture import feed_handler, play_handler, evolve_handler
 from handlers.dm_trade import trade_handler, accept_handler, reject_handler
@@ -213,6 +213,9 @@ def main():
         group & filters.TEXT & filters.Regex(r"^ㅁ$"),
         master_ball_handler,
     ))
+
+    # Close message callback (❌ button)
+    app.add_handler(CallbackQueryHandler(close_message_callback, pattern=r"^close_msg$"))
 
     # Pokedex pagination callback
     app.add_handler(CallbackQueryHandler(pokedex_callback, pattern=r"^dex_\d+$"))
