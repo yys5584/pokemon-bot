@@ -11,7 +11,6 @@ from database import queries
 from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_pokemon_boost
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
-from utils.helpers import close_button
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +51,14 @@ async def pick_random_pokemon(rarity: str) -> dict:
     if not candidates:
         candidates = await queries.get_pokemon_by_rarity("common")
 
+    # Get ALL pokemon boosts in one call (instead of N separate DB queries)
+    from services.event_service import get_all_pokemon_boosts
+    pokemon_boosts = await get_all_pokemon_boosts()
+
     # Apply pokemon_boost event weights + weather boost
     weights = []
     for p in candidates:
-        event_boost = await get_pokemon_boost(p["id"])
+        event_boost = pokemon_boosts.get(p["id"], 1.0)
         weather_boost = get_weather_pokemon_boost(p["id"])
         weights.append(event_boost * weather_boost)
 
@@ -64,9 +67,12 @@ async def pick_random_pokemon(rarity: str) -> dict:
 
 async def schedule_spawns_for_chat(app, chat_id: int, member_count: int):
     """Schedule today's spawns for a single chat."""
-    # Cancel existing spawn jobs for this chat to prevent duplicates
+    # Cancel ALL spawn-related jobs for this chat (scheduled, retries, welcome)
+    chat_str = str(chat_id)
     for job in app.job_queue.jobs():
-        if job.name and job.name.startswith(f"spawn_{chat_id}_"):
+        if job.name and chat_str in job.name and (
+            job.name.startswith("spawn_") or job.name.startswith("welcome_spawn_")
+        ):
             job.schedule_removal()
 
     base_spawns = calculate_daily_spawns(member_count)
@@ -77,7 +83,7 @@ async def schedule_spawns_for_chat(app, chat_id: int, member_count: int):
     chat_mult = await queries.get_spawn_multiplier(chat_id)
     # Apply global event multiplier
     event_mult = await get_spawn_boost()
-    num_spawns = max(1, int(base_spawns * chat_mult * event_mult))
+    num_spawns = min(config.SPAWN_MAX_DAILY, max(1, int(base_spawns * chat_mult * event_mult)))
 
     await queries.update_chat_spawn_info(chat_id, num_spawns)
 
@@ -164,6 +170,14 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         if active:
             return
 
+        # 2.5 Cooldown: skip if last spawn was within 5 minutes
+        last_spawn = await queries.get_last_spawn_time(chat_id)
+        if last_spawn:
+            elapsed = (datetime.now() - last_spawn).total_seconds()
+            if elapsed < 300:  # 5 minutes cooldown
+                logger.debug(f"Spawn cooldown for {chat_id}: {elapsed:.0f}s since last spawn")
+                return
+
         # 3. Roll rarity with midnight bonus + event boosts
         midnight = is_midnight_bonus()
         rarity = await roll_rarity(midnight_bonus=midnight)
@@ -195,25 +209,22 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id,
             photo=card_buf,
             caption=caption,
-            reply_markup=close_button(),
         )
 
         # 6. Create spawn session AFTER image is sent
         expires = (datetime.now() + timedelta(seconds=config.SPAWN_WINDOW_SECONDS))
-        expires_str = expires.strftime("%Y-%m-%d %H:%M:%S")
 
         session_id = await queries.create_spawn_session(
-            chat_id, pokemon["id"], expires_str
+            chat_id, pokemon["id"], expires
         )
 
         # Update session with message_id
         from database.connection import get_db
-        db = await get_db()
-        await db.execute(
-            "UPDATE spawn_sessions SET message_id = ? WHERE id = ?",
-            (message.message_id, session_id),
+        pool = await get_db()
+        await pool.execute(
+            "UPDATE spawn_sessions SET message_id = $1 WHERE id = $2",
+            message.message_id, session_id,
         )
-        await db.commit()
 
         # 7. Record spawn
         await queries.record_spawn_in_chat(chat_id)
@@ -260,7 +271,6 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"흔들흔들... 💨 도망갔다!",
-                reply_markup=close_button(),
             )
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
@@ -301,7 +311,6 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"흔들흔들... 💨 도망갔다!",
-                reply_markup=close_button(),
             )
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
@@ -368,7 +377,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await queries.add_master_ball(winner_id)
             msg += "\n\n🟣 마스터볼을 획득했다!"
 
-        await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML", reply_markup=close_button())
+        await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML")
 
         # Check and unlock titles
         from utils.title_checker import check_and_unlock_titles
@@ -381,7 +390,6 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 chat_id=chat_id,
                 text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\nDM에서 '칭호'로 장착하세요!",
                 parse_mode="HTML",
-                reply_markup=close_button(),
             )
 
         # Also check titles for failed catchers

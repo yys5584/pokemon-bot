@@ -9,6 +9,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from services.spawn_service import schedule_spawns_for_chat
+from services.event_service import invalidate_event_cache
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +94,13 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             member = await context.bot.get_chat_member(chat_id, user_id)
             if member.status not in ("creator", "administrator"):
+                logger.info(f"force_spawn denied: user {user_id} is not admin in chat {chat_id}")
                 return
-        except Exception:
+        except Exception as e:
+            logger.warning(f"force_spawn admin check error: {e}")
             return
+
+    logger.info(f"force_spawn: admin check passed for user {user_id} in chat {chat_id}")
 
     # Check minimum members
     room = await queries.get_chat_room(chat_id)
@@ -112,30 +117,50 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("🚫 이 방의 강제스폰 횟수를 모두 사용했습니다! (50/50회)")
         return
 
-    # Trigger spawn immediately (force=True skips activity check)
-    from services.spawn_service import execute_spawn
+    logger.info(f"force_spawn: executing spawn in chat {chat_id} (count: {count}/50)")
 
-    class FakeJob:
-        def __init__(self, data):
-            self.data = data
+    try:
+        # Trigger spawn immediately (force=True skips activity check)
+        from services.spawn_service import execute_spawn
 
-    class FakeContext:
-        def __init__(self, bot, job_queue, data):
-            self.bot = bot
-            self.job_queue = job_queue
-            self.job = FakeJob(data)
+        class FakeJob:
+            def __init__(self, data):
+                self.data = data
 
-    fake_ctx = FakeContext(
-        context.bot,
-        context.application.job_queue,
-        {"chat_id": chat_id, "force": True},
-    )
-    await execute_spawn(fake_ctx)
+        class FakeContext:
+            def __init__(self, bot, job_queue, data):
+                self.bot = bot
+                self.job_queue = job_queue
+                self.job = FakeJob(data)
 
-    # Increment count and show remaining
-    await queries.increment_force_spawn(chat_id)
-    used = count + 1
-    await update.message.reply_text(f"⚡ 강제스폰! ({used}/50회)")
+        fake_ctx = FakeContext(
+            context.bot,
+            context.application.job_queue,
+            {"chat_id": chat_id, "force": True},
+        )
+        await execute_spawn(fake_ctx)
+
+        # Increment count and show remaining
+        await queries.increment_force_spawn(chat_id)
+        used = count + 1
+        await update.message.reply_text(f"⚡ 강제스폰! ({used}/50회)")
+        logger.info(f"force_spawn: success in chat {chat_id} ({used}/50)")
+    except Exception as e:
+        logger.error(f"force_spawn FAILED in chat {chat_id}: {e}", exc_info=True)
+        await update.message.reply_text(f"❌ 강제스폰 실패: {e}")
+
+
+async def force_spawn_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '강제스폰초기화' command - reset force spawn counts for all chats."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    if not is_admin(user_id):
+        return
+
+    await queries.reset_force_spawn_counts()
+    await update.message.reply_text("✅ 모든 방의 강제스폰 횟수가 초기화되었습니다!")
 
 
 # ============================================================
@@ -197,6 +222,7 @@ async def event_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         end_time=end_time,
         created_by=user_id,
     )
+    invalidate_event_cache()
 
     await update.message.reply_text(
         f"🎉 이벤트 시작!\n\n"
@@ -258,6 +284,7 @@ async def event_end_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await queries.end_event(event_id)
+    invalidate_event_cache()
     await update.message.reply_text(f"✅ 이벤트 #{event_id} 종료되었습니다.")
 
 

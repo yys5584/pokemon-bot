@@ -59,6 +59,8 @@ MIDNIGHT_BONUS_START = 2           # 2:00 AM KST
 MIDNIGHT_BONUS_END = 5             # 5:00 AM KST
 SPAWN_RETRY_MIN_SECONDS = 1800     # 30 min retry if no activity
 SPAWN_RETRY_MAX_SECONDS = 3600     # 60 min retry if no activity
+SPAWN_COOLDOWN_SECONDS = 300       # 5 min minimum between spawns
+SPAWN_MAX_DAILY = 12               # Absolute max spawns per day per chat (regardless of multiplier)
 
 # Small-group optimized spawn count per day
 SPAWN_TIERS = [

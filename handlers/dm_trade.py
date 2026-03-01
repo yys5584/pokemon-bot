@@ -40,20 +40,20 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_username = target_mention
 
     from database.connection import get_db
-    db = await get_db()
-    rows = await db.execute_fetchall(
-        "SELECT user_id FROM users WHERE username = ?",
-        (target_username,),
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT user_id FROM users WHERE username = $1",
+        target_username,
     )
 
-    if not rows:
+    if not row:
         await update.message.reply_text(
             f"@{target_username} 트레이너를 찾을 수 없습니다.\n"
             "상대방이 봇에 /start 를 해야 합니다."
         )
         return
 
-    to_user_id = rows[0][0]
+    to_user_id = row["user_id"]
 
     if to_user_id == user_id:
         await update.message.reply_text("자기 자신과는 교환할 수 없습니다!")

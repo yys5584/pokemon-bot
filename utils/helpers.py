@@ -49,11 +49,14 @@ async def update_title(user_id: int):
     await queries.update_user_title(user_id, title, emoji)
 
 
-def time_ago(timestamp_str: str) -> str:
-    """Convert ISO timestamp to human-readable Korean time ago."""
+def time_ago(timestamp_str) -> str:
+    """Convert ISO timestamp or datetime to human-readable Korean time ago."""
     from datetime import datetime
     try:
-        ts = datetime.fromisoformat(timestamp_str)
+        if isinstance(timestamp_str, datetime):
+            ts = timestamp_str.replace(tzinfo=None)
+        else:
+            ts = datetime.fromisoformat(str(timestamp_str))
         diff = datetime.now() - ts
         seconds = int(diff.total_seconds())
 

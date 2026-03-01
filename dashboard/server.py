@@ -1,8 +1,11 @@
 """Dashboard web server using aiohttp."""
 
 import asyncio
+import json
 import logging
 import os
+from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 
 from aiohttp import web
@@ -10,6 +13,25 @@ from aiohttp import web
 from database import queries
 
 logger = logging.getLogger(__name__)
+
+
+class PGJsonEncoder(json.JSONEncoder):
+    """JSON encoder that handles PostgreSQL types (datetime, Decimal)."""
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
+
+
+def pg_json_response(data, **kwargs):
+    """pg_json_response with PG-compatible JSON encoder."""
+    return web.Response(
+        text=json.dumps(data, cls=PGJsonEncoder, ensure_ascii=False),
+        content_type="application/json",
+        **kwargs,
+    )
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 
@@ -19,33 +41,33 @@ TEMPLATE_DIR = Path(__file__).parent / "templates"
 async def api_overview(request):
     total = await queries.get_total_stats()
     today = await queries.get_today_stats()
-    return web.json_response({**total, **today})
+    return pg_json_response({**total, **today})
 
 
 async def api_chats(request):
     rooms = await queries.get_all_chat_rooms()
-    return web.json_response(rooms)
+    return pg_json_response(rooms)
 
 
 async def api_users(request):
     users = await queries.get_user_rankings(20)
-    return web.json_response(users)
+    return pg_json_response(users)
 
 
 async def api_spawns_recent(request):
     spawns = await queries.get_recent_spawns_global(50)
-    return web.json_response(spawns)
+    return pg_json_response(spawns)
 
 
 async def api_pokemon_stats(request):
     stats = await queries.get_top_pokemon_caught(20)
-    return web.json_response(stats)
+    return pg_json_response(stats)
 
 
 async def api_events(request):
     await queries.cleanup_expired_events()
     events = await queries.get_active_events()
-    return web.json_response(events)
+    return pg_json_response(events)
 
 
 async def api_fun_kpis(request):
@@ -82,7 +104,7 @@ async def api_fun_kpis(request):
     lucky_users = user_catch_rates[:5] if user_catch_rates else []
     unlucky_users = sorted(user_catch_rates, key=lambda x: x["catch_rate"])[:5] if user_catch_rates else []
 
-    return web.json_response({
+    return pg_json_response({
         "global_catch_rate": global_catch_rate,
         "total_master_balls_used": total_mb_used,
         "longest_streak": longest_streak,
