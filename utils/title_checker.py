@@ -24,7 +24,13 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
 
         unlocked = False
 
-        if check_type == "pokedex":
+        if check_type == "pokedex" or check_type == "pokedex_gen1":
+            gen1_count = await queries.count_pokedex_gen1(user_id)
+            unlocked = gen1_count >= threshold
+        elif check_type == "pokedex_gen2":
+            gen2_count = await queries.count_pokedex_gen2(user_id)
+            unlocked = gen2_count >= threshold
+        elif check_type == "pokedex_all":
             unlocked = pokedex_count >= threshold
         elif check_type == "legendary":
             unlocked = legendary_count >= threshold

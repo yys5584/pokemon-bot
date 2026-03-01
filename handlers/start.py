@@ -69,7 +69,7 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "랭킹 — 도감 랭킹\n"
         "로그 — 최근 출현 기록\n"
         "날씨 — 현재 날씨 & 출현 보너스\n"
-        "포켓볼 충전 — 잡기 횟수 +5\n"
+        "포켓볼 충전 — 잡기 횟수 +10\n"
         "대시보드 — 실시간 통계 보기\n\n"
         "【DM 전용】\n"
         "도움말 — 명령어 안내\n"

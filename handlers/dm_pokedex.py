@@ -59,7 +59,10 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     page_pokemon = all_pokemon[start:end]
     total_pages = (len(all_pokemon) + POKEDEX_PAGE_SIZE - 1) // POKEDEX_PAGE_SIZE
 
-    lines = [f"🏅 {escape_html(display_name)}의 도감 ({total}/151){title_part}\n"]
+    gen1 = sum(1 for pid in caught_ids if pid <= 151)
+    gen2 = sum(1 for pid in caught_ids if 152 <= pid <= 251)
+    lines = [f"🏅 {escape_html(display_name)}의 도감 ({total}/251){title_part}"]
+    lines.append(f"1세대: {gen1}/151 | 2세대: {gen2}/100\n")
 
     for pm in page_pokemon:
         pid = pm["id"]
@@ -73,7 +76,7 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             lines.append(f"{pid:03d} ・ ???")
 
-    lines.append(f"\n수집률: {total / 151 * 100:.1f}%  ({page + 1}/{total_pages})")
+    lines.append(f"\n수집률: {total / 251 * 100:.1f}%  ({page + 1}/{total_pages})")
 
     # Pagination buttons
     buttons = []
@@ -119,7 +122,10 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     page_pokemon = all_pokemon[start:end]
     total_pages = (len(all_pokemon) + POKEDEX_PAGE_SIZE - 1) // POKEDEX_PAGE_SIZE
 
-    lines = [f"🏅 {escape_html(display_name)}의 도감 ({total}/151){title_part}\n"]
+    gen1 = sum(1 for pid in caught_ids if pid <= 151)
+    gen2 = sum(1 for pid in caught_ids if 152 <= pid <= 251)
+    lines = [f"🏅 {escape_html(display_name)}의 도감 ({total}/251){title_part}"]
+    lines.append(f"1세대: {gen1}/151 | 2세대: {gen2}/100\n")
 
     for pm in page_pokemon:
         pid = pm["id"]
@@ -133,7 +139,7 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             lines.append(f"{pid:03d} ・ ???")
 
-    lines.append(f"\n수집률: {total / 151 * 100:.1f}%  ({page + 1}/{total_pages})")
+    lines.append(f"\n수집률: {total / 251 * 100:.1f}%  ({page + 1}/{total_pages})")
 
     buttons = []
     if page > 0:
@@ -549,7 +555,9 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     # Group by category
     categories = {
-        "📚 도감 기반": ["beginner", "collector", "trainer", "master", "champion", "living_dex"],
+        "📚 1세대 도감 (관동)": ["beginner", "collector", "trainer", "master", "champion", "living_dex"],
+        "🌏 2세대 도감 (성도)": ["gen2_starter", "gen2_collector", "gen2_trainer", "gen2_master"],
+        "💫 그랜드": ["grand_master"],
         "🐉 전설": ["legend_hunter"],
         "🎯 활동 기반": ["first_catch", "catch_master", "run_expert", "owl", "decisive", "love_fan", "diligent"],
         "💎 수집 특화": ["furry", "rare_hunter"],

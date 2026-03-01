@@ -51,7 +51,7 @@ async def post_init(application: Application):
     await get_db()
     await create_tables()
     await seed_pokemon_data()
-    logger.info("Database ready. 151 Pokemon seeded.")
+    logger.info("Database ready. 251 Pokemon seeded.")
 
     # Cleanup expired sessions and events from previous runs
     await queries.cleanup_expired_sessions()

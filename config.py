@@ -84,6 +84,7 @@ FRIENDSHIP_PER_PLAY = 1            # +1 per play
 # --- Title System ---
 TITLES = [
     # (min_pokemon_count, title_text, emoji)
+    (251, "그랜드마스터", "💫"),
     (151, "챔피언", "👑"),
     (120, "포켓몬 마스터", "🏆"),
     (75, "포켓몬 트레이너", "⭐"),
@@ -101,13 +102,20 @@ LEGEND_HUNTER_TITLE = ("레전드 헌터", "🐉")
 #             love_count, trade, common_catch, rare_catch, streak, first_catch,
 #             master_ball_use, total_catch
 UNLOCKABLE_TITLES = {
-    # 도감 기반
-    "beginner":     ("초보 트레이너",   "🔰", "도감 15종 달성",          "pokedex", 15),
-    "collector":    ("포켓몬 수집가",   "📦", "도감 45종 달성",          "pokedex", 45),
-    "trainer":      ("포켓몬 트레이너", "⭐", "도감 75종 달성",          "pokedex", 75),
-    "master":       ("포켓몬 마스터",   "🏆", "도감 120종 달성",         "pokedex", 120),
-    "champion":     ("챔피언",         "👑", "도감 151종 완성!",        "pokedex", 151),
-    "living_dex":   ("살아있는 도감",   "📖", "도감 100종 달성",         "pokedex", 100),
+    # 1세대 도감 기반 (관동)
+    "beginner":     ("초보 트레이너",   "🔰", "1세대 도감 15종 달성",     "pokedex_gen1", 15),
+    "collector":    ("포켓몬 수집가",   "📦", "1세대 도감 45종 달성",     "pokedex_gen1", 45),
+    "trainer":      ("포켓몬 트레이너", "⭐", "1세대 도감 75종 달성",     "pokedex_gen1", 75),
+    "master":       ("포켓몬 마스터",   "🏆", "1세대 도감 120종 달성",    "pokedex_gen1", 120),
+    "champion":     ("챔피언",         "👑", "1세대 도감 151종 완성!",   "pokedex_gen1", 151),
+    "living_dex":   ("살아있는 도감",   "📖", "1세대 도감 100종 달성",    "pokedex_gen1", 100),
+    # 2세대 도감 기반 (성도)
+    "gen2_starter":   ("성도의 초보",    "🌏", "2세대 도감 15종 달성",   "pokedex_gen2", 15),
+    "gen2_collector": ("성도 수집가",    "🎒", "2세대 도감 45종 달성",   "pokedex_gen2", 45),
+    "gen2_trainer":   ("성도 트레이너",  "🌟", "2세대 도감 75종 달성",   "pokedex_gen2", 75),
+    "gen2_master":    ("성도 마스터",    "🏅", "2세대 도감 100종 완성!", "pokedex_gen2", 100),
+    # 전체 도감
+    "grand_master":   ("그랜드마스터",   "💫", "전체 도감 251종 완성!",  "pokedex_all", 251),
     # 전설
     "legend_hunter":("레전드 헌터",    "🐉", "전설 포켓몬 3마리 포획",   "legendary", 3),
     # 활동 기반
@@ -128,15 +136,23 @@ UNLOCKABLE_TITLES = {
 
 # --- Trade Evolution Pokemon IDs ---
 TRADE_EVOLUTION_MAP = {
+    # Gen 1
     64: 65,    # 윤겔라 -> 후딘
     67: 68,    # 근육몬 -> 괴력몬
     75: 76,    # 데구리 -> 딱구리
     93: 94,    # 고우스트 -> 팬텀
+    # Gen 2 (cross-gen trade evolutions)
+    61: 186,   # 강챙이 -> 왕구리
+    79: 199,   # 야도란 -> 야도킹
+    95: 208,   # 롱스톤 -> 강철톤
+    117: 230,  # 시드라 -> 킹드라
+    123: 212,  # 스라크 -> 핫삼
+    137: 233,  # 폴리곤 -> 폴리곤2
 }
 
 # --- Eevee Evolution ---
 EEVEE_ID = 133
-EEVEE_EVOLUTIONS = [134, 135, 136]  # 샤미드, 쥬피썬더, 부스터
+EEVEE_EVOLUTIONS = [134, 135, 136, 196, 197]  # 샤미드, 쥬피썬더, 부스터, 에브이, 블래키
 
 # --- Message Templates ---
 MSG_SPAWN = "🌿 야생의 {emoji} {name}이(가) 나타났다!\nㅊ 입력으로 잡기 (60초)"

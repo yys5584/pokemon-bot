@@ -286,6 +286,26 @@ async def count_pokedex(user_id: int) -> int:
     return rows[0][0] if rows else 0
 
 
+async def count_pokedex_gen1(user_id: int) -> int:
+    """Count Gen 1 pokedex entries (pokemon_id 1~151)."""
+    db = await get_db()
+    rows = await db.execute_fetchall(
+        "SELECT COUNT(*) FROM pokedex WHERE user_id = ? AND pokemon_id <= 151",
+        (user_id,),
+    )
+    return rows[0][0] if rows else 0
+
+
+async def count_pokedex_gen2(user_id: int) -> int:
+    """Count Gen 2 pokedex entries (pokemon_id 152~251)."""
+    db = await get_db()
+    rows = await db.execute_fetchall(
+        "SELECT COUNT(*) FROM pokedex WHERE user_id = ? AND pokemon_id >= 152 AND pokemon_id <= 251",
+        (user_id,),
+    )
+    return rows[0][0] if rows else 0
+
+
 async def count_legendary_caught(user_id: int) -> int:
     db = await get_db()
     rows = await db.execute_fetchall(
