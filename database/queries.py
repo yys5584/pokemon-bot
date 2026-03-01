@@ -572,6 +572,23 @@ async def reset_catch_limits():
     await db.commit()
 
 
+async def recharge_catch_limits():
+    """Recharge 50% of used catch attempts (reduce attempt_count by half).
+
+    Called every 3 hours between full resets.
+    Example: user used 10/10 → after recharge, 5/10 used (5 available).
+    """
+    db = await get_db()
+    today = datetime.now().strftime("%Y-%m-%d")
+    await db.execute(
+        """UPDATE catch_limits
+           SET attempt_count = MAX(0, attempt_count / 2)
+           WHERE date = ?""",
+        (today,),
+    )
+    await db.commit()
+
+
 # ============================================================
 # Spawn Log
 # ============================================================

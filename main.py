@@ -100,6 +100,15 @@ async def midnight_reset(context):
     logger.info("Scheduled reset complete.")
 
 
+# --- 3-hourly catch recharge job ---
+
+async def catch_recharge_job(context):
+    """Recharge 50% of used catches every 3 hours (between full resets)."""
+    logger.info("Running 3-hourly catch recharge (50%)...")
+    await queries.recharge_catch_limits()
+    logger.info("Catch recharge complete.")
+
+
 # --- Weather update job ---
 
 async def weather_update_job(context):
@@ -233,6 +242,15 @@ def main():
         time=dt_time(21, 0, 0, tzinfo=kst),
         name="reset_9pm",
     )
+
+    # 3-hourly catch recharge (50%) at 0, 3, 6, 12, 15, 18 KST
+    # (9 KST and 21 KST already do full reset via midnight_reset)
+    for hour in (0, 3, 6, 12, 15, 18):
+        app.job_queue.run_daily(
+            catch_recharge_job,
+            time=dt_time(hour, 0, 0, tzinfo=kst),
+            name=f"recharge_{hour:02d}",
+        )
 
     # Weather update every hour
     app.job_queue.run_repeating(

@@ -145,7 +145,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 _love_cooldown = {}  # user_id -> last_used timestamp
 
 async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle '포켓볼 충전' — grants +5 bonus catches for today."""
+    """Handle '포켓볼 충전' — grants +10 bonus catches for today."""
     if not update.effective_user or not update.message:
         return
 
@@ -169,9 +169,9 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🔴 오늘 포켓볼 충전 한도를 모두 사용했어요! (최대 100회)")
         return
 
-    # Grant +5 bonus catches
-    await queries.add_bonus_catches(user_id, today, 5)
-    bonus = min(bonus + 5, 100)
+    # Grant +10 bonus catches
+    await queries.add_bonus_catches(user_id, today, 10)
+    bonus = min(bonus + 10, 100)
     total = config.MAX_CATCH_ATTEMPTS_PER_DAY + bonus
 
     # Track love count for title unlock
@@ -186,7 +186,7 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"🔴 포켓볼 충전 완료!\n"
-        f"🎁 {display_name}의 오늘 잡기 횟수 +5! (총 {total}회){title_msg}"
+        f"🎁 {display_name}의 오늘 잡기 횟수 +10! (총 {total}회){title_msg}"
     )
 
 

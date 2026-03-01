@@ -71,7 +71,7 @@ SPAWN_TIERS = [
 ]
 
 # --- Catch Limits (Anti-abuse) ---
-MAX_CATCH_ATTEMPTS_PER_DAY = 5
+MAX_CATCH_ATTEMPTS_PER_DAY = 10
 CONSECUTIVE_CATCH_COOLDOWN = 2     # After N consecutive catches, skip next
 
 # --- Nurture System ---
