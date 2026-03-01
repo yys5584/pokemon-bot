@@ -1,0 +1,166 @@
+2026-03-01 18:32:45,881 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:32:45,882 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:32:45,882 - __main__ - INFO - Starting bot...
+2026-03-01 18:32:46,657 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getMe "HTTP/1.1 200 OK"
+2026-03-01 18:32:46,658 - __main__ - INFO - Initializing database...
+2026-03-01 18:32:46,676 - __main__ - INFO - Database ready. 151 Pokemon seeded.
+2026-03-01 18:33:06,388 - httpx - INFO - HTTP Request: GET https://wttr.in/Seoul?format=j1 "HTTP/1.1 200 OK"
+2026-03-01 18:33:06,980 - services.weather_service - INFO - Weather updated: rain (11°C) → 비 오는 날 \u2014 물타입 포켓몬 출현↑
+2026-03-01 18:33:07,996 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:08,000 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:08,000 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:08,000 - services.spawn_service - INFO - Scheduled 2 spawns for chat -1003803687667 (members: 14)
+2026-03-01 18:33:08,486 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:08,488 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:08,488 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:08,488 - services.spawn_service - INFO - Scheduled 2 spawns for chat -1003369700366 (members: 18)
+2026-03-01 18:33:08,944 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:08,946 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:08,946 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:08,946 - services.spawn_service - INFO - Scheduled 2 spawns for chat -1003261974795 (members: 24)
+2026-03-01 18:33:09,401 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:09,403 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:09,404 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:09,404 - services.spawn_service - INFO - Scheduled 2 spawns for chat -1002857202560 (members: 75)
+2026-03-01 18:33:09,892 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:09,894 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:09,894 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:09,894 - services.spawn_service - INFO - Scheduled 2 spawns for chat -1002653127932 (members: 707)
+2026-03-01 18:33:10,345 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:10,347 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:10,347 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:10,347 - services.spawn_service - INFO - Scheduled 2 spawns for chat -1002505120634 (members: 25)
+2026-03-01 18:33:10,814 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:10,816 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:10,816 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:10,816 - services.spawn_service - INFO - Scheduled 2 spawns for chat -1002408414071 (members: 32)
+2026-03-01 18:33:11,320 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:11,323 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:11,323 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:11,324 - services.spawn_service - INFO - Scheduled 2 spawns for chat -1002320191023 (members: 171)
+2026-03-01 18:33:11,781 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:11,785 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:11,785 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:11,785 - services.spawn_service - INFO - Scheduled 2 spawns for chat -1002310767762 (members: 60)
+2026-03-01 18:33:12,249 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:12,251 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:12,251 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:12,251 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:12,251 - services.spawn_service - INFO - Scheduled 3 spawns for chat -1002056969732 (members: 1515)
+2026-03-01 18:33:12,714 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:12,717 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:12,717 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:12,717 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:12,717 - services.spawn_service - INFO - Scheduled 3 spawns for chat -1001531032211 (members: 1383)
+2026-03-01 18:33:12,975 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMemberCount "HTTP/1.1 200 OK"
+2026-03-01 18:33:12,976 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:12,976 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-01 18:33:12,977 - services.spawn_service - INFO - Scheduled 2 spawns for chat -5269806671 (members: 10)
+2026-03-01 18:33:12,977 - __main__ - INFO - Spawn scheduling complete.
+2026-03-01 18:33:12,977 - dashboard.server - INFO - Dashboard running at http://localhost:8080
+2026-03-01 18:33:12,977 - __main__ - INFO - Dashboard server started.
+2026-03-01 18:33:13,233 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/deleteWebhook "HTTP/1.1 200 OK"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "midnight_reset" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "weather_update" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1003803687667_191045" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1003803687667_211353" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1003369700366_183849" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1003369700366_224413" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1003261974795_192321" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1003261974795_220444" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002857202560_200124" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002857202560_224019" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002653127932_201812" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002653127932_223155" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002505120634_190800" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002505120634_213036" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002408414071_193720" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002408414071_231625" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002320191023_201631" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002320191023_225926" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002310767762_200627" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002310767762_232503" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002056969732_190006" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002056969732_214221" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1002056969732_235238" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1001531032211_183840" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1001531032211_205801" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-1001531032211_233038" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-5269806671_192655" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Added job "spawn_-5269806671_224904" to job store "default"
+2026-03-01 18:33:13,236 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-01 18:33:13,238 - telegram.ext.Application - INFO - Application started
+2026-03-01 18:33:17,552 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:33:18,870 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:33:29,125 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:33:39,379 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:33:49,633 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:33:49,896 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:33:57,068 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:33:58,125 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/sendMessage "HTTP/1.1 200 OK"
+2026-03-01 18:34:04,602 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:34:05,425 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:34:05 +0900] "GET /api/chats HTTP/1.1" 200 3576 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:34:05,426 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:34:05 +0900] "GET /api/users HTTP/1.1" 200 1769 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:34:05,426 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:34:05 +0900] "GET /api/spawns/recent HTTP/1.1" 200 16220 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:34:05,426 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:34:05 +0900] "GET /api/pokemon/stats HTTP/1.1" 200 1325 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:34:05,427 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:34:05 +0900] "GET /api/events HTTP/1.1" 200 160 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:34:05,428 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:34:05 +0900] "GET /api/overview HTTP/1.1" 200 297 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:34:14,525 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:34:24,780 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:34:35,034 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:34:38,400 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:34:45,988 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:34:46,251 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:34:56,506 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:01,835 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:05,117 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:35:05 +0900] "GET /api/chats HTTP/1.1" 200 3576 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:35:05,118 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:35:05 +0900] "GET /api/overview HTTP/1.1" 200 297 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:35:05,124 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:35:05 +0900] "GET /api/users HTTP/1.1" 200 1769 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:35:05,125 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:35:05 +0900] "GET /api/spawns/recent HTTP/1.1" 200 16220 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:35:05,125 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:35:05 +0900] "GET /api/pokemon/stats HTTP/1.1" 200 1325 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:35:05,126 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:35:05 +0900] "GET /api/events HTTP/1.1" 200 160 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:35:12,091 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:22,345 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:25,595 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:26,598 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/sendMessage "HTTP/1.1 200 OK"
+2026-03-01 18:35:35,849 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:36,104 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:36,107 - handlers.admin - INFO - force_spawn_handler triggered by 5990963003
+2026-03-01 18:35:37,033 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMember "HTTP/1.1 200 OK"
+2026-03-01 18:35:38,783 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/sendPhoto "HTTP/1.1 200 OK"
+2026-03-01 18:35:38,786 - apscheduler.scheduler - INFO - Added job "resolve_49" to job store "default"
+2026-03-01 18:35:38,786 - services.spawn_service - INFO - Spawned 강챙이 (rare) in chat -1002320191023
+2026-03-01 18:35:40,525 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:41,015 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/sendMessage "HTTP/1.1 200 OK"
+2026-03-01 18:35:48,322 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:50,919 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:51,175 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:52,164 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:52,196 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/sendMessage "HTTP/1.1 200 OK"
+2026-03-01 18:35:53,037 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:53,994 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:54,248 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:35:54,772 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/sendMessage "HTTP/1.1 200 OK"
+2026-03-01 18:35:56,802 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:36:00,992 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:36:00,996 - handlers.admin - INFO - force_spawn_handler triggered by 5992456158
+2026-03-01 18:36:01,247 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:36:01,929 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getChatMember "HTTP/1.1 200 OK"
+2026-03-01 18:36:02,295 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:36:03,837 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/sendPhoto "HTTP/1.1 200 OK"
+2026-03-01 18:36:03,839 - apscheduler.scheduler - INFO - Added job "resolve_50" to job store "default"
+2026-03-01 18:36:03,839 - services.spawn_service - INFO - Spawned 파이어 (legendary) in chat -1002310767762
+2026-03-01 18:36:05,104 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:36:05 +0900] "GET /api/chats HTTP/1.1" 200 3576 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:36:05,105 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:36:05 +0900] "GET /api/users HTTP/1.1" 200 1769 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:36:05,105 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:36:05 +0900] "GET /api/spawns/recent HTTP/1.1" 200 16220 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:36:05,105 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:36:05 +0900] "GET /api/pokemon/stats HTTP/1.1" 200 1325 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:36:05,106 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:36:05 +0900] "GET /api/events HTTP/1.1" 200 160 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:36:05,107 - aiohttp.access - INFO - 127.0.0.1 [01/Mar/2026:18:36:05 +0900] "GET /api/overview HTTP/1.1" 200 297 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-03-01 18:36:05,821 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:36:06,322 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/sendMessage "HTTP/1.1 200 OK"
+2026-03-01 18:36:06,449 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
+2026-03-01 18:36:08,804 - apscheduler.scheduler - INFO - Removed job ad101e6f35a34a22aa52796c6510a19e
+2026-03-01 18:36:08,804 - apscheduler.executors.default - INFO - Running job "resolve_49 (trigger: date[2026-03-01 09:36:08 UTC], next run at: 2026-03-01 09:36:08 UTC)" (scheduled at 2026-03-01 09:36:08.786883+00:00)
+2026-03-01 18:36:09,305 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/sendMessage "HTTP/1.1 200 OK"
+2026-03-01 18:36:09,308 - apscheduler.executors.default - INFO - Job "resolve_49 (trigger: date[2026-03-01 09:36:08 UTC], next run at: 2026-03-01 09:36:08 UTC)" executed successfully
+2026-03-01 18:36:11,633 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8578621482:AAETKN-hwDsiCLJ4Yk3SD45Rtrd3-dQtqYk/getUpdates "HTTP/1.1 200 OK"
