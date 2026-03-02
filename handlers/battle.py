@@ -9,6 +9,7 @@ import config
 from database import queries
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, format_stats_line, get_type_multiplier
+from utils.helpers import escape_html
 
 logger = logging.getLogger(__name__)
 
@@ -1082,20 +1083,26 @@ async def battle_ranking_handler(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     medals = ["🥇", "🥈", "🥉"]
-    lines = ["⚔️ 배틀 랭킹\n"]
+    lines = ["⚔️ <b>배틀 랭킹</b>"]
+    lines.append("─────────────")
 
     for i, r in enumerate(rankings):
-        rank = medals[i] if i < 3 else f"{i + 1}."
-        title = f"「{r['title_emoji']}{r['title']}」" if r["title"] else ""
+        rank = medals[i] if i < 3 else f"<b>{i + 1}.</b>"
+        name = escape_html(r['display_name'])
         total = r["battle_wins"] + r["battle_losses"]
         rate = round(r["battle_wins"] / total * 100) if total > 0 else 0
+
+        # 승률 바 (10칸 기준)
+        filled = round(rate / 10)
+        bar = "▓" * filled + "░" * (10 - filled)
+
         lines.append(
-            f"{rank} {title}{r['display_name']}  "
-            f"{r['battle_wins']}승 {r['battle_losses']}패 ({rate}%) "
-            f"🔥{r['best_streak']}"
+            f"{rank} <b>{name}</b>\n"
+            f"    {r['battle_wins']}승 {r['battle_losses']}패 "
+            f"<code>{bar}</code> {rate}%  🔥{r['best_streak']}"
         )
 
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
 
 # ============================================================
