@@ -263,6 +263,16 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
     rarity = data["rarity"]
 
     try:
+        # Check if session is already resolved (avoid duplicate resolution)
+        from database.connection import get_db
+        pool = await get_db()
+        row = await pool.fetchrow(
+            "SELECT is_resolved FROM spawn_sessions WHERE id = $1", session_id
+        )
+        if not row or row["is_resolved"] == 1:
+            logger.debug(f"Session {session_id} already resolved, skipping")
+            return
+
         # Get all catch attempts
         attempts = await queries.get_session_attempts(session_id)
 

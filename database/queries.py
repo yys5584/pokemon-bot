@@ -442,14 +442,23 @@ async def create_spawn_session(
 
 
 async def get_active_spawn(chat_id: int) -> dict | None:
-    """Get the currently active (unresolved) spawn in a chat."""
+    """Get the currently active (unresolved, not expired) spawn in a chat.
+    Auto-closes any expired unresolved sessions."""
     async def _do():
         pool = await get_db()
+        # Auto-close expired unresolved sessions
+        await pool.execute(
+            """UPDATE spawn_sessions SET is_resolved = 1
+               WHERE chat_id = $1 AND is_resolved = 0
+               AND expires_at < NOW()""",
+            chat_id,
+        )
         row = await pool.fetchrow(
             """SELECT ss.*, pm.name_ko, pm.emoji, pm.rarity, pm.catch_rate
                FROM spawn_sessions ss
                JOIN pokemon_master pm ON ss.pokemon_id = pm.id
                WHERE ss.chat_id = $1 AND ss.is_resolved = 0
+               AND ss.expires_at >= NOW()
                ORDER BY ss.id DESC LIMIT 1""",
             chat_id,
         )
