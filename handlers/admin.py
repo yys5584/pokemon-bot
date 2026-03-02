@@ -368,3 +368,61 @@ async def channel_list_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             lines.append(f"  {title}")
 
     await update.message.reply_text("\n".join(lines))
+
+
+# ============================================================
+# Master Ball Grant (DM, bot admin only)
+# ============================================================
+
+async def grant_masterball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '마볼지급 [user_id] [개수]' command — give master balls to a user."""
+    if not update.effective_user or not update.message:
+        return
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("관리자만 사용할 수 있습니다.")
+        return
+
+    text = (update.message.text or "").strip()
+    parts = text.split()
+
+    if len(parts) < 2:
+        await update.message.reply_text(
+            "사용법: 마볼지급 [유저ID] [개수]\n"
+            "예: 마볼지급 123456789 1\n"
+            "개수 생략 시 1개 지급"
+        )
+        return
+
+    try:
+        target_user_id = int(parts[1])
+    except ValueError:
+        await update.message.reply_text("유저 ID를 숫자로 입력해주세요.")
+        return
+
+    count = 1
+    if len(parts) >= 3:
+        try:
+            count = int(parts[2])
+            if count < 1 or count > 99:
+                await update.message.reply_text("개수는 1~99 사이로 입력해주세요.")
+                return
+        except ValueError:
+            await update.message.reply_text("개수를 숫자로 입력해주세요.")
+            return
+
+    # Check if user exists
+    user = await queries.get_user(target_user_id)
+    if not user:
+        await update.message.reply_text(f"유저 ID {target_user_id}를 찾을 수 없습니다.")
+        return
+
+    await queries.add_master_ball(target_user_id, count)
+    new_total = await queries.get_master_ball_count(target_user_id)
+
+    await update.message.reply_text(
+        f"✅ 마스터볼 지급 완료!\n"
+        f"대상: {user['display_name']} ({target_user_id})\n"
+        f"지급: {count}개\n"
+        f"현재 보유: {new_total}개"
+    )
+    logger.info(f"Admin granted {count} master ball(s) to user {target_user_id}")
