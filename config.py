@@ -281,6 +281,7 @@ BATTLE_CRIT_MULT = 1.5              # 크리티컬 배수
 BATTLE_TYPE_ADVANTAGE_MULT = 1.3    # 타입 유리
 BATTLE_TYPE_DISADVANTAGE_MULT = 0.7 # 타입 불리
 BATTLE_PARTNER_ATK_BONUS = 0.05     # 파트너 ATK 보너스 5%
+BATTLE_SKILL_RATE = 0.30             # 고유기술 발동 확률 30%
 
 # --- BP (Battle Points) ---
 BP_WIN_BASE = 20                    # 승리 기본 BP

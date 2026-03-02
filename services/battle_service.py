@@ -6,6 +6,7 @@ import logging
 import config
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, get_type_multiplier
+from models.pokemon_skills import POKEMON_SKILLS
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,10 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
     if is_partner:
         stats["atk"] = int(stats["atk"] * 1.05)
 
+    # Skill data
+    pid = pokemon.get("pokemon_id") or pokemon.get("id")
+    skill = POKEMON_SKILLS.get(pid, ("몸통박치기", 1.2))
+
     return {
         "name": pokemon["name_ko"],
         "emoji": pokemon["emoji"],
@@ -30,6 +35,8 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
         "stats": stats,
         "current_hp": stats["hp"],
         "instance_id": pokemon.get("pokemon_instance_id") or pokemon.get("instance_id"),
+        "skill_name": skill[0],
+        "skill_power": skill[1],
     }
 
 
@@ -46,14 +53,20 @@ def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str]:
     # Critical hit (10%)
     crit = 1.5 if random.random() < config.BATTLE_CRIT_RATE else 1.0
 
+    # Skill activation (30%)
+    skill_activated = random.random() < config.BATTLE_SKILL_RATE
+    skill_mult = attacker.get("skill_power", 1.0) if skill_activated else 1.0
+
     # Random variance (±10%)
     variance = random.uniform(0.9, 1.1)
 
-    damage = int(base * type_mult * crit * variance)
+    damage = int(base * type_mult * crit * skill_mult * variance)
     damage = max(1, damage)  # At least 1 damage
 
     # Build effect text
     effects = []
+    if skill_activated:
+        effects.append(f"「{attacker.get('skill_name', '몸통박치기')}」")
     if type_mult > 1.0:
         type_emoji = config.TYPE_EMOJI.get(attacker["type"], "")
         effects.append(f"{type_emoji}효과적!")
