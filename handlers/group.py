@@ -218,7 +218,7 @@ _love_hidden_cooldown = {}   # user_id -> last_used timestamp
 _love_hidden_global = {}     # date_str -> master ball count today (global)
 
 async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Hidden '문유 사랑해' — random master ball drop, max 3 per day globally."""
+    """Hidden '문유 사랑해' — love count tracking only."""
     if not update.effective_user or not update.message:
         return
 
@@ -232,24 +232,7 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     _love_hidden_cooldown[user_id] = now
 
-    today = now.strftime("%Y-%m-%d")
-
-    # Check GLOBAL daily master ball limit FIRST (no DB needed)
-    got_today = _love_hidden_global.get(today, 0)
-
-    # Random chance (33%) + global limit check
-    if got_today < 3 and random.random() < 0.33:
-        await queries.ensure_user(user_id, display_name, update.effective_user.username)
-        await queries.add_master_ball(user_id)
-        _love_hidden_global[today] = got_today + 1
-        remaining = 3 - got_today - 1
-        await update.message.reply_text(
-            f"💕 문유가 감동받았다!\n"
-            f"🟣 {display_name}에게 마스터볼 1개를 선물! (오늘 남은: {remaining}회)",
-        )
-    else:
-        # No DB query needed for simple response
-        await update.message.reply_text(f"💕 문유: 고마워요~!")
+    await update.message.reply_text(f"💕 문유: 고마워요~!\n(마스터볼은 이제 떨어졌어요.)")
 
     # Title tracking in background (non-blocking)
     async def _bg_title_check():
