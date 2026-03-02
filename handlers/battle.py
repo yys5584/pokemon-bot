@@ -690,8 +690,16 @@ async def bp_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"💰 보유 BP: {bp}\n\nBP상점 으로 교환 가능")
 
 
+def _masterball_price(bought_today: int) -> int:
+    """Progressive master ball pricing: 200 → 300 → 500."""
+    prices = [200, 300, 500]
+    if bought_today >= len(prices):
+        return 0  # sold out
+    return prices[bought_today]
+
+
 async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle BP상점 command (DM). Show BP shop."""
+    """Handle BP상점/상점 command (DM). Show BP shop."""
     if not update.effective_user:
         return
 
@@ -700,21 +708,24 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
     remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today
+    next_price = _masterball_price(bought_today)
+    price_str = f"{next_price} BP" if next_price else "매진"
 
     lines = [
         "🏪 BP 상점\n",
         f"💰 보유 BP: {bp}\n",
-        f"🟣 마스터볼 x1 — {config.BP_MASTERBALL_COST} BP (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 구매 가능)",
-        f"🔵 하이퍼볼 x1 — Coming Soon",
+        f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
+        f"⚡ 강제스폰 초기화 — {config.BP_FORCE_SPAWN_RESET_COST} BP",
+        f"🔴 포켓볼 충전 100개 — {config.BP_POKEBALL_RESET_COST} BP",
         "",
-        "구매: BP구매 마스터볼",
+        "구매: 구매 마스터볼 / 구매 강제스폰 / 구매 포켓볼",
     ]
 
     await update.message.reply_text("\n".join(lines))
 
 
 async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle BP구매 command (DM). Purchase from BP shop."""
+    """Handle 구매/BP구매 command (DM). Purchase from BP shop."""
     if not update.effective_user:
         return
 
@@ -723,12 +734,11 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     parts = text.split()
 
     if len(parts) < 2:
-        await update.message.reply_text("사용법: BP구매 마스터볼")
+        await update.message.reply_text("사용법: 구매 마스터볼 / 구매 강제스폰 / 구매 포켓볼")
         return
 
     item = parts[1]
     if item in ("마스터볼", "마볼"):
-        # 일일 구매 제한 체크 (DB 기반)
         bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
         if bought_today >= config.BP_MASTERBALL_DAILY_LIMIT:
             await update.message.reply_text(
@@ -737,7 +747,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        cost = config.BP_MASTERBALL_COST
+        cost = _masterball_price(bought_today)
         success = await bq.spend_bp(user_id, cost)
         if not success:
             bp = await bq.get_bp(user_id)
@@ -750,15 +760,57 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await bq.log_bp_purchase(user_id, "masterball", 1)
         remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today - 1
         bp = await bq.get_bp(user_id)
+        next_price = _masterball_price(bought_today + 1)
+        next_str = f" (다음: {next_price} BP)" if next_price else ""
         await update.message.reply_text(
-            f"🟣 마스터볼 1개 구매 완료!\n"
+            f"🟣 마스터볼 1개 구매 완료! ({cost} BP)\n"
             f"💰 남은 BP: {bp}\n"
-            f"📦 오늘 남은 구매: {remaining}개"
+            f"📦 오늘 남은 구매: {remaining}개{next_str}"
         )
-    elif item in ("하이퍼볼", "하볼"):
-        await update.message.reply_text("🔵 하이퍼볼은 아직 준비 중입니다! (Coming Soon)")
+
+    elif item in ("강제스폰", "강스"):
+        cost = config.BP_FORCE_SPAWN_RESET_COST
+        success = await bq.spend_bp(user_id, cost)
+        if not success:
+            bp = await bq.get_bp(user_id)
+            await update.message.reply_text(
+                f"BP가 부족합니다. (보유: {bp} / 필요: {cost})"
+            )
+            return
+
+        await queries.reset_force_spawn_counts()
+        await bq.log_bp_purchase(user_id, "force_spawn_reset", 1)
+        bp = await bq.get_bp(user_id)
+        await update.message.reply_text(
+            f"⚡ 강제스폰 횟수가 초기화되었습니다!\n"
+            f"💰 남은 BP: {bp}"
+        )
+
+    elif item in ("포켓볼", "볼"):
+        cost = config.BP_POKEBALL_RESET_COST
+        success = await bq.spend_bp(user_id, cost)
+        if not success:
+            bp = await bq.get_bp(user_id)
+            await update.message.reply_text(
+                f"BP가 부족합니다. (보유: {bp} / 필요: {cost})"
+            )
+            return
+
+        from datetime import datetime
+        today = datetime.now().strftime("%Y-%m-%d")
+        await queries.add_bonus_catches(user_id, today, 100)
+        await bq.log_bp_purchase(user_id, "pokeball_100", 1)
+        bp = await bq.get_bp(user_id)
+        bonus = await queries.get_bonus_catches(user_id, today)
+        total = config.MAX_CATCH_ATTEMPTS_PER_DAY + bonus
+        await update.message.reply_text(
+            f"🔴 포켓볼 100개 충전 완료!\n"
+            f"💰 남은 BP: {bp}\n"
+            f"📦 오늘 잡기 가능: {total}회"
+        )
+
     else:
-        await update.message.reply_text("알 수 없는 상품입니다. BP상점 으로 목록을 확인하세요.")
+        await update.message.reply_text("알 수 없는 상품입니다. 상점 으로 목록을 확인하세요.")
 
 
 # ============================================================

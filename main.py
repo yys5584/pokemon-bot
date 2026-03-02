@@ -226,8 +226,8 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^팀해제$"), team_clear_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^팀$"), team_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^배틀전적$"), battle_stats_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp구매"), bp_buy_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp상점$"), bp_shop_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(bp)?구매"), bp_buy_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(bp)?상점$"), bp_shop_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp$"), bp_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^티어$"), tier_handler))
 
