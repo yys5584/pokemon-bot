@@ -347,6 +347,18 @@ def _parse_sel(sel_str: str) -> list[int]:
     return [int(s) for s in sel_str.split(",") if s.isdigit()]
 
 
+def _team_to_selected(team: list[dict], pokemon_list: list[dict]) -> list[int]:
+    """Convert current battle team to pokemon_list indices for pre-filling selection."""
+    id_to_idx = {p["id"]: i for i, p in enumerate(pokemon_list)}
+    selected = []
+    for t in team:
+        inst_id = t.get("pokemon_instance_id") or t.get("id")
+        idx = id_to_idx.get(inst_id)
+        if idx is not None:
+            selected.append(idx)
+    return selected
+
+
 async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 팀 command (DM). Show current battle team or start selection."""
     if not update.effective_user:
@@ -387,7 +399,7 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     buttons = InlineKeyboardMarkup([[
-        InlineKeyboardButton("🔄 변경", callback_data=f"tcl_{user_id}_0_x"),
+        InlineKeyboardButton("🔄 변경", callback_data=f"tcl_{user_id}_0_keep"),
         InlineKeyboardButton("🗑 해제", callback_data=f"tdel_{user_id}"),
     ]])
     await update.message.reply_text("\n".join(lines), reply_markup=buttons)
@@ -413,9 +425,11 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("보유한 포켓몬이 없습니다.")
         return
 
-    # "팀등록" alone → show interactive selector
+    # "팀등록" alone → show interactive selector (pre-fill current team)
     if len(parts) < 2:
-        text_msg, markup = _build_team_select(user_id, pokemon_list, [], 0)
+        current_team = await bq.get_battle_team(user_id)
+        pre_selected = _team_to_selected(current_team, pokemon_list) if current_team else []
+        text_msg, markup = _build_team_select(user_id, pokemon_list, pre_selected, 0)
         await update.message.reply_text(text_msg, reply_markup=markup)
         return
 
@@ -586,7 +600,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             pass
 
     elif prefix == "tcl":
-        # Clear/start fresh: tcl_{uid}_{page}_{sel}
+        # Change team: tcl_{uid}_{page}_{sel}
         owner_id = int(parts[1])
         page = int(parts[2]) if len(parts) > 2 else 0
 
@@ -597,7 +611,15 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         pokemon_list = await queries.get_user_pokemon_list(owner_id)
         if not pokemon_list:
             return
-        text_msg, markup = _build_team_select(owner_id, pokemon_list, [], page)
+
+        # sel param: "x" = clear all, otherwise pre-fill with current team
+        sel_param = parts[3] if len(parts) > 3 else ""
+        if sel_param == "x":
+            pre_selected = []
+        else:
+            current_team = await bq.get_battle_team(owner_id)
+            pre_selected = _team_to_selected(current_team, pokemon_list) if current_team else []
+        text_msg, markup = _build_team_select(owner_id, pokemon_list, pre_selected, page)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup)
         except Exception:
