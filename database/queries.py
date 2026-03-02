@@ -1539,7 +1539,7 @@ async def get_active_chat_rooms_top(limit: int = 5) -> list[dict]:
                   COUNT(sl.caught_by_user_id) as today_catches
            FROM chat_rooms cr
            LEFT JOIN spawn_log sl ON cr.chat_id = sl.chat_id AND sl.spawned_at >= $1
-           WHERE cr.is_active = 1
+           WHERE cr.is_active = 1 AND cr.member_count >= 10 AND cr.chat_title IS NOT NULL
            GROUP BY cr.chat_id, cr.chat_title, cr.member_count
            ORDER BY today_spawns DESC
            LIMIT $2""",

@@ -47,6 +47,8 @@ async def api_overview(request):
 
 async def api_chats(request):
     rooms = await queries.get_all_chat_rooms()
+    # Hide private chats (no title) and small rooms (< 10 members)
+    rooms = [r for r in rooms if r.get("chat_title") and r.get("member_count", 0) >= 10]
     return pg_json_response(rooms)
 
 
