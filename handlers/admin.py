@@ -375,45 +375,65 @@ async def channel_list_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 # ============================================================
 
 async def grant_masterball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle '마볼지급 [user_id] [개수]' command — give master balls to a user."""
+    """Handle '마볼지급 [개수]' command.
+    - 그룹: 상대 메시지에 답장 + '마볼지급 [개수]'
+    - DM: '마볼지급 [유저ID] [개수]'
+    """
     if not update.effective_user or not update.message:
         return
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("관리자만 사용할 수 있습니다.")
         return
 
     text = (update.message.text or "").strip()
     parts = text.split()
+    is_group = update.effective_chat.type in ("group", "supergroup")
 
-    if len(parts) < 2:
-        await update.message.reply_text(
-            "사용법: 마볼지급 [유저ID] [개수]\n"
-            "예: 마볼지급 123456789 1\n"
-            "개수 생략 시 1개 지급"
-        )
-        return
-
-    try:
-        target_user_id = int(parts[1])
-    except ValueError:
-        await update.message.reply_text("유저 ID를 숫자로 입력해주세요.")
-        return
-
+    target_user_id = None
     count = 1
-    if len(parts) >= 3:
-        try:
-            count = int(parts[2])
-            if count < 1 or count > 99:
-                await update.message.reply_text("개수는 1~99 사이로 입력해주세요.")
-                return
-        except ValueError:
-            await update.message.reply_text("개수를 숫자로 입력해주세요.")
-            return
 
-    # Check if user exists
+    if is_group:
+        # 그룹: 답장으로 대상 지정
+        reply = update.message.reply_to_message
+        if not reply or not reply.from_user:
+            await update.message.reply_text("대상의 메시지에 답장으로 '마볼지급 [개수]' 를 입력하세요.")
+            return
+        target_user_id = reply.from_user.id
+        # 개수 파싱 (마볼지급 2 → 2개)
+        if len(parts) >= 2:
+            try:
+                count = int(parts[1])
+                if count < 1 or count > 99:
+                    await update.message.reply_text("개수는 1~99 사이로 입력해주세요.")
+                    return
+            except ValueError:
+                pass
+    else:
+        # DM: 유저ID로 대상 지정
+        if len(parts) < 2:
+            await update.message.reply_text(
+                "사용법: 마볼지급 [유저ID] [개수]\n"
+                "예: 마볼지급 123456789 1\n"
+                "그룹에서는 답장으로 사용 가능"
+            )
+            return
+        try:
+            target_user_id = int(parts[1])
+        except ValueError:
+            await update.message.reply_text("유저 ID를 숫자로 입력해주세요.")
+            return
+        if len(parts) >= 3:
+            try:
+                count = int(parts[2])
+                if count < 1 or count > 99:
+                    await update.message.reply_text("개수는 1~99 사이로 입력해주세요.")
+                    return
+            except ValueError:
+                pass
+
+    # Ensure user exists in DB
     user = await queries.get_user(target_user_id)
     if not user:
-        await update.message.reply_text(f"유저 ID {target_user_id}를 찾을 수 없습니다.")
+        await update.message.reply_text(f"유저를 찾을 수 없습니다. (봇 미등록)")
         return
 
     await queries.add_master_ball(target_user_id, count)
@@ -421,7 +441,7 @@ async def grant_masterball_handler(update: Update, context: ContextTypes.DEFAULT
 
     await update.message.reply_text(
         f"✅ 마스터볼 지급 완료!\n"
-        f"대상: {user['display_name']} ({target_user_id})\n"
+        f"대상: {user['display_name']}\n"
         f"지급: {count}개\n"
         f"현재 보유: {new_total}개"
     )

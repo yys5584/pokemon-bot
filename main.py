@@ -203,7 +203,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^이벤트시작"), event_start_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^이벤트목록$"), event_list_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^이벤트종료"), event_end_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^마볼지급"), grant_masterball_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^마볼지급"), grant_masterball_handler))
 
     # Pokeball recharge
     app.add_handler(MessageHandler(group & filters.Regex(r"^포켓볼\s*충전$"), love_easter_egg))
