@@ -1,6 +1,7 @@
 """Battle system handlers: partner, team, challenge, accept/decline, rankings, BP shop."""
 
 import logging
+from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -10,6 +11,9 @@ from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, format_stats_line, get_type_multiplier
 
 logger = logging.getLogger(__name__)
+
+# 마스터볼 일일 구매 추적: {(user_id, "YYYY-MM-DD"): count}
+_masterball_daily_purchases: dict[tuple[int, str], int] = {}
 
 PARTNER_PAGE_SIZE = 10
 TEAM_PAGE_SIZE = 10
@@ -637,10 +641,14 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     bp = await bq.get_bp(user_id)
 
+    today = datetime.now().strftime("%Y-%m-%d")
+    bought_today = _masterball_daily_purchases.get((user_id, today), 0)
+    remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today
+
     lines = [
         "🏪 BP 상점\n",
         f"💰 보유 BP: {bp}\n",
-        f"🟣 마스터볼 x1 — {config.BP_MASTERBALL_COST} BP",
+        f"🟣 마스터볼 x1 — {config.BP_MASTERBALL_COST} BP (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 구매 가능)",
         "",
         "구매: BP구매 마스터볼",
     ]
@@ -663,6 +671,16 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     item = parts[1]
     if item in ("마스터볼", "마볼"):
+        # 일일 구매 제한 체크
+        today = datetime.now().strftime("%Y-%m-%d")
+        bought_today = _masterball_daily_purchases.get((user_id, today), 0)
+        if bought_today >= config.BP_MASTERBALL_DAILY_LIMIT:
+            await update.message.reply_text(
+                f"🚫 오늘 마스터볼 구매 한도({config.BP_MASTERBALL_DAILY_LIMIT}개)를 초과했습니다.\n"
+                "내일 다시 구매할 수 있어요!"
+            )
+            return
+
         cost = config.BP_MASTERBALL_COST
         success = await bq.spend_bp(user_id, cost)
         if not success:
@@ -673,10 +691,13 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         await queries.add_master_ball(user_id, 1)
+        _masterball_daily_purchases[(user_id, today)] = bought_today + 1
+        remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today - 1
         bp = await bq.get_bp(user_id)
         await update.message.reply_text(
             f"🟣 마스터볼 1개 구매 완료!\n"
-            f"💰 남은 BP: {bp}"
+            f"💰 남은 BP: {bp}\n"
+            f"📦 오늘 남은 구매: {remaining}개"
         )
     else:
         await update.message.reply_text("알 수 없는 상품입니다. BP상점 으로 목록을 확인하세요.")

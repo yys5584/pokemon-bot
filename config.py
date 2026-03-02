@@ -290,6 +290,7 @@ BP_LOSE = 5                         # 패배 참여 보상
 BP_PERFECT_WIN = 50                 # 무피해 완승 보너스
 BP_STREAK_BONUS = 10                # 3연승마다 추가
 BP_MASTERBALL_COST = 200            # 마스터볼 1개 가격
+BP_MASTERBALL_DAILY_LIMIT = 3       # 마스터볼 일일 구매 제한
 
 # --- Battle Titles ---
 # title_id: (name, emoji, description, check_type, threshold)
