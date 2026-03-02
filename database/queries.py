@@ -195,6 +195,20 @@ async def get_user_pokemon_by_index(user_id: int, index: int) -> dict | None:
     return None
 
 
+async def get_user_pokemon_by_name(user_id: int, name: str) -> dict | None:
+    """Get user's Pokemon by name (Korean). Returns first match."""
+    pokemon_list = await get_user_pokemon_list(user_id)
+    name_lower = name.strip().lower()
+    for p in pokemon_list:
+        if p["name_ko"].lower() == name_lower:
+            return p
+    # Partial match fallback
+    for p in pokemon_list:
+        if name_lower in p["name_ko"].lower():
+            return p
+    return None
+
+
 async def get_user_pokemon_by_id(instance_id: int) -> dict | None:
     pool = await get_db()
     row = await pool.fetchrow(

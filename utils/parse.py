@@ -17,3 +17,16 @@ def parse_number(text: str) -> int | None:
     """
     match = re.search(r'\d+', text)
     return int(match.group()) if match else None
+
+
+def parse_name_arg(text: str) -> str | None:
+    """Extract the name argument (non-number) from text.
+    e.g. '밥 피카츄' -> '피카츄', '밥 3' -> None, '밥' -> None
+    """
+    parts = text.strip().split(maxsplit=1)
+    if len(parts) < 2:
+        return None
+    arg = parts[1].strip()
+    if re.match(r'^\d+$', arg):
+        return None  # It's a number, not a name
+    return arg
