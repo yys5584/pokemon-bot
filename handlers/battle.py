@@ -190,11 +190,8 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
     slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
     for i, n in enumerate(nums):
         p = pokemon_list[n - 1]
-        type_emoji = config.TYPE_EMOJI.get(
-            getattr(p, "pokemon_type", "normal") if hasattr(p, "pokemon_type") else "normal",
-            ""
-        )
-        lines.append(f"{slot_emojis[i]} {p['emoji']} {p['name_ko']}")
+        type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
+        lines.append(f"{slot_emojis[i]} {type_emoji}{p['emoji']} {p['name_ko']}")
 
     await update.message.reply_text("\n".join(lines))
 
@@ -339,15 +336,17 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     await queries.ensure_user(defender_id, defender_name, reply.from_user.username)
 
     # Check cooldowns
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
     # Same opponent cooldown
     last_vs = await bq.get_last_battle_time(challenger_id, defender_id)
     if last_vs:
-        last_time = datetime.fromisoformat(last_vs.replace("+00:00", "+00:00"))
+        last_time = datetime.fromisoformat(last_vs)
+        if last_time.tzinfo is None:
+            last_time = last_time.replace(tzinfo=timezone.utc)
         cooldown = timedelta(seconds=config.BATTLE_COOLDOWN_SAME)
-        if datetime.now(last_time.tzinfo) - last_time < cooldown:
-            remaining = cooldown - (datetime.now(last_time.tzinfo) - last_time)
+        if datetime.now(timezone.utc) - last_time < cooldown:
+            remaining = cooldown - (datetime.now(timezone.utc) - last_time)
             mins = int(remaining.total_seconds() // 60)
             await update.message.reply_text(
                 f"같은 상대와의 배틀은 {config.BATTLE_COOLDOWN_SAME // 60}분 쿨다운입니다. "
@@ -358,10 +357,12 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     # Global cooldown
     last_any = await bq.get_last_battle_time_any(challenger_id)
     if last_any:
-        last_time = datetime.fromisoformat(last_any.replace("+00:00", "+00:00"))
+        last_time = datetime.fromisoformat(last_any)
+        if last_time.tzinfo is None:
+            last_time = last_time.replace(tzinfo=timezone.utc)
         cooldown = timedelta(seconds=config.BATTLE_COOLDOWN_GLOBAL)
-        if datetime.now(last_time.tzinfo) - last_time < cooldown:
-            remaining = cooldown - (datetime.now(last_time.tzinfo) - last_time)
+        if datetime.now(timezone.utc) - last_time < cooldown:
+            remaining = cooldown - (datetime.now(timezone.utc) - last_time)
             secs = int(remaining.total_seconds())
             await update.message.reply_text(
                 f"배틀 쿨다운 중입니다. ({secs}초 남음)"
@@ -384,7 +385,6 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
         return
 
     # Create challenge
-    from datetime import timezone
     expires = (datetime.now(timezone.utc) + timedelta(seconds=config.BATTLE_CHALLENGE_TIMEOUT))
     expires_str = expires.isoformat()
 

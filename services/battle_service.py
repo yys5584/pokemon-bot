@@ -173,8 +173,8 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
 
 def _calculate_bp(winner_team_size: int, loser_team_size: int, perfect: bool, streak: int) -> int:
     """Calculate BP reward for the winner."""
-    # Base: 20 + team size bonus
-    bp = config.BP_WIN_BASE + loser_team_size
+    # Base: 20 + team size bonus (loser_team_size × BP_WIN_PER_ENEMY)
+    bp = config.BP_WIN_BASE + loser_team_size * config.BP_WIN_PER_ENEMY
 
     # Perfect win bonus
     if perfect:

@@ -664,6 +664,8 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "💎 수집 특화": ["furry", "rare_hunter"],
         "🟣 마스터볼": ["masterball_rich"],
         "🤝 교환": ["trader"],
+        "⚔️ 배틀": ["battle_first", "battle_fighter", "battle_champion", "battle_legend",
+                    "battle_streak3", "battle_streak10", "battle_sweep", "partner_set"],
     }
 
     for cat_name, title_ids in categories.items():

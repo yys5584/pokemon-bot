@@ -301,4 +301,7 @@ BATTLE_TITLES = {
     "partner_set":     ("나의 파트너",   "🤝", "파트너 포켓몬 지정", "partner_set", 1),
 }
 
+# Merge battle titles into main UNLOCKABLE_TITLES so they appear in 칭호목록 and can be equipped
+UNLOCKABLE_TITLES.update(BATTLE_TITLES)
+
 SPAWN_MAX_DAILY = 20  # 하루 최대 스폰 수
