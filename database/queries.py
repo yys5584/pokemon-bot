@@ -87,18 +87,15 @@ async def add_master_ball(user_id: int, count: int = 1):
 
 
 async def use_master_ball(user_id: int) -> bool:
-    """Use one master ball. Returns True if successful (had at least 1)."""
+    """Use one master ball. Returns True if successful (atomic operation)."""
     pool = await get_db()
     row = await pool.fetchrow(
-        "SELECT master_balls FROM users WHERE user_id = $1", user_id
-    )
-    if not row or row["master_balls"] < 1:
-        return False
-    await pool.execute(
-        "UPDATE users SET master_balls = master_balls - 1 WHERE user_id = $1",
+        "UPDATE users SET master_balls = master_balls - 1 "
+        "WHERE user_id = $1 AND master_balls >= 1 "
+        "RETURNING master_balls",
         user_id,
     )
-    return True
+    return row is not None
 
 
 # ============================================================
@@ -457,16 +454,9 @@ async def create_spawn_session(
 
 async def get_active_spawn(chat_id: int) -> dict | None:
     """Get the currently active (unresolved, not expired) spawn in a chat.
-    Auto-closes any expired unresolved sessions."""
+    Only SELECT — expired cleanup is handled by periodic jobs."""
     async def _do():
         pool = await get_db()
-        # Auto-close expired unresolved sessions
-        await pool.execute(
-            """UPDATE spawn_sessions SET is_resolved = 1
-               WHERE chat_id = $1 AND is_resolved = 0
-               AND expires_at < NOW()""",
-            chat_id,
-        )
         row = await pool.fetchrow(
             """SELECT ss.*, pm.name_ko, pm.emoji, pm.rarity, pm.catch_rate
                FROM spawn_sessions ss

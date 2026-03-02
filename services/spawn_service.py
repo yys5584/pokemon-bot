@@ -1,5 +1,6 @@
 """Spawn system: scheduling, rarity rolling, spawn execution."""
 
+import asyncio
 import random
 import logging
 from datetime import datetime, timedelta, time as dt_time
@@ -201,8 +202,11 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             f"ㅊ 입력으로 잡기 ({config.SPAWN_WINDOW_SECONDS}초)"
         )
 
-        # Generate card image
-        card_buf = generate_card(pokemon["id"], pokemon["name_ko"], rarity, pokemon["emoji"])
+        # Generate card image (run in executor to avoid blocking event loop)
+        loop = asyncio.get_event_loop()
+        card_buf = await loop.run_in_executor(
+            None, generate_card, pokemon["id"], pokemon["name_ko"], rarity, pokemon["emoji"]
+        )
 
         # Send photo BEFORE creating session (so catch isn't possible without image)
         message = await context.bot.send_photo(
@@ -350,10 +354,12 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         today = datetime.now().strftime("%Y-%m-%d")
         await queries.increment_consecutive(winner_id, today)
 
-        # Reset consecutive for everyone who failed
-        for r in results:
-            if not r["success"]:
-                await queries.reset_consecutive(r["user_id"], today)
+        # Reset consecutive for everyone who failed (batch)
+        failed_ids = [r["user_id"] for r in results if not r["success"]]
+        if failed_ids:
+            await asyncio.gather(
+                *(queries.reset_consecutive(uid, today) for uid in failed_ids)
+            )
 
         # Check if first catch in chat (for rare+ announcement)
         is_first = await queries.is_first_catch_in_chat(chat_id, pokemon_id)
@@ -382,10 +388,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         if 2 <= hour < 5:
             await queries.increment_title_stat(winner_id, "midnight_catch_count")
 
-        # Track catch failures for title
-        for r in results:
-            if not r["success"]:
-                await queries.increment_title_stat(r["user_id"], "catch_fail_count")
+        # Track catch failures for title (batch)
+        if failed_ids:
+            await asyncio.gather(
+                *(queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
+            )
 
         # Master Ball random drop (2% chance on catch)
         master_ball_drop = random.random() < 0.02
@@ -408,10 +415,15 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
             )
 
-        # Also check titles for failed catchers
-        for r in results:
-            if not r["success"]:
-                await check_and_unlock_titles(r["user_id"])
+        # Also check titles for failed catchers (background, non-blocking)
+        async def _bg_check_failed():
+            try:
+                for uid in failed_ids:
+                    await check_and_unlock_titles(uid)
+            except Exception:
+                pass
+        if failed_ids:
+            asyncio.create_task(_bg_check_failed())
 
         # Log
         await queries.log_spawn(

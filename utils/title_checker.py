@@ -11,61 +11,97 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
     """Check all title conditions and unlock any new titles.
 
     Returns list of newly unlocked (title_id, name, emoji).
+    Optimized: batch-fetches existing titles and stats to minimize DB round-trips.
     """
     newly_unlocked = []
+
+    # Batch-fetch all needed data in parallel (3 queries instead of 40+)
+    from database.connection import get_db
+    pool = await get_db()
+
+    # 1. Get all already-unlocked title IDs in one query
+    rows = await pool.fetch(
+        "SELECT title_id FROM user_titles WHERE user_id = $1", user_id
+    )
+    existing_titles = {r["title_id"] for r in rows}
+
+    # 2. Get title stats + pokedex counts + other counts in parallel
     stats = await queries.get_title_stats(user_id)
-    pokedex_count = await queries.count_pokedex(user_id)
-    legendary_count = await queries.count_legendary_caught(user_id)
+
+    # 3. Batch-fetch all counts we might need (single multi-column query)
+    counts = await pool.fetchrow("""
+        SELECT
+            (SELECT COUNT(DISTINCT pokemon_id) FROM pokedex WHERE user_id = $1) AS pokedex_all,
+            (SELECT COUNT(DISTINCT pokemon_id) FROM pokedex WHERE user_id = $1 AND pokemon_id <= 151) AS pokedex_gen1,
+            (SELECT COUNT(DISTINCT pokemon_id) FROM pokedex WHERE user_id = $1 AND pokemon_id > 151) AS pokedex_gen2,
+            (SELECT COUNT(*) FROM pokedex p JOIN pokemon_master pm ON p.pokemon_id = pm.id
+                WHERE p.user_id = $1 AND pm.rarity = 'legendary') AS legendary_count,
+            (SELECT COUNT(*) FROM user_pokemon WHERE user_id = $1) AS total_catches,
+            (SELECT master_balls FROM users WHERE user_id = $1) AS master_balls,
+            (SELECT COUNT(*) FROM trades WHERE (from_user_id = $1 OR to_user_id = $1) AND status = 'accepted') AS trade_count,
+            (SELECT COUNT(*) FROM user_pokemon up JOIN pokemon_master pm ON up.pokemon_id = pm.id
+                WHERE up.user_id = $1 AND pm.rarity = 'common') AS common_catches,
+            (SELECT COUNT(*) FROM user_pokemon up JOIN pokemon_master pm ON up.pokemon_id = pm.id
+                WHERE up.user_id = $1 AND pm.rarity IN ('epic', 'legendary')) AS rare_catches
+    """, user_id)
+
+    # 4. Get battle stats once (if any battle titles remain)
+    battle_stats = None
+    partner = None
+    battle_titles_to_check = [
+        tid for tid, (_, _, _, ct, _) in config.UNLOCKABLE_TITLES.items()
+        if ct in ("battle_total", "battle_wins", "battle_streak", "battle_sweep", "partner_set")
+        and tid not in existing_titles
+    ]
+    if battle_titles_to_check:
+        try:
+            from database import battle_queries as bq
+            battle_stats = await bq.get_battle_stats(user_id)
+            # Only fetch partner if partner_set title is not yet unlocked
+            if "partner_set" not in existing_titles:
+                partner = await bq.get_partner(user_id)
+        except Exception:
+            pass
 
     for title_id, (name, emoji, desc, check_type, threshold) in config.UNLOCKABLE_TITLES.items():
-        # Skip if already unlocked
-        if await queries.has_title(user_id, title_id):
+        # Skip if already unlocked (checked from in-memory set, no DB query)
+        if title_id in existing_titles:
             continue
 
         unlocked = False
 
         if check_type == "pokedex" or check_type == "pokedex_gen1":
-            gen1_count = await queries.count_pokedex_gen1(user_id)
-            unlocked = gen1_count >= threshold
+            unlocked = counts["pokedex_gen1"] >= threshold
         elif check_type == "pokedex_gen2":
-            gen2_count = await queries.count_pokedex_gen2(user_id)
-            unlocked = gen2_count >= threshold
+            unlocked = counts["pokedex_gen2"] >= threshold
         elif check_type == "pokedex_all":
-            unlocked = pokedex_count >= threshold
+            unlocked = counts["pokedex_all"] >= threshold
         elif check_type == "legendary":
-            unlocked = legendary_count >= threshold
+            unlocked = counts["legendary_count"] >= threshold
         elif check_type == "first_catch":
-            unlocked = pokedex_count >= 1
+            unlocked = counts["pokedex_all"] >= 1
         elif check_type == "total_catch":
-            total = await queries.count_total_catches(user_id)
-            unlocked = total >= threshold
+            unlocked = counts["total_catches"] >= threshold
         elif check_type == "catch_fail":
             unlocked = stats.get("catch_fail_count", 0) >= threshold
         elif check_type == "midnight_catch":
             unlocked = stats.get("midnight_catch_count", 0) >= threshold
         elif check_type == "master_ball_own":
-            balls = await queries.get_master_balls(user_id)
-            unlocked = balls >= threshold
+            unlocked = (counts["master_balls"] or 0) >= threshold
         elif check_type == "master_ball_use":
             unlocked = stats.get("master_ball_used", 0) >= threshold
         elif check_type == "love_count":
             unlocked = stats.get("love_count", 0) >= threshold
         elif check_type == "trade":
-            trades = await queries.count_completed_trades(user_id)
-            unlocked = trades >= threshold
+            unlocked = counts["trade_count"] >= threshold
         elif check_type == "common_catch":
-            common = await queries.count_common_catches(user_id)
-            unlocked = common >= threshold
+            unlocked = counts["common_catches"] >= threshold
         elif check_type == "rare_catch":
-            rare = await queries.count_rare_epic_legendary(user_id)
-            unlocked = rare >= threshold
+            unlocked = counts["rare_catches"] >= threshold
         elif check_type == "streak":
             unlocked = stats.get("login_streak", 0) >= threshold
-        # Battle titles (checked here for 칭호목록, also checked in battle_service)
         elif check_type in ("battle_total", "battle_wins", "battle_streak", "battle_sweep", "partner_set"):
-            try:
-                from database import battle_queries as bq
-                battle_stats = await bq.get_battle_stats(user_id)
+            if battle_stats:
                 total_battles = battle_stats["battle_wins"] + battle_stats["battle_losses"]
                 if check_type == "battle_total":
                     unlocked = total_battles >= threshold
@@ -74,11 +110,8 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
                 elif check_type == "battle_streak":
                     unlocked = battle_stats["best_streak"] >= threshold
                 elif check_type == "partner_set":
-                    partner = await bq.get_partner(user_id)
                     unlocked = partner is not None
                 # battle_sweep is only checked in battle_service.py
-            except Exception:
-                pass
 
         if unlocked:
             was_new = await queries.unlock_title(user_id, title_id)

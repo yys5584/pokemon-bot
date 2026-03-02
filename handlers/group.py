@@ -31,23 +31,23 @@ async def close_message_callback(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def on_chat_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Track message activity for spawn eligibility. Runs for every group message."""
+    """Track message activity for spawn eligibility. Runs for every group message.
+    Non-blocking: fires DB ops in background so message processing isn't delayed."""
     if not update.effective_chat or not update.effective_message:
         return
 
     chat_id = update.effective_chat.id
+    chat_title = update.effective_chat.title
     hour_bucket = datetime.now().strftime("%Y-%m-%d-%H")
 
-    try:
-        await queries.increment_activity(chat_id, hour_bucket)
+    async def _bg_track():
+        try:
+            await queries.increment_activity(chat_id, hour_bucket)
+            await queries.ensure_chat_room(chat_id, title=chat_title)
+        except Exception as e:
+            logger.error(f"Activity tracking failed: {e}")
 
-        # Ensure chat room is registered
-        await queries.ensure_chat_room(
-            chat_id,
-            title=update.effective_chat.title,
-        )
-    except Exception as e:
-        logger.error(f"Activity tracking failed: {e}")
+    asyncio.create_task(_bg_track())
 
 
 async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

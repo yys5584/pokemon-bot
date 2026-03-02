@@ -138,6 +138,19 @@ TABLES = [
     )
     """,
 
+    # Performance indexes for spawn_log
+    "CREATE INDEX IF NOT EXISTS idx_spawn_log_chat ON spawn_log(chat_id, id DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_spawn_log_chat_pokemon ON spawn_log(chat_id, pokemon_id)",
+
+    # Performance indexes for trades
+    "CREATE INDEX IF NOT EXISTS idx_trades_to_user ON trades(to_user_id, status)",
+
+    # Performance indexes for events
+    "CREATE INDEX IF NOT EXISTS idx_events_active ON events(active, end_time)",
+
+    # Performance index for spawn sessions expiry
+    "CREATE INDEX IF NOT EXISTS idx_spawn_sessions_expires ON spawn_sessions(chat_id, is_resolved, expires_at)",
+
     # Chat activity tracking
     """
     CREATE TABLE IF NOT EXISTS chat_activity (
