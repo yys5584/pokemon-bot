@@ -795,10 +795,9 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
 
     # Create challenge
     expires = (datetime.now(timezone.utc) + timedelta(seconds=config.BATTLE_CHALLENGE_TIMEOUT))
-    expires_str = expires.isoformat()
 
     challenge_id = await bq.create_challenge(
-        challenger_id, defender_id, chat_id, expires_str
+        challenger_id, defender_id, chat_id, expires
     )
 
     # Send challenge message with inline buttons

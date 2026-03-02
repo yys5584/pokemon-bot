@@ -95,14 +95,14 @@ async def validate_team_pokemon(user_id: int, instance_ids: list[int]) -> list[d
 # ============================================================
 
 async def create_challenge(
-    challenger_id: int, defender_id: int, chat_id: int, expires_at: str
+    challenger_id: int, defender_id: int, chat_id: int, expires_at
 ) -> int:
     """Create a battle challenge. Returns challenge ID."""
     pool = await get_db()
     row = await pool.fetchrow(
         """INSERT INTO battle_challenges
                (challenger_id, defender_id, chat_id, expires_at)
-           VALUES ($1, $2, $3, $4::timestamptz)
+           VALUES ($1, $2, $3, $4)
            RETURNING id""",
         challenger_id, defender_id, chat_id, expires_at,
     )
