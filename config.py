@@ -1,7 +1,24 @@
 """Game configuration constants."""
 
 import os
+import datetime as _dt
+import zoneinfo as _zi
 from dotenv import load_dotenv
+
+# --- Timezone (KST) ---
+KST = _zi.ZoneInfo("Asia/Seoul")
+
+def get_kst_now() -> _dt.datetime:
+    """KST 기준 현재 시각."""
+    return _dt.datetime.now(KST)
+
+def get_kst_today() -> str:
+    """KST 기준 오늘 날짜 (YYYY-MM-DD)."""
+    return get_kst_now().strftime("%Y-%m-%d")
+
+def get_kst_hour() -> int:
+    """KST 기준 현재 시각 (0-23)."""
+    return get_kst_now().hour
 
 load_dotenv()
 
@@ -302,8 +319,19 @@ BP_PERFECT_WIN = 50                 # 무피해 완승 보너스
 BP_STREAK_BONUS = 10                # 3연승마다 추가
 BP_MASTERBALL_COST = 200            # 마스터볼 1개 가격
 BP_MASTERBALL_DAILY_LIMIT = 3       # 마스터볼 일일 구매 제한
-BP_FORCE_SPAWN_TICKET_COST = 500    # 강제스폰권 가격
-BP_POKEBALL_RESET_COST = 200        # 포켓볼 초기화(100개) 가격
+BP_FORCE_SPAWN_TICKET_COST = 0      # 강제스폰권 가격 (이벤트: 무료, 원래 500)
+BP_POKEBALL_RESET_COST = 0          # 포켓볼 초기화(100개) 가격 (이벤트: 무료, 원래 200)
+BP_HYPER_BALL_COST = 20              # 하이퍼볼 1회 사용 BP
+HYPER_BALL_CATCH_MULTIPLIER = 3.0    # 하이퍼볼 포획률 배수
+
+# --- Arcade Pass ---
+ARCADE_PASS_COST = 200               # 아케이드 이용권 가격 (BP)
+ARCADE_PASS_DURATION = 3600          # 이용권 지속시간 (초) = 1시간
+ARCADE_PASS_DAILY_LIMIT = 3          # 일일 구매 제한
+
+# --- Shiny System ---
+SHINY_RATE_NATURAL = 1 / 64          # 자연 스폰 샤이니 확률 (~1.56%)
+SHINY_RATE_ARCADE = 1 / 512          # 아케이드 샤이니 확률 (~0.20%)
 
 # --- Battle Titles ---
 # title_id: (name, emoji, description, check_type, threshold)
@@ -338,3 +366,16 @@ TOURNAMENT_TITLES = {
     "tournament_champ": ("토너먼트 챔피언", "🏆", "토너먼트 우승 1회",       "tournament_win", 1),
 }
 UNLOCKABLE_TITLES.update(TOURNAMENT_TITLES)
+
+# --- Shiny (이로치) Titles ---
+SHINY_TITLES = {
+    "shiny_hunter":  ("이로치 헌터",   "✨", "이로치 포켓몬 3마리 포획",  "shiny_catch", 3),
+    "shiny_master":  ("이로치 마스터",  "🌟", "이로치 포켓몬 10마리 포획", "shiny_catch", 10),
+    "shiny_legend":  ("전설의 빛",     "💫", "이로치 전설 포켓몬 포획",   "shiny_legendary", 1),
+}
+SHINY_MAX_FRIENDSHIP = 7              # 이로치 최대 친밀도
+
+def get_max_friendship(pokemon: dict) -> int:
+    """이로치면 7, 일반이면 5."""
+    return SHINY_MAX_FRIENDSHIP if pokemon.get("is_shiny") else MAX_FRIENDSHIP
+UNLOCKABLE_TITLES.update(SHINY_TITLES)

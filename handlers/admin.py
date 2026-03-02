@@ -303,7 +303,7 @@ async def event_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
 
-    end_time = (datetime.now() + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    end_time = (config.get_kst_now() + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
 
     event_id = await queries.create_event(
         name=event_name,
@@ -556,52 +556,112 @@ async def grant_masterball_handler(update: Update, context: ContextTypes.DEFAULT
 
 async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '아케이드' command in a group chat.
-    - '아케이드 등록' → register this chat as arcade (1-min spawns)
-    - '아케이드 해제' → unregister
-    Bot admin only.
+    - Admin: '아케이드 등록/해제' → permanent arcade toggle
+    - User with ticket: '아케이드 등록' → 1-hour temporary arcade
     """
     if not update.effective_user or not update.message:
         return
-    if not is_admin(update.effective_user.id):
-        return
 
+    user_id = update.effective_user.id
     text = (update.message.text or "").strip()
     parts = text.split()
     chat_id = update.effective_chat.id
 
     if len(parts) < 2:
-        status = "✅ 등록됨" if chat_id in config.ARCADE_CHAT_IDS else "❌ 미등록"
+        # Check active temp pass
+        active_pass = await queries.get_active_arcade_pass(chat_id)
+        if chat_id in config.ARCADE_CHAT_IDS:
+            status = "✅ 영구 등록"
+        elif active_pass:
+            from datetime import datetime, timezone
+            expires = active_pass["expires_at"]
+            if hasattr(expires, 'tzinfo') and expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            remaining = max(0, int((expires - datetime.now(timezone.utc)).total_seconds()))
+            status = f"⏱ 임시 등록 ({remaining // 60}분 남음)"
+        else:
+            status = "❌ 미등록"
+
+        tickets = await queries.get_arcade_tickets(user_id)
         await update.message.reply_text(
             f"🕹️ 아케이드 채널 ({status})\n\n"
-            f"Chat ID: {chat_id}\n"
-            f"'아케이드 등록' — 1분마다 자동 스폰\n"
-            f"'아케이드 해제' — 일반 채널로 복구"
+            f"'아케이드 등록' — 아케이드 활성화\n"
+            f"'아케이드 해제' — 아케이드 비활성화\n\n"
+            f"🎮 내 아케이드 티켓: {tickets}개"
         )
         return
 
     action = parts[1]
 
     if action == "등록":
-        config.ARCADE_CHAT_IDS.add(chat_id)
-        await queries.set_arcade(chat_id, True)
-        # Start arcade spawns immediately
-        from services.spawn_service import schedule_arcade_spawns
-        schedule_arcade_spawns(context.application)
+        # Already an arcade channel?
+        if chat_id in config.ARCADE_CHAT_IDS:
+            await update.message.reply_text("🕹️ 이미 영구 아케이드 채널입니다!")
+            return
+
+        # Already has active temp pass?
+        active_pass = await queries.get_active_arcade_pass(chat_id)
+        if active_pass:
+            await update.message.reply_text("🕹️ 이미 아케이드가 활성화되어 있습니다!")
+            return
+
+        # Admin: permanent registration
+        if is_admin(user_id):
+            config.ARCADE_CHAT_IDS.add(chat_id)
+            await queries.set_arcade(chat_id, True)
+            from services.spawn_service import schedule_arcade_spawns
+            schedule_arcade_spawns(context.application)
+            await update.message.reply_text(
+                f"🕹️ 아케이드 채널 영구 등록 완료!\n"
+                f"⏱️ {config.ARCADE_SPAWN_INTERVAL}초마다 포켓몬이 출현합니다."
+            )
+            logger.info(f"Arcade channel registered (permanent): {chat_id}")
+            return
+
+        # Non-admin: use ticket for 1-hour temp arcade
+        used = await queries.use_arcade_ticket(user_id)
+        if not used:
+            await update.message.reply_text(
+                "🎮 아케이드 티켓이 없습니다!\nDM 상점에서 '구매 아케이드'로 구매하세요."
+            )
+            return
+
+        # Create temporary arcade pass for this chat
+        await queries.create_arcade_pass(chat_id, user_id, config.ARCADE_PASS_DURATION)
+
+        # Start arcade spawns
+        from services.spawn_service import start_temp_arcade
+        start_temp_arcade(context.application, chat_id, config.ARCADE_PASS_DURATION)
+
+        display_name = update.effective_user.first_name or "트레이너"
+        remaining_tickets = await queries.get_arcade_tickets(user_id)
         await update.message.reply_text(
-            f"🕹️ 아케이드 채널 등록 완료!\n"
-            f"📍 Chat ID: {chat_id}\n"
-            f"⏱️ {config.ARCADE_SPAWN_INTERVAL}초마다 포켓몬이 출현합니다.\n"
-            f"🎯 포획 제한시간: {config.ARCADE_SPAWN_WINDOW}초"
+            f"🕹️ {display_name}이(가) 아케이드 활성화!\n"
+            f"⏱️ {config.ARCADE_PASS_DURATION // 60}분간 {config.ARCADE_SPAWN_INTERVAL}초마다 스폰\n"
+            f"🎮 남은 티켓: {remaining_tickets}개"
         )
-        logger.info(f"Arcade channel registered: {chat_id}")
+        logger.info(f"Temp arcade activated by {user_id} in chat {chat_id}")
 
     elif action == "해제":
-        config.ARCADE_CHAT_IDS.discard(chat_id)
-        await queries.set_arcade(chat_id, False)
+        if chat_id in config.ARCADE_CHAT_IDS:
+            # Only admin can remove permanent arcade
+            if not is_admin(user_id):
+                await update.message.reply_text("🚫 영구 아케이드 해제는 관리자만 가능합니다.")
+                return
+            config.ARCADE_CHAT_IDS.discard(chat_id)
+            await queries.set_arcade(chat_id, False)
+
         # Remove arcade jobs
-        job_name = f"arcade_{chat_id}"
-        for job in context.application.job_queue.jobs():
-            if job.name == job_name:
-                job.schedule_removal()
-        await update.message.reply_text("🕹️ 아케이드 채널 해제됨. 일반 스폰으로 복구됩니다.")
+        from services.spawn_service import stop_arcade_for_chat
+        stop_arcade_for_chat(context.application, chat_id)
+
+        # Deactivate any active pass
+        from database.connection import get_db
+        pool = await get_db()
+        await pool.execute(
+            "UPDATE arcade_passes SET is_active = 0 WHERE chat_id = $1 AND is_active = 1",
+            chat_id,
+        )
+
+        await update.message.reply_text("🕹️ 아케이드 해제됨. 일반 스폰으로 복구됩니다.")
         logger.info(f"Arcade channel unregistered: {chat_id}")

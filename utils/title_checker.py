@@ -42,7 +42,11 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
             (SELECT COUNT(*) FROM user_pokemon up JOIN pokemon_master pm ON up.pokemon_id = pm.id
                 WHERE up.user_id = $1 AND pm.rarity = 'common') AS common_catches,
             (SELECT COUNT(*) FROM user_pokemon up JOIN pokemon_master pm ON up.pokemon_id = pm.id
-                WHERE up.user_id = $1 AND pm.rarity IN ('epic', 'legendary')) AS rare_catches
+                WHERE up.user_id = $1 AND pm.rarity IN ('epic', 'legendary')) AS rare_catches,
+            (SELECT COUNT(*) FROM user_pokemon
+                WHERE user_id = $1 AND is_shiny = 1 AND is_active = 1) AS shiny_catches,
+            (SELECT COUNT(*) FROM user_pokemon up JOIN pokemon_master pm ON up.pokemon_id = pm.id
+                WHERE up.user_id = $1 AND up.is_shiny = 1 AND pm.rarity = 'legendary' AND up.is_active = 1) AS shiny_legendary
     """, user_id)
 
     # 4. Get battle stats once (if any battle titles remain)
@@ -100,6 +104,10 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
             unlocked = counts["rare_catches"] >= threshold
         elif check_type == "streak":
             unlocked = stats.get("login_streak", 0) >= threshold
+        elif check_type == "shiny_catch":
+            unlocked = counts["shiny_catches"] >= threshold
+        elif check_type == "shiny_legendary":
+            unlocked = counts["shiny_legendary"] >= threshold
         elif check_type in ("battle_total", "battle_wins", "battle_streak", "battle_sweep", "partner_set"):
             if battle_stats:
                 total_battles = battle_stats["battle_wins"] + battle_stats["battle_losses"]

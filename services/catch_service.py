@@ -1,13 +1,12 @@
 """Catch service: handles catch attempt validation and recording."""
 
-from datetime import datetime
 import config
 from database import queries
 
 
 async def can_attempt_catch(user_id: int) -> tuple[bool, str]:
     """Check if a user can attempt to catch. Returns (allowed, reason)."""
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = config.get_kst_today()
     limit = await queries.get_catch_limit(user_id, today)
 
     # Check daily limit (base + bonus)
@@ -28,5 +27,5 @@ async def can_attempt_catch(user_id: int) -> tuple[bool, str]:
 async def record_attempt(session_id: int, user_id: int):
     """Record a catch attempt and increment daily count."""
     await queries.record_catch_attempt(session_id, user_id)
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = config.get_kst_today()
     await queries.increment_attempt(user_id, today)

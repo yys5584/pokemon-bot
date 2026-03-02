@@ -52,7 +52,8 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if pokemon["friendship"] >= config.MAX_FRIENDSHIP:
+    max_f = config.get_max_friendship(pokemon)
+    if pokemon["friendship"] >= max_f:
         await update.message.reply_text(
             f"{pokemon['name_ko']}의 친밀도가 이미 MAX입니다!\n"
             f"진화 {index} 로 진화를 시도해보세요."
@@ -61,12 +62,12 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_FEED * boost
-    new_friendship = min(config.MAX_FRIENDSHIP, pokemon["friendship"] + gain)
+    new_friendship = min(max_f, pokemon["friendship"] + gain)
     await queries.update_pokemon_friendship(pokemon["id"], new_friendship)
     await queries.increment_feed(pokemon["id"])
 
     remaining = config.FEED_PER_DAY - pokemon["fed_today"] - 1
-    hearts = hearts_display(new_friendship)
+    hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 
     evo_hint = ""
@@ -78,7 +79,7 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"🍖 {pokemon['name_ko']}에게 밥을 줬습니다!{boost_text}\n"
-        f"친밀도: {hearts} ({new_friendship}/{config.MAX_FRIENDSHIP})\n"
+        f"친밀도: {hearts} ({new_friendship}/{max_f})\n"
         f"남은 횟수: {remaining}회"
         f"{evo_hint}"
     )
@@ -122,7 +123,8 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if pokemon["friendship"] >= config.MAX_FRIENDSHIP:
+    max_f = config.get_max_friendship(pokemon)
+    if pokemon["friendship"] >= max_f:
         await update.message.reply_text(
             f"{pokemon['name_ko']}의 친밀도가 이미 MAX입니다!\n"
             f"진화 {index} 로 진화를 시도해보세요."
@@ -131,12 +133,12 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_PLAY * boost
-    new_friendship = min(config.MAX_FRIENDSHIP, pokemon["friendship"] + gain)
+    new_friendship = min(max_f, pokemon["friendship"] + gain)
     await queries.update_pokemon_friendship(pokemon["id"], new_friendship)
     await queries.increment_play(pokemon["id"])
 
     remaining = config.PLAY_PER_DAY - pokemon["played_today"] - 1
-    hearts = hearts_display(new_friendship)
+    hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 
     evo_hint = ""
@@ -148,7 +150,7 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"🎾 {pokemon['name_ko']}와(과) 놀아줬습니다!{boost_text}\n"
-        f"친밀도: {hearts} ({new_friendship}/{config.MAX_FRIENDSHIP})\n"
+        f"친밀도: {hearts} ({new_friendship}/{max_f})\n"
         f"남은 횟수: {remaining}회"
         f"{evo_hint}"
     )

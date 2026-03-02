@@ -41,7 +41,7 @@ async def roll_rarity(midnight_bonus: bool = False) -> str:
 
 def is_midnight_bonus() -> bool:
     """Check if current time is in the midnight bonus window (2am-5am KST)."""
-    hour = datetime.now().hour
+    hour = config.get_kst_hour()
     return config.MIDNIGHT_BONUS_START <= hour < config.MIDNIGHT_BONUS_END
 
 
@@ -151,8 +151,11 @@ async def schedule_all_chats(app):
         except Exception as e:
             logger.error(f"Failed to schedule for chat {chat['chat_id']}: {e}")
 
-    # Schedule arcade channels (repeating every N seconds)
+    # Schedule permanent arcade channels (repeating every N seconds)
     schedule_arcade_spawns(app)
+
+    # Restore temporary arcade passes from DB
+    await restore_temp_arcades(app)
 
 
 def schedule_arcade_spawns(app):
@@ -175,11 +178,93 @@ def schedule_arcade_spawns(app):
                      f"(every {config.ARCADE_SPAWN_INTERVAL}s)")
 
 
+def start_temp_arcade(app, chat_id: int, duration_seconds: int):
+    """Start temporary arcade spawns for a chat. Auto-stops after duration."""
+    job_name = f"arcade_{chat_id}"
+    # Remove any existing arcade job for this chat
+    for job in app.job_queue.jobs():
+        if job.name == job_name:
+            job.schedule_removal()
+
+    app.job_queue.run_repeating(
+        execute_spawn,
+        interval=config.ARCADE_SPAWN_INTERVAL,
+        first=10,
+        data={"chat_id": chat_id, "force": True},
+        name=job_name,
+    )
+
+    # Schedule auto-stop after duration
+    app.job_queue.run_once(
+        _expire_temp_arcade,
+        when=duration_seconds,
+        data={"chat_id": chat_id},
+        name=f"arcade_expire_{chat_id}",
+    )
+
+    logger.info(f"Temp arcade started for chat {chat_id} ({duration_seconds}s)")
+
+
+def stop_arcade_for_chat(app, chat_id: int):
+    """Stop arcade spawns for a specific chat."""
+    for job in app.job_queue.jobs():
+        if job.name in (f"arcade_{chat_id}", f"arcade_expire_{chat_id}"):
+            job.schedule_removal()
+    logger.info(f"Arcade stopped for chat {chat_id}")
+
+
+async def _expire_temp_arcade(context: ContextTypes.DEFAULT_TYPE):
+    """Auto-expire a temporary arcade session."""
+    chat_id = context.job.data["chat_id"]
+
+    # Don't stop if it's a permanent arcade channel
+    if chat_id in config.ARCADE_CHAT_IDS:
+        return
+
+    # Stop arcade spawns
+    stop_arcade_for_chat(context.application, chat_id)
+
+    # Deactivate pass in DB
+    await queries.expire_arcade_passes()
+
+    try:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="🕹️ 아케이드 시간 종료! 일반 스폰으로 복구됩니다.",
+        )
+    except Exception:
+        pass
+
+    logger.info(f"Temp arcade expired for chat {chat_id}")
+
+
+async def restore_temp_arcades(app):
+    """On bot restart, restore any active temp arcade passes."""
+    active_passes = await queries.get_all_active_arcade_passes()
+    for ap in active_passes:
+        chat_id = ap["chat_id"]
+        if chat_id in config.ARCADE_CHAT_IDS:
+            continue  # Skip permanent arcades
+
+        from datetime import datetime, timezone
+        expires = ap["expires_at"]
+        if hasattr(expires, 'tzinfo') and expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        remaining = max(0, int((expires - datetime.now(timezone.utc)).total_seconds()))
+
+        if remaining > 30:  # At least 30 seconds left
+            start_temp_arcade(app, chat_id, remaining)
+            logger.info(f"Restored temp arcade for chat {chat_id} ({remaining}s remaining)")
+
+
 async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
     """Execute a single spawn event. Called by JobQueue."""
     chat_id = context.job.data["chat_id"]
     force = context.job.data.get("force", False)
-    arcade = chat_id in config.ARCADE_CHAT_IDS
+    # Arcade = permanent OR temp arcade (job name starts with arcade_)
+    arcade = chat_id in config.ARCADE_CHAT_IDS or (
+        context.job.name and context.job.name.startswith(f"arcade_{chat_id}")
+    )
 
     try:
         # 1. Activity check (skip if force spawn or arcade)
@@ -200,14 +285,14 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 logger.info(f"No activity in {chat_id}, retrying in {retry_delay}s")
                 return
 
-        # 2. Check if there's already an active spawn (skip for arcade)
-        if not arcade:
+        # 2. Check if there's already an active spawn (skip for arcade and force)
+        if not arcade and not force:
             active = await queries.get_active_spawn(chat_id)
             if active:
                 return
 
-        # 2.5 Cooldown: skip if last spawn was within 5 minutes (skip for arcade)
-        if not arcade:
+        # 2.5 Cooldown: skip if last spawn was within 5 minutes (skip for arcade and force)
+        if not arcade and not force:
             last_spawn = await queries.get_last_spawn_time(chat_id)
             if last_spawn:
                 elapsed = (datetime.now() - last_spawn).total_seconds()
@@ -222,7 +307,12 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # 4. Pick random Pokemon
         pokemon = await pick_random_pokemon(rarity)
 
+        # 4.5 Shiny determination
+        shiny_rate = config.SHINY_RATE_ARCADE if arcade else config.SHINY_RATE_NATURAL
+        is_shiny = random.random() < shiny_rate
+
         # 5. Generate card image FIRST (before creating session)
+        shiny_text = " ✨이로치" if is_shiny else ""
         bonus_text = " 🌙" if midnight else ""
 
         # Check for active event indicator
@@ -237,7 +327,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         window = config.ARCADE_SPAWN_WINDOW if arcade else config.SPAWN_WINDOW_SECONDS
 
         caption = (
-            f"🌿 야생의 {pokemon['emoji']} {pokemon['name_ko']}이(가) 나타났다!{bonus_text}{event_tag}{weather_tag}\n"
+            f"🌿 야생의{shiny_text} {pokemon['emoji']} {pokemon['name_ko']}이(가) 나타났다!{bonus_text}{event_tag}{weather_tag}\n"
             f"ㅊ 입력으로 잡기 ({window}초)"
         )
 
@@ -258,7 +348,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         expires = (datetime.now() + timedelta(seconds=window))
 
         session_id = await queries.create_spawn_session(
-            chat_id, pokemon["id"], expires
+            chat_id, pokemon["id"], expires, is_shiny=is_shiny,
         )
 
         # Update session with message_id
@@ -283,6 +373,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 "pokemon_name": pokemon["name_ko"],
                 "pokemon_emoji": pokemon["emoji"],
                 "rarity": rarity,
+                "is_shiny": is_shiny,
             },
             name=f"resolve_{session_id}",
         )
@@ -304,6 +395,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
     pokemon_name = data["pokemon_name"]
     pokemon_emoji = data["pokemon_emoji"]
     rarity = data["rarity"]
+    is_shiny = data.get("is_shiny", False)
 
     try:
         # Check if session is already resolved (avoid duplicate resolution)
@@ -327,14 +419,15 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         if not attempts:
             # Nobody tried
+            shiny_tag = " ✨이로치" if is_shiny else ""
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"흔들흔들... 💨 도망갔다!",
+                text=f"흔들흔들... 💨{shiny_tag} {pokemon_emoji} {pokemon_name} 도망갔다!",
             )
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
-                rarity, None, None, 0,
+                rarity, None, None, 0, is_shiny=is_shiny,
             )
             return
 
@@ -344,12 +437,17 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         catch_boost = await get_catch_boost()
         catch_rate = min(1.0, base_rate * catch_boost)
 
-        # Roll for each catcher (master ball > newbie > regular)
+        # Roll for each catcher (master ball > hyper ball > newbie > regular)
         results = []
         for attempt in attempts:
             if attempt.get("used_master_ball"):
                 roll = -1.0  # Highest priority
                 success = True
+            elif attempt.get("used_hyper_ball"):
+                # Hyper ball: 3x catch rate
+                hyper_rate = min(1.0, catch_rate * config.HYPER_BALL_CATCH_MULTIPLIER)
+                roll = random.random()
+                success = roll < hyper_rate
             else:
                 # Newbie boost: first 2 catches are guaranteed
                 total = await queries.count_total_catches(attempt["user_id"])
@@ -366,6 +464,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 "roll": roll,
                 "success": success,
                 "used_master_ball": bool(attempt.get("used_master_ball")),
+                "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
             })
 
         winners = [r for r in results if r["success"]]
@@ -373,14 +472,15 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         if not winners:
             # Everyone failed
+            shiny_tag = " ✨이로치" if is_shiny else ""
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"흔들흔들... 💨 도망갔다!",
+                text=f"흔들흔들... 💨{shiny_tag} {pokemon_emoji} {pokemon_name} 도망갔다!",
             )
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
-                rarity, None, None, participants,
+                rarity, None, None, participants, is_shiny=is_shiny,
             )
             return
 
@@ -400,12 +500,12 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
 
         # Give Pokemon
-        await queries.give_pokemon_to_user(winner_id, pokemon_id, chat_id)
+        await queries.give_pokemon_to_user(winner_id, pokemon_id, chat_id, is_shiny=is_shiny)
         await queries.register_pokedex(winner_id, pokemon_id, "catch")
         await queries.close_spawn_session(session_id, caught_by=winner_id)
 
         # Update consecutive catches
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = config.get_kst_today()
         await queries.increment_consecutive(winner_id, today)
 
         # Reset consecutive for everyone who failed (batch)
@@ -429,16 +529,23 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             html=True,
         )
 
+        shiny_label = "✨이로치 " if is_shiny else ""
         if winner.get("used_master_ball"):
-            msg = f"🟣 마스터볼! {decorated} — {pokemon_emoji} {pokemon_name} 확정 포획!"
+            msg = f"🟣 마스터볼! {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 확정 포획!"
             await queries.increment_title_stat(winner_id, "master_ball_used")
+        elif winner.get("used_hyper_ball"):
+            msg = f"🔵 하이퍼볼! {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획!"
         elif rarity in ("epic", "legendary") and is_first:
-            msg = f"🌟 {decorated} — {pokemon_emoji} {pokemon_name} 포획! (이 방 최초)"
+            msg = f"🌟 {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획! (이 방 최초)"
         else:
-            msg = f"딸깍! ✨ {decorated} — {pokemon_emoji} {pokemon_name} 포획!"
+            msg = f"딸깍! ✨ {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획!"
+
+        # Shiny catch announcement
+        if is_shiny:
+            msg += "\n\n✨✨✨ 이로치 포켓몬을 잡았다!"
 
         # Track midnight catch for title
-        hour = datetime.now().hour
+        hour = config.get_kst_hour()
         if 2 <= hour < 5:
             await queries.increment_title_stat(winner_id, "midnight_catch_count")
 
@@ -482,7 +589,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Log
         await queries.log_spawn(
             chat_id, pokemon_id, pokemon_name, pokemon_emoji,
-            rarity, winner_id, winner_name, participants,
+            rarity, winner_id, winner_name, participants, is_shiny=is_shiny,
         )
 
         logger.info(

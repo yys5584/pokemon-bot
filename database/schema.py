@@ -314,6 +314,48 @@ SHOP_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN force_spawn_tickets INTEGER NOT NULL DEFAULT 0",
 ]
 
+HYPER_BALL_MIGRATIONS = [
+    "ALTER TABLE catch_attempts ADD COLUMN used_hyper_ball INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN hyper_balls INTEGER NOT NULL DEFAULT 0",
+]
+
+ARCADE_TICKET_MIGRATIONS = [
+    "ALTER TABLE users ADD COLUMN arcade_tickets INTEGER NOT NULL DEFAULT 0",
+    # 기존 유저 기반 arcade_passes 드롭 → 채널 기반으로 재생성
+    "DROP TABLE IF EXISTS arcade_passes CASCADE",
+]
+
+ARCADE_PASS_TABLES = [
+    """
+    CREATE TABLE IF NOT EXISTS arcade_passes (
+        id SERIAL PRIMARY KEY,
+        chat_id BIGINT NOT NULL,
+        activated_by BIGINT NOT NULL REFERENCES users(user_id),
+        activated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_arcade_passes_chat ON arcade_passes(chat_id, is_active, expires_at)",
+]
+
+SHINY_MIGRATIONS = [
+    "ALTER TABLE user_pokemon ADD COLUMN is_shiny INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE spawn_sessions ADD COLUMN is_shiny INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE spawn_log ADD COLUMN is_shiny INTEGER NOT NULL DEFAULT 0",
+    # 이로치 친밀도 7 허용: CHECK 제약 완화
+    "ALTER TABLE user_pokemon DROP CONSTRAINT IF EXISTS user_pokemon_friendship_check",
+    "ALTER TABLE user_pokemon ADD CONSTRAINT user_pokemon_friendship_check CHECK(friendship >= 0 AND friendship <= 7)",
+]
+
+TEAM_SLOT_MIGRATIONS = [
+    "ALTER TABLE battle_teams ADD COLUMN team_number INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE battle_teams DROP CONSTRAINT IF EXISTS battle_teams_user_id_slot_key",
+    "ALTER TABLE battle_teams DROP CONSTRAINT IF EXISTS battle_teams_user_id_pokemon_instance_id_key",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_bt_user_team_slot ON battle_teams(user_id, team_number, slot)",
+    "ALTER TABLE users ADD COLUMN active_team INTEGER NOT NULL DEFAULT 1",
+]
+
 
 async def create_tables():
     """Create all tables."""
@@ -337,6 +379,36 @@ async def create_tables():
             pass
     # Run shop migrations
     for mig in SHOP_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+    # Run hyper ball migrations
+    for mig in HYPER_BALL_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+    # Arcade ticket migrations (drop old table + add user column)
+    for mig in ARCADE_TICKET_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+    # Arcade pass tables (chat-based, recreated after drop)
+    for sql in ARCADE_PASS_TABLES:
+        try:
+            await pool.execute(sql)
+        except Exception:
+            pass
+    # Run shiny migrations
+    for mig in SHINY_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+    # Run team slot migrations
+    for mig in TEAM_SLOT_MIGRATIONS:
         try:
             await pool.execute(mig)
         except Exception:

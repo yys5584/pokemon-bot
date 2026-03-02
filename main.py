@@ -22,11 +22,12 @@ from database.seed import seed_pokemon_data, seed_battle_data
 from database import queries
 
 from handlers.start import start_handler, help_handler
-from handlers.group import catch_handler, master_ball_handler, love_easter_egg, love_hidden_handler, ranking_handler, log_handler, dashboard_handler, on_chat_activity, close_message_callback
+from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, ranking_handler, log_handler, dashboard_handler, on_chat_activity, close_message_callback
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, status_handler
 from handlers.battle import (
     partner_handler, partner_callback_handler,
-    team_handler, team_register_handler, team_clear_handler, team_callback_handler,
+    team_handler, team_register_handler, team_clear_handler, team_select_handler,
+    team_callback_handler,
     battle_stats_handler, bp_handler, bp_shop_handler, bp_buy_handler,
     battle_challenge_handler, battle_callback_handler, battle_result_callback_handler,
     battle_ranking_handler, battle_accept_text_handler, battle_decline_text_handler,
@@ -208,27 +209,28 @@ def main():
 
     # Korean commands via MessageHandler + Regex (DM only)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^도움말$"), help_handler))
-    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^도감"), pokedex_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^(📖\s*)?도감"), pokedex_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^날씨$"), weather_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^내포켓몬\s*\d*$"), my_pokemon_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📦\s*)?내포켓몬\s*\d*$"), my_pokemon_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^밥(\s+.+)?$"), feed_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^놀기(\s+.+)?$"), play_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^진화(\s+.+)?$"), evolve_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^교환\s"), trade_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^수락"), accept_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^거절"), reject_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^칭호목록$"), title_list_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^칭호$"), title_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^상태창$"), status_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?칭호목록$"), title_list_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?칭호$"), title_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?상태창$"), status_handler))
 
     # Battle system (DM)
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^파트너(\s+.+)?$"), partner_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀등록(\s|$)"), team_register_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀해제$"), team_clear_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀$"), team_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^배틀전적$"), battle_stats_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🤝\s*)?파트너(\s+.+)?$"), partner_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀등록[12]?(\s|$)"), team_register_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀해제[12]?$"), team_clear_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀선택"), team_select_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(⚔️\s*)?팀[12]?$"), team_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏆\s*)?배틀전적$"), battle_stats_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(bp)?구매"), bp_buy_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(bp)?상점$"), bp_shop_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🏪\s*)?(bp)?상점$"), bp_shop_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp$"), bp_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^티어$"), tier_handler))
 
@@ -276,6 +278,12 @@ def main():
     app.add_handler(MessageHandler(
         group & filters.TEXT & filters.Regex(r"^ㅁ$"),
         master_ball_handler,
+    ))
+
+    # "ㅎ" hyper ball handler (group only, exact match)
+    app.add_handler(MessageHandler(
+        group & filters.TEXT & filters.Regex(r"^ㅎ$"),
+        hyper_ball_handler,
     ))
 
     # "ㄷ" tournament join (group only, arcade channels)

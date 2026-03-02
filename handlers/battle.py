@@ -257,7 +257,7 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
 # ============================================================
 
 def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
-                       page: int) -> tuple[str, InlineKeyboardMarkup]:
+                       page: int, team_num: int = 1) -> tuple[str, InlineKeyboardMarkup]:
     """Build team selection UI with inline buttons.
     selected = list of pokemon_list indices (0-based) in team order.
     """
@@ -271,7 +271,7 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
     slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
 
     # Header with current selection
-    lines = [f"⚔️ 배틀 팀 편집  ({len(selected)}/{TEAM_MAX})"]
+    lines = [f"⚔️ 배틀 팀 {team_num} 편집  ({len(selected)}/{TEAM_MAX})"]
     if selected:
         sel_names = []
         for si in selected:
@@ -296,6 +296,7 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
     sel_str = ",".join(str(s) for s in selected) if selected else "x"
 
     # Pokemon buttons (2 per row)
+    tn = team_num
     buttons = []
     row = []
     for i, p in enumerate(page_pokemon):
@@ -307,7 +308,7 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
             label = f"{p['emoji']}{p['name_ko']}"
         row.append(InlineKeyboardButton(
             label,
-            callback_data=f"ts_{user_id}_{idx}_{page}_{sel_str}",
+            callback_data=f"ts_{user_id}_{idx}_{page}_{sel_str}_{tn}",
         ))
         if len(row) == 2:
             buttons.append(row)
@@ -318,9 +319,9 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
     # Nav row
     nav_row = []
     if page > 0:
-        nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"tp_{user_id}_{page - 1}_{sel_str}"))
+        nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"tp_{user_id}_{page - 1}_{sel_str}_{tn}"))
     if page < total_pages - 1:
-        nav_row.append(InlineKeyboardButton("다음 ▶", callback_data=f"tp_{user_id}_{page + 1}_{sel_str}"))
+        nav_row.append(InlineKeyboardButton("다음 ▶", callback_data=f"tp_{user_id}_{page + 1}_{sel_str}_{tn}"))
     if nav_row:
         buttons.append(nav_row)
 
@@ -329,11 +330,11 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
     if selected:
         action_row.append(InlineKeyboardButton(
             f"✅ 확정 ({len(selected)}마리)",
-            callback_data=f"tok_{user_id}_{sel_str}",
+            callback_data=f"tok_{user_id}_{sel_str}_{tn}",
         ))
         action_row.append(InlineKeyboardButton(
             "🗑 초기화",
-            callback_data=f"tcl_{user_id}_{page}_x",
+            callback_data=f"tcl_{user_id}_{page}_x_{tn}",
         ))
     buttons.append(action_row if action_row else [
         InlineKeyboardButton("❌ 취소", callback_data=f"tno_{user_id}")
@@ -362,7 +363,7 @@ def _team_to_selected(team: list[dict], pokemon_list: list[dict]) -> list[int]:
 
 
 async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle 팀 command (DM). Show current battle team or start selection."""
+    """Handle 팀/팀1/팀2 command (DM). Show current battle team or start selection."""
     if not update.effective_user:
         return
 
@@ -373,23 +374,27 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update.effective_user.username,
     )
 
-    team = await bq.get_battle_team(user_id)
+    text = (update.message.text or "").strip()
+    team_num = 2 if text.endswith("2") else 1
+
+    team = await bq.get_battle_team(user_id, team_num)
+    active_num = await bq.get_active_team_number(user_id)
+
     if not team:
-        # 팀 없음 → 바로 선택 UI
         pokemon_list = await queries.get_user_pokemon_list(user_id)
         if not pokemon_list:
             await update.message.reply_text("보유한 포켓몬이 없습니다.")
             return
-        text_msg, markup = _build_team_select(user_id, pokemon_list, [], 0)
+        text_msg, markup = _build_team_select(user_id, pokemon_list, [], 0, team_num)
         await update.message.reply_text(text_msg, reply_markup=markup)
         return
 
-    # Get partner for marking
     partner = await bq.get_partner(user_id)
     partner_instance = partner["instance_id"] if partner else None
 
+    active_mark = " ✅" if team_num == active_num else ""
     slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
-    lines = ["⚔️ 나의 배틀 팀\n"]
+    lines = [f"⚔️ 배틀 팀 {team_num}{active_mark}\n"]
 
     for i, p in enumerate(team):
         evo_stage = EVO_STAGE_MAP.get(p["pokemon_id"], 3)
@@ -401,15 +406,26 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{format_stats_line(stats)}"
         )
 
+    if team_num != active_num:
+        lines.append(f"\n💡 '팀선택 {team_num}'으로 이 팀을 배틀에 사용할 수 있습니다.")
+
     buttons = InlineKeyboardMarkup([[
-        InlineKeyboardButton("🔄 변경", callback_data=f"tcl_{user_id}_0_keep"),
-        InlineKeyboardButton("🗑 해제", callback_data=f"tdel_{user_id}"),
+        InlineKeyboardButton("🔄 변경", callback_data=f"tcl_{user_id}_0_keep_{team_num}"),
+        InlineKeyboardButton("🗑 해제", callback_data=f"tdel_{user_id}_{team_num}"),
     ]])
     await update.message.reply_text("\n".join(lines), reply_markup=buttons)
 
 
+def _parse_team_number(text: str) -> int:
+    """Extract team number from command text. '팀등록2' → 2, '팀등록' or '팀등록1' → 1."""
+    text = text.strip()
+    if text.endswith("2"):
+        return 2
+    return 1
+
+
 async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle 팀등록 command (DM). Register battle team via text or show selector."""
+    """Handle 팀등록/팀등록1/팀등록2 command (DM). Register battle team via text or show selector."""
     if not update.effective_user:
         return
 
@@ -422,25 +438,26 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
     text = (update.message.text or "").strip()
     parts = text.split()
+    team_num = _parse_team_number(parts[0]) if parts else 1
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
         await update.message.reply_text("보유한 포켓몬이 없습니다.")
         return
 
-    # "팀등록" alone → show interactive selector (pre-fill current team)
+    # "팀등록1" alone → show interactive selector
     if len(parts) < 2:
-        current_team = await bq.get_battle_team(user_id)
+        current_team = await bq.get_battle_team(user_id, team_num)
         pre_selected = _team_to_selected(current_team, pokemon_list) if current_team else []
-        text_msg, markup = _build_team_select(user_id, pokemon_list, pre_selected, 0)
+        text_msg, markup = _build_team_select(user_id, pokemon_list, pre_selected, 0, team_num)
         await update.message.reply_text(text_msg, reply_markup=markup)
         return
 
-    # "팀등록 1 3 5" → text-based registration (kept for power users)
+    # "팀등록1 1 3 5" → text-based registration
     try:
         nums = [int(x) for x in parts[1:7]]
     except ValueError:
-        await update.message.reply_text("숫자만 입력해주세요. 예: 팀등록 3 1 5 2")
+        await update.message.reply_text("숫자만 입력해주세요. 예: 팀등록1 3 1 5 2")
         return
 
     if len(set(nums)) != len(nums):
@@ -452,17 +469,28 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
             await update.message.reply_text(f"번호 {n}이(가) 범위 밖입니다. (1~{len(pokemon_list)})")
             return
 
-    # 전설 포켓몬 1마리 제한
+    # 전설 포켓몬 1마리 제한 + DM 안내
     legendary_count = sum(1 for n in nums if pokemon_list[n - 1].get("rarity") == "legendary")
     if legendary_count > 1:
-        await update.message.reply_text("⚠️ 전설 포켓몬은 팀에 1마리만 넣을 수 있습니다!")
+        legend_names = [
+            f"{pokemon_list[n-1]['emoji']} {pokemon_list[n-1]['name_ko']}"
+            for n in nums if pokemon_list[n-1].get("rarity") == "legendary"
+        ]
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"⚠️ 전설 포켓몬은 팀에 1마리만 넣을 수 있습니다!\n\n"
+                f"선택한 전설: {', '.join(legend_names)}\n"
+                f"전설 포켓몬 중 1마리만 남기고 다시 등록해주세요."
+            ),
+        )
         return
 
     instance_ids = [pokemon_list[n - 1]["id"] for n in nums]
-    await bq.set_battle_team(user_id, instance_ids)
+    await bq.set_battle_team(user_id, instance_ids, team_num)
 
     slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
-    lines = ["⚔️ 배틀 팀 등록 완료!\n"]
+    lines = [f"⚔️ 배틀 팀 {team_num} 등록 완료!\n"]
     for i, n in enumerate(nums):
         p = pokemon_list[n - 1]
         type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
@@ -471,13 +499,39 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def team_clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle 팀해제 command (DM). Clear battle team."""
+    """Handle 팀해제/팀해제1/팀해제2 command (DM). Clear battle team."""
     if not update.effective_user:
         return
 
     user_id = update.effective_user.id
-    await bq.clear_battle_team(user_id)
-    await update.message.reply_text("⚔️ 배틀 팀이 해제되었습니다.")
+    text = (update.message.text or "").strip()
+    team_num = 2 if text.endswith("2") else 1
+    await bq.clear_battle_team(user_id, team_num)
+    await update.message.reply_text(f"⚔️ 배틀 팀 {team_num}이(가) 해제되었습니다.")
+
+
+async def team_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '팀선택 1' or '팀선택 2' command (DM). Switch active battle team."""
+    if not update.effective_user:
+        return
+
+    user_id = update.effective_user.id
+    text = (update.message.text or "").strip()
+    parts = text.split()
+
+    team_num = 1
+    if len(parts) >= 2 and parts[1] in ("1", "2"):
+        team_num = int(parts[1])
+    elif text.endswith("2"):
+        team_num = 2
+
+    team = await bq.get_battle_team(user_id, team_num)
+    if not team:
+        await update.message.reply_text(f"⚠️ 팀 {team_num}이(가) 비어있습니다. '팀등록{team_num}'으로 먼저 등록하세요.")
+        return
+
+    await bq.set_active_team(user_id, team_num)
+    await update.message.reply_text(f"✅ 배틀 팀 {team_num}을(를) 활성 팀으로 설정했습니다!")
 
 
 async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -499,12 +553,20 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     parts = data.split("_")
     prefix = parts[0]
 
+    # Helper: extract team_num from last element of parts (default 1)
+    def _tn(parts_list, idx):
+        try:
+            return int(parts_list[idx])
+        except (IndexError, ValueError):
+            return 1
+
     if prefix == "ts":
-        # Toggle select: ts_{uid}_{idx}_{page}_{sel}
+        # Toggle select: ts_{uid}_{idx}_{page}_{sel}_{tn}
         owner_id = int(parts[1])
         idx = int(parts[2])
         page = int(parts[3])
         selected = _parse_sel(parts[4]) if len(parts) > 4 else []
+        tn = _tn(parts, 5)
 
         if query.from_user.id != owner_id:
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
@@ -526,7 +588,14 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
                     if 0 <= s < len(pokemon_list) and pokemon_list[s].get("rarity") == "legendary"
                 )
                 if legend_in_team >= 1:
-                    await query.answer("⚠️ 전설 포켓몬은 1마리만 넣을 수 있습니다!", show_alert=True)
+                    try:
+                        await context.bot.send_message(
+                            chat_id=owner_id,
+                            text="⚠️ 전설 포켓몬은 팀에 1마리만 넣을 수 있습니다!\n전설 포켓몬 중 1마리만 남기고 다시 등록해주세요.",
+                        )
+                    except Exception:
+                        pass
+                    await query.answer("⚠️ 전설 포켓몬은 1마리만!", show_alert=True)
                     return
 
             selected.append(idx)
@@ -534,17 +603,18 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         pokemon_list = await queries.get_user_pokemon_list(owner_id)
         if not pokemon_list:
             return
-        text_msg, markup = _build_team_select(owner_id, pokemon_list, selected, page)
+        text_msg, markup = _build_team_select(owner_id, pokemon_list, selected, page, tn)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup)
         except Exception:
             pass
 
     elif prefix == "tp":
-        # Page nav: tp_{uid}_{page}_{sel}
+        # Page nav: tp_{uid}_{page}_{sel}_{tn}
         owner_id = int(parts[1])
         page = int(parts[2])
         selected = _parse_sel(parts[3]) if len(parts) > 3 else []
+        tn = _tn(parts, 4)
 
         if query.from_user.id != owner_id:
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
@@ -553,16 +623,17 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         pokemon_list = await queries.get_user_pokemon_list(owner_id)
         if not pokemon_list:
             return
-        text_msg, markup = _build_team_select(owner_id, pokemon_list, selected, page)
+        text_msg, markup = _build_team_select(owner_id, pokemon_list, selected, page, tn)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup)
         except Exception:
             pass
 
     elif prefix == "tok":
-        # Confirm: tok_{uid}_{sel}
+        # Confirm: tok_{uid}_{sel}_{tn}
         owner_id = int(parts[1])
         selected = _parse_sel(parts[2]) if len(parts) > 2 else []
+        tn = _tn(parts, 3)
 
         if query.from_user.id != owner_id:
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
@@ -576,22 +647,38 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if not pokemon_list:
             return
 
-        # 전설 포켓몬 1마리 제한 최종 체크
+        # 전설 포켓몬 1마리 제한 최종 체크 + DM 안내
         legend_count = sum(
             1 for s in selected
             if 0 <= s < len(pokemon_list) and pokemon_list[s].get("rarity") == "legendary"
         )
         if legend_count > 1:
-            await query.answer("⚠️ 전설 포켓몬은 1마리만 넣을 수 있습니다!", show_alert=True)
+            legend_names = [
+                f"{pokemon_list[s]['emoji']} {pokemon_list[s]['name_ko']}"
+                for s in selected
+                if 0 <= s < len(pokemon_list) and pokemon_list[s].get("rarity") == "legendary"
+            ]
+            try:
+                await context.bot.send_message(
+                    chat_id=owner_id,
+                    text=(
+                        f"⚠️ 전설 포켓몬은 팀에 1마리만 넣을 수 있습니다!\n\n"
+                        f"선택한 전설: {', '.join(legend_names)}\n"
+                        f"전설 포켓몬 중 1마리만 남기고 다시 등록해주세요."
+                    ),
+                )
+            except Exception:
+                pass
+            await query.answer("⚠️ 전설 포켓몬은 1마리만!", show_alert=True)
             return
 
         instance_ids = [pokemon_list[i]["id"] for i in selected if 0 <= i < len(pokemon_list)]
         if not instance_ids:
             return
-        await bq.set_battle_team(owner_id, instance_ids)
+        await bq.set_battle_team(owner_id, instance_ids, tn)
 
         slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
-        lines = ["⚔️ 배틀 팀 등록 완료!\n"]
+        lines = [f"⚔️ 배틀 팀 {tn} 등록 완료!\n"]
         for si, idx in enumerate(selected):
             if 0 <= idx < len(pokemon_list):
                 p = pokemon_list[idx]
@@ -603,9 +690,11 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             pass
 
     elif prefix == "tcl":
-        # Change team: tcl_{uid}_{page}_{sel}
+        # Change team: tcl_{uid}_{page}_{sel}_{tn}
         owner_id = int(parts[1])
         page = int(parts[2]) if len(parts) > 2 else 0
+        sel_param = parts[3] if len(parts) > 3 else ""
+        tn = _tn(parts, 4)
 
         if query.from_user.id != owner_id:
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
@@ -616,27 +705,27 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             return
 
         # sel param: "x" = clear all, otherwise pre-fill with current team
-        sel_param = parts[3] if len(parts) > 3 else ""
         if sel_param == "x":
             pre_selected = []
         else:
-            current_team = await bq.get_battle_team(owner_id)
+            current_team = await bq.get_battle_team(owner_id, tn)
             pre_selected = _team_to_selected(current_team, pokemon_list) if current_team else []
-        text_msg, markup = _build_team_select(owner_id, pokemon_list, pre_selected, page)
+        text_msg, markup = _build_team_select(owner_id, pokemon_list, pre_selected, page, tn)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup)
         except Exception:
             pass
 
     elif prefix == "tdel":
-        # Delete team: tdel_{uid}
+        # Delete team: tdel_{uid}_{tn}
         owner_id = int(parts[1])
+        tn = _tn(parts, 2)
         if query.from_user.id != owner_id:
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
             return
-        await bq.clear_battle_team(owner_id)
+        await bq.clear_battle_team(owner_id, tn)
         try:
-            await query.edit_message_text("⚔️ 배틀 팀이 해제되었습니다.")
+            await query.edit_message_text(f"⚔️ 배틀 팀 {tn}이(가) 해제되었습니다.")
         except Exception:
             pass
 
@@ -712,15 +801,24 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     price_str = f"{next_price} BP" if next_price else "매진"
 
     tickets = await queries.get_force_spawn_tickets(user_id)
+    hyper_balls = await queries.get_hyper_balls(user_id)
+
+    fst_label = "🎉 무료!" if config.BP_FORCE_SPAWN_TICKET_COST == 0 else f"{config.BP_FORCE_SPAWN_TICKET_COST} BP"
+    pb_label = "🎉 무료!" if config.BP_POKEBALL_RESET_COST == 0 else f"{config.BP_POKEBALL_RESET_COST} BP"
+
+    # Arcade tickets
+    arcade_tickets = await queries.get_arcade_tickets(user_id)
 
     lines = [
         "🏪 BP 상점\n",
         f"💰 보유 BP: {bp}\n",
         f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
-        f"⚡ 강제스폰권 x1 — {config.BP_FORCE_SPAWN_TICKET_COST} BP (보유: {tickets}개)",
-        f"🔴 포켓볼 충전 100개 — {config.BP_POKEBALL_RESET_COST} BP",
+        f"⚡ 강제스폰권 x1 — {fst_label} (보유: {tickets}개)",
+        f"🔴 포켓볼 충전 100개 — {pb_label}",
+        f"🔵 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
+        f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
         "",
-        "구매: 구매 마스터볼 / 구매 강제스폰 / 구매 포켓볼",
+        "구매: 구매 마스터볼 / 구매 강제스폰 / 구매 포켓볼 / 구매 하이퍼볼 [수량] / 구매 아케이드",
     ]
 
     await update.message.reply_text("\n".join(lines))
@@ -801,8 +899,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        from datetime import datetime
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = config.get_kst_today()
         await queries.add_bonus_catches(user_id, today, 100)
         await bq.log_bp_purchase(user_id, "pokeball_100", 1)
         bp = await bq.get_bp(user_id)
@@ -812,6 +909,58 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🔴 포켓볼 100개 충전 완료!\n"
             f"💰 남은 BP: {bp}\n"
             f"📦 오늘 잡기 가능: {total}회"
+        )
+
+    elif item in ("하이퍼볼", "하이퍼", "ㅎ"):
+        # Support quantity: 구매 하이퍼볼 5
+        qty = 1
+        if len(parts) >= 3:
+            try:
+                qty = max(1, int(parts[2]))
+            except ValueError:
+                qty = 1
+
+        cost = config.BP_HYPER_BALL_COST * qty
+        success = await bq.spend_bp(user_id, cost)
+        if not success:
+            bp = await bq.get_bp(user_id)
+            await update.message.reply_text(
+                f"BP가 부족합니다. (보유: {bp} / 필요: {cost})"
+            )
+            return
+
+        await queries.add_hyper_ball(user_id, qty)
+        await bq.log_bp_purchase(user_id, "hyper_ball", qty)
+        bp = await bq.get_bp(user_id)
+        hyper_balls = await queries.get_hyper_balls(user_id)
+        await update.message.reply_text(
+            f"🔵 하이퍼볼 {qty}개 구매 완료! ({cost} BP)\n"
+            f"💰 남은 BP: {bp}\n"
+            f"📦 보유 하이퍼볼: {hyper_balls}개\n\n"
+            "채팅방에서 'ㅎ'으로 사용하세요!"
+        )
+
+    elif item in ("아케이드", "이용권", "아케이드이용권", "아케이드티켓", "티켓"):
+        # Buy arcade ticket (inventory item, use in group with '아케이드 등록')
+        cost = config.ARCADE_PASS_COST
+        success = await bq.spend_bp(user_id, cost)
+        if not success:
+            bp = await bq.get_bp(user_id)
+            await update.message.reply_text(
+                f"BP가 부족합니다. (보유: {bp} / 필요: {cost})"
+            )
+            return
+
+        await queries.add_arcade_ticket(user_id)
+        await bq.log_bp_purchase(user_id, "arcade_ticket", 1)
+        bp = await bq.get_bp(user_id)
+        tickets = await queries.get_arcade_tickets(user_id)
+        await update.message.reply_text(
+            f"🎮 아케이드 티켓 1개 구매 완료! ({cost} BP)\n"
+            f"💰 남은 BP: {bp}\n"
+            f"📦 보유 티켓: {tickets}개\n\n"
+            "채팅방에서 '아케이드 등록'으로 사용하세요!\n"
+            f"⏱ 사용 시 {config.ARCADE_PASS_DURATION // 60}분간 아케이드 채널화"
         )
 
     else:

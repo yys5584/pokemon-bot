@@ -11,10 +11,10 @@ def close_button() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton("❌", callback_data="close_msg")]])
 
 
-def hearts_display(friendship: int) -> str:
+def hearts_display(friendship: int, max_hearts: int = 5) -> str:
     """Display friendship as hearts: ♥♥♥○○"""
     filled = "♥" * friendship
-    empty = "○" * (5 - friendship)
+    empty = "○" * (max_hearts - friendship)
     return filled + empty
 
 

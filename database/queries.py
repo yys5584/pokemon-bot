@@ -4,6 +4,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from database.connection import get_db, _force_reconnect
+import config as _cfg
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +36,12 @@ async def _retry(fn):
 # ============================================================
 
 async def ensure_user(user_id: int, display_name: str, username: str | None = None):
-    """Register or update a user."""
+    """Register or update a user. New users get welcome bonus (6 master balls + 500 BP)."""
     async def _do():
         pool = await get_db()
         await pool.execute(
-            """INSERT INTO users (user_id, username, display_name)
-               VALUES ($1, $2, $3)
+            """INSERT INTO users (user_id, username, display_name, master_balls, battle_points)
+               VALUES ($1, $2, $3, 6, 500)
                ON CONFLICT(user_id) DO UPDATE SET
                    username = EXCLUDED.username,
                    display_name = EXCLUDED.display_name,
@@ -115,6 +116,34 @@ async def use_master_ball(user_id: int) -> bool:
     return row is not None
 
 
+async def get_hyper_balls(user_id: int) -> int:
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT hyper_balls FROM users WHERE user_id = $1", user_id
+    )
+    return row["hyper_balls"] if row else 0
+
+
+async def add_hyper_ball(user_id: int, count: int = 1):
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET hyper_balls = hyper_balls + $1 WHERE user_id = $2",
+        count, user_id,
+    )
+
+
+async def use_hyper_ball(user_id: int) -> bool:
+    """Use one hyper ball. Returns True if successful (atomic operation)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "UPDATE users SET hyper_balls = hyper_balls - 1 "
+        "WHERE user_id = $1 AND hyper_balls >= 1 "
+        "RETURNING hyper_balls",
+        user_id,
+    )
+    return row is not None
+
+
 # ============================================================
 # Force Spawn Tickets
 # ============================================================
@@ -145,6 +174,79 @@ async def use_force_spawn_ticket(user_id: int) -> bool:
         user_id,
     )
     return row is not None
+
+
+# ============================================================
+# Arcade Pass
+# ============================================================
+
+async def get_arcade_tickets(user_id: int) -> int:
+    """Get user's arcade ticket count."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT arcade_tickets FROM users WHERE user_id = $1", user_id
+    )
+    return row["arcade_tickets"] if row and row["arcade_tickets"] else 0
+
+
+async def add_arcade_ticket(user_id: int, count: int = 1):
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET arcade_tickets = arcade_tickets + $1 WHERE user_id = $2",
+        count, user_id,
+    )
+
+
+async def use_arcade_ticket(user_id: int) -> bool:
+    """Use one arcade ticket. Returns True if successful (atomic)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "UPDATE users SET arcade_tickets = arcade_tickets - 1 "
+        "WHERE user_id = $1 AND arcade_tickets >= 1 "
+        "RETURNING arcade_tickets",
+        user_id,
+    )
+    return row is not None
+
+
+async def get_active_arcade_pass(chat_id: int) -> dict | None:
+    """Get active arcade pass for a chat (temporary 1hr registration)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT * FROM arcade_passes WHERE chat_id = $1 AND is_active = 1 AND expires_at > NOW() ORDER BY expires_at DESC LIMIT 1",
+        chat_id,
+    )
+    return dict(row) if row else None
+
+
+async def create_arcade_pass(chat_id: int, user_id: int, duration_seconds: int) -> dict:
+    """Activate arcade mode for a chat. Returns the pass record."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """INSERT INTO arcade_passes (chat_id, activated_by, expires_at)
+           VALUES ($1, $2, NOW() + make_interval(secs => $3))
+           RETURNING *""",
+        chat_id, user_id, float(duration_seconds),
+    )
+    return dict(row)
+
+
+async def expire_arcade_passes():
+    """Mark expired arcade passes as inactive. Returns list of expired chat_ids."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        "UPDATE arcade_passes SET is_active = 0 WHERE is_active = 1 AND expires_at <= NOW() RETURNING chat_id"
+    )
+    return [r["chat_id"] for r in rows]
+
+
+async def get_all_active_arcade_passes() -> list[dict]:
+    """Get all currently active arcade passes (for startup recovery)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        "SELECT * FROM arcade_passes WHERE is_active = 1 AND expires_at > NOW()"
+    )
+    return [dict(r) for r in rows]
 
 
 # ============================================================
@@ -205,14 +307,15 @@ async def get_all_pokemon() -> list[dict]:
 # ============================================================
 
 async def give_pokemon_to_user(
-    user_id: int, pokemon_id: int, chat_id: int | None = None
+    user_id: int, pokemon_id: int, chat_id: int | None = None,
+    is_shiny: bool = False,
 ) -> int:
     """Add a Pokemon to user's collection. Returns instance id."""
     pool = await get_db()
     row = await pool.fetchrow(
-        """INSERT INTO user_pokemon (user_id, pokemon_id, caught_in_chat_id)
-           VALUES ($1, $2, $3) RETURNING id""",
-        user_id, pokemon_id, chat_id,
+        """INSERT INTO user_pokemon (user_id, pokemon_id, caught_in_chat_id, is_shiny)
+           VALUES ($1, $2, $3, $4) RETURNING id""",
+        user_id, pokemon_id, chat_id, 1 if is_shiny else 0,
     )
     return row["id"]
 
@@ -483,7 +586,8 @@ async def record_spawn_in_chat(chat_id: int):
 # ============================================================
 
 async def create_spawn_session(
-    chat_id: int, pokemon_id: int, expires_at, message_id: int | None = None
+    chat_id: int, pokemon_id: int, expires_at, message_id: int | None = None,
+    is_shiny: bool = False,
 ) -> int:
     async def _do():
         pool = await get_db()
@@ -493,9 +597,9 @@ async def create_spawn_session(
         else:
             exp = expires_at
         row = await pool.fetchrow(
-            """INSERT INTO spawn_sessions (chat_id, pokemon_id, expires_at, message_id)
-               VALUES ($1, $2, $3, $4) RETURNING id""",
-            chat_id, pokemon_id, exp, message_id,
+            """INSERT INTO spawn_sessions (chat_id, pokemon_id, expires_at, message_id, is_shiny)
+               VALUES ($1, $2, $3, $4, $5) RETURNING id""",
+            chat_id, pokemon_id, exp, message_id, 1 if is_shiny else 0,
         )
         return row["id"]
     return await _retry(_do)
@@ -566,12 +670,12 @@ async def cleanup_expired_sessions():
 # Catch Attempts
 # ============================================================
 
-async def record_catch_attempt(session_id: int, user_id: int, used_master_ball: bool = False):
+async def record_catch_attempt(session_id: int, user_id: int, used_master_ball: bool = False, used_hyper_ball: bool = False):
     async def _do():
         pool = await get_db()
         await pool.execute(
-            "INSERT INTO catch_attempts (session_id, user_id, used_master_ball) VALUES ($1, $2, $3)",
-            session_id, user_id, 1 if used_master_ball else 0,
+            "INSERT INTO catch_attempts (session_id, user_id, used_master_ball, used_hyper_ball) VALUES ($1, $2, $3, $4)",
+            session_id, user_id, 1 if used_master_ball else 0, 1 if used_hyper_ball else 0,
         )
     await _retry(_do)
 
@@ -726,7 +830,7 @@ async def recharge_catch_limits():
     Example: user used 10/10 → after recharge, 5/10 used (5 available).
     """
     pool = await get_db()
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = _cfg.get_kst_today()
     await pool.execute(
         """UPDATE catch_limits
            SET attempt_count = GREATEST(0, attempt_count / 2)
@@ -742,16 +846,16 @@ async def recharge_catch_limits():
 async def log_spawn(
     chat_id: int, pokemon_id: int, name: str, emoji: str,
     rarity: str, caught_by_id: int | None, caught_by_name: str | None,
-    participants: int
+    participants: int, is_shiny: bool = False,
 ):
     pool = await get_db()
     await pool.execute(
         """INSERT INTO spawn_log
            (chat_id, pokemon_id, pokemon_name, pokemon_emoji, rarity,
-            caught_by_user_id, caught_by_name, participants)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
+            caught_by_user_id, caught_by_name, participants, is_shiny)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
         chat_id, pokemon_id, name, emoji, rarity,
-        caught_by_id, caught_by_name, participants,
+        caught_by_id, caught_by_name, participants, 1 if is_shiny else 0,
     )
 
 
@@ -784,7 +888,7 @@ async def increment_activity(chat_id: int, hour_bucket: str):
 async def get_recent_activity(chat_id: int, hours: int = 1) -> int:
     """Get total message count in the last N hours."""
     pool = await get_db()
-    cutoff = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d-%H")
+    cutoff = (_cfg.get_kst_now() - timedelta(hours=hours)).strftime("%Y-%m-%d-%H")
     row = await pool.fetchrow(
         """SELECT COALESCE(SUM(message_count), 0) as total FROM chat_activity
            WHERE chat_id = $1 AND hour_bucket >= $2""",
@@ -796,7 +900,7 @@ async def get_recent_activity(chat_id: int, hours: int = 1) -> int:
 async def cleanup_old_activity(days: int = 7):
     """Remove activity records older than N days."""
     pool = await get_db()
-    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d-00")
+    cutoff = (_cfg.get_kst_now() - timedelta(days=days)).strftime("%Y-%m-%d-00")
     await pool.execute(
         "DELETE FROM chat_activity WHERE hour_bucket < $1", cutoff
     )
@@ -1026,7 +1130,7 @@ async def get_total_stats() -> dict:
 async def get_today_stats() -> dict:
     """Get today's spawn/catch counts."""
     pool = await get_db()
-    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today = _cfg.get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
     spawns = await pool.fetchrow(
         "SELECT COUNT(*) as cnt FROM spawn_log WHERE spawned_at >= $1", today
     )
@@ -1188,7 +1292,7 @@ async def update_login_streak(user_id: int):
     """Update login streak. Call on any user activity."""
     pool = await get_db()
     await ensure_title_stats(user_id)
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = _cfg.get_kst_today()
     stats = await get_title_stats(user_id)
     last_date = stats.get("last_active_date")
 
@@ -1196,7 +1300,7 @@ async def update_login_streak(user_id: int):
         return
 
     if last_date:
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        yesterday = (_cfg.get_kst_now() - timedelta(days=1)).strftime("%Y-%m-%d")
         new_streak = (stats.get("login_streak", 0) + 1) if last_date == yesterday else 1
     else:
         new_streak = 1
@@ -1222,6 +1326,28 @@ async def count_common_catches(user_id: int) -> int:
         """SELECT COUNT(*) as cnt FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
            WHERE up.user_id = $1 AND pm.rarity = 'common' AND up.is_active = 1""",
+        user_id,
+    )
+    return row["cnt"] if row else 0
+
+
+async def count_shiny_pokemon(user_id: int) -> int:
+    """Count user's shiny pokemon."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT COUNT(*) as cnt FROM user_pokemon WHERE user_id = $1 AND is_shiny = 1 AND is_active = 1",
+        user_id,
+    )
+    return row["cnt"] if row else 0
+
+
+async def count_shiny_legendary(user_id: int) -> int:
+    """Count user's shiny legendary pokemon."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT COUNT(*) as cnt FROM user_pokemon up
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE up.user_id = $1 AND up.is_shiny = 1 AND pm.rarity = 'legendary' AND up.is_active = 1""",
         user_id,
     )
     return row["cnt"] if row else 0
@@ -1331,7 +1457,7 @@ async def get_masterball_rich(limit: int = 5) -> list[dict]:
 async def get_pokeball_addicts(limit: int = 5) -> list[dict]:
     """포볼 중독자 TOP N — 오늘 보너스 캐치 많은 유저."""
     pool = await get_db()
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = _cfg.get_kst_today()
     rows = await pool.fetch(
         """SELECT u.display_name, cl.bonus_catches
            FROM catch_limits cl
@@ -1449,7 +1575,7 @@ async def get_longest_streak_user() -> dict | None:
 async def get_dau() -> int:
     """오늘 활동한 유저 수 (포획 시도 기준)."""
     pool = await get_db()
-    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today = _cfg.get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
     row = await pool.fetchrow(
         "SELECT COUNT(DISTINCT user_id) as cnt FROM catch_attempts WHERE attempted_at >= $1",
         today,
@@ -1460,8 +1586,7 @@ async def get_dau() -> int:
 async def get_dau_history(days: int = 7) -> list[dict]:
     """최근 N일 DAU 추이."""
     pool = await get_db()
-    from datetime import timedelta
-    since = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)
+    since = _cfg.get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)
     rows = await pool.fetch(
         """SELECT attempted_at::date as day, COUNT(DISTINCT user_id) as dau
            FROM catch_attempts
@@ -1532,7 +1657,7 @@ async def get_economy_health() -> dict:
 async def get_active_chat_rooms_top(limit: int = 5) -> list[dict]:
     """오늘 스폰이 가장 많은 활성 채팅방 TOP N."""
     pool = await get_db()
-    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today = _cfg.get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
     rows = await pool.fetch(
         """SELECT cr.chat_id, cr.chat_title, cr.member_count,
                   COUNT(sl.id) as today_spawns,

@@ -2,7 +2,7 @@
 
 import random
 
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from database import queries
@@ -21,29 +21,26 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Check if group or DM
     if update.effective_chat.type == "private":
+        menu_keyboard = ReplyKeyboardMarkup(
+            [
+                ["📋 상태창", "📖 도감"],
+                ["📦 내포켓몬", "🤝 파트너"],
+                ["⚔️ 팀1", "⚔️ 팀2"],
+                ["🏪 상점", "🏆 배틀전적"],
+                ["🏷️ 칭호", "📋 칭호목록"],
+            ],
+            resize_keyboard=True,
+            input_field_placeholder="명령어를 선택하세요",
+        )
         await update.message.reply_text(
             f"🎮 안녕하세요, {display_name} 트레이너님!\n"
             "포켓몬 봇에 오신 걸 환영합니다!\n"
             "━━━━━━━━━━━━━━━\n\n"
-            "🌿 【포켓몬 수집】\n"
-            "그룹 채팅방에서 야생 포켓몬이 출현하면\n"
-            "ㅊ 입력으로 잡을 수 있어요!\n"
-            "ㅁ 입력으로 마스터볼을 사용하면 100% 포획!\n\n"
-            "🍚 【육성】\n"
-            "잡은 포켓몬에게 밥/놀기로 친밀도를 올리고\n"
-            "친밀도 MAX가 되면 진화할 수 있어요!\n\n"
-            "⚔️ 【배틀】\n"
-            "파트너를 지정하고 팀을 구성해서\n"
-            "그룹 채팅방에서 다른 트레이너와 대전!\n"
-            "승리 시 BP를 얻고 칭호를 해금하세요.\n\n"
-            "🔄 【교환】\n"
-            "다른 트레이너와 포켓몬을 교환할 수 있어요.\n"
-            "일부 포켓몬은 교환으로만 진화해요!\n\n"
-            "📖 【도감 & 칭호】\n"
-            "251종 포켓몬을 모아 도감을 완성하고\n"
-            "다양한 칭호를 해금해보세요!\n\n"
+            "아래 버튼으로 빠르게 이동할 수 있어요!\n"
+            "'상태창'으로 현재 상태를 확인하세요.\n\n"
             "━━━━━━━━━━━━━━━\n"
-            "💡 도움말 — 전체 명령어 보기"
+            "💡 도움말 — 전체 명령어 보기",
+            reply_markup=menu_keyboard,
         )
     else:
         # In group chat, register the chat room

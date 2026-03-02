@@ -2,7 +2,7 @@
 
 import logging
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import config
@@ -217,16 +217,18 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
     for i, p in enumerate(page_pokemon):
         idx = start + i
         num = idx + 1
-        hearts = hearts_display(p["friendship"])
+        max_f = config.get_max_friendship(p)
+        hearts = hearts_display(p["friendship"], max_f)
+        shiny_mark = "✨" if p.get("is_shiny") else ""
 
-        # Mark evolution-ready
+        # Mark evolution-ready (진화는 친밀도 5 이상이면 가능)
         evo_mark = ""
-        if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= 5:
-            evo_mark = " ✨진화가능"
+        if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
+            evo_mark = " ⭐진화가능"
         elif p["evolves_to"] and p["evolution_method"] == "trade":
             evo_mark = " 🔄교환진화"
 
-        lines.append(f"{num}. {p['emoji']} {p['name_ko']}  {hearts}{evo_mark}")
+        lines.append(f"{num}. {shiny_mark}{p['emoji']} {p['name_ko']}  {hearts}{evo_mark}")
 
     lines.append(f"\n번호를 눌러 상세 보기 / 밥·놀기")
 
@@ -267,21 +269,24 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
     total = len(pokemon_list)
     num = idx + 1
 
-    hearts = hearts_display(p["friendship"])
+    max_f = config.get_max_friendship(p)
+    hearts = hearts_display(p["friendship"], max_f)
+    shiny_mark = "✨" if p.get("is_shiny") else ""
 
     evo_text = ""
-    if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= 5:
-        evo_text = "\n✨ 진화 가능! → '진화 " + str(num) + "' 입력"
+    if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
+        evo_text = "\n⭐ 진화 가능! → '진화 " + str(num) + "' 입력"
     elif p["evolves_to"] and p["evolution_method"] == "trade":
         evo_text = "\n🔄 교환으로 진화 가능"
 
     rarity_text = rarity_display(p["rarity"])
+    shiny_text = "  ✨이로치" if p.get("is_shiny") else ""
 
     lines = [
         f"🎒 내 포켓몬 상세 ({num}/{total})\n",
-        f"{p['emoji']} {p['name_ko']}",
+        f"{shiny_mark}{p['emoji']} {p['name_ko']}{shiny_text}",
         f"등급: {rarity_text}",
-        f"친밀도: {hearts}{evo_text}",
+        f"친밀도: {hearts} ({p['friendship']}/{max_f}){evo_text}",
         f"\n💡 밥 {num} / 놀기 {num}",
     ]
 
@@ -858,7 +863,10 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 도감 수
     unique_ids = {p["pokemon_id"] for p in pokemon_list}
+    shiny_count = sum(1 for p in pokemon_list if p.get("is_shiny"))
     lines.append(f"📖 도감: {len(unique_ids)}/251종")
+    if shiny_count > 0:
+        lines.append(f"✨ 이로치: {shiny_count}마리")
 
     # 배틀 전적
     wins = battle_stats.get("battle_wins", 0)
@@ -886,16 +894,43 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append("🤝 파트너: 미지정 ('파트너' 명령어로 설정)")
 
     # 팀
+    active_num = await bq.get_active_team_number(user_id)
+    team2 = await bq.get_battle_team(user_id, 2)
     lines.append("")
     if team:
-        lines.append(f"👥 배틀팀 ({len(team)}/6)")
+        lines.append(f"👥 배틀팀 {active_num} ({len(team)}/6)")
         for i, t in enumerate(team, 1):
             evo = EVO_STAGE_MAP.get(t["pokemon_id"], 3)
             stats = calc_battle_stats(t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo)
             skill = POKEMON_SKILLS.get(t["pokemon_id"], ("몸통박치기", 1.2))
             power = stats["hp"] + stats["atk"] + stats["def"] + stats["spd"]
             lines.append(f"  {i}. {t['emoji']} {t['name_ko']}  💥{skill[0]}  ⚡{power}")
+        if team2:
+            lines.append(f"  (팀2 등록됨: {len(team2)}마리)")
     else:
         lines.append("👥 배틀팀: 미등록 ('팀등록' 명령어로 설정)")
 
-    await update.message.reply_text("\n".join(lines))
+    # 아이템
+    arcade_tickets = await queries.get_arcade_tickets(user_id)
+    hyper_balls = await queries.get_hyper_balls(user_id)
+    if arcade_tickets > 0 or hyper_balls > 0:
+        lines.append("")
+    if arcade_tickets > 0:
+        lines.append(f"🎮 아케이드 티켓: {arcade_tickets}개")
+    if hyper_balls > 0:
+        lines.append(f"🔵 하이퍼볼: {hyper_balls}개")
+
+    # DM 메뉴 키보드
+    menu_keyboard = ReplyKeyboardMarkup(
+        [
+            ["📋 상태창", "📖 도감"],
+            ["📦 내포켓몬", "🤝 파트너"],
+            ["⚔️ 팀1", "⚔️ 팀2"],
+            ["🏪 상점", "🏆 배틀전적"],
+            ["🏷️ 칭호", "📋 칭호목록"],
+        ],
+        resize_keyboard=True,
+        input_field_placeholder="명령어를 선택하세요",
+    )
+
+    await update.message.reply_text("\n".join(lines), reply_markup=menu_keyboard)

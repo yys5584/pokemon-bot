@@ -36,9 +36,12 @@ async def get_partner(user_id: int) -> dict | None:
 # Battle Team
 # ============================================================
 
-async def get_battle_team(user_id: int) -> list[dict]:
-    """Get user's battle team in slot order."""
+async def get_battle_team(user_id: int, team_number: int | None = None) -> list[dict]:
+    """Get user's battle team in slot order. If team_number is None, use active_team."""
     pool = await get_db()
+    if team_number is None:
+        row = await pool.fetchrow("SELECT active_team FROM users WHERE user_id = $1", user_id)
+        team_number = row["active_team"] if row else 1
     rows = await pool.fetch(
         """SELECT bt.slot, bt.pokemon_instance_id,
                   up.pokemon_id, up.friendship,
@@ -47,31 +50,54 @@ async def get_battle_team(user_id: int) -> list[dict]:
            FROM battle_teams bt
            JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
-           WHERE bt.user_id = $1 AND up.is_active = 1
+           WHERE bt.user_id = $1 AND bt.team_number = $2 AND up.is_active = 1
            ORDER BY bt.slot""",
-        user_id,
+        user_id, team_number,
     )
     return [dict(r) for r in rows]
 
 
-async def set_battle_team(user_id: int, instance_ids: list[int]):
-    """Set user's battle team. Replaces existing team."""
+async def set_battle_team(user_id: int, instance_ids: list[int], team_number: int = 1):
+    """Set user's battle team. Replaces existing team for given team_number."""
     pool = await get_db()
-    # Clear existing team
-    await pool.execute("DELETE FROM battle_teams WHERE user_id = $1", user_id)
-    # Insert new team
+    await pool.execute(
+        "DELETE FROM battle_teams WHERE user_id = $1 AND team_number = $2",
+        user_id, team_number,
+    )
     for slot, inst_id in enumerate(instance_ids, 1):
         await pool.execute(
-            """INSERT INTO battle_teams (user_id, slot, pokemon_instance_id)
-               VALUES ($1, $2, $3)""",
-            user_id, slot, inst_id,
+            """INSERT INTO battle_teams (user_id, slot, pokemon_instance_id, team_number)
+               VALUES ($1, $2, $3, $4)""",
+            user_id, slot, inst_id, team_number,
         )
 
 
-async def clear_battle_team(user_id: int):
-    """Remove all pokemon from user's battle team."""
+async def clear_battle_team(user_id: int, team_number: int | None = None):
+    """Remove pokemon from user's battle team. If team_number is None, clear all."""
     pool = await get_db()
-    await pool.execute("DELETE FROM battle_teams WHERE user_id = $1", user_id)
+    if team_number is None:
+        await pool.execute("DELETE FROM battle_teams WHERE user_id = $1", user_id)
+    else:
+        await pool.execute(
+            "DELETE FROM battle_teams WHERE user_id = $1 AND team_number = $2",
+            user_id, team_number,
+        )
+
+
+async def set_active_team(user_id: int, team_number: int):
+    """Set which team to use in battles (1 or 2)."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET active_team = $1 WHERE user_id = $2",
+        team_number, user_id,
+    )
+
+
+async def get_active_team_number(user_id: int) -> int:
+    """Get user's active team number."""
+    pool = await get_db()
+    row = await pool.fetchrow("SELECT active_team FROM users WHERE user_id = $1", user_id)
+    return row["active_team"] if row else 1
 
 
 async def validate_team_pokemon(user_id: int, instance_ids: list[int]) -> list[dict]:
