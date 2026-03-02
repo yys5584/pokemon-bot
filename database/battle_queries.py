@@ -329,3 +329,30 @@ async def get_user_pokemon_for_battle(user_id: int) -> list[dict]:
         user_id,
     )
     return [dict(r) for r in rows]
+
+
+# ============================================================
+# BP Purchase Log (persistent daily limit)
+# ============================================================
+
+async def get_bp_purchases_today(user_id: int, item: str) -> int:
+    """Get how many of an item a user purchased today."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT COALESCE(SUM(amount), 0) as total
+           FROM bp_purchase_log
+           WHERE user_id = $1 AND item = $2
+             AND purchased_at::date = CURRENT_DATE""",
+        user_id, item,
+    )
+    return row["total"] if row else 0
+
+
+async def log_bp_purchase(user_id: int, item: str, amount: int = 1):
+    """Log a BP shop purchase."""
+    pool = await get_db()
+    await pool.execute(
+        """INSERT INTO bp_purchase_log (user_id, item, amount)
+           VALUES ($1, $2, $3)""",
+        user_id, item, amount,
+    )

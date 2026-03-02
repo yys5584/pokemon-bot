@@ -265,6 +265,18 @@ BATTLE_TABLES = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_battle_records_winner ON battle_records(winner_id)",
     "CREATE INDEX IF NOT EXISTS idx_battle_records_loser ON battle_records(loser_id)",
+
+    # BP purchase log (persistent daily limit tracking)
+    """
+    CREATE TABLE IF NOT EXISTS bp_purchase_log (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES users(user_id),
+        item TEXT NOT NULL,
+        amount INTEGER NOT NULL DEFAULT 1,
+        purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_bp_purchase_log_user_date ON bp_purchase_log(user_id, purchased_at)",
 ]
 
 

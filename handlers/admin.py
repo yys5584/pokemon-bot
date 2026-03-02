@@ -156,8 +156,18 @@ async def force_spawn_reset_handler(update: Update, context: ContextTypes.DEFAUL
         return
 
     user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    # Allow bot admins + group admins (same as force_spawn)
     if not is_admin(user_id):
-        return
+        if update.effective_chat.type == "private":
+            return
+        try:
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            if member.status not in ("creator", "administrator"):
+                return
+        except Exception:
+            return
 
     await queries.reset_force_spawn_counts()
     await update.message.reply_text("✅ 모든 방의 강제스폰 횟수가 초기화되었습니다!")
