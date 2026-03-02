@@ -1,0 +1,274 @@
+"""Battle-related data for all 251 Pokemon (type and stat spread)."""
+
+# (pokemon_type, stat_type)
+# pokemon_type: one of "normal", "fire", "water", "grass", "electric", "ice", "fighting", "psychic", "dragon", "dark"
+# stat_type: one of "offensive", "defensive", "balanced", "speedy"
+#
+# Type mapping from 18 original types to 10 simplified types:
+# - poison -> dark
+# - flying -> normal
+# - bug -> grass
+# - rock -> fighting
+# - ground -> fighting
+# - ghost -> dark
+# - steel -> fighting
+# - fairy -> psychic
+#
+# For dual-type Pokemon, use the PRIMARY type (first listed in the games).
+# stat_type is based on the Pokemon's BST distribution in the main games.
+
+POKEMON_BATTLE_DATA = {
+    # Gen 1 (1-151)
+    1: ("grass", "balanced"),       # Bulbasaur
+    2: ("grass", "balanced"),       # Ivysaur
+    3: ("grass", "balanced"),       # Venusaur
+    4: ("fire", "offensive"),       # Charmander
+    5: ("fire", "offensive"),       # Charmeleon
+    6: ("fire", "offensive"),       # Charizard
+    7: ("water", "defensive"),      # Squirtle
+    8: ("water", "defensive"),      # Wartortle
+    9: ("water", "defensive"),      # Blastoise
+    10: ("grass", "balanced"),      # Caterpie
+    11: ("grass", "defensive"),     # Metapod
+    12: ("grass", "balanced"),      # Butterfree
+    13: ("grass", "balanced"),      # Weedle
+    14: ("grass", "defensive"),     # Kakuna
+    15: ("grass", "offensive"),     # Beedrill
+    16: ("normal", "balanced"),     # Pidgey
+    17: ("normal", "balanced"),     # Pidgeotto
+    18: ("normal", "speedy"),       # Pidgeot
+    19: ("normal", "speedy"),       # Rattata
+    20: ("normal", "speedy"),       # Raticate
+    21: ("normal", "offensive"),    # Spearow
+    22: ("normal", "offensive"),    # Fearow
+    23: ("dark", "balanced"),       # Ekans
+    24: ("dark", "offensive"),      # Arbok
+    25: ("electric", "speedy"),     # Pikachu
+    26: ("electric", "speedy"),     # Raichu
+    27: ("fighting", "defensive"),  # Sandshrew
+    28: ("fighting", "offensive"),  # Sandslash
+    29: ("dark", "balanced"),       # Nidoran F
+    30: ("dark", "balanced"),       # Nidorina
+    31: ("dark", "defensive"),      # Nidoqueen
+    32: ("dark", "balanced"),       # Nidoran M
+    33: ("dark", "balanced"),       # Nidorino
+    34: ("dark", "offensive"),      # Nidoking
+    35: ("psychic", "balanced"),    # Clefairy
+    36: ("psychic", "balanced"),    # Clefable
+    37: ("fire", "speedy"),         # Vulpix
+    38: ("fire", "speedy"),         # Ninetales
+    39: ("normal", "balanced"),     # Jigglypuff
+    40: ("normal", "balanced"),     # Wigglytuff
+    41: ("dark", "speedy"),         # Zubat
+    42: ("dark", "speedy"),         # Golbat
+    43: ("grass", "balanced"),      # Oddish
+    44: ("grass", "balanced"),      # Gloom
+    45: ("grass", "balanced"),      # Vileplume
+    46: ("grass", "balanced"),      # Paras
+    47: ("grass", "balanced"),      # Parasect
+    48: ("grass", "balanced"),      # Venonat
+    49: ("grass", "speedy"),        # Venomoth
+    50: ("fighting", "speedy"),     # Diglett
+    51: ("fighting", "speedy"),     # Dugtrio
+    52: ("normal", "speedy"),       # Meowth
+    53: ("normal", "speedy"),       # Persian
+    54: ("water", "balanced"),      # Psyduck
+    55: ("water", "balanced"),      # Golduck
+    56: ("fighting", "offensive"),  # Mankey
+    57: ("fighting", "offensive"),  # Primeape
+    58: ("fire", "balanced"),       # Growlithe
+    59: ("fire", "balanced"),       # Arcanine
+    60: ("water", "balanced"),      # Poliwag
+    61: ("water", "balanced"),      # Poliwhirl
+    62: ("water", "offensive"),     # Poliwrath
+    63: ("psychic", "speedy"),      # Abra
+    64: ("psychic", "speedy"),      # Kadabra
+    65: ("psychic", "speedy"),      # Alakazam
+    66: ("fighting", "offensive"),  # Machop
+    67: ("fighting", "offensive"),  # Machoke
+    68: ("fighting", "offensive"),  # Machamp
+    69: ("grass", "offensive"),     # Bellsprout
+    70: ("grass", "offensive"),     # Weepinbell
+    71: ("grass", "offensive"),     # Victreebel
+    72: ("water", "balanced"),      # Tentacool
+    73: ("water", "defensive"),     # Tentacruel
+    74: ("fighting", "defensive"),  # Geodude
+    75: ("fighting", "defensive"),  # Graveler
+    76: ("fighting", "defensive"),  # Golem
+    77: ("fire", "speedy"),         # Ponyta
+    78: ("fire", "speedy"),         # Rapidash
+    79: ("water", "defensive"),     # Slowpoke
+    80: ("water", "defensive"),     # Slowbro
+    81: ("electric", "balanced"),   # Magnemite
+    82: ("electric", "balanced"),   # Magneton
+    83: ("normal", "balanced"),     # Farfetch'd
+    84: ("normal", "speedy"),       # Doduo
+    85: ("normal", "speedy"),       # Dodrio
+    86: ("water", "balanced"),      # Seel
+    87: ("water", "defensive"),     # Dewgong
+    88: ("dark", "balanced"),       # Grimer
+    89: ("dark", "balanced"),       # Muk
+    90: ("water", "defensive"),     # Shellder
+    91: ("water", "defensive"),     # Cloyster
+    92: ("dark", "speedy"),         # Gastly
+    93: ("dark", "speedy"),         # Haunter
+    94: ("dark", "speedy"),         # Gengar
+    95: ("fighting", "defensive"),  # Onix
+    96: ("psychic", "balanced"),    # Drowzee
+    97: ("psychic", "balanced"),    # Hypno
+    98: ("water", "offensive"),     # Krabby
+    99: ("water", "offensive"),     # Kingler
+    100: ("electric", "speedy"),    # Voltorb
+    101: ("electric", "speedy"),    # Electrode
+    102: ("grass", "balanced"),     # Exeggcute
+    103: ("grass", "offensive"),    # Exeggutor
+    104: ("fighting", "balanced"),  # Cubone
+    105: ("fighting", "offensive"), # Marowak
+    106: ("fighting", "offensive"), # Hitmonlee
+    107: ("fighting", "balanced"),  # Hitmonchan
+    108: ("normal", "defensive"),   # Lickitung
+    109: ("dark", "defensive"),     # Koffing
+    110: ("dark", "defensive"),     # Weezing
+    111: ("fighting", "defensive"), # Rhyhorn
+    112: ("fighting", "offensive"), # Rhydon
+    113: ("normal", "defensive"),   # Chansey
+    114: ("grass", "defensive"),    # Tangela
+    115: ("normal", "balanced"),    # Kangaskhan
+    116: ("water", "balanced"),     # Horsea
+    117: ("water", "balanced"),     # Seadra
+    118: ("water", "balanced"),     # Goldeen
+    119: ("water", "balanced"),     # Seaking
+    120: ("water", "speedy"),       # Staryu
+    121: ("water", "speedy"),       # Starmie
+    122: ("psychic", "defensive"),  # Mr. Mime
+    123: ("grass", "speedy"),       # Scyther
+    124: ("ice", "offensive"),      # Jynx
+    125: ("electric", "offensive"), # Electabuzz
+    126: ("fire", "offensive"),     # Magmar
+    127: ("grass", "offensive"),    # Pinsir
+    128: ("normal", "offensive"),   # Tauros
+    129: ("water", "balanced"),     # Magikarp
+    130: ("water", "offensive"),    # Gyarados
+    131: ("ice", "defensive"),      # Lapras
+    132: ("normal", "balanced"),    # Ditto
+    133: ("normal", "balanced"),    # Eevee
+    134: ("water", "defensive"),    # Vaporeon
+    135: ("electric", "speedy"),    # Jolteon
+    136: ("fire", "offensive"),     # Flareon
+    137: ("normal", "balanced"),    # Porygon
+    138: ("water", "defensive"),    # Omanyte
+    139: ("water", "offensive"),    # Omastar
+    140: ("water", "balanced"),     # Kabuto
+    141: ("water", "offensive"),    # Kabutops
+    142: ("fighting", "speedy"),    # Aerodactyl
+    143: ("normal", "defensive"),   # Snorlax
+    144: ("ice", "defensive"),      # Articuno
+    145: ("electric", "offensive"), # Zapdos
+    146: ("fire", "offensive"),     # Moltres
+    147: ("dragon", "balanced"),    # Dratini
+    148: ("dragon", "balanced"),    # Dragonair
+    149: ("dragon", "offensive"),   # Dragonite
+    150: ("psychic", "offensive"),  # Mewtwo
+    151: ("psychic", "balanced"),   # Mew
+    # Gen 2 (152-251)
+    152: ("grass", "balanced"),     # Chikorita
+    153: ("grass", "balanced"),     # Bayleef
+    154: ("grass", "defensive"),    # Meganium
+    155: ("fire", "offensive"),     # Cyndaquil
+    156: ("fire", "offensive"),     # Quilava
+    157: ("fire", "offensive"),     # Typhlosion
+    158: ("water", "offensive"),    # Totodile
+    159: ("water", "balanced"),     # Croconaw
+    160: ("water", "offensive"),    # Feraligatr
+    161: ("normal", "balanced"),    # Sentret
+    162: ("normal", "speedy"),      # Furret
+    163: ("normal", "balanced"),    # Hoothoot
+    164: ("normal", "balanced"),    # Noctowl
+    165: ("grass", "balanced"),     # Ledyba
+    166: ("grass", "balanced"),     # Ledian
+    167: ("grass", "balanced"),     # Spinarak
+    168: ("grass", "balanced"),     # Ariados
+    169: ("dark", "speedy"),        # Crobat
+    170: ("water", "balanced"),     # Chinchou
+    171: ("water", "balanced"),     # Lanturn
+    172: ("electric", "speedy"),    # Pichu
+    173: ("psychic", "balanced"),   # Cleffa
+    174: ("normal", "balanced"),    # Igglybuff
+    175: ("psychic", "balanced"),   # Togepi
+    176: ("psychic", "balanced"),   # Togetic
+    177: ("psychic", "balanced"),   # Natu
+    178: ("psychic", "balanced"),   # Xatu
+    179: ("electric", "balanced"),  # Mareep
+    180: ("electric", "balanced"),  # Flaaffy
+    181: ("electric", "offensive"), # Ampharos
+    182: ("grass", "balanced"),     # Bellossom
+    183: ("water", "balanced"),     # Marill
+    184: ("water", "balanced"),     # Azumarill
+    185: ("fighting", "defensive"), # Sudowoodo
+    186: ("water", "balanced"),     # Politoed
+    187: ("grass", "balanced"),     # Hoppip
+    188: ("grass", "balanced"),     # Skiploom
+    189: ("grass", "speedy"),       # Jumpluff
+    190: ("normal", "speedy"),      # Aipom
+    191: ("grass", "balanced"),     # Sunkern
+    192: ("grass", "offensive"),    # Sunflora
+    193: ("grass", "speedy"),       # Yanma
+    194: ("water", "balanced"),     # Wooper
+    195: ("water", "defensive"),    # Quagsire
+    196: ("psychic", "speedy"),     # Espeon
+    197: ("dark", "defensive"),     # Umbreon
+    198: ("dark", "speedy"),        # Murkrow
+    199: ("water", "defensive"),    # Slowking
+    200: ("dark", "balanced"),      # Misdreavus
+    201: ("psychic", "balanced"),   # Unown
+    202: ("psychic", "defensive"),  # Wobbuffet
+    203: ("psychic", "balanced"),   # Girafarig
+    204: ("grass", "defensive"),    # Pineco
+    205: ("grass", "defensive"),    # Forretress
+    206: ("normal", "balanced"),    # Dunsparce
+    207: ("fighting", "balanced"),  # Gligar
+    208: ("fighting", "defensive"), # Steelix
+    209: ("psychic", "balanced"),   # Snubbull
+    210: ("psychic", "offensive"),  # Granbull
+    211: ("water", "balanced"),     # Qwilfish
+    212: ("grass", "offensive"),    # Scizor
+    213: ("grass", "defensive"),    # Shuckle
+    214: ("fighting", "offensive"), # Heracross
+    215: ("dark", "speedy"),        # Sneasel
+    216: ("normal", "offensive"),   # Teddiursa
+    217: ("normal", "offensive"),   # Ursaring
+    218: ("fire", "balanced"),      # Slugma
+    219: ("fire", "defensive"),     # Magcargo
+    220: ("ice", "balanced"),       # Swinub
+    221: ("ice", "offensive"),      # Piloswine
+    222: ("water", "defensive"),    # Corsola
+    223: ("water", "offensive"),    # Remoraid
+    224: ("water", "offensive"),    # Octillery
+    225: ("ice", "balanced"),       # Delibird
+    226: ("water", "defensive"),    # Mantine
+    227: ("fighting", "defensive"), # Skarmory
+    228: ("dark", "offensive"),     # Houndour
+    229: ("dark", "offensive"),     # Houndoom
+    230: ("dragon", "balanced"),    # Kingdra
+    231: ("fighting", "balanced"),  # Phanpy
+    232: ("fighting", "offensive"), # Donphan
+    233: ("normal", "balanced"),    # Porygon2
+    234: ("normal", "balanced"),    # Stantler
+    235: ("normal", "balanced"),    # Smeargle
+    236: ("fighting", "balanced"),  # Tyrogue
+    237: ("fighting", "balanced"),  # Hitmontop
+    238: ("ice", "offensive"),      # Smoochum
+    239: ("electric", "speedy"),    # Elekid
+    240: ("fire", "offensive"),     # Magby
+    241: ("normal", "defensive"),   # Miltank
+    242: ("normal", "defensive"),   # Blissey
+    243: ("electric", "offensive"), # Raikou
+    244: ("fire", "offensive"),     # Entei
+    245: ("water", "defensive"),    # Suicune
+    246: ("fighting", "balanced"),  # Larvitar
+    247: ("fighting", "balanced"),  # Pupitar
+    248: ("dark", "offensive"),     # Tyranitar
+    249: ("psychic", "defensive"),  # Lugia
+    250: ("fire", "offensive"),     # Ho-Oh
+    251: ("psychic", "balanced"),   # Celebi
+}

@@ -201,6 +201,56 @@ TABLES = [
 ]
 
 
+BATTLE_TABLES = [
+    # Battle teams (up to 6 pokemon per user)
+    """
+    CREATE TABLE IF NOT EXISTS battle_teams (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES users(user_id),
+        slot INTEGER NOT NULL CHECK(slot BETWEEN 1 AND 6),
+        pokemon_instance_id INTEGER NOT NULL REFERENCES user_pokemon(id),
+        UNIQUE(user_id, slot),
+        UNIQUE(user_id, pokemon_instance_id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_battle_teams_user ON battle_teams(user_id)",
+
+    # Battle challenges (pending/accepted/declined/expired)
+    """
+    CREATE TABLE IF NOT EXISTS battle_challenges (
+        id SERIAL PRIMARY KEY,
+        challenger_id BIGINT NOT NULL REFERENCES users(user_id),
+        defender_id BIGINT NOT NULL REFERENCES users(user_id),
+        chat_id BIGINT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+            CHECK(status IN ('pending', 'accepted', 'declined', 'expired')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL
+    )
+    """,
+
+    # Battle records (completed battles)
+    """
+    CREATE TABLE IF NOT EXISTS battle_records (
+        id SERIAL PRIMARY KEY,
+        challenge_id INTEGER REFERENCES battle_challenges(id),
+        chat_id BIGINT NOT NULL,
+        winner_id BIGINT REFERENCES users(user_id),
+        loser_id BIGINT REFERENCES users(user_id),
+        winner_team_size INTEGER NOT NULL,
+        loser_team_size INTEGER NOT NULL,
+        winner_remaining INTEGER NOT NULL,
+        total_rounds INTEGER NOT NULL,
+        battle_log TEXT,
+        bp_earned INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_battle_records_winner ON battle_records(winner_id)",
+    "CREATE INDEX IF NOT EXISTS idx_battle_records_loser ON battle_records(loser_id)",
+]
+
+
 MIGRATIONS = [
     # Add spawn_multiplier to existing chat_rooms
     "ALTER TABLE chat_rooms ADD COLUMN spawn_multiplier REAL NOT NULL DEFAULT 1.0",
@@ -212,6 +262,17 @@ MIGRATIONS = [
     "ALTER TABLE catch_limits ADD COLUMN bonus_catches INTEGER NOT NULL DEFAULT 0",
     # Add force_spawn_count to chat_rooms
     "ALTER TABLE chat_rooms ADD COLUMN force_spawn_count INTEGER NOT NULL DEFAULT 0",
+    # --- Battle system ---
+    # Add pokemon_type and stat_type to pokemon_master
+    "ALTER TABLE pokemon_master ADD COLUMN pokemon_type TEXT NOT NULL DEFAULT 'normal'",
+    "ALTER TABLE pokemon_master ADD COLUMN stat_type TEXT NOT NULL DEFAULT 'balanced'",
+    # Add battle stats to users
+    "ALTER TABLE users ADD COLUMN partner_pokemon_id INTEGER",
+    "ALTER TABLE users ADD COLUMN battle_wins INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN battle_losses INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN battle_streak INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN best_streak INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN battle_points INTEGER NOT NULL DEFAULT 0",
 ]
 
 
@@ -220,10 +281,12 @@ async def create_tables():
     db = await get_db()
     for sql in TABLES:
         await db.execute(sql)
+    # Battle tables
+    for sql in BATTLE_TABLES:
+        await db.execute(sql)
     # Run migrations (ignore if already applied)
     for mig in MIGRATIONS:
         try:
             await db.execute(mig)
         except Exception:
             pass
-    await db.commit()
