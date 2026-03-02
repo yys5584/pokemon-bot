@@ -128,6 +128,15 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         if session is None:
             return
 
+        # Double-check session is not already resolved (race condition guard)
+        from database.connection import get_db
+        pool = await get_db()
+        row = await pool.fetchrow(
+            "SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]
+        )
+        if not row or row["is_resolved"] == 1:
+            return
+
         # Check if already attempted
         already = await queries.has_attempted_session(session["id"], user_id)
         if already:

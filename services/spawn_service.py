@@ -273,6 +273,12 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             logger.debug(f"Session {session_id} already resolved, skipping")
             return
 
+        # Mark as resolved FIRST to prevent race condition with catch/master ball handlers
+        await pool.execute(
+            "UPDATE spawn_sessions SET is_resolved = 1 WHERE id = $1",
+            session_id,
+        )
+
         # Get all catch attempts
         attempts = await queries.get_session_attempts(session_id)
 
