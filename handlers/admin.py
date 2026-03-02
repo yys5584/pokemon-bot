@@ -232,6 +232,29 @@ async def force_spawn_reset_handler(update: Update, context: ContextTypes.DEFAUL
     await update.message.reply_text("✅ 모든 방의 강제스폰 횟수가 초기화되었습니다!")
 
 
+async def pokeball_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '포켓볼초기화' command - reset all users' catch limits."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    # Allow bot admins + group admins
+    if not is_admin(user_id):
+        if update.effective_chat.type == "private":
+            return
+        try:
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            if member.status not in ("creator", "administrator"):
+                return
+        except Exception:
+            return
+
+    await queries.reset_catch_limits()
+    await update.message.reply_text("✅ 모든 유저의 포켓볼(잡기 횟수)이 초기화되었습니다!")
+
+
 # ============================================================
 # Event Management (DM only, bot admin only)
 # ============================================================
