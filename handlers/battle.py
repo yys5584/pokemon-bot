@@ -1011,13 +1011,17 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
 
         await query.answer()
 
-        # Remove buttons and append teabag message
-        original_text = query.message.text or ""
-        teabag_text = f"\n\n🫖 {w_name}이(가) {l_name}을(를) 조롱했다!"
+        # Remove buttons from result message
         try:
-            await query.edit_message_text(
-                original_text + teabag_text,
-                parse_mode=None,
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+        # Send teabag as new message in chat
+        try:
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text=f"🫖 {w_name}이(가) {l_name}을(를) 조롱했다!",
             )
         except Exception:
             pass
