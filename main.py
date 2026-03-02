@@ -1,5 +1,6 @@
 """Pokemon Telegram Bot — Entry Point."""
 
+import asyncio
 import logging
 import os
 from datetime import time as dt_time, timezone, timedelta
@@ -82,6 +83,30 @@ async def post_init(application: Application):
     # Start dashboard web server
     await start_dashboard()
     logger.info("Dashboard server started.")
+
+    # Notify recently active users about restart
+    asyncio.create_task(_notify_restart(application.bot))
+
+
+async def _notify_restart(bot):
+    """Send restart notification to recently active users."""
+    try:
+        active_ids = await queries.get_recently_active_user_ids(minutes=10)
+        if not active_ids:
+            return
+        msg = "🔄 패치가 진행되어 봇이 재시작되었습니다. 정상 운영 중!"
+        sent = 0
+        for uid in active_ids:
+            try:
+                await bot.send_message(chat_id=uid, text=msg)
+                sent += 1
+            except Exception:
+                pass
+            if sent % 25 == 0 and sent > 0:
+                await asyncio.sleep(1)
+        logger.info(f"Restart notification sent to {sent}/{len(active_ids)} active users")
+    except Exception as e:
+        logger.error(f"Restart notification error: {e}")
 
 
 async def post_shutdown(application: Application):

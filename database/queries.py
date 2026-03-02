@@ -65,6 +65,16 @@ async def get_all_user_ids() -> list[int]:
     return [r["user_id"] for r in rows]
 
 
+async def get_recently_active_user_ids(minutes: int = 10) -> list[int]:
+    """Get user IDs active within the last N minutes."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        "SELECT user_id FROM users WHERE last_active_at >= NOW() - $1 * INTERVAL '1 minute'",
+        minutes,
+    )
+    return [r["user_id"] for r in rows]
+
+
 async def update_user_title(user_id: int, title: str, title_emoji: str):
     pool = await get_db()
     await pool.execute(
