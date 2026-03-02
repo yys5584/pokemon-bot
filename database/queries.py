@@ -58,6 +58,13 @@ async def get_user(user_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+async def get_all_user_ids() -> list[int]:
+    """Get all registered user IDs."""
+    pool = await get_db()
+    rows = await pool.fetch("SELECT user_id FROM users")
+    return [r["user_id"] for r in rows]
+
+
 async def update_user_title(user_id: int, title: str, title_emoji: str):
     pool = await get_db()
     await pool.execute(

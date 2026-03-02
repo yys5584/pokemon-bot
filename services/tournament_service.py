@@ -70,6 +70,43 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
     )
     logger.info(f"Tournament registration started for chat {chat_id}")
 
+    # Send DM notification to all users
+    asyncio.create_task(_broadcast_tournament_dm(context))
+
+
+async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
+    """Send DM to all registered users about tournament registration."""
+    try:
+        user_ids = await queries.get_all_user_ids()
+        logger.info(f"Broadcasting tournament DM to {len(user_ids)} users")
+
+        msg = (
+            "🏟️ 오늘 밤 아케이드 토너먼트!\n\n"
+            "⏰ 21:00~22:00 등록 / 22:00 대회 시작\n"
+            "📋 아케이드 채널에서 ㄷ 입력으로 참가\n"
+            "⚔️ 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
+            "🏆 우승: 마스터볼 2개 + 200 BP\n"
+            "🥈 준우승: 100 BP\n"
+            "🏅 4강: 50 BP\n\n"
+            "최초 우승자에겐 특별 칭호 🏛️초대 챔피언!\n\n"
+            "👉 https://t.me/tg_poke"
+        )
+
+        sent = 0
+        for uid in user_ids:
+            try:
+                await context.bot.send_message(chat_id=uid, text=msg)
+                sent += 1
+            except Exception:
+                pass  # User blocked bot or never started DM
+            # Rate limit: ~30 msgs/sec → sleep every 25
+            if sent % 25 == 0:
+                await asyncio.sleep(1)
+
+        logger.info(f"Tournament DM sent to {sent}/{len(user_ids)} users")
+    except Exception as e:
+        logger.error(f"Tournament DM broadcast error: {e}", exc_info=True)
+
 
 async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
     """Register a player for the tournament. Returns (success, message)."""
