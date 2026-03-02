@@ -132,6 +132,15 @@ UNLOCKABLE_TITLES = {
     "rare_hunter":  ("레어 헌터",      "💎", "에픽+전설 10마리 포획",    "rare_catch", 10),
     # 출석
     "diligent":     ("개근상",         "📅", "7일 연속 출석",           "streak", 7),
+    # 배틀 칭호
+    "battle_first":    ("첫 배틀",       "⚔️", "배틀 1회 참여",     "battle_total", 1),
+    "battle_fighter":  ("배틀 파이터",   "🥊", "배틀 5승 달성",     "battle_wins", 5),
+    "battle_champion": ("배틀 챔피언",   "🏆", "배틀 20승 달성",    "battle_wins", 20),
+    "battle_legend":   ("배틀 레전드",   "👑", "배틀 50승 달성",    "battle_wins", 50),
+    "battle_streak3":  ("연승 전사",     "🔥", "3연승 달성",        "battle_streak", 3),
+    "battle_streak10": ("무적의 전사",   "💫", "10연승 달성",       "battle_streak", 10),
+    "battle_sweep":    ("완벽한 승리",   "✨", "무피해 완승",       "battle_sweep", 1),
+    "partner_set":     ("나의 파트너",   "🤝", "파트너 포켓몬 지정", "partner_set", 1),
 }
 
 # --- Trade Evolution Pokemon IDs ---

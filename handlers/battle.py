@@ -79,6 +79,10 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"배틀 시 파트너가 팀에 포함되면 ATK +5% 보너스!"
     )
 
+    # Unlock partner title
+    if not await queries.has_title(user_id, "partner_set"):
+        await queries.unlock_title(user_id, "partner_set")
+
 
 # ============================================================
 # Battle Team (/팀, /팀등록, /팀해제)

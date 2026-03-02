@@ -61,6 +61,24 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
             unlocked = rare >= threshold
         elif check_type == "streak":
             unlocked = stats.get("login_streak", 0) >= threshold
+        # Battle titles (checked here for 칭호목록, also checked in battle_service)
+        elif check_type in ("battle_total", "battle_wins", "battle_streak", "battle_sweep", "partner_set"):
+            try:
+                from database import battle_queries as bq
+                battle_stats = await bq.get_battle_stats(user_id)
+                total_battles = battle_stats["battle_wins"] + battle_stats["battle_losses"]
+                if check_type == "battle_total":
+                    unlocked = total_battles >= threshold
+                elif check_type == "battle_wins":
+                    unlocked = battle_stats["battle_wins"] >= threshold
+                elif check_type == "battle_streak":
+                    unlocked = battle_stats["best_streak"] >= threshold
+                elif check_type == "partner_set":
+                    partner = await bq.get_partner(user_id)
+                    unlocked = partner is not None
+                # battle_sweep is only checked in battle_service.py
+            except Exception:
+                pass
 
         if unlocked:
             was_new = await queries.unlock_title(user_id, title_id)
