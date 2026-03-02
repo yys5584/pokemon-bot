@@ -134,6 +134,15 @@ UNLOCKABLE_TITLES = {
     "rare_hunter":  ("레어 헌터",      "💎", "에픽+전설 10마리 포획",    "rare_catch", 10),
     # 출석
     "diligent":     ("개근상",         "📅", "7일 연속 출석",           "streak", 7),
+    # 배틀 칭호
+    "battle_first":    ("첫 배틀",       "⚔️", "배틀 1회 참여",     "battle_total", 1),
+    "battle_fighter":  ("배틀 파이터",   "🥊", "배틀 5승 달성",     "battle_wins", 5),
+    "battle_champion": ("배틀 챔피언",   "🏆", "배틀 20승 달성",    "battle_wins", 20),
+    "battle_legend":   ("배틀 레전드",   "👑", "배틀 50승 달성",    "battle_wins", 50),
+    "battle_streak3":  ("연승 전사",     "🔥", "3연승 달성",        "battle_streak", 3),
+    "battle_streak10": ("무적의 전사",   "💫", "10연승 달성",       "battle_streak", 10),
+    "battle_sweep":    ("완벽한 승리",   "✨", "무피해 완승",       "battle_sweep", 1),
+    "partner_set":     ("나의 파트너",   "🤝", "파트너 포켓몬 지정", "partner_set", 1),
 }
 
 # --- Trade Evolution Pokemon IDs ---
@@ -214,3 +223,87 @@ EVENT_TEMPLATES = {
         "description": "💕 친밀도 2배! 밥/놀기 효과 2배",
     },
 }
+
+# ============================================================
+# Battle System
+# ============================================================
+
+# --- Battle Stats ---
+RARITY_BASE_STAT = {
+    "common": 45, "rare": 60, "epic": 75, "legendary": 95,
+}
+
+STAT_SPREADS = {
+    "offensive":  {"hp": 0.9, "atk": 1.3, "def": 0.8, "spd": 1.0},
+    "defensive":  {"hp": 1.2, "atk": 0.8, "def": 1.3, "spd": 0.8},
+    "balanced":   {"hp": 1.0, "atk": 1.0, "def": 1.0, "spd": 1.0},
+    "speedy":     {"hp": 0.8, "atk": 1.0, "def": 0.7, "spd": 1.4},
+}
+
+FRIENDSHIP_BONUS = 0.04  # 친밀도 1당 +4% (최대 5 = +20%)
+
+# --- Type System (10종 간소화) ---
+TYPE_EMOJI = {
+    "normal": "⚪", "fire": "🔥", "water": "💧", "grass": "🌿",
+    "electric": "⚡", "ice": "❄️", "fighting": "👊", "psychic": "🔮",
+    "dragon": "🐉", "dark": "🌑",
+}
+
+TYPE_NAME_KO = {
+    "normal": "노말", "fire": "불꽃", "water": "물", "grass": "풀",
+    "electric": "전기", "ice": "얼음", "fighting": "격투", "psychic": "에스퍼",
+    "dragon": "드래곤", "dark": "악",
+}
+
+# 타입 상성: key가 value 리스트 타입에 효과적 (1.3x)
+TYPE_ADVANTAGE = {
+    "fire":     ["grass", "ice"],
+    "water":    ["fire"],
+    "grass":    ["water", "electric"],
+    "electric": ["water"],
+    "ice":      ["grass", "dragon"],
+    "fighting": ["normal", "ice", "dark"],
+    "psychic":  ["fighting"],
+    "dragon":   ["dragon"],
+    "dark":     ["psychic"],
+    "normal":   [],
+}
+
+# --- Battle Rules ---
+BATTLE_CHALLENGE_TIMEOUT = 30       # 도전 대기 시간 (초)
+BATTLE_COOLDOWN_SAME = 300          # 같은 상대 쿨다운 (5분)
+BATTLE_COOLDOWN_GLOBAL = 60         # 전체 배틀 쿨다운 (1분)
+BATTLE_MAX_ROUNDS = 50              # 최대 라운드
+BATTLE_TEAM_MIN = 1                 # 최소 팀원
+BATTLE_TEAM_MAX = 6                 # 최대 팀원
+BATTLE_CRIT_RATE = 0.10             # 크리티컬 확률 10%
+BATTLE_CRIT_MULT = 1.5              # 크리티컬 배수
+BATTLE_TYPE_ADVANTAGE_MULT = 1.3    # 타입 유리
+BATTLE_TYPE_DISADVANTAGE_MULT = 0.7 # 타입 불리
+BATTLE_PARTNER_ATK_BONUS = 0.05     # 파트너 ATK 보너스 5%
+
+# --- BP (Battle Points) ---
+BP_WIN_BASE = 20                    # 승리 기본 BP
+BP_WIN_PER_ENEMY = 2               # 상대 팀 사이즈당 추가 BP
+BP_LOSE = 5                         # 패배 참여 보상
+BP_PERFECT_WIN = 50                 # 무피해 완승 보너스
+BP_STREAK_BONUS = 10                # 3연승마다 추가
+BP_MASTERBALL_COST = 200            # 마스터볼 1개 가격
+
+# --- Battle Titles ---
+# title_id: (name, emoji, description, check_type, threshold)
+BATTLE_TITLES = {
+    "battle_first":    ("첫 배틀",       "⚔️", "배틀 1회 참여",     "battle_total", 1),
+    "battle_fighter":  ("배틀 파이터",   "🥊", "배틀 5승 달성",     "battle_wins", 5),
+    "battle_champion": ("배틀 챔피언",   "🏆", "배틀 20승 달성",    "battle_wins", 20),
+    "battle_legend":   ("배틀 레전드",   "👑", "배틀 50승 달성",    "battle_wins", 50),
+    "battle_streak3":  ("연승 전사",     "🔥", "3연승 달성",        "battle_streak", 3),
+    "battle_streak10": ("무적의 전사",   "💫", "10연승 달성",       "battle_streak", 10),
+    "battle_sweep":    ("완벽한 승리",   "✨", "무피해 완승",       "battle_sweep", 1),
+    "partner_set":     ("나의 파트너",   "🤝", "파트너 포켓몬 지정", "partner_set", 1),
+}
+
+# Merge battle titles into main UNLOCKABLE_TITLES so they appear in 칭호목록 and can be equipped
+UNLOCKABLE_TITLES.update(BATTLE_TITLES)
+
+SPAWN_MAX_DAILY = 20  # 하루 최대 스폰 수

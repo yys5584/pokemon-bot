@@ -176,7 +176,8 @@ async def get_user_pokemon_list(user_id: int) -> list[dict]:
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT up.*, pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
-                  pm.evolves_to, pm.evolution_method
+                  pm.evolves_to, pm.evolution_method,
+                  pm.pokemon_type, pm.stat_type
            FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
            WHERE up.user_id = $1 AND up.is_active = 1

@@ -15,12 +15,18 @@ from telegram.ext import (
 
 from database.connection import get_db, close_db
 from database.schema import create_tables
-from database.seed import seed_pokemon_data
+from database.seed import seed_pokemon_data, seed_battle_data
 from database import queries
 
 from handlers.start import start_handler, help_handler
 from handlers.group import catch_handler, master_ball_handler, love_easter_egg, love_hidden_handler, ranking_handler, log_handler, dashboard_handler, on_chat_activity, close_message_callback
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler
+from handlers.battle import (
+    partner_handler, team_handler, team_register_handler, team_clear_handler,
+    battle_stats_handler, bp_handler, bp_shop_handler, bp_buy_handler,
+    battle_challenge_handler, battle_callback_handler,
+    battle_ranking_handler, battle_accept_text_handler, battle_decline_text_handler,
+)
 from handlers.dm_nurture import feed_handler, play_handler, evolve_handler
 from handlers.dm_trade import trade_handler, accept_handler, reject_handler
 from handlers.admin import (
@@ -51,6 +57,7 @@ async def post_init(application: Application):
     await get_db()
     await create_tables()
     await seed_pokemon_data()
+    await seed_battle_data()
     logger.info("Database ready. 251 Pokemon seeded.")
 
     # Cleanup expired sessions and events from previous runs
@@ -179,6 +186,16 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^칭호목록$"), title_list_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^칭호$"), title_handler))
 
+    # Battle system (DM)
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^파트너\s*\d*$"), partner_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀등록\s"), team_register_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀해제$"), team_clear_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀$"), team_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^배틀전적$"), battle_stats_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^BP구매"), bp_buy_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^BP상점$"), bp_shop_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^BP$"), bp_handler))
+
     # Admin commands (DM)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^통계$"), stats_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^채널목록$"), channel_list_handler))
@@ -197,6 +214,12 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^로그$"), log_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^날씨$"), weather_handler))
     app.add_handler(MessageHandler((group | dm) & filters.Regex(r"^대시보드$"), dashboard_handler))
+
+    # Battle system (Group)
+    app.add_handler(MessageHandler(group & filters.Regex(r"^배틀$"), battle_challenge_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^배틀랭킹$"), battle_ranking_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^배틀수락$"), battle_accept_text_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^배틀거절$"), battle_decline_text_handler))
 
     # Admin group commands
     app.add_handler(MessageHandler(group & filters.Regex(r"^스폰배율"), spawn_rate_handler))
@@ -226,6 +249,9 @@ def main():
 
     # Title selection callback
     app.add_handler(CallbackQueryHandler(title_callback, pattern=r"^title_"))
+
+    # Battle accept/decline callback
+    app.add_handler(CallbackQueryHandler(battle_callback_handler, pattern=r"^battle_"))
 
     # Activity tracker — runs for every group text message (handler group -1)
     app.add_handler(

@@ -1,0 +1,331 @@
+"""Battle system database queries (PostgreSQL / asyncpg)."""
+
+from database.connection import get_db
+
+
+# ============================================================
+# Partner Pokemon
+# ============================================================
+
+async def set_partner(user_id: int, pokemon_instance_id: int | None):
+    """Set a user's partner pokemon (or clear with None)."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET partner_pokemon_id = $1 WHERE user_id = $2",
+        pokemon_instance_id, user_id,
+    )
+
+
+async def get_partner(user_id: int) -> dict | None:
+    """Get user's current partner pokemon details."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT up.id as instance_id, up.pokemon_id, up.friendship,
+                  pm.name_ko, pm.emoji, pm.rarity,
+                  pm.pokemon_type, pm.stat_type
+           FROM users u
+           JOIN user_pokemon up ON u.partner_pokemon_id = up.id
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE u.user_id = $1 AND up.is_active = 1""",
+        user_id,
+    )
+    return dict(row) if row else None
+
+
+# ============================================================
+# Battle Team
+# ============================================================
+
+async def get_battle_team(user_id: int) -> list[dict]:
+    """Get user's battle team in slot order."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT bt.slot, bt.pokemon_instance_id,
+                  up.pokemon_id, up.friendship,
+                  pm.name_ko, pm.emoji, pm.rarity,
+                  pm.pokemon_type, pm.stat_type
+           FROM battle_teams bt
+           JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE bt.user_id = $1 AND up.is_active = 1
+           ORDER BY bt.slot""",
+        user_id,
+    )
+    return [dict(r) for r in rows]
+
+
+async def set_battle_team(user_id: int, instance_ids: list[int]):
+    """Set user's battle team. Replaces existing team."""
+    pool = await get_db()
+    # Clear existing team
+    await pool.execute("DELETE FROM battle_teams WHERE user_id = $1", user_id)
+    # Insert new team
+    for slot, inst_id in enumerate(instance_ids, 1):
+        await pool.execute(
+            """INSERT INTO battle_teams (user_id, slot, pokemon_instance_id)
+               VALUES ($1, $2, $3)""",
+            user_id, slot, inst_id,
+        )
+
+
+async def clear_battle_team(user_id: int):
+    """Remove all pokemon from user's battle team."""
+    pool = await get_db()
+    await pool.execute("DELETE FROM battle_teams WHERE user_id = $1", user_id)
+
+
+async def validate_team_pokemon(user_id: int, instance_ids: list[int]) -> list[dict]:
+    """Validate that all instance IDs belong to the user and are active.
+    Returns list of valid pokemon dicts."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT up.id as instance_id, up.pokemon_id, up.friendship,
+                  pm.name_ko, pm.emoji, pm.rarity,
+                  pm.pokemon_type, pm.stat_type
+           FROM user_pokemon up
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE up.user_id = $1 AND up.is_active = 1 AND up.id = ANY($2)""",
+        user_id, instance_ids,
+    )
+    return [dict(r) for r in rows]
+
+
+# ============================================================
+# Battle Challenges
+# ============================================================
+
+async def create_challenge(
+    challenger_id: int, defender_id: int, chat_id: int, expires_at: str
+) -> int:
+    """Create a battle challenge. Returns challenge ID."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """INSERT INTO battle_challenges
+               (challenger_id, defender_id, chat_id, expires_at)
+           VALUES ($1, $2, $3, $4::timestamptz)
+           RETURNING id""",
+        challenger_id, defender_id, chat_id, expires_at,
+    )
+    return row["id"]
+
+
+async def get_pending_challenge(challenger_id: int, defender_id: int) -> dict | None:
+    """Check for existing pending challenge between two users."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT * FROM battle_challenges
+           WHERE challenger_id = $1 AND defender_id = $2
+             AND status = 'pending' AND expires_at > NOW()""",
+        challenger_id, defender_id,
+    )
+    return dict(row) if row else None
+
+
+async def get_challenge_by_id(challenge_id: int) -> dict | None:
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT * FROM battle_challenges WHERE id = $1",
+        challenge_id,
+    )
+    return dict(row) if row else None
+
+
+async def update_challenge_status(challenge_id: int, status: str):
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE battle_challenges SET status = $1 WHERE id = $2",
+        status, challenge_id,
+    )
+
+
+async def expire_old_challenges():
+    """Expire challenges past their deadline."""
+    pool = await get_db()
+    await pool.execute(
+        """UPDATE battle_challenges
+           SET status = 'expired'
+           WHERE status = 'pending' AND expires_at <= NOW()"""
+    )
+
+
+async def get_last_battle_time(user_id: int, opponent_id: int) -> str | None:
+    """Get the time of the last completed battle between two users."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT created_at FROM battle_records
+           WHERE (winner_id = $1 AND loser_id = $2)
+              OR (winner_id = $2 AND loser_id = $1)
+           ORDER BY created_at DESC LIMIT 1""",
+        user_id, opponent_id,
+    )
+    return str(row["created_at"]) if row else None
+
+
+async def get_last_battle_time_any(user_id: int) -> str | None:
+    """Get the time of the user's last battle (any opponent)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT created_at FROM battle_records
+           WHERE winner_id = $1 OR loser_id = $1
+           ORDER BY created_at DESC LIMIT 1""",
+        user_id,
+    )
+    return str(row["created_at"]) if row else None
+
+
+# ============================================================
+# Battle Records
+# ============================================================
+
+async def record_battle(
+    challenge_id: int | None,
+    chat_id: int,
+    winner_id: int,
+    loser_id: int,
+    winner_team_size: int,
+    loser_team_size: int,
+    winner_remaining: int,
+    total_rounds: int,
+    battle_log: str,
+    bp_earned: int,
+) -> int:
+    """Record a completed battle. Returns record ID."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """INSERT INTO battle_records
+               (challenge_id, chat_id, winner_id, loser_id,
+                winner_team_size, loser_team_size, winner_remaining,
+                total_rounds, battle_log, bp_earned)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           RETURNING id""",
+        challenge_id, chat_id, winner_id, loser_id,
+        winner_team_size, loser_team_size, winner_remaining,
+        total_rounds, battle_log, bp_earned,
+    )
+    return row["id"]
+
+
+async def update_battle_stats_win(user_id: int, bp: int):
+    """Update winner's stats after a battle."""
+    pool = await get_db()
+    await pool.execute(
+        """UPDATE users SET
+               battle_wins = battle_wins + 1,
+               battle_streak = battle_streak + 1,
+               best_streak = GREATEST(best_streak, battle_streak + 1),
+               battle_points = battle_points + $1
+           WHERE user_id = $2""",
+        bp, user_id,
+    )
+
+
+async def update_battle_stats_lose(user_id: int, bp: int):
+    """Update loser's stats after a battle."""
+    pool = await get_db()
+    await pool.execute(
+        """UPDATE users SET
+               battle_losses = battle_losses + 1,
+               battle_streak = 0,
+               battle_points = battle_points + $1
+           WHERE user_id = $2""",
+        bp, user_id,
+    )
+
+
+async def get_battle_stats(user_id: int) -> dict:
+    """Get user's battle stats."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT battle_wins, battle_losses, battle_streak,
+                  best_streak, battle_points
+           FROM users WHERE user_id = $1""",
+        user_id,
+    )
+    if row:
+        return dict(row)
+    return {
+        "battle_wins": 0, "battle_losses": 0,
+        "battle_streak": 0, "best_streak": 0, "battle_points": 0,
+    }
+
+
+async def get_battle_ranking(limit: int = 10) -> list[dict]:
+    """Get battle ranking by win count."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT u.user_id, u.display_name, u.title, u.title_emoji,
+                  u.battle_wins, u.battle_losses, u.best_streak,
+                  u.battle_points
+           FROM users u
+           WHERE u.battle_wins > 0
+           ORDER BY u.battle_wins DESC, u.best_streak DESC
+           LIMIT $1""",
+        limit,
+    )
+    return [dict(r) for r in rows]
+
+
+# ============================================================
+# BP (Battle Points)
+# ============================================================
+
+async def get_bp(user_id: int) -> int:
+    """Get user's current BP."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT battle_points FROM users WHERE user_id = $1",
+        user_id,
+    )
+    return row["battle_points"] if row else 0
+
+
+async def spend_bp(user_id: int, amount: int) -> bool:
+    """Spend BP. Returns True if successful."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT battle_points FROM users WHERE user_id = $1",
+        user_id,
+    )
+    if not row or row["battle_points"] < amount:
+        return False
+    await pool.execute(
+        "UPDATE users SET battle_points = battle_points - $1 WHERE user_id = $2",
+        amount, user_id,
+    )
+    return True
+
+
+# ============================================================
+# Pokemon Battle Data Helper
+# ============================================================
+
+async def get_pokemon_with_battle_data(instance_id: int) -> dict | None:
+    """Get a pokemon instance with all battle-relevant data."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT up.id as instance_id, up.user_id, up.pokemon_id,
+                  up.friendship, up.is_active,
+                  pm.name_ko, pm.emoji, pm.rarity,
+                  pm.pokemon_type, pm.stat_type
+           FROM user_pokemon up
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE up.id = $1""",
+        instance_id,
+    )
+    return dict(row) if row else None
+
+
+async def get_user_pokemon_for_battle(user_id: int) -> list[dict]:
+    """Get all user's active pokemon with battle data (for team selection)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT up.id as instance_id, up.pokemon_id,
+                  up.friendship, pm.name_ko, pm.emoji, pm.rarity,
+                  pm.pokemon_type, pm.stat_type
+           FROM user_pokemon up
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE up.user_id = $1 AND up.is_active = 1
+           ORDER BY up.id""",
+        user_id,
+    )
+    return [dict(r) for r in rows]

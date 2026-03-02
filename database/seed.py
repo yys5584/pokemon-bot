@@ -11,7 +11,7 @@ async def seed_pokemon_data():
     row = await pool.fetchrow("SELECT COUNT(*) as cnt FROM pokemon_master")
     count = row["cnt"] if row else 0
     if count >= 251:
-        return  # Already seeded
+        return count
 
     for p in ALL_POKEMON:
         await pool.execute(
@@ -30,3 +30,27 @@ async def seed_pokemon_data():
     await pool.execute(
         "UPDATE pokemon_master SET evolves_to = 242 WHERE id = 113 AND evolves_to IS NULL"
     )
+
+    return 251
+
+
+async def seed_battle_data():
+    """Seed pokemon_type and stat_type into pokemon_master for battle system."""
+    from models.pokemon_battle_data import POKEMON_BATTLE_DATA
+
+    pool = await get_db()
+
+    # Check if already seeded (if any pokemon has a non-default type)
+    row = await pool.fetchrow(
+        "SELECT COUNT(*) as cnt FROM pokemon_master WHERE pokemon_type != 'normal'"
+    )
+    if row and row["cnt"] > 50:
+        return  # Already seeded
+
+    for pid, (ptype, stype) in POKEMON_BATTLE_DATA.items():
+        await pool.execute(
+            """UPDATE pokemon_master
+               SET pokemon_type = $1, stat_type = $2
+               WHERE id = $3""",
+            ptype, stype, pid,
+        )
