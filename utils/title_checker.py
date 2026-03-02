@@ -112,6 +112,15 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
                 elif check_type == "partner_set":
                     unlocked = partner is not None
                 # battle_sweep is only checked in battle_service.py
+        elif check_type == "tournament_win":
+            unlocked = stats.get("tournament_wins", 0) >= threshold
+        elif check_type == "tournament_first":
+            # Only unlockable if no one else has this title yet (world-first)
+            if stats.get("tournament_wins", 0) >= threshold:
+                first_exists = await pool.fetchval(
+                    "SELECT EXISTS(SELECT 1 FROM user_titles WHERE title_id = 'tournament_first')"
+                )
+                unlocked = not first_exists
 
         if unlocked:
             was_new = await queries.unlock_title(user_id, title_id)

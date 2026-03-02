@@ -77,8 +77,21 @@ TABLES = [
         daily_spawn_count INTEGER NOT NULL DEFAULT 0,
         spawns_today_target INTEGER NOT NULL DEFAULT 0,
         spawn_multiplier DOUBLE PRECISION NOT NULL DEFAULT 1.0,
-        force_spawn_count INTEGER NOT NULL DEFAULT 0
+        force_spawn_count INTEGER NOT NULL DEFAULT 0,
+        is_arcade INTEGER NOT NULL DEFAULT 0
     )
+    """,
+    # Migration: add is_arcade column if missing
+    """
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'chat_rooms' AND column_name = 'is_arcade'
+        ) THEN
+            ALTER TABLE chat_rooms ADD COLUMN is_arcade INTEGER NOT NULL DEFAULT 0;
+        END IF;
+    END $$
     """,
 
     # Active spawn sessions
@@ -293,6 +306,11 @@ BATTLE_MIGRATIONS = [
 ]
 
 
+TOURNAMENT_MIGRATIONS = [
+    "ALTER TABLE user_title_stats ADD COLUMN tournament_wins INTEGER NOT NULL DEFAULT 0",
+]
+
+
 async def create_tables():
     """Create all tables."""
     pool = await get_db()
@@ -303,6 +321,12 @@ async def create_tables():
         await pool.execute(sql)
     # Run battle migrations (ignore if already applied)
     for mig in BATTLE_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+    # Run tournament migrations (ignore if already applied)
+    for mig in TOURNAMENT_MIGRATIONS:
         try:
             await pool.execute(mig)
         except Exception:

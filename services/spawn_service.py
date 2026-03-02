@@ -127,29 +127,63 @@ async def schedule_spawns_for_chat(app, chat_id: int, member_count: int):
 
 async def schedule_all_chats(app):
     """Schedule spawns for all active chat rooms."""
+    # Load arcade channels from DB into config
+    config.ARCADE_CHAT_IDS = await queries.get_arcade_chat_ids()
+    if config.ARCADE_CHAT_IDS:
+        logger.info(f"Loaded arcade channels from DB: {config.ARCADE_CHAT_IDS}")
+
     chats = await queries.get_all_active_chats()
     for chat in chats:
         try:
+            cid = chat["chat_id"]
+            # Skip arcade channels (they use their own scheduler)
+            if cid in config.ARCADE_CHAT_IDS:
+                continue
+
             # Try to update member count from Telegram
             try:
-                count = await app.bot.get_chat_member_count(chat["chat_id"])
-                await queries.update_chat_member_count(chat["chat_id"], count)
+                count = await app.bot.get_chat_member_count(cid)
+                await queries.update_chat_member_count(cid, count)
             except Exception:
                 count = chat["member_count"]
 
-            await schedule_spawns_for_chat(app, chat["chat_id"], count)
+            await schedule_spawns_for_chat(app, cid, count)
         except Exception as e:
             logger.error(f"Failed to schedule for chat {chat['chat_id']}: {e}")
+
+    # Schedule arcade channels (repeating every N seconds)
+    schedule_arcade_spawns(app)
+
+
+def schedule_arcade_spawns(app):
+    """Set up repeating spawn jobs for arcade channels."""
+    for chat_id in config.ARCADE_CHAT_IDS:
+        job_name = f"arcade_{chat_id}"
+        # Remove existing arcade jobs for this chat
+        for job in app.job_queue.jobs():
+            if job.name == job_name:
+                job.schedule_removal()
+
+        app.job_queue.run_repeating(
+            execute_spawn,
+            interval=config.ARCADE_SPAWN_INTERVAL,
+            first=10,  # 10초 후 첫 스폰
+            data={"chat_id": chat_id, "force": True},
+            name=job_name,
+        )
+        logger.info(f"Arcade spawns scheduled for chat {chat_id} "
+                     f"(every {config.ARCADE_SPAWN_INTERVAL}s)")
 
 
 async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
     """Execute a single spawn event. Called by JobQueue."""
     chat_id = context.job.data["chat_id"]
     force = context.job.data.get("force", False)
+    arcade = chat_id in config.ARCADE_CHAT_IDS
 
     try:
-        # 1. Activity check (skip if force spawn)
-        if not force:
+        # 1. Activity check (skip if force spawn or arcade)
+        if not force and not arcade:
             activity = await queries.get_recent_activity(chat_id, hours=1)
             if activity < 1:
                 # No activity — retry later
@@ -166,18 +200,20 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 logger.info(f"No activity in {chat_id}, retrying in {retry_delay}s")
                 return
 
-        # 2. Check if there's already an active spawn
-        active = await queries.get_active_spawn(chat_id)
-        if active:
-            return
-
-        # 2.5 Cooldown: skip if last spawn was within 5 minutes
-        last_spawn = await queries.get_last_spawn_time(chat_id)
-        if last_spawn:
-            elapsed = (datetime.now() - last_spawn).total_seconds()
-            if elapsed < 300:  # 5 minutes cooldown
-                logger.debug(f"Spawn cooldown for {chat_id}: {elapsed:.0f}s since last spawn")
+        # 2. Check if there's already an active spawn (skip for arcade)
+        if not arcade:
+            active = await queries.get_active_spawn(chat_id)
+            if active:
                 return
+
+        # 2.5 Cooldown: skip if last spawn was within 5 minutes (skip for arcade)
+        if not arcade:
+            last_spawn = await queries.get_last_spawn_time(chat_id)
+            if last_spawn:
+                elapsed = (datetime.now() - last_spawn).total_seconds()
+                if elapsed < 300:  # 5 minutes cooldown
+                    logger.debug(f"Spawn cooldown for {chat_id}: {elapsed:.0f}s since last spawn")
+                    return
 
         # 3. Roll rarity with midnight bonus + event boosts
         midnight = is_midnight_bonus()
@@ -197,9 +233,12 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Weather indicator
         weather_tag = get_weather_display()
 
+        # Arcade channels use shorter window to avoid overlap
+        window = config.ARCADE_SPAWN_WINDOW if arcade else config.SPAWN_WINDOW_SECONDS
+
         caption = (
             f"🌿 야생의 {pokemon['emoji']} {pokemon['name_ko']}이(가) 나타났다!{bonus_text}{event_tag}{weather_tag}\n"
-            f"ㅊ 입력으로 잡기 ({config.SPAWN_WINDOW_SECONDS}초)"
+            f"ㅊ 입력으로 잡기 ({window}초)"
         )
 
         # Generate card image (run in executor to avoid blocking event loop)
@@ -216,7 +255,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         )
 
         # 6. Create spawn session AFTER image is sent
-        expires = (datetime.now() + timedelta(seconds=config.SPAWN_WINDOW_SECONDS))
+        expires = (datetime.now() + timedelta(seconds=window))
 
         session_id = await queries.create_spawn_session(
             chat_id, pokemon["id"], expires
@@ -233,10 +272,10 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # 7. Record spawn
         await queries.record_spawn_in_chat(chat_id)
 
-        # 8. Schedule resolution after 30 seconds
+        # 8. Schedule resolution
         context.job_queue.run_once(
             resolve_spawn,
-            when=config.SPAWN_WINDOW_SECONDS,
+            when=window,
             data={
                 "chat_id": chat_id,
                 "session_id": session_id,
@@ -305,15 +344,21 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         catch_boost = await get_catch_boost()
         catch_rate = min(1.0, base_rate * catch_boost)
 
-        # Roll for each catcher (master ball = guaranteed success)
+        # Roll for each catcher (master ball or newbie = guaranteed success)
         results = []
         for attempt in attempts:
             if attempt.get("used_master_ball"):
                 roll = 0.0
                 success = True
             else:
-                roll = random.random()
-                success = roll < catch_rate
+                # Newbie boost: first 2 catches are guaranteed
+                total = await queries.count_total_catches(attempt["user_id"])
+                if total < 2:
+                    roll = 0.0
+                    success = True
+                else:
+                    roll = random.random()
+                    success = roll < catch_rate
             results.append({
                 "user_id": attempt["user_id"],
                 "display_name": attempt["display_name"],

@@ -447,7 +447,7 @@ async def grant_masterball_handler(update: Update, context: ContextTypes.DEFAULT
         return
 
     await queries.add_master_ball(target_user_id, count)
-    new_total = await queries.get_master_ball_count(target_user_id)
+    new_total = await queries.get_master_balls(target_user_id)
 
     await update.message.reply_text(
         f"✅ 마스터볼 지급 완료!\n"
@@ -455,4 +455,71 @@ async def grant_masterball_handler(update: Update, context: ContextTypes.DEFAULT
         f"지급: {count}개\n"
         f"현재 보유: {new_total}개"
     )
+
+    # 대상 유저에게 DM 알림
+    try:
+        await context.bot.send_message(
+            chat_id=target_user_id,
+            text=f"🎁 마스터볼 {count}개를 지급받았습니다!\n현재 보유: {new_total}개",
+        )
+    except Exception:
+        pass  # DM 실패 시 무시 (봇 차단 등)
+
     logger.info(f"Admin granted {count} master ball(s) to user {target_user_id}")
+
+
+# ============================================================
+# Arcade Channel Management
+# ============================================================
+
+async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '아케이드' command in a group chat.
+    - '아케이드 등록' → register this chat as arcade (1-min spawns)
+    - '아케이드 해제' → unregister
+    Bot admin only.
+    """
+    if not update.effective_user or not update.message:
+        return
+    if not is_admin(update.effective_user.id):
+        return
+
+    text = (update.message.text or "").strip()
+    parts = text.split()
+    chat_id = update.effective_chat.id
+
+    if len(parts) < 2:
+        status = "✅ 등록됨" if chat_id in config.ARCADE_CHAT_IDS else "❌ 미등록"
+        await update.message.reply_text(
+            f"🕹️ 아케이드 채널 ({status})\n\n"
+            f"Chat ID: {chat_id}\n"
+            f"'아케이드 등록' — 1분마다 자동 스폰\n"
+            f"'아케이드 해제' — 일반 채널로 복구"
+        )
+        return
+
+    action = parts[1]
+
+    if action == "등록":
+        config.ARCADE_CHAT_IDS.add(chat_id)
+        await queries.set_arcade(chat_id, True)
+        # Start arcade spawns immediately
+        from services.spawn_service import schedule_arcade_spawns
+        schedule_arcade_spawns(context.application)
+        await update.message.reply_text(
+            f"🕹️ 아케이드 채널 등록 완료!\n"
+            f"📍 Chat ID: {chat_id}\n"
+            f"⏱️ {config.ARCADE_SPAWN_INTERVAL}초마다 포켓몬이 출현합니다.\n"
+            f"🎯 포획 제한시간: {config.ARCADE_SPAWN_WINDOW}초"
+        )
+        logger.info(f"Arcade channel registered: {chat_id}")
+
+    elif action == "해제":
+        config.ARCADE_CHAT_IDS.discard(chat_id)
+        await queries.set_arcade(chat_id, False)
+        # Remove arcade jobs
+        job_name = f"arcade_{chat_id}"
+        for job in context.application.job_queue.jobs():
+            if job.name == job_name:
+                job.schedule_removal()
+        await update.message.reply_text("🕹️ 아케이드 채널 해제됨. 일반 스폰으로 복구됩니다.")
+        logger.info(f"Arcade channel unregistered: {chat_id}")

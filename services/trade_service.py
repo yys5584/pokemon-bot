@@ -1,7 +1,9 @@
 """Trade service: trade creation, acceptance, and trade evolution."""
 
 import logging
+import config
 from database import queries
+from database import battle_queries as bq
 from services.evolution_service import try_trade_evolve
 from utils.helpers import update_title
 
@@ -13,6 +15,12 @@ async def create_trade_offer(
     pokemon_name: str
 ) -> tuple[bool, str, int | None]:
     """Create a trade offer. Returns (success, message, trade_id)."""
+
+    # Check BP
+    cost = config.TRADE_BP_COST
+    current_bp = await bq.get_bp(from_user_id)
+    if current_bp < cost:
+        return False, f"BP가 부족합니다! (필요: {cost} BP, 보유: {current_bp} BP)", None
 
     # Find the Pokemon in the user's collection
     pokemon = await queries.find_user_pokemon_by_name(from_user_id, pokemon_name)
@@ -34,15 +42,22 @@ async def create_trade_offer(
     if existing_for_pokemon:
         return False, "이 포켓몬은 이미 다른 교환 요청에 등록되어 있습니다.", None
 
+    # Deduct BP
+    spent = await bq.spend_bp(from_user_id, cost)
+    if not spent:
+        return False, f"BP 차감에 실패했습니다. (필요: {cost} BP)", None
+
     # Create trade
     trade_id = await queries.create_trade(
         from_user_id, to_user_id, pokemon["id"]
     )
 
+    remaining_bp = await bq.get_bp(from_user_id)
     return True, (
         f"📤 교환 요청을 보냈습니다!\n\n"
         f"제안: {pokemon['emoji']} {pokemon['name_ko']}\n"
-        f"상대: {target['display_name']}\n\n"
+        f"상대: {target['display_name']}\n"
+        f"💰 BP {cost} 차감 (잔여: {remaining_bp} BP)\n\n"
         f"상대방에게 DM으로 알림이 갑니다."
     ), trade_id
 

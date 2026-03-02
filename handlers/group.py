@@ -60,6 +60,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     display_name = update.effective_user.first_name or "트레이너"
     username = update.effective_user.username
 
+
     try:
         # Ensure user is registered
         await queries.ensure_user(user_id, display_name, username)
@@ -329,7 +330,7 @@ async def dashboard_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '대시보드' command — show dashboard link."""
     await update.message.reply_text(
         "📊 <b>포켓몬 봇 대시보드</b>\n\n"
-        "🔗 <a href='https://court-astrology-minds-bernard.trycloudflare.com'>court-astrology-minds-bernard.trycloudflare.com</a>\n\n"
+        "🔗 <a href='https://tgpoke.com'>tgpoke.com</a>\n\n"
         "에픽/전설 보유자 랭킹, 도망 장인, 행운아/불행아,\n"
         "교환왕, 올빼미족 등 재미있는 통계를 확인하세요!",
         parse_mode="HTML",

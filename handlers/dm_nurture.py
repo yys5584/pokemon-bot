@@ -36,7 +36,7 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif name_arg:
         pokemon = await queries.get_user_pokemon_by_name(user_id, name_arg)
     else:
-        await update.message.reply_text("사용법: 밥 [번호/이름]\n예: 밥 1 또는 밥 피카츄")
+        await update.message.reply_text("사용법: 밥 [이름]\n예: 밥 피카츄, 밥 리자몽")
         return
 
     if not pokemon:
@@ -106,7 +106,7 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif name_arg:
         pokemon = await queries.get_user_pokemon_by_name(user_id, name_arg)
     else:
-        await update.message.reply_text("사용법: 놀기 [번호/이름]\n예: 놀기 1 또는 놀기 피카츄")
+        await update.message.reply_text("사용법: 놀기 [이름]\n예: 놀기 피카츄, 놀기 리자몽")
         return
 
     if not pokemon:

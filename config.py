@@ -62,6 +62,11 @@ SPAWN_RETRY_MAX_SECONDS = 3600     # 60 min retry if no activity
 SPAWN_COOLDOWN_SECONDS = 300       # 5 min minimum between spawns
 SPAWN_MAX_DAILY = 12               # Absolute max spawns per day per chat (regardless of multiplier)
 
+# --- Arcade Channel (30초마다 강제스폰) ---
+ARCADE_CHAT_IDS: set[int] = set()  # 채팅방 등록 후 chat_id 추가
+ARCADE_SPAWN_INTERVAL = 30         # 초 (30초)
+ARCADE_SPAWN_WINDOW = 25           # 초 (포획 제한시간, 겹침 방지)
+
 # Small-group optimized spawn count per day
 SPAWN_TIERS = [
     # (min_members, max_members, spawns_per_day)
@@ -82,6 +87,9 @@ FEED_PER_DAY = 3                   # /밥 per pokemon per day
 PLAY_PER_DAY = 2                   # /놀기 per pokemon per day
 FRIENDSHIP_PER_FEED = 1            # +1 per feed
 FRIENDSHIP_PER_PLAY = 1            # +1 per play
+
+# --- Trade ---
+TRADE_BP_COST = 150                # 교환 시 BP 비용
 
 # --- Title System ---
 TITLES = [
@@ -312,3 +320,19 @@ BATTLE_TITLES = {
 UNLOCKABLE_TITLES.update(BATTLE_TITLES)
 
 SPAWN_MAX_DAILY = 20  # 하루 최대 스폰 수
+
+# --- Tournament ---
+TOURNAMENT_REG_HOUR = 21        # 등록 시작 시각 (21시 KST)
+TOURNAMENT_START_HOUR = 22      # 대회 시작 시각 (22시 KST)
+TOURNAMENT_MIN_PLAYERS = 4      # 최소 참가자
+TOURNAMENT_PRIZE_1ST_MB = 2     # 우승 마스터볼
+TOURNAMENT_PRIZE_1ST_BP = 200   # 우승 BP
+TOURNAMENT_PRIZE_2ND_BP = 100   # 준우승 BP
+TOURNAMENT_PRIZE_4TH_BP = 50    # 4강 BP
+
+# --- Tournament Titles ---
+TOURNAMENT_TITLES = {
+    "tournament_first": ("초대 챔피언",     "🏛️", "최초의 토너먼트 우승자",  "tournament_first", 1),
+    "tournament_champ": ("토너먼트 챔피언", "🏆", "토너먼트 우승 1회",       "tournament_win", 1),
+}
+UNLOCKABLE_TITLES.update(TOURNAMENT_TITLES)

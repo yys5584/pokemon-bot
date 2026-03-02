@@ -20,7 +20,7 @@ from database import queries
 
 from handlers.start import start_handler, help_handler
 from handlers.group import catch_handler, master_ball_handler, love_easter_egg, love_hidden_handler, ranking_handler, log_handler, dashboard_handler, on_chat_activity, close_message_callback
-from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler
+from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, status_handler
 from handlers.battle import (
     partner_handler, partner_callback_handler,
     team_handler, team_register_handler, team_clear_handler, team_callback_handler,
@@ -35,10 +35,13 @@ from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler,
     event_start_handler, event_list_handler, event_end_handler,
     stats_handler, channel_list_handler, grant_masterball_handler,
+    arcade_handler,
 )
 
 from services.spawn_service import schedule_all_chats
 from services.weather_service import update_weather, get_current_weather, WEATHER_BOOSTS
+from services.tournament_service import start_registration, start_tournament
+from handlers.tournament import tournament_join_handler
 from dashboard.server import start_dashboard
 
 load_dotenv()
@@ -188,6 +191,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^거절"), reject_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^칭호목록$"), title_list_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^칭호$"), title_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^상태창$"), status_handler))
 
     # Battle system (DM)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^파트너(\s+.+)?$"), partner_handler))
@@ -207,6 +211,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^이벤트목록$"), event_list_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^이벤트종료"), event_end_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^마볼지급"), grant_masterball_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^아케이드"), arcade_handler))
 
     # Pokeball recharge
     app.add_handler(MessageHandler(group & filters.Regex(r"^포켓볼\s*충전$"), love_easter_egg))
@@ -241,6 +246,12 @@ def main():
     app.add_handler(MessageHandler(
         group & filters.TEXT & filters.Regex(r"^ㅁ$"),
         master_ball_handler,
+    ))
+
+    # "ㄷ" tournament join (group only, arcade channels)
+    app.add_handler(MessageHandler(
+        group & filters.TEXT & filters.Regex(r"^ㄷ$"),
+        tournament_join_handler,
     ))
 
     # Close message callback (❌ button)
@@ -302,6 +313,18 @@ def main():
         interval=3600,
         first=3600,
         name="weather_update",
+    )
+
+    # Tournament schedule (21:00 registration, 22:00 start — KST)
+    app.job_queue.run_daily(
+        start_registration,
+        time=dt_time(config.TOURNAMENT_REG_HOUR, 0, 0, tzinfo=kst),
+        name="tournament_reg",
+    )
+    app.job_queue.run_daily(
+        start_tournament,
+        time=dt_time(config.TOURNAMENT_START_HOUR, 0, 0, tzinfo=kst),
+        name="tournament_start",
     )
 
     # --- Start polling ---

@@ -816,3 +816,86 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name, emoji, desc, _, _ = t_info
     await queries.equip_title(user_id, name, emoji)
     await query.edit_message_text(f"✅ 칭호 장착: 「{emoji} {name}」\n\n채팅방에서 이름 옆에 표시됩니다!")
+
+
+# ============================================================
+# Status (상태창) — DM only
+# ============================================================
+
+async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '상태창' command (DM) — show user's full status overview."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    display_name = update.effective_user.first_name or "트레이너"
+    await queries.ensure_user(user_id, display_name, update.effective_user.username)
+
+    from database import battle_queries as bq
+    from utils.battle_calc import calc_battle_stats, format_stats_line, EVO_STAGE_MAP
+    from models.pokemon_skills import POKEMON_SKILLS
+
+    user = await queries.get_user(user_id)
+    pokemon_list = await queries.get_user_pokemon_list(user_id)
+    partner = await bq.get_partner(user_id)
+    team = await bq.get_battle_team(user_id)
+    battle_stats = await bq.get_battle_stats(user_id)
+    master_balls = user.get("master_balls", 0) if user else 0
+    bp = battle_stats.get("battle_points", 0)
+
+    # 칭호
+    title = user.get("title", "") if user else ""
+    title_emoji = user.get("title_emoji", "") if user else ""
+    title_text = f"「{title_emoji} {title}」" if title else "없음"
+
+    lines = [f"📋 {display_name}님의 상태창\n"]
+
+    # 기본 정보
+    lines.append(f"🏷️ 칭호: {title_text}")
+    lines.append(f"🔮 마스터볼: {master_balls}개")
+    lines.append(f"⚔️ BP: {bp}")
+    lines.append(f"📦 보유 포켓몬: {len(pokemon_list)}마리")
+
+    # 도감 수
+    unique_ids = {p["pokemon_id"] for p in pokemon_list}
+    lines.append(f"📖 도감: {len(unique_ids)}/251종")
+
+    # 배틀 전적
+    wins = battle_stats.get("battle_wins", 0)
+    losses = battle_stats.get("battle_losses", 0)
+    total = wins + losses
+    win_rate = f"{wins / total * 100:.0f}%" if total > 0 else "-"
+    best = battle_stats.get("best_streak", 0)
+    lines.append(f"\n⚔️ 배틀 전적: {wins}승 {losses}패 (승률 {win_rate})")
+    if best > 0:
+        lines.append(f"🔥 최고 연승: {best}연승")
+
+    # 파트너
+    lines.append("")
+    if partner:
+        evo = EVO_STAGE_MAP.get(partner["pokemon_id"], 3)
+        stats = calc_battle_stats(partner["rarity"], partner["stat_type"], partner["friendship"], evo_stage=evo)
+        type_emoji = config.TYPE_EMOJI.get(partner["pokemon_type"], "")
+        type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
+        skill = POKEMON_SKILLS.get(partner["pokemon_id"], ("몸통박치기", 1.2))
+        lines.append(f"🤝 파트너: {partner['emoji']} {partner['name_ko']}  {type_emoji}{type_name}")
+        lines.append(f"   ❤️ 친밀도: {hearts_display(partner['friendship'])}")
+        lines.append(f"   📊 {format_stats_line(stats)}")
+        lines.append(f"   💥 기술: {skill[0]}")
+    else:
+        lines.append("🤝 파트너: 미지정 ('파트너' 명령어로 설정)")
+
+    # 팀
+    lines.append("")
+    if team:
+        lines.append(f"👥 배틀팀 ({len(team)}/6)")
+        for i, t in enumerate(team, 1):
+            evo = EVO_STAGE_MAP.get(t["pokemon_id"], 3)
+            stats = calc_battle_stats(t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo)
+            skill = POKEMON_SKILLS.get(t["pokemon_id"], ("몸통박치기", 1.2))
+            power = stats["hp"] + stats["atk"] + stats["def"] + stats["spd"]
+            lines.append(f"  {i}. {t['emoji']} {t['name_ko']}  💥{skill[0]}  ⚡{power}")
+    else:
+        lines.append("👥 배틀팀: 미등록 ('팀등록' 명령어로 설정)")
+
+    await update.message.reply_text("\n".join(lines))

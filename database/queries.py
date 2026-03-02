@@ -856,6 +856,21 @@ async def get_spawn_multiplier(chat_id: int) -> float:
     return row["spawn_multiplier"] if row else 1.0
 
 
+async def set_arcade(chat_id: int, enabled: bool):
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE chat_rooms SET is_arcade = $1 WHERE chat_id = $2",
+        1 if enabled else 0, chat_id,
+    )
+
+
+async def get_arcade_chat_ids() -> set[int]:
+    """Get all chat IDs with arcade mode enabled."""
+    pool = await get_db()
+    rows = await pool.fetch("SELECT chat_id FROM chat_rooms WHERE is_arcade = 1")
+    return {r["chat_id"] for r in rows}
+
+
 # ============================================================
 # Events
 # ============================================================
@@ -1089,7 +1104,7 @@ async def get_title_stats(user_id: int) -> dict:
 
 async def increment_title_stat(user_id: int, stat: str, amount: int = 1):
     """Increment a stat in user_title_stats (single upsert, no separate ensure)."""
-    valid_stats = {"catch_fail_count", "midnight_catch_count", "master_ball_used", "love_count"}
+    valid_stats = {"catch_fail_count", "midnight_catch_count", "master_ball_used", "love_count", "tournament_wins"}
     if stat not in valid_stats:
         return
     pool = await get_db()
@@ -1359,3 +1374,107 @@ async def get_longest_streak_user() -> dict | None:
            LIMIT 1"""
     )
     return dict(row) if row else None
+
+
+# ─── Dashboard: DAU / Retention / Economy ───
+
+async def get_dau() -> int:
+    """오늘 활동한 유저 수 (포획 시도 기준)."""
+    pool = await get_db()
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    row = await pool.fetchrow(
+        "SELECT COUNT(DISTINCT user_id) as cnt FROM catch_attempts WHERE attempted_at >= $1",
+        today,
+    )
+    return row["cnt"] if row else 0
+
+
+async def get_dau_history(days: int = 7) -> list[dict]:
+    """최근 N일 DAU 추이."""
+    pool = await get_db()
+    from datetime import timedelta
+    since = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)
+    rows = await pool.fetch(
+        """SELECT attempted_at::date as day, COUNT(DISTINCT user_id) as dau
+           FROM catch_attempts
+           WHERE attempted_at >= $1
+           GROUP BY day ORDER BY day""",
+        since,
+    )
+    return [{"day": str(r["day"]), "dau": r["dau"]} for r in rows]
+
+
+async def get_retention_d1() -> dict:
+    """D+1 리텐션: 출시일(3/1) 이후 가입자 중 다음날도 활동한 비율.
+    오늘 가입자는 아직 D+1이 안 왔으므로 어제까지만 대상."""
+    pool = await get_db()
+    from datetime import date as dt_date
+    launch = dt_date(2026, 3, 1)
+    yesterday = datetime.now().date() - __import__('datetime').timedelta(days=1)
+    row = await pool.fetchrow(
+        """WITH new_users AS (
+               SELECT user_id, registered_at::date as reg_date
+               FROM users
+               WHERE registered_at::date >= $1
+                 AND registered_at::date <= $2
+           ),
+           next_day_active AS (
+               SELECT DISTINCT nu.user_id
+               FROM new_users nu
+               JOIN catch_attempts ca ON nu.user_id = ca.user_id
+                   AND ca.attempted_at::date = nu.reg_date + INTERVAL '1 day'
+           )
+           SELECT
+               (SELECT COUNT(*) FROM new_users) as total_new,
+               (SELECT COUNT(*) FROM next_day_active) as retained
+        """,
+        launch, yesterday,
+    )
+    total = row["total_new"] if row else 0
+    retained = row["retained"] if row else 0
+    rate = round(retained / total * 100, 1) if total > 0 else 0
+    return {"total_new": total, "retained": retained, "rate": rate}
+
+
+async def get_economy_health() -> dict:
+    """경제 건강도: 마볼 유통량, BP 총합, 평균 등."""
+    pool = await get_db()
+    mb = await pool.fetchrow(
+        "SELECT SUM(master_balls) as total, AVG(master_balls) as avg FROM users WHERE master_balls > 0"
+    )
+    bp = await pool.fetchrow(
+        "SELECT SUM(battle_points) as total, AVG(battle_points) as avg FROM users WHERE battle_points > 0"
+    )
+    mb_used = await pool.fetchrow(
+        "SELECT COUNT(*) as cnt FROM catch_attempts WHERE used_master_ball = 1"
+    )
+    total_pokemon = await pool.fetchrow(
+        "SELECT COUNT(*) as cnt FROM user_pokemon WHERE is_active = 1"
+    )
+    return {
+        "master_balls_circulation": int(mb["total"]) if mb and mb["total"] else 0,
+        "master_balls_avg": round(float(mb["avg"]), 1) if mb and mb["avg"] else 0,
+        "master_balls_used_total": mb_used["cnt"] if mb_used else 0,
+        "bp_circulation": int(bp["total"]) if bp and bp["total"] else 0,
+        "bp_avg": round(float(bp["avg"]), 1) if bp and bp["avg"] else 0,
+        "total_pokemon_owned": total_pokemon["cnt"] if total_pokemon else 0,
+    }
+
+
+async def get_active_chat_rooms_top(limit: int = 5) -> list[dict]:
+    """오늘 스폰이 가장 많은 활성 채팅방 TOP N."""
+    pool = await get_db()
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = await pool.fetch(
+        """SELECT cr.chat_id, cr.chat_title, cr.member_count,
+                  COUNT(sl.id) as today_spawns,
+                  COUNT(sl.caught_by_user_id) as today_catches
+           FROM chat_rooms cr
+           LEFT JOIN spawn_log sl ON cr.chat_id = sl.chat_id AND sl.spawned_at >= $1
+           WHERE cr.is_active = 1
+           GROUP BY cr.chat_id, cr.chat_title, cr.member_count
+           ORDER BY today_spawns DESC
+           LIMIT $2""",
+        today, limit,
+    )
+    return [dict(r) for r in rows]

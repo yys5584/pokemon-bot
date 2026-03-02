@@ -11,6 +11,7 @@ from pathlib import Path
 from aiohttp import web
 
 from database import queries
+from database import battle_queries as bq
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,88 @@ async def api_fun_kpis(request):
     })
 
 
+# --- Battle APIs ---
+
+async def api_battle_ranking(request):
+    ranking = await bq.get_battle_ranking(20)
+    return pg_json_response(ranking)
+
+
+async def api_battle_tiers(request):
+    """Build tier list data for epic+ pokemon."""
+    from database.connection import get_db
+    import config
+    from utils.battle_calc import calc_battle_stats, EVO_STAGE_MAP
+    from models.pokemon_skills import POKEMON_SKILLS
+
+    pool = await get_db()
+    rows = await pool.fetch("""
+        SELECT id, name_ko, emoji, rarity, pokemon_type, stat_type
+        FROM pokemon_master
+        WHERE rarity IN ('epic', 'legendary')
+        ORDER BY id
+    """)
+
+    scored = []
+    for r in rows:
+        evo_stage = EVO_STAGE_MAP.get(r["id"], 3)
+        stats = calc_battle_stats(r["rarity"], r["stat_type"], 5, evo_stage=evo_stage)
+        skill = POKEMON_SKILLS.get(r["id"], ("몸통박치기", 1.2))
+
+        eff_atk = stats["atk"] * (1 + config.BATTLE_SKILL_RATE * skill[1])
+        eff_tank = stats["hp"] * (1 + stats["def"] * 0.003)
+        power = eff_atk * eff_tank / 1000
+
+        type_emoji = config.TYPE_EMOJI.get(r["pokemon_type"], "")
+        type_ko = config.TYPE_NAME_KO.get(r["pokemon_type"], r["pokemon_type"])
+        stat_ko = {"offensive": "공격", "defensive": "방어", "balanced": "균형", "speedy": "속도"}.get(r["stat_type"], r["stat_type"])
+
+        # Assign tier
+        if r["rarity"] == "legendary":
+            tier = "S+" if stats["atk"] >= 140 else "S"
+        else:
+            if stats["atk"] >= 110:
+                tier = "A+"
+            elif stats["atk"] >= 85:
+                tier = "A"
+            elif stats["atk"] >= 70:
+                tier = "B+"
+            else:
+                tier = "B"
+
+        scored.append({
+            "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
+            "rarity": r["rarity"], "type_emoji": type_emoji, "type_ko": type_ko,
+            "stat_ko": stat_ko, "power": round(power, 1), "tier": tier,
+            "skill_name": skill[0], "skill_power": skill[1],
+            "hp": stats["hp"], "atk": stats["atk"],
+            "def_": stats["def"], "spd": stats["spd"],
+        })
+
+    scored.sort(key=lambda x: x["power"], reverse=True)
+    return pg_json_response(scored)
+
+
+# --- Dashboard KPI APIs ---
+
+async def api_dashboard_kpi(request):
+    """DAU, retention, economy health — single endpoint."""
+    dau, dau_hist, retention, economy, top_channels = await asyncio.gather(
+        queries.get_dau(),
+        queries.get_dau_history(7),
+        queries.get_retention_d1(),
+        queries.get_economy_health(),
+        queries.get_active_chat_rooms_top(5),
+    )
+    return pg_json_response({
+        "dau": dau,
+        "dau_history": dau_hist,
+        "retention": retention,
+        "economy": economy,
+        "top_channels": top_channels,
+    })
+
+
 # --- Page Handler ---
 
 async def index(request):
@@ -140,6 +223,9 @@ def create_app() -> web.Application:
     app.router.add_get("/api/pokemon/stats", api_pokemon_stats)
     app.router.add_get("/api/events", api_events)
     app.router.add_get("/api/fun-kpis", api_fun_kpis)
+    app.router.add_get("/api/battle/ranking", api_battle_ranking)
+    app.router.add_get("/api/battle/tiers", api_battle_tiers)
+    app.router.add_get("/api/dashboard-kpi", api_dashboard_kpi)
     return app
 
 
