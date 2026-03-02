@@ -310,6 +310,10 @@ TOURNAMENT_MIGRATIONS = [
     "ALTER TABLE user_title_stats ADD COLUMN tournament_wins INTEGER NOT NULL DEFAULT 0",
 ]
 
+SHOP_MIGRATIONS = [
+    "ALTER TABLE users ADD COLUMN force_spawn_tickets INTEGER NOT NULL DEFAULT 0",
+]
+
 
 async def create_tables():
     """Create all tables."""
@@ -327,6 +331,12 @@ async def create_tables():
             pass
     # Run tournament migrations (ignore if already applied)
     for mig in TOURNAMENT_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+    # Run shop migrations
+    for mig in SHOP_MIGRATIONS:
         try:
             await pool.execute(mig)
         except Exception:

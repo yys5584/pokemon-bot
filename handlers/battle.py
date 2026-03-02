@@ -711,11 +711,13 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     next_price = _masterball_price(bought_today)
     price_str = f"{next_price} BP" if next_price else "매진"
 
+    tickets = await queries.get_force_spawn_tickets(user_id)
+
     lines = [
         "🏪 BP 상점\n",
         f"💰 보유 BP: {bp}\n",
         f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
-        f"⚡ 강제스폰 초기화 — {config.BP_FORCE_SPAWN_RESET_COST} BP",
+        f"⚡ 강제스폰권 x1 — {config.BP_FORCE_SPAWN_TICKET_COST} BP (보유: {tickets}개)",
         f"🔴 포켓볼 충전 100개 — {config.BP_POKEBALL_RESET_COST} BP",
         "",
         "구매: 구매 마스터볼 / 구매 강제스폰 / 구매 포켓볼",
@@ -768,8 +770,8 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📦 오늘 남은 구매: {remaining}개{next_str}"
         )
 
-    elif item in ("강제스폰", "강스"):
-        cost = config.BP_FORCE_SPAWN_RESET_COST
+    elif item in ("강제스폰", "강스", "강제스폰권"):
+        cost = config.BP_FORCE_SPAWN_TICKET_COST
         success = await bq.spend_bp(user_id, cost)
         if not success:
             bp = await bq.get_bp(user_id)
@@ -778,12 +780,15 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        await queries.reset_force_spawn_counts()
-        await bq.log_bp_purchase(user_id, "force_spawn_reset", 1)
+        await queries.add_force_spawn_ticket(user_id)
+        await bq.log_bp_purchase(user_id, "force_spawn_ticket", 1)
         bp = await bq.get_bp(user_id)
+        tickets = await queries.get_force_spawn_tickets(user_id)
         await update.message.reply_text(
-            f"⚡ 강제스폰 횟수가 초기화되었습니다!\n"
-            f"💰 남은 BP: {bp}"
+            f"⚡ 강제스폰권 1개 구매 완료!\n"
+            f"💰 남은 BP: {bp}\n"
+            f"📦 보유 강제스폰권: {tickets}개\n\n"
+            "채팅방에서 '강스' 로 사용하세요!"
         )
 
     elif item in ("포켓볼", "볼"):

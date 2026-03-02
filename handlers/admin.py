@@ -150,6 +150,65 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(f"❌ 강제스폰 실패: {e}")
 
 
+async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '강스' command in group — use a force spawn ticket."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    if update.effective_chat.type == "private":
+        await update.message.reply_text("그룹 채팅방에서만 사용 가능합니다.")
+        return
+
+    # Check minimum members
+    room = await queries.get_chat_room(chat_id)
+    member_count = room["member_count"] if room else 0
+    if member_count < config.SPAWN_MIN_MEMBERS:
+        await update.message.reply_text(
+            f"🚫 멤버가 {config.SPAWN_MIN_MEMBERS}명 이상인 방에서만 사용 가능합니다."
+        )
+        return
+
+    # Use ticket (atomic)
+    success = await queries.use_force_spawn_ticket(user_id)
+    if not success:
+        await update.message.reply_text("⚡ 강제스폰권이 없습니다! DM에서 '상점'으로 구매하세요.")
+        return
+
+    try:
+        from services.spawn_service import execute_spawn
+
+        class FakeJob:
+            def __init__(self, data):
+                self.data = data
+
+        class FakeContext:
+            def __init__(self, bot, job_queue, data):
+                self.bot = bot
+                self.job_queue = job_queue
+                self.job = FakeJob(data)
+
+        fake_ctx = FakeContext(
+            context.bot,
+            context.application.job_queue,
+            {"chat_id": chat_id, "force": True},
+        )
+        await execute_spawn(fake_ctx)
+
+        remaining = await queries.get_force_spawn_tickets(user_id)
+        display_name = update.effective_user.first_name or "트레이너"
+        await update.message.reply_text(
+            f"⚡ {display_name}의 강제스폰! (남은 티켓: {remaining}개)"
+        )
+    except Exception as e:
+        # Refund ticket on failure
+        await queries.add_force_spawn_ticket(user_id)
+        logger.error(f"ticket_force_spawn FAILED: {e}", exc_info=True)
+        await update.message.reply_text(f"❌ 강제스폰 실패 (티켓 환불됨): {e}")
+
+
 async def force_spawn_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '강제스폰초기화' command - reset force spawn counts for all chats."""
     if not update.effective_user or not update.message:

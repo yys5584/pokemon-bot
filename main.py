@@ -35,7 +35,7 @@ from handlers.battle import (
 from handlers.dm_nurture import feed_handler, play_handler, evolve_handler
 from handlers.dm_trade import trade_handler, accept_handler, reject_handler
 from handlers.admin import (
-    spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler,
+    spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
     event_start_handler, event_list_handler, event_end_handler,
     stats_handler, channel_list_handler, grant_masterball_handler,
     arcade_handler,
@@ -261,6 +261,7 @@ def main():
     # Admin group commands
     app.add_handler(MessageHandler(group & filters.Regex(r"^스폰배율"), spawn_rate_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강제스폰\s*$"), force_spawn_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스\s*$"), ticket_force_spawn_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰초기화\s*$"), force_spawn_reset_handler))
 
     # "ㅊ" catch handler (group only, exact match)

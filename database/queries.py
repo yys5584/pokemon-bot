@@ -116,6 +116,38 @@ async def use_master_ball(user_id: int) -> bool:
 
 
 # ============================================================
+# Force Spawn Tickets
+# ============================================================
+
+async def get_force_spawn_tickets(user_id: int) -> int:
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT force_spawn_tickets FROM users WHERE user_id = $1", user_id
+    )
+    return row["force_spawn_tickets"] if row and row["force_spawn_tickets"] else 0
+
+
+async def add_force_spawn_ticket(user_id: int, count: int = 1):
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET force_spawn_tickets = force_spawn_tickets + $1 WHERE user_id = $2",
+        count, user_id,
+    )
+
+
+async def use_force_spawn_ticket(user_id: int) -> bool:
+    """Use one force spawn ticket. Returns True if successful (atomic)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "UPDATE users SET force_spawn_tickets = force_spawn_tickets - 1 "
+        "WHERE user_id = $1 AND force_spawn_tickets >= 1 "
+        "RETURNING force_spawn_tickets",
+        user_id,
+    )
+    return row is not None
+
+
+# ============================================================
 # Pokemon Master (with in-memory cache — 251 rows, never changes)
 # ============================================================
 
@@ -660,6 +692,25 @@ async def reset_force_spawn_counts():
     """Reset force spawn counts for all chats."""
     pool = await get_db()
     await pool.execute("UPDATE chat_rooms SET force_spawn_count = 0")
+
+
+async def reset_force_spawn_for_chat(chat_id: int):
+    """Reset force spawn count for a specific chat."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE chat_rooms SET force_spawn_count = 0 WHERE chat_id = $1",
+        chat_id,
+    )
+
+
+async def get_chats_with_force_spawns() -> list[dict]:
+    """Get chat rooms that have used force spawns (count > 0)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        "SELECT chat_id, chat_title, force_spawn_count FROM chat_rooms "
+        "WHERE force_spawn_count > 0 ORDER BY chat_title"
+    )
+    return [dict(r) for r in rows]
 
 
 async def reset_catch_limits():
