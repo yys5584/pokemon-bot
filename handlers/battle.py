@@ -431,6 +431,12 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
             await update.message.reply_text(f"번호 {n}이(가) 범위 밖입니다. (1~{len(pokemon_list)})")
             return
 
+    # 전설 포켓몬 1마리 제한
+    legendary_count = sum(1 for n in nums if pokemon_list[n - 1].get("rarity") == "legendary")
+    if legendary_count > 1:
+        await update.message.reply_text("⚠️ 전설 포켓몬은 팀에 1마리만 넣을 수 있습니다!")
+        return
+
     instance_ids = [pokemon_list[n - 1]["id"] for n in nums]
     await bq.set_battle_team(user_id, instance_ids)
 
@@ -489,6 +495,19 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             if len(selected) >= TEAM_MAX:
                 await query.answer(f"최대 {TEAM_MAX}마리까지 선택 가능합니다!", show_alert=True)
                 return
+
+            # 전설 포켓몬 1마리 제한
+            pokemon_list = await queries.get_user_pokemon_list(owner_id)
+            if (pokemon_list and 0 <= idx < len(pokemon_list)
+                    and pokemon_list[idx].get("rarity") == "legendary"):
+                legend_in_team = sum(
+                    1 for s in selected
+                    if 0 <= s < len(pokemon_list) and pokemon_list[s].get("rarity") == "legendary"
+                )
+                if legend_in_team >= 1:
+                    await query.answer("⚠️ 전설 포켓몬은 1마리만 넣을 수 있습니다!", show_alert=True)
+                    return
+
             selected.append(idx)
 
         pokemon_list = await queries.get_user_pokemon_list(owner_id)
@@ -534,6 +553,15 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
         pokemon_list = await queries.get_user_pokemon_list(owner_id)
         if not pokemon_list:
+            return
+
+        # 전설 포켓몬 1마리 제한 최종 체크
+        legend_count = sum(
+            1 for s in selected
+            if 0 <= s < len(pokemon_list) and pokemon_list[s].get("rarity") == "legendary"
+        )
+        if legend_count > 1:
+            await query.answer("⚠️ 전설 포켓몬은 1마리만 넣을 수 있습니다!", show_alert=True)
             return
 
         instance_ids = [pokemon_list[i]["id"] for i in selected if 0 <= i < len(pokemon_list)]
