@@ -86,7 +86,7 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "칭호 — 칭호 보기/장착\n"
         "칭호목록 — 전체 칭호 & 해금 조건\n\n"
         "【배틀】\n"
-        "파트너 [번호] — 파트너 포켓몬 지정\n"
+        "파트너 [번호/이름] — 파트너 포켓몬 지정\n"
         "팀등록 [번호들] — 배틀 팀 등록 (최대 6)\n"
         "팀 — 내 배틀 팀 확인\n"
         "팀해제 — 배틀 팀 초기화\n"

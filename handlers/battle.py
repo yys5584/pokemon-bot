@@ -11,10 +11,60 @@ from utils.battle_calc import calc_battle_stats, format_stats_line, get_type_mul
 
 logger = logging.getLogger(__name__)
 
+PARTNER_PAGE_SIZE = 10
+TEAM_PAGE_SIZE = 10
+TEAM_MAX = 6
+
 
 # ============================================================
 # Partner Pokemon (/파트너)
 # ============================================================
+
+def _build_partner_list(user_id: int, pokemon_list: list, page: int,
+                        current_partner_id: int | None = None) -> tuple[str, InlineKeyboardMarkup]:
+    """Build partner selection list with inline buttons."""
+    total = len(pokemon_list)
+    total_pages = max(1, (total + PARTNER_PAGE_SIZE - 1) // PARTNER_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+
+    start = page * PARTNER_PAGE_SIZE
+    end = min(start + PARTNER_PAGE_SIZE, total)
+    page_pokemon = pokemon_list[start:end]
+
+    lines = [f"🤝 파트너 선택  [{page + 1}/{total_pages}]\n"]
+    for i, p in enumerate(page_pokemon):
+        num = start + i + 1
+        mark = " ✅" if p["id"] == current_partner_id else ""
+        type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
+        lines.append(f"{num}. {type_emoji}{p['emoji']} {p['name_ko']}{mark}")
+    lines.append("\n포켓몬을 눌러 파트너로 지정!")
+
+    # Buttons: 2 per row
+    buttons = []
+    row = []
+    for i, p in enumerate(page_pokemon):
+        idx = start + i
+        row.append(InlineKeyboardButton(
+            f"{idx + 1}. {p['emoji']}{p['name_ko']}",
+            callback_data=f"partner_s_{user_id}_{idx}_{page}",
+        ))
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+
+    # Pagination
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"partner_p_{user_id}_{page - 1}"))
+    if page < total_pages - 1:
+        nav_row.append(InlineKeyboardButton("다음 ▶", callback_data=f"partner_p_{user_id}_{page + 1}"))
+    if nav_row:
+        buttons.append(nav_row)
+
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
 
 async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 파트너 command (DM). Show current or set partner."""
@@ -31,51 +81,95 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     parts = text.split()
 
-    # "파트너" alone → show current partner
+    # "파트너" alone → show current partner + 변경 버튼
     if len(parts) == 1:
         partner = await bq.get_partner(user_id)
         if not partner:
-            await update.message.reply_text(
-                "🤝 아직 파트너 포켓몬이 없습니다.\n\n"
-                "파트너 [번호] — 내포켓몬 번호로 파트너 지정\n"
-                "예: 파트너 3"
-            )
+            # 파트너 없음 → 바로 선택 리스트
+            pokemon_list = await queries.get_user_pokemon_list(user_id)
+            if not pokemon_list:
+                await update.message.reply_text("보유한 포켓몬이 없습니다.")
+                return
+            text_msg, markup = _build_partner_list(user_id, pokemon_list, 0)
+            await update.message.reply_text(text_msg, reply_markup=markup)
             return
 
         stats = calc_battle_stats(partner["rarity"], partner["stat_type"], partner["friendship"])
         type_emoji = config.TYPE_EMOJI.get(partner["pokemon_type"], "")
         type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
+        buttons = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔄 변경", callback_data=f"partner_p_{user_id}_0"),
+        ]])
         await update.message.reply_text(
             f"🤝 나의 파트너\n\n"
             f"{partner['emoji']} {partner['name_ko']}  {type_emoji}{type_name}\n"
             f"📊 {format_stats_line(stats)}\n\n"
-            f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!"
+            f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!",
+            reply_markup=buttons,
         )
         return
 
-    # "파트너 3" → set partner
-    try:
-        num = int(parts[1])
-    except (ValueError, IndexError):
-        await update.message.reply_text("사용법: 파트너 [내포켓몬 번호]")
-        return
+    # "파트너 3" (번호) or "파트너 삐삐" (이름) → 직접 지정도 유지
+    arg = parts[1] if len(parts) >= 2 else ""
+    search_name = " ".join(parts[1:]).strip()
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
         await update.message.reply_text("보유한 포켓몬이 없습니다.")
         return
 
-    if num < 1 or num > len(pokemon_list):
-        await update.message.reply_text(f"1~{len(pokemon_list)} 범위에서 선택해주세요.")
+    chosen = None
+
+    # 1) 번호로 시도
+    try:
+        num = int(arg)
+        if 1 <= num <= len(pokemon_list):
+            chosen = pokemon_list[num - 1]
+    except ValueError:
+        pass
+
+    # 2) 이름으로 검색 (한글/영문)
+    if chosen is None and search_name:
+        name_lower = search_name.lower()
+        matches = [
+            p for p in pokemon_list
+            if name_lower in p["name_ko"].lower() or name_lower in p["name_en"].lower()
+        ]
+        if len(matches) == 1:
+            chosen = matches[0]
+        elif len(matches) > 1:
+            lines = [f"'{search_name}' 검색 결과가 {len(matches)}마리입니다:\n"]
+            for p in matches:
+                idx = pokemon_list.index(p) + 1
+                lines.append(f"  {idx}. {p['emoji']} {p['name_ko']}")
+            lines.append("\n번호로 지정: 파트너 [번호]")
+            await update.message.reply_text("\n".join(lines))
+            return
+        else:
+            await update.message.reply_text(
+                f"'{search_name}' 이름의 포켓몬을 보유하고 있지 않습니다.\n"
+                f"내포켓몬 으로 보유 목록을 확인하세요."
+            )
+            return
+
+    if chosen is None:
+        # 인식 불가 → 선택 리스트 보여주기
+        partner = await bq.get_partner(user_id)
+        partner_id = partner["instance_id"] if partner else None
+        text_msg, markup = _build_partner_list(user_id, pokemon_list, 0, partner_id)
+        await update.message.reply_text(text_msg, reply_markup=markup)
         return
 
-    chosen = pokemon_list[num - 1]
-    instance_id = chosen["id"]
+    await _set_partner_and_reply(update.message, user_id, chosen)
 
-    await bq.set_partner(user_id, instance_id)
 
-    await update.message.reply_text(
-        f"🤝 {chosen['emoji']} {chosen['name_ko']}을(를) 파트너로 지정했습니다!\n"
+async def _set_partner_and_reply(message, user_id: int, chosen: dict):
+    """Set partner and send confirmation."""
+    await bq.set_partner(user_id, chosen["id"])
+
+    type_emoji = config.TYPE_EMOJI.get(chosen.get("pokemon_type", "normal"), "")
+    await message.reply_text(
+        f"🤝 {type_emoji}{chosen['emoji']} {chosen['name_ko']}을(를) 파트너로 지정했습니다!\n"
         f"배틀 시 파트너가 팀에 포함되면 ATK +5% 보너스!"
     )
 
@@ -84,12 +178,169 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await queries.unlock_title(user_id, "partner_set")
 
 
+async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle partner selection inline button callbacks."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    data = query.data
+    if not data.startswith("partner_"):
+        return
+
+    await query.answer()
+
+    parts = data.split("_")
+    # partner_p_{user_id}_{page}  — page navigation
+    # partner_s_{user_id}_{idx}_{page}  — select pokemon
+    action = parts[1]
+    owner_id = int(parts[2])
+
+    if query.from_user.id != owner_id:
+        await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+        return
+
+    pokemon_list = await queries.get_user_pokemon_list(owner_id)
+    if not pokemon_list:
+        try:
+            await query.edit_message_text("보유한 포켓몬이 없습니다.")
+        except Exception:
+            pass
+        return
+
+    if action == "p":
+        # Page navigation
+        page = int(parts[3])
+        partner = await bq.get_partner(owner_id)
+        partner_id = partner["instance_id"] if partner else None
+        text_msg, markup = _build_partner_list(owner_id, pokemon_list, page, partner_id)
+        try:
+            await query.edit_message_text(text_msg, reply_markup=markup)
+        except Exception:
+            pass
+
+    elif action == "s":
+        # Select partner
+        idx = int(parts[3])
+        if idx < 0 or idx >= len(pokemon_list):
+            await query.answer("잘못된 선택입니다.", show_alert=True)
+            return
+
+        chosen = pokemon_list[idx]
+        await bq.set_partner(owner_id, chosen["id"])
+
+        # Unlock partner title
+        if not await queries.has_title(owner_id, "partner_set"):
+            await queries.unlock_title(owner_id, "partner_set")
+
+        type_emoji = config.TYPE_EMOJI.get(chosen.get("pokemon_type", "normal"), "")
+        stats = calc_battle_stats(chosen["rarity"], chosen.get("stat_type", "balanced"), chosen["friendship"])
+        try:
+            await query.edit_message_text(
+                f"🤝 파트너 지정 완료!\n\n"
+                f"{type_emoji}{chosen['emoji']} {chosen['name_ko']}\n"
+                f"📊 {format_stats_line(stats)}\n\n"
+                f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!"
+            )
+        except Exception:
+            pass
+
+
 # ============================================================
 # Battle Team (/팀, /팀등록, /팀해제)
 # ============================================================
 
+def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
+                       page: int) -> tuple[str, InlineKeyboardMarkup]:
+    """Build team selection UI with inline buttons.
+    selected = list of pokemon_list indices (0-based) in team order.
+    """
+    total = len(pokemon_list)
+    total_pages = max(1, (total + TEAM_PAGE_SIZE - 1) // TEAM_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * TEAM_PAGE_SIZE
+    end = min(start + TEAM_PAGE_SIZE, total)
+    page_pokemon = pokemon_list[start:end]
+
+    slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+
+    # Header with current selection
+    lines = [f"⚔️ 배틀 팀 편집  ({len(selected)}/{TEAM_MAX})"]
+    if selected:
+        sel_names = []
+        for si in selected:
+            if 0 <= si < total:
+                p = pokemon_list[si]
+                sel_names.append(f"{p['emoji']}{p['name_ko']}")
+        lines.append("▸ " + " → ".join(sel_names))
+    lines.append(f"\n[{page + 1}/{total_pages}]  포켓몬을 눌러 추가/제거\n")
+
+    selected_set = set(selected)
+    for i, p in enumerate(page_pokemon):
+        idx = start + i
+        num = idx + 1
+        type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
+        if idx in selected_set:
+            slot_num = selected.index(idx)
+            lines.append(f"{slot_emojis[slot_num]} {type_emoji}{p['emoji']} {p['name_ko']} ✅")
+        else:
+            lines.append(f"{num}. {type_emoji}{p['emoji']} {p['name_ko']}")
+
+    # Encode selected indices as compact string
+    sel_str = ",".join(str(s) for s in selected) if selected else "x"
+
+    # Pokemon buttons (2 per row)
+    buttons = []
+    row = []
+    for i, p in enumerate(page_pokemon):
+        idx = start + i
+        check = "✅ " if idx in selected_set else ""
+        row.append(InlineKeyboardButton(
+            f"{check}{p['emoji']}{p['name_ko']}",
+            callback_data=f"ts_{user_id}_{idx}_{page}_{sel_str}",
+        ))
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+
+    # Nav row
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"tp_{user_id}_{page - 1}_{sel_str}"))
+    if page < total_pages - 1:
+        nav_row.append(InlineKeyboardButton("다음 ▶", callback_data=f"tp_{user_id}_{page + 1}_{sel_str}"))
+    if nav_row:
+        buttons.append(nav_row)
+
+    # Action row
+    action_row = []
+    if selected:
+        action_row.append(InlineKeyboardButton(
+            f"✅ 확정 ({len(selected)}마리)",
+            callback_data=f"tok_{user_id}_{sel_str}",
+        ))
+        action_row.append(InlineKeyboardButton(
+            "🗑 초기화",
+            callback_data=f"tcl_{user_id}_{page}_x",
+        ))
+    buttons.append(action_row if action_row else [
+        InlineKeyboardButton("❌ 취소", callback_data=f"tno_{user_id}")
+    ])
+
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
+
+def _parse_sel(sel_str: str) -> list[int]:
+    """Parse selected indices from callback data."""
+    if sel_str == "x" or not sel_str:
+        return []
+    return [int(s) for s in sel_str.split(",") if s.isdigit()]
+
+
 async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle 팀 command (DM). Show current battle team."""
+    """Handle 팀 command (DM). Show current battle team or start selection."""
     if not update.effective_user:
         return
 
@@ -102,11 +353,13 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     team = await bq.get_battle_team(user_id)
     if not team:
-        await update.message.reply_text(
-            "⚔️ 배틀 팀이 없습니다.\n\n"
-            "팀등록 [번호들] — 내포켓몬 번호로 팀 등록 (최대 6마리)\n"
-            "예: 팀등록 3 1 5 2"
-        )
+        # 팀 없음 → 바로 선택 UI
+        pokemon_list = await queries.get_user_pokemon_list(user_id)
+        if not pokemon_list:
+            await update.message.reply_text("보유한 포켓몬이 없습니다.")
+            return
+        text_msg, markup = _build_team_select(user_id, pokemon_list, [], 0)
+        await update.message.reply_text(text_msg, reply_markup=markup)
         return
 
     # Get partner for marking
@@ -125,12 +378,15 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{format_stats_line(stats)}"
         )
 
-    lines.append(f"\n팀등록 [번호들] 로 변경 가능")
-    await update.message.reply_text("\n".join(lines))
+    buttons = InlineKeyboardMarkup([[
+        InlineKeyboardButton("🔄 변경", callback_data=f"tcl_{user_id}_0_x"),
+        InlineKeyboardButton("🗑 해제", callback_data=f"tdel_{user_id}"),
+    ]])
+    await update.message.reply_text("\n".join(lines), reply_markup=buttons)
 
 
 async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle 팀등록 command (DM). Register battle team."""
+    """Handle 팀등록 command (DM). Register battle team via text or show selector."""
     if not update.effective_user:
         return
 
@@ -144,55 +400,42 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
     text = (update.message.text or "").strip()
     parts = text.split()
 
-    if len(parts) < 2:
-        await update.message.reply_text(
-            "사용법: 팀등록 [내포켓몬 번호들]\n"
-            "예: 팀등록 3 1 5 2 (최소 1마리, 최대 6마리)"
-        )
-        return
-
-    # Parse numbers
-    try:
-        nums = [int(x) for x in parts[1:7]]  # Max 6
-    except ValueError:
-        await update.message.reply_text("숫자만 입력해주세요. 예: 팀등록 3 1 5 2")
-        return
-
-    if len(nums) < 1:
-        await update.message.reply_text("최소 1마리 이상 등록해야 합니다.")
-        return
-
-    if len(set(nums)) != len(nums):
-        await update.message.reply_text("중복된 번호가 있습니다. 서로 다른 포켓몬을 선택하세요.")
-        return
-
-    # Get user's pokemon list
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
         await update.message.reply_text("보유한 포켓몬이 없습니다.")
         return
 
-    # Validate all numbers are in range
+    # "팀등록" alone → show interactive selector
+    if len(parts) < 2:
+        text_msg, markup = _build_team_select(user_id, pokemon_list, [], 0)
+        await update.message.reply_text(text_msg, reply_markup=markup)
+        return
+
+    # "팀등록 1 3 5" → text-based registration (kept for power users)
+    try:
+        nums = [int(x) for x in parts[1:7]]
+    except ValueError:
+        await update.message.reply_text("숫자만 입력해주세요. 예: 팀등록 3 1 5 2")
+        return
+
+    if len(set(nums)) != len(nums):
+        await update.message.reply_text("중복된 번호가 있습니다.")
+        return
+
     for n in nums:
         if n < 1 or n > len(pokemon_list):
-            await update.message.reply_text(
-                f"번호 {n}이(가) 범위를 벗어났습니다. (1~{len(pokemon_list)})"
-            )
+            await update.message.reply_text(f"번호 {n}이(가) 범위 밖입니다. (1~{len(pokemon_list)})")
             return
 
-    # Map numbers to instance IDs
     instance_ids = [pokemon_list[n - 1]["id"] for n in nums]
-
     await bq.set_battle_team(user_id, instance_ids)
 
-    # Build confirmation
-    lines = ["⚔️ 배틀 팀 등록 완료!\n"]
     slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+    lines = ["⚔️ 배틀 팀 등록 완료!\n"]
     for i, n in enumerate(nums):
         p = pokemon_list[n - 1]
         type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
         lines.append(f"{slot_emojis[i]} {type_emoji}{p['emoji']} {p['name_ko']}")
-
     await update.message.reply_text("\n".join(lines))
 
 
@@ -204,6 +447,148 @@ async def team_clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = update.effective_user.id
     await bq.clear_battle_team(user_id)
     await update.message.reply_text("⚔️ 배틀 팀이 해제되었습니다.")
+
+
+async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle team selection inline callbacks."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    data = query.data
+    await query.answer()
+
+    # ts_{uid}_{idx}_{page}_{sel} — toggle pokemon
+    # tp_{uid}_{page}_{sel} — page nav
+    # tok_{uid}_{sel} — confirm
+    # tcl_{uid}_{page}_{sel} — clear/start fresh
+    # tdel_{uid} — delete team
+    # tno_{uid} — cancel
+
+    parts = data.split("_")
+    prefix = parts[0]
+
+    if prefix == "ts":
+        # Toggle select: ts_{uid}_{idx}_{page}_{sel}
+        owner_id = int(parts[1])
+        idx = int(parts[2])
+        page = int(parts[3])
+        selected = _parse_sel(parts[4]) if len(parts) > 4 else []
+
+        if query.from_user.id != owner_id:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        if idx in selected:
+            selected.remove(idx)
+        else:
+            if len(selected) >= TEAM_MAX:
+                await query.answer(f"최대 {TEAM_MAX}마리까지 선택 가능합니다!", show_alert=True)
+                return
+            selected.append(idx)
+
+        pokemon_list = await queries.get_user_pokemon_list(owner_id)
+        if not pokemon_list:
+            return
+        text_msg, markup = _build_team_select(owner_id, pokemon_list, selected, page)
+        try:
+            await query.edit_message_text(text_msg, reply_markup=markup)
+        except Exception:
+            pass
+
+    elif prefix == "tp":
+        # Page nav: tp_{uid}_{page}_{sel}
+        owner_id = int(parts[1])
+        page = int(parts[2])
+        selected = _parse_sel(parts[3]) if len(parts) > 3 else []
+
+        if query.from_user.id != owner_id:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        pokemon_list = await queries.get_user_pokemon_list(owner_id)
+        if not pokemon_list:
+            return
+        text_msg, markup = _build_team_select(owner_id, pokemon_list, selected, page)
+        try:
+            await query.edit_message_text(text_msg, reply_markup=markup)
+        except Exception:
+            pass
+
+    elif prefix == "tok":
+        # Confirm: tok_{uid}_{sel}
+        owner_id = int(parts[1])
+        selected = _parse_sel(parts[2]) if len(parts) > 2 else []
+
+        if query.from_user.id != owner_id:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        if not selected:
+            await query.answer("최소 1마리를 선택하세요!", show_alert=True)
+            return
+
+        pokemon_list = await queries.get_user_pokemon_list(owner_id)
+        if not pokemon_list:
+            return
+
+        instance_ids = [pokemon_list[i]["id"] for i in selected if 0 <= i < len(pokemon_list)]
+        if not instance_ids:
+            return
+        await bq.set_battle_team(owner_id, instance_ids)
+
+        slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+        lines = ["⚔️ 배틀 팀 등록 완료!\n"]
+        for si, idx in enumerate(selected):
+            if 0 <= idx < len(pokemon_list):
+                p = pokemon_list[idx]
+                type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
+                lines.append(f"{slot_emojis[si]} {type_emoji}{p['emoji']} {p['name_ko']}")
+        try:
+            await query.edit_message_text("\n".join(lines))
+        except Exception:
+            pass
+
+    elif prefix == "tcl":
+        # Clear/start fresh: tcl_{uid}_{page}_{sel}
+        owner_id = int(parts[1])
+        page = int(parts[2]) if len(parts) > 2 else 0
+
+        if query.from_user.id != owner_id:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        pokemon_list = await queries.get_user_pokemon_list(owner_id)
+        if not pokemon_list:
+            return
+        text_msg, markup = _build_team_select(owner_id, pokemon_list, [], page)
+        try:
+            await query.edit_message_text(text_msg, reply_markup=markup)
+        except Exception:
+            pass
+
+    elif prefix == "tdel":
+        # Delete team: tdel_{uid}
+        owner_id = int(parts[1])
+        if query.from_user.id != owner_id:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await bq.clear_battle_team(owner_id)
+        try:
+            await query.edit_message_text("⚔️ 배틀 팀이 해제되었습니다.")
+        except Exception:
+            pass
+
+    elif prefix == "tno":
+        # Cancel: tno_{uid}
+        owner_id = int(parts[1])
+        if query.from_user.id != owner_id:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        try:
+            await query.edit_message_text("팀 등록이 취소되었습니다.")
+        except Exception:
+            pass
 
 
 # ============================================================

@@ -22,7 +22,8 @@ from handlers.start import start_handler, help_handler
 from handlers.group import catch_handler, master_ball_handler, love_easter_egg, love_hidden_handler, ranking_handler, log_handler, dashboard_handler, on_chat_activity, close_message_callback
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler
 from handlers.battle import (
-    partner_handler, team_handler, team_register_handler, team_clear_handler,
+    partner_handler, partner_callback_handler,
+    team_handler, team_register_handler, team_clear_handler, team_callback_handler,
     battle_stats_handler, bp_handler, bp_shop_handler, bp_buy_handler,
     battle_challenge_handler, battle_callback_handler,
     battle_ranking_handler, battle_accept_text_handler, battle_decline_text_handler,
@@ -187,8 +188,8 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^칭호$"), title_handler))
 
     # Battle system (DM)
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^파트너\s*\d*$"), partner_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀등록\s"), team_register_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^파트너(\s+.+)?$"), partner_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀등록(\s|$)"), team_register_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^팀해제$"), team_clear_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^팀$"), team_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^배틀전적$"), battle_stats_handler))
@@ -249,6 +250,12 @@ def main():
 
     # Title selection callback
     app.add_handler(CallbackQueryHandler(title_callback, pattern=r"^title_"))
+
+    # Partner selection callback
+    app.add_handler(CallbackQueryHandler(partner_callback_handler, pattern=r"^partner_"))
+
+    # Team selection callback
+    app.add_handler(CallbackQueryHandler(team_callback_handler, pattern=r"^t(s|p|ok|cl|del|no)_"))
 
     # Battle accept/decline callback
     app.add_handler(CallbackQueryHandler(battle_callback_handler, pattern=r"^battle_"))
