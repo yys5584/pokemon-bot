@@ -1106,6 +1106,111 @@ async def battle_ranking_handler(update: Update, context: ContextTypes.DEFAULT_T
 
 
 # ============================================================
+# Battle Tier List
+# ============================================================
+
+# Cache tier list (computed once, cleared on restart)
+_tier_cache: str | None = None
+
+
+async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '티어' command (DM). Show battle tier list for epic+ pokemon."""
+    global _tier_cache
+
+    if _tier_cache:
+        await update.message.reply_text(_tier_cache, parse_mode="HTML")
+        return
+
+    # Fetch all epic+ pokemon
+    from database.connection import get_db
+    pool = await get_db()
+    rows = await pool.fetch("""
+        SELECT id, name_ko, emoji, rarity, pokemon_type, stat_type
+        FROM pokemon_master
+        WHERE rarity IN ('epic', 'legendary')
+        ORDER BY id
+    """)
+
+    from models.pokemon_skills import POKEMON_SKILLS
+
+    # Calculate power score for each (friendship MAX=5)
+    scored = []
+    for r in rows:
+        stats = calc_battle_stats(r["rarity"], r["stat_type"], 5)
+        skill = POKEMON_SKILLS.get(r["id"], ("몸통박치기", 1.2))
+
+        # Effective power: considers ATK, skill activation, and survivability
+        eff_atk = stats["atk"] * (1 + config.BATTLE_SKILL_RATE * skill[1])
+        eff_tank = stats["hp"] * (1 + stats["def"] * 0.003)
+        power = eff_atk * eff_tank / 1000
+
+        type_emoji = config.TYPE_EMOJI.get(r["pokemon_type"], "")
+        type_ko = config.TYPE_NAME_KO.get(r["pokemon_type"], r["pokemon_type"])
+        stat_ko = {"offensive": "공격", "defensive": "방어", "balanced": "균형", "speedy": "속도"}.get(r["stat_type"], r["stat_type"])
+
+        scored.append({
+            "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
+            "rarity": r["rarity"], "type_emoji": type_emoji, "type_ko": type_ko,
+            "stat_ko": stat_ko, "power": power, "skill_name": skill[0],
+            "skill_power": skill[1], "stats": stats,
+        })
+
+    scored.sort(key=lambda x: x["power"], reverse=True)
+
+    # Build tier display
+    lines = ["⚔️ <b>배틀 티어표</b> (에픽 이상, 친밀도 MAX)"]
+    lines.append("━━━━━━━━━━━━━━━━━━━━")
+
+    current_tier = None
+    tier_labels = {
+        "S+": ("🔴", "S+"),
+        "S": ("🟡", "S"),
+        "A+": ("🟠", "A+"),
+        "A": ("🔵", "A"),
+        "B+": ("🟣", "B+"),
+        "B": ("⚪", "B"),
+    }
+
+    for i, p in enumerate(scored):
+        # Assign tier
+        if p["rarity"] == "legendary":
+            if p["stats"]["atk"] >= 140:
+                tier = "S+"
+            elif p["stats"]["atk"] >= 110:
+                tier = "S"
+            else:
+                tier = "S"
+        else:  # epic
+            if p["stats"]["atk"] >= 110:
+                tier = "A+"
+            elif p["stats"]["atk"] >= 85:
+                tier = "A"
+            elif p["stats"]["atk"] >= 70:
+                tier = "B+"
+            else:
+                tier = "B"
+
+        # Print tier header
+        if tier != current_tier:
+            dot, label = tier_labels.get(tier, ("⚪", tier))
+            lines.append(f"\n{dot} <b>── {label} 티어 ──</b>")
+            current_tier = tier
+
+        lines.append(
+            f"{p['emoji']}<b>{p['name']}</b>  "
+            f"{p['type_emoji']}{p['type_ko']}/{p['stat_ko']}  "
+            f"「{p['skill_name']}」{p['skill_power']}x"
+        )
+
+    lines.append("\n─────────────────")
+    lines.append("💡 공격형 > 균형 > 방어 > 속도 순 유리")
+    lines.append("💡 같은 티어 내 타입상성으로 역전 가능")
+
+    _tier_cache = "\n".join(lines)
+    await update.message.reply_text(_tier_cache, parse_mode="HTML")
+
+
+# ============================================================
 # Text command aliases for accept/decline
 # ============================================================
 

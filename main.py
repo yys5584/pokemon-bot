@@ -27,6 +27,7 @@ from handlers.battle import (
     battle_stats_handler, bp_handler, bp_shop_handler, bp_buy_handler,
     battle_challenge_handler, battle_callback_handler, battle_result_callback_handler,
     battle_ranking_handler, battle_accept_text_handler, battle_decline_text_handler,
+    tier_handler,
 )
 from handlers.dm_nurture import feed_handler, play_handler, evolve_handler
 from handlers.dm_trade import trade_handler, accept_handler, reject_handler
@@ -197,6 +198,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp구매"), bp_buy_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp상점$"), bp_shop_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp$"), bp_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^티어$"), tier_handler))
 
     # Admin commands (DM)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^통계$"), stats_handler))
