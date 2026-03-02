@@ -649,6 +649,7 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🏪 BP 상점\n",
         f"💰 보유 BP: {bp}\n",
         f"🟣 마스터볼 x1 — {config.BP_MASTERBALL_COST} BP (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 구매 가능)",
+        f"🔵 하이퍼볼 x1 — Coming Soon",
         "",
         "구매: BP구매 마스터볼",
     ]
@@ -699,6 +700,8 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💰 남은 BP: {bp}\n"
             f"📦 오늘 남은 구매: {remaining}개"
         )
+    elif item in ("하이퍼볼", "하볼"):
+        await update.message.reply_text("🔵 하이퍼볼은 아직 준비 중입니다! (Coming Soon)")
     else:
         await update.message.reply_text("알 수 없는 상품입니다. BP상점 으로 목록을 확인하세요.")
 

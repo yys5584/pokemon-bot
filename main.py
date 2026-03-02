@@ -193,9 +193,9 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^팀해제$"), team_clear_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^팀$"), team_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^배틀전적$"), battle_stats_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^BP구매"), bp_buy_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^BP상점$"), bp_shop_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^BP$"), bp_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp구매"), bp_buy_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp상점$"), bp_shop_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp$"), bp_handler))
 
     # Admin commands (DM)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^통계$"), stats_handler))
