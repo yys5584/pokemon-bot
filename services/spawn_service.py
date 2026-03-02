@@ -344,17 +344,17 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         catch_boost = await get_catch_boost()
         catch_rate = min(1.0, base_rate * catch_boost)
 
-        # Roll for each catcher (master ball or newbie = guaranteed success)
+        # Roll for each catcher (master ball > newbie > regular)
         results = []
         for attempt in attempts:
             if attempt.get("used_master_ball"):
-                roll = 0.0
+                roll = -1.0  # Highest priority
                 success = True
             else:
                 # Newbie boost: first 2 catches are guaranteed
                 total = await queries.count_total_catches(attempt["user_id"])
                 if total < 2:
-                    roll = 0.0
+                    roll = 0.0  # Lower priority than master ball
                     success = True
                 else:
                     roll = random.random()
@@ -389,6 +389,15 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         winner = winners[0]
         winner_id = winner["user_id"]
         winner_name = winner["display_name"]
+
+        # Refund master balls to losers who used one but didn't win
+        master_ball_losers = [
+            r for r in results
+            if r["used_master_ball"] and r["user_id"] != winner_id
+        ]
+        for loser in master_ball_losers:
+            await queries.add_master_ball(loser["user_id"])
+            logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
 
         # Give Pokemon
         await queries.give_pokemon_to_user(winner_id, pokemon_id, chat_id)
