@@ -4,6 +4,8 @@ import logging
 import os
 from datetime import time as dt_time, timezone, timedelta
 
+import config
+
 from dotenv import load_dotenv
 from telegram.ext import (
     Application,
