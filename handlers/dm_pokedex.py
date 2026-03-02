@@ -13,6 +13,7 @@ from utils.card_generator import generate_card
 logger = logging.getLogger(__name__)
 
 POKEDEX_PAGE_SIZE = 10
+MYPOKE_PAGE_SIZE = 10
 ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "pokemon")
 
 
@@ -163,7 +164,7 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /내포켓몬 command (DM only)."""
+    """Handle /내포켓몬 command (DM only) — text list view."""
     if not update.effective_user:
         return
 
@@ -187,69 +188,134 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     from utils.parse import parse_number
     text = (update.message.text or "").strip()
     num = parse_number(text)
-    idx = (num - 1) if num is not None else 0
-    idx = max(0, min(idx, len(pokemon_list) - 1))
 
-    await _send_my_pokemon_page(update.message, user_id, pokemon_list, idx)
+    if num is not None:
+        # Direct detail view for a specific pokemon
+        idx = max(0, min(num - 1, len(pokemon_list) - 1))
+        page = idx // MYPOKE_PAGE_SIZE
+        detail_text, detail_markup = _build_detail_view(user_id, pokemon_list, idx, page)
+        await update.message.reply_text(detail_text, reply_markup=detail_markup)
+        return
+
+    # Default: show list view page 0
+    list_text, list_markup = _build_list_view(user_id, pokemon_list, page=0)
+    await update.message.reply_text(list_text, reply_markup=list_markup)
 
 
-async def _send_my_pokemon_page(message, user_id: int, pokemon_list: list, idx: int):
-    """Send a single Pokemon card with photo and navigation buttons."""
+def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, InlineKeyboardMarkup]:
+    """Build a text-based list of pokemon with inline buttons."""
+    total = len(pokemon_list)
+    total_pages = (total + MYPOKE_PAGE_SIZE - 1) // MYPOKE_PAGE_SIZE
+    page = max(0, min(page, total_pages - 1))
+
+    start = page * MYPOKE_PAGE_SIZE
+    end = min(start + MYPOKE_PAGE_SIZE, total)
+    page_pokemon = pokemon_list[start:end]
+
+    lines = [f"🎒 내 포켓몬 ({total}마리)  [{page + 1}/{total_pages}]\n"]
+
+    for i, p in enumerate(page_pokemon):
+        idx = start + i
+        num = idx + 1
+        hearts = hearts_display(p["friendship"])
+
+        # Mark evolution-ready
+        evo_mark = ""
+        if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= 5:
+            evo_mark = " ✨진화가능"
+        elif p["evolves_to"] and p["evolution_method"] == "trade":
+            evo_mark = " 🔄교환진화"
+
+        lines.append(f"{num}. {p['emoji']} {p['name_ko']}  {hearts}{evo_mark}")
+
+    lines.append(f"\n번호를 눌러 상세 보기 / 밥·놀기")
+
+    # Build buttons: pokemon selection (2 per row)
+    select_buttons = []
+    row = []
+    for i, p in enumerate(page_pokemon):
+        idx = start + i
+        num = idx + 1
+        row.append(
+            InlineKeyboardButton(
+                f"{num}. {p['emoji']}{p['name_ko']}",
+                callback_data=f"mypoke_v_{user_id}_{idx}_{page}",
+            )
+        )
+        if len(row) == 2:
+            select_buttons.append(row)
+            row = []
+    if row:
+        select_buttons.append(row)
+
+    # Pagination row
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"mypoke_l_{user_id}_{page - 1}"))
+    if page < total_pages - 1:
+        nav_row.append(InlineKeyboardButton("다음 ▶", callback_data=f"mypoke_l_{user_id}_{page + 1}"))
+    if nav_row:
+        select_buttons.append(nav_row)
+
+    markup = InlineKeyboardMarkup(select_buttons)
+    return "\n".join(lines), markup
+
+
+def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) -> tuple[str, InlineKeyboardMarkup]:
+    """Build detail text for a single pokemon with action buttons."""
     p = pokemon_list[idx]
     total = len(pokemon_list)
+    num = idx + 1
 
     hearts = hearts_display(p["friendship"])
+
     evo_text = ""
     if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= 5:
-        evo_text = "\n✨ 진화 가능! → 진화 " + str(idx + 1)
+        evo_text = "\n✨ 진화 가능! → '진화 " + str(num) + "' 입력"
     elif p["evolves_to"] and p["evolution_method"] == "trade":
         evo_text = "\n🔄 교환으로 진화 가능"
 
-    # Master ball count
-    master_balls = await queries.get_master_balls(user_id)
-    ball_text = f"\n🟣 마스터볼: {master_balls}개" if master_balls > 0 else ""
+    rarity_text = rarity_display(p["rarity"])
 
-    caption = (
-        f"🎒 내 포켓몬 ({idx + 1}/{total}){ball_text}\n\n"
-        f"{p['emoji']} {p['name_ko']}\n"
-        f"친밀도: {hearts}{evo_text}\n\n"
-        f"밥 {idx + 1} / 놀기 {idx + 1}"
-    )
+    lines = [
+        f"🎒 내 포켓몬 상세 ({num}/{total})\n",
+        f"{p['emoji']} {p['name_ko']}",
+        f"등급: {rarity_text}",
+        f"친밀도: {hearts}{evo_text}",
+        f"\n💡 밥 {num} / 놀기 {num}",
+    ]
 
-    # Navigation buttons
+    # Action/navigation buttons
     buttons = []
+
+    # Prev/Next pokemon in same detail view
+    detail_nav = []
     if idx > 0:
-        buttons.append(
-            InlineKeyboardButton("◀ 이전", callback_data=f"mypoke_{user_id}_{idx - 1}")
-        )
+        detail_nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"mypoke_v_{user_id}_{idx - 1}_{page}"))
+    detail_nav.append(InlineKeyboardButton("📋 목록", callback_data=f"mypoke_l_{user_id}_{page}"))
     if idx < total - 1:
-        buttons.append(
-            InlineKeyboardButton("다음 ▶", callback_data=f"mypoke_{user_id}_{idx + 1}")
-        )
-    markup = InlineKeyboardMarkup([buttons]) if buttons else None
+        detail_nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"mypoke_v_{user_id}_{idx + 1}_{page}"))
+    buttons.append(detail_nav)
 
-    pid = p["pokemon_id"]
-    image_path = os.path.join(ASSETS_DIR, f"{pid}.png")
-
-    if os.path.exists(image_path):
-        with open(image_path, "rb") as f:
-            await message.reply_photo(photo=f, caption=caption, reply_markup=markup)
-    else:
-        await message.reply_text(caption, reply_markup=markup)
+    markup = InlineKeyboardMarkup(buttons)
+    return "\n".join(lines), markup
 
 
 async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle 내포켓몬 pagination callback."""
+    """Handle 내포켓몬 callbacks: list pagination and detail view."""
     query = update.callback_query
     if not query or not query.data.startswith("mypoke_"):
         return
 
     await query.answer()
 
-    parts = query.data.split("_")
-    # mypoke_{user_id}_{idx}
-    user_id = int(parts[1])
-    idx = int(parts[2])
+    data = query.data
+    parts = data.split("_")
+    # Format: mypoke_l_{user_id}_{page}  (list view)
+    #         mypoke_v_{user_id}_{idx}_{page}  (detail view)
+
+    action = parts[1]  # 'l' = list, 'v' = view detail
+    user_id = int(parts[2])
 
     # Only the owner can navigate
     if query.from_user.id != user_id:
@@ -257,51 +323,26 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
+        try:
+            await query.edit_message_text("보유한 포켓몬이 없습니다.")
+        except Exception:
+            pass
         return
 
-    idx = max(0, min(idx, len(pokemon_list) - 1))
-    p = pokemon_list[idx]
-    total = len(pokemon_list)
-
-    hearts = hearts_display(p["friendship"])
-    evo_text = ""
-    if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= 5:
-        evo_text = "\n✨ 진화 가능! → 진화 " + str(idx + 1)
-    elif p["evolves_to"] and p["evolution_method"] == "trade":
-        evo_text = "\n🔄 교환으로 진화 가능"
-
-    caption = (
-        f"🎒 내 포켓몬 ({idx + 1}/{total})\n\n"
-        f"{p['emoji']} {p['name_ko']}\n"
-        f"친밀도: {hearts}{evo_text}\n\n"
-        f"밥 {idx + 1} / 놀기 {idx + 1}"
-    )
-
-    buttons = []
-    if idx > 0:
-        buttons.append(
-            InlineKeyboardButton("◀ 이전", callback_data=f"mypoke_{user_id}_{idx - 1}")
-        )
-    if idx < total - 1:
-        buttons.append(
-            InlineKeyboardButton("다음 ▶", callback_data=f"mypoke_{user_id}_{idx + 1}")
-        )
-    markup = InlineKeyboardMarkup([buttons]) if buttons else None
-
-    pid = p["pokemon_id"]
-    image_path = os.path.join(ASSETS_DIR, f"{pid}.png")
-
-    # For photo messages, we need to edit media + caption
     try:
-        if os.path.exists(image_path):
-            from telegram import InputMediaPhoto
-            with open(image_path, "rb") as f:
-                await query.edit_message_media(
-                    media=InputMediaPhoto(media=f, caption=caption),
-                    reply_markup=markup,
-                )
-        else:
-            await query.edit_message_caption(caption=caption, reply_markup=markup)
+        if action == "l":
+            # List view
+            page = int(parts[3])
+            text, markup = _build_list_view(user_id, pokemon_list, page)
+            await query.edit_message_text(text, reply_markup=markup)
+
+        elif action == "v":
+            # Detail view
+            idx = int(parts[3])
+            page = int(parts[4]) if len(parts) > 4 else idx // MYPOKE_PAGE_SIZE
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            await query.edit_message_text(text, reply_markup=markup)
     except Exception:
         pass
 

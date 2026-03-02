@@ -985,11 +985,13 @@ async def get_recent_spawns_global(limit: int = 50) -> list[dict]:
 
 
 async def get_user_rankings(limit: int = 20) -> list[dict]:
-    """Get user rankings by pokedex count for dashboard."""
+    """Get user rankings by pokedex count for dashboard (gen1, gen2, total)."""
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT u.user_id, u.display_name, u.username,
                   u.title, u.title_emoji, u.last_active_at,
+                  COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id <= 151) as gen1_count,
+                  COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id >= 152 AND p.pokemon_id <= 251) as gen2_count,
                   COUNT(p.pokemon_id) as pokedex_count
            FROM users u
            LEFT JOIN pokedex p ON u.user_id = p.user_id

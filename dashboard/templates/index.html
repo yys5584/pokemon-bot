@@ -121,8 +121,8 @@
             const users=await fetchJSON("/api/users");
             if(!users.length){document.getElementById("usersTable").innerHTML='<p class="empty-msg">없음</p>';return}
             const m=["🥇","🥈","🥉"];
-            let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th><th>도감</th></tr></thead><tbody>`;
-            users.forEach((u,i)=>{h+=`<tr><td>${i<3?m[i]:i+1}</td><td>${u.display_name}</td><td>${u.title?u.title_emoji+" "+u.title:"-"}</td><td>${u.pokedex_count}/151</td></tr>`});
+            let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th><th>1세대</th><th>2세대</th><th>도감</th></tr></thead><tbody>`;
+            users.forEach((u,i)=>{h+=`<tr><td>${i<3?m[i]:i+1}</td><td>${u.display_name}</td><td>${u.title?u.title_emoji+" "+u.title:"-"}</td><td>${u.gen1_count}/151</td><td>${u.gen2_count}/100</td><td style="font-weight:700">${u.pokedex_count}/251</td></tr>`});
             document.getElementById("usersTable").innerHTML=h+"</tbody></table>";
         }
         async function loadRecentSpawns(){
