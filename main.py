@@ -25,7 +25,7 @@ from handlers.battle import (
     partner_handler, partner_callback_handler,
     team_handler, team_register_handler, team_clear_handler, team_callback_handler,
     battle_stats_handler, bp_handler, bp_shop_handler, bp_buy_handler,
-    battle_challenge_handler, battle_callback_handler,
+    battle_challenge_handler, battle_callback_handler, battle_result_callback_handler,
     battle_ranking_handler, battle_accept_text_handler, battle_decline_text_handler,
 )
 from handlers.dm_nurture import feed_handler, play_handler, evolve_handler
@@ -259,6 +259,9 @@ def main():
 
     # Battle accept/decline callback
     app.add_handler(CallbackQueryHandler(battle_callback_handler, pattern=r"^battle_"))
+
+    # Battle result teabag/delete callback
+    app.add_handler(CallbackQueryHandler(battle_result_callback_handler, pattern=r"^b(tbag|del)_"))
 
     # Activity tracker — runs for every group text message (handler group -1)
     app.add_handler(

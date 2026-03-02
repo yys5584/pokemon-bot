@@ -947,10 +947,27 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             chat_id=challenge["chat_id"],
         )
 
+        # Add teabag & delete buttons
+        winner_id = result["winner_id"]
+        loser_id = result["loser_id"]
+        battle_buttons = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(
+                    "💀 티배깅하기",
+                    callback_data=f"btbag_{winner_id}_{loser_id}",
+                ),
+                InlineKeyboardButton(
+                    "✖️ 삭제",
+                    callback_data=f"bdel_{winner_id}_{loser_id}",
+                ),
+            ]
+        ])
+
         try:
             await query.edit_message_text(
                 result["display_text"],
                 parse_mode=None,
+                reply_markup=battle_buttons,
             )
         except Exception:
             # If message too long, try sending new message
@@ -958,9 +975,68 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 await context.bot.send_message(
                     chat_id=challenge["chat_id"],
                     text=result["display_text"],
+                    reply_markup=battle_buttons,
                 )
             except Exception:
                 pass
+
+
+# ============================================================
+# Battle Result Buttons (Teabag / Delete)
+# ============================================================
+
+async def battle_result_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle teabag / delete buttons on battle results."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    data = query.data
+    parts = data.split("_")
+    prefix = parts[0]
+
+    if prefix == "btbag":
+        # Teabag: btbag_{winner_id}_{loser_id}
+        winner_id = int(parts[1])
+        loser_id = int(parts[2])
+
+        if query.from_user.id != winner_id:
+            await query.answer("승자만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        winner_user = await queries.get_user(winner_id)
+        loser_user = await queries.get_user(loser_id)
+        w_name = winner_user["display_name"] if winner_user else "???"
+        l_name = loser_user["display_name"] if loser_user else "???"
+
+        await query.answer()
+
+        # Remove buttons and append teabag message
+        original_text = query.message.text or ""
+        teabag_text = f"\n\n🫖 {w_name}이(가) {l_name}을(를) 조롱했다!"
+        try:
+            await query.edit_message_text(
+                original_text + teabag_text,
+                parse_mode=None,
+            )
+        except Exception:
+            pass
+
+    elif prefix == "bdel":
+        # Delete: bdel_{winner_id}_{loser_id}
+        winner_id = int(parts[1])
+        loser_id = int(parts[2])
+
+        # Both winner and loser can delete
+        if query.from_user.id not in (winner_id, loser_id):
+            await query.answer("배틀 참가자만 삭제할 수 있습니다!", show_alert=True)
+            return
+
+        await query.answer()
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
 
 
 # ============================================================
