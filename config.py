@@ -242,6 +242,9 @@ STAT_SPREADS = {
 
 FRIENDSHIP_BONUS = 0.04  # 친밀도 1당 +4% (최대 5 = +20%)
 
+# 진화 단계별 스탯 보정 (1단 < 2단 < 최종)
+EVOLUTION_STAGE_MULT = {1: 0.85, 2: 0.92, 3: 1.0}
+
 # --- Type System (10종 간소화) ---
 TYPE_EMOJI = {
     "normal": "⚪", "fire": "🔥", "water": "💧", "grass": "🌿",

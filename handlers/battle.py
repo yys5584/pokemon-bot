@@ -8,12 +8,12 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from database import battle_queries as bq
-from utils.battle_calc import calc_battle_stats, format_stats_line, get_type_multiplier
+from utils.battle_calc import calc_battle_stats, format_stats_line, get_type_multiplier, EVO_STAGE_MAP
+from utils.helpers import escape_html
 
 logger = logging.getLogger(__name__)
 
-# 마스터볼 일일 구매 추적: {(user_id, "YYYY-MM-DD"): count}
-_masterball_daily_purchases: dict[tuple[int, str], int] = {}
+# 마스터볼 일일 구매: DB로 영구 추적 (bp_purchase_log 테이블)
 
 PARTNER_PAGE_SIZE = 10
 TEAM_PAGE_SIZE = 10
@@ -98,7 +98,8 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(text_msg, reply_markup=markup)
             return
 
-        stats = calc_battle_stats(partner["rarity"], partner["stat_type"], partner["friendship"])
+        evo_stage = EVO_STAGE_MAP.get(partner["pokemon_id"], 3)
+        stats = calc_battle_stats(partner["rarity"], partner["stat_type"], partner["friendship"], evo_stage=evo_stage)
         type_emoji = config.TYPE_EMOJI.get(partner["pokemon_type"], "")
         type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
         buttons = InlineKeyboardMarkup([[
@@ -238,7 +239,8 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
             await queries.unlock_title(owner_id, "partner_set")
 
         type_emoji = config.TYPE_EMOJI.get(chosen.get("pokemon_type", "normal"), "")
-        stats = calc_battle_stats(chosen["rarity"], chosen.get("stat_type", "balanced"), chosen["friendship"])
+        evo_stage = EVO_STAGE_MAP.get(chosen["pokemon_id"], 3)
+        stats = calc_battle_stats(chosen["rarity"], chosen.get("stat_type", "balanced"), chosen["friendship"], evo_stage=evo_stage)
         try:
             await query.edit_message_text(
                 f"🤝 파트너 지정 완료!\n\n"
@@ -390,7 +392,8 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = ["⚔️ 나의 배틀 팀\n"]
 
     for i, p in enumerate(team):
-        stats = calc_battle_stats(p["rarity"], p["stat_type"], p["friendship"])
+        evo_stage = EVO_STAGE_MAP.get(p["pokemon_id"], 3)
+        stats = calc_battle_stats(p["rarity"], p["stat_type"], p["friendship"], evo_stage=evo_stage)
         type_emoji = config.TYPE_EMOJI.get(p["pokemon_type"], "")
         partner_mark = " 🤝" if p["pokemon_instance_id"] == partner_instance else ""
         lines.append(
@@ -695,8 +698,7 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     bp = await bq.get_bp(user_id)
 
-    today = datetime.now().strftime("%Y-%m-%d")
-    bought_today = _masterball_daily_purchases.get((user_id, today), 0)
+    bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
     remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today
 
     lines = [
@@ -726,9 +728,8 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     item = parts[1]
     if item in ("마스터볼", "마볼"):
-        # 일일 구매 제한 체크
-        today = datetime.now().strftime("%Y-%m-%d")
-        bought_today = _masterball_daily_purchases.get((user_id, today), 0)
+        # 일일 구매 제한 체크 (DB 기반)
+        bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
         if bought_today >= config.BP_MASTERBALL_DAILY_LIMIT:
             await update.message.reply_text(
                 f"🚫 오늘 마스터볼 구매 한도({config.BP_MASTERBALL_DAILY_LIMIT}개)를 초과했습니다.\n"
@@ -746,7 +747,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         await queries.add_master_ball(user_id, 1)
-        _masterball_daily_purchases[(user_id, today)] = bought_today + 1
+        await bq.log_bp_purchase(user_id, "masterball", 1)
         remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today - 1
         bp = await bq.get_bp(user_id)
         await update.message.reply_text(
@@ -1095,7 +1096,113 @@ async def battle_ranking_handler(update: Update, context: ContextTypes.DEFAULT_T
             f"🔥{r['best_streak']}"
         )
 
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
+# ============================================================
+# Battle Tier List
+# ============================================================
+
+# Cache tier list (computed once, cleared on restart)
+_tier_cache: str | None = None
+
+
+async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '티어' command (DM). Show battle tier list for epic+ pokemon."""
+    global _tier_cache
+
+    if _tier_cache:
+        await update.message.reply_text(_tier_cache, parse_mode="HTML")
+        return
+
+    # Fetch all epic+ pokemon
+    from database.connection import get_db
+    pool = await get_db()
+    rows = await pool.fetch("""
+        SELECT id, name_ko, emoji, rarity, pokemon_type, stat_type
+        FROM pokemon_master
+        WHERE rarity IN ('epic', 'legendary')
+        ORDER BY id
+    """)
+
+    from models.pokemon_skills import POKEMON_SKILLS
+
+    # Calculate power score for each (friendship MAX=5)
+    scored = []
+    for r in rows:
+        evo_stage = EVO_STAGE_MAP.get(r["id"], 3)
+        stats = calc_battle_stats(r["rarity"], r["stat_type"], 5, evo_stage=evo_stage)
+        skill = POKEMON_SKILLS.get(r["id"], ("몸통박치기", 1.2))
+
+        # Effective power: considers ATK, skill activation, and survivability
+        eff_atk = stats["atk"] * (1 + config.BATTLE_SKILL_RATE * skill[1])
+        eff_tank = stats["hp"] * (1 + stats["def"] * 0.003)
+        power = eff_atk * eff_tank / 1000
+
+        type_emoji = config.TYPE_EMOJI.get(r["pokemon_type"], "")
+        type_ko = config.TYPE_NAME_KO.get(r["pokemon_type"], r["pokemon_type"])
+        stat_ko = {"offensive": "공격", "defensive": "방어", "balanced": "균형", "speedy": "속도"}.get(r["stat_type"], r["stat_type"])
+
+        scored.append({
+            "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
+            "rarity": r["rarity"], "type_emoji": type_emoji, "type_ko": type_ko,
+            "stat_ko": stat_ko, "power": power, "skill_name": skill[0],
+            "skill_power": skill[1], "stats": stats,
+        })
+
+    scored.sort(key=lambda x: x["power"], reverse=True)
+
+    # Build tier display
+    lines = ["⚔️ <b>배틀 티어표</b> (에픽 이상, 친밀도 MAX)"]
+    lines.append("━━━━━━━━━━━━━━━━━━━━")
+
+    current_tier = None
+    tier_labels = {
+        "S+": ("🔴", "S+"),
+        "S": ("🟡", "S"),
+        "A+": ("🟠", "A+"),
+        "A": ("🔵", "A"),
+        "B+": ("🟣", "B+"),
+        "B": ("⚪", "B"),
+    }
+
+    for i, p in enumerate(scored):
+        # Assign tier
+        if p["rarity"] == "legendary":
+            if p["stats"]["atk"] >= 140:
+                tier = "S+"
+            elif p["stats"]["atk"] >= 110:
+                tier = "S"
+            else:
+                tier = "S"
+        else:  # epic
+            if p["stats"]["atk"] >= 110:
+                tier = "A+"
+            elif p["stats"]["atk"] >= 85:
+                tier = "A"
+            elif p["stats"]["atk"] >= 70:
+                tier = "B+"
+            else:
+                tier = "B"
+
+        # Print tier header
+        if tier != current_tier:
+            dot, label = tier_labels.get(tier, ("⚪", tier))
+            lines.append(f"\n{dot} <b>── {label} 티어 ──</b>")
+            current_tier = tier
+
+        lines.append(
+            f"{p['emoji']}<b>{p['name']}</b>  "
+            f"{p['type_emoji']}{p['type_ko']}/{p['stat_ko']}  "
+            f"「{p['skill_name']}」{p['skill_power']}x"
+        )
+
+    lines.append("\n─────────────────")
+    lines.append("💡 공격형 > 균형 > 방어 > 속도 순 유리")
+    lines.append("💡 같은 티어 내 타입상성으로 역전 가능")
+
+    _tier_cache = "\n".join(lines)
+    await update.message.reply_text(_tier_cache, parse_mode="HTML")
 
 
 # ============================================================
