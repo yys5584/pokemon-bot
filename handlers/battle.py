@@ -1581,3 +1581,553 @@ async def battle_decline_text_handler(update: Update, context: ContextTypes.DEFA
     await update.message.reply_text(
         "배틀 거절은 위의 ❌ 거절 버튼을 눌러주세요!"
     )
+
+
+# ============================================================
+# Ranked Battle (랭전 - Coming Soon)
+# ============================================================
+
+async def ranked_coming_soon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '랭전' command (group). Show coming soon message."""
+    if not update.effective_user or not update.message:
+        return
+    await update.message.reply_text("🏟️ 랭크전은 준비 중입니다! (Coming Soon)")
+
+
+# ============================================================
+# Yacha (야차 - Betting Battle)
+# ============================================================
+
+import random
+from datetime import timedelta, timezone
+
+
+async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '야차' command (group). Start a betting battle challenge."""
+    if not update.effective_user or not update.message:
+        return
+
+    chat_id = update.effective_chat.id
+    challenger_id = update.effective_user.id
+    challenger_name = update.effective_user.first_name or "트레이너"
+
+    # Must reply to someone
+    reply = update.message.reply_to_message
+    if not reply or not reply.from_user:
+        await update.message.reply_text(
+            "🎰 야차를 신청하려면 상대방의 메시지에 답장하며 '야차'를 입력하세요!"
+        )
+        return
+
+    defender_id = reply.from_user.id
+    defender_name = reply.from_user.first_name or "트레이너"
+
+    if challenger_id == defender_id:
+        await update.message.reply_text("자기 자신에게 야차를 신청할 수 없습니다.")
+        return
+
+    if reply.from_user.is_bot:
+        await update.message.reply_text("봇에게는 야차를 신청할 수 없습니다.")
+        return
+
+    await queries.ensure_user(challenger_id, challenger_name, update.effective_user.username)
+    await queries.ensure_user(defender_id, defender_name, reply.from_user.username)
+
+    # Yacha-specific cooldowns
+    from datetime import datetime as dt
+    last_vs = await bq.get_last_yacha_time(challenger_id, defender_id)
+    if last_vs:
+        last_time = dt.fromisoformat(last_vs)
+        if last_time.tzinfo is None:
+            last_time = last_time.replace(tzinfo=timezone.utc)
+        cooldown = timedelta(seconds=config.YACHA_COOLDOWN_SAME)
+        if dt.now(timezone.utc) - last_time < cooldown:
+            remaining = cooldown - (dt.now(timezone.utc) - last_time)
+            mins = int(remaining.total_seconds() // 60)
+            await update.message.reply_text(
+                f"같은 상대와의 야차는 {config.YACHA_COOLDOWN_SAME // 60}분 쿨다운입니다. "
+                f"({mins}분 남음)"
+            )
+            return
+
+    last_any = await bq.get_last_yacha_time_any(challenger_id)
+    if last_any:
+        last_time = dt.fromisoformat(last_any)
+        if last_time.tzinfo is None:
+            last_time = last_time.replace(tzinfo=timezone.utc)
+        cooldown = timedelta(seconds=config.YACHA_COOLDOWN_GLOBAL)
+        if dt.now(timezone.utc) - last_time < cooldown:
+            remaining = cooldown - (dt.now(timezone.utc) - last_time)
+            secs = int(remaining.total_seconds())
+            await update.message.reply_text(
+                f"야차 쿨다운 중입니다. ({secs}초 남음)"
+            )
+            return
+
+    # Check challenger has a team
+    c_team = await bq.get_battle_team(challenger_id)
+    if not c_team:
+        await update.message.reply_text(
+            "🎰 배틀 팀이 없습니다!\n"
+            "DM에서 '팀등록 [번호들]'로 먼저 팀을 등록하세요."
+        )
+        return
+
+    # Check for existing pending yacha
+    existing = await bq.get_pending_challenge(challenger_id, defender_id)
+    if existing:
+        await update.message.reply_text("이미 대기 중인 신청이 있습니다.")
+        return
+
+    # Show bet type selection
+    buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "💰 BP 베팅",
+                callback_data=f"yc_bp_{challenger_id}_{defender_id}",
+            ),
+            InlineKeyboardButton(
+                "🔮 마스터볼 베팅",
+                callback_data=f"yc_mb_{challenger_id}_{defender_id}",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "❌ 취소",
+                callback_data=f"yc_cancel_{challenger_id}_{defender_id}",
+            ),
+        ],
+    ])
+
+    await update.message.reply_text(
+        f"🎰 {challenger_name}님이 {defender_name}님에게 야차를 신청합니다!\n"
+        "베팅 종류를 선택하세요:",
+        reply_markup=buttons,
+    )
+
+
+async def yacha_type_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle yacha bet type selection (BP / Masterball / Cancel)."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    data = query.data  # yc_bp_{c}_{d}, yc_mb_{c}_{d}, yc_cancel_{c}_{d}
+    parts = data.split("_")
+    bet_type = parts[1]  # bp, mb, cancel
+    challenger_id = int(parts[2])
+    defender_id = int(parts[3])
+
+    # Only challenger can select
+    if query.from_user.id != challenger_id:
+        await query.answer("도전자만 선택할 수 있습니다!", show_alert=True)
+        return
+
+    await query.answer()
+
+    if bet_type == "cancel":
+        try:
+            await query.edit_message_text("❌ 야차가 취소되었습니다.")
+        except Exception:
+            pass
+        return
+
+    if bet_type == "bp":
+        # Show BP amount options
+        bp_buttons = []
+        for amount in config.YACHA_BP_OPTIONS:
+            bp_buttons.append(
+                InlineKeyboardButton(
+                    f"💰 {amount} BP",
+                    callback_data=f"ya_bp_{amount}_{challenger_id}_{defender_id}",
+                )
+            )
+        buttons = InlineKeyboardMarkup([
+            bp_buttons,
+            [InlineKeyboardButton("❌ 취소", callback_data=f"yc_cancel_{challenger_id}_{defender_id}")],
+        ])
+        try:
+            await query.edit_message_text(
+                "💰 BP 베팅 금액을 선택하세요:",
+                reply_markup=buttons,
+            )
+        except Exception:
+            pass
+
+    elif bet_type == "mb":
+        # Show masterball count options
+        mb_buttons = []
+        for count in config.YACHA_MASTERBALL_OPTIONS:
+            mb_buttons.append(
+                InlineKeyboardButton(
+                    f"🔮 {count}개",
+                    callback_data=f"ya_mb_{count}_{challenger_id}_{defender_id}",
+                )
+            )
+        buttons = InlineKeyboardMarkup([
+            mb_buttons,
+            [InlineKeyboardButton("❌ 취소", callback_data=f"yc_cancel_{challenger_id}_{defender_id}")],
+        ])
+        try:
+            await query.edit_message_text(
+                "🔮 마스터볼 베팅 개수를 선택하세요:",
+                reply_markup=buttons,
+            )
+        except Exception:
+            pass
+
+
+async def yacha_amount_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle yacha amount selection → verify balance → create challenge."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    data = query.data  # ya_bp_{amt}_{c}_{d} or ya_mb_{cnt}_{c}_{d}
+    parts = data.split("_")
+    bet_type_code = parts[1]  # bp or mb
+    amount = int(parts[2])
+    challenger_id = int(parts[3])
+    defender_id = int(parts[4])
+
+    # Only challenger can select
+    if query.from_user.id != challenger_id:
+        await query.answer("도전자만 선택할 수 있습니다!", show_alert=True)
+        return
+
+    await query.answer()
+
+    bet_type = "bp" if bet_type_code == "bp" else "masterball"
+
+    # Verify challenger has enough
+    if bet_type == "bp":
+        balance = await bq.get_bp(challenger_id)
+        if balance < amount:
+            try:
+                await query.edit_message_text(
+                    f"❌ BP가 부족합니다! (보유: {balance} BP, 필요: {amount} BP)"
+                )
+            except Exception:
+                pass
+            return
+        bet_display = f"💰 {amount} BP"
+    else:  # masterball
+        mb_count = await queries.get_master_balls(challenger_id)
+        if mb_count < amount:
+            try:
+                await query.edit_message_text(
+                    f"❌ 마스터볼이 부족합니다! (보유: {mb_count}개, 필요: {amount}개)"
+                )
+            except Exception:
+                pass
+            return
+        bet_display = f"🔮 마스터볼 {amount}개"
+
+    # Create the challenge
+    from datetime import datetime as dt
+    expires = dt.now(timezone.utc) + timedelta(seconds=config.YACHA_CHALLENGE_TIMEOUT)
+
+    challenge_id = await bq.create_challenge(
+        challenger_id, defender_id, update.effective_chat.id, expires,
+        bet_type=bet_type, bet_amount=amount,
+    )
+
+    # Get names
+    c_user = await queries.get_user(challenger_id)
+    d_user = await queries.get_user(defender_id)
+    c_name = c_user["display_name"] if c_user else "???"
+    d_name = d_user["display_name"] if d_user else "???"
+
+    # Challenge message to defender
+    buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "✅ 수락",
+                callback_data=f"yacha_accept_{challenge_id}_{defender_id}",
+            ),
+            InlineKeyboardButton(
+                "❌ 거절",
+                callback_data=f"yacha_decline_{challenge_id}_{defender_id}",
+            ),
+        ]
+    ])
+
+    try:
+        await query.edit_message_text(
+            f"🎰 {c_name}님이 {d_name}님에게 야차 대결을 신청합니다!\n"
+            f"배팅: {bet_display}\n\n"
+            f"{config.YACHA_CHALLENGE_TIMEOUT}초 내에 수락해주세요!",
+            reply_markup=buttons,
+        )
+    except Exception:
+        pass
+
+
+async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle yacha accept/decline → deduct resources → run battle → payout."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    data = query.data  # yacha_accept_{id}_{d} or yacha_decline_{id}_{d}
+    parts = data.split("_")
+    action = parts[1]  # accept or decline
+    challenge_id = int(parts[2])
+    expected_defender = int(parts[3])
+
+    # Only defender can respond
+    if query.from_user.id != expected_defender:
+        await query.answer("본인만 응답할 수 있습니다!", show_alert=True)
+        return
+
+    challenge = await bq.get_challenge_by_id(challenge_id)
+    if not challenge:
+        try:
+            await query.edit_message_text("야차 신청을 찾을 수 없습니다.")
+        except Exception:
+            pass
+        return
+
+    if challenge["status"] != "pending":
+        try:
+            await query.edit_message_text("이미 처리된 야차 신청입니다.")
+        except Exception:
+            pass
+        return
+
+    # Check expiry
+    from datetime import datetime as dt
+    expires = challenge["expires_at"]
+    if hasattr(expires, 'tzinfo') and expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if dt.now(timezone.utc) > expires:
+        await bq.update_challenge_status(challenge_id, "expired")
+        try:
+            await query.edit_message_text("⏰ 야차 신청이 만료되었습니다.")
+        except Exception:
+            pass
+        return
+
+    await query.answer()
+
+    if action == "decline":
+        await bq.update_challenge_status(challenge_id, "declined")
+        try:
+            await query.edit_message_text("❌ 야차가 거절되었습니다.")
+        except Exception:
+            pass
+        return
+
+    # === ACCEPT ===
+    challenger_id = challenge["challenger_id"]
+    bet_type = challenge["bet_type"]
+    bet_amount = challenge["bet_amount"]
+
+    # Validate teams
+    d_team = await bq.get_battle_team(expected_defender)
+    if not d_team:
+        try:
+            await query.edit_message_text(
+                "🎰 수비자의 배틀 팀이 없습니다!\n"
+                "DM에서 '팀등록'으로 먼저 팀을 등록하세요."
+            )
+        except Exception:
+            pass
+        return
+
+    c_team = await bq.get_battle_team(challenger_id)
+    if not c_team:
+        try:
+            await query.edit_message_text("🎰 도전자의 배틀 팀이 없습니다!")
+        except Exception:
+            pass
+        return
+
+    # Deduct resources from BOTH sides
+    if bet_type == "bp":
+        c_ok = await bq.spend_bp(challenger_id, bet_amount)
+        if not c_ok:
+            await bq.update_challenge_status(challenge_id, "expired")
+            try:
+                await query.edit_message_text(
+                    f"❌ 도전자의 BP가 부족합니다! 야차가 취소됩니다."
+                )
+            except Exception:
+                pass
+            return
+        d_ok = await bq.spend_bp(expected_defender, bet_amount)
+        if not d_ok:
+            # Refund challenger
+            await bq.add_bp(challenger_id, bet_amount)
+            await bq.update_challenge_status(challenge_id, "expired")
+            try:
+                await query.edit_message_text(
+                    f"❌ 수비자의 BP가 부족합니다! 야차가 취소됩니다."
+                )
+            except Exception:
+                pass
+            return
+        bet_display = f"💰 {bet_amount} BP"
+        win_display = f"💰 +{bet_amount * 2} BP 획득! (베팅 {bet_amount} BP × 2)"
+    else:  # masterball
+        c_ok = await bq.use_master_balls(challenger_id, bet_amount)
+        if not c_ok:
+            await bq.update_challenge_status(challenge_id, "expired")
+            try:
+                await query.edit_message_text(
+                    f"❌ 도전자의 마스터볼이 부족합니다! 야차가 취소됩니다."
+                )
+            except Exception:
+                pass
+            return
+        d_ok = await bq.use_master_balls(expected_defender, bet_amount)
+        if not d_ok:
+            # Refund challenger
+            await queries.add_master_ball(challenger_id, bet_amount)
+            await bq.update_challenge_status(challenge_id, "expired")
+            try:
+                await query.edit_message_text(
+                    f"❌ 수비자의 마스터볼이 부족합니다! 야차가 취소됩니다."
+                )
+            except Exception:
+                pass
+            return
+        bet_display = f"🔮 마스터볼 {bet_amount}개"
+        win_display = f"🔮 마스터볼 {bet_amount * 2}개 획득! (베팅 {bet_amount}개 × 2)"
+
+    await bq.update_challenge_status(challenge_id, "accepted")
+
+    # Run the battle
+    from services.battle_service import execute_battle
+    result = await execute_battle(
+        challenger_id=challenger_id,
+        defender_id=expected_defender,
+        challenger_team=c_team,
+        defender_team=d_team,
+        challenge_id=challenge_id,
+        chat_id=challenge["chat_id"],
+    )
+
+    # Pay the winner
+    winner_id = result["winner_id"]
+    if bet_type == "bp":
+        await bq.add_bp(winner_id, bet_amount * 2)
+    else:
+        await queries.add_master_ball(winner_id, bet_amount * 2)
+
+    # Get names for display
+    c_user = await queries.get_user(challenger_id)
+    d_user = await queries.get_user(expected_defender)
+    c_name = c_user["display_name"] if c_user else "???"
+    d_name = d_user["display_name"] if d_user else "???"
+    winner_name = c_name if result["winner_id"] == challenger_id else d_name
+
+    # Build yacha result message
+    # Replace the header from execute_battle with yacha header
+    battle_text = result["display_text"]
+    # The first line is "⚔️ 배틀 결과!" - replace it
+    lines = battle_text.split("\n")
+    # Remove the original first line ("⚔️ 배틀 결과!")
+    if lines and lines[0].startswith("⚔️"):
+        lines = lines[1:]
+
+    yacha_header = [
+        f"🎰 {c_name}와(과) {d_name}가 야차룰을 붙었습니다!",
+        f"배팅: {bet_display}",
+    ]
+
+    # Append yacha winnings after the battle result
+    yacha_footer = [
+        "",
+        win_display,
+    ]
+
+    full_text = "\n".join(yacha_header + lines + yacha_footer)
+
+    # Teabag & delete buttons
+    loser_id = result["loser_id"]
+    battle_buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "💀 티배깅하기",
+                callback_data=f"yres_tbag_{winner_id}_{loser_id}",
+            ),
+            InlineKeyboardButton(
+                "✖️ 삭제",
+                callback_data=f"yres_del_{winner_id}_{loser_id}",
+            ),
+        ]
+    ])
+
+    try:
+        await query.edit_message_text(
+            full_text,
+            parse_mode=None,
+            reply_markup=battle_buttons,
+        )
+    except Exception:
+        try:
+            await context.bot.send_message(
+                chat_id=challenge["chat_id"],
+                text=full_text,
+                reply_markup=battle_buttons,
+            )
+        except Exception:
+            pass
+
+
+async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle yacha result buttons (teabag / delete)."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    data = query.data  # yres_tbag_{w}_{l} or yres_del_{w}_{l}
+    parts = data.split("_")
+    action = parts[1]  # tbag or del
+    winner_id = int(parts[2])
+    loser_id = int(parts[3])
+
+    if action == "tbag":
+        if query.from_user.id != winner_id:
+            await query.answer("승자만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        winner_user = await queries.get_user(winner_id)
+        loser_user = await queries.get_user(loser_id)
+        w_name = winner_user["display_name"] if winner_user else "???"
+        l_name = loser_user["display_name"] if loser_user else "???"
+
+        await query.answer()
+
+        # Remove teabag button, keep delete only
+        try:
+            delete_only = InlineKeyboardMarkup([[
+                InlineKeyboardButton("✖️ 삭제", callback_data=f"yres_del_{winner_id}_{loser_id}")
+            ]])
+            await query.edit_message_reply_markup(reply_markup=delete_only)
+        except Exception:
+            pass
+
+        # Send random yacha teabag message
+        msg = random.choice(config.YACHA_TEABAG_MESSAGES).format(
+            winner=w_name, loser=l_name,
+        )
+        try:
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text=msg,
+            )
+        except Exception:
+            pass
+
+    elif action == "del":
+        if query.from_user.id not in (winner_id, loser_id):
+            await query.answer("배틀 참가자만 삭제할 수 있습니다!", show_alert=True)
+            return
+
+        await query.answer()
+        try:
+            await query.message.delete()
+        except Exception:
+            pass

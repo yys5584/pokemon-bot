@@ -254,6 +254,8 @@ BATTLE_TABLES = [
         chat_id BIGINT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending'
             CHECK(status IN ('pending', 'accepted', 'declined', 'expired')),
+        bet_type TEXT DEFAULT NULL,
+        bet_amount INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         expires_at TIMESTAMPTZ NOT NULL
     )

@@ -11,7 +11,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from services.catch_service import can_attempt_catch, record_attempt
-from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name
+from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,9 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = update.effective_user.username
 
 
+    # Auto-delete the "ㅊ" command message
+    schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+
     try:
         # Ensure user is registered
         await queries.ensure_user(user_id, display_name, username)
@@ -84,7 +87,8 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         allowed, reason = await can_attempt_catch(user_id)
         if not allowed:
             logger.info(f"ㅊ by {user_id}: blocked - {reason}")
-            await update.message.reply_text(reason)
+            resp = await update.message.reply_text(reason)
+            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
             return
 
         # Record attempt
@@ -101,11 +105,12 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             html=True,
         )
 
-        await context.bot.send_message(
+        attempt_msg = await context.bot.send_message(
             chat_id=chat_id,
             text=f"🎯 {decorated} 도전!",
             parse_mode="HTML",
         )
+        schedule_delete(attempt_msg, config.AUTO_DEL_CATCH_ATTEMPT)
 
     except Exception as e:
         logger.error(f"Catch handler error: {e}")

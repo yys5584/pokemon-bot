@@ -1,14 +1,42 @@
 """Utility functions for text formatting, titles, etc."""
 
+import asyncio
+import logging
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from config import TITLES, LEGEND_HUNTER_THRESHOLD, LEGEND_HUNTER_TITLE, RARITY_EMOJI, RARITY_LABEL
 from database import queries
 
+_logger = logging.getLogger(__name__)
+
 
 def close_button() -> InlineKeyboardMarkup:
     """Return InlineKeyboardMarkup with ❌ close button for group messages."""
     return InlineKeyboardMarkup([[InlineKeyboardButton("❌", callback_data="close_msg")]])
+
+
+async def _delete_msg(msg, delay: float):
+    """Sleep then delete a message. Silently ignore errors."""
+    try:
+        await asyncio.sleep(delay)
+        await msg.delete()
+    except Exception:
+        pass
+
+
+def schedule_delete(msg, delay: float = 10):
+    """Fire-and-forget: schedule a message for deletion after *delay* seconds.
+    Non-blocking — creates a background asyncio task."""
+    asyncio.create_task(_delete_msg(msg, delay))
+
+
+async def try_delete(msg):
+    """Try to delete a message immediately. Silently ignore errors."""
+    try:
+        await msg.delete()
+    except Exception:
+        pass
 
 
 def hearts_display(friendship: int, max_hearts: int = 5) -> str:

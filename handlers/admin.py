@@ -10,6 +10,7 @@ import config
 from database import queries
 from services.spawn_service import schedule_spawns_for_chat
 from services.event_service import invalidate_event_cache
+from utils.helpers import schedule_delete
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +85,13 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
+    # Auto-delete the command message
+    schedule_delete(update.message, config.AUTO_DEL_FORCE_SPAWN_CMD)
+
     # Check if in a group
     if update.effective_chat.type == "private":
-        await update.message.reply_text("그룹 채팅방에서만 사용 가능합니다.")
+        resp = await update.message.reply_text("그룹 채팅방에서만 사용 가능합니다.")
+        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         return
 
     # Allow bot admins + group admins
@@ -105,25 +110,28 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Check if there's already an active spawn
     active = await queries.get_active_spawn(chat_id)
     if active:
-        await update.message.reply_text(
+        resp = await update.message.reply_text(
             f"⚠️ 이미 스폰 중인 포켓몬이 있습니다!\n"
             f"{active['emoji']} {active['name_ko']}을(를) 먼저 잡아주세요."
         )
+        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         return
 
     # Check minimum members
     room = await queries.get_chat_room(chat_id)
     member_count = room["member_count"] if room else 0
     if member_count < config.SPAWN_MIN_MEMBERS:
-        await update.message.reply_text(
+        resp = await update.message.reply_text(
             f"🚫 멤버가 {config.SPAWN_MIN_MEMBERS}명 이상인 방에서만 사용 가능합니다. (현재 {member_count}명)"
         )
+        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         return
 
     # Check force spawn limit (50 per chat)
     count = await queries.get_force_spawn_count(chat_id)
     if count >= 50:
-        await update.message.reply_text("🚫 이 방의 강제스폰 횟수를 모두 사용했습니다! (50/50회)")
+        resp = await update.message.reply_text("🚫 이 방의 강제스폰 횟수를 모두 사용했습니다! (50/50회)")
+        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         return
 
     logger.info(f"force_spawn: executing spawn in chat {chat_id} (count: {count}/50)")
@@ -153,29 +161,36 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Increment count and show remaining
         await queries.increment_force_spawn(chat_id)
         used = count + 1
-        await update.message.reply_text(f"⚡ 강제스폰! ({used}/50회)")
+        resp = await update.message.reply_text(f"⚡ 강제스폰! ({used}/50회)")
+        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         logger.info(f"force_spawn: success in chat {chat_id} ({used}/50)")
     except Exception as e:
         logger.error(f"force_spawn FAILED in chat {chat_id}: {e}", exc_info=True)
-        await update.message.reply_text(f"❌ 강제스폰 실패: {e}")
+        resp = await update.message.reply_text(f"❌ 강제스폰 실패: {e}")
+        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
 
 
 async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle '강스' command in group — use a force spawn reset ticket to reset 50-count."""
+    """Handle '강스권' command in group — use a force spawn reset ticket to reset 50-count."""
     if not update.effective_user or not update.message:
         return
 
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
+    # Auto-delete the command message
+    schedule_delete(update.message, config.AUTO_DEL_FORCE_SPAWN_CMD)
+
     if update.effective_chat.type == "private":
-        await update.message.reply_text("그룹 채팅방에서만 사용 가능합니다.")
+        resp = await update.message.reply_text("그룹 채팅방에서만 사용 가능합니다.")
+        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         return
 
     # Use ticket (atomic)
     success = await queries.use_force_spawn_ticket(user_id)
     if not success:
-        await update.message.reply_text("⚡ 강스권이 없습니다! DM에서 '상점'으로 구매하세요.")
+        resp = await update.message.reply_text("⚡ 강스권이 없습니다! DM에서 '상점'으로 구매하세요.")
+        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         return
 
     # Reset force spawn count for this chat
@@ -185,11 +200,12 @@ async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAU
     display_name = update.effective_user.first_name or "트레이너"
     room = await queries.get_chat_room(chat_id)
     chat_title = room["chat_title"] if room else "이 채팅방"
-    await update.message.reply_text(
+    resp = await update.message.reply_text(
         f"⚡ {display_name}이(가) 강스권을 사용했습니다!\n"
         f"🔄 [{chat_title}]의 강제스폰 횟수가 초기화되었습니다. (0/50)\n"
         f"📦 남은 강스권: {remaining}개"
     )
+    schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
 
 
 async def force_spawn_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -12,6 +12,7 @@ from database import queries
 from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_pokemon_boost
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
+from utils.helpers import schedule_delete, close_button
 
 logger = logging.getLogger(__name__)
 
@@ -435,10 +436,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         if not attempts:
             # Nobody tried
             shiny_tag = " ✨이로치" if is_shiny else ""
-            await context.bot.send_message(
+            escape_msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"흔들흔들... 💨{shiny_tag} {pokemon_emoji} {pokemon_name} 도망갔다!",
             )
+            schedule_delete(escape_msg, config.AUTO_DEL_SPAWN_ESCAPE)
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
@@ -488,10 +490,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         if not winners:
             # Everyone failed
             shiny_tag = " ✨이로치" if is_shiny else ""
-            await context.bot.send_message(
+            escape_msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"흔들흔들... 💨{shiny_tag} {pokemon_emoji} {pokemon_name} 도망갔다!",
             )
+            schedule_delete(escape_msg, config.AUTO_DEL_SPAWN_ESCAPE)
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
@@ -576,7 +579,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await queries.add_master_ball(winner_id)
             msg += "\n\n🟣 마스터볼을 획득했다!"
 
-        await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML")
+        catch_msg = await context.bot.send_message(
+            chat_id=chat_id, text=msg, parse_mode="HTML",
+            reply_markup=close_button(),
+        )
+        schedule_delete(catch_msg, config.AUTO_DEL_CATCH_RESULT)
 
         # Check and unlock titles
         from utils.title_checker import check_and_unlock_titles
@@ -585,11 +592,12 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         if new_titles:
             title_msgs = [f"🎉 <b>「{temoji} {tname}」</b> 칭호 해금!" for _, tname, temoji in new_titles]
             safe_name = escape_html(winner_name)
-            await context.bot.send_message(
+            title_msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\nDM에서 '칭호'로 장착하세요!",
                 parse_mode="HTML",
             )
+            schedule_delete(title_msg, config.AUTO_DEL_CATCH_RESULT)
 
         # Also check titles for failed catchers (background, non-blocking)
         async def _bg_check_failed():
