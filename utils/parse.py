@@ -12,11 +12,16 @@ def parse_args(text: str) -> list[str]:
 
 
 def parse_number(text: str) -> int | None:
-    """Extract the first number from text.
-    e.g. '밥 3' -> 3, '밥' -> None
+    """Extract the number argument from text (only if the arg is purely a number).
+    e.g. '밥 3' -> 3, '밥 폴리곤2' -> None, '밥' -> None
     """
-    match = re.search(r'\d+', text)
-    return int(match.group()) if match else None
+    parts = text.strip().split(maxsplit=1)
+    if len(parts) < 2:
+        return None
+    arg = parts[1].strip()
+    if re.match(r'^\d+$', arg):
+        return int(arg)
+    return None
 
 
 def parse_name_arg(text: str) -> str | None:
