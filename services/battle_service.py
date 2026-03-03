@@ -219,6 +219,7 @@ async def execute_battle(
     defender_team: list[dict],
     challenge_id: int | None,
     chat_id: int,
+    skip_bp: bool = False,
 ) -> dict:
     """Execute a full battle and record results.
 
@@ -261,12 +262,17 @@ async def execute_battle(
     winner_stats = await bq.get_battle_stats(winner_id)
     new_streak = winner_stats["battle_streak"] + 1
 
-    # Calculate BP
-    bp_won = _calculate_bp(winner_team_size, loser_team_size, result["perfect_win"], new_streak)
+    # Calculate BP (skip for yacha — yacha handles its own payout)
+    if skip_bp:
+        bp_won = 0
+        bp_lose = 0
+    else:
+        bp_won = _calculate_bp(winner_team_size, loser_team_size, result["perfect_win"], new_streak)
+        bp_lose = config.BP_LOSE
 
     # Update stats
     await bq.update_battle_stats_win(winner_id, bp_won)
-    await bq.update_battle_stats_lose(loser_id, config.BP_LOSE)
+    await bq.update_battle_stats_lose(loser_id, bp_lose)
 
     # Record battle
     await bq.record_battle(
@@ -308,9 +314,11 @@ async def execute_battle(
         "",
         "━━━━━━━━━━━━━━━",
         f"🏆 {winner_name} 승리! (남은 포켓몬: {winner_remaining}마리)",
-        "",
-        f"💰 +{bp_won} BP",
     ]
+
+    if not skip_bp:
+        lines.append("")
+        lines.append(f"💰 +{bp_won} BP")
 
     if new_streak >= 2:
         lines.append(f"{new_streak}연승!")

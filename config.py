@@ -393,10 +393,9 @@ UNLOCKABLE_TITLES.update(SHINY_TITLES)
 # Yacha (야차 - Betting Battle)
 # ============================================================
 
-YACHA_BP_OPTIONS = [50, 100, 200]          # BP 베팅 프리셋
+YACHA_BP_OPTIONS = [100, 200, 500]         # BP 베팅 프리셋
 YACHA_MASTERBALL_OPTIONS = [1, 2, 3]       # 마스터볼 베팅 프리셋
-YACHA_COOLDOWN_SAME = 600                  # 같은 상대 쿨다운 (10분)
-YACHA_COOLDOWN_GLOBAL = 120                # 글로벌 쿨다운 (2분)
+YACHA_COOLDOWN = 600                       # 글로벌 쿨다운 (10분)
 YACHA_CHALLENGE_TIMEOUT = 60               # 수락 대기 시간 (1분)
 
 # 야차 티배깅 멘트 (20개, 랜덤)

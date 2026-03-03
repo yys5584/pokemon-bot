@@ -126,6 +126,9 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     display_name = update.effective_user.first_name or "트레이너"
     username = update.effective_user.username
 
+    # Auto-delete the "ㅁ" command message
+    schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+
     try:
         await queries.ensure_user(user_id, display_name, username)
 
@@ -151,7 +154,8 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Check if user has master balls
         balls = await queries.get_master_balls(user_id)
         if balls < 1:
-            await update.message.reply_text("🟣 마스터볼이 없습니다!")
+            resp = await update.message.reply_text("🟣 마스터볼이 없습니다!")
+            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
             return
 
         # Use master ball
@@ -163,10 +167,11 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await queries.record_catch_attempt(session["id"], user_id, used_master_ball=True)
 
         remaining = balls - 1
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id=chat_id,
             text=f"🟣 {display_name} 마스터볼 투척! (남은 마스터볼: {remaining}개)",
         )
+        schedule_delete(msg, config.AUTO_DEL_CATCH_ATTEMPT)
 
     except Exception as e:
         logger.error(f"Master ball handler error: {e}")

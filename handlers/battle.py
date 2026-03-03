@@ -1633,34 +1633,20 @@ async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await queries.ensure_user(challenger_id, challenger_name, update.effective_user.username)
     await queries.ensure_user(defender_id, defender_name, reply.from_user.username)
 
-    # Yacha-specific cooldowns
+    # Yacha cooldown (global 10min)
     from datetime import datetime as dt
-    last_vs = await bq.get_last_yacha_time(challenger_id, defender_id)
-    if last_vs:
-        last_time = dt.fromisoformat(last_vs)
-        if last_time.tzinfo is None:
-            last_time = last_time.replace(tzinfo=timezone.utc)
-        cooldown = timedelta(seconds=config.YACHA_COOLDOWN_SAME)
-        if dt.now(timezone.utc) - last_time < cooldown:
-            remaining = cooldown - (dt.now(timezone.utc) - last_time)
-            mins = int(remaining.total_seconds() // 60)
-            await update.message.reply_text(
-                f"같은 상대와의 야차는 {config.YACHA_COOLDOWN_SAME // 60}분 쿨다운입니다. "
-                f"({mins}분 남음)"
-            )
-            return
-
     last_any = await bq.get_last_yacha_time_any(challenger_id)
     if last_any:
         last_time = dt.fromisoformat(last_any)
         if last_time.tzinfo is None:
             last_time = last_time.replace(tzinfo=timezone.utc)
-        cooldown = timedelta(seconds=config.YACHA_COOLDOWN_GLOBAL)
+        cooldown = timedelta(seconds=config.YACHA_COOLDOWN)
         if dt.now(timezone.utc) - last_time < cooldown:
             remaining = cooldown - (dt.now(timezone.utc) - last_time)
-            secs = int(remaining.total_seconds())
+            mins = int(remaining.total_seconds() // 60)
+            secs = int(remaining.total_seconds() % 60)
             await update.message.reply_text(
-                f"야차 쿨다운 중입니다. ({secs}초 남음)"
+                f"야차 쿨다운 중입니다. ({mins}분 {secs}초 남음)"
             )
             return
 
@@ -1997,7 +1983,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
 
     await bq.update_challenge_status(challenge_id, "accepted")
 
-    # Run the battle
+    # Run the battle (skip_bp=True: yacha handles its own payout)
     from services.battle_service import execute_battle
     result = await execute_battle(
         challenger_id=challenger_id,
@@ -2006,6 +1992,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
         defender_team=d_team,
         challenge_id=challenge_id,
         chat_id=challenge["chat_id"],
+        skip_bp=True,
     )
 
     # Pay the winner
