@@ -9,6 +9,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from services.spawn_service import schedule_spawns_for_chat
+from services.event_service import invalidate_event_cache
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +94,13 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             member = await context.bot.get_chat_member(chat_id, user_id)
             if member.status not in ("creator", "administrator"):
+                logger.info(f"force_spawn denied: user {user_id} is not admin in chat {chat_id}")
                 return
-        except Exception:
+        except Exception as e:
+            logger.warning(f"force_spawn admin check error: {e}")
             return
+
+    logger.info(f"force_spawn: admin check passed for user {user_id} in chat {chat_id}")
 
     # Check minimum members
     room = await queries.get_chat_room(chat_id)
@@ -112,30 +117,144 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("🚫 이 방의 강제스폰 횟수를 모두 사용했습니다! (50/50회)")
         return
 
-    # Trigger spawn immediately (force=True skips activity check)
-    from services.spawn_service import execute_spawn
+    logger.info(f"force_spawn: executing spawn in chat {chat_id} (count: {count}/50)")
 
-    class FakeJob:
-        def __init__(self, data):
-            self.data = data
+    try:
+        # Trigger spawn immediately (force=True skips activity check)
+        from services.spawn_service import execute_spawn
 
-    class FakeContext:
-        def __init__(self, bot, job_queue, data):
-            self.bot = bot
-            self.job_queue = job_queue
-            self.job = FakeJob(data)
+        class FakeJob:
+            def __init__(self, data):
+                self.data = data
+                self.name = None
 
-    fake_ctx = FakeContext(
-        context.bot,
-        context.application.job_queue,
-        {"chat_id": chat_id, "force": True},
-    )
-    await execute_spawn(fake_ctx)
+        class FakeContext:
+            def __init__(self, bot, job_queue, data):
+                self.bot = bot
+                self.job_queue = job_queue
+                self.job = FakeJob(data)
 
-    # Increment count and show remaining
-    await queries.increment_force_spawn(chat_id)
-    used = count + 1
-    await update.message.reply_text(f"⚡ 강제스폰! ({used}/50회)")
+        fake_ctx = FakeContext(
+            context.bot,
+            context.application.job_queue,
+            {"chat_id": chat_id, "force": True},
+        )
+        await execute_spawn(fake_ctx)
+
+        # Increment count and show remaining
+        await queries.increment_force_spawn(chat_id)
+        used = count + 1
+        await update.message.reply_text(f"⚡ 강제스폰! ({used}/50회)")
+        logger.info(f"force_spawn: success in chat {chat_id} ({used}/50)")
+    except Exception as e:
+        logger.error(f"force_spawn FAILED in chat {chat_id}: {e}", exc_info=True)
+        await update.message.reply_text(f"❌ 강제스폰 실패: {e}")
+
+
+async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '강스' command in group — use a force spawn ticket."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    if update.effective_chat.type == "private":
+        await update.message.reply_text("그룹 채팅방에서만 사용 가능합니다.")
+        return
+
+    # Check minimum members
+    room = await queries.get_chat_room(chat_id)
+    member_count = room["member_count"] if room else 0
+    if member_count < config.SPAWN_MIN_MEMBERS:
+        await update.message.reply_text(
+            f"🚫 멤버가 {config.SPAWN_MIN_MEMBERS}명 이상인 방에서만 사용 가능합니다."
+        )
+        return
+
+    # Use ticket (atomic)
+    success = await queries.use_force_spawn_ticket(user_id)
+    if not success:
+        await update.message.reply_text("⚡ 강제스폰권이 없습니다! DM에서 '상점'으로 구매하세요.")
+        return
+
+    try:
+        from services.spawn_service import execute_spawn
+
+        class FakeJob:
+            def __init__(self, data):
+                self.data = data
+                self.name = None
+
+        class FakeContext:
+            def __init__(self, bot, job_queue, data):
+                self.bot = bot
+                self.job_queue = job_queue
+                self.job = FakeJob(data)
+
+        fake_ctx = FakeContext(
+            context.bot,
+            context.application.job_queue,
+            {"chat_id": chat_id, "force": True},
+        )
+        await execute_spawn(fake_ctx)
+
+        remaining = await queries.get_force_spawn_tickets(user_id)
+        display_name = update.effective_user.first_name or "트레이너"
+        await update.message.reply_text(
+            f"⚡ {display_name}의 강제스폰! (남은 티켓: {remaining}개)"
+        )
+    except Exception as e:
+        # Refund ticket on failure
+        await queries.add_force_spawn_ticket(user_id)
+        logger.error(f"ticket_force_spawn FAILED: {e}", exc_info=True)
+        await update.message.reply_text(f"❌ 강제스폰 실패 (티켓 환불됨): {e}")
+
+
+async def force_spawn_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '강제스폰초기화' command - reset force spawn counts for all chats."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    # Allow bot admins + group admins (same as force_spawn)
+    if not is_admin(user_id):
+        if update.effective_chat.type == "private":
+            return
+        try:
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            if member.status not in ("creator", "administrator"):
+                return
+        except Exception:
+            return
+
+    await queries.reset_force_spawn_counts()
+    await update.message.reply_text("✅ 모든 방의 강제스폰 횟수가 초기화되었습니다!")
+
+
+async def pokeball_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '포켓볼초기화' command - reset all users' catch limits."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    # Allow bot admins + group admins
+    if not is_admin(user_id):
+        if update.effective_chat.type == "private":
+            return
+        try:
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            if member.status not in ("creator", "administrator"):
+                return
+        except Exception:
+            return
+
+    await queries.reset_catch_limits()
+    await update.message.reply_text("✅ 모든 유저의 포켓볼(잡기 횟수)이 초기화되었습니다!")
 
 
 # ============================================================
@@ -186,7 +305,7 @@ async def event_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
 
-    end_time = (datetime.now() + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    end_time = (config.get_kst_now() + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
 
     event_id = await queries.create_event(
         name=event_name,
@@ -197,6 +316,7 @@ async def event_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         end_time=end_time,
         created_by=user_id,
     )
+    invalidate_event_cache()
 
     await update.message.reply_text(
         f"🎉 이벤트 시작!\n\n"
@@ -258,6 +378,7 @@ async def event_end_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await queries.end_event(event_id)
+    invalidate_event_cache()
     await update.message.reply_text(f"✅ 이벤트 #{event_id} 종료되었습니다.")
 
 
@@ -341,3 +462,208 @@ async def channel_list_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             lines.append(f"  {title}")
 
     await update.message.reply_text("\n".join(lines))
+
+
+# ============================================================
+# Master Ball Grant (DM, bot admin only)
+# ============================================================
+
+async def grant_masterball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '마볼지급 [개수]' command.
+    - 그룹: 상대 메시지에 답장 + '마볼지급 [개수]'
+    - DM: '마볼지급 [유저ID] [개수]'
+    """
+    if not update.effective_user or not update.message:
+        return
+    if not is_admin(update.effective_user.id):
+        return
+
+    text = (update.message.text or "").strip()
+    parts = text.split()
+    is_group = update.effective_chat.type in ("group", "supergroup")
+
+    target_user_id = None
+    count = 1
+
+    if is_group:
+        # 그룹: 답장으로 대상 지정
+        reply = update.message.reply_to_message
+        if not reply or not reply.from_user:
+            await update.message.reply_text("대상의 메시지에 답장으로 '마볼지급 [개수]' 를 입력하세요.")
+            return
+        target_user_id = reply.from_user.id
+        # 개수 파싱 (마볼지급 2 → 2개)
+        if len(parts) >= 2:
+            try:
+                count = int(parts[1])
+                if count < 1 or count > 99:
+                    await update.message.reply_text("개수는 1~99 사이로 입력해주세요.")
+                    return
+            except ValueError:
+                pass
+    else:
+        # DM: 유저ID로 대상 지정
+        if len(parts) < 2:
+            await update.message.reply_text(
+                "사용법: 마볼지급 [유저ID] [개수]\n"
+                "예: 마볼지급 123456789 1\n"
+                "그룹에서는 답장으로 사용 가능"
+            )
+            return
+        try:
+            target_user_id = int(parts[1])
+        except ValueError:
+            await update.message.reply_text("유저 ID를 숫자로 입력해주세요.")
+            return
+        if len(parts) >= 3:
+            try:
+                count = int(parts[2])
+                if count < 1 or count > 99:
+                    await update.message.reply_text("개수는 1~99 사이로 입력해주세요.")
+                    return
+            except ValueError:
+                pass
+
+    # Ensure user exists in DB
+    user = await queries.get_user(target_user_id)
+    if not user:
+        await update.message.reply_text(f"유저를 찾을 수 없습니다. (봇 미등록)")
+        return
+
+    await queries.add_master_ball(target_user_id, count)
+    new_total = await queries.get_master_balls(target_user_id)
+
+    await update.message.reply_text(
+        f"✅ 마스터볼 지급 완료!\n"
+        f"대상: {user['display_name']}\n"
+        f"지급: {count}개\n"
+        f"현재 보유: {new_total}개"
+    )
+
+    # 대상 유저에게 DM 알림
+    try:
+        await context.bot.send_message(
+            chat_id=target_user_id,
+            text=f"🎁 마스터볼 {count}개를 지급받았습니다!\n현재 보유: {new_total}개",
+        )
+    except Exception:
+        pass  # DM 실패 시 무시 (봇 차단 등)
+
+    logger.info(f"Admin granted {count} master ball(s) to user {target_user_id}")
+
+
+# ============================================================
+# Arcade Channel Management
+# ============================================================
+
+async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '아케이드' command in a group chat.
+    - Admin: '아케이드 등록/해제' → permanent arcade toggle
+    - User with ticket: '아케이드 등록' → 1-hour temporary arcade
+    """
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    text = (update.message.text or "").strip()
+    parts = text.split()
+    chat_id = update.effective_chat.id
+
+    if len(parts) < 2:
+        # Check active temp pass
+        active_pass = await queries.get_active_arcade_pass(chat_id)
+        if chat_id in config.ARCADE_CHAT_IDS:
+            status = "✅ 영구 등록"
+        elif active_pass:
+            from datetime import datetime, timezone
+            expires = active_pass["expires_at"]
+            if hasattr(expires, 'tzinfo') and expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            remaining = max(0, int((expires - datetime.now(timezone.utc)).total_seconds()))
+            status = f"⏱ 임시 등록 ({remaining // 60}분 남음)"
+        else:
+            status = "❌ 미등록"
+
+        tickets = await queries.get_arcade_tickets(user_id)
+        await update.message.reply_text(
+            f"🕹️ 아케이드 채널 ({status})\n\n"
+            f"'아케이드 등록' — 아케이드 활성화\n"
+            f"'아케이드 해제' — 아케이드 비활성화\n\n"
+            f"🎮 내 아케이드 티켓: {tickets}개"
+        )
+        return
+
+    action = parts[1]
+
+    if action == "등록":
+        # Already an arcade channel?
+        if chat_id in config.ARCADE_CHAT_IDS:
+            await update.message.reply_text("🕹️ 이미 영구 아케이드 채널입니다!")
+            return
+
+        # Already has active temp pass?
+        active_pass = await queries.get_active_arcade_pass(chat_id)
+        if active_pass:
+            await update.message.reply_text("🕹️ 이미 아케이드가 활성화되어 있습니다!")
+            return
+
+        # Admin: permanent registration
+        if is_admin(user_id):
+            config.ARCADE_CHAT_IDS.add(chat_id)
+            await queries.set_arcade(chat_id, True)
+            from services.spawn_service import schedule_arcade_spawns
+            schedule_arcade_spawns(context.application)
+            await update.message.reply_text(
+                f"🕹️ 아케이드 채널 영구 등록 완료!\n"
+                f"⏱️ {config.ARCADE_SPAWN_INTERVAL}초마다 포켓몬이 출현합니다."
+            )
+            logger.info(f"Arcade channel registered (permanent): {chat_id}")
+            return
+
+        # Non-admin: use ticket for 1-hour temp arcade
+        used = await queries.use_arcade_ticket(user_id)
+        if not used:
+            await update.message.reply_text(
+                "🎮 아케이드 티켓이 없습니다!\nDM 상점에서 '구매 아케이드'로 구매하세요."
+            )
+            return
+
+        # Create temporary arcade pass for this chat
+        await queries.create_arcade_pass(chat_id, user_id, config.ARCADE_PASS_DURATION)
+
+        # Start arcade spawns
+        from services.spawn_service import start_temp_arcade
+        start_temp_arcade(context.application, chat_id, config.ARCADE_PASS_DURATION)
+
+        display_name = update.effective_user.first_name or "트레이너"
+        remaining_tickets = await queries.get_arcade_tickets(user_id)
+        await update.message.reply_text(
+            f"🕹️ {display_name}이(가) 아케이드 활성화!\n"
+            f"⏱️ {config.ARCADE_PASS_DURATION // 60}분간 {config.ARCADE_SPAWN_INTERVAL}초마다 스폰\n"
+            f"🎮 남은 티켓: {remaining_tickets}개"
+        )
+        logger.info(f"Temp arcade activated by {user_id} in chat {chat_id}")
+
+    elif action == "해제":
+        if chat_id in config.ARCADE_CHAT_IDS:
+            # Only admin can remove permanent arcade
+            if not is_admin(user_id):
+                await update.message.reply_text("🚫 영구 아케이드 해제는 관리자만 가능합니다.")
+                return
+            config.ARCADE_CHAT_IDS.discard(chat_id)
+            await queries.set_arcade(chat_id, False)
+
+        # Remove arcade jobs
+        from services.spawn_service import stop_arcade_for_chat
+        stop_arcade_for_chat(context.application, chat_id)
+
+        # Deactivate any active pass
+        from database.connection import get_db
+        pool = await get_db()
+        await pool.execute(
+            "UPDATE arcade_passes SET is_active = 0 WHERE chat_id = $1 AND is_active = 1",
+            chat_id,
+        )
+
+        await update.message.reply_text("🕹️ 아케이드 해제됨. 일반 스폰으로 복구됩니다.")
+        logger.info(f"Arcade channel unregistered: {chat_id}")

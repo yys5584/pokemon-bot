@@ -11,10 +11,10 @@ def close_button() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton("❌", callback_data="close_msg")]])
 
 
-def hearts_display(friendship: int) -> str:
+def hearts_display(friendship: int, max_hearts: int = 5) -> str:
     """Display friendship as hearts: ♥♥♥○○"""
     filled = "♥" * friendship
-    empty = "○" * (5 - friendship)
+    empty = "○" * (max_hearts - friendship)
     return filled + empty
 
 
@@ -49,11 +49,14 @@ async def update_title(user_id: int):
     await queries.update_user_title(user_id, title, emoji)
 
 
-def time_ago(timestamp_str: str) -> str:
-    """Convert ISO timestamp to human-readable Korean time ago."""
+def time_ago(timestamp_str) -> str:
+    """Convert ISO timestamp or datetime to human-readable Korean time ago."""
     from datetime import datetime
     try:
-        ts = datetime.fromisoformat(timestamp_str)
+        if isinstance(timestamp_str, datetime):
+            ts = timestamp_str.replace(tzinfo=None)
+        else:
+            ts = datetime.fromisoformat(str(timestamp_str))
         diff = datetime.now() - ts
         seconds = int(diff.total_seconds())
 

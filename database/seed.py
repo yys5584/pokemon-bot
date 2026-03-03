@@ -6,36 +6,51 @@ from models.pokemon_data import ALL_POKEMON
 
 async def seed_pokemon_data():
     """Insert all 251 Pokemon into pokemon_master if not already seeded."""
-    db = await get_db()
+    pool = await get_db()
 
-    row = await db.execute_fetchall("SELECT COUNT(*) as cnt FROM pokemon_master")
-    count = row[0][0] if row else 0
+    row = await pool.fetchrow("SELECT COUNT(*) as cnt FROM pokemon_master")
+    count = row["cnt"] if row else 0
     if count >= 251:
-        return  # Already seeded
-
-    # Temporarily disable foreign keys for self-referential insert
-    await db.execute("PRAGMA foreign_keys=OFF")
+        return count
 
     for p in ALL_POKEMON:
-        await db.execute(
-            """INSERT OR IGNORE INTO pokemon_master
+        await pool.execute(
+            """INSERT INTO pokemon_master
                (id, name_ko, name_en, emoji, rarity, catch_rate,
                 evolves_from, evolves_to, evolution_method)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            p,
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               ON CONFLICT (id) DO NOTHING""",
+            *p,
         )
 
     # Update Gen1 Pokemon that now evolve into Gen2
-    cross_gen_updates = [
-        # Golbat -> Crobat
-        ("UPDATE pokemon_master SET evolves_to = 169 WHERE id = 42 AND evolves_to IS NULL",),
-        # Chansey -> Blissey
-        ("UPDATE pokemon_master SET evolves_to = 242 WHERE id = 113 AND evolves_to IS NULL",),
-    ]
-    for sql in cross_gen_updates:
-        await db.execute(sql[0])
+    await pool.execute(
+        "UPDATE pokemon_master SET evolves_to = 169 WHERE id = 42 AND evolves_to IS NULL"
+    )
+    await pool.execute(
+        "UPDATE pokemon_master SET evolves_to = 242 WHERE id = 113 AND evolves_to IS NULL"
+    )
 
-    await db.commit()
+    return 251
 
-    # Re-enable foreign keys
-    await db.execute("PRAGMA foreign_keys=ON")
+
+async def seed_battle_data():
+    """Seed pokemon_type and stat_type into pokemon_master for battle system."""
+    from models.pokemon_battle_data import POKEMON_BATTLE_DATA
+
+    pool = await get_db()
+
+    # Check if already seeded (if any pokemon has a non-default type)
+    row = await pool.fetchrow(
+        "SELECT COUNT(*) as cnt FROM pokemon_master WHERE pokemon_type != 'normal'"
+    )
+    if row and row["cnt"] > 50:
+        return  # Already seeded
+
+    for pid, (ptype, stype) in POKEMON_BATTLE_DATA.items():
+        await pool.execute(
+            """UPDATE pokemon_master
+               SET pokemon_type = $1, stat_type = $2
+               WHERE id = $3""",
+            ptype, stype, pid,
+        )

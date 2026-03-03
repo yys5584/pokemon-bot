@@ -28,8 +28,9 @@ RARITY_ACCENT = {
 }
 
 
+@lru_cache(maxsize=8)
 def _make_gradient(width: int, height: int, top_color: tuple, bottom_color: tuple) -> Image.Image:
-    """Create a vertical gradient image."""
+    """Create a vertical gradient image (cached per rarity)."""
     img = Image.new("RGB", (width, height))
     pixels = img.load()
     for y in range(height):
@@ -39,7 +40,21 @@ def _make_gradient(width: int, height: int, top_color: tuple, bottom_color: tupl
         b = int(top_color[2] + (bottom_color[2] - top_color[2]) * ratio)
         for x in range(width):
             pixels[x, y] = (r, g, b)
-    return img
+    return img.copy()  # Return copy so original cache isn't mutated
+
+
+@lru_cache(maxsize=256)
+def _load_sprite(pokemon_id: int) -> Image.Image | None:
+    """Load and pre-scale a Pokemon sprite (cached)."""
+    sprite_path = ASSETS_DIR / f"{pokemon_id}.png"
+    if not sprite_path.exists():
+        return None
+    sprite = Image.open(sprite_path).convert("RGBA")
+    max_size = 320
+    ratio = min(max_size / sprite.width, max_size / sprite.height)
+    new_w = int(sprite.width * ratio)
+    new_h = int(sprite.height * ratio)
+    return sprite.resize((new_w, new_h), Image.LANCZOS)
 
 
 def _draw_glow(draw: ImageDraw.Draw, cx: int, cy: int, radius: int, color: tuple, steps: int = 20):
@@ -70,19 +85,11 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "") -
     _draw_glow(glow_draw, cx, cy, 200, accent)
     card = Image.alpha_composite(card, glow_layer)
 
-    # 3. Load and place Pokemon sprite
-    sprite_path = ASSETS_DIR / f"{pokemon_id}.png"
-    if sprite_path.exists():
-        sprite = Image.open(sprite_path).convert("RGBA")
-        # Scale sprite to fit nicely (max 320px)
-        max_size = 320
-        ratio = min(max_size / sprite.width, max_size / sprite.height)
-        new_w = int(sprite.width * ratio)
-        new_h = int(sprite.height * ratio)
-        sprite = sprite.resize((new_w, new_h), Image.LANCZOS)
-        # Center sprite
-        sx = (CARD_WIDTH - new_w) // 2
-        sy = (CARD_HEIGHT - new_h) // 2 - 30
+    # 3. Load and place Pokemon sprite (cached & pre-scaled)
+    sprite = _load_sprite(pokemon_id)
+    if sprite:
+        sx = (CARD_WIDTH - sprite.width) // 2
+        sy = (CARD_HEIGHT - sprite.height) // 2 - 30
         card.paste(sprite, (sx, sy), sprite)
 
     # 4. Draw rarity accent line at bottom
@@ -131,9 +138,10 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "") -
     id_text = f"#{pokemon_id:03d}"
     draw.text((22, 16), id_text, fill=(255, 255, 255, 100), font=font_small)
 
-    # Convert to bytes
+    # Convert to bytes (JPEG: much smaller & faster than PNG)
     buf = io.BytesIO()
     card_rgb = card.convert("RGB")
-    card_rgb.save(buf, format="PNG", optimize=True)
+    card_rgb.save(buf, format="JPEG", quality=85)
     buf.seek(0)
+    buf.name = "card.jpg"  # Telegram needs extension hint
     return buf

@@ -9,7 +9,7 @@ from database import queries
 from services.evolution_service import try_evolve
 from services.event_service import get_friendship_boost
 from utils.helpers import hearts_display
-from utils.parse import parse_number
+from utils.parse import parse_number, parse_name_arg
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +26,23 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update.effective_user.username,
     )
 
-    index = parse_number(update.message.text or "")
-    if index is None:
-        await update.message.reply_text("사용법: 밥 [번호]\n예: 밥 1")
+    text = update.message.text or ""
+    index = parse_number(text)
+    name_arg = parse_name_arg(text)
+
+    pokemon = None
+    if index is not None:
+        pokemon = await queries.get_user_pokemon_by_index(user_id, index)
+    elif name_arg:
+        pokemon = await queries.get_user_pokemon_by_name(user_id, name_arg)
+    else:
+        await update.message.reply_text("사용법: 밥 [이름]\n예: 밥 피카츄, 밥 리자몽")
         return
 
-    pokemon = await queries.get_user_pokemon_by_index(user_id, index)
-
     if not pokemon:
+        query = index if index is not None else name_arg
         await update.message.reply_text(
-            f"{index}번 포켓몬을 찾을 수 없습니다.\n내포켓몬 으로 목록을 확인하세요."
+            f"'{query}' 포켓몬을 찾을 수 없습니다.\n내포켓몬 으로 목록을 확인하세요."
         )
         return
 
@@ -45,7 +52,8 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if pokemon["friendship"] >= config.MAX_FRIENDSHIP:
+    max_f = config.get_max_friendship(pokemon)
+    if pokemon["friendship"] >= max_f:
         await update.message.reply_text(
             f"{pokemon['name_ko']}의 친밀도가 이미 MAX입니다!\n"
             f"진화 {index} 로 진화를 시도해보세요."
@@ -54,12 +62,12 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_FEED * boost
-    new_friendship = min(config.MAX_FRIENDSHIP, pokemon["friendship"] + gain)
+    new_friendship = min(max_f, pokemon["friendship"] + gain)
     await queries.update_pokemon_friendship(pokemon["id"], new_friendship)
     await queries.increment_feed(pokemon["id"])
 
     remaining = config.FEED_PER_DAY - pokemon["fed_today"] - 1
-    hearts = hearts_display(new_friendship)
+    hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 
     evo_hint = ""
@@ -71,7 +79,7 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"🍖 {pokemon['name_ko']}에게 밥을 줬습니다!{boost_text}\n"
-        f"친밀도: {hearts} ({new_friendship}/{config.MAX_FRIENDSHIP})\n"
+        f"친밀도: {hearts} ({new_friendship}/{max_f})\n"
         f"남은 횟수: {remaining}회"
         f"{evo_hint}"
     )
@@ -89,16 +97,23 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update.effective_user.username,
     )
 
-    index = parse_number(update.message.text or "")
-    if index is None:
-        await update.message.reply_text("사용법: 놀기 [번호]\n예: 놀기 1")
+    text = update.message.text or ""
+    index = parse_number(text)
+    name_arg = parse_name_arg(text)
+
+    pokemon = None
+    if index is not None:
+        pokemon = await queries.get_user_pokemon_by_index(user_id, index)
+    elif name_arg:
+        pokemon = await queries.get_user_pokemon_by_name(user_id, name_arg)
+    else:
+        await update.message.reply_text("사용법: 놀기 [이름]\n예: 놀기 피카츄, 놀기 리자몽")
         return
 
-    pokemon = await queries.get_user_pokemon_by_index(user_id, index)
-
     if not pokemon:
+        query = index if index is not None else name_arg
         await update.message.reply_text(
-            f"{index}번 포켓몬을 찾을 수 없습니다.\n내포켓몬 으로 목록을 확인하세요."
+            f"'{query}' 포켓몬을 찾을 수 없습니다.\n내포켓몬 으로 목록을 확인하세요."
         )
         return
 
@@ -108,7 +123,8 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if pokemon["friendship"] >= config.MAX_FRIENDSHIP:
+    max_f = config.get_max_friendship(pokemon)
+    if pokemon["friendship"] >= max_f:
         await update.message.reply_text(
             f"{pokemon['name_ko']}의 친밀도가 이미 MAX입니다!\n"
             f"진화 {index} 로 진화를 시도해보세요."
@@ -117,12 +133,12 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_PLAY * boost
-    new_friendship = min(config.MAX_FRIENDSHIP, pokemon["friendship"] + gain)
+    new_friendship = min(max_f, pokemon["friendship"] + gain)
     await queries.update_pokemon_friendship(pokemon["id"], new_friendship)
     await queries.increment_play(pokemon["id"])
 
     remaining = config.PLAY_PER_DAY - pokemon["played_today"] - 1
-    hearts = hearts_display(new_friendship)
+    hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 
     evo_hint = ""
@@ -134,7 +150,7 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"🎾 {pokemon['name_ko']}와(과) 놀아줬습니다!{boost_text}\n"
-        f"친밀도: {hearts} ({new_friendship}/{config.MAX_FRIENDSHIP})\n"
+        f"친밀도: {hearts} ({new_friendship}/{max_f})\n"
         f"남은 횟수: {remaining}회"
         f"{evo_hint}"
     )
@@ -152,16 +168,23 @@ async def evolve_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update.effective_user.username,
     )
 
-    index = parse_number(update.message.text or "")
-    if index is None:
-        await update.message.reply_text("사용법: 진화 [번호]\n예: 진화 1")
+    text = update.message.text or ""
+    index = parse_number(text)
+    name_arg = parse_name_arg(text)
+
+    pokemon = None
+    if index is not None:
+        pokemon = await queries.get_user_pokemon_by_index(user_id, index)
+    elif name_arg:
+        pokemon = await queries.get_user_pokemon_by_name(user_id, name_arg)
+    else:
+        await update.message.reply_text("사용법: 진화 [번호/이름]\n예: 진화 1 또는 진화 피카츄")
         return
 
-    pokemon = await queries.get_user_pokemon_by_index(user_id, index)
-
     if not pokemon:
+        query = index if index is not None else name_arg
         await update.message.reply_text(
-            f"{index}번 포켓몬을 찾을 수 없습니다.\n내포켓몬 으로 목록을 확인하세요."
+            f"'{query}' 포켓몬을 찾을 수 없습니다.\n내포켓몬 으로 목록을 확인하세요."
         )
         return
 
