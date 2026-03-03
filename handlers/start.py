@@ -69,7 +69,9 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "🎮 포켓몬 봇이 활성화되었습니다!\n"
             "야생 포켓몬이 나타나면 ㅊ 으로 잡으세요!\n"
-            "🌿 곧 첫 번째 포켓몬이 나타날 거예요!"
+            "🌿 곧 첫 번째 포켓몬이 나타날 거예요!\n\n"
+            "⚠️ 봇을 관리자로 설정하면 채팅방이 깔끔해집니다!\n"
+            "(명령어/결과 메시지 자동 정리 기능)"
         )
 
 
@@ -94,8 +96,10 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  팀해제 — 배틀 팀 초기화\n"
         "  배틀 — 상대에게 답장하며 배틀 도전 (채팅방)\n"
         "  배틀수락 / 배틀거절 — 도전 응답 (채팅방)\n"
+        "  야차 — BP/마스터볼 베팅 대결 (채팅방)\n"
+        "  랭전 — 랭크전 (준비 중)\n"
         "  배틀전적 — 승패/연승/BP 확인\n"
-        "  배틀랭킹 — 배틀 승률 랭킹 (채팅방)\n"
+        "  배틀랭킹 — 배틀 BP 랭킹 (채팅방)\n"
         "  BP — BP 잔액 확인\n"
         "  BP상점 — BP로 아이템 교환\n\n"
         "🔄 【교환】 — DM에서 사용\n"

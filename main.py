@@ -28,10 +28,13 @@ from handlers.battle import (
     partner_handler, partner_callback_handler,
     team_handler, team_register_handler, team_clear_handler, team_select_handler,
     team_callback_handler,
-    battle_stats_handler, bp_handler, bp_shop_handler, bp_buy_handler,
+    battle_stats_handler, bp_handler, bp_shop_handler, bp_buy_handler, shop_callback_handler,
     battle_challenge_handler, battle_callback_handler, battle_result_callback_handler,
     battle_ranking_handler, battle_accept_text_handler, battle_decline_text_handler,
     tier_handler,
+    ranked_coming_soon_handler,
+    yacha_handler, yacha_type_callback, yacha_amount_callback,
+    yacha_response_callback, yacha_result_callback,
 )
 from handlers.dm_nurture import feed_handler, play_handler, evolve_handler
 from handlers.dm_trade import trade_handler, accept_handler, reject_handler
@@ -261,11 +264,15 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀수락$"), battle_accept_text_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀거절$"), battle_decline_text_handler))
 
+    # Ranked battle (Coming Soon) & Yacha (Betting Battle)
+    app.add_handler(MessageHandler(group & filters.Regex(r"^랭전$"), ranked_coming_soon_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^야차$"), yacha_handler))
+
     # Admin group commands
     app.add_handler(MessageHandler(group & filters.Regex(r"^스폰배율"), spawn_rate_handler))
-    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강제스폰\s*$"), force_spawn_handler))
-    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스\s*$"), ticket_force_spawn_handler))
-    app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰초기화\s*$"), force_spawn_reset_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스\s*$"), force_spawn_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스권\s*$"), ticket_force_spawn_handler))
+    app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰 채널 초기화\s*$"), force_spawn_reset_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*포켓볼초기화\s*$"), pokeball_reset_handler))
 
     # "ㅊ" catch handler (group only, exact match)
@@ -315,6 +322,15 @@ def main():
 
     # Battle result teabag/delete callback
     app.add_handler(CallbackQueryHandler(battle_result_callback_handler, pattern=r"^b(tbag|del)_"))
+
+    # Shop purchase callback
+    app.add_handler(CallbackQueryHandler(shop_callback_handler, pattern=r"^shop_"))
+
+    # Yacha (betting battle) callbacks
+    app.add_handler(CallbackQueryHandler(yacha_type_callback, pattern=r"^yc_"))
+    app.add_handler(CallbackQueryHandler(yacha_amount_callback, pattern=r"^ya_"))
+    app.add_handler(CallbackQueryHandler(yacha_response_callback, pattern=r"^yacha_"))
+    app.add_handler(CallbackQueryHandler(yacha_result_callback, pattern=r"^yres_"))
 
     # Activity tracker — runs for every group text message (handler group -1)
     app.add_handler(

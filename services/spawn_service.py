@@ -12,6 +12,7 @@ from database import queries
 from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_pokemon_boost
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
+from utils.helpers import schedule_delete, close_button
 
 logger = logging.getLogger(__name__)
 
@@ -178,8 +179,9 @@ def schedule_arcade_spawns(app):
                      f"(every {config.ARCADE_SPAWN_INTERVAL}s)")
 
 
-def start_temp_arcade(app, chat_id: int, duration_seconds: int):
+def start_temp_arcade(app, chat_id: int, duration_seconds: int, interval: int | None = None):
     """Start temporary arcade spawns for a chat. Auto-stops after duration."""
+    spawn_interval = interval or config.ARCADE_SPAWN_INTERVAL
     job_name = f"arcade_{chat_id}"
     # Remove any existing arcade job for this chat
     for job in app.job_queue.jobs():
@@ -188,7 +190,7 @@ def start_temp_arcade(app, chat_id: int, duration_seconds: int):
 
     app.job_queue.run_repeating(
         execute_spawn,
-        interval=config.ARCADE_SPAWN_INTERVAL,
+        interval=spawn_interval,
         first=10,
         data={"chat_id": chat_id, "force": True},
         name=job_name,
@@ -284,11 +286,26 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 logger.info(f"No activity in {chat_id}, retrying in {retry_delay}s")
                 return
 
-        # 2. Check if there's already an active spawn (skip for arcade and force)
-        if not arcade and not force:
-            active = await queries.get_active_spawn(chat_id)
-            if active:
-                return
+        # 2. Check if there's already an active spawn
+        active = await queries.get_active_spawn(chat_id)
+        if active:
+            if not arcade and not force:
+                return  # Normal spawn: skip if active spawn exists
+            # Arcade/force: close old spawn before creating new one
+            await queries.close_spawn_session(active["id"])
+            old_resolve_name = f"resolve_{active['id']}"
+            for job in context.job_queue.jobs():
+                if job.name == old_resolve_name:
+                    job.schedule_removal()
+                    break
+            # Delete old spawn message from chat
+            old_msg_id = active.get("message_id")
+            if old_msg_id:
+                try:
+                    await context.bot.delete_message(chat_id=chat_id, message_id=old_msg_id)
+                except Exception:
+                    pass  # Message may already be deleted
+            logger.info(f"Closed overlapping spawn {active['id']} in {chat_id}")
 
         # 2.5 Cooldown: skip if last spawn was within 5 minutes (skip for arcade and force)
         if not arcade and not force:
@@ -419,10 +436,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         if not attempts:
             # Nobody tried
             shiny_tag = " ✨이로치" if is_shiny else ""
-            await context.bot.send_message(
+            escape_msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"흔들흔들... 💨{shiny_tag} {pokemon_emoji} {pokemon_name} 도망갔다!",
             )
+            schedule_delete(escape_msg, config.AUTO_DEL_SPAWN_ESCAPE)
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
@@ -472,10 +490,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         if not winners:
             # Everyone failed
             shiny_tag = " ✨이로치" if is_shiny else ""
-            await context.bot.send_message(
+            escape_msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"흔들흔들... 💨{shiny_tag} {pokemon_emoji} {pokemon_name} 도망갔다!",
             )
+            schedule_delete(escape_msg, config.AUTO_DEL_SPAWN_ESCAPE)
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
@@ -560,7 +579,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await queries.add_master_ball(winner_id)
             msg += "\n\n🟣 마스터볼을 획득했다!"
 
-        await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML")
+        catch_msg = await context.bot.send_message(
+            chat_id=chat_id, text=msg, parse_mode="HTML",
+            reply_markup=close_button(),
+        )
+        schedule_delete(catch_msg, config.AUTO_DEL_CATCH_RESULT)
 
         # Check and unlock titles
         from utils.title_checker import check_and_unlock_titles
@@ -569,11 +592,12 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         if new_titles:
             title_msgs = [f"🎉 <b>「{temoji} {tname}」</b> 칭호 해금!" for _, tname, temoji in new_titles]
             safe_name = escape_html(winner_name)
-            await context.bot.send_message(
+            title_msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\nDM에서 '칭호'로 장착하세요!",
                 parse_mode="HTML",
             )
+            schedule_delete(title_msg, config.AUTO_DEL_CATCH_RESULT)
 
         # Also check titles for failed catchers (background, non-blocking)
         async def _bg_check_failed():

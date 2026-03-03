@@ -81,8 +81,17 @@ SPAWN_MAX_DAILY = 12               # Absolute max spawns per day per chat (regar
 
 # --- Arcade Channel (30초마다 강제스폰) ---
 ARCADE_CHAT_IDS: set[int] = set()  # 채팅방 등록 후 chat_id 추가
-ARCADE_SPAWN_INTERVAL = 30         # 초 (30초)
+ARCADE_SPAWN_INTERVAL = 30         # 초 (관리자 등록 아케이드)
+ARCADE_TICKET_SPAWN_INTERVAL = 60  # 초 (티켓 아케이드)
 ARCADE_SPAWN_WINDOW = 25           # 초 (포획 제한시간, 겹침 방지)
+
+# --- Auto-delete Timers (seconds) ---
+AUTO_DEL_CATCH_CMD = 3          # ㅊ 명령어 삭제 (바로)
+AUTO_DEL_CATCH_ATTEMPT = 5      # "🎯 도전!" 메시지 삭제
+AUTO_DEL_CATCH_RESULT = 15      # 포획 성공/실패 결과 삭제
+AUTO_DEL_SPAWN_ESCAPE = 10      # 도망 메시지 삭제
+AUTO_DEL_FORCE_SPAWN_CMD = 3    # 강스/강스권 명령어 삭제
+AUTO_DEL_FORCE_SPAWN_RESP = 10  # 강스 응답 메시지 삭제
 
 # Small-group optimized spawn count per day
 SPAWN_TIERS = [
@@ -379,3 +388,36 @@ def get_max_friendship(pokemon: dict) -> int:
     """이로치면 7, 일반이면 5."""
     return SHINY_MAX_FRIENDSHIP if pokemon.get("is_shiny") else MAX_FRIENDSHIP
 UNLOCKABLE_TITLES.update(SHINY_TITLES)
+
+# ============================================================
+# Yacha (야차 - Betting Battle)
+# ============================================================
+
+YACHA_BP_OPTIONS = [100, 200, 500]         # BP 베팅 프리셋
+YACHA_MASTERBALL_OPTIONS = [1, 2, 3]       # 마스터볼 베팅 프리셋
+YACHA_COOLDOWN = 600                       # 글로벌 쿨다운 (10분)
+YACHA_CHALLENGE_TIMEOUT = 60               # 수락 대기 시간 (1분)
+
+# 야차 티배깅 멘트 (20개, 랜덤)
+YACHA_TEABAG_MESSAGES = [
+    "💀 {winner}이(가) {loser}에게 비웃었다! 치욕적인 패배...",
+    '💀 {winner}: "다음엔 잘 해보세요~"',
+    "💀 {loser}의 지갑이 가벼워졌다...",
+    "💀 {winner}이(가) {loser}의 BP를 맛있게 먹었다!",
+    '💀 {winner}: "감사합니다 ㅋㅋ"',
+    "💀 {loser}... 이게 야차의 무서움이다",
+    "💀 {winner}이(가) 승리의 춤을 춘다! 💃",
+    "💀 돈을 잃은 {loser}의 눈에서 빛이 사라졌다...",
+    '💀 {winner}: "다시 올 때 더 많이 가져와"',
+    "💀 {loser}의 포켓몬들이 고개를 숙였다...",
+    "💀 {winner}이(가) {loser}의 빈 지갑을 구경한다",
+    "💀 {loser}: (할 말을 잃었다)",
+    "💀 야차의 신이 {winner}에게 미소짓는다",
+    "💀 {winner}이(가) 전리품을 챙기며 유유히 떠난다",
+    "💀 {loser}의 통장에서 찬바람이 분다... 🌬️",
+    '💀 {winner}: "이 정도면 쉬운 돈이네"',
+    "💀 {loser}의 포켓몬이 트레이너를 원망스럽게 바라본다",
+    "💀 오늘의 교훈: {loser}, 야차는 아무나 하는 게 아니다",
+    "💀 {winner}이(가) BP를 세며 흐뭇해한다 🤑",
+    "💀 {loser}... 그래도 경험은 +1 됐잖아? (위로)",
+]

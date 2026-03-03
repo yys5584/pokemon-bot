@@ -11,7 +11,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from services.catch_service import can_attempt_catch, record_attempt
-from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name
+from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,9 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = update.effective_user.username
 
 
+    # Auto-delete the "ㅊ" command message
+    schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+
     try:
         # Ensure user is registered
         await queries.ensure_user(user_id, display_name, username)
@@ -84,7 +87,8 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         allowed, reason = await can_attempt_catch(user_id)
         if not allowed:
             logger.info(f"ㅊ by {user_id}: blocked - {reason}")
-            await update.message.reply_text(reason)
+            resp = await update.message.reply_text(reason)
+            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
             return
 
         # Record attempt
@@ -101,11 +105,12 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             html=True,
         )
 
-        await context.bot.send_message(
+        attempt_msg = await context.bot.send_message(
             chat_id=chat_id,
             text=f"🎯 {decorated} 도전!",
             parse_mode="HTML",
         )
+        schedule_delete(attempt_msg, config.AUTO_DEL_CATCH_ATTEMPT)
 
     except Exception as e:
         logger.error(f"Catch handler error: {e}")
@@ -120,6 +125,9 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.effective_chat.id
     display_name = update.effective_user.first_name or "트레이너"
     username = update.effective_user.username
+
+    # Auto-delete the "ㅁ" command message
+    schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
 
     try:
         await queries.ensure_user(user_id, display_name, username)
@@ -146,7 +154,8 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Check if user has master balls
         balls = await queries.get_master_balls(user_id)
         if balls < 1:
-            await update.message.reply_text("🟣 마스터볼이 없습니다!")
+            resp = await update.message.reply_text("🟣 마스터볼이 없습니다!")
+            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
             return
 
         # Use master ball
@@ -158,10 +167,11 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await queries.record_catch_attempt(session["id"], user_id, used_master_ball=True)
 
         remaining = balls - 1
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id=chat_id,
             text=f"🟣 {display_name} 마스터볼 투척! (남은 마스터볼: {remaining}개)",
         )
+        schedule_delete(msg, config.AUTO_DEL_CATCH_ATTEMPT)
 
     except Exception as e:
         logger.error(f"Master ball handler error: {e}")
@@ -333,7 +343,7 @@ async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for i, r in enumerate(rankings):
             medal = medals[i] if i < len(medals) else f"{i+1}."
             decorated = get_decorated_name(
-                r["display_name"],
+                truncate_name(r["display_name"], 5),
                 r.get("title", ""),
                 r.get("title_emoji", ""),
                 r.get("username"),

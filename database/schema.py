@@ -254,6 +254,8 @@ BATTLE_TABLES = [
         chat_id BIGINT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending'
             CHECK(status IN ('pending', 'accepted', 'declined', 'expired')),
+        bet_type TEXT DEFAULT NULL,
+        bet_amount INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         expires_at TIMESTAMPTZ NOT NULL
     )
@@ -321,8 +323,8 @@ HYPER_BALL_MIGRATIONS = [
 
 ARCADE_TICKET_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN arcade_tickets INTEGER NOT NULL DEFAULT 0",
-    # 기존 유저 기반 arcade_passes 드롭 → 채널 기반으로 재생성
-    "DROP TABLE IF EXISTS arcade_passes CASCADE",
+    # NOTE: DROP TABLE arcade_passes 제거 — 이미 1회 적용됨.
+    # 매 재시작마다 실행되면 활성 아케이드 세션이 전부 날아가는 버그 원인이었음.
 ]
 
 ARCADE_PASS_TABLES = [

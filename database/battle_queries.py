@@ -44,7 +44,7 @@ async def get_battle_team(user_id: int, team_number: int | None = None) -> list[
         team_number = row["active_team"] if row else 1
     rows = await pool.fetch(
         """SELECT bt.slot, bt.pokemon_instance_id,
-                  up.pokemon_id, up.friendship,
+                  up.pokemon_id, up.friendship, up.is_shiny,
                   pm.name_ko, pm.emoji, pm.rarity,
                   pm.pokemon_type, pm.stat_type
            FROM battle_teams bt
@@ -121,16 +121,19 @@ async def validate_team_pokemon(user_id: int, instance_ids: list[int]) -> list[d
 # ============================================================
 
 async def create_challenge(
-    challenger_id: int, defender_id: int, chat_id: int, expires_at
+    challenger_id: int, defender_id: int, chat_id: int, expires_at,
+    bet_type: str | None = None, bet_amount: int = 0,
 ) -> int:
-    """Create a battle challenge. Returns challenge ID."""
+    """Create a battle challenge. Returns challenge ID.
+    bet_type: None (normal battle), 'bp' or 'masterball' (yacha).
+    """
     pool = await get_db()
     row = await pool.fetchrow(
         """INSERT INTO battle_challenges
-               (challenger_id, defender_id, chat_id, expires_at)
-           VALUES ($1, $2, $3, $4)
+               (challenger_id, defender_id, chat_id, expires_at, bet_type, bet_amount)
+           VALUES ($1, $2, $3, $4, $5, $6)
            RETURNING id""",
-        challenger_id, defender_id, chat_id, expires_at,
+        challenger_id, defender_id, chat_id, expires_at, bet_type, bet_amount,
     )
     return row["id"]
 
@@ -276,15 +279,15 @@ async def get_battle_stats(user_id: int) -> dict:
 
 
 async def get_battle_ranking(limit: int = 10) -> list[dict]:
-    """Get battle ranking by win count."""
+    """Get battle ranking by BP (primary) and wins (secondary)."""
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT u.user_id, u.display_name, u.title, u.title_emoji,
                   u.battle_wins, u.battle_losses, u.best_streak,
                   u.battle_points
            FROM users u
-           WHERE u.battle_wins > 0
-           ORDER BY u.battle_wins DESC, u.best_streak DESC
+           WHERE u.battle_points > 0 OR u.battle_wins > 0
+           ORDER BY u.battle_points DESC, u.battle_wins DESC
            LIMIT $1""",
         limit,
     )
@@ -319,6 +322,15 @@ async def spend_bp(user_id: int, amount: int) -> bool:
         amount, user_id,
     )
     return True
+
+
+async def add_bp(user_id: int, amount: int):
+    """Add BP to a user (for yacha winnings, etc.)."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET battle_points = battle_points + $1 WHERE user_id = $2",
+        amount, user_id,
+    )
 
 
 # ============================================================
@@ -382,3 +394,48 @@ async def log_bp_purchase(user_id: int, item: str, amount: int = 1):
            VALUES ($1, $2, $3)""",
         user_id, item, amount,
     )
+
+
+# ============================================================
+# Yacha (야차 - Betting Battle) Queries
+# ============================================================
+
+async def get_last_yacha_time(user_id: int, opponent_id: int) -> str | None:
+    """Get time of the last yacha battle between two users."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT br.created_at FROM battle_records br
+           JOIN battle_challenges bc ON br.challenge_id = bc.id
+           WHERE bc.bet_type IS NOT NULL
+             AND ((br.winner_id = $1 AND br.loser_id = $2)
+               OR (br.winner_id = $2 AND br.loser_id = $1))
+           ORDER BY br.created_at DESC LIMIT 1""",
+        user_id, opponent_id,
+    )
+    return str(row["created_at"]) if row else None
+
+
+async def get_last_yacha_time_any(user_id: int) -> str | None:
+    """Get time of the user's last yacha battle (any opponent)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT br.created_at FROM battle_records br
+           JOIN battle_challenges bc ON br.challenge_id = bc.id
+           WHERE bc.bet_type IS NOT NULL
+             AND (br.winner_id = $1 OR br.loser_id = $1)
+           ORDER BY br.created_at DESC LIMIT 1""",
+        user_id,
+    )
+    return str(row["created_at"]) if row else None
+
+
+async def use_master_balls(user_id: int, count: int) -> bool:
+    """Use multiple master balls. Returns True if successful (atomic)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """UPDATE users SET master_balls = master_balls - $1
+           WHERE user_id = $2 AND master_balls >= $1
+           RETURNING master_balls""",
+        count, user_id,
+    )
+    return row is not None

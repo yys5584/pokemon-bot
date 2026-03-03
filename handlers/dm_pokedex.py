@@ -287,7 +287,6 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
         f"{shiny_mark}{p['emoji']} {p['name_ko']}{shiny_text}",
         f"등급: {rarity_text}",
         f"친밀도: {hearts} ({p['friendship']}/{max_f}){evo_text}",
-        f"\n💡 밥 {num} / 놀기 {num}",
     ]
 
     # Action/navigation buttons

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle '교환 @상대 [내포켓몬이름]' command."""
+    """Handle '교환 @상대 [내포켓몬이름] (#번호)' command."""
     if not update.effective_user or not update.message:
         return
 
@@ -27,12 +27,28 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(args) < 2:
         await update.message.reply_text(
             "사용법: 교환 @상대닉네임 [포켓몬이름]\n"
-            "예: 교환 @철수 피카츄"
+            "예: 교환 @철수 피카츄\n\n"
+            "중복 포켓몬이 있을 경우:\n"
+            "교환 @철수 피카츄 #2 (2번째 선택)"
         )
         return
 
     target_mention = args[0]
-    pokemon_name = " ".join(args[1:])
+    # Check if last arg is #N (index selector for duplicates)
+    select_index = None
+    remaining_args = args[1:]
+    if remaining_args and remaining_args[-1].startswith("#") and remaining_args[-1][1:].isdigit():
+        select_index = int(remaining_args[-1][1:])
+        remaining_args = remaining_args[:-1]
+
+    if not remaining_args:
+        await update.message.reply_text(
+            "포켓몬 이름을 입력해주세요.\n"
+            "예: 교환 @철수 피카츄"
+        )
+        return
+
+    pokemon_name = " ".join(remaining_args)
 
     if target_mention.startswith("@"):
         target_username = target_mention[1:]
@@ -59,8 +75,41 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("자기 자신과는 교환할 수 없습니다!")
         return
 
+    # Check for duplicate Pokemon
+    all_matches = await queries.find_all_user_pokemon_by_name(user_id, pokemon_name)
+
+    if not all_matches:
+        await update.message.reply_text(f"'{pokemon_name}'을(를) 보유하고 있지 않습니다.")
+        return
+
+    instance_id = None
+
+    if len(all_matches) > 1:
+        # Multiple duplicates exist
+        if select_index is None:
+            # Show selection list
+            lines = [f"⚠️ {pokemon_name}을(를) {len(all_matches)}마리 보유 중입니다.\n번호를 지정해주세요:\n"]
+            for i, p in enumerate(all_matches, 1):
+                shiny = " ★이로치" if p.get("is_shiny") else ""
+                friendship = p.get("friendship", 0)
+                lines.append(f"  #{i} — {p['emoji']} {p['name_ko']}{shiny} (친밀도: {friendship})")
+            lines.append(f"\n사용법: 교환 @{target_username} {pokemon_name} #번호")
+            await update.message.reply_text("\n".join(lines))
+            return
+
+        if select_index < 1 or select_index > len(all_matches):
+            await update.message.reply_text(
+                f"잘못된 번호입니다. 1~{len(all_matches)} 사이의 번호를 입력해주세요."
+            )
+            return
+
+        instance_id = all_matches[select_index - 1]["id"]
+    else:
+        # Single match — use it directly
+        instance_id = all_matches[0]["id"]
+
     success, message, trade_id = await create_trade_offer(
-        user_id, to_user_id, pokemon_name
+        user_id, to_user_id, pokemon_name, instance_id=instance_id
     )
     await update.message.reply_text(message)
 
@@ -68,8 +117,16 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             sender = await queries.get_user(user_id)
             sender_name = sender["display_name"] if sender else "트레이너"
-            pokemon = await queries.find_user_pokemon_by_name(user_id, pokemon_name)
-            pokemon_display = f"{pokemon['emoji']} {pokemon['name_ko']}" if pokemon else pokemon_name
+            selected_pokemon = None
+            for p in all_matches:
+                if p["id"] == instance_id:
+                    selected_pokemon = p
+                    break
+            if selected_pokemon:
+                shiny_tag = " ★이로치" if selected_pokemon.get("is_shiny") else ""
+                pokemon_display = f"{selected_pokemon['emoji']} {selected_pokemon['name_ko']}{shiny_tag}"
+            else:
+                pokemon_display = pokemon_name
 
             await context.bot.send_message(
                 chat_id=to_user_id,
@@ -107,9 +164,10 @@ async def accept_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         lines = ["📨 대기 중인 교환 요청:\n"]
         for t in pending:
+            shiny_tag = " ★이로치" if t.get("offer_is_shiny") else ""
             lines.append(
                 f"#{t['id']} — {t['from_name']}의 "
-                f"{t['offer_emoji']} {t['offer_name']}\n"
+                f"{t['offer_emoji']} {t['offer_name']}{shiny_tag}\n"
                 f"  수락 {t['id']} 또는 거절 {t['id']}"
             )
         await update.message.reply_text("\n".join(lines))
@@ -153,9 +211,10 @@ async def reject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         lines = ["📨 대기 중인 교환 요청:\n"]
         for t in pending:
+            shiny_tag = " ★이로치" if t.get("offer_is_shiny") else ""
             lines.append(
                 f"#{t['id']} — {t['from_name']}의 "
-                f"{t['offer_emoji']} {t['offer_name']}\n"
+                f"{t['offer_emoji']} {t['offer_name']}{shiny_tag}\n"
                 f"  수락 {t['id']} 또는 거절 {t['id']}"
             )
         await update.message.reply_text("\n".join(lines))
