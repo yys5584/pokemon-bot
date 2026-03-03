@@ -77,7 +77,7 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
 async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
     """Send DM to all registered users about tournament registration."""
     try:
-        user_ids = await queries.get_all_user_ids()
+        user_ids = await queries.get_recently_active_user_ids(minutes=720)
         logger.info(f"Broadcasting tournament DM to {len(user_ids)} users")
 
         msg = (
