@@ -126,6 +126,7 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         class FakeJob:
             def __init__(self, data):
                 self.data = data
+                self.name = None
 
         class FakeContext:
             def __init__(self, bot, job_queue, data):
@@ -183,6 +184,7 @@ async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAU
         class FakeJob:
             def __init__(self, data):
                 self.data = data
+                self.name = None
 
         class FakeContext:
             def __init__(self, bot, job_queue, data):

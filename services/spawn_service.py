@@ -262,9 +262,8 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
     force = context.job.data.get("force", False)
     # Arcade = permanent OR temp arcade (job name starts with arcade_)
-    arcade = chat_id in config.ARCADE_CHAT_IDS or (
-        context.job.name and context.job.name.startswith(f"arcade_{chat_id}")
-    )
+    job_name = getattr(context.job, "name", None) or ""
+    arcade = chat_id in config.ARCADE_CHAT_IDS or job_name.startswith(f"arcade_{chat_id}")
 
     try:
         # 1. Activity check (skip if force spawn or arcade)
