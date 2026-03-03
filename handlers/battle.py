@@ -817,11 +817,23 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🔴 포켓볼 충전 100개 — {pb_label}",
         f"🔵 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
         f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
-        "",
-        "구매: 구매 마스터볼 / 구매 강제스폰 / 구매 포켓볼 / 구매 하이퍼볼 [수량] / 구매 아케이드",
     ]
 
-    await update.message.reply_text("\n".join(lines))
+    buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(f"🟣 마스터볼 ({price_str})", callback_data="shop_masterball"),
+            InlineKeyboardButton(f"⚡ 강스권", callback_data="shop_forcespawn"),
+        ],
+        [
+            InlineKeyboardButton(f"🔴 포켓볼 100개", callback_data="shop_pokeball"),
+            InlineKeyboardButton(f"🔵 하이퍼볼", callback_data="shop_hyperball"),
+        ],
+        [
+            InlineKeyboardButton(f"🎮 아케이드 티켓", callback_data="shop_arcade"),
+        ],
+    ])
+
+    await update.message.reply_text("\n".join(lines), reply_markup=buttons)
 
 
 async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -965,6 +977,139 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     else:
         await update.message.reply_text("알 수 없는 상품입니다. 상점 으로 목록을 확인하세요.")
+
+
+async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle shop inline button purchases."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    user_id = query.from_user.id
+    item_key = query.data.replace("shop_", "")
+
+    # Map callback to item name for bp_buy logic
+    item_map = {
+        "masterball": "마스터볼",
+        "forcespawn": "강제스폰",
+        "pokeball": "포켓볼",
+        "hyperball": "하이퍼볼",
+        "arcade": "아케이드",
+    }
+    item = item_map.get(item_key)
+    if not item:
+        await query.answer("알 수 없는 상품입니다.", show_alert=True)
+        return
+
+    # --- Purchase logic (same as bp_buy_handler) ---
+    if item == "마스터볼":
+        bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
+        if bought_today >= config.BP_MASTERBALL_DAILY_LIMIT:
+            await query.answer(f"오늘 마스터볼 구매 한도({config.BP_MASTERBALL_DAILY_LIMIT}개) 초과!", show_alert=True)
+            return
+        cost = _masterball_price(bought_today)
+        success = await bq.spend_bp(user_id, cost)
+        if not success:
+            bp = await bq.get_bp(user_id)
+            await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
+            return
+        await queries.add_master_ball(user_id, 1)
+        await bq.log_bp_purchase(user_id, "masterball", 1)
+        remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today - 1
+        bp = await bq.get_bp(user_id)
+        await query.answer(f"🟣 마스터볼 구매! (-{cost} BP, 남은 BP: {bp})", show_alert=True)
+
+    elif item == "강제스폰":
+        cost = config.BP_FORCE_SPAWN_TICKET_COST
+        success = await bq.spend_bp(user_id, cost)
+        if not success:
+            bp = await bq.get_bp(user_id)
+            await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
+            return
+        await queries.add_force_spawn_ticket(user_id)
+        await bq.log_bp_purchase(user_id, "force_spawn_ticket", 1)
+        bp = await bq.get_bp(user_id)
+        await query.answer(f"⚡ 강제스폰권 구매! (남은 BP: {bp})", show_alert=True)
+
+    elif item == "포켓볼":
+        cost = config.BP_POKEBALL_RESET_COST
+        success = await bq.spend_bp(user_id, cost)
+        if not success:
+            bp = await bq.get_bp(user_id)
+            await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
+            return
+        today = config.get_kst_today()
+        await queries.add_bonus_catches(user_id, today, 100)
+        await bq.log_bp_purchase(user_id, "pokeball_100", 1)
+        bp = await bq.get_bp(user_id)
+        await query.answer(f"🔴 포켓볼 100개 충전! (남은 BP: {bp})", show_alert=True)
+
+    elif item == "하이퍼볼":
+        cost = config.BP_HYPER_BALL_COST
+        success = await bq.spend_bp(user_id, cost)
+        if not success:
+            bp = await bq.get_bp(user_id)
+            await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
+            return
+        await queries.add_hyper_ball(user_id, 1)
+        await bq.log_bp_purchase(user_id, "hyper_ball", 1)
+        bp = await bq.get_bp(user_id)
+        hyper_balls = await queries.get_hyper_balls(user_id)
+        await query.answer(f"🔵 하이퍼볼 구매! (보유: {hyper_balls}개, 남은 BP: {bp})", show_alert=True)
+
+    elif item == "아케이드":
+        cost = config.ARCADE_PASS_COST
+        success = await bq.spend_bp(user_id, cost)
+        if not success:
+            bp = await bq.get_bp(user_id)
+            await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
+            return
+        await queries.add_arcade_ticket(user_id)
+        await bq.log_bp_purchase(user_id, "arcade_ticket", 1)
+        bp = await bq.get_bp(user_id)
+        tickets = await queries.get_arcade_tickets(user_id)
+        await query.answer(f"🎮 아케이드 티켓 구매! (보유: {tickets}개, 남은 BP: {bp})", show_alert=True)
+
+    # Refresh shop display after purchase
+    try:
+        bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
+        remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today
+        next_price = _masterball_price(bought_today)
+        price_str = f"{next_price} BP" if next_price else "매진"
+        bp = await bq.get_bp(user_id)
+        tickets = await queries.get_force_spawn_tickets(user_id)
+        hyper_balls = await queries.get_hyper_balls(user_id)
+        arcade_tickets = await queries.get_arcade_tickets(user_id)
+        fst_label = "🎉 무료!" if config.BP_FORCE_SPAWN_TICKET_COST == 0 else f"{config.BP_FORCE_SPAWN_TICKET_COST} BP"
+        pb_label = "🎉 무료!" if config.BP_POKEBALL_RESET_COST == 0 else f"{config.BP_POKEBALL_RESET_COST} BP"
+
+        lines = [
+            "🏪 BP 상점\n",
+            f"💰 보유 BP: {bp}\n",
+            f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
+            f"⚡ 강제스폰권 x1 — {fst_label} (보유: {tickets}개)",
+            f"🔴 포켓볼 충전 100개 — {pb_label}",
+            f"🔵 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
+            f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
+        ]
+
+        buttons = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(f"🟣 마스터볼 ({price_str})", callback_data="shop_masterball"),
+                InlineKeyboardButton(f"⚡ 강스권", callback_data="shop_forcespawn"),
+            ],
+            [
+                InlineKeyboardButton(f"🔴 포켓볼 100개", callback_data="shop_pokeball"),
+                InlineKeyboardButton(f"🔵 하이퍼볼", callback_data="shop_hyperball"),
+            ],
+            [
+                InlineKeyboardButton(f"🎮 아케이드 티켓", callback_data="shop_arcade"),
+            ],
+        ])
+
+        await query.edit_message_text("\n".join(lines), reply_markup=buttons)
+    except Exception:
+        pass
 
 
 # ============================================================
