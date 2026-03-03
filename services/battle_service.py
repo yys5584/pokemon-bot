@@ -70,16 +70,10 @@ def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str]:
     effects = []
     if skill_activated:
         effects.append(f"「{attacker.get('skill_name', '몸통박치기')}」")
-    if type_mult > 1.0:
-        type_emoji = config.TYPE_EMOJI.get(attacker["type"], "")
-        effects.append(f"{type_emoji}효과적!")
-    elif type_mult < 1.0:
-        effects.append("별로...")
-    if crit > 1.0:
-        effects.append("크리티컬!")
 
-    effect_text = f" ({' '.join(effects)})" if effects else ""
-    return damage, effect_text
+    crit_mark = "*" if crit > 1.0 else ""
+    effect_text = f" {' '.join(effects)}" if effects else ""
+    return damage, effect_text, crit_mark
 
 
 def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> dict:
@@ -92,16 +86,22 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
     c_idx = 0
     d_idx = 0
     round_num = 0
+    match_turn = 0  # turn counter per matchup (resets on new opponent)
 
     c_mon = challenger_team[c_idx]
     d_mon = defender_team[d_idx]
 
+    c_total = len(challenger_team)
+    d_total = len(defender_team)
+
     log_lines.append(
-        f"{c_mon['emoji']}{c_mon['name']} vs {d_mon['emoji']}{d_mon['name']}"
+        f"({c_idx+1}/{c_total}) {c_mon['emoji']}{c_mon['name']}"
+        f" vs ({d_idx+1}/{d_total}) {d_mon['emoji']}{d_mon['name']}"
     )
 
     while c_idx < len(challenger_team) and d_idx < len(defender_team):
         round_num += 1
+        match_turn += 1
         if round_num > config.BATTLE_MAX_ROUNDS:
             break
 
@@ -114,25 +114,25 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             first_is_challenger = False
 
         # First attack
-        dmg1, eff1 = _calc_damage(first, second)
+        dmg1, eff1, crit1 = _calc_damage(first, second)
         second["current_hp"] -= dmg1
 
         # Second attacks back if alive
-        dmg2, eff2 = 0, ""
+        dmg2, eff2, crit2 = 0, "", ""
         if second["current_hp"] > 0:
-            dmg2, eff2 = _calc_damage(second, first)
+            dmg2, eff2, crit2 = _calc_damage(second, first)
             first["current_hp"] -= dmg2
 
-        # Build round log
-        f_label = f"{first['emoji']}{first['name']}"
-        s_label = f"{second['emoji']}{second['name']}"
+        # Build round log (no emoji in names, crit as *)
+        f_name = first['name']
+        s_name = second['name']
         log_lines.append(
-            f" → {f_label} {dmg1}{eff1} | {s_label} {dmg2}{eff2}"
+            f" {match_turn}턴: {f_name} {dmg1}{crit1}{eff1} <> {s_name} {dmg2}{crit2}{eff2}"
         )
 
         # KO check - challenger's pokemon
         if c_mon["current_hp"] <= 0:
-            dead_name = f"{c_mon['emoji']}{c_mon['name']}"
+            dead_name = c_mon['name']
             c_idx += 1
             if c_idx < len(challenger_team):
                 c_mon = challenger_team[c_idx]
@@ -144,7 +144,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
 
         # KO check - defender's pokemon
         if d_mon["current_hp"] <= 0:
-            dead_name = f"{d_mon['emoji']}{d_mon['name']}"
+            dead_name = d_mon['name']
             d_idx += 1
             if d_idx < len(defender_team):
                 d_mon = defender_team[d_idx]
@@ -152,9 +152,10 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
                     f" 💀 {dead_name} 쓰러짐! → {d_mon['emoji']}{d_mon['name']} 등장!"
                 )
                 if c_idx < len(challenger_team):
+                    match_turn = 0  # reset turn counter for new matchup
                     log_lines.append(
-                        f"\n{challenger_team[c_idx]['emoji']}{challenger_team[c_idx]['name']}"
-                        f" vs {d_mon['emoji']}{d_mon['name']}"
+                        f"\n({c_idx+1}/{c_total}) {challenger_team[c_idx]['emoji']}{challenger_team[c_idx]['name']}"
+                        f" vs ({d_idx+1}/{d_total}) {d_mon['emoji']}{d_mon['name']}"
                     )
             else:
                 log_lines.append(f" 💀 {dead_name} 쓰러짐!")
@@ -281,11 +282,11 @@ async def execute_battle(
     loser_name = loser_user["display_name"] if loser_user else "???"
 
     w_title = ""
-    if winner_user and winner_user.get("title"):
-        w_title = f"「{winner_user.get('title_emoji', '')}{winner_user['title']}」"
+    if winner_user and winner_user.get("title_emoji"):
+        w_title = f"{winner_user['title_emoji']} "
     l_title = ""
-    if loser_user and loser_user.get("title"):
-        l_title = f"「{loser_user.get('title_emoji', '')}{loser_user['title']}」"
+    if loser_user and loser_user.get("title_emoji"):
+        l_title = f"{loser_user['title_emoji']} "
 
     # Get updated stats for display
     final_stats = await bq.get_battle_stats(winner_id)
@@ -306,8 +307,8 @@ async def execute_battle(
         f"💰 +{bp_won} BP",
     ]
 
-    if new_streak >= 3:
-        lines.append(f"🔥 {new_streak}연승!")
+    if new_streak >= 2:
+        lines.append(f"{new_streak}연승!")
 
     if result["perfect_win"]:
         lines.append("✨ 완벽한 승리!")

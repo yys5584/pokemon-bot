@@ -9,7 +9,7 @@ import config
 from database import queries
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, format_stats_line, get_type_multiplier, EVO_STAGE_MAP
-from utils.helpers import escape_html
+from utils.helpers import escape_html, truncate_name
 
 logger = logging.getLogger(__name__)
 
@@ -1244,9 +1244,12 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
 
         await query.answer()
 
-        # Remove buttons from result message
+        # Replace with delete-only button (keep for scroll cleanup)
         try:
-            await query.edit_message_reply_markup(reply_markup=None)
+            delete_only = InlineKeyboardMarkup([[
+                InlineKeyboardButton("✖️ 삭제", callback_data=f"bdel_{winner_id}_{loser_id}")
+            ]])
+            await query.edit_message_reply_markup(reply_markup=delete_only)
         except Exception:
             pass
 
@@ -1289,23 +1292,18 @@ async def battle_ranking_handler(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     medals = ["🥇", "🥈", "🥉"]
-    lines = ["⚔️ <b>배틀 랭킹</b>"]
-    lines.append("─────────────")
+    lines = ["⚔️ <b>배틀 랭킹</b>\n"]
 
     for i, r in enumerate(rankings):
         rank = medals[i] if i < 3 else f"<b>{i + 1}.</b>"
-        name = escape_html(r['display_name'])
+        name = escape_html(truncate_name(r['display_name'], 5))
         total = r["battle_wins"] + r["battle_losses"]
         rate = round(r["battle_wins"] / total * 100) if total > 0 else 0
 
-        # 승률 바 (10칸 기준)
-        filled = round(rate / 10)
-        bar = "▓" * filled + "░" * (10 - filled)
+        streak_text = f" {r['best_streak']}연승!" if r.get('best_streak', 0) >= 2 else ""
 
         lines.append(
-            f"{rank} <b>{name}</b>\n"
-            f"    {r['battle_wins']}승 {r['battle_losses']}패 "
-            f"<code>{bar}</code> {rate}%  🔥{r['best_streak']}"
+            f"{rank} {name} — {r['battle_wins']}승 {r['battle_losses']}패 ({rate}%){streak_text}"
         )
 
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")

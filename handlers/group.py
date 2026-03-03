@@ -11,7 +11,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from services.catch_service import can_attempt_catch, record_attempt
-from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name
+from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name
 
 logger = logging.getLogger(__name__)
 
@@ -333,7 +333,7 @@ async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for i, r in enumerate(rankings):
             medal = medals[i] if i < len(medals) else f"{i+1}."
             decorated = get_decorated_name(
-                r["display_name"],
+                truncate_name(r["display_name"], 5),
                 r.get("title", ""),
                 r.get("title_emoji", ""),
                 r.get("username"),

@@ -284,11 +284,19 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 logger.info(f"No activity in {chat_id}, retrying in {retry_delay}s")
                 return
 
-        # 2. Check if there's already an active spawn (skip for arcade and force)
-        if not arcade and not force:
-            active = await queries.get_active_spawn(chat_id)
-            if active:
-                return
+        # 2. Check if there's already an active spawn
+        active = await queries.get_active_spawn(chat_id)
+        if active:
+            if not arcade and not force:
+                return  # Normal spawn: skip if active spawn exists
+            # Arcade/force: close old spawn before creating new one
+            await queries.close_spawn_session(active["id"])
+            old_resolve_name = f"resolve_{active['id']}"
+            for job in context.job_queue.jobs():
+                if job.name == old_resolve_name:
+                    job.schedule_removal()
+                    break
+            logger.info(f"Closed overlapping spawn {active['id']} in {chat_id}")
 
         # 2.5 Cooldown: skip if last spawn was within 5 minutes (skip for arcade and force)
         if not arcade and not force:

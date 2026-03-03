@@ -80,6 +80,13 @@ def escape_html(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def truncate_name(name: str, max_len: int = 5) -> str:
+    """Truncate a display name to max_len chars + '..' if longer."""
+    if len(name) <= max_len:
+        return name
+    return name[:max_len] + ".."
+
+
 def get_decorated_name(display_name: str, title: str = "", title_emoji: str = "", username: str = None, html: bool = False) -> str:
     """Format a display name with title badge for chat messages.
 
