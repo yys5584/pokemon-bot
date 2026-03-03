@@ -438,6 +438,21 @@ async def find_user_pokemon_by_name(user_id: int, name: str) -> dict | None:
     return dict(row) if row else None
 
 
+async def find_all_user_pokemon_by_name(user_id: int, name: str) -> list[dict]:
+    """Find ALL active Pokemon of a user by Korean name (for duplicates)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT up.*, pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
+                  pm.evolves_to, pm.evolution_method
+           FROM user_pokemon up
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE up.user_id = $1 AND up.is_active = 1 AND pm.name_ko = $2
+           ORDER BY up.id""",
+        user_id, name,
+    )
+    return [dict(r) for r in rows]
+
+
 # ============================================================
 # Pokedex
 # ============================================================
@@ -950,7 +965,8 @@ async def get_pending_trades_for_user(user_id: int) -> list[dict]:
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT t.*, u.display_name as from_name,
-                  pm.name_ko as offer_name, pm.emoji as offer_emoji
+                  pm.name_ko as offer_name, pm.emoji as offer_emoji,
+                  up.is_shiny as offer_is_shiny
            FROM trades t
            JOIN users u ON t.from_user_id = u.user_id
            JOIN user_pokemon up ON t.offer_pokemon_instance_id = up.id
@@ -967,7 +983,8 @@ async def get_trade(trade_id: int) -> dict | None:
     row = await pool.fetchrow(
         """SELECT t.*, up.pokemon_id as offer_pokemon_id,
                   pm.name_ko as offer_name, pm.emoji as offer_emoji,
-                  pm.evolution_method, pm.evolves_to
+                  pm.evolution_method, pm.evolves_to,
+                  up.is_shiny as offer_is_shiny
            FROM trades t
            JOIN user_pokemon up ON t.offer_pokemon_instance_id = up.id
            JOIN pokemon_master pm ON up.pokemon_id = pm.id

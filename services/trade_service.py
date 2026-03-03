@@ -12,9 +12,13 @@ logger = logging.getLogger(__name__)
 
 async def create_trade_offer(
     from_user_id: int, to_user_id: int,
-    pokemon_name: str
+    pokemon_name: str, instance_id: int | None = None
 ) -> tuple[bool, str, int | None]:
-    """Create a trade offer. Returns (success, message, trade_id)."""
+    """Create a trade offer. Returns (success, message, trade_id).
+
+    If instance_id is given, use that specific Pokemon instance.
+    Otherwise fall back to finding by name (first match).
+    """
 
     # Check BP
     cost = config.TRADE_BP_COST
@@ -22,10 +26,15 @@ async def create_trade_offer(
     if current_bp < cost:
         return False, f"BP가 부족합니다! (필요: {cost} BP, 보유: {current_bp} BP)", None
 
-    # Find the Pokemon in the user's collection
-    pokemon = await queries.find_user_pokemon_by_name(from_user_id, pokemon_name)
-    if not pokemon:
-        return False, f"'{pokemon_name}'을(를) 보유하고 있지 않습니다.", None
+    # Find the Pokemon
+    if instance_id:
+        pokemon = await queries.get_user_pokemon_by_id(instance_id)
+        if not pokemon or pokemon["user_id"] != from_user_id:
+            return False, f"'{pokemon_name}'을(를) 보유하고 있지 않습니다.", None
+    else:
+        pokemon = await queries.find_user_pokemon_by_name(from_user_id, pokemon_name)
+        if not pokemon:
+            return False, f"'{pokemon_name}'을(를) 보유하고 있지 않습니다.", None
 
     # Check target user exists
     target = await queries.get_user(to_user_id)
@@ -52,10 +61,12 @@ async def create_trade_offer(
         from_user_id, to_user_id, pokemon["id"]
     )
 
+    is_shiny = bool(pokemon.get("is_shiny", 0))
+    shiny_tag = " ★이로치" if is_shiny else ""
     remaining_bp = await bq.get_bp(from_user_id)
     return True, (
         f"📤 교환 요청을 보냈습니다!\n\n"
-        f"제안: {pokemon['emoji']} {pokemon['name_ko']}\n"
+        f"제안: {pokemon['emoji']} {pokemon['name_ko']}{shiny_tag}\n"
         f"상대: {target['display_name']}\n"
         f"💰 BP {cost} 차감 (잔여: {remaining_bp} BP)\n\n"
         f"상대방에게 DM으로 알림이 갑니다."
@@ -87,8 +98,15 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
     # Deactivate from sender's collection
     await queries.deactivate_pokemon(offer_instance_id)
 
-    # Give to receiver
-    new_instance_id = await queries.give_pokemon_to_user(user_id, offer_pokemon_id)
+    # Give to receiver (preserve shiny status + friendship)
+    is_shiny = bool(offer_pokemon.get("is_shiny", 0))
+    friendship = offer_pokemon.get("friendship", 0)
+    new_instance_id = await queries.give_pokemon_to_user(
+        user_id, offer_pokemon_id, is_shiny=is_shiny
+    )
+    # Transfer friendship
+    if friendship > 0:
+        await queries.update_pokemon_friendship(new_instance_id, friendship)
 
     # Register in receiver's pokedex
     await queries.register_pokedex(user_id, offer_pokemon_id, "trade")
@@ -103,9 +121,10 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
     await update_title(user_id)
     await update_title(from_user_id)
 
+    shiny_tag = " ★이로치" if is_shiny else ""
     msg = (
         f"✅ 교환 성사!\n\n"
-        f"{trade['offer_emoji']} {trade['offer_name']}을(를) 받았습니다!"
+        f"{trade['offer_emoji']} {trade['offer_name']}{shiny_tag}을(를) 받았습니다!"
     )
     if evo_msg:
         msg += evo_msg
