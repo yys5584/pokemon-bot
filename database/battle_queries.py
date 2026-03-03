@@ -44,7 +44,7 @@ async def get_battle_team(user_id: int, team_number: int | None = None) -> list[
         team_number = row["active_team"] if row else 1
     rows = await pool.fetch(
         """SELECT bt.slot, bt.pokemon_instance_id,
-                  up.pokemon_id, up.friendship,
+                  up.pokemon_id, up.friendship, up.is_shiny,
                   pm.name_ko, pm.emoji, pm.rarity,
                   pm.pokemon_type, pm.stat_type
            FROM battle_teams bt

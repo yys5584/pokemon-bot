@@ -50,8 +50,8 @@
 
         /* Tables */
         table{width:100%;border-collapse:collapse}
-        th{text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-size:11px;text-transform:uppercase}
-        td{padding:5px 8px;border-bottom:1px solid #1f1f3a;font-size:13px}
+        th{text-align:left;padding:4px 5px;border-bottom:1px solid var(--border);color:var(--muted);font-size:11px;text-transform:uppercase}
+        td{padding:4px 5px;border-bottom:1px solid #1f1f3a;font-size:13px}
         tr:hover td{background:var(--hover)}
 
         /* Badges */
@@ -68,14 +68,23 @@
         .tier-a{background:#0077b6;color:#fff}
         .tier-bp{background:#b185db;color:#fff}
         .tier-b{background:#555;color:#fff}
+        .tier-cp{background:#52b788;color:#fff}
+        .tier-c{background:#40916c;color:#fff}
+        .tier-dp{background:#6c757d;color:#fff}
+        .tier-d{background:#495057;color:#fff}
 
-        /* Stat bars */
-        .stat-bar{display:flex;align-items:center;gap:4px;font-size:11px}
-        .stat-bar-fill{height:6px;border-radius:3px;min-width:2px}
-        .stat-hp .stat-bar-fill{background:var(--green)}
-        .stat-atk .stat-bar-fill{background:var(--red)}
-        .stat-def .stat-bar-fill{background:var(--blue)}
-        .stat-spd .stat-bar-fill{background:var(--gold)}
+        /* OP badge */
+        .op-badge{background:#e63946;color:#fff;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px;font-weight:700}
+
+        /* Team tooltip (CSS only) */
+        .team-tip{position:relative;cursor:default}
+        .team-tip .tip-content{display:none;position:absolute;left:0;top:100%;background:#16213e;border:1px solid var(--border);border-radius:6px;padding:8px 12px;z-index:50;white-space:nowrap;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,.5);line-height:1.8}
+        .team-tip:hover .tip-content{display:block}
+
+        /* Paging buttons */
+        .pg-btn{background:var(--border);color:var(--text);border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px}
+        .pg-btn:hover:not(:disabled){background:var(--red);color:#fff}
+        .pg-btn:disabled{opacity:.3;cursor:default}
 
         /* Log */
         .log-list{list-style:none}
@@ -126,6 +135,7 @@
             .nav-tab{padding:8px 14px;font-size:12px}
             .header h1{font-size:15px}
             .hide-m{display:none}
+            .team-tip .tip-content{left:auto;right:0}
         }
     </style>
 </head>
@@ -140,10 +150,9 @@
     <div class="nav" id="nav">
         <div class="nav-tab active" data-page="home">홈</div>
         <div class="nav-tab" data-page="channels">채널 TOP 5</div>
-        <div class="nav-tab" data-page="battle">배틀</div>
-        <div class="nav-tab" data-page="ranking">랭킹</div>
+        <div class="nav-tab" data-page="battlerank">배틀 & 랭킹</div>
+        <div class="nav-tab" data-page="tier">포켓몬 티어</div>
         <div class="nav-tab" data-page="stats">통계</div>
-        <div class="nav-tab" data-page="log">로그</div>
     </div>
     <div class="container">
 
@@ -157,9 +166,10 @@
             </div>
             <div class="grid-3" id="funHighlights"></div>
             <div class="grid-2">
-                <div class="section"><h2>🐉 전설 & 에픽 보유자</h2><div id="rareHoldersTable"><div class="loading">로딩 중...</div></div></div>
+                <div class="section"><h2>⭐ 이로치 보유자</h2><div id="shinyHoldersHome"><div class="loading">로딩 중...</div></div></div>
                 <div class="section"><h2>🏆 도감 랭킹</h2><div id="usersTable"><div class="loading">로딩 중...</div></div></div>
             </div>
+            <div class="section"><h2>📋 최근 스폰</h2><div id="recentLogHome"><div class="loading">로딩 중...</div></div></div>
         </div>
 
         <!-- CHANNELS TOP 5 -->
@@ -168,19 +178,16 @@
             <div class="section"><h2>💬 전체 채팅방</h2><div id="allChats"><div class="loading">로딩 중...</div></div></div>
         </div>
 
-        <!-- BATTLE -->
-        <div class="page" id="page-battle">
-            <div class="section"><h2>⚔️ 배틀 랭킹 TOP 20</h2><div id="battleRanking"><div class="loading">로딩 중...</div></div></div>
-            <div class="section"><h2>📋 배틀 티어표 (에픽 이상, 친밀도 MAX)</h2><div id="tierTable"><div class="loading">로딩 중...</div></div></div>
+        <!-- BATTLE & RANKING -->
+        <div class="page" id="page-battlerank">
+            <div class="section"><h2>⚔️ 배틀 랭킹</h2><div id="battleRanking"><div class="loading">로딩 중...</div></div></div>
+            <div class="section"><h2>🏆 도감 랭킹</h2><div id="fullUsersTable"><div class="loading">로딩 중...</div></div></div>
+            <div class="section"><h2>⭐ 이로치 보유자</h2><div id="shinyHoldersFull"><div class="loading">로딩 중...</div></div></div>
         </div>
 
-        <!-- RANKING -->
-        <div class="page" id="page-ranking">
-            <div class="section"><h2>🏆 도감 랭킹 TOP 20</h2><div id="fullUsersTable"><div class="loading">로딩 중...</div></div></div>
-            <div class="grid-2">
-                <div class="section"><h2>🐉 에픽/전설 보유자</h2><div id="fullRareTable"><div class="loading">로딩 중...</div></div></div>
-                <div class="section"><h2>🔥 포켓몬 포획 순위</h2><div id="pokemonStats"><div class="loading">로딩 중...</div></div></div>
-            </div>
+        <!-- POKEMON TIER -->
+        <div class="page" id="page-tier">
+            <div class="section"><h2>📋 포켓몬 배틀 티어표 <span style="color:var(--dim);font-size:10px;font-weight:400;margin-left:4px">VER 1.1</span></h2><div id="tierTable"><div class="loading">로딩 중...</div></div></div>
         </div>
 
         <!-- STATS -->
@@ -195,11 +202,7 @@
                 <div class="section"><h2>👻 도망 많은 포켓몬 TOP 5</h2><div id="mostEscaped"></div></div>
                 <div class="section"><h2>🔴 포볼 중독자 TOP 5</h2><div id="pokeballAddicts"></div></div>
             </div>
-        </div>
-
-        <!-- LOG -->
-        <div class="page" id="page-log">
-            <div class="section"><h2>📋 최근 스폰 로그 (50건)</h2><div id="recentLog"><div class="loading">로딩 중...</div></div></div>
+            <div class="section"><h2>🔥 포켓몬 포획 순위</h2><div id="pokemonStats"><div class="loading">로딩 중...</div></div></div>
         </div>
 
         <div class="footer">Pokemon TG Bot Dashboard &copy; 2026</div>
@@ -219,7 +222,7 @@ async function fetchJSON(u){
     return d;
 }
 function rarityBadge(r){const l={common:"일반",rare:"희귀",epic:"에픽",legendary:"전설"};return`<span class="badge badge-${r}">${l[r]||r}</span>`}
-function tierBadge(t){const c={"S+":"sp","S":"s","A+":"ap","A":"a","B+":"bp","B":"b"};return`<span class="tier tier-${c[t]||'b'}">${t}</span>`}
+function tierBadge(t){const c={"S+":"sp","S":"s","A+":"ap","A":"a","B+":"bp","B":"b","C+":"cp","C":"c","D+":"dp","D":"d"};return`<span class="tier tier-${c[t]||'d'}">${t}</span>`}
 function formatTime(t){return t?t.replace("T"," ").substring(0,16):"-"}
 function simpleTable(h,rows){
     if(!rows||!rows.length)return'<p class="empty-msg">데이터 없음</p>';
@@ -227,7 +230,39 @@ function simpleTable(h,rows){
 }
 const medals=["🥇","🥈","🥉"];
 
-// --- Tab navigation ---
+// --- Paging System ---
+const _pgData={};
+const _pgState={};
+
+function renderPaged(id,data,perPage,renderFn){
+    _pgData[id]={data,perPage,renderFn};
+    if(_pgState[id]===undefined) _pgState[id]=0;
+    _drawPage(id);
+}
+function _drawPage(id){
+    const{data,perPage,renderFn}=_pgData[id];
+    const pg=_pgState[id];
+    const total=Math.ceil(data.length/perPage);
+    const slice=data.slice(pg*perPage,pg*perPage+perPage);
+    const el=document.getElementById(id);
+    let nav='';
+    if(total>1){
+        nav=`<div style="display:flex;justify-content:center;gap:12px;margin-top:6px;align-items:center">
+            <button class="pg-btn" onclick="pgNav('${id}',-1)"${pg===0?' disabled':''}>◀</button>
+            <span style="color:var(--muted);font-size:11px">${pg+1} / ${total}</span>
+            <button class="pg-btn" onclick="pgNav('${id}',1)"${pg>=total-1?' disabled':''}>▶</button>
+        </div>`;
+    }
+    el.innerHTML=renderFn(slice,pg*perPage)+nav;
+}
+function pgNav(id,dir){
+    const{data,perPage}=_pgData[id];
+    const total=Math.ceil(data.length/perPage);
+    _pgState[id]=Math.max(0,Math.min(total-1,_pgState[id]+dir));
+    _drawPage(id);
+}
+
+// --- Tab Navigation ---
 let currentPage="home";
 document.querySelectorAll(".nav-tab").forEach(tab=>{
     tab.addEventListener("click",()=>{
@@ -250,10 +285,9 @@ async function loadPage(page){
     try{
         if(page==="home") await loadHome();
         else if(page==="channels") await loadChannels();
-        else if(page==="battle") await loadBattle();
-        else if(page==="ranking") await loadRanking();
+        else if(page==="battlerank") await loadBattleRank();
+        else if(page==="tier") await loadTier();
         else if(page==="stats") await loadStats();
-        else if(page==="log") await loadLog();
     }catch(e){console.error("Load error:",e)}
     document.getElementById("lastUpdate").textContent="업데이트: "+new Date().toLocaleTimeString("ko-KR");
 }
@@ -261,12 +295,19 @@ async function loadPage(page){
 function loadCurrentPage(){
     loaded[currentPage]=false;
     _cache={};
+    Object.keys(_pgState).forEach(k=>delete _pgState[k]);
     loadPage(currentPage);
 }
 
 // --- HOME ---
 async function loadHome(){
-    const[d,kpi,events,dkpi]=await Promise.all([fetchJSON("/api/overview"),fetchJSON("/api/fun-kpis"),fetchJSON("/api/events"),fetchJSON("/api/dashboard-kpi")]);
+    const[d,kpi,events,dkpi,spawns]=await Promise.all([
+        fetchJSON("/api/overview"),fetchJSON("/api/fun-kpis"),
+        fetchJSON("/api/events"),fetchJSON("/api/dashboard-kpi"),
+        fetchJSON("/api/spawns/recent")
+    ]);
+
+    // Overview cards
     document.getElementById("overviewCards").innerHTML=`
         <div class="card hl-red"><div class="label">총 유저</div><div class="value">${d.total_users}</div></div>
         <div class="card hl-blue"><div class="label">📊 오늘 DAU</div><div class="value">${dkpi?dkpi.dau:'-'}</div></div>
@@ -279,7 +320,7 @@ async function loadHome(){
 
     // Events
     const eSec=document.getElementById("eventsSection");
-    if(events.length){
+    if(events&&events.length){
         eSec.style.display="block";
         document.getElementById("eventsList").innerHTML=events.map(e=>`<div class="event-card"><div class="event-name">${e.description||e.name}</div><div class="event-end">종료: ${formatTime(e.end_time)}</div></div>`).join("");
     }else{eSec.style.display="none"}
@@ -300,8 +341,7 @@ async function loadHome(){
                 <div><span style="color:var(--muted);font-size:11px">D+1 리텐션</span><div style="font-size:20px;font-weight:700;color:var(--green)">${ret.rate}%</div><div style="font-size:11px;color:var(--muted)">${ret.retained}/${ret.total_new}명</div></div>
                 <div><span style="color:var(--muted);font-size:11px">오늘 DAU</span><div style="font-size:20px;font-weight:700;color:var(--blue)">${dkpi.dau}</div></div>
             </div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:4px">📊 일별 DAU (최근 7일)</div>
-            ${bars}`;
+            <div style="font-size:12px;color:var(--muted);margin-bottom:4px">📊 일별 DAU (최근 7일)</div>${bars}`;
     }else{dauEl.innerHTML='<p class="empty-msg">서버 업데이트 후 이용 가능합니다</p>'}
 
     // Economy health
@@ -319,28 +359,40 @@ async function loadHome(){
 
     // Fun highlights
     const hl=document.getElementById("funHighlights"),cards=[];
-    if(kpi.escape_masters.length){const e=kpi.escape_masters[0];cards.push(`<div class="fun-card"><div class="fun-emoji">💨</div><div class="fun-title">도망 장인</div><div class="fun-value">${e.catch_fail_count}회</div><div class="fun-name">${e.display_name}</div></div>`)}
-    if(kpi.night_owls.length){const n=kpi.night_owls[0];cards.push(`<div class="fun-card"><div class="fun-emoji">🦉</div><div class="fun-title">올빼미족</div><div class="fun-value">${n.midnight_catch_count}회</div><div class="fun-name">${n.display_name}</div></div>`)}
-    if(kpi.love_leaders.length){const l=kpi.love_leaders[0];cards.push(`<div class="fun-card"><div class="fun-emoji">💕</div><div class="fun-title">사랑꾼</div><div class="fun-value">${l.love_count}회</div><div class="fun-name">${l.display_name}</div></div>`)}
+    if(kpi.escape_masters&&kpi.escape_masters.length){const e=kpi.escape_masters[0];cards.push(`<div class="fun-card"><div class="fun-emoji">💨</div><div class="fun-title">도망 장인</div><div class="fun-value">${e.catch_fail_count}회</div><div class="fun-name">${e.display_name}</div></div>`)}
+    if(kpi.night_owls&&kpi.night_owls.length){const n=kpi.night_owls[0];cards.push(`<div class="fun-card"><div class="fun-emoji">🦉</div><div class="fun-title">올빼미족</div><div class="fun-value">${n.midnight_catch_count}회</div><div class="fun-name">${n.display_name}</div></div>`)}
+    if(kpi.love_leaders&&kpi.love_leaders.length){const l=kpi.love_leaders[0];cards.push(`<div class="fun-card"><div class="fun-emoji">💕</div><div class="fun-title">사랑꾼</div><div class="fun-value">${l.love_count}회</div><div class="fun-name">${l.display_name}</div></div>`)}
     if(kpi.longest_streak)cards.push(`<div class="fun-card"><div class="fun-emoji">📅</div><div class="fun-title">최장 연속출석</div><div class="fun-value">${kpi.longest_streak.login_streak}일</div><div class="fun-name">${kpi.longest_streak.display_name}</div></div>`);
-    if(kpi.lucky_users.length){const u=kpi.lucky_users[0];cards.push(`<div class="fun-card"><div class="fun-emoji">🍀</div><div class="fun-title">행운아</div><div class="fun-value">${u.catch_rate}%</div><div class="fun-name">${u.display_name}</div></div>`)}
-    if(kpi.unlucky_users.length){const u=kpi.unlucky_users[0];cards.push(`<div class="fun-card"><div class="fun-emoji">😭</div><div class="fun-title">불행아</div><div class="fun-value">${u.catch_rate}%</div><div class="fun-name">${u.display_name}</div></div>`)}
+    if(kpi.lucky_users&&kpi.lucky_users.length){const u=kpi.lucky_users[0];cards.push(`<div class="fun-card"><div class="fun-emoji">🍀</div><div class="fun-title">행운아</div><div class="fun-value">${u.catch_rate}%</div><div class="fun-name">${u.display_name}</div></div>`)}
+    if(kpi.unlucky_users&&kpi.unlucky_users.length){const u=kpi.unlucky_users[0];cards.push(`<div class="fun-card"><div class="fun-emoji">😭</div><div class="fun-title">불행아</div><div class="fun-value">${u.catch_rate}%</div><div class="fun-name">${u.display_name}</div></div>`)}
     hl.innerHTML=cards.join("");
 
-    // Rare holders (compact)
-    if(kpi.rare_holders&&kpi.rare_holders.length){
-        let h=`<table><thead><tr><th>#</th><th>이름</th><th>에픽</th><th>전설</th><th>합계</th></tr></thead><tbody>`;
-        kpi.rare_holders.slice(0,10).forEach((r,i)=>{h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td><span class="badge badge-epic">${r.epic_count}</span></td><td><span class="badge badge-legendary">${r.legendary_count}</span></td><td style="font-weight:700">${r.total}</td></tr>`});
-        document.getElementById("rareHoldersTable").innerHTML=h+"</tbody></table>";
-    }
+    // Shiny holders (compact, home)
+    if(kpi.shiny_holders&&kpi.shiny_holders.length){
+        let h=`<table><thead><tr><th>#</th><th>이름</th><th>이로치 수</th></tr></thead><tbody>`;
+        kpi.shiny_holders.slice(0,10).forEach((r,i)=>{
+            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td style="font-weight:700;color:var(--gold)">★ ${r.shiny_count}</td></tr>`;
+        });
+        document.getElementById("shinyHoldersHome").innerHTML=h+"</tbody></table>";
+    }else{document.getElementById("shinyHoldersHome").innerHTML='<p class="empty-msg">이로치 보유자 없음</p>'}
 
-    // Users compact
+    // Users compact (home)
     const users=await fetchJSON("/api/users");
-    if(users.length){
+    if(users&&users.length){
         let h=`<table><thead><tr><th>#</th><th>이름</th><th>도감</th></tr></thead><tbody>`;
         users.slice(0,10).forEach((u,i)=>{h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${u.title?u.title_emoji+" ":""}${u.display_name}</td><td style="font-weight:700">${u.pokedex_count}/251</td></tr>`});
         document.getElementById("usersTable").innerHTML=h+"</tbody></table>";
     }
+
+    // Recent spawns (10 items, home bottom)
+    if(spawns&&spawns.length){
+        let h='<ul class="log-list">';
+        spawns.slice(0,10).forEach(s=>{
+            const c=s.caught_by_name?`<span class="log-catch">${s.caught_by_name} 포획!</span>`:`<span class="log-escape">도망</span>`;
+            h+=`<li class="log-item"><span class="log-time">${formatTime(s.spawned_at)}</span><span class="log-emoji">${s.pokemon_emoji}</span><span class="log-text">${s.pokemon_name} ${rarityBadge(s.rarity)} ${c}</span></li>`;
+        });
+        document.getElementById("recentLogHome").innerHTML=h+"</ul>";
+    }else{document.getElementById("recentLogHome").innerHTML='<p class="empty-msg">최근 스폰 없음</p>'}
 }
 
 // --- CHANNELS ---
@@ -348,7 +400,6 @@ async function loadChannels(){
     const[rooms,dkpi]=await Promise.all([fetchJSON("/api/chats"),fetchJSON("/api/dashboard-kpi")]);
     if(!rooms||!rooms.length){document.getElementById("topChannels").innerHTML='<p class="empty-msg">없음</p>';return}
 
-    // TOP 5: use activity-based from API if available, else fallback to spawn count
     const top5=dkpi&&dkpi.top_channels?dkpi.top_channels:[];
     if(top5.length){
         let h="";
@@ -365,11 +416,8 @@ async function loadChannels(){
             </div>`;
         });
         document.getElementById("topChannels").innerHTML=h;
-    }else{
-        document.getElementById("topChannels").innerHTML='<p class="empty-msg">서버 업데이트 후 이용 가능합니다</p>';
-    }
+    }else{document.getElementById("topChannels").innerHTML='<p class="empty-msg">서버 업데이트 후 이용 가능합니다</p>'}
 
-    // All chats table
     const sorted=[...rooms].filter(r=>r.is_active).sort((a,b)=>(b.daily_spawn_count||0)-(a.daily_spawn_count||0));
     let t=`<table><thead><tr><th>채팅방</th><th>인원</th><th>오늘스폰</th><th>최근스폰</th><th>상태</th></tr></thead><tbody>`;
     for(const r of sorted){
@@ -379,100 +427,113 @@ async function loadChannels(){
     document.getElementById("allChats").innerHTML=t+"</tbody></table>";
 }
 
-// --- BATTLE ---
-async function loadBattle(){
-    const unavail='<p class="empty-msg">서버 업데이트 후 이용 가능합니다</p>';
-    const[ranking,tiers]=await Promise.all([fetchJSON("/api/battle/ranking"),fetchJSON("/api/battle/tiers")]);
+// --- BATTLE & RANKING ---
+async function loadBattleRank(){
+    const[ranking,teams,users,kpi]=await Promise.all([
+        fetchJSON("/api/battle/ranking"),
+        fetchJSON("/api/battle/ranking-teams"),
+        fetchJSON("/api/users"),
+        fetchJSON("/api/fun-kpis")
+    ]);
 
-    // Battle ranking
-    if(!ranking){document.getElementById("battleRanking").innerHTML=unavail}
-    else if(ranking.length){
-        let h=`<table><thead><tr><th>#</th><th>이름</th><th>승</th><th>패</th><th>승률</th><th>최고연승</th><th>BP</th></tr></thead><tbody>`;
-        ranking.forEach((r,i)=>{
-            const total=r.battle_wins+r.battle_losses;
-            const wr=total>0?Math.round(r.battle_wins/total*100)+"%":"-";
-            const title=r.title?`<span style="color:var(--muted);font-size:11px">${r.title_emoji} ${r.title}</span> `:"";
-            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${title}${r.display_name}</td><td style="color:var(--green);font-weight:600">${r.battle_wins}</td><td style="color:var(--red)">${r.battle_losses}</td><td>${wr}</td><td>🔥${r.best_streak}</td><td style="color:var(--gold)">${r.battle_points}</td></tr>`;
+    // Battle ranking with paging + team tooltip
+    if(ranking&&ranking.length){
+        renderPaged("battleRanking",ranking,10,function(slice,offset){
+            let h=`<table><thead><tr><th>#</th><th>이름</th><th>승</th><th>패</th><th>승률</th><th>최고연승</th><th>BP</th></tr></thead><tbody>`;
+            slice.forEach((r,i)=>{
+                const idx=offset+i;
+                const total=r.battle_wins+r.battle_losses;
+                const wr=total>0?Math.round(r.battle_wins/total*100)+"%":"-";
+                const title=r.title?`<span style="color:var(--muted);font-size:11px">${r.title_emoji} ${r.title}</span> `:"";
+                let teamHtml="";
+                if(teams&&teams[String(r.user_id)]){
+                    const team=teams[String(r.user_id)];
+                    teamHtml=`<span class="tip-content">${team.map(p=>{
+                        let s=p.is_shiny?"★":"";
+                        let partner=p.is_partner?' <span style="color:var(--gold)">[P]</span>':"";
+                        return s+p.emoji+p.name_ko+partner;
+                    }).join("<br>")}</span>`;
+                }
+                const nameCell=teamHtml?`<span class="team-tip">${title}${r.display_name}${teamHtml}</span>`:`${title}${r.display_name}`;
+                h+=`<tr><td>${idx<3?medals[idx]:idx+1}</td><td>${nameCell}</td><td style="color:var(--green);font-weight:600">${r.battle_wins}</td><td style="color:var(--red)">${r.battle_losses}</td><td>${wr}</td><td>🔥${r.best_streak}</td><td style="color:var(--gold)">${r.battle_points}</td></tr>`;
+            });
+            return h+"</tbody></table>";
         });
-        document.getElementById("battleRanking").innerHTML=h+"</tbody></table>";
     }else{document.getElementById("battleRanking").innerHTML='<p class="empty-msg">배틀 기록 없음</p>'}
 
-    // Tier table
-    if(!tiers){document.getElementById("tierTable").innerHTML=unavail}
-    else if(tiers.length){
-        let currentTier="";
-        let h=`<table><thead><tr><th>티어</th><th>포켓몬</th><th>타입</th><th class="hide-m">성향</th><th>배율</th><th>HP</th><th>ATK</th><th>DEF</th><th>SPD</th><th>전투력</th></tr></thead><tbody>`;
-        for(const p of tiers){
-            const tierCell=p.tier!==currentTier?tierBadge(p.tier):"";
-            currentTier=p.tier;
-            h+=`<tr>
-                <td>${tierCell}</td>
-                <td>${p.emoji} <b>${p.name}</b></td>
-                <td>${p.type_emoji}${p.type_ko}</td>
-                <td class="hide-m">${p.stat_ko}</td>
-                <td style="color:var(--orange)">${p.skill_power}x</td>
-                <td style="color:var(--green)">${p.hp}</td>
-                <td style="color:var(--red)">${p.atk}</td>
-                <td style="color:var(--blue)">${p.def_}</td>
-                <td style="color:var(--gold)">${p.spd}</td>
-                <td style="font-weight:700">${p.power}</td>
-            </tr>`;
-        }
-        h+="</tbody></table>";
-        h+=`<div style="margin-top:8px;font-size:11px;color:var(--muted)">💡 공격형 > 균형 > 방어 > 속도 순 유리 &nbsp;|&nbsp; 같은 티어 내 타입상성으로 역전 가능</div>`;
-        document.getElementById("tierTable").innerHTML=h;
+    // Pokedex ranking with paging
+    if(users&&users.length){
+        renderPaged("fullUsersTable",users,10,function(slice,offset){
+            let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th><th class="hide-m">1세대</th><th class="hide-m">2세대</th><th>도감</th></tr></thead><tbody>`;
+            slice.forEach((u,i)=>{
+                const idx=offset+i;
+                h+=`<tr><td>${idx<3?medals[idx]:idx+1}</td><td>${u.display_name}</td><td>${u.title?u.title_emoji+" "+u.title:"-"}</td><td class="hide-m">${u.gen1_count}/151</td><td class="hide-m">${u.gen2_count}/100</td><td style="font-weight:700">${u.pokedex_count}/251</td></tr>`;
+            });
+            return h+"</tbody></table>";
+        });
     }
+
+    // Shiny holders with paging
+    if(kpi&&kpi.shiny_holders&&kpi.shiny_holders.length){
+        renderPaged("shinyHoldersFull",kpi.shiny_holders,10,function(slice,offset){
+            let h=`<table><thead><tr><th>#</th><th>이름</th><th>이로치 수</th></tr></thead><tbody>`;
+            slice.forEach((r,i)=>{
+                const idx=offset+i;
+                h+=`<tr><td>${idx<3?medals[idx]:idx+1}</td><td>${r.display_name}</td><td style="font-weight:700;color:var(--gold)">★ ${r.shiny_count}</td></tr>`;
+            });
+            return h+"</tbody></table>";
+        });
+    }else{document.getElementById("shinyHoldersFull").innerHTML='<p class="empty-msg">이로치 보유자 없음</p>'}
 }
 
-// --- RANKING ---
-async function loadRanking(){
-    const[users,kpi,pkstats]=await Promise.all([fetchJSON("/api/users"),fetchJSON("/api/fun-kpis"),fetchJSON("/api/pokemon/stats")]);
+// --- POKEMON TIER ---
+async function loadTier(){
+    const tiers=await fetchJSON("/api/battle/tiers");
+    if(!tiers||!tiers.length){document.getElementById("tierTable").innerHTML='<p class="empty-msg">데이터 없음</p>';return}
 
-    // Full user ranking
-    if(users.length){
-        let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th><th>1세대</th><th>2세대</th><th>도감</th></tr></thead><tbody>`;
-        users.forEach((u,i)=>{h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${u.display_name}</td><td>${u.title?u.title_emoji+" "+u.title:"-"}</td><td>${u.gen1_count}/151</td><td>${u.gen2_count}/100</td><td style="font-weight:700">${u.pokedex_count}/251</td></tr>`});
-        document.getElementById("fullUsersTable").innerHTML=h+"</tbody></table>";
+    let currentTier="";
+    let h=`<table><thead><tr><th>티어</th><th>포켓몬</th><th>타입</th><th class="hide-m">성향</th><th>배율</th><th>HP</th><th>ATK</th><th>DEF</th><th>SPD</th><th>전투력</th></tr></thead><tbody>`;
+    for(const p of tiers){
+        let showTier=p.tier!==currentTier;
+        if(showTier) currentTier=p.tier;
+        const tierCell=showTier?tierBadge(p.tier):"";
+        const opBadge=p.op?'<span class="op-badge">OP</span>':"";
+        h+=`<tr>
+            <td>${tierCell}${opBadge}</td>
+            <td>${p.emoji} <b>${p.name}</b></td>
+            <td>${p.type_emoji}${p.type_ko}</td>
+            <td class="hide-m">${p.stat_ko}</td>
+            <td style="color:var(--orange)" title="${p.skill_name}">${p.skill_power}x</td>
+            <td style="color:var(--green)">${p.hp}</td>
+            <td style="color:var(--red)">${p.atk}</td>
+            <td style="color:var(--blue)">${p.def_}</td>
+            <td style="color:var(--gold)">${p.spd}</td>
+            <td style="font-weight:700">${p.power}</td>
+        </tr>`;
     }
-
-    // Rare holders full
-    if(kpi.rare_holders&&kpi.rare_holders.length){
-        let h=`<table><thead><tr><th>#</th><th>이름</th><th>에픽</th><th>전설</th><th>합계</th></tr></thead><tbody>`;
-        kpi.rare_holders.forEach((r,i)=>{h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td><span class="badge badge-epic">${r.epic_count}</span></td><td><span class="badge badge-legendary">${r.legendary_count}</span></td><td style="font-weight:700">${r.total}</td></tr>`});
-        document.getElementById("fullRareTable").innerHTML=h+"</tbody></table>";
-    }
-
-    // Pokemon stats
-    if(pkstats.length){
-        let h=`<table><thead><tr><th>#</th><th>포켓몬</th><th>등급</th><th>포획수</th></tr></thead><tbody>`;
-        pkstats.forEach((p,i)=>{h+=`<tr><td>${i+1}</td><td>${p.pokemon_emoji} ${p.pokemon_name}</td><td>${rarityBadge(p.rarity)}</td><td>${p.catch_count}</td></tr>`});
-        document.getElementById("pokemonStats").innerHTML=h+"</tbody></table>";
-    }
+    h+="</tbody></table>";
+    h+=`<div style="margin-top:8px;font-size:11px;color:var(--muted)">💡 공격형 > 균형 > 방어 > 속도 순 유리 &nbsp;|&nbsp; 같은 티어 내 타입상성으로 역전 가능 &nbsp;|&nbsp; <span class="op-badge">OP</span> = 같은 티어 내 전투력 상위 이탈값</div>`;
+    document.getElementById("tierTable").innerHTML=h;
 }
 
 // --- STATS ---
 async function loadStats(){
-    const kpi=await fetchJSON("/api/fun-kpis");
-    document.getElementById("escapeMasters").innerHTML=simpleTable(["#","이름","실패"],kpi.escape_masters.map((e,i)=>[i+1,e.display_name,e.catch_fail_count+"회"]));
-    document.getElementById("nightOwls").innerHTML=simpleTable(["#","이름","심야포획"],kpi.night_owls.map((e,i)=>[i+1,e.display_name,e.midnight_catch_count+"회"]));
-    document.getElementById("luckyUsers").innerHTML=simpleTable(["#","이름","시도","성공","포획률"],kpi.lucky_users.map((e,i)=>[i+1,e.display_name,e.attempts,e.catches,e.catch_rate+"%"]));
-    document.getElementById("unluckyUsers").innerHTML=simpleTable(["#","이름","시도","성공","포획률"],kpi.unlucky_users.map((e,i)=>[i+1,e.display_name,e.attempts,e.catches,e.catch_rate+"%"]));
-    document.getElementById("tradeKings").innerHTML=simpleTable(["#","이름","교환"],kpi.trade_kings.map((e,i)=>[i+1,e.display_name,e.trade_count+"회"]));
-    document.getElementById("masterballRich").innerHTML=simpleTable(["#","이름","보유"],kpi.masterball_rich.map((e,i)=>[i+1,e.display_name,e.master_balls+"개"]));
-    document.getElementById("mostEscaped").innerHTML=simpleTable(["#","포켓몬","등급","도망"],kpi.most_escaped.map((e,i)=>[i+1,e.pokemon_emoji+" "+e.pokemon_name,rarityBadge(e.rarity),e.escape_count+"회"]));
-    document.getElementById("pokeballAddicts").innerHTML=simpleTable(["#","이름","충전량"],kpi.pokeball_addicts.map((e,i)=>[i+1,e.display_name,e.bonus_catches+"회"]));
-}
-
-// --- LOG ---
-async function loadLog(){
-    const spawns=await fetchJSON("/api/spawns/recent");
-    if(!spawns.length){document.getElementById("recentLog").innerHTML='<p class="empty-msg">없음</p>';return}
-    let h='<ul class="log-list">';
-    for(const s of spawns){
-        const c=s.caught_by_name?`<span class="log-catch">${s.caught_by_name} 포획!</span>`:`<span class="log-escape">도망</span>`;
-        h+=`<li class="log-item"><span class="log-time">${formatTime(s.spawned_at)}</span><span class="log-emoji">${s.pokemon_emoji}</span><span class="log-text">${s.pokemon_name} ${rarityBadge(s.rarity)} ${c}</span></li>`;
+    const[kpi,pkstats]=await Promise.all([fetchJSON("/api/fun-kpis"),fetchJSON("/api/pokemon/stats")]);
+    if(kpi){
+        document.getElementById("escapeMasters").innerHTML=simpleTable(["#","이름","실패"],kpi.escape_masters.map((e,i)=>[i+1,e.display_name,e.catch_fail_count+"회"]));
+        document.getElementById("nightOwls").innerHTML=simpleTable(["#","이름","심야포획"],kpi.night_owls.map((e,i)=>[i+1,e.display_name,e.midnight_catch_count+"회"]));
+        document.getElementById("luckyUsers").innerHTML=simpleTable(["#","이름","시도","성공","포획률"],kpi.lucky_users.map((e,i)=>[i+1,e.display_name,e.attempts,e.catches,e.catch_rate+"%"]));
+        document.getElementById("unluckyUsers").innerHTML=simpleTable(["#","이름","시도","성공","포획률"],kpi.unlucky_users.map((e,i)=>[i+1,e.display_name,e.attempts,e.catches,e.catch_rate+"%"]));
+        document.getElementById("tradeKings").innerHTML=simpleTable(["#","이름","교환"],kpi.trade_kings.map((e,i)=>[i+1,e.display_name,e.trade_count+"회"]));
+        document.getElementById("masterballRich").innerHTML=simpleTable(["#","이름","보유"],kpi.masterball_rich.map((e,i)=>[i+1,e.display_name,e.master_balls+"개"]));
+        document.getElementById("mostEscaped").innerHTML=simpleTable(["#","포켓몬","등급","도망"],kpi.most_escaped.map((e,i)=>[i+1,e.pokemon_emoji+" "+e.pokemon_name,rarityBadge(e.rarity),e.escape_count+"회"]));
+        document.getElementById("pokeballAddicts").innerHTML=simpleTable(["#","이름","충전량"],kpi.pokeball_addicts.map((e,i)=>[i+1,e.display_name,e.bonus_catches+"회"]));
     }
-    document.getElementById("recentLog").innerHTML=h+"</ul>";
+    if(pkstats&&pkstats.length){
+        let h=`<table><thead><tr><th>#</th><th>포켓몬</th><th>등급</th><th>포획수</th></tr></thead><tbody>`;
+        pkstats.forEach((p,i)=>{h+=`<tr><td>${i+1}</td><td>${p.pokemon_emoji} ${p.pokemon_name}</td><td>${rarityBadge(p.rarity)}</td><td>${p.catch_count}</td></tr>`});
+        document.getElementById("pokemonStats").innerHTML=h+"</tbody></table>";
+    }
 }
 
 // --- Init ---

@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import math
 import os
 from datetime import datetime
 from decimal import Decimal
@@ -88,6 +89,7 @@ async def api_fun_kpis(request):
         trade_kings,
         most_escaped,
         love_leaders,
+        shiny_holders,
     ) = await asyncio.gather(
         queries.get_global_catch_rate(),
         queries.get_total_master_balls_used(),
@@ -101,6 +103,7 @@ async def api_fun_kpis(request):
         queries.get_trade_kings(5),
         queries.get_most_escaped_pokemon(5),
         queries.get_love_leaders(5),
+        queries.get_shiny_holders(20),
     )
 
     # Split catch rates into lucky (top) and unlucky (bottom)
@@ -121,6 +124,7 @@ async def api_fun_kpis(request):
         "trade_kings": trade_kings,
         "most_escaped": most_escaped,
         "love_leaders": love_leaders,
+        "shiny_holders": shiny_holders,
     })
 
 
@@ -131,8 +135,30 @@ async def api_battle_ranking(request):
     return pg_json_response(ranking)
 
 
+async def api_battle_ranking_teams(request):
+    """Get battle teams + partner info for top 10 rankers."""
+    ranking = await bq.get_battle_ranking(10)
+    result = {}
+    for r in ranking:
+        uid = r["user_id"]
+        team_task = bq.get_battle_team(uid)
+        partner_task = bq.get_partner(uid)
+        team, partner = await asyncio.gather(team_task, partner_task)
+        partner_iid = partner["instance_id"] if partner else None
+        result[str(uid)] = [
+            {
+                "emoji": p["emoji"],
+                "name_ko": p["name_ko"],
+                "is_partner": p["pokemon_instance_id"] == partner_iid,
+                "is_shiny": bool(p.get("is_shiny", 0)),
+            }
+            for p in team
+        ]
+    return pg_json_response(result)
+
+
 async def api_battle_tiers(request):
-    """Build tier list data for epic+ pokemon."""
+    """Build tier list data for ALL pokemon (final evolution only)."""
     from database.connection import get_db
     import config
     from utils.battle_calc import calc_battle_stats, EVO_STAGE_MAP
@@ -140,14 +166,18 @@ async def api_battle_tiers(request):
 
     pool = await get_db()
     rows = await pool.fetch("""
-        SELECT id, name_ko, emoji, rarity, pokemon_type, stat_type
+        SELECT id, name_ko, emoji, rarity, pokemon_type, stat_type, evolves_to
         FROM pokemon_master
-        WHERE rarity IN ('epic', 'legendary')
         ORDER BY id
     """)
 
+    # Only final evolutions (evolves_to IS NULL or evo_stage == 3)
+    final_evos = [r for r in rows if r["evolves_to"] is None]
+
+    TIER_ORDER = {"S+": 0, "S": 1, "A+": 2, "A": 3, "B+": 4, "B": 5, "C+": 6, "C": 7, "D+": 8, "D": 9}
+
     scored = []
-    for r in rows:
+    for r in final_evos:
         evo_stage = EVO_STAGE_MAP.get(r["id"], 3)
         stats = calc_battle_stats(r["rarity"], r["stat_type"], 5, evo_stage=evo_stage)
         skill = POKEMON_SKILLS.get(r["id"], ("몸통박치기", 1.2))
@@ -160,10 +190,10 @@ async def api_battle_tiers(request):
         type_ko = config.TYPE_NAME_KO.get(r["pokemon_type"], r["pokemon_type"])
         stat_ko = {"offensive": "공격", "defensive": "방어", "balanced": "균형", "speedy": "속도"}.get(r["stat_type"], r["stat_type"])
 
-        # Assign tier
+        # Assign tier based on rarity + atk
         if r["rarity"] == "legendary":
             tier = "S+" if stats["atk"] >= 140 else "S"
-        else:
+        elif r["rarity"] == "epic":
             if stats["atk"] >= 110:
                 tier = "A+"
             elif stats["atk"] >= 85:
@@ -172,6 +202,10 @@ async def api_battle_tiers(request):
                 tier = "B+"
             else:
                 tier = "B"
+        elif r["rarity"] == "rare":
+            tier = "C+" if stats["atk"] >= 55 else "C"
+        else:  # common
+            tier = "D+" if stats["atk"] >= 45 else "D"
 
         scored.append({
             "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
@@ -180,9 +214,29 @@ async def api_battle_tiers(request):
             "skill_name": skill[0], "skill_power": skill[1],
             "hp": stats["hp"], "atk": stats["atk"],
             "def_": stats["def"], "spd": stats["spd"],
+            "op": False,
         })
 
-    scored.sort(key=lambda x: x["power"], reverse=True)
+    # Mark OP: within epic+ tiers, power > mean + 1σ
+    tier_groups = {}
+    for p in scored:
+        if p["rarity"] in ("epic", "legendary"):
+            tier_groups.setdefault(p["tier"], []).append(p)
+
+    for tier, members in tier_groups.items():
+        if len(members) < 2:
+            continue
+        powers = [m["power"] for m in members]
+        mean = sum(powers) / len(powers)
+        variance = sum((x - mean) ** 2 for x in powers) / len(powers)
+        sigma = math.sqrt(variance)
+        threshold = mean + sigma
+        for m in members:
+            if m["power"] >= threshold:
+                m["op"] = True
+
+    # Sort by tier order, then power desc
+    scored.sort(key=lambda x: (TIER_ORDER.get(x["tier"], 99), -x["power"]))
     return pg_json_response(scored)
 
 
@@ -226,6 +280,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/events", api_events)
     app.router.add_get("/api/fun-kpis", api_fun_kpis)
     app.router.add_get("/api/battle/ranking", api_battle_ranking)
+    app.router.add_get("/api/battle/ranking-teams", api_battle_ranking_teams)
     app.router.add_get("/api/battle/tiers", api_battle_tiers)
     app.router.add_get("/api/dashboard-kpi", api_dashboard_kpi)
     return app

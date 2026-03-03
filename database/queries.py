@@ -1415,6 +1415,23 @@ async def get_rare_pokemon_holders(limit: int = 20) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+async def get_shiny_holders(limit: int = 20) -> list[dict]:
+    """이로치 보유자 랭킹."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT u.display_name, COUNT(*) as shiny_count
+           FROM user_pokemon up
+           JOIN users u ON up.user_id = u.user_id
+           WHERE up.is_shiny = 1 AND up.is_active = 1
+           GROUP BY up.user_id, u.display_name
+           HAVING COUNT(*) > 0
+           ORDER BY shiny_count DESC
+           LIMIT $1""",
+        limit,
+    )
+    return [dict(r) for r in rows]
+
+
 async def get_global_catch_rate() -> float:
     """전체 포획률 (%)."""
     pool = await get_db()
