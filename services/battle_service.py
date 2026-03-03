@@ -137,7 +137,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             if c_idx < len(challenger_team):
                 c_mon = challenger_team[c_idx]
                 log_lines.append(
-                    f" 💀 {dead_name} 쓰러짐! → {c_mon['emoji']}{c_mon['name']} 등장!"
+                    f" 💀 {dead_name} 쓰러짐! → {c_mon['name']} 등장!"
                 )
             else:
                 log_lines.append(f" 💀 {dead_name} 쓰러짐!")
@@ -149,7 +149,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             if d_idx < len(defender_team):
                 d_mon = defender_team[d_idx]
                 log_lines.append(
-                    f" 💀 {dead_name} 쓰러짐! → {d_mon['emoji']}{d_mon['name']} 등장!"
+                    f" 💀 {dead_name} 쓰러짐! → {d_mon['name']} 등장!"
                 )
                 if c_idx < len(challenger_team):
                     match_turn = 0  # reset turn counter for new matchup
