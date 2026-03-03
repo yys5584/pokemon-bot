@@ -152,7 +152,7 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle '강스' command in group — use a force spawn ticket."""
+    """Handle '강스' command in group — use a force spawn reset ticket to reset 50-count."""
     if not update.effective_user or not update.message:
         return
 
@@ -163,52 +163,24 @@ async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAU
         await update.message.reply_text("그룹 채팅방에서만 사용 가능합니다.")
         return
 
-    # Check minimum members
-    room = await queries.get_chat_room(chat_id)
-    member_count = room["member_count"] if room else 0
-    if member_count < config.SPAWN_MIN_MEMBERS:
-        await update.message.reply_text(
-            f"🚫 멤버가 {config.SPAWN_MIN_MEMBERS}명 이상인 방에서만 사용 가능합니다."
-        )
-        return
-
     # Use ticket (atomic)
     success = await queries.use_force_spawn_ticket(user_id)
     if not success:
-        await update.message.reply_text("⚡ 강제스폰권이 없습니다! DM에서 '상점'으로 구매하세요.")
+        await update.message.reply_text("⚡ 강스권이 없습니다! DM에서 '상점'으로 구매하세요.")
         return
 
-    try:
-        from services.spawn_service import execute_spawn
+    # Reset force spawn count for this chat
+    await queries.reset_force_spawn_for_chat(chat_id)
 
-        class FakeJob:
-            def __init__(self, data):
-                self.data = data
-                self.name = None
-
-        class FakeContext:
-            def __init__(self, bot, job_queue, data):
-                self.bot = bot
-                self.job_queue = job_queue
-                self.job = FakeJob(data)
-
-        fake_ctx = FakeContext(
-            context.bot,
-            context.application.job_queue,
-            {"chat_id": chat_id, "force": True},
-        )
-        await execute_spawn(fake_ctx)
-
-        remaining = await queries.get_force_spawn_tickets(user_id)
-        display_name = update.effective_user.first_name or "트레이너"
-        await update.message.reply_text(
-            f"⚡ {display_name}의 강제스폰! (남은 티켓: {remaining}개)"
-        )
-    except Exception as e:
-        # Refund ticket on failure
-        await queries.add_force_spawn_ticket(user_id)
-        logger.error(f"ticket_force_spawn FAILED: {e}", exc_info=True)
-        await update.message.reply_text(f"❌ 강제스폰 실패 (티켓 환불됨): {e}")
+    remaining = await queries.get_force_spawn_tickets(user_id)
+    display_name = update.effective_user.first_name or "트레이너"
+    room = await queries.get_chat_room(chat_id)
+    chat_title = room["chat_title"] if room else "이 채팅방"
+    await update.message.reply_text(
+        f"⚡ {display_name}이(가) 강스권을 사용했습니다!\n"
+        f"🔄 [{chat_title}]의 강제스폰 횟수가 초기화되었습니다. (0/50)\n"
+        f"📦 남은 강스권: {remaining}개"
+    )
 
 
 async def force_spawn_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -613,13 +585,13 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await queries.create_arcade_pass(chat_id, user_id, config.ARCADE_PASS_DURATION)
 
             from services.spawn_service import start_temp_arcade
-            start_temp_arcade(context.application, chat_id, config.ARCADE_PASS_DURATION)
+            start_temp_arcade(context.application, chat_id, config.ARCADE_PASS_DURATION, interval=config.ARCADE_TICKET_SPAWN_INTERVAL)
 
             display_name = update.effective_user.first_name or "트레이너"
             remaining_tickets = await queries.get_arcade_tickets(user_id)
             await update.message.reply_text(
                 f"🕹️ {display_name}이(가) 아케이드 활성화!\n"
-                f"⏱️ {config.ARCADE_PASS_DURATION // 60}분간 {config.ARCADE_SPAWN_INTERVAL}초마다 스폰\n"
+                f"⏱️ {config.ARCADE_PASS_DURATION // 60}분간 {config.ARCADE_TICKET_SPAWN_INTERVAL}초마다 스폰\n"
                 f"🎮 남은 티켓: {remaining_tickets}개"
             )
             logger.info(f"Temp arcade activated by {user_id} (ticket) in chat {chat_id}")

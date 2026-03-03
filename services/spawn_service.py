@@ -178,8 +178,9 @@ def schedule_arcade_spawns(app):
                      f"(every {config.ARCADE_SPAWN_INTERVAL}s)")
 
 
-def start_temp_arcade(app, chat_id: int, duration_seconds: int):
+def start_temp_arcade(app, chat_id: int, duration_seconds: int, interval: int | None = None):
     """Start temporary arcade spawns for a chat. Auto-stops after duration."""
+    spawn_interval = interval or config.ARCADE_SPAWN_INTERVAL
     job_name = f"arcade_{chat_id}"
     # Remove any existing arcade job for this chat
     for job in app.job_queue.jobs():
@@ -188,7 +189,7 @@ def start_temp_arcade(app, chat_id: int, duration_seconds: int):
 
     app.job_queue.run_repeating(
         execute_spawn,
-        interval=config.ARCADE_SPAWN_INTERVAL,
+        interval=spawn_interval,
         first=10,
         data={"chat_id": chat_id, "force": True},
         name=job_name,

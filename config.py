@@ -81,7 +81,8 @@ SPAWN_MAX_DAILY = 12               # Absolute max spawns per day per chat (regar
 
 # --- Arcade Channel (30초마다 강제스폰) ---
 ARCADE_CHAT_IDS: set[int] = set()  # 채팅방 등록 후 chat_id 추가
-ARCADE_SPAWN_INTERVAL = 30         # 초 (30초)
+ARCADE_SPAWN_INTERVAL = 30         # 초 (관리자 등록 아케이드)
+ARCADE_TICKET_SPAWN_INTERVAL = 60  # 초 (티켓 아케이드)
 ARCADE_SPAWN_WINDOW = 25           # 초 (포획 제한시간, 겹침 방지)
 
 # Small-group optimized spawn count per day

@@ -813,7 +813,7 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🏪 BP 상점\n",
         f"💰 보유 BP: {bp}\n",
         f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
-        f"⚡ 강제스폰권 x1 — {fst_label} (보유: {tickets}개)",
+        f"⚡ 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
         f"🔴 포켓볼 충전 100개 — {pb_label}",
         f"🔵 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
         f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
@@ -880,7 +880,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📦 오늘 남은 구매: {remaining}개{next_str}"
         )
 
-    elif item in ("강제스폰", "강스", "강제스폰권"):
+    elif item in ("강제스폰", "강스", "강제스폰권", "강스권"):
         cost = config.BP_FORCE_SPAWN_TICKET_COST
         success = await bq.spend_bp(user_id, cost)
         if not success:
@@ -895,10 +895,10 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bp = await bq.get_bp(user_id)
         tickets = await queries.get_force_spawn_tickets(user_id)
         await update.message.reply_text(
-            f"⚡ 강제스폰권 1개 구매 완료!\n"
+            f"⚡ 강스권 1개 구매 완료!\n"
             f"💰 남은 BP: {bp}\n"
-            f"📦 보유 강제스폰권: {tickets}개\n\n"
-            "채팅방에서 '강스' 로 사용하세요!"
+            f"📦 보유 강스권: {tickets}개\n\n"
+            "채팅방에서 '강스권' 입력으로 해당 채널의 강제스폰 50회를 초기화합니다!"
         )
 
     elif item in ("포켓볼", "볼"):
@@ -1029,7 +1029,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await queries.add_force_spawn_ticket(user_id)
         await bq.log_bp_purchase(user_id, "force_spawn_ticket", 1)
         bp = await bq.get_bp(user_id)
-        await query.answer(f"⚡ 강제스폰권 구매! (남은 BP: {bp})", show_alert=True)
+        await query.answer(f"⚡ 강스권 구매! 채팅방에서 '강스권' 입력으로 사용 (남은 BP: {bp})", show_alert=True)
 
     elif item == "포켓볼":
         cost = config.BP_POKEBALL_RESET_COST
@@ -1087,7 +1087,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             "🏪 BP 상점\n",
             f"💰 보유 BP: {bp}\n",
             f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
-            f"⚡ 강제스폰권 x1 — {fst_label} (보유: {tickets}개)",
+            f"⚡ 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
             f"🔴 포켓볼 충전 100개 — {pb_label}",
             f"🔵 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
             f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",

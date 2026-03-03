@@ -263,9 +263,9 @@ def main():
 
     # Admin group commands
     app.add_handler(MessageHandler(group & filters.Regex(r"^스폰배율"), spawn_rate_handler))
-    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강제스폰\s*$"), force_spawn_handler))
-    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스\s*$"), ticket_force_spawn_handler))
-    app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰초기화\s*$"), force_spawn_reset_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스\s*$"), force_spawn_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스권\s*$"), ticket_force_spawn_handler))
+    app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰 채널 초기화\s*$"), force_spawn_reset_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*포켓볼초기화\s*$"), pokeball_reset_handler))
 
     # "ㅊ" catch handler (group only, exact match)
