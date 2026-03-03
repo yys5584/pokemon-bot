@@ -128,6 +128,19 @@
             .grid-2,.grid-3{grid-template-columns:1fr 1fr}
             .cards{grid-template-columns:repeat(3,1fr)}
         }
+        /* Type Chart */
+        .tc-wrap{overflow-x:auto}
+        .tc{border-collapse:collapse;font-size:11px;min-width:700px}
+        .tc th,.tc td{width:42px;min-width:42px;height:28px;text-align:center;padding:2px;border:1px solid var(--border)}
+        .tc th{font-size:10px;color:var(--muted);font-weight:600;background:var(--card)}
+        .tc .tc-corner{background:transparent;border:none}
+        .tc .tc-row-hdr{font-size:10px;text-align:right;padding-right:4px;white-space:nowrap;background:var(--card);color:var(--muted);font-weight:600}
+        .tc .tc-se{background:#1b4332;color:#52b788;font-weight:700}
+        .tc .tc-nve{background:#3d0000;color:#e63946;font-weight:700}
+        .tc .tc-imm{background:#1a1a2e;color:#555;font-weight:700}
+        .tc .tc-neu{color:#444}
+        .tc-label{font-size:11px;color:var(--muted);margin-bottom:6px;text-align:center}
+
         @media(max-width:600px){
             .grid-2,.grid-3{grid-template-columns:1fr}
             .cards{grid-template-columns:repeat(2,1fr)}
@@ -152,6 +165,7 @@
         <div class="nav-tab" data-page="channels">채널 TOP 5</div>
         <div class="nav-tab" data-page="battlerank">배틀 & 랭킹</div>
         <div class="nav-tab" data-page="tier">포켓몬 티어</div>
+        <div class="nav-tab" data-page="typechart">상성표</div>
         <div class="nav-tab" data-page="stats">통계</div>
     </div>
     <div class="container">
@@ -188,6 +202,18 @@
         <!-- POKEMON TIER -->
         <div class="page" id="page-tier">
             <div class="section"><h2>📋 포켓몬 배틀 티어표 <span style="color:var(--dim);font-size:10px;font-weight:400;margin-left:4px">VER 1.1</span></h2><div id="tierTable"><div class="loading">로딩 중...</div></div></div>
+        </div>
+
+        <!-- TYPE CHART -->
+        <div class="page" id="page-typechart">
+            <div class="section"><h2>타입 상성표 (18타입)</h2><div id="typeChartGrid"><div class="loading">로딩 중...</div></div>
+            <div style="margin-top:8px;font-size:11px;color:var(--muted)">
+                <span style="color:#52b788">2x</span> 효과 좋음 &nbsp;|&nbsp;
+                <span style="color:#e63946">0.5x</span> 효과 별로 &nbsp;|&nbsp;
+                <span style="color:#555">0x</span> 면역 &nbsp;|&nbsp;
+                세로=공격 / 가로=방어
+            </div>
+            </div>
         </div>
 
         <!-- STATS -->
@@ -287,6 +313,7 @@ async function loadPage(page){
         else if(page==="channels") await loadChannels();
         else if(page==="battlerank") await loadBattleRank();
         else if(page==="tier") await loadTier();
+        else if(page==="typechart") await loadTypeChart();
         else if(page==="stats") await loadStats();
     }catch(e){console.error("Load error:",e)}
     document.getElementById("lastUpdate").textContent="업데이트: "+new Date().toLocaleTimeString("ko-KR");
@@ -492,28 +519,57 @@ async function loadTier(){
     if(!tiers||!tiers.length){document.getElementById("tierTable").innerHTML='<p class="empty-msg">데이터 없음</p>';return}
 
     let currentTier="";
-    let h=`<table><thead><tr><th>티어</th><th>포켓몬</th><th>타입</th><th class="hide-m">성향</th><th>배율</th><th>HP</th><th>ATK</th><th>DEF</th><th>SPD</th><th>전투력</th></tr></thead><tbody>`;
+    let h=`<table><thead><tr><th>티어</th><th>포켓몬</th><th>타입</th><th class="hide-m">성향</th><th class="hide-m">배율</th><th>HP</th><th>ATK</th><th>DEF</th><th class="hide-m">SPA</th><th class="hide-m">SPDEF</th><th>SPD</th><th>전투력</th></tr></thead><tbody>`;
     for(const p of tiers){
         let showTier=p.tier!==currentTier;
         if(showTier) currentTier=p.tier;
         const tierCell=showTier?tierBadge(p.tier):"";
         const opBadge=p.op?'<span class="op-badge">OP</span>':"";
-        h+=`<tr>
+        h+=`<tr${p.op?' style="background:rgba(230,57,70,0.08)"':''}>
             <td>${tierCell}${opBadge}</td>
             <td>${p.emoji} <b>${p.name}</b></td>
             <td>${p.type_emoji}${p.type_ko}</td>
             <td class="hide-m">${p.stat_ko}</td>
-            <td style="color:var(--orange)" title="${p.skill_name}">${p.skill_power}x</td>
+            <td class="hide-m" style="color:var(--orange)" title="${p.skill_name}">${p.skill_power}x</td>
             <td style="color:var(--green)">${p.hp}</td>
             <td style="color:var(--red)">${p.atk}</td>
             <td style="color:var(--blue)">${p.def_}</td>
+            <td class="hide-m" style="color:var(--purple)">${p.spa||'-'}</td>
+            <td class="hide-m" style="color:var(--blue)">${p.spdef||'-'}</td>
             <td style="color:var(--gold)">${p.spd}</td>
             <td style="font-weight:700">${p.power}</td>
         </tr>`;
     }
     h+="</tbody></table>";
-    h+=`<div style="margin-top:8px;font-size:11px;color:var(--muted)">💡 공격형 > 균형 > 방어 > 속도 순 유리 &nbsp;|&nbsp; 같은 티어 내 타입상성으로 역전 가능 &nbsp;|&nbsp; <span class="op-badge">OP</span> = 같은 티어 내 전투력 상위 이탈값</div>`;
+    h+=`<div style="margin-top:8px;font-size:11px;color:var(--muted)">전투력 = (ATK or SPA) x 스킬 x 내구력 &nbsp;|&nbsp; <span class="op-badge">OP</span> = 티어 내 1위</div>`;
     document.getElementById("tierTable").innerHTML=h;
+}
+
+// --- TYPE CHART ---
+async function loadTypeChart(){
+    const data=await fetchJSON("/api/type-chart");
+    if(!data){document.getElementById("typeChartGrid").innerHTML='<p class="empty-msg">데이터 없음</p>';return}
+    const types=data.types;
+    const names=data.type_names;
+    const emoji=data.type_emoji;
+    const chart=data.chart;
+    let h='<div class="tc-label">세로축: 공격 타입 / 가로축: 방어 타입</div><div class="tc-wrap"><table class="tc"><thead><tr><th class="tc-corner"></th>';
+    for(const t of types) h+=`<th title="${names[t]}">${emoji[t]||""}</th>`;
+    h+='</tr></thead><tbody>';
+    for(const atkType of types){
+        h+=`<tr><td class="tc-row-hdr">${emoji[atkType]||""} ${names[atkType]||atkType}</td>`;
+        for(const defType of types){
+            const v=chart[atkType][defType];
+            let cls="tc-neu",txt="";
+            if(v===2){cls="tc-se";txt="2x"}
+            else if(v===0.5){cls="tc-nve";txt="\u00BD"}
+            else if(v===0){cls="tc-imm";txt="0"}
+            h+=`<td class="${cls}">${txt}</td>`;
+        }
+        h+='</tr>';
+    }
+    h+='</tbody></table></div>';
+    document.getElementById("typeChartGrid").innerHTML=h;
 }
 
 // --- STATS ---

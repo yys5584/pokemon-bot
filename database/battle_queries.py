@@ -21,6 +21,7 @@ async def get_partner(user_id: int) -> dict | None:
     pool = await get_db()
     row = await pool.fetchrow(
         """SELECT up.id as instance_id, up.pokemon_id, up.friendship,
+                  up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd,
                   pm.name_ko, pm.emoji, pm.rarity,
                   pm.pokemon_type, pm.stat_type
            FROM users u
@@ -45,6 +46,7 @@ async def get_battle_team(user_id: int, team_number: int | None = None) -> list[
     rows = await pool.fetch(
         """SELECT bt.slot, bt.pokemon_instance_id,
                   up.pokemon_id, up.friendship, up.is_shiny,
+                  up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd,
                   pm.name_ko, pm.emoji, pm.rarity,
                   pm.pokemon_type, pm.stat_type
            FROM battle_teams bt
@@ -106,6 +108,7 @@ async def validate_team_pokemon(user_id: int, instance_ids: list[int]) -> list[d
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT up.id as instance_id, up.pokemon_id, up.friendship,
+                  up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd,
                   pm.name_ko, pm.emoji, pm.rarity,
                   pm.pokemon_type, pm.stat_type
            FROM user_pokemon up
@@ -343,6 +346,7 @@ async def get_pokemon_with_battle_data(instance_id: int) -> dict | None:
     row = await pool.fetchrow(
         """SELECT up.id as instance_id, up.user_id, up.pokemon_id,
                   up.friendship, up.is_active,
+                  up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd,
                   pm.name_ko, pm.emoji, pm.rarity,
                   pm.pokemon_type, pm.stat_type
            FROM user_pokemon up
@@ -358,7 +362,9 @@ async def get_user_pokemon_for_battle(user_id: int) -> list[dict]:
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT up.id as instance_id, up.pokemon_id,
-                  up.friendship, pm.name_ko, pm.emoji, pm.rarity,
+                  up.friendship, up.iv_hp, up.iv_atk, up.iv_def,
+                  up.iv_spa, up.iv_spdef, up.iv_spd,
+                  pm.name_ko, pm.emoji, pm.rarity,
                   pm.pokemon_type, pm.stat_type
            FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id

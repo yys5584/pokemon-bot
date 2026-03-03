@@ -308,16 +308,29 @@ async def get_all_pokemon() -> list[dict]:
 
 async def give_pokemon_to_user(
     user_id: int, pokemon_id: int, chat_id: int | None = None,
-    is_shiny: bool = False,
-) -> int:
-    """Add a Pokemon to user's collection. Returns instance id."""
+    is_shiny: bool = False, ivs: dict | None = None,
+) -> tuple[int, dict]:
+    """Add a Pokemon to user's collection with IVs.
+
+    If ivs dict provided, uses those IVs (for trades). Otherwise generates random IVs.
+    Returns (instance_id, iv_dict).
+    iv_dict keys: iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd
+    """
+    if ivs is None:
+        from utils.battle_calc import generate_ivs
+        ivs = generate_ivs(is_shiny=is_shiny)
+
     pool = await get_db()
     row = await pool.fetchrow(
-        """INSERT INTO user_pokemon (user_id, pokemon_id, caught_in_chat_id, is_shiny)
-           VALUES ($1, $2, $3, $4) RETURNING id""",
+        """INSERT INTO user_pokemon
+               (user_id, pokemon_id, caught_in_chat_id, is_shiny,
+                iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id""",
         user_id, pokemon_id, chat_id, 1 if is_shiny else 0,
+        ivs["iv_hp"], ivs["iv_atk"], ivs["iv_def"],
+        ivs["iv_spa"], ivs["iv_spdef"], ivs["iv_spd"],
     )
-    return row["id"]
+    return row["id"], ivs
 
 
 async def get_user_pokemon_list(user_id: int) -> list[dict]:

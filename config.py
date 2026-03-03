@@ -262,16 +262,40 @@ EVENT_TEMPLATES = {
 # Battle System
 # ============================================================
 
+# --- IV (Individual Values) System ---
+IV_MIN = 0
+IV_MAX = 31
+IV_MULT_MIN = 0.85        # IV 0 = 0.85x
+IV_MULT_RANGE = 0.30      # IV 31 = 1.15x (0.85 + 0.30)
+IV_SHINY_MIN = 10         # 이로치 최소 IV (10~31)
+IV_STAT_COUNT = 6          # 6스탯: HP, ATK, DEF, SPA, SPDEF, SPD
+
+# IV grade thresholds (total of 6 stats, max=186)
+IV_GRADE_THRESHOLDS = [
+    (168, "S", ""),   # ~90%+ (top ~3%)
+    (140, "A", ""),   # ~75%+
+    (93,  "B", ""),   # ~50%+
+    (47,  "C", ""),   # ~25%+
+    (0,   "D", ""),   # bottom
+]
+
+def get_iv_grade(total: int) -> tuple[str, str]:
+    """Return (grade_letter, display) for an IV total (0~186)."""
+    for threshold, grade, display in IV_GRADE_THRESHOLDS:
+        if total >= threshold:
+            return grade, display
+    return "D", ""
+
 # --- Battle Stats ---
 RARITY_BASE_STAT = {
     "common": 45, "rare": 60, "epic": 75, "legendary": 95,
 }
 
 STAT_SPREADS = {
-    "offensive":  {"hp": 0.9, "atk": 1.3, "def": 0.8, "spd": 1.0},
-    "defensive":  {"hp": 1.2, "atk": 0.8, "def": 1.3, "spd": 0.8},
-    "balanced":   {"hp": 1.0, "atk": 1.0, "def": 1.0, "spd": 1.0},
-    "speedy":     {"hp": 0.8, "atk": 1.0, "def": 0.7, "spd": 1.4},
+    "offensive":  {"hp": 0.9, "atk": 1.3, "def": 0.8, "spa": 1.3, "spdef": 0.8, "spd": 1.0},
+    "defensive":  {"hp": 1.2, "atk": 0.8, "def": 1.3, "spa": 0.8, "spdef": 1.3, "spd": 0.8},
+    "balanced":   {"hp": 1.0, "atk": 1.0, "def": 1.0, "spa": 1.0, "spdef": 1.0, "spd": 1.0},
+    "speedy":     {"hp": 0.8, "atk": 1.0, "def": 0.7, "spa": 1.0, "spdef": 0.7, "spd": 1.4},
 }
 
 FRIENDSHIP_BONUS = 0.04  # 친밀도 1당 +4% (최대 5 = +20%)
@@ -279,31 +303,55 @@ FRIENDSHIP_BONUS = 0.04  # 친밀도 1당 +4% (최대 5 = +20%)
 # 진화 단계별 스탯 보정 (1단 < 2단 < 최종)
 EVOLUTION_STAGE_MULT = {1: 0.85, 2: 0.92, 3: 1.0}
 
-# --- Type System (10종 간소화) ---
+# --- Type System (18종 풀타입) ---
 TYPE_EMOJI = {
     "normal": "⚪", "fire": "🔥", "water": "💧", "grass": "🌿",
-    "electric": "⚡", "ice": "❄️", "fighting": "👊", "psychic": "🔮",
-    "dragon": "🐉", "dark": "🌑",
+    "electric": "⚡", "ice": "❄️", "fighting": "👊", "poison": "☠️",
+    "ground": "🌍", "flying": "🕊️", "psychic": "🔮", "bug": "🐛",
+    "rock": "🪨", "ghost": "👻", "dragon": "🐉", "dark": "🌑",
+    "steel": "⚙️", "fairy": "🧚",
 }
 
 TYPE_NAME_KO = {
     "normal": "노말", "fire": "불꽃", "water": "물", "grass": "풀",
-    "electric": "전기", "ice": "얼음", "fighting": "격투", "psychic": "에스퍼",
-    "dragon": "드래곤", "dark": "악",
+    "electric": "전기", "ice": "얼음", "fighting": "격투", "poison": "독",
+    "ground": "땅", "flying": "비행", "psychic": "에스퍼", "bug": "벌레",
+    "rock": "바위", "ghost": "고스트", "dragon": "드래곤", "dark": "악",
+    "steel": "강철", "fairy": "페어리",
 }
 
 # 타입 상성: key가 value 리스트 타입에 효과적 (1.3x)
 TYPE_ADVANTAGE = {
-    "fire":     ["grass", "ice"],
-    "water":    ["fire"],
-    "grass":    ["water", "electric"],
-    "electric": ["water"],
-    "ice":      ["grass", "dragon"],
-    "fighting": ["normal", "ice", "dark"],
-    "psychic":  ["fighting"],
-    "dragon":   ["dragon"],
-    "dark":     ["psychic"],
     "normal":   [],
+    "fire":     ["grass", "ice", "bug", "steel"],
+    "water":    ["fire", "ground", "rock"],
+    "grass":    ["water", "ground", "rock"],
+    "electric": ["water", "flying"],
+    "ice":      ["grass", "ground", "flying", "dragon"],
+    "fighting": ["normal", "ice", "rock", "dark", "steel"],
+    "poison":   ["grass", "fairy"],
+    "ground":   ["fire", "electric", "poison", "rock", "steel"],
+    "flying":   ["grass", "fighting", "bug"],
+    "psychic":  ["fighting", "poison"],
+    "bug":      ["grass", "psychic", "dark"],
+    "rock":     ["fire", "ice", "flying", "bug"],
+    "ghost":    ["psychic", "ghost"],
+    "dragon":   ["dragon"],
+    "dark":     ["psychic", "ghost"],
+    "steel":    ["ice", "rock", "fairy"],
+    "fairy":    ["fighting", "dragon", "dark"],
+}
+
+# 타입 면역: key 타입 공격이 value 리스트 타입에 무효 (0x → 0.3x로 완화)
+TYPE_IMMUNITY = {
+    "normal":   ["ghost"],
+    "fighting": ["ghost"],
+    "poison":   ["steel"],
+    "ground":   ["flying"],
+    "electric": ["ground"],
+    "psychic":  ["dark"],
+    "ghost":    ["normal"],
+    "dragon":   ["fairy"],
 }
 
 # --- Battle Rules ---

@@ -99,7 +99,13 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         evo_stage = EVO_STAGE_MAP.get(partner["pokemon_id"], 3)
-        stats = calc_battle_stats(partner["rarity"], partner["stat_type"], partner["friendship"], evo_stage=evo_stage)
+        stats = calc_battle_stats(
+            partner["rarity"], partner["stat_type"], partner["friendship"],
+            evo_stage=evo_stage,
+            iv_hp=partner.get("iv_hp"), iv_atk=partner.get("iv_atk"),
+            iv_def=partner.get("iv_def"), iv_spa=partner.get("iv_spa"),
+            iv_spdef=partner.get("iv_spdef"), iv_spd=partner.get("iv_spd"),
+        )
         type_emoji = config.TYPE_EMOJI.get(partner["pokemon_type"], "")
         type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
         buttons = InlineKeyboardMarkup([[
@@ -240,7 +246,13 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
 
         type_emoji = config.TYPE_EMOJI.get(chosen.get("pokemon_type", "normal"), "")
         evo_stage = EVO_STAGE_MAP.get(chosen["pokemon_id"], 3)
-        stats = calc_battle_stats(chosen["rarity"], chosen.get("stat_type", "balanced"), chosen["friendship"], evo_stage=evo_stage)
+        stats = calc_battle_stats(
+            chosen["rarity"], chosen.get("stat_type", "balanced"), chosen["friendship"],
+            evo_stage=evo_stage,
+            iv_hp=chosen.get("iv_hp"), iv_atk=chosen.get("iv_atk"),
+            iv_def=chosen.get("iv_def"), iv_spa=chosen.get("iv_spa"),
+            iv_spdef=chosen.get("iv_spdef"), iv_spd=chosen.get("iv_spd"),
+        )
         try:
             await query.edit_message_text(
                 f"🤝 파트너 지정 완료!\n\n"
@@ -398,7 +410,13 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for i, p in enumerate(team):
         evo_stage = EVO_STAGE_MAP.get(p["pokemon_id"], 3)
-        stats = calc_battle_stats(p["rarity"], p["stat_type"], p["friendship"], evo_stage=evo_stage)
+        stats = calc_battle_stats(
+            p["rarity"], p["stat_type"], p["friendship"],
+            evo_stage=evo_stage,
+            iv_hp=p.get("iv_hp"), iv_atk=p.get("iv_atk"),
+            iv_def=p.get("iv_def"), iv_spa=p.get("iv_spa"),
+            iv_spdef=p.get("iv_spdef"), iv_spd=p.get("iv_spd"),
+        )
         type_emoji = config.TYPE_EMOJI.get(p["pokemon_type"], "")
         partner_mark = " 🤝" if p["pokemon_instance_id"] == partner_instance else ""
         lines.append(
@@ -1489,9 +1507,11 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         stats = calc_battle_stats(r["rarity"], r["stat_type"], 5, evo_stage=evo_stage)
         skill = POKEMON_SKILLS.get(r["id"], ("몸통박치기", 1.2))
 
-        # Effective power: considers ATK, skill activation, and survivability
-        eff_atk = stats["atk"] * (1 + config.BATTLE_SKILL_RATE * skill[1])
-        eff_tank = stats["hp"] * (1 + stats["def"] * 0.003)
+        # Effective power: best offensive stat, skill, survivability
+        best_atk = max(stats["atk"], stats["spa"])
+        eff_def = (stats["def"] + stats["spdef"]) / 2
+        eff_atk = best_atk * (1 + config.BATTLE_SKILL_RATE * skill[1])
+        eff_tank = stats["hp"] * (1 + eff_def * 0.003)
         power = eff_atk * eff_tank / 1000
 
         type_emoji = config.TYPE_EMOJI.get(r["pokemon_type"], "")
@@ -1522,20 +1542,19 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     for i, p in enumerate(scored):
-        # Assign tier
+        # Assign tier (using best of ATK/SPA)
+        best_atk = max(p["stats"]["atk"], p["stats"]["spa"])
         if p["rarity"] == "legendary":
-            if p["stats"]["atk"] >= 140:
+            if best_atk >= 140:
                 tier = "S+"
-            elif p["stats"]["atk"] >= 110:
-                tier = "S"
             else:
                 tier = "S"
         else:  # epic
-            if p["stats"]["atk"] >= 110:
+            if best_atk >= 110:
                 tier = "A+"
-            elif p["stats"]["atk"] >= 85:
+            elif best_atk >= 85:
                 tier = "A"
-            elif p["stats"]["atk"] >= 70:
+            elif best_atk >= 70:
                 tier = "B+"
             else:
                 tier = "B"
@@ -1553,7 +1572,7 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     lines.append("\n─────────────────")
-    lines.append("💡 공격형 > 균형 > 방어 > 속도 순 유리")
+    lines.append("💡 전투력 = (ATK or SPA) x 스킬 x 내구")
     lines.append("💡 같은 티어 내 타입상성으로 역전 가능")
 
     _tier_cache = "\n".join(lines)

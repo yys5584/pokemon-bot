@@ -54,3 +54,34 @@ async def seed_battle_data():
                WHERE id = $3""",
             ptype, stype, pid,
         )
+
+
+async def migrate_18_types():
+    """Migrate from old 10-type to 18-type system.
+
+    Checks for 18-type-only types (fairy, bug, rock, steel, ground, ice).
+    If none found, forces a full re-seed of types from POKEMON_BATTLE_DATA.
+    """
+    from models.pokemon_battle_data import POKEMON_BATTLE_DATA
+
+    pool = await get_db()
+
+    # Check if 18-type migration already applied
+    row = await pool.fetchrow(
+        "SELECT COUNT(*) as cnt FROM pokemon_master "
+        "WHERE pokemon_type IN ('fairy','bug','rock','steel','ground','ice')"
+    )
+    if row and row["cnt"] > 0:
+        return False  # Already migrated
+
+    updated = 0
+    for pid, (ptype, stype) in POKEMON_BATTLE_DATA.items():
+        await pool.execute(
+            """UPDATE pokemon_master
+               SET pokemon_type = $1, stat_type = $2
+               WHERE id = $3""",
+            ptype, stype, pid,
+        )
+        updated += 1
+
+    return updated

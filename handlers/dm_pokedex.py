@@ -282,11 +282,42 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
     rarity_text = rarity_display(p["rarity"])
     shiny_text = "  ✨이로치" if p.get("is_shiny") else ""
 
+    # IV information
+    from utils.battle_calc import calc_battle_stats, iv_total, EVO_STAGE_MAP
+    iv_hp = p.get("iv_hp")
+    iv_atk = p.get("iv_atk")
+    iv_def = p.get("iv_def")
+    iv_spa = p.get("iv_spa")
+    iv_spdef = p.get("iv_spdef")
+    iv_spd = p.get("iv_spd")
+    has_iv = iv_hp is not None
+
+    iv_line = ""
+    stats_line = ""
+    if has_iv:
+        total_iv = iv_total(iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd)
+        grade, _stars = config.get_iv_grade(total_iv)
+        iv_line = f"\nIV: {iv_hp}/{iv_atk}/{iv_def}/{iv_spa}/{iv_spdef}/{iv_spd} ({total_iv}/186) [{grade}]"
+
+        # Calculate battle stats with IVs
+        pid = p["pokemon_id"]
+        evo_stage = EVO_STAGE_MAP.get(pid, 3)
+        stats = calc_battle_stats(
+            p["rarity"], p.get("stat_type", "balanced"), p["friendship"],
+            evo_stage=evo_stage,
+            iv_hp=iv_hp, iv_atk=iv_atk, iv_def=iv_def,
+            iv_spa=iv_spa, iv_spdef=iv_spdef, iv_spd=iv_spd,
+        )
+        stats_line = (
+            f"\nHP:{stats['hp']} ATK:{stats['atk']} DEF:{stats['def']}"
+            f"\nSPA:{stats['spa']} SPDEF:{stats['spdef']} SPD:{stats['spd']}"
+        )
+
     lines = [
-        f"🎒 내 포켓몬 상세 ({num}/{total})\n",
+        f"내 포켓몬 상세 ({num}/{total})\n",
         f"{shiny_mark}{p['emoji']} {p['name_ko']}{shiny_text}",
         f"등급: {rarity_text}",
-        f"친밀도: {hearts} ({p['friendship']}/{max_f}){evo_text}",
+        f"친밀도: {hearts} ({p['friendship']}/{max_f}){evo_text}{iv_line}{stats_line}",
     ]
 
     # Action/navigation buttons

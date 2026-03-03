@@ -341,6 +341,15 @@ ARCADE_PASS_TABLES = [
     "CREATE INDEX IF NOT EXISTS idx_arcade_passes_chat ON arcade_passes(chat_id, is_active, expires_at)",
 ]
 
+IV_MIGRATIONS = [
+    "ALTER TABLE user_pokemon ADD COLUMN iv_hp SMALLINT DEFAULT NULL",
+    "ALTER TABLE user_pokemon ADD COLUMN iv_atk SMALLINT DEFAULT NULL",
+    "ALTER TABLE user_pokemon ADD COLUMN iv_def SMALLINT DEFAULT NULL",
+    "ALTER TABLE user_pokemon ADD COLUMN iv_spa SMALLINT DEFAULT NULL",
+    "ALTER TABLE user_pokemon ADD COLUMN iv_spdef SMALLINT DEFAULT NULL",
+    "ALTER TABLE user_pokemon ADD COLUMN iv_spd SMALLINT DEFAULT NULL",
+]
+
 SHINY_MIGRATIONS = [
     "ALTER TABLE user_pokemon ADD COLUMN is_shiny INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE spawn_sessions ADD COLUMN is_shiny INTEGER NOT NULL DEFAULT 0",
@@ -411,6 +420,12 @@ async def create_tables():
             pass
     # Run team slot migrations
     for mig in TEAM_SLOT_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+    # Run IV system migrations
+    for mig in IV_MIGRATIONS:
         try:
             await pool.execute(mig)
         except Exception:

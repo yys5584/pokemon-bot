@@ -98,10 +98,18 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
     # Deactivate from sender's collection
     await queries.deactivate_pokemon(offer_instance_id)
 
-    # Give to receiver (preserve shiny status, reset friendship)
+    # Give to receiver (preserve shiny status + IVs, reset friendship)
     is_shiny = bool(offer_pokemon.get("is_shiny", 0))
-    new_instance_id = await queries.give_pokemon_to_user(
-        user_id, offer_pokemon_id, is_shiny=is_shiny
+    original_ivs = {
+        "iv_hp": offer_pokemon.get("iv_hp"),
+        "iv_atk": offer_pokemon.get("iv_atk"),
+        "iv_def": offer_pokemon.get("iv_def"),
+        "iv_spa": offer_pokemon.get("iv_spa"),
+        "iv_spdef": offer_pokemon.get("iv_spdef"),
+        "iv_spd": offer_pokemon.get("iv_spd"),
+    }
+    new_instance_id, _ivs = await queries.give_pokemon_to_user(
+        user_id, offer_pokemon_id, is_shiny=is_shiny, ivs=original_ivs
     )
 
     # Register in receiver's pokedex

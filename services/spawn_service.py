@@ -517,8 +517,10 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await queries.add_master_ball(loser["user_id"])
             logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
 
-        # Give Pokemon
-        await queries.give_pokemon_to_user(winner_id, pokemon_id, chat_id, is_shiny=is_shiny)
+        # Give Pokemon (with IV generation)
+        _inst_id, caught_ivs = await queries.give_pokemon_to_user(
+            winner_id, pokemon_id, chat_id, is_shiny=is_shiny,
+        )
         await queries.register_pokedex(winner_id, pokemon_id, "catch")
         await queries.close_spawn_session(session_id, caught_by=winner_id)
 
@@ -548,15 +550,24 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         )
 
         shiny_label = "✨이로치 " if is_shiny else ""
+
+        # IV grade display
+        from utils.battle_calc import iv_total
+        iv_sum = iv_total(caught_ivs["iv_hp"], caught_ivs["iv_atk"],
+                          caught_ivs["iv_def"], caught_ivs["iv_spa"],
+                          caught_ivs["iv_spdef"], caught_ivs["iv_spd"])
+        iv_grade, _stars = config.get_iv_grade(iv_sum)
+        iv_tag = f" [{iv_grade}]" if iv_grade in ("S", "A") else f" [{iv_grade}]"
+
         if winner.get("used_master_ball"):
-            msg = f"🟣 마스터볼! {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 확정 포획!"
+            msg = f"🟣 마스터볼! {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 확정 포획!{iv_tag}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
-            msg = f"🔵 하이퍼볼! {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획!"
+            msg = f"🔵 하이퍼볼! {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획!{iv_tag}"
         elif rarity in ("epic", "legendary") and is_first:
-            msg = f"🌟 {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획! (이 방 최초)"
+            msg = f"🌟 {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획! (이 방 최초){iv_tag}"
         else:
-            msg = f"딸깍! ✨ {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획!"
+            msg = f"딸깍! ✨ {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획!{iv_tag}"
 
         # Shiny catch announcement
         if is_shiny:

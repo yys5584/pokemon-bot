@@ -20,6 +20,12 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
         pokemon["stat_type"],
         pokemon["friendship"],
         evo_stage=evo_stage,
+        iv_hp=pokemon.get("iv_hp"),
+        iv_atk=pokemon.get("iv_atk"),
+        iv_def=pokemon.get("iv_def"),
+        iv_spa=pokemon.get("iv_spa"),
+        iv_spdef=pokemon.get("iv_spdef"),
+        iv_spd=pokemon.get("iv_spd"),
     )
 
     # Partner bonus: ATK +5%

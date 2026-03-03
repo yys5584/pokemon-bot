@@ -1,5 +1,6 @@
 """Battle stat calculation utilities."""
 
+import random
 import config
 
 
@@ -23,32 +24,106 @@ def _build_evo_stage_map() -> dict[int, int]:
 EVO_STAGE_MAP: dict[int, int] = _build_evo_stage_map()
 
 
-def calc_battle_stats(rarity: str, stat_type: str, friendship: int,
-                      evo_stage: int = 3) -> dict:
-    """Calculate battle stats (HP, ATK, DEF, SPD) from rarity/stat_type/friendship.
+def _iv_mult(iv: int | None) -> float:
+    """IV → stat multiplier. None (기존 포켓몬) = 1.0 (변화 없음)."""
+    if iv is None:
+        return 1.0
+    return config.IV_MULT_MIN + (iv / config.IV_MAX) * config.IV_MULT_RANGE
 
-    evo_stage: 1=1단진화, 2=2단진화, 3=최종진화/단일 (default)
-    Stats are computed on the fly — never stored in DB.
+
+def generate_ivs(is_shiny: bool = False) -> dict[str, int]:
+    """Generate random IVs for a newly caught pokemon.
+
+    Returns dict with keys: iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd (0~31 each).
+    Shiny pokemon get a minimum of IV_SHINY_MIN (10).
     """
-    base = config.RARITY_BASE_STAT.get(rarity, 45)
-    spread = config.STAT_SPREADS.get(stat_type, config.STAT_SPREADS["balanced"])
+    low = config.IV_SHINY_MIN if is_shiny else config.IV_MIN
+    high = config.IV_MAX
+    return {
+        "iv_hp": random.randint(low, high),
+        "iv_atk": random.randint(low, high),
+        "iv_def": random.randint(low, high),
+        "iv_spa": random.randint(low, high),
+        "iv_spdef": random.randint(low, high),
+        "iv_spd": random.randint(low, high),
+    }
+
+
+def iv_total(iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd) -> int:
+    """Sum of all 6 IVs. None values treated as 15 (legacy)."""
+    return sum(v if v is not None else 15 for v in (iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd))
+
+
+def calc_battle_stats(
+    rarity: str,
+    stat_type: str,
+    friendship: int,
+    evo_stage: int = 3,
+    iv_hp: int | None = None,
+    iv_atk: int | None = None,
+    iv_def: int | None = None,
+    iv_spa: int | None = None,
+    iv_spdef: int | None = None,
+    iv_spd: int | None = None,
+    *,
+    base_hp: int | None = None,
+    base_atk: int | None = None,
+    base_def: int | None = None,
+    base_spa: int | None = None,
+    base_spdef: int | None = None,
+    base_spd: int | None = None,
+) -> dict:
+    """Calculate battle stats (HP, ATK, DEF, SPA, SPDEF, SPD).
+
+    Phase 1 (IV only): Uses rarity base + spread + IV multiplier.
+    Phase 2 (base stats): If base_hp/atk/def/spa/spdef/spd provided, uses individual base stats.
+
+    Backward compatible: IV=None → multiplier=1.0 (현재와 동일).
+    """
     bonus = 1.0 + (friendship * config.FRIENDSHIP_BONUS)
     evo_mult = config.EVOLUTION_STAGE_MULT.get(evo_stage, 1.0)
 
+    if base_hp is not None:
+        # Phase 2: individual base stats
+        return {
+            "hp":    int(base_hp * 3 * bonus * evo_mult * _iv_mult(iv_hp)),
+            "atk":   int(base_atk * bonus * evo_mult * _iv_mult(iv_atk)),
+            "def":   int(base_def * bonus * evo_mult * _iv_mult(iv_def)),
+            "spa":   int(base_spa * bonus * evo_mult * _iv_mult(iv_spa)),
+            "spdef": int(base_spdef * bonus * evo_mult * _iv_mult(iv_spdef)),
+            "spd":   int(base_spd * bonus * evo_mult * _iv_mult(iv_spd)),
+        }
+
+    # Phase 1: rarity-based base stats + spread
+    base = config.RARITY_BASE_STAT.get(rarity, 45)
+    spread = config.STAT_SPREADS.get(stat_type, config.STAT_SPREADS["balanced"])
+
     return {
-        "hp":  int(base * 3 * spread["hp"] * bonus * evo_mult),
-        "atk": int(base * spread["atk"] * bonus * evo_mult),
-        "def": int(base * spread["def"] * bonus * evo_mult),
-        "spd": int(base * spread["spd"] * bonus * evo_mult),
+        "hp":    int(base * 3 * spread["hp"] * bonus * evo_mult * _iv_mult(iv_hp)),
+        "atk":   int(base * spread["atk"] * bonus * evo_mult * _iv_mult(iv_atk)),
+        "def":   int(base * spread["def"] * bonus * evo_mult * _iv_mult(iv_def)),
+        "spa":   int(base * spread["spa"] * bonus * evo_mult * _iv_mult(iv_spa)),
+        "spdef": int(base * spread["spdef"] * bonus * evo_mult * _iv_mult(iv_spdef)),
+        "spd":   int(base * spread["spd"] * bonus * evo_mult * _iv_mult(iv_spd)),
     }
 
 
 def get_type_multiplier(attacker_type: str, defender_type: str) -> float:
-    """Return damage multiplier based on type matchup."""
+    """Return damage multiplier based on type matchup.
+
+    Checks immunity (0.3x), super effective (1.3x), not very effective (0.7x).
+    """
+    # Immunity check (softened to 0.3x instead of 0x for gameplay balance)
+    immunities = config.TYPE_IMMUNITY.get(attacker_type, [])
+    if defender_type in immunities:
+        return 0.3
+
+    # Super effective
     advantages = config.TYPE_ADVANTAGE.get(attacker_type, [])
     if defender_type in advantages:
         return config.BATTLE_TYPE_ADVANTAGE_MULT  # 1.3x
-    # Check if defender has advantage over attacker (disadvantage)
+
+    # Not very effective (defender's type is strong against attacker's type)
     defender_advantages = config.TYPE_ADVANTAGE.get(defender_type, [])
     if attacker_type in defender_advantages:
         return config.BATTLE_TYPE_DISADVANTAGE_MULT  # 0.7x
@@ -57,4 +132,7 @@ def get_type_multiplier(attacker_type: str, defender_type: str) -> float:
 
 def format_stats_line(stats: dict) -> str:
     """Format stats dict as a compact display string."""
-    return f"HP:{stats['hp']} ATK:{stats['atk']} DEF:{stats['def']} SPD:{stats['spd']}"
+    return (
+        f"HP:{stats['hp']} ATK:{stats['atk']} DEF:{stats['def']} "
+        f"SPA:{stats['spa']} SPDEF:{stats['spdef']} SPD:{stats['spd']}"
+    )

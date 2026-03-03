@@ -182,30 +182,35 @@ async def api_battle_tiers(request):
         stats = calc_battle_stats(r["rarity"], r["stat_type"], 5, evo_stage=evo_stage)
         skill = POKEMON_SKILLS.get(r["id"], ("몸통박치기", 1.2))
 
-        eff_atk = stats["atk"] * (1 + config.BATTLE_SKILL_RATE * skill[1])
-        eff_tank = stats["hp"] * (1 + stats["def"] * 0.003)
+        # Best offensive stat (physical or special)
+        best_atk = max(stats["atk"], stats["spa"])
+        # Best defensive stat (average of physical + special)
+        eff_def = (stats["def"] + stats["spdef"]) / 2
+
+        eff_atk = best_atk * (1 + config.BATTLE_SKILL_RATE * skill[1])
+        eff_tank = stats["hp"] * (1 + eff_def * 0.003)
         power = eff_atk * eff_tank / 1000
 
         type_emoji = config.TYPE_EMOJI.get(r["pokemon_type"], "")
         type_ko = config.TYPE_NAME_KO.get(r["pokemon_type"], r["pokemon_type"])
         stat_ko = {"offensive": "공격", "defensive": "방어", "balanced": "균형", "speedy": "속도"}.get(r["stat_type"], r["stat_type"])
 
-        # Assign tier based on rarity + atk
+        # Assign tier based on rarity + best_atk
         if r["rarity"] == "legendary":
-            tier = "S+" if stats["atk"] >= 140 else "S"
+            tier = "S+" if best_atk >= 140 else "S"
         elif r["rarity"] == "epic":
-            if stats["atk"] >= 110:
+            if best_atk >= 110:
                 tier = "A+"
-            elif stats["atk"] >= 85:
+            elif best_atk >= 85:
                 tier = "A"
-            elif stats["atk"] >= 70:
+            elif best_atk >= 70:
                 tier = "B+"
             else:
                 tier = "B"
         elif r["rarity"] == "rare":
-            tier = "C+" if stats["atk"] >= 55 else "C"
+            tier = "C+" if best_atk >= 55 else "C"
         else:  # common
-            tier = "D+" if stats["atk"] >= 45 else "D"
+            tier = "D+" if best_atk >= 45 else "D"
 
         scored.append({
             "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
@@ -213,27 +218,21 @@ async def api_battle_tiers(request):
             "stat_ko": stat_ko, "power": round(power, 1), "tier": tier,
             "skill_name": skill[0], "skill_power": skill[1],
             "hp": stats["hp"], "atk": stats["atk"],
-            "def_": stats["def"], "spd": stats["spd"],
+            "def_": stats["def"], "spa": stats["spa"],
+            "spdef": stats["spdef"], "spd": stats["spd"],
             "op": False,
         })
 
-    # Mark OP: within epic+ tiers, power > mean + 1σ
+    # Mark OP: only #1 power in each tier
     tier_groups = {}
     for p in scored:
-        if p["rarity"] in ("epic", "legendary"):
-            tier_groups.setdefault(p["tier"], []).append(p)
+        tier_groups.setdefault(p["tier"], []).append(p)
 
     for tier, members in tier_groups.items():
         if len(members) < 2:
             continue
-        powers = [m["power"] for m in members]
-        mean = sum(powers) / len(powers)
-        variance = sum((x - mean) ** 2 for x in powers) / len(powers)
-        sigma = math.sqrt(variance)
-        threshold = mean + sigma
-        for m in members:
-            if m["power"] >= threshold:
-                m["op"] = True
+        best = max(members, key=lambda m: m["power"])
+        best["op"] = True
 
     # Sort by tier order, then power desc
     scored.sort(key=lambda x: (TIER_ORDER.get(x["tier"], 99), -x["power"]))
@@ -260,6 +259,34 @@ async def api_dashboard_kpi(request):
     })
 
 
+async def api_type_chart(request):
+    """Return the full 18-type effectiveness chart data."""
+    import config
+    types = list(config.TYPE_ADVANTAGE.keys())
+    chart = {}
+    for atk_type in types:
+        row = {}
+        for def_type in types:
+            immunities = config.TYPE_IMMUNITY.get(atk_type, [])
+            advantages = config.TYPE_ADVANTAGE.get(atk_type, [])
+            disadvantages = config.TYPE_ADVANTAGE.get(def_type, [])
+            if def_type in immunities:
+                row[def_type] = 0
+            elif def_type in advantages:
+                row[def_type] = 2  # super effective
+            elif atk_type in disadvantages:
+                row[def_type] = 0.5  # not very effective
+            else:
+                row[def_type] = 1
+        chart[atk_type] = row
+    return pg_json_response({
+        "types": types,
+        "type_names": config.TYPE_NAME_KO,
+        "type_emoji": config.TYPE_EMOJI,
+        "chart": chart,
+    })
+
+
 # --- Page Handler ---
 
 async def index(request):
@@ -283,6 +310,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/battle/ranking-teams", api_battle_ranking_teams)
     app.router.add_get("/api/battle/tiers", api_battle_tiers)
     app.router.add_get("/api/dashboard-kpi", api_dashboard_kpi)
+    app.router.add_get("/api/type-chart", api_type_chart)
     return app
 
 
