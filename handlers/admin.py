@@ -607,7 +607,25 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("🕹️ 이미 아케이드가 활성화되어 있습니다!")
             return
 
-        # Admin: permanent registration
+        # Ticket takes priority (even for admins)
+        used = await queries.use_arcade_ticket(user_id)
+        if used:
+            await queries.create_arcade_pass(chat_id, user_id, config.ARCADE_PASS_DURATION)
+
+            from services.spawn_service import start_temp_arcade
+            start_temp_arcade(context.application, chat_id, config.ARCADE_PASS_DURATION)
+
+            display_name = update.effective_user.first_name or "트레이너"
+            remaining_tickets = await queries.get_arcade_tickets(user_id)
+            await update.message.reply_text(
+                f"🕹️ {display_name}이(가) 아케이드 활성화!\n"
+                f"⏱️ {config.ARCADE_PASS_DURATION // 60}분간 {config.ARCADE_SPAWN_INTERVAL}초마다 스폰\n"
+                f"🎮 남은 티켓: {remaining_tickets}개"
+            )
+            logger.info(f"Temp arcade activated by {user_id} (ticket) in chat {chat_id}")
+            return
+
+        # No ticket — admin: permanent registration
         if is_admin(user_id):
             config.ARCADE_CHAT_IDS.add(chat_id)
             await queries.set_arcade(chat_id, True)
@@ -620,29 +638,10 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info(f"Arcade channel registered (permanent): {chat_id}")
             return
 
-        # Non-admin: use ticket for 1-hour temp arcade
-        used = await queries.use_arcade_ticket(user_id)
-        if not used:
-            await update.message.reply_text(
-                "🎮 아케이드 티켓이 없습니다!\nDM 상점에서 '구매 아케이드'로 구매하세요."
-            )
-            return
-
-        # Create temporary arcade pass for this chat
-        await queries.create_arcade_pass(chat_id, user_id, config.ARCADE_PASS_DURATION)
-
-        # Start arcade spawns
-        from services.spawn_service import start_temp_arcade
-        start_temp_arcade(context.application, chat_id, config.ARCADE_PASS_DURATION)
-
-        display_name = update.effective_user.first_name or "트레이너"
-        remaining_tickets = await queries.get_arcade_tickets(user_id)
+        # No ticket, not admin
         await update.message.reply_text(
-            f"🕹️ {display_name}이(가) 아케이드 활성화!\n"
-            f"⏱️ {config.ARCADE_PASS_DURATION // 60}분간 {config.ARCADE_SPAWN_INTERVAL}초마다 스폰\n"
-            f"🎮 남은 티켓: {remaining_tickets}개"
+            "🎮 아케이드 티켓이 없습니다!\nDM 상점에서 '구매 아케이드'로 구매하세요."
         )
-        logger.info(f"Temp arcade activated by {user_id} in chat {chat_id}")
 
     elif action == "해제":
         if chat_id in config.ARCADE_CHAT_IDS:
