@@ -296,6 +296,13 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 if job.name == old_resolve_name:
                     job.schedule_removal()
                     break
+            # Delete old spawn message from chat
+            old_msg_id = active.get("message_id")
+            if old_msg_id:
+                try:
+                    await context.bot.delete_message(chat_id=chat_id, message_id=old_msg_id)
+                except Exception:
+                    pass  # Message may already be deleted
             logger.info(f"Closed overlapping spawn {active['id']} in {chat_id}")
 
         # 2.5 Cooldown: skip if last spawn was within 5 minutes (skip for arcade and force)
