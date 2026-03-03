@@ -102,6 +102,15 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     logger.info(f"force_spawn: admin check passed for user {user_id} in chat {chat_id}")
 
+    # Check if there's already an active spawn
+    active = await queries.get_active_spawn(chat_id)
+    if active:
+        await update.message.reply_text(
+            f"⚠️ 이미 스폰 중인 포켓몬이 있습니다!\n"
+            f"{active['emoji']} {active['name_ko']}을(를) 먼저 잡아주세요."
+        )
+        return
+
     # Check minimum members
     room = await queries.get_chat_room(chat_id)
     member_count = room["member_count"] if room else 0
