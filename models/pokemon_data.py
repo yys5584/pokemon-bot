@@ -28,7 +28,7 @@ ALL_POKEMON = [
     # --- Weedle line ---
     (13, "뿔충이", "Weedle", "🐛", "common", 0.80, None, 14, "friendship"),
     (14, "딱충이", "Kakuna", "🐛", "common", 0.70, 13, 15, "friendship"),
-    (15, "독침봉", "Beedrill", "🐝", "common", 0.40, 14, None, "none"),
+    (15, "독침붕", "Beedrill", "🐝", "common", 0.40, 14, None, "none"),
 
     # --- Pidgey line ---
     (16, "구구", "Pidgey", "🐦", "common", 0.80, None, 17, "friendship"),
