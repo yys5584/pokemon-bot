@@ -10,7 +10,7 @@ import config
 from database import queries
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, get_type_multiplier, EVO_STAGE_MAP, iv_total
-from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge, icon_emoji, shiny_emoji
+from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge, icon_emoji, shiny_emoji, ball_emoji
 
 logger = logging.getLogger(__name__)
 
