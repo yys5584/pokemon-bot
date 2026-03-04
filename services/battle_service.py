@@ -54,8 +54,18 @@ def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str]:
     """Calculate damage from attacker to defender.
     Returns (damage, effect_text).
     """
+    # Physical vs Special: use whichever offensive stat is higher
+    atk_phys = attacker["stats"]["atk"]
+    atk_spec = attacker["stats"]["spa"]
+    if atk_spec > atk_phys:
+        attack = atk_spec
+        defense = defender["stats"]["spdef"]
+    else:
+        attack = atk_phys
+        defense = defender["stats"]["def"]
+
     # Base damage
-    base = max(1, attacker["stats"]["atk"] - defender["stats"]["def"] * 0.4)
+    base = max(1, attack - defense * 0.4)
 
     # Type advantage
     type_mult = get_type_multiplier(attacker["type"], defender["type"])
