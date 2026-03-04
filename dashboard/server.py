@@ -107,25 +107,33 @@ _sessions: dict[str, dict] = {}  # session_id -> {user_id, display_name, auth_da
 SESSION_MAX_AGE = 86400  # 24 hours
 MAX_SESSIONS = 1000  # prevent memory bomb
 
-# LLM rate limiting: user_id -> {date_str: count}
-_llm_usage: dict[int, dict[str, int]] = {}
+# LLM rate limiting: DB-persisted daily usage
 LLM_DAILY_LIMIT = 20
+
+
+async def _ensure_llm_usage_table():
+    """Create llm_daily_usage table if not exists."""
+    pool = await queries.get_db()
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS llm_daily_usage (
+            user_id BIGINT NOT NULL,
+            usage_date DATE NOT NULL DEFAULT CURRENT_DATE,
+            count INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (user_id, usage_date)
+        )
+    """)
 
 
 async def _check_llm_limit(user_id: int, cost: int = 1) -> tuple[bool, int, int]:
     """Check if user can use LLM. Returns (allowed, remaining_total, bonus_remaining)."""
-    today = datetime.now().strftime("%Y-%m-%d")
-    if user_id not in _llm_usage:
-        _llm_usage[user_id] = {}
-    usage = _llm_usage[user_id]
-    # Clean old dates
-    for d in list(usage.keys()):
-        if d != today:
-            del usage[d]
-    count = usage.get(today, 0)
-    free_remaining = max(0, LLM_DAILY_LIMIT - count)
-    # Check bonus quota from DB
     pool = await queries.get_db()
+    today = datetime.now().strftime("%Y-%m-%d")
+    count = await pool.fetchval(
+        "SELECT count FROM llm_daily_usage WHERE user_id = $1 AND usage_date = $2",
+        user_id, today,
+    )
+    count = count or 0
+    free_remaining = max(0, LLM_DAILY_LIMIT - count)
     bonus = await pool.fetchval(
         "SELECT llm_bonus_quota FROM users WHERE user_id = $1", user_id
     )
@@ -136,21 +144,29 @@ async def _check_llm_limit(user_id: int, cost: int = 1) -> tuple[bool, int, int]
 
 async def _record_llm_usage(user_id: int, cost: int = 1):
     """Record LLM usage. Uses free quota first, then bonus."""
+    pool = await queries.get_db()
     today = datetime.now().strftime("%Y-%m-%d")
-    if user_id not in _llm_usage:
-        _llm_usage[user_id] = {}
-    count = _llm_usage[user_id].get(today, 0)
+    count = await pool.fetchval(
+        "SELECT count FROM llm_daily_usage WHERE user_id = $1 AND usage_date = $2",
+        user_id, today,
+    )
+    count = count or 0
     for _ in range(cost):
         if count < LLM_DAILY_LIMIT:
             count += 1
-            _llm_usage[user_id][today] = count
         else:
-            pool = await queries.get_db()
             await pool.execute(
                 "UPDATE users SET llm_bonus_quota = llm_bonus_quota - 1 "
                 "WHERE user_id = $1 AND llm_bonus_quota > 0",
                 user_id,
             )
+    # Upsert daily usage count
+    await pool.execute("""
+        INSERT INTO llm_daily_usage (user_id, usage_date, count)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id, usage_date)
+        DO UPDATE SET count = $3
+    """, user_id, today, count)
 
 
 def _verify_telegram_auth(data: dict) -> bool:
@@ -856,7 +872,7 @@ async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> str
         "systemInstruction": {"parts": [{"text": system_prompt}]},
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 1024,
+            "maxOutputTokens": 2048,
             "topP": 0.9,
         },
     }
@@ -865,7 +881,7 @@ async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> str
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                 if resp.status != 200:
                     logger.warning(f"Gemini API error: {resp.status}")
                     return ""
@@ -1673,6 +1689,7 @@ async def api_tournament_winners(request):
 
 async def start_dashboard():
     """Start the dashboard web server in the background."""
+    await _ensure_llm_usage_table()
     port = int(os.getenv("DASHBOARD_PORT", "8080"))
     app = create_app()
     runner = web.AppRunner(app)

@@ -106,6 +106,13 @@
         .chat-send{width:36px;height:36px;border:none;border-radius:50%;background:linear-gradient(135deg,#8B0000,#A52A2A);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:16px}
         .chat-send:hover{transform:scale(1.05);box-shadow:0 2px 8px rgba(139,0,0,.3)}
         .chat-send:disabled{opacity:.5;cursor:not-allowed;transform:none}
+        .sess-tab{padding:4px 10px;border:1px solid var(--border);border-radius:14px;font-size:11px;cursor:pointer;background:var(--card);color:var(--muted);white-space:nowrap;transition:all .2s;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+        .sess-tab.active{background:var(--red);color:#fff;border-color:var(--red);font-weight:700}
+        .sess-tab:hover:not(.active){border-color:var(--red);color:var(--red)}
+        .sess-tab-new{padding:4px 8px;border:1px dashed var(--border);border-radius:14px;font-size:13px;cursor:pointer;background:transparent;color:var(--muted);transition:all .2s}
+        .sess-tab-new:hover{border-color:var(--red);color:var(--red)}
+        .sess-tab-del{font-size:10px;margin-left:2px;color:inherit;opacity:.6;cursor:pointer}
+        .sess-tab-del:hover{opacity:1}
 
         /* Tab Navigation */
         .nav{display:flex;gap:0;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
@@ -463,6 +470,7 @@
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
                     <span style="font-size:11px;font-weight:700;color:var(--purple)">🤖 AI 분석</span>
                     <span style="font-size:10px;color:var(--muted)">· 2회 차감</span>
+                    <span style="font-size:9px;color:var(--dim);margin-left:auto">Gemini 2.5 Flash</span>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
                     <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('요즘 승률 높은 포켓몬이 뭐야?')">
@@ -476,8 +484,12 @@
                     </button>
                 </div>
             </div>
+            <!-- Chat Sessions -->
+            <div id="chatSessionBar" style="display:flex;align-items:center;gap:4px;margin-bottom:6px;overflow-x:auto;padding-bottom:2px">
+                <!-- session tabs rendered by JS -->
+            </div>
             <!-- Chat Area (expanded) -->
-            <div class="chat-container" style="height:calc(100vh - 200px);min-height:400px;max-height:700px">
+            <div class="chat-container" style="height:calc(100vh - 230px);min-height:380px;max-height:680px">
                 <div class="chat-messages" id="chatMessages">
                     <div class="chat-msg ai">
                         <div class="chat-sender">🤖 배틀 어드바이저</div>
@@ -1321,32 +1333,114 @@ function renderMyPokemon(){
     navEl.innerHTML=nav;
 }
 
-// --- AI CHAT ADVISOR ---
+// --- AI CHAT ADVISOR (session-based) ---
 let _chatHistory=[];
 let _chatBusy=false;
-let _chatMsgs=[];  // [{role, html}] for localStorage
+let _chatMsgs=[];  // [{role, html}] for current session
 
-function _saveChatToStorage(){
-    try{localStorage.setItem("tgpoke_chat",JSON.stringify({msgs:_chatMsgs.slice(-30),history:_chatHistory.slice(-10)}))}catch(e){}
+// Session management
+let _chatSessions=[];  // [{id, name, msgs:[], history:[]}]
+let _curSessionId=null;
+const _SESS_KEY="tgpoke_sessions";
+const _MAX_SESSIONS=10;
+
+function _loadSessions(){
+    try{
+        const d=JSON.parse(localStorage.getItem(_SESS_KEY)||"null");
+        if(d&&d.sessions&&d.sessions.length){
+            _chatSessions=d.sessions;
+            _curSessionId=d.active||_chatSessions[0].id;
+        } else {
+            // Migrate old single-session data
+            const old=JSON.parse(localStorage.getItem("tgpoke_chat")||"null");
+            const firstId=Date.now().toString(36);
+            if(old&&old.msgs&&old.msgs.length){
+                _chatSessions=[{id:firstId,name:"대화 1",msgs:old.msgs.slice(-30),history:old.history||[]}];
+            } else {
+                _chatSessions=[{id:firstId,name:"대화 1",msgs:[],history:[]}];
+            }
+            _curSessionId=firstId;
+            localStorage.removeItem("tgpoke_chat");
+        }
+    }catch(e){
+        const fid=Date.now().toString(36);
+        _chatSessions=[{id:fid,name:"대화 1",msgs:[],history:[]}];
+        _curSessionId=fid;
+    }
+}
+function _saveSessions(){
+    try{
+        // Keep only last 30 msgs per session
+        const trimmed=_chatSessions.map(s=>({...s,msgs:s.msgs.slice(-30),history:(s.history||[]).slice(-10)}));
+        localStorage.setItem(_SESS_KEY,JSON.stringify({sessions:trimmed,active:_curSessionId}));
+    }catch(e){}
+}
+function _getCurSession(){return _chatSessions.find(s=>s.id===_curSessionId)}
+function _switchSession(id){
+    _curSessionId=id;
+    const s=_getCurSession();
+    if(!s)return;
+    _chatMsgs=s.msgs;
+    _chatHistory=s.history||[];
+    _renderChatMsgs();
+    _renderSessionBar();
+    _saveSessions();
+}
+function _createSession(){
+    if(_chatSessions.length>=_MAX_SESSIONS){
+        // Remove oldest
+        _chatSessions.shift();
+    }
+    const id=Date.now().toString(36);
+    const num=_chatSessions.length+1;
+    const s={id,name:"대화 "+num,msgs:[],history:[]};
+    _chatSessions.push(s);
+    _switchSession(id);
+}
+function _deleteSession(id){
+    if(_chatSessions.length<=1)return; // keep at least 1
+    _chatSessions=_chatSessions.filter(s=>s.id!==id);
+    if(_curSessionId===id) _switchSession(_chatSessions[_chatSessions.length-1].id);
+    else{_renderSessionBar();_saveSessions();}
+}
+function _renderSessionBar(){
+    const bar=document.getElementById("chatSessionBar");
+    if(!bar)return;
+    let h="";
+    _chatSessions.forEach(s=>{
+        const active=s.id===_curSessionId?"active":"";
+        const del=_chatSessions.length>1?`<span class="sess-tab-del" onclick="event.stopPropagation();_deleteSession('${s.id}')">✕</span>`:"";
+        h+=`<button class="sess-tab ${active}" onclick="_switchSession('${s.id}')">${s.name}${del}</button>`;
+    });
+    h+=`<button class="sess-tab-new" onclick="_createSession()" title="새 대화">+</button>`;
+    bar.innerHTML=h;
+}
+function _renderChatMsgs(){
+    const el=document.getElementById("chatMessages");
+    if(!el)return;
+    if(!_chatMsgs.length){
+        el.innerHTML=`<div class="chat-msg ai"><div class="chat-sender">🤖 배틀 어드바이저</div>포켓몬 배틀 전략 AI입니다. 위 버튼을 누르거나 자유롭게 질문하세요!<br><span style="font-size:11px;color:var(--muted)">예: "내 마기라스 어때?", "페어리 카운터 추천", "팀 약점 분석"</span></div>`;
+        return;
+    }
+    el.innerHTML="";
+    for(const m of _chatMsgs){
+        const div=document.createElement("div");
+        div.className=`chat-msg ${m.role}`;
+        if(m.role==="ai") div.innerHTML='<div class="chat-sender">🤖 배틀 어드바이저</div>'+m.html;
+        else div.innerHTML='<div class="chat-sender">🗣️ 나</div>'+m.html;
+        el.appendChild(div);
+    }
+    el.scrollTop=el.scrollHeight;
 }
 function _restoreChatFromStorage(){
-    try{
-        const d=JSON.parse(localStorage.getItem("tgpoke_chat")||"null");
-        if(!d||!d.msgs||!d.msgs.length)return;
-        _chatHistory=d.history||[];
-        _chatMsgs=d.msgs;
-        const el=document.getElementById("chatMessages");
-        // Remove default welcome message
-        el.innerHTML="";
-        for(const m of _chatMsgs){
-            const div=document.createElement("div");
-            div.className=`chat-msg ${m.role}`;
-            if(m.role==="ai") div.innerHTML='<div class="chat-sender">🤖 배틀 어드바이저</div>'+m.html;
-            else div.innerHTML='<div class="chat-sender">🗣️ 나</div>'+m.html;
-            el.appendChild(div);
-        }
-        el.scrollTop=el.scrollHeight;
-    }catch(e){}
+    _loadSessions();
+    const s=_getCurSession();
+    if(s){
+        _chatMsgs=s.msgs;
+        _chatHistory=s.history||[];
+        _renderChatMsgs();
+    }
+    _renderSessionBar();
 }
 
 // Mode button mapping → algorithm API (1 token)
@@ -1362,14 +1456,17 @@ async function sendQuick(text){
     if(!_authUser){telegramConnect();return}
     const mode=_MODE_MAP[text];
     if(mode){
-        // 4 mode buttons → algorithm API (1 token)
+        // 4 mode buttons → algorithm API (1 token) with min 5s display
         addChatMsg('user', text.replace(/</g,'&lt;'));
         _chatBusy=true;
         document.getElementById("chatSendBtn").disabled=true;
         showTyping();
         try{
+            const t0=Date.now();
             const r=await fetch("/api/my/team-recommend",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode})});
             const d=await r.json();
+            const elapsed=Date.now()-t0;
+            if(elapsed<5000) await new Promise(ok=>setTimeout(ok,5000-elapsed));
             hideTyping();
             if(d.error){addChatMsg('ai','오류: '+d.error)}
             else{addChatMsg('ai',formatAiResponse(d))}
@@ -1393,7 +1490,17 @@ function addChatMsg(role, html){
     el.appendChild(div);
     el.scrollTop=el.scrollHeight;
     _chatMsgs.push({role,html});
-    _saveChatToStorage();
+    // Auto-name session from first user message
+    const s=_getCurSession();
+    if(s){
+        s.msgs=_chatMsgs;
+        s.history=_chatHistory;
+        if(role==="user"&&s.msgs.filter(m=>m.role==="user").length===1){
+            s.name=html.replace(/<[^>]*>/g,"").slice(0,12)||(s.name);
+            _renderSessionBar();
+        }
+        _saveSessions();
+    }
     return div;
 }
 
@@ -1550,8 +1657,8 @@ async function loadSimulator(){
             _myPokemon=await r.json();
         }catch(e){}
     }
-    // Restore chat history from localStorage
-    if(!_chatMsgs.length) _restoreChatFromStorage();
+    // Restore chat sessions from localStorage
+    _restoreChatFromStorage();
     // Load donation progress
     try{const don=await fetchJSON("/api/donation");if(don)renderDonation(don)}catch(e){renderDonation({current:0,goal:200})}
 }
