@@ -443,11 +443,15 @@
 
         <!-- AI TEAM ADVISOR -->
         <div class="page" id="page-simulator">
+            <!-- Quota display -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;padding:4px 8px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+                <span id="simQuotaLabel" style="font-size:11px;font-weight:700;color:var(--text)">🎫 잔여 --회</span>
+                <span style="font-size:10px;color:var(--dim)">빠른분석 1회 · AI분석 2회 차감</span>
+            </div>
             <!-- Quick Buttons: Basic (algorithm, 1 token) -->
             <div style="margin-bottom:6px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
                     <span style="font-size:11px;font-weight:700;color:var(--green)">⚡ 빠른 분석</span>
-                    <span id="simQuotaLabel" style="font-size:10px;color:var(--green);font-weight:600">잔여 --회</span>
                     <span style="font-size:10px;color:var(--muted)">· 1회 차감</span>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -689,8 +693,9 @@ function updateQuotaBadge(remaining,bonus){
     // Also update simulator quota label
     const sq=document.getElementById("simQuotaLabel");
     if(sq){
-        sq.textContent=`잔여 ${remaining}회`;
-        sq.style.color=remaining<=0?"var(--red)":remaining<=3?"#E65100":"var(--green)";
+        const free=Math.max(0,remaining-bonus);
+        sq.textContent=bonus>0?`🎫 잔여 ${remaining}회 (무료 ${free} + 보너스 ${bonus})`:`🎫 잔여 ${remaining}회`;
+        sq.style.color=remaining<=0?"var(--red)":remaining<=3?"#E65100":"var(--text)";
     }
 }
 
@@ -1342,14 +1347,15 @@ let _chatMsgs=[];  // [{role, html}] for current session
 let _chatSessions=[];  // [{id, name, msgs:[], history:[]}]
 let _curSessionId=null;
 const _SESS_KEY="tgpoke_sessions";
-const _MAX_SESSIONS=10;
+const _MAX_SESSIONS=6;
 
 function _loadSessions(){
     try{
         const d=JSON.parse(localStorage.getItem(_SESS_KEY)||"null");
         if(d&&d.sessions&&d.sessions.length){
-            _chatSessions=d.sessions;
+            _chatSessions=d.sessions.slice(-_MAX_SESSIONS); // trim to max
             _curSessionId=d.active||_chatSessions[0].id;
+            if(!_chatSessions.find(s=>s.id===_curSessionId)) _curSessionId=_chatSessions[_chatSessions.length-1].id;
         } else {
             // Migrate old single-session data
             const old=JSON.parse(localStorage.getItem("tgpoke_chat")||"null");
@@ -1387,10 +1393,7 @@ function _switchSession(id){
     _saveSessions();
 }
 function _createSession(){
-    if(_chatSessions.length>=_MAX_SESSIONS){
-        // Remove oldest
-        _chatSessions.shift();
-    }
+    if(_chatSessions.length>=_MAX_SESSIONS) return; // max 6
     const id=Date.now().toString(36);
     const num=_chatSessions.length+1;
     const s={id,name:"대화 "+num,msgs:[],history:[]};
@@ -1412,7 +1415,7 @@ function _renderSessionBar(){
         const del=_chatSessions.length>1?`<span class="sess-tab-del" onclick="event.stopPropagation();_deleteSession('${s.id}')">✕</span>`:"";
         h+=`<button class="sess-tab ${active}" onclick="_switchSession('${s.id}')">${s.name}${del}</button>`;
     });
-    h+=`<button class="sess-tab-new" onclick="_createSession()" title="새 대화">+</button>`;
+    if(_chatSessions.length<_MAX_SESSIONS) h+=`<button class="sess-tab-new" onclick="_createSession()" title="새 대화">+</button>`;
     bar.innerHTML=h;
 }
 function _renderChatMsgs(){
