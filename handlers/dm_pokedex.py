@@ -1433,8 +1433,15 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     title_id = query.data.replace("title_", "")
 
     if title_id == "none":
+        # 기존 칭호에 버프가 있었는지 확인
+        user = await queries.get_user(user_id)
+        old_title = user.get("title", "") if user else ""
+        old_buff = config.get_title_buff_by_name(old_title) if old_title else None
         await queries.equip_title(user_id, "", "")
-        await query.edit_message_text("🚫 칭호를 해제했습니다.")
+        warn = ""
+        if old_buff:
+            warn = "\n\n⚠️ 칭호 효과가 비활성화됩니다!"
+        await query.edit_message_text(f"🚫 칭호를 해제했습니다.{warn}")
         return
 
     # Check if user has this title
@@ -1449,7 +1456,23 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name, emoji, desc, _, _ = t_info
     await queries.equip_title(user_id, name, emoji)
     badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
-    await query.edit_message_text(f"{icon_emoji('check')} 칭호 장착: 「{badge} {name}」\n\n채팅방에서 이름 옆에 표시됩니다!", parse_mode="HTML")
+
+    buff = config.TITLE_BUFFS.get(title_id)
+    buff_msg = ""
+    if buff:
+        parts = []
+        if buff.get("daily_masterball"):
+            parts.append(f"  • 매일 마스터볼 +{buff['daily_masterball']}개 지급")
+        if buff.get("extra_feed"):
+            parts.append(f"  • 밥주기 횟수 +{buff['extra_feed']}회 (일 {config.FEED_PER_DAY + buff['extra_feed']}회)")
+        if parts:
+            buff_msg = "\n\n✨ 칭호 효과 활성화!\n" + "\n".join(parts)
+
+    await query.edit_message_text(
+        f"{icon_emoji('check')} 칭호 장착: 「{badge} {name}」\n\n"
+        f"채팅방에서 이름 옆에 표시됩니다!{buff_msg}",
+        parse_mode="HTML",
+    )
 
 
 # ============================================================
