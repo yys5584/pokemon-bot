@@ -213,6 +213,22 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
                     f" {SKULL}{dead_name} 쓰러짐! ▶ {c_mon['name']} 등장!"
                 )
                 turn_data.append({"type": "ko", "dead_name": dead_name, "next_name": c_mon["name"], "next_idx": c_idx, "next_total": c_total, "side": "challenger"})
+                # New matchup entry for correct max_hp tracking
+                if d_idx < len(defender_team) and d_mon["current_hp"] > 0:
+                    match_turn = 0
+                    log_lines.append(
+                        f"\n({c_idx+1}/{c_total}) {c_mon['tb']}{c_mon['name']}({c_mon['iv_grade']})"
+                        f" ⚔ ({d_idx+1}/{d_total}) {d_mon['tb']}{d_mon['name']}({d_mon['iv_grade']})"
+                    )
+                    turn_data.append({
+                        "type": "matchup",
+                        "c_name": c_mon["name"], "d_name": d_mon["name"],
+                        "c_tb": c_mon["tb"], "d_tb": d_mon["tb"],
+                        "c_idx": c_idx, "d_idx": d_idx,
+                        "c_total": c_total, "d_total": d_total,
+                        "c_hp": c_mon["current_hp"], "d_hp": d_mon["current_hp"],
+                        "c_max_hp": c_mon["current_hp"], "d_max_hp": d_mon["current_hp"],
+                    })
             else:
                 log_lines.append(f" {SKULL}{dead_name} 쓰러짐!")
                 turn_data.append({"type": "ko", "dead_name": dead_name, "next_name": None, "side": "challenger"})
