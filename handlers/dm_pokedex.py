@@ -9,6 +9,8 @@ import config
 from database import queries
 from utils.helpers import hearts_display, rarity_display, rarity_badge, rarity_badge_label, escape_html
 from utils.card_generator import generate_card
+from utils.parse import parse_number, parse_name_arg
+from utils.battle_calc import iv_total
 
 logger = logging.getLogger(__name__)
 
@@ -969,3 +971,99 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text("\n".join(lines), reply_markup=menu_keyboard)
+
+
+# ============================================================
+# IV Appraisal (감정)
+# ============================================================
+
+async def appraisal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '감정 [이름/번호]' command — show Pokemon IV stats."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    await queries.ensure_user(
+        user_id,
+        update.effective_user.first_name or "트레이너",
+        update.effective_user.username,
+    )
+
+    text = update.message.text or ""
+    index = parse_number(text)
+    name_arg = parse_name_arg(text)
+
+    pokemon = None
+    if index is not None:
+        pokemon = await queries.get_user_pokemon_by_index(user_id, index)
+    elif name_arg:
+        pokemon = await queries.get_user_pokemon_by_name(user_id, name_arg)
+    else:
+        await update.message.reply_text("사용법: 감정 [이름 또는 번호]\n예: 감정 피카츄, 감정 3")
+        return
+
+    if not pokemon:
+        query = index if index is not None else name_arg
+        await update.message.reply_text(
+            f"'{query}' 포켓몬을 찾을 수 없습니다.\n내포켓몬 으로 목록을 확인하세요."
+        )
+        return
+
+    # Read IVs
+    ivs = {
+        "HP": pokemon.get("iv_hp"),
+        "ATK": pokemon.get("iv_atk"),
+        "DEF": pokemon.get("iv_def"),
+        "SPA": pokemon.get("iv_spa"),
+        "SPDEF": pokemon.get("iv_spdef"),
+        "SPD": pokemon.get("iv_spd"),
+    }
+
+    total = iv_total(
+        ivs["HP"], ivs["ATK"], ivs["DEF"],
+        ivs["SPA"], ivs["SPDEF"], ivs["SPD"],
+    )
+    grade, _ = config.get_iv_grade(total)
+    pct = round(total / 186 * 100, 1)
+
+    # Build display
+    shiny = "✨" if pokemon.get("is_shiny") else ""
+    rb = rarity_badge(pokemon.get("rarity", "common"))
+    name = pokemon["name_ko"]
+
+    stat_labels = {
+        "HP": "HP   ", "ATK": "공격 ", "DEF": "방어 ",
+        "SPA": "특공 ", "SPDEF": "특방 ", "SPD": "스피드",
+    }
+
+    lines = [f"📋 {shiny}{rb}{pokemon['emoji']} {name} 감정 결과\n"]
+    max_iv = config.IV_MAX  # 31
+
+    for key in ("HP", "ATK", "DEF", "SPA", "SPDEF", "SPD"):
+        v = ivs[key] if ivs[key] is not None else 15
+        label = stat_labels[key]
+        filled = round(v / max_iv * 6)
+        bar = "█" * filled + "░" * (6 - filled)
+        # Highlight perfect (31) or near-perfect (28+)
+        if v >= 28:
+            mark = " ★"
+        elif v <= 5:
+            mark = " ✗"
+        else:
+            mark = ""
+        lines.append(f"{label} {bar} {v}/{max_iv}{mark}")
+
+    lines.append(f"\n총합: {total}/186 ({pct}%)")
+    lines.append(f"등급: {grade}")
+
+    # Grade flavor text
+    flavor = {
+        "S": "이 포켓몬은 최상급 개체입니다!",
+        "A": "매우 뛰어난 개체입니다.",
+        "B": "괜찮은 개체입니다.",
+        "C": "평범한 개체입니다.",
+        "D": "개체값이 낮습니다...",
+    }
+    lines.append(flavor.get(grade, ""))
+
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")

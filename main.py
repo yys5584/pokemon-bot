@@ -23,7 +23,7 @@ from database import queries
 
 from handlers.start import start_handler, help_handler
 from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, ranking_handler, log_handler, dashboard_handler, on_chat_activity, close_message_callback
-from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, status_handler
+from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, status_handler, appraisal_handler
 from handlers.battle import (
     partner_handler, partner_callback_handler,
     team_handler, team_register_handler, team_clear_handler, team_select_handler,
@@ -228,6 +228,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^밥(\s+.+)?$"), feed_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^놀기(\s+.+)?$"), play_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^진화(\s+.+)?$"), evolve_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^감정(\s+.+)?$"), appraisal_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^교환\s"), trade_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^수락"), accept_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^거절"), reject_handler))
