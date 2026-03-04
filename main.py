@@ -66,37 +66,42 @@ logger = logging.getLogger(__name__)
 
 async def post_init(application: Application):
     """Called after Application.initialize() — set up DB, seed, schedule."""
+    import time
+    t0 = time.monotonic()
+
+    # Phase 1: DB 연결 + 테이블 생성 + 포켓몬 시드 (순차 필수)
     logger.info("Initializing database...")
     await get_db()
     await create_tables()
     await seed_pokemon_data()
-    await seed_battle_data()
-    migrated = await migrate_18_types()
+    logger.info(f"[{time.monotonic()-t0:.1f}s] DB + schema + seed done")
+
+    # Phase 2: 배틀데이터 시드 + 마이그레이션 (병렬)
+    migrated, iv_assigned, _ = await asyncio.gather(
+        migrate_18_types(),
+        migrate_assign_ivs(),
+        seed_battle_data(),
+    )
     if migrated:
         logger.info(f"18-type migration applied: {migrated} pokemon updated.")
-    iv_assigned = await migrate_assign_ivs()
     if iv_assigned:
         logger.info(f"IV migration: {iv_assigned} pokemon received random IVs.")
-    logger.info("Database ready. 251 Pokemon seeded.")
+    logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready. 251 Pokemon seeded.")
 
-    # Cleanup expired sessions and events from previous runs
-    await queries.cleanup_expired_sessions()
-    await queries.cleanup_expired_events()
-
-    # Fetch initial weather
+    # Phase 3: 독립 작업 병렬 (cleanup + weather + missed_reset + dashboard)
     weather_city = os.getenv("WEATHER_CITY", "Seoul")
-    await update_weather(weather_city)
+    await asyncio.gather(
+        queries.cleanup_expired_sessions(),
+        queries.cleanup_expired_events(),
+        update_weather(weather_city),
+        _check_missed_reset(),
+        start_dashboard(),
+    )
+    logger.info(f"[{time.monotonic()-t0:.1f}s] Cleanup + weather + dashboard done")
 
-    # Check if daily reset was missed (e.g. bot restarted after midnight)
-    await _check_missed_reset()
-
-    # Schedule spawns for all active chats
+    # Phase 4: 스폰 스케줄링 (Telegram API 호출 필요, 마지막)
     await schedule_all_chats(application)
-    logger.info("Spawn scheduling complete.")
-
-    # Start dashboard web server
-    await start_dashboard()
-    logger.info("Dashboard server started.")
+    logger.info(f"[{time.monotonic()-t0:.1f}s] Startup complete.")
 
 
     # Notify recently active users about restart
@@ -147,11 +152,13 @@ async def _check_missed_reset():
         today = config.get_kst_today()
         if marker != today:
             logger.info(f"Missed daily reset detected (last={marker}, today={today}). Running now...")
-            await queries.reset_daily_nurture()
-            await queries.reset_catch_limits()
-            await queries.reset_force_spawn_counts()
-            await queries.reset_daily_spawn_counts()
-            await queries.cleanup_old_activity(days=7)
+            await asyncio.gather(
+                queries.reset_daily_nurture(),
+                queries.reset_catch_limits(),
+                queries.reset_force_spawn_counts(),
+                queries.reset_daily_spawn_counts(),
+                queries.cleanup_old_activity(days=7),
+            )
             await pool.execute(
                 """INSERT INTO bot_settings (key, value) VALUES ('last_daily_reset', $1)
                    ON CONFLICT (key) DO UPDATE SET value = $1""",
@@ -166,40 +173,40 @@ async def _check_missed_reset():
 
 # --- Midnight reset job ---
 
+async def _grant_title_buffs():
+    """칭호 버프: 일일 마스터볼 지급."""
+    if not config.BUFF_TITLE_NAMES:
+        return
+    from database.connection import get_db
+    pool = await get_db()
+    buff_users = await pool.fetch(
+        "SELECT user_id, title FROM users WHERE title = ANY($1)",
+        config.BUFF_TITLE_NAMES,
+    )
+    for bu in buff_users:
+        buff = config.get_title_buff_by_name(bu["title"])
+        if buff and buff.get("daily_masterball"):
+            await queries.add_master_ball(bu["user_id"], buff["daily_masterball"])
+            logger.info(f"Title buff: +{buff['daily_masterball']} masterball to user {bu['user_id']} ({bu['title']})")
+
+
 async def midnight_reset(context):
     """Reset at 9AM/9PM KST: catch limits, bonus, nurture, force spawn, spawns."""
     logger.info("Running scheduled reset...")
 
-    # Reset daily feed/play counts
-    await queries.reset_daily_nurture()
-
-    # Reset catch limits & bonus catches
-    await queries.reset_catch_limits()
-
-    # Reset force spawn counts
-    await queries.reset_force_spawn_counts()
-
-    # Reset daily spawn counts for chat rooms
-    await queries.reset_daily_spawn_counts()
-
-    # Clean old activity data
-    await queries.cleanup_old_activity(days=7)
-
-    # Title buff: daily masterball grant
-    from database.connection import get_db
-    pool = await get_db()
-    if config.BUFF_TITLE_NAMES:
-        buff_users = await pool.fetch(
-            "SELECT user_id, title FROM users WHERE title = ANY($1)",
-            config.BUFF_TITLE_NAMES,
-        )
-        for bu in buff_users:
-            buff = config.get_title_buff_by_name(bu["title"])
-            if buff and buff.get("daily_masterball"):
-                await queries.add_master_ball(bu["user_id"], buff["daily_masterball"])
-                logger.info(f"Title buff: +{buff['daily_masterball']} masterball to user {bu['user_id']} ({bu['title']})")
+    # 모든 리셋 작업 병렬 실행
+    await asyncio.gather(
+        queries.reset_daily_nurture(),
+        queries.reset_catch_limits(),
+        queries.reset_force_spawn_counts(),
+        queries.reset_daily_spawn_counts(),
+        queries.cleanup_old_activity(days=7),
+        _grant_title_buffs(),
+    )
 
     # Record reset timestamp
+    from database.connection import get_db
+    pool = await get_db()
     today = config.get_kst_today()
     await pool.execute(
         """INSERT INTO bot_settings (key, value) VALUES ('last_daily_reset', $1)
