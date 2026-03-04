@@ -47,12 +47,13 @@ async def seed_battle_data():
     if row and row["cnt"] > 50:
         return  # Already seeded
 
-    for pid, (ptype, stype) in POKEMON_BATTLE_DATA.items():
-        await pool.execute(
+    batch_args = [(ptype, stype, pid) for pid, (ptype, stype) in POKEMON_BATTLE_DATA.items()]
+    if batch_args:
+        await pool.executemany(
             """UPDATE pokemon_master
                SET pokemon_type = $1, stat_type = $2
                WHERE id = $3""",
-            ptype, stype, pid,
+            batch_args,
         )
 
 
@@ -74,17 +75,16 @@ async def migrate_18_types():
     if row and row["cnt"] > 0:
         return False  # Already migrated
 
-    updated = 0
-    for pid, (ptype, stype) in POKEMON_BATTLE_DATA.items():
-        await pool.execute(
+    batch_args = [(ptype, stype, pid) for pid, (ptype, stype) in POKEMON_BATTLE_DATA.items()]
+    if batch_args:
+        await pool.executemany(
             """UPDATE pokemon_master
                SET pokemon_type = $1, stat_type = $2
                WHERE id = $3""",
-            ptype, stype, pid,
+            batch_args,
         )
-        updated += 1
 
-    return updated
+    return len(batch_args)
 
 
 async def migrate_assign_ivs():
@@ -114,30 +114,29 @@ async def migrate_assign_ivs():
         "SELECT id, is_shiny FROM user_pokemon WHERE iv_hp IS NULL"
     )
 
-    updated = 0
+    # Build batch args for executemany (much faster than individual queries)
+    batch_args = []
     for r in rows:
         is_shiny = bool(r["is_shiny"])
         low = config.IV_SHINY_MIN if is_shiny else config.IV_MIN
         high = config.IV_MAX
+        batch_args.append((
+            random.randint(low, high),  # hp
+            random.randint(low, high),  # atk
+            random.randint(low, high),  # def
+            random.randint(low, high),  # spa
+            random.randint(low, high),  # spdef
+            random.randint(low, high),  # spd
+            r["id"],
+        ))
 
-        ivs = {
-            "hp": random.randint(low, high),
-            "atk": random.randint(low, high),
-            "def": random.randint(low, high),
-            "spa": random.randint(low, high),
-            "spdef": random.randint(low, high),
-            "spd": random.randint(low, high),
-        }
-
-        await pool.execute(
+    if batch_args:
+        await pool.executemany(
             """UPDATE user_pokemon
                SET iv_hp = $1, iv_atk = $2, iv_def = $3,
                    iv_spa = $4, iv_spdef = $5, iv_spd = $6
                WHERE id = $7""",
-            ivs["hp"], ivs["atk"], ivs["def"],
-            ivs["spa"], ivs["spdef"], ivs["spd"],
-            r["id"],
+            batch_args,
         )
-        updated += 1
 
-    return updated
+    return len(batch_args)
