@@ -43,7 +43,7 @@ from handlers.admin import (
     pokeball_reset_handler,
     event_start_handler, event_list_handler, event_end_handler,
     stats_handler, channel_list_handler, grant_masterball_handler,
-    arcade_handler, force_tournament_reg_handler,
+    arcade_handler, force_tournament_reg_handler, force_tournament_run_handler,
 )
 
 from services.spawn_service import schedule_all_chats
@@ -305,6 +305,7 @@ def main():
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^마볼지급"), grant_masterball_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^아케이드"), arcade_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회시작$"), force_tournament_reg_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회진행$"), force_tournament_run_handler))
 
     # Pokeball recharge
     app.add_handler(MessageHandler(group & filters.Regex(r"^포켓볼\s*충전$"), love_easter_egg))

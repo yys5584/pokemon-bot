@@ -500,6 +500,7 @@ RARITY_CUSTOM_EMOJI = {
     "epic": "6141022159117492116",
     "rare": "6140797725601438152",
     "common": "6140791433474351151",
+    "red": "6143244830462975904",
 }
 
 # --- Custom Emoji IDs (Type Badges) ---

@@ -28,7 +28,7 @@ async def _safe_send(bot, chat_id, text, **kwargs):
             await asyncio.sleep(wait)
     # last attempt without catch
     return await bot.send_message(chat_id=chat_id, text=text, **kwargs)
-from utils.helpers import icon_emoji, ball_emoji
+from utils.helpers import icon_emoji, ball_emoji, rarity_badge
 
 logger = logging.getLogger(__name__)
 
@@ -197,9 +197,9 @@ async def _run_match(
     Returns (winner_user_id, winner_data).
     """
     SKULL = icon_emoji("skull")
-    # Team labels: challenger = 🔴, defender = 🔵
-    C = "🔴"
-    D = "🔵"
+    # Team labels: challenger = red badge, defender = rare(blue) badge
+    C = rarity_badge("red")
+    D = rarity_badge("rare")
 
     # Prepare combatants
     partner1 = await bq.get_partner(p1_id)
