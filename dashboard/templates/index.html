@@ -251,7 +251,7 @@
             <div class="grid-3" style="margin-top:10px">
                 <div class="section"><h2>🏆 토너먼트 우승자</h2><div id="tournamentWinnersBR"><div class="loading">로딩 중...</div></div></div>
                 <div class="section"><h2>📖 도감 랭킹</h2><div id="fullUsersTable"><div class="loading">로딩 중...</div></div></div>
-                <div class="section"><h2>⭐ 이로치 보유자</h2><div id="shinyHoldersFull"><div class="loading">로딩 중...</div></div></div>
+                <div class="section"><h2>⭐ 이로치 / 개체값</h2><div class="rank-filters" id="shinyIvBtns"><button class="rank-filter active" data-tab="shiny">이로치</button><button class="rank-filter" data-tab="iv">개체값</button></div><div id="shinyHoldersFull"><div class="loading">로딩 중...</div></div><div id="ivRankingFull" style="display:none"><div class="loading">로딩 중...</div></div></div>
             </div>
         </div>
 
@@ -517,12 +517,13 @@ async function loadChannels(){
 
 // --- BATTLE & RANKING ---
 async function loadBattleRank(){
-    const[ranking,teams,users,kpi,tWinnersBR]=await Promise.all([
+    const[ranking,teams,users,kpi,tWinnersBR,ivRanking]=await Promise.all([
         fetchJSON("/api/battle/ranking"),
         fetchJSON("/api/battle/ranking-teams"),
         fetchJSON("/api/users"),
         fetchJSON("/api/fun-kpis"),
-        fetchJSON("/api/tournament/winners")
+        fetchJSON("/api/tournament/winners"),
+        fetchJSON("/api/iv-ranking")
     ]);
 
     // Battle ranking with paging + team tooltip + sort
@@ -586,6 +587,28 @@ async function loadBattleRank(){
         top10.forEach((r,i)=>{sh+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td style="font-weight:700;color:var(--gold)">★ ${r.shiny_count}</td></tr>`});
         document.getElementById("shinyHoldersFull").innerHTML=sh+"</tbody></table>";
     }else{document.getElementById("shinyHoldersFull").innerHTML='<p class="empty-msg">이로치 보유자 없음</p>'}
+
+    // IV ranking (top 10)
+    const ivEl=document.getElementById("ivRankingFull");
+    if(ivRanking&&ivRanking.length){
+        let ih=`<table><thead><tr><th>#</th><th>이름</th><th>포켓몬</th><th>개체값</th></tr></thead><tbody>`;
+        ivRanking.forEach((r,i)=>{
+            const shiny=r.is_shiny?"✨":"";
+            ih+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td>${shiny}${r.emoji} ${r.name_ko}</td><td style="font-weight:700;color:var(--green)">${r.iv_grade}급 ${r.iv_total}점</td></tr>`;
+        });
+        ivEl.innerHTML=ih+"</tbody></table>";
+    }else{ivEl.innerHTML='<p class="empty-msg">개체값 데이터 없음</p>'}
+
+    // Shiny/IV tab switching
+    document.querySelectorAll("#shinyIvBtns .rank-filter").forEach(btn=>{
+        btn.addEventListener("click",()=>{
+            document.querySelectorAll("#shinyIvBtns .rank-filter").forEach(b=>b.classList.remove("active"));
+            btn.classList.add("active");
+            const tab=btn.dataset.tab;
+            document.getElementById("shinyHoldersFull").style.display=tab==="shiny"?"":"none";
+            document.getElementById("ivRankingFull").style.display=tab==="iv"?"":"none";
+        });
+    });
 
     // Tournament winners (for battle page)
     const twBREl=document.getElementById("tournamentWinnersBR");

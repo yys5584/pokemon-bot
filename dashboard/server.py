@@ -18,8 +18,18 @@ logger = logging.getLogger(__name__)
 
 # Map Telegram custom emoji icon keys to unicode emoji for web display
 _ICON_TO_UNICODE = {
+    # UI icons
     "champion_first": "👑", "champion": "🏆",
-    "crystal": "💎", "skull": "💀",
+    "crystal": "💎", "skull": "💀", "crown": "👑",
+    # Pokemon character icons → unicode
+    "caterpie": "🐛", "rattata": "🐭", "pikachu": "⚡",
+    "charmander": "🔥", "bulbasaur": "🌿", "squirtle": "💧",
+    "mew": "🌟", "chikorita": "🍃", "bellsprout": "🌱",
+    "eevee": "🦊", "victini": "✌️", "dratini": "🐉",
+    "mankey": "🐵", "zubat": "🦇", "venonat": "🌙",
+    "meowth": "🐱", "jigglypuff": "🎤", "abra": "🔮",
+    "articuno": "❄️", "snorlax": "😴", "moltres": "🔥",
+    "psyduck": "🦆",
 }
 
 
@@ -140,6 +150,31 @@ async def api_fun_kpis(request):
         "love_leaders": love_leaders,
         "shiny_holders": shiny_holders,
     })
+
+
+async def api_iv_ranking(request):
+    """Top 10 users by highest single-pokemon IV total."""
+    import config
+    pool = await queries.get_db()
+    rows = await pool.fetch("""
+        SELECT DISTINCT ON (up.user_id)
+               up.user_id, u.display_name,
+               pm.name_ko, pm.emoji, up.is_shiny,
+               (COALESCE(up.iv_hp,0) + COALESCE(up.iv_atk,0) + COALESCE(up.iv_def,0)
+                + COALESCE(up.iv_spa,0) + COALESCE(up.iv_spdef,0) + COALESCE(up.iv_spd,0)) as iv_total
+        FROM user_pokemon up
+        JOIN users u ON up.user_id = u.user_id
+        JOIN pokemon_master pm ON up.pokemon_id = pm.id
+        WHERE up.iv_hp IS NOT NULL
+        ORDER BY up.user_id, iv_total DESC
+    """)
+    # Sort by iv_total desc, take top 10
+    result = sorted([dict(r) for r in rows], key=lambda x: x["iv_total"], reverse=True)[:10]
+    # Add grade
+    for r in result:
+        grade, _ = config.get_iv_grade(r["iv_total"])
+        r["iv_grade"] = grade
+    return pg_json_response(result)
 
 
 # --- Battle APIs ---
@@ -321,6 +356,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/pokemon/stats", api_pokemon_stats)
     app.router.add_get("/api/events", api_events)
     app.router.add_get("/api/fun-kpis", api_fun_kpis)
+    app.router.add_get("/api/iv-ranking", api_iv_ranking)
     app.router.add_get("/api/battle/ranking", api_battle_ranking)
     app.router.add_get("/api/battle/recent", api_battle_recent)
     app.router.add_get("/api/battle/ranking-teams", api_battle_ranking_teams)
