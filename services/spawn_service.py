@@ -455,20 +455,19 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Get all catch attempts
         attempts = await queries.get_session_attempts(session_id)
 
-        # Delete all attempt messages (도전!, 마스터볼 투척!, 하이퍼볼 투척!)
-        await _delete_attempt_messages(context.bot, session_id)
+        # Clean up tracking (but keep messages visible)
+        _attempt_messages.pop(session_id, None)
 
         if not attempts:
             # Nobody tried
             shiny_tag = " ✨이로치" if is_shiny else ""
             rbadge = rarity_badge(rarity)
             tb = type_badge(pokemon_id)
-            escape_msg = await context.bot.send_message(
+            await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"흔들흔들... 💨{shiny_tag} {rbadge}{tb}{pokemon_emoji} {pokemon_name} 도망갔다!",
                 parse_mode="HTML",
             )
-            schedule_delete(escape_msg, config.AUTO_DEL_SPAWN_ESCAPE)
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
@@ -520,12 +519,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             shiny_tag = " ✨이로치" if is_shiny else ""
             rbadge = rarity_badge(rarity)
             tb = type_badge(pokemon_id)
-            escape_msg = await context.bot.send_message(
+            await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"흔들흔들... 💨{shiny_tag} {rbadge}{tb}{pokemon_emoji} {pokemon_name} 도망갔다!",
                 parse_mode="HTML",
             )
-            schedule_delete(escape_msg, config.AUTO_DEL_SPAWN_ESCAPE)
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
