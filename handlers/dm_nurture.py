@@ -96,9 +96,17 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if pokemon is None:
         return
 
-    if pokemon["fed_today"] >= config.FEED_PER_DAY:
+    # 칭호 버프: 밥주기 추가 횟수
+    feed_limit = config.FEED_PER_DAY
+    user_data = await queries.get_user(user_id)
+    if user_data and user_data.get("title"):
+        buff = config.get_title_buff_by_name(user_data["title"])
+        if buff and buff.get("extra_feed"):
+            feed_limit += buff["extra_feed"]
+
+    if pokemon["fed_today"] >= feed_limit:
         await update.message.reply_text(
-            f"오늘은 이미 {pokemon['name_ko']}에게 밥을 {config.FEED_PER_DAY}번 줬습니다!"
+            f"오늘은 이미 {pokemon['name_ko']}에게 밥을 {feed_limit}번 줬습니다!"
         )
         return
 
@@ -116,7 +124,7 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await queries.update_pokemon_friendship(pokemon["id"], new_friendship)
     await queries.increment_feed(pokemon["id"])
 
-    remaining = config.FEED_PER_DAY - pokemon["fed_today"] - 1
+    remaining = feed_limit - pokemon["fed_today"] - 1
     hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 

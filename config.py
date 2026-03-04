@@ -420,9 +420,26 @@ TOURNAMENT_PRIZE_4TH_BP = 50    # 4강 BP
 # --- Tournament Titles ---
 TOURNAMENT_TITLES = {
     "tournament_first": ("쉬었음청년",     "champion_first",    "임시대회 우승자",  "tournament_first", 1),
+    "inaugural_champ":  ("초대 챔피언",    "champion_first",    "최초 공식 토너먼트 우승자", "inaugural_champ", 1),
     "tournament_champ": ("토너먼트 챔피언", "champion",      "토너먼트 우승 1회",       "tournament_win", 1),
 }
 UNLOCKABLE_TITLES.update(TOURNAMENT_TITLES)
+
+# --- Title Buffs (착용 시 효과) ---
+# title_id -> {"daily_masterball": int, "extra_feed": int}
+TITLE_BUFFS = {
+    "inaugural_champ": {"daily_masterball": 1, "extra_feed": 1},
+}
+
+def get_title_buff_by_name(title_name: str) -> dict | None:
+    """착용 중인 칭호 이름으로 버프 dict 반환. 없으면 None."""
+    for title_id, buff in TITLE_BUFFS.items():
+        if UNLOCKABLE_TITLES[title_id][0] == title_name:
+            return buff
+    return None
+
+# 버프가 있는 칭호 이름 목록 (DB 쿼리용)
+BUFF_TITLE_NAMES = [UNLOCKABLE_TITLES[tid][0] for tid in TITLE_BUFFS]
 
 # --- Shiny (이로치) Titles ---
 SHINY_TITLES = {

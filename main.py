@@ -185,9 +185,21 @@ async def midnight_reset(context):
     # Clean old activity data
     await queries.cleanup_old_activity(days=7)
 
-    # Record reset timestamp
+    # Title buff: daily masterball grant
     from database.connection import get_db
     pool = await get_db()
+    if config.BUFF_TITLE_NAMES:
+        buff_users = await pool.fetch(
+            "SELECT user_id, title FROM users WHERE title = ANY($1)",
+            config.BUFF_TITLE_NAMES,
+        )
+        for bu in buff_users:
+            buff = config.get_title_buff_by_name(bu["title"])
+            if buff and buff.get("daily_masterball"):
+                await queries.add_master_ball(bu["user_id"], buff["daily_masterball"])
+                logger.info(f"Title buff: +{buff['daily_masterball']} masterball to user {bu['user_id']} ({bu['title']})")
+
+    # Record reset timestamp
     today = config.get_kst_today()
     await pool.execute(
         """INSERT INTO bot_settings (key, value) VALUES ('last_daily_reset', $1)
