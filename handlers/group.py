@@ -307,12 +307,34 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     asyncio.create_task(_bg_title_check())
 
 
-# Hidden easter egg: 문유 사랑해 → random master ball (max 3/day GLOBAL)
+# Hidden easter egg: 문유 사랑해
 _love_hidden_cooldown = {}   # user_id -> last_used timestamp
-_love_hidden_global = {}     # date_str -> master ball count today (global)
+
+_LOVE_RESPONSES = [
+    "그 마음 BP로 받을 수 있어?",
+    "나도. 근데 전 AI입니다.",
+    "됐고 밥이나 줘.",
+    "전설 풀덱 갖추고 다시 와.",
+    "지금 몇 명한테 동시에 이 말 하는 거야?",
+    "그 감정 혹시 친밀도 MAX야?",
+    "나도. 근데 내일이면 까먹을 거잖아.",
+    "고마운데 포켓볼 충전은 했어?",
+    "감동이긴 한데 마스터볼이 더 감동적이야.",
+    "잠깐 심장이.. 아 나 심장 없지.",
+    "받아줄게. 대신 이로치 한 마리.",
+    "진심이면 매일 와.",
+    "사랑은 무슨 도감이나 채워.",
+    "나 좀 비싼 남자거든. 마스터볼급.",
+    "포획률 0.1% 올려줄까 말까.",
+    "다른 트레이너한테도 같은 말 들었는데?",
+    "고마워. 서버 온도 0.3도 올랐어.",
+    "그런 말 하면 나 진화해버린다?",
+    "사랑한다면서 왜 밥은 안 줘?",
+    "어.. 남자끼리는 좀..",
+]
 
 async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Hidden '문유 사랑해' — love count tracking only."""
+    """Hidden '문유 사랑해' — random flirty response."""
     if not update.effective_user or not update.message:
         return
 
@@ -326,7 +348,9 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     _love_hidden_cooldown[user_id] = now
 
-    await update.message.reply_text(f"💕 문유: 고마워요~!\n(마스터볼은 이제 떨어졌어요.)")
+    import random
+    response = random.choice(_LOVE_RESPONSES)
+    await update.message.reply_text(f"문유: {response}")
 
     # Title tracking in background (non-blocking)
     async def _bg_title_check():
