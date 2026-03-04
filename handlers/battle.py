@@ -491,9 +491,13 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tb = type_badge(p["pokemon_id"], p["pokemon_type"])
         partner_mark = " 🤝" if p["pokemon_instance_id"] == partner_instance else ""
         rb = rarity_badge(p["rarity"])
+        iv_sum = iv_total(p.get("iv_hp"), p.get("iv_atk"), p.get("iv_def"),
+                          p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
+        iv_grade, _ = config.get_iv_grade(iv_sum)
+        iv_tag = f"[{iv_grade}: {iv_sum}] " if iv_sum > 0 else ""
         lines.append(
             f"{slot_emojis[i]} {rb}{tb} {p['name_ko']}{partner_mark}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
-            f"    {format_stats_line(stats, base)}"
+            f"    {iv_tag}{format_stats_line(stats, base)}"
         )
     iv_diff = total_power - total_base_power
     total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)

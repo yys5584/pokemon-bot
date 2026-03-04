@@ -25,6 +25,12 @@
         .nav-tab:hover{color:var(--text);background:var(--hover)}
         .nav-tab.active{color:var(--red);border-bottom-color:var(--red);font-weight:600}
 
+        /* Rank Filters */
+        .rank-filters{display:flex;gap:6px;margin-bottom:8px}
+        .rank-filter{padding:4px 12px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s}
+        .rank-filter:hover{color:var(--text);border-color:var(--text)}
+        .rank-filter.active{background:var(--red);color:#fff;border-color:var(--red);font-weight:600}
+
         /* Container */
         .container{max-width:1400px;margin:0 auto;padding:12px 14px}
         .page{display:none}.page.active{display:block}
@@ -239,7 +245,7 @@
         <!-- BATTLE & RANKING -->
         <div class="page" id="page-battlerank">
             <div class="grid-rank">
-                <div class="section"><h2>⚔️ 배틀 랭킹</h2><div id="battleRanking"><div class="loading">로딩 중...</div></div></div>
+                <div class="section"><h2>⚔️ 배틀 랭킹</h2><div class="rank-filters" id="battleSortBtns"><button class="rank-filter active" data-sort="bp">BP</button><button class="rank-filter" data-sort="wr">승률</button><button class="rank-filter" data-sort="wins">승리</button><button class="rank-filter" data-sort="streak">연승</button></div><div id="battleRanking"><div class="loading">로딩 중...</div></div></div>
                 <div>
                     <div class="section"><h2>📖 도감 랭킹</h2><div id="fullUsersTable"><div class="loading">로딩 중...</div></div></div>
                     <div class="section" style="margin-top:10px"><h2>⭐ 이로치 보유자</h2><div id="shinyHoldersFull"><div class="loading">로딩 중...</div></div></div>
@@ -516,9 +522,16 @@ async function loadBattleRank(){
         fetchJSON("/api/fun-kpis")
     ]);
 
-    // Battle ranking with paging + team tooltip
-    if(ranking&&ranking.length){
-        renderPaged("battleRanking",ranking,10,function(slice,offset){
+    // Battle ranking with paging + team tooltip + sort
+    function renderBattleRanking(sortKey){
+        const sorters={
+            bp:(a,b)=>b.battle_points-a.battle_points||(b.battle_wins-a.battle_wins),
+            wr:(a,b)=>{const at=a.battle_wins+a.battle_losses,bt=b.battle_wins+b.battle_losses;const ar=at>0?a.battle_wins/at:0,br=bt>0?b.battle_wins/bt:0;return br-ar||b.battle_wins-a.battle_wins},
+            wins:(a,b)=>b.battle_wins-a.battle_wins,
+            streak:(a,b)=>b.best_streak-a.best_streak||b.battle_wins-a.battle_wins,
+        };
+        const sorted=[...ranking].sort(sorters[sortKey]||sorters.bp);
+        renderPaged("battleRanking",sorted,10,function(slice,offset){
             let h=`<table><thead><tr><th>#</th><th>이름</th><th>승</th><th>패</th><th>승률</th><th>최고연승</th><th>BP</th></tr></thead><tbody>`;
             slice.forEach((r,i)=>{
                 const idx=offset+i;
@@ -538,6 +551,16 @@ async function loadBattleRank(){
                 h+=`<tr><td>${idx<3?medals[idx]:idx+1}</td><td>${nameCell}</td><td style="color:var(--green);font-weight:600">${r.battle_wins}</td><td style="color:var(--red)">${r.battle_losses}</td><td>${wr}</td><td>🔥${r.best_streak}</td><td style="color:var(--gold)">${r.battle_points}</td></tr>`;
             });
             return h+"</tbody></table>";
+        });
+    }
+    if(ranking&&ranking.length){
+        renderBattleRanking("bp");
+        document.querySelectorAll("#battleSortBtns .rank-filter").forEach(btn=>{
+            btn.addEventListener("click",()=>{
+                document.querySelectorAll("#battleSortBtns .rank-filter").forEach(b=>b.classList.remove("active"));
+                btn.classList.add("active");
+                renderBattleRanking(btn.dataset.sort);
+            });
         });
     }else{document.getElementById("battleRanking").innerHTML='<p class="empty-msg">배틀 기록 없음</p>'}
 

@@ -16,6 +16,17 @@ from database import battle_queries as bq
 
 logger = logging.getLogger(__name__)
 
+# Map Telegram custom emoji icon keys to unicode emoji for web display
+_ICON_TO_UNICODE = {
+    "champion_first": "👑", "champion": "🏆",
+    "crystal": "💎", "skull": "💀",
+}
+
+
+def _web_emoji(icon_key: str) -> str:
+    """Convert icon key to unicode emoji for web. Returns as-is if already emoji."""
+    return _ICON_TO_UNICODE.get(icon_key, icon_key)
+
 
 class PGJsonEncoder(json.JSONEncoder):
     """JSON encoder that handles PostgreSQL types (datetime, Decimal)."""
@@ -55,6 +66,9 @@ async def api_chats(request):
 
 async def api_users(request):
     users = await queries.get_user_rankings(20)
+    for u in users:
+        if u.get("title_emoji"):
+            u["title_emoji"] = _web_emoji(u["title_emoji"])
     return pg_json_response(users)
 
 
@@ -132,6 +146,9 @@ async def api_fun_kpis(request):
 
 async def api_battle_ranking(request):
     ranking = await bq.get_battle_ranking(20)
+    for r in ranking:
+        if r.get("title_emoji"):
+            r["title_emoji"] = _web_emoji(r["title_emoji"])
     return pg_json_response(ranking)
 
 
@@ -325,7 +342,7 @@ async def api_tournament_winners(request):
         title_entry = {
             "title_id": r["title_id"],
             "title_name": title_info[0],
-            "title_emoji": title_info[1],
+            "title_emoji": _web_emoji(title_info[1]),
             "title_desc": title_info[2],
             "unlocked_at": r["unlocked_at"].isoformat() if r["unlocked_at"] else None,
         }

@@ -6,7 +6,7 @@ import logging
 import config
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, calc_power, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
-from utils.helpers import type_badge, icon_emoji
+from utils.helpers import type_badge, icon_emoji, rarity_badge
 from models.pokemon_skills import POKEMON_SKILLS
 
 logger = logging.getLogger(__name__)
@@ -411,7 +411,7 @@ async def execute_battle(
     lines = [
         f"{vs} 배틀 결과!",
         "━━━━━━━━━━━━━━━",
-        f"🔴 {c_title_str}{c_name}  {vs}  {d_title_str}{d_name} 🔵",
+        f"{rarity_badge('red')} {c_title_str}{c_name}  {vs}  {d_title_str}{d_name} {rarity_badge('blue')}",
         f"{icon_emoji('bolt')}{c_total_power}          {icon_emoji('bolt')}{d_total_power}",
         "━━━━━━━━━━━━━━━",
         "",
@@ -420,15 +420,20 @@ async def execute_battle(
     # Compact matchup-by-matchup summary from turn_data
     cur_c_name, cur_d_name = "", ""
     cur_c_idx, cur_d_idx = 0, 0
-    cur_c_tb, cur_d_tb = "", ""
     matchup_winner = ""
     matchup_winner_hp = 0
     last_was_ko = False
 
+    red = rarity_badge("red")
+    blue = rarity_badge("blue")
+    br_red = rarity_badge("bracket_red")
+    br_blue = rarity_badge("bracket_blue")
+
     def _matchup_line():
         w_name = cur_c_name if matchup_winner == "c" else cur_d_name
-        arrow = "》" if matchup_winner == "c" else "《"
-        return f"{cur_c_tb}{cur_c_name}({cur_c_idx}) {arrow} {cur_d_tb}{cur_d_name}({cur_d_idx}) → {w_name} 승 HP {matchup_winner_hp}"
+        arrow = br_red if matchup_winner == "c" else br_blue
+        w_badge = red if matchup_winner == "c" else blue
+        return f"{cur_c_name}({cur_c_idx}) {arrow} {cur_d_name}({cur_d_idx}) → {w_badge}{w_name} 승 HP {matchup_winner_hp}"
 
     for td in result["turn_data"]:
         if td["type"] == "matchup":
@@ -436,8 +441,6 @@ async def execute_battle(
             cur_d_name = td["d_name"]
             cur_c_idx = td["c_idx"] + 1
             cur_d_idx = td["d_idx"] + 1
-            cur_c_tb = td.get("c_tb", "")
-            cur_d_tb = td.get("d_tb", "")
             last_was_ko = False
         elif td["type"] == "turn":
             if td["c_hp"] <= 0:
