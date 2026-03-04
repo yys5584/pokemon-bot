@@ -1600,13 +1600,8 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "skill_power": skill[1], "stats": stats,
         })
 
-    scored.sort(key=lambda x: x["power"], reverse=True)
-
-    # Build tier display
-    lines = ["⚔️ <b>배틀 티어표</b> (에픽 이상, 친밀도 MAX)"]
-    lines.append("━━━━━━━━━━━━━━━━━━━━")
-
-    current_tier = None
+    # Assign tier first, then sort by tier order + power
+    tier_order = {"S+": 0, "S": 1, "A+": 2, "A": 3, "B+": 4, "B": 5}
     tier_labels = {
         "S+": ("🔴", "S+"),
         "S": ("🟡", "S"),
@@ -1616,29 +1611,32 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "B": ("⚪", "B"),
     }
 
-    for i, p in enumerate(scored):
-        # Assign tier (using best of ATK/SPA)
+    for p in scored:
         best_atk = max(p["stats"]["atk"], p["stats"]["spa"])
         if p["rarity"] == "legendary":
-            if best_atk >= 140:
-                tier = "S+"
-            else:
-                tier = "S"
+            p["tier"] = "S+" if best_atk >= 140 else "S"
         else:  # epic
             if best_atk >= 110:
-                tier = "A+"
+                p["tier"] = "A+"
             elif best_atk >= 85:
-                tier = "A"
+                p["tier"] = "A"
             elif best_atk >= 70:
-                tier = "B+"
+                p["tier"] = "B+"
             else:
-                tier = "B"
+                p["tier"] = "B"
 
-        # Print tier header
-        if tier != current_tier:
-            dot, label = tier_labels.get(tier, ("⚪", tier))
+    scored.sort(key=lambda x: (tier_order.get(x["tier"], 9), -x["power"]))
+
+    # Build tier display
+    lines = ["⚔️ <b>배틀 티어표</b> (에픽 이상, 친밀도 MAX)"]
+    lines.append("━━━━━━━━━━━━━━━━━━━━")
+
+    current_tier = None
+    for p in scored:
+        if p["tier"] != current_tier:
+            dot, label = tier_labels.get(p["tier"], ("⚪", p["tier"]))
             lines.append(f"\n{dot} <b>── {label} 티어 ──</b>")
-            current_tier = tier
+            current_tier = p["tier"]
 
         lines.append(
             f"{p['type_emoji']}<b>{p['name']}</b>  "
