@@ -437,5 +437,10 @@ async def create_tables():
             await pool.execute(mig)
         except Exception:
             pass
+    # Favorite column
+    try:
+        await pool.execute("ALTER TABLE user_pokemon ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0")
+    except Exception:
+        pass
     # Bot settings table
     await pool.execute(BOT_SETTINGS_TABLE)

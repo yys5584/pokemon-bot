@@ -359,6 +359,16 @@ async def get_user_pokemon_list(user_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+async def toggle_favorite(instance_id: int) -> bool:
+    """Toggle is_favorite on a user_pokemon row. Returns new state."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "UPDATE user_pokemon SET is_favorite = 1 - is_favorite WHERE id = $1 RETURNING is_favorite",
+        instance_id,
+    )
+    return bool(row["is_favorite"]) if row else False
+
+
 async def get_user_pokemon_by_index(user_id: int, index: int) -> dict | None:
     """Get user's Nth active Pokemon (1-indexed)."""
     pokemon_list = await get_user_pokemon_list(user_id)

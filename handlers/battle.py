@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from database import battle_queries as bq
-from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, get_type_multiplier, EVO_STAGE_MAP
+from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, get_type_multiplier, EVO_STAGE_MAP, iv_total
 from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge
 
 logger = logging.getLogger(__name__)
@@ -284,6 +284,17 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
 # Battle Team (/팀, /팀등록, /팀해제)
 # ============================================================
 
+def _iv_grade_tag(p: dict) -> str:
+    """Return '[A]' style IV grade tag for a pokemon dict, or '' if no IV."""
+    iv_hp = p.get("iv_hp")
+    if iv_hp is None:
+        return ""
+    total = iv_total(iv_hp, p.get("iv_atk"), p.get("iv_def"),
+                     p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
+    grade, _ = config.get_iv_grade(total)
+    return f" [{grade}]"
+
+
 def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
                        page: int, team_num: int = 1) -> tuple[str, InlineKeyboardMarkup]:
     """Build team selection UI with inline buttons.
@@ -315,11 +326,12 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
         num = idx + 1
         tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
         rb = rarity_badge(p.get("rarity", ""))
+        iv_tag = _iv_grade_tag(p)
         if idx in selected_set:
             slot_num = selected.index(idx)
-            lines.append(f"{slot_emojis[slot_num]} {rb}{tb} {p['name_ko']}")
+            lines.append(f"{slot_emojis[slot_num]} {rb}{tb} {p['name_ko']}{iv_tag}")
         else:
-            lines.append(f"{num}. {rb}{tb} {p['name_ko']}")
+            lines.append(f"{num}. {rb}{tb} {p['name_ko']}{iv_tag}")
 
     # Encode selected indices as compact string
     sel_str = ",".join(str(s) for s in selected) if selected else "x"
@@ -330,11 +342,12 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
     row = []
     for i, p in enumerate(page_pokemon):
         idx = start + i
+        iv_tag = _iv_grade_tag(p)
         if idx in selected_set:
             slot_num = selected.index(idx)
-            label = f"{slot_emojis[slot_num]} {p['name_ko']}"
+            label = f"{slot_emojis[slot_num]} {p['name_ko']}{iv_tag}"
         else:
-            label = f"{p['name_ko']}"
+            label = f"{p['name_ko']}{iv_tag}"
         row.append(InlineKeyboardButton(
             label,
             callback_data=f"ts_{user_id}_{idx}_{page}_{sel_str}_{tn}",

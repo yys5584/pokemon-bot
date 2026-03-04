@@ -204,33 +204,93 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     # Default: show list view page 0
-    list_text, list_markup = _build_list_view(user_id, pokemon_list, page=0)
+    filt = _get_filter(context)
+    list_text, list_markup = _build_list_view(user_id, pokemon_list, page=0, filt=filt)
     await update.message.reply_text(list_text, reply_markup=list_markup, parse_mode="HTML")
 
 
-def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, InlineKeyboardMarkup]:
+def _get_filter(context) -> dict:
+    """Get current filter state from user_data."""
+    return context.user_data.setdefault("mypoke_filter", {
+        "sort": "default",  # default / iv / rarity
+        "fav": False,       # 즐겨찾기만 보기
+        "type": None,       # None = 전체, "fire" = 특정 타입
+    })
+
+
+def _iv_sum(p: dict) -> int:
+    """Calculate IV total for a pokemon dict."""
+    if p.get("iv_hp") is None:
+        return 0
+    return iv_total(p["iv_hp"], p.get("iv_atk", 0), p.get("iv_def", 0),
+                    p.get("iv_spa", 0), p.get("iv_spdef", 0), p.get("iv_spd", 0))
+
+
+def _apply_filters(pokemon_list: list, filt: dict) -> list:
+    """Apply filter and sort to pokemon list."""
+    filtered = list(pokemon_list)
+
+    # Type filter
+    if filt.get("type"):
+        from models.pokemon_base_stats import POKEMON_BASE_STATS
+        target = filt["type"]
+        result = []
+        for p in filtered:
+            pbs = POKEMON_BASE_STATS.get(p["pokemon_id"])
+            types = pbs[-1] if pbs else [p.get("pokemon_type", "")]
+            if target in types:
+                result.append(p)
+        filtered = result
+
+    # Favorite filter
+    if filt.get("fav"):
+        filtered = [p for p in filtered if p.get("is_favorite")]
+
+    # Sort
+    sort_mode = filt.get("sort", "default")
+    if sort_mode == "iv":
+        filtered.sort(key=lambda p: _iv_sum(p), reverse=True)
+    elif sort_mode == "rarity":
+        rarity_order = {"legendary": 0, "epic": 1, "rare": 2, "common": 3}
+        filtered.sort(key=lambda p: (rarity_order.get(p.get("rarity", "common"), 4), -_iv_sum(p)))
+
+    return filtered
+
+
+def _build_list_view(user_id: int, pokemon_list: list, page: int,
+                     filt: dict = None) -> tuple[str, InlineKeyboardMarkup]:
     """Build a text-based list of pokemon with inline buttons.
     Shows team pokemon first, then groups duplicate species.
     """
-    total = len(pokemon_list)
+    original_total = len(pokemon_list)
     slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
 
-    # Identify team pokemon (for header display)
-    team_pokemon = [p for p in pokemon_list if p.get("team_slot") is not None]
+    # Apply filters if provided
+    if filt is None:
+        filt = {"sort": "default", "fav": False, "type": None}
+    has_filter = filt.get("sort") != "default" or filt.get("fav") or filt.get("type")
 
-    # Group ALL pokemon by pokemon_id (including team members)
+    if has_filter:
+        filtered = _apply_filters(pokemon_list, filt)
+    else:
+        filtered = pokemon_list
+
+    total = len(filtered)
+
+    # Identify team pokemon (for header display) — only in default mode
+    team_pokemon = [p for p in pokemon_list if p.get("team_slot") is not None] if not has_filter else []
+
+    # Group ALL pokemon by pokemon_id
     from collections import OrderedDict
     groups = OrderedDict()
-    for p in pokemon_list:
+    for p in filtered:
         pid = p["pokemon_id"]
         if pid not in groups:
             groups[pid] = []
         groups[pid].append(p)
 
-    # Build display items: each is either a single pokemon or a group
-    display_items = []  # (type, data) — 'single'/(idx, p) or 'group'/(pokemon_id, [indices], representative_p)
-
-    # Map original indices for all pokemon
+    # Build display items
+    display_items = []
     all_indices = {id(p): i for i, p in enumerate(pokemon_list)}
 
     for pid, members in groups.items():
@@ -242,7 +302,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
             indices = [all_indices[id(m)] for m in members]
             display_items.append(("group", pid, indices, first, len(members)))
 
-    # Paginate display items
+    # Paginate
     total_items = len(display_items)
     total_pages = max(1, (total_items + MYPOKE_PAGE_SIZE - 1) // MYPOKE_PAGE_SIZE)
     page = max(0, min(page, total_pages - 1))
@@ -250,11 +310,23 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
     end = min(start + MYPOKE_PAGE_SIZE, total_items)
     page_items = display_items[start:end]
 
-    lines = [f"🎒 내 포켓몬 ({total}마리)  [{page + 1}/{total_pages}]"]
+    # Header
+    filter_tags = []
+    if filt.get("sort") == "iv":
+        filter_tags.append("IV순")
+    elif filt.get("sort") == "rarity":
+        filter_tags.append("희귀도순")
+    if filt.get("fav"):
+        filter_tags.append("⭐즐찾")
+    if filt.get("type"):
+        type_name = config.TYPE_NAME_KO.get(filt["type"], filt["type"])
+        filter_tags.append(type_name)
+    filter_str = f"  {'·'.join(filter_tags)}" if filter_tags else ""
+    count_str = f"{total}/{original_total}마리" if has_filter else f"{original_total}마리"
+    lines = [f"🎒 내 포켓몬 ({count_str}){filter_str}  [{page + 1}/{total_pages}]"]
 
-    # Show team section only on first page
-    if page == 0 and team_pokemon:
-        # Group by team_num
+    # Show team section only on first page, default mode
+    if page == 0 and team_pokemon and not has_filter:
         teams = {}
         for p in team_pokemon:
             tn = p.get("team_num", 1)
@@ -273,27 +345,35 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
         lines.append("━━━━━━━")
 
     lines.append("")
-    item_num = start + 1
-    for item in page_items:
-        if item[0] == "single":
-            _, idx, p = item
-            max_f = config.get_max_friendship(p)
-            hearts = hearts_display(p["friendship"], max_f)
-            shiny = "✨" if p.get("is_shiny") else ""
-            evo_mark = ""
-            if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
-                evo_mark = " ⭐"
-            rb = rarity_badge(p.get("rarity", ""))
-            tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-            lines.append(f"{item_num}. {rb}{tb}{shiny} {p['name_ko']}  {hearts}{evo_mark}")
-        else:  # group
-            _, pid, indices, first, count = item
-            rb = rarity_badge(first.get("rarity", ""))
-            tb = type_badge(first["pokemon_id"], first.get("pokemon_type"))
-            lines.append(f"{item_num}. {rb}{tb} {first['name_ko']}  x{count}")
-        item_num += 1
 
-    lines.append(f"\n번호를 눌러 상세 보기")
+    if total == 0:
+        lines.append("(조건에 맞는 포켓몬이 없습니다)")
+    else:
+        item_num = start + 1
+        for item in page_items:
+            if item[0] == "single":
+                _, idx, p = item
+                max_f = config.get_max_friendship(p)
+                hearts = hearts_display(p["friendship"], max_f)
+                shiny = "✨" if p.get("is_shiny") else ""
+                fav = "⭐" if p.get("is_favorite") else ""
+                evo_mark = ""
+                if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
+                    evo_mark = " ⭐"
+                # IV grade
+                iv_tag = ""
+                if p.get("iv_hp") is not None:
+                    grade, _ = config.get_iv_grade(_iv_sum(p))
+                    iv_tag = f" [{grade}]"
+                rb = rarity_badge(p.get("rarity", ""))
+                tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+                lines.append(f"{item_num}. {rb}{tb}{shiny}{fav} {p['name_ko']}{iv_tag}  {hearts}{evo_mark}")
+            else:  # group
+                _, pid, indices, first, count = item
+                rb = rarity_badge(first.get("rarity", ""))
+                tb = type_badge(first["pokemon_id"], first.get("pokemon_type"))
+                lines.append(f"{item_num}. {rb}{tb} {first['name_ko']}  x{count}")
+            item_num += 1
 
     # Build buttons
     select_buttons = []
@@ -314,6 +394,38 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
             row = []
     if row:
         select_buttons.append(row)
+
+    # Filter buttons row
+    sort_mode = filt.get("sort", "default")
+    fav_on = filt.get("fav", False)
+    type_on = filt.get("type")
+    filter_row = [
+        InlineKeyboardButton(
+            f"{'✓' if sort_mode == 'iv' else ''}⚡IV순",
+            callback_data=f"mypoke_sort_{user_id}_iv",
+        ),
+        InlineKeyboardButton(
+            f"{'✓' if sort_mode == 'rarity' else ''}💎희귀도",
+            callback_data=f"mypoke_sort_{user_id}_rarity",
+        ),
+        InlineKeyboardButton(
+            f"{'✓' if fav_on else ''}⭐즐찾",
+            callback_data=f"mypoke_favf_{user_id}",
+        ),
+    ]
+    select_buttons.append(filter_row)
+
+    # Type filter row (show active type or "타입" button)
+    if type_on:
+        type_name = config.TYPE_NAME_KO.get(type_on, type_on)
+        select_buttons.append([
+            InlineKeyboardButton(f"✓{type_name} 해제", callback_data=f"mypoke_tf_{user_id}_x"),
+            InlineKeyboardButton("🔄 타입변경", callback_data=f"mypoke_tmore_{user_id}"),
+        ])
+    else:
+        select_buttons.append([
+            InlineKeyboardButton("🏷 타입필터", callback_data=f"mypoke_tmore_{user_id}"),
+        ])
 
     # Pagination
     nav_row = []
@@ -466,10 +578,12 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
         action_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))
     buttons.append(action_row)
 
-    # Row 2: team add
+    # Row 2: team add + favorite
+    fav_label = "⭐ 즐찾해제" if p.get("is_favorite") else "☆ 즐겨찾기"
     buttons.append([
         InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{idx}_{page}"),
+        InlineKeyboardButton(fav_label, callback_data=f"mypoke_fav_{user_id}_{idx}_{page}"),
     ])
 
     # Row 3: navigation
@@ -509,11 +623,74 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             pass
         return
 
+    filt = _get_filter(context)
+
     try:
         if action == "l":
             page = int(parts[3])
-            text, markup = _build_list_view(user_id, pokemon_list, page)
+            text, markup = _build_list_view(user_id, pokemon_list, page, filt=filt)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "sort":
+            # mypoke_sort_{user_id}_{mode}
+            mode = parts[3]
+            if filt["sort"] == mode:
+                filt["sort"] = "default"  # toggle off
+            else:
+                filt["sort"] = mode
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "favf":
+            # mypoke_favf_{user_id} — toggle fav filter
+            filt["fav"] = not filt["fav"]
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "fav":
+            # mypoke_fav_{user_id}_{idx}_{page} — toggle favorite on a pokemon
+            idx = int(parts[3])
+            page = int(parts[4]) if len(parts) > 4 else 0
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            p = pokemon_list[idx]
+            new_state = await queries.toggle_favorite(p["id"])
+            emoji = "⭐ 즐겨찾기 등록!" if new_state else "즐겨찾기 해제"
+            await query.answer(emoji, show_alert=False)
+            pokemon_list = await queries.get_user_pokemon_list(user_id)
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "tf":
+            # mypoke_tf_{user_id}_{type_key} — set type filter
+            type_key = parts[3]
+            if type_key == "x":
+                filt["type"] = None
+            else:
+                filt["type"] = type_key
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "tmore":
+            # mypoke_tmore_{user_id} — show type filter grid
+            type_keys = ["fire", "water", "grass", "electric", "ice", "fighting",
+                         "poison", "ground", "flying", "psychic", "bug", "rock",
+                         "ghost", "dragon", "dark", "steel", "fairy", "normal"]
+            type_names = config.TYPE_NAME_KO
+            btns = []
+            row = []
+            for tk in type_keys:
+                tn = type_names.get(tk, tk)
+                emoji = config.TYPE_EMOJI.get(tk, "")
+                row.append(InlineKeyboardButton(f"{emoji}{tn}", callback_data=f"mypoke_tf_{user_id}_{tk}"))
+                if len(row) == 3:
+                    btns.append(row)
+                    row = []
+            if row:
+                btns.append(row)
+            btns.append([InlineKeyboardButton("✕ 필터 해제", callback_data=f"mypoke_tf_{user_id}_x")])
+            btns.append([InlineKeyboardButton("◀ 돌아가기", callback_data=f"mypoke_l_{user_id}_0")])
+            await query.edit_message_text("🏷 타입 필터 선택", reply_markup=InlineKeyboardMarkup(btns))
 
         elif action == "v":
             idx = int(parts[3])
