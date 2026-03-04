@@ -91,6 +91,16 @@
         /* Stat bar (mini) */
         .stat-bar{display:inline-block;height:6px;border-radius:3px;vertical-align:middle;min-width:2px}
 
+        /* Stat bar (tier table) - desktop only */
+        .stat-bar-wrap{display:none}
+        @media(min-width:769px){.stat-bar-wrap{display:inline-block;width:60px;height:8px;background:var(--border);border-radius:4px;overflow:hidden;vertical-align:middle;margin-left:4px}}
+        .stat-bar-fill{display:block;height:100%;border-radius:4px}
+
+        /* Type tooltip */
+        .type-tip{position:relative;cursor:pointer;display:inline-block}
+        .type-tip .type-tip-content{display:none;position:absolute;left:50%;transform:translateX(-50%);top:100%;margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 10px;z-index:50;white-space:nowrap;font-size:11px;box-shadow:0 4px 12px rgba(0,0,0,.15);line-height:1.6}
+        .type-tip:hover .type-tip-content{display:block}
+
         /* Team tooltip (CSS only) */
         .team-tip{position:relative;cursor:default}
         .team-tip .tip-content{display:none;position:absolute;left:0;top:100%;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;z-index:50;white-space:nowrap;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,.15);line-height:1.8}
@@ -184,7 +194,6 @@
         <div class="nav-tab" data-page="channels">채널 TOP 5</div>
         <div class="nav-tab" data-page="battlerank">배틀 & 랭킹</div>
         <div class="nav-tab" data-page="tier">포켓몬 티어</div>
-        <div class="nav-tab" data-page="basestats">종족값</div>
         <div class="nav-tab" data-page="typechart">상성표</div>
         <div class="nav-tab" data-page="stats">통계</div>
     </div>
@@ -222,11 +231,6 @@
         <!-- POKEMON TIER -->
         <div class="page" id="page-tier">
             <div class="section"><h2>📋 포켓몬 배틀 티어표 <span style="color:var(--dim);font-size:10px;font-weight:400;margin-left:4px">VER 1.1</span></h2><div id="tierTable"><div class="loading">로딩 중...</div></div></div>
-        </div>
-
-        <!-- BASE STATS -->
-        <div class="page" id="page-basestats">
-            <div class="section"><h2>📊 포켓몬 종족값</h2><div id="baseStatsTable"><div class="loading">로딩 중...</div></div></div>
         </div>
 
         <!-- TYPE CHART -->
@@ -338,7 +342,6 @@ async function loadPage(page){
         else if(page==="channels") await loadChannels();
         else if(page==="battlerank") await loadBattleRank();
         else if(page==="tier") await loadTier();
-        else if(page==="basestats") await loadBaseStats();
         else if(page==="typechart") await loadTypeChart();
         else if(page==="stats") await loadStats();
     }catch(e){console.error("Load error:",e)}
@@ -540,88 +543,79 @@ async function loadBattleRank(){
 }
 
 // --- HELPERS ---
-function tIcons(p){
-    let h=`<img class="tc-icon-sm" src="/static/types/${p.type1}.png" alt="${p.type1}" title="${p.type1}">`;
-    if(p.type2) h+=`<img class="tc-icon-sm" src="/static/types/${p.type2}.png" alt="${p.type2}" title="${p.type2}" style="margin-left:1px">`;
-    return h;
-}
+let _typeChart=null;
+async function getTypeChart(){if(!_typeChart)_typeChart=await fetchJSON("/api/type-chart");return _typeChart}
+
 function topStats(p){
     const vals=[["hp",p.hp],["atk",p.atk],["def",p.def_],["spa",p.spa||0],["spdef",p.spdef||0],["spd",p.spd]];
     vals.sort((a,b)=>b[1]-a[1]);
     return new Set([vals[0][0],vals[1][0]]);
 }
 function sw(key,tops){return tops.has(key)?'font-weight:700':'font-weight:400'}
+function sbar(val,mx,color){const pct=Math.min(val/mx*100,100);return`<span class="stat-bar-wrap"><span class="stat-bar-fill" style="width:${pct}%;background:${color}"></span></span>`}
+
+function typeTip(type,chart,names){
+    if(!chart||!chart[type])return`<img class="tc-icon-sm" src="/static/types/${type}.png" alt="${type}">`;
+    const strong=[],weak=[],immune=[];
+    for(const [def,v] of Object.entries(chart[type])){
+        if(v===2) strong.push(names[def]||def);
+        else if(v===0.5) weak.push(names[def]||def);
+        else if(v===0) immune.push(names[def]||def);
+    }
+    // Also find what types are strong AGAINST this type
+    const weakTo=[],resistTo=[];
+    for(const [atk,row] of Object.entries(chart)){
+        if(row[type]===2) weakTo.push(names[atk]||atk);
+        else if(row[type]===0.5) resistTo.push(names[atk]||atk);
+        else if(row[type]===0) resistTo.push(names[atk]||atk);
+    }
+    let tip=`<b>${names[type]||type}</b><br>`;
+    if(strong.length) tip+=`<span style="color:#52b788">공격 강함:</span> ${strong.join(', ')}<br>`;
+    if(weak.length) tip+=`<span style="color:#e63946">공격 약함:</span> ${weak.join(', ')}<br>`;
+    if(weakTo.length) tip+=`<span style="color:#e63946">약점:</span> ${weakTo.join(', ')}<br>`;
+    if(resistTo.length) tip+=`<span style="color:#52b788">내성:</span> ${resistTo.join(', ')}`;
+    return`<span class="type-tip"><img class="tc-icon-sm" src="/static/types/${type}.png" alt="${type}"><span class="type-tip-content">${tip}</span></span>`;
+}
 
 // --- POKEMON TIER ---
 async function loadTier(){
-    const tiers=await fetchJSON("/api/battle/tiers");
+    const [tiers,tc]=await Promise.all([fetchJSON("/api/battle/tiers"),getTypeChart()]);
     if(!tiers||!tiers.length){document.getElementById("tierTable").innerHTML='<p class="empty-msg">데이터 없음</p>';return}
+    const chart=tc?tc.chart:null;
+    const names=tc?tc.type_names:{};
 
     const rarityLabel={"legendary":"전설","epic":"에픽","rare":"희귀","common":"일반"};
+    let mx={hp:1,atk:1,def:1,spa:1,spdef:1,spd:1};
+    for(const p of tiers){mx.hp=Math.max(mx.hp,p.hp);mx.atk=Math.max(mx.atk,p.atk);mx.def=Math.max(mx.def,p.def_);mx.spa=Math.max(mx.spa,p.spa||0);mx.spdef=Math.max(mx.spdef,p.spdef||0);mx.spd=Math.max(mx.spd,p.spd)}
 
-    let h=`<table><thead><tr><th>포켓몬</th><th>타입</th><th>등급</th><th class="hide-m">성향</th><th class="hide-m">스킬</th><th>HP</th><th>ATK</th><th>DEF</th><th class="hide-m">SPA</th><th class="hide-m">SPDEF</th><th>SPD</th><th>전투력</th></tr></thead><tbody>`;
+    let h=`<table><thead><tr><th>포켓몬</th><th>타입</th><th>등급</th><th class="hide-m">스킬</th><th>HP</th><th>ATK</th><th>DEF</th><th class="hide-m">SPA</th><th class="hide-m">SPDEF</th><th>SPD</th><th>전투력</th></tr></thead><tbody>`;
     for(const p of tiers){
         const tops=topStats(p);
+        const t1=typeTip(p.type1,chart,names);
+        const t2=p.type2?typeTip(p.type2,chart,names):'';
         h+=`<tr>
-            <td>${p.emoji} <b>${p.name}</b></td>
-            <td>${tIcons(p)}</td>
+            <td><b>${p.name}</b></td>
+            <td>${t1}${t2}</td>
             <td><span class="badge badge-${p.rarity}" style="font-size:9px">${rarityLabel[p.rarity]||p.rarity}</span></td>
-            <td class="hide-m">${p.stat_ko}</td>
             <td class="hide-m" style="color:var(--orange)" title="${p.skill_name}">${p.skill_power}x</td>
-            <td style="color:var(--green);${sw('hp',tops)}">${p.hp}</td>
-            <td style="color:var(--red);${sw('atk',tops)}">${p.atk}</td>
-            <td style="color:var(--blue);${sw('def',tops)}">${p.def_}</td>
-            <td class="hide-m" style="color:var(--purple);${sw('spa',tops)}">${p.spa||'-'}</td>
-            <td class="hide-m" style="color:var(--blue);${sw('spdef',tops)}">${p.spdef||'-'}</td>
-            <td style="color:var(--gold);${sw('spd',tops)}">${p.spd}</td>
+            <td style="color:var(--green);${sw('hp',tops)}">${p.hp}${sbar(p.hp,mx.hp,'var(--green)')}</td>
+            <td style="color:var(--red);${sw('atk',tops)}">${p.atk}${sbar(p.atk,mx.atk,'var(--red)')}</td>
+            <td style="color:var(--blue);${sw('def',tops)}">${p.def_}${sbar(p.def_,mx.def,'var(--blue)')}</td>
+            <td class="hide-m" style="color:var(--purple);${sw('spa',tops)}">${p.spa||'-'}${sbar(p.spa||0,mx.spa,'var(--purple)')}</td>
+            <td class="hide-m" style="color:var(--blue);${sw('spdef',tops)}">${p.spdef||'-'}${sbar(p.spdef||0,mx.spdef,'var(--blue)')}</td>
+            <td style="color:var(--gold);${sw('spd',tops)}">${p.spd}${sbar(p.spd,mx.spd,'var(--gold)')}</td>
             <td style="font-weight:700">${p.power}</td>
         </tr>`;
     }
     h+="</tbody></table>";
     h+=`<div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.8">
-        전투력 = max(ATK,SPA) × 스킬배율 × 내구력(HP×방어) &nbsp;|&nbsp; 상위 2개 스탯 <b>굵게</b> 표시<br>
+        전투력 = max(ATK,SPA) × 스킬배율 × 내구력(HP×방어) &nbsp;|&nbsp; 상위 2개 스탯 <b>굵게</b> 표시 &nbsp;|&nbsp; 타입 아이콘 호버 시 상성 확인<br>
         등급: <span class="badge badge-legendary" style="font-size:9px">전설</span>
         <span class="badge badge-epic" style="font-size:9px">에픽</span>
         <span class="badge badge-rare" style="font-size:9px">희귀</span>
         <span class="badge badge-common" style="font-size:9px">일반</span>
     </div>`;
     document.getElementById("tierTable").innerHTML=h;
-}
-
-// --- BASE STATS ---
-async function loadBaseStats(){
-    const data=await fetchJSON("/api/battle/tiers");
-    if(!data||!data.length){document.getElementById("baseStatsTable").innerHTML='<p class="empty-msg">데이터 없음</p>';return}
-
-    let mx={hp:1,atk:1,def:1,spa:1,spdef:1,spd:1};
-    for(const p of data){mx.hp=Math.max(mx.hp,p.hp);mx.atk=Math.max(mx.atk,p.atk);mx.def=Math.max(mx.def,p.def_);mx.spa=Math.max(mx.spa,p.spa||0);mx.spdef=Math.max(mx.spdef,p.spdef||0);mx.spd=Math.max(mx.spd,p.spd)}
-    function bar(val,max,color){const pct=Math.min(val/max*100,100);return`<div style="display:flex;align-items:center;gap:4px"><span style="min-width:28px;text-align:right">${val}</span><span style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:${color};border-radius:4px"></span></span></div>`}
-
-    const sorted=[...data].sort((a,b)=>{
-        const ta=a.hp+a.atk+a.def_+(a.spa||0)+(a.spdef||0)+a.spd;
-        const tb=b.hp+b.atk+b.def_+(b.spa||0)+(b.spdef||0)+b.spd;
-        return tb-ta;
-    });
-
-    let h=`<table><thead><tr><th>포켓몬</th><th>타입</th><th style="min-width:90px">HP</th><th style="min-width:90px">ATK</th><th style="min-width:90px">DEF</th><th style="min-width:90px" class="hide-m">SPA</th><th style="min-width:90px" class="hide-m">SPDEF</th><th style="min-width:90px">SPD</th><th>합계</th></tr></thead><tbody>`;
-    for(const p of sorted){
-        const tops=topStats(p);
-        const total=p.hp+p.atk+p.def_+(p.spa||0)+(p.spdef||0)+p.spd;
-        h+=`<tr>
-            <td>${p.emoji} <b>${p.name}</b></td>
-            <td>${tIcons(p)}</td>
-            <td style="${sw('hp',tops)}">${bar(p.hp,mx.hp,'var(--green)')}</td>
-            <td style="${sw('atk',tops)}">${bar(p.atk,mx.atk,'var(--red)')}</td>
-            <td style="${sw('def',tops)}">${bar(p.def_,mx.def,'var(--blue)')}</td>
-            <td class="hide-m" style="${sw('spa',tops)}">${bar(p.spa||0,mx.spa,'var(--purple)')}</td>
-            <td class="hide-m" style="${sw('spdef',tops)}">${bar(p.spdef||0,mx.spdef,'var(--blue)')}</td>
-            <td style="${sw('spd',tops)}">${bar(p.spd,mx.spd,'var(--gold)')}</td>
-            <td style="font-weight:700;text-align:center">${total}</td>
-        </tr>`;
-    }
-    h+="</tbody></table>";
-    h+=`<div style="margin-top:10px;font-size:11px;color:var(--muted)">종족값 합계 순 정렬 &nbsp;|&nbsp; 상위 2개 스탯 <b>굵게</b> 표시</div>`;
-    document.getElementById("baseStatsTable").innerHTML=h;
 }
 
 // --- TYPE CHART ---
