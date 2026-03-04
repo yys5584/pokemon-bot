@@ -109,10 +109,10 @@ MAX_SESSIONS = 1000  # prevent memory bomb
 
 # LLM rate limiting: user_id -> {date_str: count}
 _llm_usage: dict[int, dict[str, int]] = {}
-LLM_DAILY_LIMIT = 10
+LLM_DAILY_LIMIT = 20
 
 
-async def _check_llm_limit(user_id: int) -> tuple[bool, int, int]:
+async def _check_llm_limit(user_id: int, cost: int = 1) -> tuple[bool, int, int]:
     """Check if user can use LLM. Returns (allowed, remaining_total, bonus_remaining)."""
     today = datetime.now().strftime("%Y-%m-%d")
     if user_id not in _llm_usage:
@@ -131,26 +131,26 @@ async def _check_llm_limit(user_id: int) -> tuple[bool, int, int]:
     )
     bonus = bonus or 0
     total_remaining = free_remaining + bonus
-    return total_remaining > 0, total_remaining, bonus
+    return total_remaining >= cost, total_remaining, bonus
 
 
-async def _record_llm_usage(user_id: int):
-    """Record one LLM usage. Uses free quota first, then bonus."""
+async def _record_llm_usage(user_id: int, cost: int = 1):
+    """Record LLM usage. Uses free quota first, then bonus."""
     today = datetime.now().strftime("%Y-%m-%d")
     if user_id not in _llm_usage:
         _llm_usage[user_id] = {}
     count = _llm_usage[user_id].get(today, 0)
-    if count < LLM_DAILY_LIMIT:
-        # Still within free daily quota
-        _llm_usage[user_id][today] = count + 1
-    else:
-        # Free exhausted, decrement bonus
-        pool = await queries.get_db()
-        await pool.execute(
-            "UPDATE users SET llm_bonus_quota = llm_bonus_quota - 1 "
-            "WHERE user_id = $1 AND llm_bonus_quota > 0",
-            user_id,
-        )
+    for _ in range(cost):
+        if count < LLM_DAILY_LIMIT:
+            count += 1
+            _llm_usage[user_id][today] = count
+        else:
+            pool = await queries.get_db()
+            await pool.execute(
+                "UPDATE users SET llm_bonus_quota = llm_bonus_quota - 1 "
+                "WHERE user_id = $1 AND llm_bonus_quota > 0",
+                user_id,
+            )
 
 
 def _verify_telegram_auth(data: dict) -> bool:
@@ -572,10 +572,19 @@ def _recommend_balance(pokemon: list[dict]) -> tuple[list[dict], str]:
 
 
 async def api_my_team_recommend(request):
-    """AI team recommendation for the logged-in user."""
+    """AI team recommendation for the logged-in user (costs 1 token)."""
     sess = _get_session(request)
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=401)
+
+    # Rate limit check (costs 1)
+    uid = sess["user_id"]
+    allowed, remaining, bonus_rem = await _check_llm_limit(uid, cost=1)
+    if not allowed:
+        return pg_json_response({
+            "team": [], "analysis": "분석 횟수를 모두 사용했습니다.\n💎 아래 후원하기로 추가 횟수를 구매할 수 있어요!",
+            "warnings": [], "remaining": 0, "bonus_remaining": 0,
+        })
 
     try:
         body = await request.json()
@@ -630,11 +639,17 @@ async def api_my_team_recommend(request):
     if len(high_power) < 6:
         warnings.append("전투력이 높은 포켓몬이 부족합니다. 포켓몬 육성을 권장합니다.")
 
+    # Record usage (1 token)
+    await _record_llm_usage(uid, cost=1)
+    _, remaining_after, bonus_after = await _check_llm_limit(uid)
+
     return pg_json_response({
         "team": team,
         "analysis": analysis,
         "warnings": warnings,
         "mode": mode,
+        "remaining": remaining_after,
+        "bonus_remaining": bonus_after,
     })
 
 
@@ -969,13 +984,13 @@ async def api_my_chat(request):
     if not user_msg:
         return web.json_response({"error": "메시지를 입력해주세요."}, status=400)
 
-    # Rate limit check
+    # Rate limit check (AI chat costs 2)
     uid = sess["user_id"]
-    allowed, remaining, bonus_rem = await _check_llm_limit(uid)
+    allowed, remaining, bonus_rem = await _check_llm_limit(uid, cost=2)
     if not allowed:
         return pg_json_response({
-            "analysis": f"AI 채팅 횟수를 모두 사용했습니다.\n\n💡 위 모드 버튼(전투력/시너지/카운터/밸런스)은 제한 없이 사용 가능합니다.\n💎 아래 후원하기로 추가 AI 채팅을 구매할 수 있어요!",
-            "team": [], "warnings": [], "remaining": 0, "bonus_remaining": 0,
+            "analysis": f"AI 채팅 횟수가 부족합니다. (2회 필요, 잔여 {remaining}회)\n\n⚡ 빠른 분석(전투력/시너지/카운터/밸런스)은 1회만 차감됩니다.\n💎 아래 후원하기로 추가 횟수를 구매할 수 있어요!",
+            "team": [], "warnings": [], "remaining": remaining, "bonus_remaining": bonus_rem,
         })
 
     # Load user's pokemon
@@ -994,8 +1009,8 @@ async def api_my_chat(request):
     pokemon = await _build_pokemon_data(rows)
     meta = await _get_battle_meta()
 
-    # Record LLM usage
-    await _record_llm_usage(uid)
+    # Record LLM usage (2 tokens)
+    await _record_llm_usage(uid, cost=2)
     _, remaining_after, bonus_after = await _check_llm_limit(uid)
 
     # Try Gemini first

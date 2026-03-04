@@ -436,11 +436,12 @@
 
         <!-- AI TEAM ADVISOR -->
         <div class="page" id="page-simulator">
-            <!-- Quick Buttons: Free (algorithm) -->
+            <!-- Quick Buttons: Basic (algorithm, 1 token) -->
             <div style="margin-bottom:6px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-                    <span style="font-size:11px;font-weight:700;color:var(--green)">⚡ 무료 분석</span>
-                    <span style="font-size:10px;color:var(--muted)">횟수 차감 없음</span>
+                    <span style="font-size:11px;font-weight:700;color:var(--green)">⚡ 빠른 분석</span>
+                    <span id="simQuotaLabel" style="font-size:10px;color:var(--green);font-weight:600">잔여 --회</span>
+                    <span style="font-size:10px;color:var(--muted)">· 1회 차감</span>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
                     <button class="chat-quick-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 최강 팀 추천해줘')">
@@ -461,8 +462,7 @@
             <div style="margin-bottom:8px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
                     <span style="font-size:11px;font-weight:700;color:var(--purple)">🤖 AI 상담</span>
-                    <span id="simQuotaLabel" style="font-size:10px;color:var(--purple);font-weight:600">잔여 --회</span>
-                    <span style="font-size:10px;color:var(--muted)">· 1회 차감</span>
+                    <span style="font-size:10px;color:var(--muted)">· 2회 차감</span>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
                     <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('요즘 승률 높은 포켓몬이 뭐야?')">
@@ -678,7 +678,7 @@ function updateQuotaBadge(remaining,bonus){
     const sq=document.getElementById("simQuotaLabel");
     if(sq){
         sq.textContent=`잔여 ${remaining}회`;
-        sq.style.color=remaining<=0?"var(--red)":remaining<=3?"#E65100":"var(--purple)";
+        sq.style.color=remaining<=0?"var(--red)":remaining<=3?"#E65100":"var(--green)";
     }
 }
 
@@ -1325,7 +1325,7 @@ function renderMyPokemon(){
 let _chatHistory=[];
 let _chatBusy=false;
 
-// Mode button mapping → algorithm API (no LLM)
+// Mode button mapping → algorithm API (1 token)
 const _MODE_MAP={
     '내 최강 팀 추천해줘':'power',
     'IV 시너지 좋은 팀 짜줘':'synergy',
@@ -1338,7 +1338,7 @@ async function sendQuick(text){
     if(!_authUser){telegramConnect();return}
     const mode=_MODE_MAP[text];
     if(mode){
-        // 4 mode buttons → algorithm API (no LLM)
+        // 4 mode buttons → algorithm API (1 token)
         addChatMsg('user', text.replace(/</g,'&lt;'));
         _chatBusy=true;
         document.getElementById("chatSendBtn").disabled=true;
@@ -1349,6 +1349,7 @@ async function sendQuick(text){
             hideTyping();
             if(d.error){addChatMsg('ai','오류: '+d.error)}
             else{addChatMsg('ai',formatAiResponse(d))}
+            if(d.remaining!=null)updateQuotaBadge(d.remaining,d.bonus_remaining||0);
         }catch(e){hideTyping();addChatMsg('ai','서버 연결 실패')}
         _chatBusy=false;
         document.getElementById("chatSendBtn").disabled=false;

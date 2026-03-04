@@ -230,7 +230,7 @@ async def mock_chat(request):
     """Mock AI chat for preview."""
     global _mock_chat_count
     _mock_chat_count += 1
-    remaining = max(0, 10 - _mock_chat_count)
+    remaining = max(0, 20 - _mock_chat_count)
 
     body = await request.json()
     msg = body.get("message", "").lower()
@@ -316,7 +316,7 @@ def create_preview_app():
     app.router.add_get("/api/my/summary", mock_my_summary)
     app.router.add_post("/api/my/team-recommend", mock_team_recommend)
     app.router.add_post("/api/my/chat", mock_chat)
-    app.router.add_get("/api/my/quota", lambda r: web.json_response({"remaining": max(0, 10 - _mock_chat_count), "bonus_remaining": 45}))
+    app.router.add_get("/api/my/quota", lambda r: web.json_response({"remaining": max(0, 20 - _mock_chat_count), "bonus_remaining": 45}))
     app.router.add_get("/api/donation", lambda r: web.json_response({"current": 75, "goal": 200}))
     app.router.add_post("/api/payment/create", lambda r: web.json_response({"ok": True, "invoice_url": "https://nowpayments.io/payment/?iid=mock_preview", "invoice_id": "mock_123"}))
     # Catch-all for API routes
