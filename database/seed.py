@@ -85,3 +85,59 @@ async def migrate_18_types():
         updated += 1
 
     return updated
+
+
+async def migrate_assign_ivs():
+    """Assign random IVs to all existing Pokemon that have iv_hp IS NULL.
+
+    Shiny Pokemon get minimum IV of 10 (same rule as new catches).
+    Normal Pokemon get 0-31 random.
+    Runs once — skips if no NULL IVs remain.
+
+    Returns number of updated Pokemon, or False if already done.
+    """
+    import random
+    import config
+
+    pool = await get_db()
+
+    # Check how many Pokemon still need IVs
+    row = await pool.fetchrow(
+        "SELECT COUNT(*) as cnt FROM user_pokemon WHERE iv_hp IS NULL AND is_active = 1"
+    )
+    need_count = row["cnt"] if row else 0
+    if need_count == 0:
+        return False  # All Pokemon already have IVs
+
+    # Fetch all Pokemon that need IVs (id + is_shiny)
+    rows = await pool.fetch(
+        "SELECT id, is_shiny FROM user_pokemon WHERE iv_hp IS NULL"
+    )
+
+    updated = 0
+    for r in rows:
+        is_shiny = bool(r["is_shiny"])
+        low = config.IV_SHINY_MIN if is_shiny else config.IV_MIN
+        high = config.IV_MAX
+
+        ivs = {
+            "hp": random.randint(low, high),
+            "atk": random.randint(low, high),
+            "def": random.randint(low, high),
+            "spa": random.randint(low, high),
+            "spdef": random.randint(low, high),
+            "spd": random.randint(low, high),
+        }
+
+        await pool.execute(
+            """UPDATE user_pokemon
+               SET iv_hp = $1, iv_atk = $2, iv_def = $3,
+                   iv_spa = $4, iv_spdef = $5, iv_spd = $6
+               WHERE id = $7""",
+            ivs["hp"], ivs["atk"], ivs["def"],
+            ivs["spa"], ivs["spdef"], ivs["spd"],
+            r["id"],
+        )
+        updated += 1
+
+    return updated

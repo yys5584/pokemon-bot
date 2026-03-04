@@ -299,6 +299,10 @@ async def index(request):
 def create_app() -> web.Application:
     app = web.Application()
     app.router.add_get("/", index)
+    # Static files (type icons etc.)
+    static_dir = TEMPLATE_DIR.parent / "static"
+    if static_dir.exists():
+        app.router.add_static("/static", static_dir, show_index=False)
     app.router.add_get("/api/overview", api_overview)
     app.router.add_get("/api/chats", api_chats)
     app.router.add_get("/api/users", api_users)

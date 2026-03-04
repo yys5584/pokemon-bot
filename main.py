@@ -18,7 +18,7 @@ from telegram.ext import (
 
 from database.connection import get_db, close_db
 from database.schema import create_tables
-from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types
+from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types, migrate_assign_ivs
 from database import queries
 
 from handlers.start import start_handler, help_handler
@@ -74,6 +74,9 @@ async def post_init(application: Application):
     migrated = await migrate_18_types()
     if migrated:
         logger.info(f"18-type migration applied: {migrated} pokemon updated.")
+    iv_assigned = await migrate_assign_ivs()
+    if iv_assigned:
+        logger.info(f"IV migration: {iv_assigned} pokemon received random IVs.")
     logger.info("Database ready. 251 Pokemon seeded.")
 
     # Cleanup expired sessions and events from previous runs
