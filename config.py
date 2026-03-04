@@ -525,3 +525,11 @@ TYPE_CUSTOM_EMOJI = {
     "steel": "6142980178873162454",
     "fairy": "6143002478343364009",
 }
+
+# --- Custom Emoji IDs (Ball) ---
+BALL_CUSTOM_EMOJI = {
+    "pokeball": "6143151702687095487",
+    "hyperball": "6142944354550946803",
+    "masterball": "6143130859210807699",
+    "greatball": "6143092307584359042",
+}

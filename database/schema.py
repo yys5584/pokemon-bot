@@ -341,6 +341,13 @@ ARCADE_PASS_TABLES = [
     "CREATE INDEX IF NOT EXISTS idx_arcade_passes_chat ON arcade_passes(chat_id, is_active, expires_at)",
 ]
 
+BOT_SETTINGS_TABLE = """
+CREATE TABLE IF NOT EXISTS bot_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+)
+"""
+
 IV_MIGRATIONS = [
     "ALTER TABLE user_pokemon ADD COLUMN iv_hp SMALLINT DEFAULT NULL",
     "ALTER TABLE user_pokemon ADD COLUMN iv_atk SMALLINT DEFAULT NULL",
@@ -430,3 +437,5 @@ async def create_tables():
             await pool.execute(mig)
         except Exception:
             pass
+    # Bot settings table
+    await pool.execute(BOT_SETTINGS_TABLE)

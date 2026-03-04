@@ -628,11 +628,40 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         )
         # catch result stays visible
 
-        # DM notification to catcher
+        # DM notification to catcher (with stats + power)
         try:
-            dm_text = f"🎉 {tb} {pokemon_name} 포획 성공!"
-            if is_shiny:
-                dm_text = f"✨ {dm_text} (★이로치)"
+            from utils.battle_calc import calc_battle_stats, EVO_STAGE_MAP, get_normalized_base_stats
+            evo_stage = EVO_STAGE_MAP.get(pokemon_id, 3)
+            stat_type = pokemon.get("stat_type", "balanced") if pokemon else "balanced"
+
+            # Base stats (without IV)
+            base_kwargs = {}
+            norm = get_normalized_base_stats(pokemon_id)
+            if norm:
+                base_kwargs = norm
+
+            stats_with_iv = calc_battle_stats(
+                rarity, stat_type, 0, evo_stage=evo_stage,
+                iv_hp=caught_ivs["iv_hp"], iv_atk=caught_ivs["iv_atk"],
+                iv_def=caught_ivs["iv_def"], iv_spa=caught_ivs["iv_spa"],
+                iv_spdef=caught_ivs["iv_spdef"], iv_spd=caught_ivs["iv_spd"],
+                **base_kwargs,
+            )
+            stats_base = calc_battle_stats(
+                rarity, stat_type, 0, evo_stage=evo_stage,
+                **base_kwargs,
+            )
+            power_with_iv = stats_with_iv["hp"] + stats_with_iv["atk"] + stats_with_iv["def"] + stats_with_iv["spd"]
+            power_base = stats_base["hp"] + stats_base["atk"] + stats_base["def"] + stats_base["spd"]
+            iv_bonus = power_with_iv - power_base
+
+            shiny_dm = " ✨이로치" if is_shiny else ""
+            iv_sign = f"+{iv_bonus}" if iv_bonus >= 0 else str(iv_bonus)
+            dm_text = (
+                f"🎉 {rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
+                f"HP:{stats_with_iv['hp']} ATK:{stats_with_iv['atk']} DEF:{stats_with_iv['def']} SPD:{stats_with_iv['spd']}\n"
+                f"전투력: {power_base} ({iv_sign})"
+            )
             asyncio.create_task(context.bot.send_message(chat_id=winner_id, text=dm_text, parse_mode="HTML"))
         except Exception:
             pass

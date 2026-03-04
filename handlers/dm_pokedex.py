@@ -215,14 +215,13 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
     total = len(pokemon_list)
     slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
 
-    # Separate team pokemon from non-team
+    # Identify team pokemon (for header display)
     team_pokemon = [p for p in pokemon_list if p.get("team_slot") is not None]
-    non_team = [p for p in pokemon_list if p.get("team_slot") is None]
 
-    # Group non-team by pokemon_id
+    # Group ALL pokemon by pokemon_id (including team members)
     from collections import OrderedDict
     groups = OrderedDict()
-    for p in non_team:
+    for p in pokemon_list:
         pid = p["pokemon_id"]
         if pid not in groups:
             groups[pid] = []
@@ -231,16 +230,16 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
     # Build display items: each is either a single pokemon or a group
     display_items = []  # (type, data) — 'single'/(idx, p) or 'group'/(pokemon_id, [indices], representative_p)
 
-    # Map original indices for non-team pokemon
-    non_team_indices = {id(p): pokemon_list.index(p) for p in non_team}
+    # Map original indices for all pokemon
+    all_indices = {id(p): i for i, p in enumerate(pokemon_list)}
 
     for pid, members in groups.items():
         if len(members) == 1:
             p = members[0]
-            display_items.append(("single", non_team_indices[id(p)], p))
+            display_items.append(("single", all_indices[id(p)], p))
         else:
             first = members[0]
-            indices = [non_team_indices[id(m)] for m in members]
+            indices = [all_indices[id(m)] for m in members]
             display_items.append(("group", pid, indices, first, len(members)))
 
     # Paginate display items
@@ -358,7 +357,8 @@ def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: i
             grade, _ = config.get_iv_grade(total)
             iv_tag = f" [{grade}]"
 
-        lines.append(f"#{num}  {first['name_ko']}{shiny}  {hearts}{iv_tag}")
+        team_mark = f" ⚔{p.get('team_num','')}" if p.get("team_slot") is not None else ""
+        lines.append(f"#{num}  {first['name_ko']}{shiny}  {hearts}{iv_tag}{team_mark}")
 
         label = f"#{num}{shiny[:1]}{iv_tag}"
         row.append(InlineKeyboardButton(label, callback_data=f"mypoke_v_{user_id}_{idx}_{page}"))

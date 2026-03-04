@@ -87,6 +87,9 @@ async def post_init(application: Application):
     weather_city = os.getenv("WEATHER_CITY", "Seoul")
     await update_weather(weather_city)
 
+    # Check if daily reset was missed (e.g. bot restarted after midnight)
+    await _check_missed_reset()
+
     # Schedule spawns for all active chats
     await schedule_all_chats(application)
     logger.info("Spawn scheduling complete.")
@@ -127,6 +130,40 @@ async def post_shutdown(application: Application):
     logger.info("Database closed.")
 
 
+async def _check_missed_reset():
+    """Run daily reset if it was missed (bot was down at midnight)."""
+    from database.connection import get_db
+    pool = await get_db()
+    # Check if any pokemon still has fed_today/played_today > 0
+    # If yes AND last_reset_at was before today, run the reset
+    row = await pool.fetchrow(
+        "SELECT COUNT(*) AS cnt FROM user_pokemon WHERE is_active = 1 AND (fed_today > 0 OR played_today > 0)"
+    )
+    if row and row["cnt"] > 0:
+        # Check last reset timestamp from a simple marker table
+        marker = await pool.fetchval(
+            "SELECT value FROM bot_settings WHERE key = 'last_daily_reset'"
+        )
+        today = config.get_kst_today()
+        if marker != today:
+            logger.info(f"Missed daily reset detected (last={marker}, today={today}). Running now...")
+            await queries.reset_daily_nurture()
+            await queries.reset_catch_limits()
+            await queries.reset_force_spawn_counts()
+            await queries.reset_daily_spawn_counts()
+            await queries.cleanup_old_activity(days=7)
+            await pool.execute(
+                """INSERT INTO bot_settings (key, value) VALUES ('last_daily_reset', $1)
+                   ON CONFLICT (key) DO UPDATE SET value = $1""",
+                today,
+            )
+            logger.info("Missed daily reset completed.")
+        else:
+            logger.info("Daily reset already ran today, skipping.")
+    else:
+        logger.info("No nurture data to reset (fresh start or already reset).")
+
+
 # --- Midnight reset job ---
 
 async def midnight_reset(context):
@@ -147,6 +184,16 @@ async def midnight_reset(context):
 
     # Clean old activity data
     await queries.cleanup_old_activity(days=7)
+
+    # Record reset timestamp
+    from database.connection import get_db
+    pool = await get_db()
+    today = config.get_kst_today()
+    await pool.execute(
+        """INSERT INTO bot_settings (key, value) VALUES ('last_daily_reset', $1)
+           ON CONFLICT (key) DO UPDATE SET value = $1""",
+        today,
+    )
 
     # Reschedule spawns for all chats
     await schedule_all_chats(context.application)

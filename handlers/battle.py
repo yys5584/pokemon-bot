@@ -543,7 +543,7 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
         p = pokemon_list[n - 1]
         tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
         lines.append(f"{slot_emojis[i]} {tb} {p['name_ko']}")
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
 
 async def team_clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -771,7 +771,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
                 lines.append(f"{slot_emojis[si]} {tb} {p['name_ko']}")
         try:
-            await query.edit_message_text("\n".join(lines))
+            await query.edit_message_text("\n".join(lines), parse_mode="HTML")
         except Exception:
             pass
 
