@@ -545,7 +545,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
             evo_stage=evo_stage,
         )
         stats_line = (
-            f"\n⚡ 전투력: {format_power(stats, base)}"
+            f"\n{icon_emoji('bolt')} 전투력: {format_power(stats, base)}"
             f"\n{format_stats_line(stats, base)}"
         )
 
@@ -1539,7 +1539,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines.append(f"  {i}. {ttb} {t['name_ko']}  {icon_emoji('skill')}{skill[0]}  {icon_emoji('bolt')}{format_power(stats, tbase)}")
         iv_diff = total_power - total_base_power
         total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
-        lines.append(f"  💪 팀 전투력: {total_tag}")
+        lines.append(f"  {icon_emoji('bolt')} 팀 전투력: {total_tag}")
         if team2:
             lines.append(f"  (팀2 등록됨: {len(team2)}마리)")
     else:

@@ -124,9 +124,9 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🔄 변경", callback_data=f"partner_p_{user_id}_0"),
         ]])
         await update.message.reply_text(
-            f"🤝 나의 파트너\n\n"
-            f"{tb} {partner['name_ko']}  {type_name}  ⚡{format_power(stats, base)}\n"
-            f"📊 {format_stats_line(stats, base)}\n\n"
+            f"{icon_emoji('pokemon-love')} 나의 파트너\n\n"
+            f"{tb} {partner['name_ko']}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
+            f"{icon_emoji('stationery')} {format_stats_line(stats, base)}\n\n"
             f"💡 배틀 시 파트너가 팀에 포함되면 공격 +5%!",
             reply_markup=buttons,
             parse_mode="HTML",
@@ -273,9 +273,9 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         )
         try:
             await query.edit_message_text(
-                f"🤝 파트너 지정 완료!\n\n"
-                f"{tb} {chosen['name_ko']}  ⚡{format_power(stats, base)}\n"
-                f"📊 {format_stats_line(stats, base)}\n\n"
+                f"{icon_emoji('pokemon-love')} 파트너 지정 완료!\n\n"
+                f"{tb} {chosen['name_ko']}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
+                f"{icon_emoji('stationery')} {format_stats_line(stats, base)}\n\n"
                 f"💡 배틀 시 파트너가 팀에 포함되면 공격 +5%!",
                 parse_mode="HTML",
             )
@@ -461,12 +461,12 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         partner_mark = " 🤝" if p["pokemon_instance_id"] == partner_instance else ""
         rb = rarity_badge(p["rarity"])
         lines.append(
-            f"{slot_emojis[i]} {rb}{tb} {p['name_ko']}{partner_mark}  ⚡{format_power(stats, base)}\n"
+            f"{slot_emojis[i]} {rb}{tb} {p['name_ko']}{partner_mark}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
             f"    {format_stats_line(stats, base)}"
         )
     iv_diff = total_power - total_base_power
     total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
-    lines.append(f"\n💪 팀 전투력: {total_tag}")
+    lines.append(f"\n{icon_emoji('bolt')} 팀 전투력: {total_tag}")
 
     if team_num != active_num:
         lines.append(f"\n💡 '팀선택 {team_num}'으로 이 팀을 배틀에 사용할 수 있습니다.")
@@ -864,9 +864,9 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = [
         f"{icon_emoji('shopping-bag')} BP 상점\n",
         f"{icon_emoji('coin')} 보유 BP: {bp}\n",
-        f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
-        f"⚡ 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
-        f"🔴 포켓볼 충전 리셋 — {pb_label}",
+        f"{ball_emoji('masterball')} 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
+        f"{icon_emoji('bolt')} 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
+        f"{ball_emoji('pokeball')} 포켓볼 충전 리셋 — {pb_label}",
         f"🔵 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
         f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
     ]
@@ -927,7 +927,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         next_price = _masterball_price(bought_today + 1)
         next_str = f" (다음: {next_price} BP)" if next_price else ""
         await update.message.reply_text(
-            f"🟣 마스터볼 1개 구매 완료! ({cost} BP)\n"
+            f"{ball_emoji('masterball')} 마스터볼 1개 구매 완료! ({cost} BP)\n"
             f"{icon_emoji('coin')} 남은 BP: {bp}\n"
             f"📦 오늘 남은 구매: {remaining}개{next_str}"
         )
@@ -947,9 +947,9 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bp = await bq.get_bp(user_id)
         tickets = await queries.get_force_spawn_tickets(user_id)
         await update.message.reply_text(
-            f"⚡ 강스권 1개 구매 완료!\n"
+            f"{icon_emoji('bolt')} 강스권 1개 구매 완료!\n"
             f"{icon_emoji('coin')} 남은 BP: {bp}\n"
-            f"📦 보유 강스권: {tickets}개\n\n"
+            f"{icon_emoji('container')} 보유 강스권: {tickets}개\n\n"
             "채팅방에서 '강스권' 입력으로 해당 채널의 강제스폰 50회를 초기화합니다!"
         )
 
@@ -1136,10 +1136,10 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         lines = [
             f"{icon_emoji('shopping-bag')} BP 상점\n",
             f"{icon_emoji('coin')} 보유 BP: {bp}\n",
-            f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
+            f"{ball_emoji('masterball')} 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
             f"{icon_emoji('bolt')} 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
-            f"🔴 포켓볼 충전 리셋 — {pb_label}",
-            f"🔵 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
+            f"{ball_emoji('pokeball')} 포켓볼 충전 리셋 — {pb_label}",
+            f"{ball_emoji('hyperball')} 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
             f"{icon_emoji('game')} 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
         ]
 
@@ -1578,7 +1578,7 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(
             f"{rank}. {rb}{p['type_emoji']}<b>{p['name']}</b>{trap}  "
             f"체{p['hp']} 공{p['atk']} 방{p['def']} 속{p['spd']}  "
-            f"⚡{p['power']}"
+            f"{icon_emoji('bolt')}{p['power']}"
         )
 
     lines.append("\n─────────────────")

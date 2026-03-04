@@ -659,7 +659,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             shiny_dm = f" {shiny_emoji()}이로치" if is_shiny else ""
             dm_text = (
                 f"🎉 {rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
-                f"⚡ {format_power(stats_with_iv, stats_base)}\n"
+                f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
                 f"{format_stats_line(stats_with_iv, stats_base)}"
             )
             asyncio.create_task(context.bot.send_message(chat_id=winner_id, text=dm_text, parse_mode="HTML"))

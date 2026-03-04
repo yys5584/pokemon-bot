@@ -189,7 +189,7 @@ async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAU
     # Use ticket (atomic)
     success = await queries.use_force_spawn_ticket(user_id)
     if not success:
-        resp = await update.message.reply_text("⚡ 강스권이 없습니다! DM에서 '상점'으로 구매하세요.")
+        resp = await update.message.reply_text(f"{icon_emoji('bolt')} 강스권이 없습니다! DM에서 '상점'으로 구매하세요.", parse_mode="HTML")
         schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         return
 
@@ -201,9 +201,10 @@ async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAU
     room = await queries.get_chat_room(chat_id)
     chat_title = room["chat_title"] if room else "이 채팅방"
     resp = await update.message.reply_text(
-        f"⚡ {display_name}이(가) 강스권을 사용했습니다!\n"
-        f"🔄 [{chat_title}]의 강제스폰 횟수가 초기화되었습니다. (0/50)\n"
-        f"📦 남은 강스권: {remaining}개"
+        f"{icon_emoji('bolt')} {display_name}이(가) 강스권을 사용했습니다!\n"
+        f"{icon_emoji('check')} [{chat_title}]의 강제스폰 횟수가 초기화되었습니다. (0/50)\n"
+        f"{icon_emoji('container')} 남은 강스권: {remaining}개",
+        parse_mode="HTML",
     )
     schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
 

@@ -343,7 +343,7 @@ async def execute_battle(
         f"{icon_emoji('battle')} 배틀 결과!",
         "━━━━━━━━━━━━━━━",
         f"{c_title_str}{c_name}  ⚔  {d_title_str}{d_name}",
-        f"⚡{c_total_power}          ⚡{d_total_power}",
+        f"{icon_emoji('bolt')}{c_total_power}          {icon_emoji('bolt')}{d_total_power}",
         "━━━━━━━━━━━━━━━",
         "",
         result["log"],
