@@ -1558,53 +1558,46 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(_tier_cache, parse_mode="HTML")
         return
 
-    # Fetch all epic+ pokemon
+    # Fetch all pokemon — final evolution only (same logic as dashboard)
     from database.connection import get_db
+    from models.pokemon_skills import POKEMON_SKILLS
+    from utils.battle_calc import get_normalized_base_stats
+
     pool = await get_db()
     rows = await pool.fetch("""
-        SELECT id, name_ko, emoji, rarity, pokemon_type, stat_type
-        FROM pokemon_master
-        WHERE rarity IN ('epic', 'legendary')
-        ORDER BY id
+        SELECT id, name_ko, emoji, rarity, pokemon_type, stat_type, evolves_to
+        FROM pokemon_master ORDER BY id
     """)
 
-    from models.pokemon_skills import POKEMON_SKILLS
+    final_evos = [r for r in rows if r["evolves_to"] is None]
 
-    # Calculate power score for each (friendship MAX=5)
     scored = []
-    for r in rows:
-        evo_stage = EVO_STAGE_MAP.get(r["id"], 3)
-        stats = calc_battle_stats(r["rarity"], r["stat_type"], 5, evo_stage=evo_stage)
+    for r in final_evos:
+        base = get_normalized_base_stats(r["id"])
+        stats = calc_battle_stats(
+            r["rarity"], r["stat_type"], 5,
+            evo_stage=3 if base else EVO_STAGE_MAP.get(r["id"], 3),
+            **(base or {}),
+        )
         skill = POKEMON_SKILLS.get(r["id"], ("몸통박치기", 1.2))
 
-        # Effective power: best offensive stat, skill, survivability
         best_atk = max(stats["atk"], stats["spa"])
         eff_def = (stats["def"] + stats["spdef"]) / 2
         eff_atk = best_atk * (1 + config.BATTLE_SKILL_RATE * skill[1])
         eff_tank = stats["hp"] * (1 + eff_def * 0.003)
-        power = eff_atk * eff_tank / 1000
+        power = round(eff_atk * eff_tank / 1000, 1)
 
         tb = type_badge(r["id"], r["pokemon_type"])
-        from models.pokemon_base_stats import POKEMON_BASE_STATS as _PBS
-        _pbs = _PBS.get(r["id"])
-        if _pbs:
-            type_ko = "/".join(config.TYPE_NAME_KO.get(t, t) for t in _pbs[-1])
-        else:
-            type_ko = config.TYPE_NAME_KO.get(r["pokemon_type"], r["pokemon_type"])
-        stat_ko = {"offensive": "공격", "defensive": "방어", "balanced": "균형", "speedy": "속도"}.get(r["stat_type"], r["stat_type"])
-
         scored.append({
-            "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
-            "rarity": r["rarity"], "type_emoji": tb, "type_ko": type_ko,
-            "stat_ko": stat_ko, "power": power, "skill_name": skill[0],
-            "skill_power": skill[1], "stats": stats,
+            "name": r["name_ko"], "rarity": r["rarity"],
+            "type_emoji": tb, "power": power,
+            "hp": stats["hp"], "atk": stats["atk"],
+            "def": stats["def"], "spd": stats["spd"],
         })
 
-    # Sort by power descending, take top 20
     scored.sort(key=lambda x: -x["power"])
     top20 = scored[:20]
 
-    # Build tier display
     lines = ["⚔️ <b>배틀 티어표</b> (전투력 TOP 20)"]
     lines.append("━━━━━━━━━━━━━━━━━━━━\n")
 
@@ -1612,12 +1605,12 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rb = rarity_badge(p["rarity"])
         lines.append(
             f"{rank}. {rb}{p['type_emoji']}<b>{p['name']}</b>  "
-            f"{p['type_ko']}/{p['stat_ko']}  "
-            f"「{p['skill_name']}」{p['skill_power']}x"
+            f"HP:{p['hp']} ATK:{p['atk']} DEF:{p['def']} SPD:{p['spd']}  "
+            f"⚡{p['power']}"
         )
 
     lines.append("\n─────────────────")
-    lines.append("💡 전투력 = (ATK or SPA) x 스킬 x 내구")
+    lines.append("💡 종족값 + 친밀도MAX 기준")
     lines.append("💡 타입상성으로 역전 가능")
 
     _tier_cache = "\n".join(lines)
