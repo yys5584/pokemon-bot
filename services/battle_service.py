@@ -6,7 +6,7 @@ import logging
 import config
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, calc_power, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
-from utils.helpers import type_badge
+from utils.helpers import type_badge, icon_emoji
 from models.pokemon_skills import POKEMON_SKILLS
 
 logger = logging.getLogger(__name__)
@@ -113,6 +113,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
     Each team is a list of _prepare_combatant() dicts.
     Returns battle result dict.
     """
+    SKULL = icon_emoji("skull")
     log_lines = []
     c_idx = 0
     d_idx = 0
@@ -176,10 +177,10 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             if c_idx < len(challenger_team):
                 c_mon = challenger_team[c_idx]
                 log_lines.append(
-                    f" 💀 {dead_name} 쓰러짐! ▶ {c_mon['name']} 등장!"
+                    f" {SKULL}{dead_name} 쓰러짐! ▶ {c_mon['name']} 등장!"
                 )
             else:
-                log_lines.append(f" 💀 {dead_name} 쓰러짐!")
+                log_lines.append(f" {SKULL}{dead_name} 쓰러짐!")
 
         # KO check - defender's pokemon
         if d_mon["current_hp"] <= 0:
@@ -188,7 +189,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             if d_idx < len(defender_team):
                 d_mon = defender_team[d_idx]
                 log_lines.append(
-                    f" 💀 {dead_name} 쓰러짐! ▶ {d_mon['name']} 등장!"
+                    f" {SKULL}{dead_name} 쓰러짐! ▶ {d_mon['name']} 등장!"
                 )
                 if c_idx < len(challenger_team):
                     match_turn = 0  # reset turn counter for new matchup
@@ -197,7 +198,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
                         f" ⚔ ({d_idx+1}/{d_total}) {d_mon['tb']}{d_mon['name']}({d_mon['iv_grade']})"
                     )
             else:
-                log_lines.append(f" 💀 {dead_name} 쓰러짐!")
+                log_lines.append(f" {SKULL}{dead_name} 쓰러짐!")
 
     # Determine winner
     if round_num > config.BATTLE_MAX_ROUNDS:

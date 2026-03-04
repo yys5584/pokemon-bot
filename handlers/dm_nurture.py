@@ -8,7 +8,7 @@ import config
 from database import queries
 from services.evolution_service import try_evolve
 from services.event_service import get_friendship_boost
-from utils.helpers import hearts_display, type_badge
+from utils.helpers import hearts_display, type_badge, shiny_emoji
 from utils.parse import parse_number, parse_name_arg, parse_select_index
 from utils.battle_calc import iv_total
 
@@ -69,7 +69,7 @@ async def _resolve_pokemon(update, user_id, text, cmd):
     # Show selection list
     lines = [f"⚠️ {name_arg}을(를) {len(all_matches)}마리 보유 중입니다.\n번호를 지정해주세요:\n"]
     for i, p in enumerate(all_matches, 1):
-        shiny = " ✨이로치" if p.get("is_shiny") else ""
+        shiny = f" {shiny_emoji()}이로치" if p.get("is_shiny") else ""
         tb = type_badge(p["pokemon_id"])
         iv_tag = _iv_grade_tag(p)
         hearts = hearts_display(p["friendship"], config.get_max_friendship(p))
@@ -123,9 +123,9 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     evo_hint = ""
     if new_friendship >= config.MAX_FRIENDSHIP:
         if pokemon["evolves_to"] and pokemon["evolution_method"] == "friendship":
-            evo_hint = f"\n\n✨ 친밀도 MAX! 진화 {pokemon['name_ko']} 로 진화할 수 있습니다!"
+            evo_hint = f"\n\n💖 친밀도 MAX! 진화 {pokemon['name_ko']} 로 진화할 수 있습니다!"
         elif pokemon["evolves_to"] and pokemon["evolution_method"] == "trade":
-            evo_hint = f"\n\n✨ 친밀도 MAX! 이 포켓몬은 교환으로만 진화합니다."
+            evo_hint = f"\n\n💖 친밀도 MAX! 이 포켓몬은 교환으로만 진화합니다."
 
     await update.message.reply_text(
         f"🍖 {pokemon['name_ko']}에게 밥을 줬습니다!{boost_text}\n"
@@ -179,9 +179,9 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     evo_hint = ""
     if new_friendship >= config.MAX_FRIENDSHIP:
         if pokemon["evolves_to"] and pokemon["evolution_method"] == "friendship":
-            evo_hint = f"\n\n✨ 친밀도 MAX! 진화 {pokemon['name_ko']} 로 진화할 수 있습니다!"
+            evo_hint = f"\n\n💖 친밀도 MAX! 진화 {pokemon['name_ko']} 로 진화할 수 있습니다!"
         elif pokemon["evolves_to"] and pokemon["evolution_method"] == "trade":
-            evo_hint = f"\n\n✨ 친밀도 MAX! 이 포켓몬은 교환으로만 진화합니다."
+            evo_hint = f"\n\n💖 친밀도 MAX! 이 포켓몬은 교환으로만 진화합니다."
 
     await update.message.reply_text(
         f"🎾 {pokemon['name_ko']}와(과) 놀아줬습니다!{boost_text}\n"

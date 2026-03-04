@@ -12,9 +12,12 @@ import config
 from database import queries
 from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
-from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete, ball_emoji
+from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete, ball_emoji, shiny_emoji
 
 logger = logging.getLogger(__name__)
+
+# Prevent duplicate catch from rapid ㅊㅊ (race condition guard)
+_catch_locks: set[tuple[int, int]] = set()  # (session_id, user_id)
 
 
 async def close_message_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -78,40 +81,48 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.debug(f"ㅊ by {user_id} in {chat_id}: no active spawn")
             return  # No active spawn, silently ignore
 
-        # Check if already attempted this session
-        already = await queries.has_attempted_session(session["id"], user_id)
-        if already:
-            logger.debug(f"ㅊ by {user_id}: already attempted session {session['id']}")
-            return  # Silently ignore duplicate
-
-        # Check catch limits
-        allowed, reason = await can_attempt_catch(user_id)
-        if not allowed:
-            logger.info(f"ㅊ by {user_id}: blocked - {reason}")
-            resp = await update.message.reply_text(reason)
-            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+        # Race condition guard: prevent duplicate from rapid ㅊㅊ
+        lock_key = (session["id"], user_id)
+        if lock_key in _catch_locks:
             return
+        _catch_locks.add(lock_key)
+        try:
+            # Check if already attempted this session
+            already = await queries.has_attempted_session(session["id"], user_id)
+            if already:
+                logger.debug(f"ㅊ by {user_id}: already attempted session {session['id']}")
+                return  # Silently ignore duplicate
 
-        # Record attempt
-        await record_attempt(session["id"], user_id)
-        logger.info(f"ㅊ by {user_id}: attempt recorded for session {session['id']}")
+            # Check catch limits
+            allowed, reason = await can_attempt_catch(user_id)
+            if not allowed:
+                logger.info(f"ㅊ by {user_id}: blocked - {reason}")
+                resp = await update.message.reply_text(reason)
+                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+                return
 
-        # Show decorated name with title (HTML bold for titled users)
-        user = await queries.get_user(user_id)
-        decorated = get_decorated_name(
-            display_name,
-            user.get("title", "") if user else "",
-            user.get("title_emoji", "") if user else "",
-            username,
-            html=True,
-        )
+            # Record attempt
+            await record_attempt(session["id"], user_id)
+            logger.info(f"ㅊ by {user_id}: attempt recorded for session {session['id']}")
 
-        attempt_msg = await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"{ball_emoji('pokeball')} {decorated} 포켓볼을 던졌다!",
-            parse_mode="HTML",
-        )
-        track_attempt_message(session["id"], chat_id, attempt_msg.message_id)
+            # Show decorated name with title (HTML bold for titled users)
+            user = await queries.get_user(user_id)
+            decorated = get_decorated_name(
+                display_name,
+                user.get("title", "") if user else "",
+                user.get("title_emoji", "") if user else "",
+                username,
+                html=True,
+            )
+
+            attempt_msg = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"{ball_emoji('pokeball')} {decorated} 포켓볼을 던졌다!",
+                parse_mode="HTML",
+            )
+            track_attempt_message(session["id"], chat_id, attempt_msg.message_id)
+        finally:
+            _catch_locks.discard(lock_key)
 
     except Exception as e:
         logger.error(f"Catch handler error: {e}")
@@ -138,50 +149,58 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         if session is None:
             return
 
-        # Double-check session is not already resolved (race condition guard)
-        from database.connection import get_db
-        pool = await get_db()
-        row = await pool.fetchrow(
-            "SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]
-        )
-        if not row or row["is_resolved"] == 1:
+        # Race condition guard
+        lock_key = (session["id"], user_id)
+        if lock_key in _catch_locks:
             return
+        _catch_locks.add(lock_key)
+        try:
+            # Double-check session is not already resolved
+            from database.connection import get_db
+            pool = await get_db()
+            row = await pool.fetchrow(
+                "SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]
+            )
+            if not row or row["is_resolved"] == 1:
+                return
 
-        # Check if already attempted
-        already = await queries.has_attempted_session(session["id"], user_id)
-        if already:
-            return
+            # Check if already attempted
+            already = await queries.has_attempted_session(session["id"], user_id)
+            if already:
+                return
 
-        # Check if user has master balls
-        balls = await queries.get_master_balls(user_id)
-        if balls < 1:
-            resp = await update.message.reply_text("🟣 마스터볼이 없습니다!")
-            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
-            return
+            # Check if user has master balls
+            balls = await queries.get_master_balls(user_id)
+            if balls < 1:
+                resp = await update.message.reply_text("🟣 마스터볼이 없습니다!")
+                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+                return
 
-        # Use master ball
-        used = await queries.use_master_ball(user_id)
-        if not used:
-            return
+            # Use master ball
+            used = await queries.use_master_ball(user_id)
+            if not used:
+                return
 
-        # Record attempt with master ball flag
-        await queries.record_catch_attempt(session["id"], user_id, used_master_ball=True)
+            # Record attempt with master ball flag
+            await queries.record_catch_attempt(session["id"], user_id, used_master_ball=True)
 
-        user = await queries.get_user(user_id)
-        decorated = get_decorated_name(
-            display_name,
-            user.get("title", "") if user else "",
-            user.get("title_emoji", "") if user else "",
-            username,
-            html=True,
-        )
-        remaining = balls - 1
-        msg = await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"{ball_emoji('masterball')} {decorated} 마스터볼을 던졌다! (남은: {remaining}개)",
-            parse_mode="HTML",
-        )
-        track_attempt_message(session["id"], chat_id, msg.message_id)
+            user = await queries.get_user(user_id)
+            decorated = get_decorated_name(
+                display_name,
+                user.get("title", "") if user else "",
+                user.get("title_emoji", "") if user else "",
+                username,
+                html=True,
+            )
+            remaining = balls - 1
+            msg = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"{ball_emoji('masterball')} {decorated} 마스터볼을 던졌다! (남은: {remaining}개)",
+                parse_mode="HTML",
+            )
+            track_attempt_message(session["id"], chat_id, msg.message_id)
+        finally:
+            _catch_locks.discard(lock_key)
 
     except Exception as e:
         logger.error(f"Master ball handler error: {e}")
@@ -206,46 +225,53 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             return
 
         # Race condition guard
-        from database.connection import get_db
-        pool = await get_db()
-        row = await pool.fetchrow(
-            "SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]
-        )
-        if not row or row["is_resolved"] == 1:
+        lock_key = (session["id"], user_id)
+        if lock_key in _catch_locks:
             return
-
-        # Check if already attempted
-        already = await queries.has_attempted_session(session["id"], user_id)
-        if already:
-            return
-
-        # Use hyper ball from inventory
-        success = await queries.use_hyper_ball(user_id)
-        if not success:
-            remaining = await queries.get_hyper_balls(user_id)
-            await update.message.reply_text(
-                f"🔵 하이퍼볼이 없습니다! (보유: {remaining}개)\nDM에서 '구매 하이퍼볼'로 구매하세요."
+        _catch_locks.add(lock_key)
+        try:
+            from database.connection import get_db
+            pool = await get_db()
+            row = await pool.fetchrow(
+                "SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]
             )
-            return
+            if not row or row["is_resolved"] == 1:
+                return
 
-        # Record attempt (does NOT increment catch limit)
-        await queries.record_catch_attempt(session["id"], user_id, used_hyper_ball=True)
+            # Check if already attempted
+            already = await queries.has_attempted_session(session["id"], user_id)
+            if already:
+                return
 
-        user = await queries.get_user(user_id)
-        decorated = get_decorated_name(
-            display_name,
-            user.get("title", "") if user else "",
-            user.get("title_emoji", "") if user else "",
-            username,
-            html=True,
-        )
-        remaining = await queries.get_hyper_balls(user_id)
-        hyper_msg = await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"{ball_emoji('hyperball')} {decorated} 하이퍼볼을 던졌다! (남은: {remaining}개)",
-            parse_mode="HTML",
-        )
-        track_attempt_message(session["id"], chat_id, hyper_msg.message_id)
+            # Use hyper ball from inventory
+            success = await queries.use_hyper_ball(user_id)
+            if not success:
+                remaining = await queries.get_hyper_balls(user_id)
+                await update.message.reply_text(
+                    f"🔵 하이퍼볼이 없습니다! (보유: {remaining}개)\nDM에서 '구매 하이퍼볼'로 구매하세요."
+                )
+                return
+
+            # Record attempt (does NOT increment catch limit)
+            await queries.record_catch_attempt(session["id"], user_id, used_hyper_ball=True)
+
+            user = await queries.get_user(user_id)
+            decorated = get_decorated_name(
+                display_name,
+                user.get("title", "") if user else "",
+                user.get("title_emoji", "") if user else "",
+                username,
+                html=True,
+            )
+            remaining = await queries.get_hyper_balls(user_id)
+            hyper_msg = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"{ball_emoji('hyperball')} {decorated} 하이퍼볼을 던졌다! (남은: {remaining}개)",
+                parse_mode="HTML",
+            )
+            track_attempt_message(session["id"], chat_id, hyper_msg.message_id)
+        finally:
+            _catch_locks.discard(lock_key)
 
     except Exception as e:
         logger.error(f"Hyper ball handler error: {e}")
@@ -436,7 +462,7 @@ async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines = ["📋 최근 출현 기록"]
         for log in logs:
             ago = time_ago(log["spawned_at"])
-            shiny = "✨" if log.get("is_shiny") else ""
+            shiny = shiny_emoji() if log.get("is_shiny") else ""
             if log["caught_by_name"]:
                 result = f"→ {log['caught_by_name']} 포획"
             else:

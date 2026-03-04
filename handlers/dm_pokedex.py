@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
-from utils.helpers import hearts_display, rarity_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji
+from utils.helpers import hearts_display, rarity_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji, shiny_emoji
 from utils.card_generator import generate_card
 from utils.parse import parse_number, parse_name_arg
 from utils.battle_calc import iv_total
@@ -341,7 +341,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
             for p in teams[tn]:
                 slot = p.get("team_slot", 1) - 1
                 se = slot_emojis[slot] if 0 <= slot < 6 else "▸"
-                shiny = "✨" if p.get("is_shiny") else ""
+                shiny = shiny_emoji() if p.get("is_shiny") else ""
                 rb = rarity_badge(p.get("rarity", ""))
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
                 iv_tag = ""
@@ -362,7 +362,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 _, idx, p = item
                 max_f = config.get_max_friendship(p)
                 hearts = hearts_display(p["friendship"], max_f)
-                shiny = "✨" if p.get("is_shiny") else ""
+                shiny = shiny_emoji() if p.get("is_shiny") else ""
                 fav = "⭐" if p.get("is_favorite") else ""
                 evo_mark = ""
                 if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
@@ -467,7 +467,7 @@ def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: i
     for i, p in enumerate(members):
         idx = pokemon_list.index(p)
         num = i + 1
-        shiny = " ✨이로치" if p.get("is_shiny") else ""
+        shiny = f" {shiny_emoji()}이로치" if p.get("is_shiny") else ""
         max_f = config.get_max_friendship(p)
         hearts = hearts_display(p["friendship"], max_f)
 
@@ -503,7 +503,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
 
     max_f = config.get_max_friendship(p)
     hearts = hearts_display(p["friendship"], max_f)
-    shiny_mark = "✨" if p.get("is_shiny") else ""
+    shiny_mark = shiny_emoji() if p.get("is_shiny") else ""
 
     evo_text = ""
     if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
@@ -512,7 +512,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
         evo_text = "\n🔄 교환으로 진화 가능"
 
     rarity_text = rarity_badge_label(p["rarity"])
-    shiny_text = "  ✨이로치" if p.get("is_shiny") else ""
+    shiny_text = f"  {shiny_emoji()}이로치" if p.get("is_shiny") else ""
 
     # IV information
     from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, iv_total, EVO_STAGE_MAP
@@ -773,7 +773,18 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             idx = max(0, min(idx, len(pokemon_list) - 1))
             p = pokemon_list[idx]
             team_num = 1 if action == "t1" else 2
-            result = await _do_add_to_team(p, user_id, team_num)
+            text, markup = await _build_slot_picker(user_id, p, idx, page, team_num)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "tset":
+            # mypoke_tset_{uid}_{idx}_{page}_{slot}_{team_num}
+            idx = int(parts[3])
+            page = int(parts[4])
+            slot = int(parts[5])
+            team_num = int(parts[6])
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            p = pokemon_list[idx]
+            result = await _do_set_slot(p, user_id, team_num, slot)
             await query.answer(result, show_alert=True)
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             idx = max(0, min(idx, len(pokemon_list) - 1))
@@ -786,7 +797,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 def _format_appraisal(p: dict) -> str:
     """Format IV appraisal text for a pokemon."""
-    shiny = "✨" if p.get("is_shiny") else ""
+    shiny = shiny_emoji() if p.get("is_shiny") else ""
     rb = rarity_badge(p.get("rarity", "common"))
     ivs = {
         "HP": p.get("iv_hp"), "ATK": p.get("iv_atk"), "DEF": p.get("iv_def"),
@@ -859,33 +870,88 @@ async def _do_evolve(p: dict, user_id: int) -> str:
     if not evo_target:
         return "진화 대상을 찾을 수 없습니다."
     await queries.evolve_pokemon(p["id"], p["evolves_to"])
-    return f"✨ {p['name_ko']}이(가) {evo_target['name_ko']}(으)로 진화했습니다!"
+    return f"🎉 {p['name_ko']}이(가) {evo_target['name_ko']}(으)로 진화했습니다!"
 
 
-async def _do_add_to_team(p: dict, user_id: int, team_num: int) -> str:
-    """Add pokemon to battle team, return result message."""
+async def _build_slot_picker(user_id: int, p: dict, idx: int, page: int,
+                             team_num: int) -> tuple[str, InlineKeyboardMarkup]:
+    """Show 6 team slots for placing a pokemon."""
     from database import battle_queries as bq
     team = await bq.get_battle_team(user_id, team_num)
+    slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+    slot_map = {t["slot"]: t for t in team}
+
+    shiny = shiny_emoji() if p.get("is_shiny") else ""
+    tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+    lines = [f"⚔️ 팀{team_num}에 {tb}{shiny} {p['name_ko']} 배치", "슬롯을 선택하세요:\n"]
+
+    buttons = []
+    for s in range(1, 7):
+        if s in slot_map:
+            t = slot_map[s]
+            t_iv = ""
+            if t.get("iv_hp") is not None:
+                total = iv_total(t["iv_hp"], t.get("iv_atk", 0), t.get("iv_def", 0),
+                                 t.get("iv_spa", 0), t.get("iv_spdef", 0), t.get("iv_spd", 0))
+                grade, _ = config.get_iv_grade(total)
+                t_iv = f" [{grade}]{total}"
+            ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
+            t_shiny = shiny_emoji() if t.get("is_shiny") else ""
+            lines.append(f"{slot_emojis[s-1]} {ttb}{t_shiny} {t['name_ko']}{t_iv}")
+            label = f"{slot_emojis[s-1]} {t['name_ko']} → 교체"
+        else:
+            lines.append(f"{slot_emojis[s-1]} (빈 슬롯)")
+            label = f"{slot_emojis[s-1]} 빈 슬롯 ← 배치"
+        buttons.append([InlineKeyboardButton(
+            label, callback_data=f"mypoke_tset_{user_id}_{idx}_{page}_{s}_{team_num}"
+        )])
+
+    buttons.append([InlineKeyboardButton("❌ 취소", callback_data=f"mypoke_v_{user_id}_{idx}_{page}")])
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
+
+async def _do_set_slot(p: dict, user_id: int, team_num: int, slot: int) -> str:
+    """Place pokemon into a specific team slot. Returns result message."""
+    from database import battle_queries as bq
+    team = await bq.get_battle_team(user_id, team_num)
+
     # Check if already on this team
     for t in team:
         if t.get("pokemon_instance_id") == p["id"]:
-            return f"이미 팀{team_num}에 등록되어 있습니다!"
-    if len(team) >= config.TEAM_MAX:
-        return f"팀{team_num}이 가득 찼습니다 ({config.TEAM_MAX}마리)!"
-    # Legendary limit
+            if t["slot"] == slot:
+                return f"이미 슬롯 {slot}에 등록되어 있습니다!"
+            return f"이미 팀{team_num}의 슬롯 {t['slot']}에 등록되어 있습니다!"
+
+    # Build new slot map
+    slot_map = {t["slot"]: t["pokemon_instance_id"] for t in team}
+    replaced_name = None
+    for t in team:
+        if t["slot"] == slot:
+            replaced_name = t["name_ko"]
+    slot_map[slot] = p["id"]
+
+    # Validate: legendary limit (exclude replaced pokemon)
     if p["rarity"] == "legendary":
-        leg_count = sum(1 for t in team if t.get("rarity") == "legendary")
+        leg_count = sum(
+            1 for t in team
+            if t.get("rarity") == "legendary" and t["slot"] != slot
+        )
         if leg_count >= 1:
             return "전설 포켓몬은 팀당 1마리만 가능합니다!"
-    # Epic duplicate check
+
+    # Validate: epic duplicate (exclude replaced pokemon)
     if p["rarity"] == "epic":
         for t in team:
-            if t.get("rarity") == "epic" and t.get("pokemon_id") == p["pokemon_id"]:
+            if t["slot"] != slot and t.get("rarity") == "epic" and t.get("pokemon_id") == p["pokemon_id"]:
                 return "같은 종의 에픽 포켓몬은 중복 불가!"
-    # Add to team
-    instance_ids = [t["pokemon_instance_id"] for t in team] + [p["id"]]
+
+    # Save
+    instance_ids = [slot_map[s] for s in sorted(slot_map.keys())]
     await bq.set_battle_team(user_id, instance_ids, team_num)
-    return f"✅ {p['name_ko']}을(를) 팀{team_num}에 추가! ({len(instance_ids)}/{config.TEAM_MAX})"
+
+    if replaced_name:
+        return f"✅ 슬롯{slot}: {replaced_name} → {p['name_ko']} 교체!"
+    return f"✅ {p['name_ko']}을(를) 슬롯 {slot}에 배치!"
 
 
 # --- Pokemon TMI data (웃긴 버전) ---
@@ -1403,7 +1469,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     shiny_count = sum(1 for p in pokemon_list if p.get("is_shiny"))
     lines.append(f"📖 도감: {len(unique_ids)}/251종")
     if shiny_count > 0:
-        lines.append(f"✨ 이로치: {shiny_count}마리")
+        lines.append(f"{shiny_emoji()} 이로치: {shiny_count}마리")
 
     # 배틀 전적
     wins = battle_stats.get("battle_wins", 0)
@@ -1551,7 +1617,7 @@ async def appraisal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pct = round(total / 186 * 100, 1)
 
     # Build display
-    shiny = "✨" if pokemon.get("is_shiny") else ""
+    shiny = shiny_emoji() if pokemon.get("is_shiny") else ""
     rb = rarity_badge(pokemon.get("rarity", "common"))
     name = pokemon["name_ko"]
 

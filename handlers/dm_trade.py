@@ -8,7 +8,7 @@ import config
 from database import queries
 from services.trade_service import create_trade_offer, accept_trade
 from utils.parse import parse_args
-from utils.helpers import type_badge, hearts_display
+from utils.helpers import type_badge, hearts_display, shiny_emoji
 from utils.battle_calc import iv_total
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Show selection list
             lines = [f"⚠️ {pokemon_name}을(를) {len(all_matches)}마리 보유 중입니다.\n번호를 지정해주세요:\n"]
             for i, p in enumerate(all_matches, 1):
-                shiny = " ✨이로치" if p.get("is_shiny") else ""
+                shiny = f" {shiny_emoji()}이로치" if p.get("is_shiny") else ""
                 tb = type_badge(p["pokemon_id"])
                 iv_tag = ""
                 if p.get("iv_hp") is not None:

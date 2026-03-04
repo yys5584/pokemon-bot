@@ -8,7 +8,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config import (
     TITLES, LEGEND_HUNTER_THRESHOLD, LEGEND_HUNTER_TITLE,
     RARITY_EMOJI, RARITY_LABEL, RARITY_CUSTOM_EMOJI,
-    TYPE_EMOJI, TYPE_CUSTOM_EMOJI, BALL_CUSTOM_EMOJI,
+    TYPE_EMOJI, TYPE_CUSTOM_EMOJI, BALL_CUSTOM_EMOJI, ICON_CUSTOM_EMOJI,
 )
 from database import queries
 
@@ -118,6 +118,26 @@ def ball_emoji(ball_key: str) -> str:
     if eid:
         return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji>'
     return fallback
+
+
+_ICON_FALLBACK = {
+    "skull": "💀",
+    "crystal": "✨",
+}
+
+
+def icon_emoji(key: str) -> str:
+    """Return custom emoji HTML tag for an icon."""
+    eid = ICON_CUSTOM_EMOJI.get(key, "")
+    fallback = _ICON_FALLBACK.get(key, "⭐")
+    if eid:
+        return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji>'
+    return fallback
+
+
+def shiny_emoji() -> str:
+    """Return crystal custom emoji for shiny (이로치) indicator."""
+    return icon_emoji("crystal")
 
 
 async def calculate_title(user_id: int) -> tuple[str, str]:

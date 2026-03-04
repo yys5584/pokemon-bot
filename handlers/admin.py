@@ -401,7 +401,7 @@ async def stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👥 총 유저: {total['total_users']}명",
         f"💬 활성 채팅방: {total['total_chats']}개",
         f"🌿 총 스폰: {total['total_spawns']}회",
-        f"✨ 총 포획: {total['total_catches']}회",
+        f"🎯 총 포획: {total['total_catches']}회",
         f"🔄 총 교환: {total['total_trades']}회",
         "",
         f"📅 오늘 스폰: {today['today_spawns']}회",

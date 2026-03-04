@@ -12,7 +12,7 @@ from database import queries
 from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_pokemon_boost
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
-from utils.helpers import schedule_delete, close_button, rarity_badge, type_badge
+from utils.helpers import schedule_delete, close_button, rarity_badge, type_badge, ball_emoji, shiny_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -349,7 +349,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         is_shiny = random.random() < shiny_rate
 
         # 5. Generate card image FIRST (before creating session)
-        shiny_text = " ✨이로치" if is_shiny else ""
+        shiny_text = f" {shiny_emoji()}이로치" if is_shiny else ""
         bonus_text = " 🌙" if midnight else ""
 
         # Check for active event indicator
@@ -461,7 +461,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         if not attempts:
             # Nobody tried
-            shiny_tag = " ✨이로치" if is_shiny else ""
+            shiny_tag = f" {shiny_emoji()}이로치" if is_shiny else ""
             rbadge = rarity_badge(rarity)
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
@@ -517,7 +517,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         if not winners:
             # Everyone failed
-            shiny_tag = " ✨이로치" if is_shiny else ""
+            shiny_tag = f" {shiny_emoji()}이로치" if is_shiny else ""
             rbadge = rarity_badge(rarity)
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
@@ -579,7 +579,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             html=True,
         )
 
-        shiny_label = "✨이로치 " if is_shiny else ""
+        shiny_label = f"{shiny_emoji()}이로치 " if is_shiny else ""
 
         # IV grade display
         from utils.battle_calc import iv_total
@@ -591,19 +591,23 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         rbadge = rarity_badge(rarity)
         tb = type_badge(pokemon_id)
+        be_pokeball = ball_emoji("pokeball")
+        be_master = ball_emoji("masterball")
+        be_hyper = ball_emoji("hyperball")
         if winner.get("used_master_ball"):
-            msg = f"🟣 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 확정 포획!{iv_tag}"
+            msg = f"{be_master} 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 확정 포획!{iv_tag}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
-            msg = f"🔵 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
+            msg = f"{be_hyper} 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
         elif rarity in ("epic", "legendary") and is_first:
             msg = f"🌟 {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획! (이 방 최초){iv_tag}"
         else:
-            msg = f"딸깍! ✨ {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
+            msg = f"딸깍! {be_pokeball} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
 
         # Shiny catch announcement
         if is_shiny:
-            msg += "\n\n✨✨✨ 이로치 포켓몬을 잡았다!"
+            _se = shiny_emoji()
+            msg += f"\n\n{_se}{_se}{_se} 이로치 포켓몬을 잡았다!"
 
         # Track midnight catch for title
         hour = config.get_kst_hour()
@@ -652,7 +656,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 **base_kwargs,
             )
 
-            shiny_dm = " ✨이로치" if is_shiny else ""
+            shiny_dm = f" {shiny_emoji()}이로치" if is_shiny else ""
             dm_text = (
                 f"🎉 {rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
                 f"⚡ {format_power(stats_with_iv, stats_base)}\n"

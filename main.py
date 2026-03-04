@@ -374,7 +374,7 @@ def main():
     app.add_handler(CallbackQueryHandler(partner_callback_handler, pattern=r"^partner_"))
 
     # Team selection callback
-    app.add_handler(CallbackQueryHandler(team_callback_handler, pattern=r"^t(s|p|ok|cl|del|no)_"))
+    app.add_handler(CallbackQueryHandler(team_callback_handler, pattern=r"^t(s|slot|p|cl|del|no)_"))
 
     # Battle accept/decline callback
     app.add_handler(CallbackQueryHandler(battle_callback_handler, pattern=r"^battle_"))
