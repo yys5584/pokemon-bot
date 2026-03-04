@@ -127,7 +127,7 @@ async def _ensure_llm_usage_table():
 async def _check_llm_limit(user_id: int, cost: int = 1) -> tuple[bool, int, int]:
     """Check if user can use LLM. Returns (allowed, remaining_total, bonus_remaining)."""
     pool = await queries.get_db()
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().date()
     count = await pool.fetchval(
         "SELECT count FROM llm_daily_usage WHERE user_id = $1 AND usage_date = $2",
         user_id, today,
@@ -145,7 +145,7 @@ async def _check_llm_limit(user_id: int, cost: int = 1) -> tuple[bool, int, int]
 async def _record_llm_usage(user_id: int, cost: int = 1):
     """Record LLM usage. Uses free quota first, then bonus."""
     pool = await queries.get_db()
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().date()
     count = await pool.fetchval(
         "SELECT count FROM llm_daily_usage WHERE user_id = $1 AND usage_date = $2",
         user_id, today,
