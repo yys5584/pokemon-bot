@@ -5,7 +5,8 @@ import logging
 
 import config
 from database import battle_queries as bq
-from utils.battle_calc import calc_battle_stats, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats
+from utils.battle_calc import calc_battle_stats, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
+from utils.helpers import type_badge
 from models.pokemon_skills import POKEMON_SKILLS
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,16 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
     pid = pokemon.get("pokemon_id") or pokemon.get("id")
     skill = POKEMON_SKILLS.get(pid, ("몸통박치기", 1.2))
 
+    # IV grade
+    iv_sum = _iv_total(
+        pokemon.get("iv_hp"), pokemon.get("iv_atk"), pokemon.get("iv_def"),
+        pokemon.get("iv_spa"), pokemon.get("iv_spdef"), pokemon.get("iv_spd"),
+    )
+    iv_grade, _ = config.get_iv_grade(iv_sum)
+
+    # Type badge
+    tb = type_badge(pid, pokemon.get("pokemon_type"))
+
     return {
         "name": pokemon["name_ko"],
         "emoji": pokemon["emoji"],
@@ -47,6 +58,9 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
         "instance_id": pokemon.get("pokemon_instance_id") or pokemon.get("instance_id"),
         "skill_name": skill[0],
         "skill_power": skill[1],
+        "pokemon_id": pid,
+        "tb": tb,
+        "iv_grade": iv_grade,
     }
 
 
@@ -112,8 +126,8 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
     d_total = len(defender_team)
 
     log_lines.append(
-        f"({c_idx+1}/{c_total}) {c_mon['emoji']}{c_mon['name']}"
-        f" ⚔ ({d_idx+1}/{d_total}) {d_mon['emoji']}{d_mon['name']}"
+        f"({c_idx+1}/{c_total}) {c_mon['tb']}{c_mon['name']}({c_mon['iv_grade']})"
+        f" ⚔ ({d_idx+1}/{d_total}) {d_mon['tb']}{d_mon['name']}({d_mon['iv_grade']})"
     )
 
     while c_idx < len(challenger_team) and d_idx < len(defender_team):
@@ -179,8 +193,8 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
                 if c_idx < len(challenger_team):
                     match_turn = 0  # reset turn counter for new matchup
                     log_lines.append(
-                        f"\n({c_idx+1}/{c_total}) {challenger_team[c_idx]['emoji']}{challenger_team[c_idx]['name']}"
-                        f" ⚔ ({d_idx+1}/{d_total}) {d_mon['emoji']}{d_mon['name']}"
+                        f"\n({c_idx+1}/{c_total}) {challenger_team[c_idx]['tb']}{challenger_team[c_idx]['name']}({challenger_team[c_idx]['iv_grade']})"
+                        f" ⚔ ({d_idx+1}/{d_total}) {d_mon['tb']}{d_mon['name']}({d_mon['iv_grade']})"
                     )
             else:
                 log_lines.append(f" 💀 {dead_name} 쓰러짐!")

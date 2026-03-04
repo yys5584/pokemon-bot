@@ -380,6 +380,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id,
             photo=card_buf,
             caption=caption,
+            parse_mode="HTML",
         )
 
         # 6. Create spawn session AFTER image is sent
@@ -632,7 +633,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             dm_text = f"🎉 {tb} {pokemon_name} 포획 성공!"
             if is_shiny:
                 dm_text = f"✨ {dm_text} (★이로치)"
-            asyncio.create_task(context.bot.send_message(chat_id=winner_id, text=dm_text))
+            asyncio.create_task(context.bot.send_message(chat_id=winner_id, text=dm_text, parse_mode="HTML"))
         except Exception:
             pass
 

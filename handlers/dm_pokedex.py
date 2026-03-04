@@ -1275,15 +1275,16 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             ["📋 상태창", "📖 도감"],
             ["📦 내포켓몬", "🤝 파트너"],
-            ["⚔️ 팀1", "⚔️ 팀2"],
-            ["🏪 상점", "🏆 배틀전적"],
+            ["⚔️ 팀1", "⚔️ 팀2", "팀등록"],
+            ["🏪 상점", "🏆 배틀전적", "티어"],
             ["🏷️ 칭호", "📋 칭호목록"],
+            ["상성", "도움말"],
         ],
         resize_keyboard=True,
         input_field_placeholder="명령어를 선택하세요",
     )
 
-    await update.message.reply_text("\n".join(lines), reply_markup=menu_keyboard)
+    await update.message.reply_text("\n".join(lines), reply_markup=menu_keyboard, parse_mode="HTML")
 
 
 # ============================================================

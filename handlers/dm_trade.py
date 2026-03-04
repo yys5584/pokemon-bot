@@ -96,7 +96,7 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 tb = type_badge(p["pokemon_id"])
                 lines.append(f"  #{i} — {tb} {p['name_ko']}{shiny} (친밀도: {friendship})")
             lines.append(f"\n사용법: 교환 @{target_username} {pokemon_name} #번호")
-            await update.message.reply_text("\n".join(lines))
+            await update.message.reply_text("\n".join(lines), parse_mode="HTML")
             return
 
         if select_index < 1 or select_index > len(all_matches):
@@ -174,7 +174,7 @@ async def accept_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{tb} {t['offer_name']}{shiny_tag}\n"
                 f"  수락 {t['id']} 또는 거절 {t['id']}"
             )
-        await update.message.reply_text("\n".join(lines))
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
         return
 
     trade_id = int(args[0])
@@ -223,7 +223,7 @@ async def reject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{tb} {t['offer_name']}{shiny_tag}\n"
                 f"  수락 {t['id']} 또는 거절 {t['id']}"
             )
-        await update.message.reply_text("\n".join(lines))
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
         return
 
     trade_id = int(args[0])
@@ -242,7 +242,8 @@ async def reject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tb = type_badge(trade["offer_pokemon_id"]) if trade.get("offer_pokemon_id") else ""
     await update.message.reply_text(
         f"❌ 교환을 거절했습니다.\n"
-        f"({tb} {trade['offer_name']})"
+        f"({tb} {trade['offer_name']})",
+        parse_mode="HTML",
     )
 
     try:

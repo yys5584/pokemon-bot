@@ -503,6 +503,25 @@ RARITY_CUSTOM_EMOJI = {
 }
 
 # --- Custom Emoji IDs (Type Badges) ---
-# Placeholder: add custom Telegram emoji IDs here when created.
-# When empty, falls back to TYPE_EMOJI (unicode emoji).
-TYPE_CUSTOM_EMOJI = {}
+# Custom Telegram emoji sticker IDs for type badges.
+# Falls back to TYPE_EMOJI (unicode emoji) if empty.
+TYPE_CUSTOM_EMOJI = {
+    "normal": "6143356168900189669",
+    "fire": "6143060735279766934",
+    "water": "6143459776396271425",
+    "grass": "6143236339312632261",
+    "electric": "6142971438614715696",
+    "ice": "6141156140622290617",
+    "fighting": "6141010996497488948",
+    "poison": "6143189953665833634",
+    "ground": "6143048400133692919",
+    "flying": "6142986866137244114",
+    "psychic": "6143119490432375666",
+    "bug": "6141032312420180456",
+    "rock": "6143423024361118748",
+    "ghost": "6143417462378471423",
+    "dragon": "6143316101150283963",
+    "dark": "6143029137205370024",
+    "steel": "6142980178873162454",
+    "fairy": "6143002478343364009",
+}

@@ -95,7 +95,7 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text("보유한 포켓몬이 없습니다.")
                 return
             text_msg, markup = _build_partner_list(user_id, pokemon_list, 0)
-            await update.message.reply_text(text_msg, reply_markup=markup)
+            await update.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
             return
 
         evo_stage = EVO_STAGE_MAP.get(partner["pokemon_id"], 3)
@@ -122,6 +122,7 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📊 {format_stats_line(stats)}\n\n"
             f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!",
             reply_markup=buttons,
+            parse_mode="HTML",
         )
         return
 
@@ -186,7 +187,8 @@ async def _set_partner_and_reply(message, user_id: int, chosen: dict):
     tb = type_badge(chosen["pokemon_id"], chosen.get("pokemon_type"))
     await message.reply_text(
         f"🤝 {tb} {chosen['name_ko']} 파트너로 지정!\n"
-        f"배틀 시 파트너가 팀에 포함되면 ATK +5% 보너스!"
+        f"배틀 시 파트너가 팀에 포함되면 ATK +5% 보너스!",
+        parse_mode="HTML",
     )
 
     # Unlock partner title
@@ -263,7 +265,8 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
                 f"🤝 파트너 지정 완료!\n\n"
                 f"{tb} {chosen['name_ko']}\n"
                 f"📊 {format_stats_line(stats)}\n\n"
-                f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!"
+                f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!",
+                parse_mode="HTML",
             )
         except Exception:
             pass
@@ -306,9 +309,9 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
         rb = rarity_badge(p.get("rarity", ""))
         if idx in selected_set:
             slot_num = selected.index(idx)
-            lines.append(f"☑ {slot_emojis[slot_num]} {rb}{tb} {p['name_ko']}")
+            lines.append(f"{slot_emojis[slot_num]} {rb}{tb} {p['name_ko']}")
         else:
-            lines.append(f"☐ {num}. {rb}{tb} {p['name_ko']}")
+            lines.append(f"{num}. {rb}{tb} {p['name_ko']}")
 
     # Encode selected indices as compact string
     sel_str = ",".join(str(s) for s in selected) if selected else "x"
@@ -321,9 +324,9 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
         idx = start + i
         if idx in selected_set:
             slot_num = selected.index(idx)
-            label = f"☑ {slot_emojis[slot_num]} {p['name_ko']}"
+            label = f"{slot_emojis[slot_num]} {p['name_ko']}"
         else:
-            label = f"☐ {p['name_ko']}"
+            label = f"{p['name_ko']}"
         row.append(InlineKeyboardButton(
             label,
             callback_data=f"ts_{user_id}_{idx}_{page}_{sel_str}_{tn}",
@@ -1425,7 +1428,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         try:
             await query.edit_message_text(
                 result["display_text"],
-                parse_mode=None,
+                parse_mode="HTML",
                 reply_markup=battle_buttons,
             )
         except Exception:
@@ -1434,6 +1437,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 await context.bot.send_message(
                     chat_id=challenge["chat_id"],
                     text=result["display_text"],
+                    parse_mode="HTML",
                     reply_markup=battle_buttons,
                 )
             except Exception:
@@ -2139,7 +2143,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     try:
         await query.edit_message_text(
             full_text,
-            parse_mode=None,
+            parse_mode="HTML",
             reply_markup=battle_buttons,
         )
     except Exception:
@@ -2147,6 +2151,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
             await context.bot.send_message(
                 chat_id=challenge["chat_id"],
                 text=full_text,
+                parse_mode="HTML",
                 reply_markup=battle_buttons,
             )
         except Exception:
