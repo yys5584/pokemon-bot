@@ -12,7 +12,7 @@ import config
 from database import queries
 from database import battle_queries as bq
 from database.connection import get_db
-from services.battle_service import _prepare_combatant, _resolve_battle
+from services.battle_service import _prepare_combatant, _resolve_battle, _hp_bar
 from utils.helpers import icon_emoji
 
 logger = logging.getLogger(__name__)
@@ -170,11 +170,20 @@ async def _run_match(
     p1_id: int, p1_data: dict,
     p2_id: int, p2_data: dict,
     is_final: bool = False,
+    is_semi: bool = False,
+    is_quarter: bool = False,
 ) -> tuple[int, dict]:
     """Run a single match between two players.
 
+    Display modes:
+    - is_quarter: log 2 lines at a time (1s delay)
+    - is_semi: log 1 line at a time (1.5s delay)
+    - is_final: rich turn-by-turn with HP bars (2s delay)
+
     Returns (winner_user_id, winner_data).
     """
+    SKULL = icon_emoji("skull")
+
     # Prepare combatants
     partner1 = await bq.get_partner(p1_id)
     partner1_id = partner1["instance_id"] if partner1 else None
@@ -195,13 +204,13 @@ async def _run_match(
 
     if result["winner"] == "challenger":
         winner_id, winner_data = p1_id, p1_data
-        loser_name = p2_data["name"]
+        remaining = result["challenger_remaining"]
     else:
         winner_id, winner_data = p2_id, p2_data
-        loser_name = p1_data["name"]
+        remaining = result["defender_remaining"]
 
     if is_final:
-        # ── Finals: send turn-by-turn log ──
+        # ── Finals: rich turn-by-turn display ──
         await context.bot.send_message(
             chat_id=chat_id,
             text=(
@@ -209,25 +218,119 @@ async def _run_match(
                 f"{p1_data['name']} vs {p2_data['name']}\n"
                 f"━━━━━━━━━━━━━━━"
             ),
+            parse_mode="HTML",
         )
         await asyncio.sleep(2)
 
-        log_lines = result["log"].split("\n")
-        for line in log_lines:
-            if line.strip():
-                await context.bot.send_message(chat_id=chat_id, text=line)
+        for td in result["turn_data"]:
+            if td["type"] == "matchup":
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=f"\n⚔ {td['c_tb']}{td['c_name']} vs {td['d_tb']}{td['d_name']}!",
+                    parse_mode="HTML",
+                )
                 await asyncio.sleep(2)
+
+            elif td["type"] == "turn":
+                lines = []
+                # First attacker
+                if td["first_is_challenger"]:
+                    first_name, first_dmg, first_crit, first_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
+                    second_name, second_dmg, second_crit, second_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
+                    first_target_hp, first_target_max = td["d_hp"], td["d_max_hp"]
+                    second_target_hp, second_target_max = td["c_hp"], td["c_max_hp"]
+                    first_target_name, second_target_name = td["d_name"], td["c_name"]
+                else:
+                    first_name, first_dmg, first_crit, first_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
+                    second_name, second_dmg, second_crit, second_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
+                    first_target_hp, first_target_max = td["c_hp"], td["c_max_hp"]
+                    second_target_hp, second_target_max = td["d_hp"], td["d_max_hp"]
+                    first_target_name, second_target_name = td["c_name"], td["d_name"]
+
+                # Turn header
+                crit_label = " 크리티컬!" if first_crit else ""
+                skill_label = f"의{first_eff} 발동!" if first_eff else "의 공격!"
+                lines.append(f"{td['turn_num']}턴 ─ {first_name}{skill_label}{crit_label}")
+                bar = _hp_bar(first_target_hp, first_target_max)
+                lines.append(f"  →{first_dmg} 데미지 ({first_target_name} HP: {bar} {first_target_hp}/{first_target_max})")
+
+                # Second attacker (counterattack)
+                if second_dmg > 0:
+                    crit2_label = " 크리티컬!" if second_crit else ""
+                    skill2_label = f"의{second_eff} 발동!" if second_eff else "의 반격!"
+                    lines.append(f"{second_name}{skill2_label}{crit2_label}")
+                    bar2 = _hp_bar(second_target_hp, second_target_max)
+                    lines.append(f"  ←{second_dmg} 데미지 ({second_target_name} HP: {bar2} {second_target_hp}/{second_target_max})")
+
+                await context.bot.send_message(chat_id=chat_id, text="\n".join(lines))
+                await asyncio.sleep(2)
+
+            elif td["type"] == "ko":
+                if td["next_name"]:
+                    text = f"{SKULL} {td['dead_name']} 쓰러짐!\n▶ {td['next_name']} 등장! ({td['next_idx']+1}/{td['next_total']})"
+                else:
+                    text = f"{SKULL} {td['dead_name']} 쓰러짐!"
+                await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+                await asyncio.sleep(1.5)
 
         # Winner announcement
         await context.bot.send_message(
             chat_id=chat_id,
-            text=f"\n🎉 {winner_data['name']} 우승!",
+            text=f"\n🎉 {winner_data['name']} 우승! (남은 {remaining}마리)",
         )
+
+    elif is_semi:
+        # ── Semi-finals: 1 line at a time ──
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                f"⚔️ 준결승! — {p1_data['name']} vs {p2_data['name']}\n"
+                f"━━━━━━━━━━━━━━━"
+            ),
+            parse_mode="HTML",
+        )
+        await asyncio.sleep(1.5)
+
+        log_lines = result["log"].split("\n")
+        for line in log_lines:
+            if line.strip():
+                await context.bot.send_message(chat_id=chat_id, text=line, parse_mode="HTML")
+                await asyncio.sleep(1.5)
+
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"→ {winner_data['name']} 승리! (남은 {remaining}마리)",
+        )
+
+    elif is_quarter:
+        # ── Quarter-finals: 2 lines at a time ──
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                f"⚔️ {p1_data['name']} vs {p2_data['name']}\n"
+                f"━━━━━━━━━━━━━━━"
+            ),
+            parse_mode="HTML",
+        )
+        await asyncio.sleep(1)
+
+        log_lines = [l for l in result["log"].split("\n") if l.strip()]
+        for i in range(0, len(log_lines), 2):
+            chunk = "\n".join(log_lines[i:i+2])
+            await context.bot.send_message(chat_id=chat_id, text=chunk, parse_mode="HTML")
+            await asyncio.sleep(1)
+
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"→ {winner_data['name']} 승리! (남은 {remaining}마리)",
+        )
+
     else:
         # ── Lower rounds: one-line summary ──
         await context.bot.send_message(
             chat_id=chat_id,
             text=f"⚔️ {p1_data['name']} vs {p2_data['name']} → {winner_data['name']} 승리!",
+            parse_mode="HTML",
         )
 
     return winner_id, winner_data
@@ -289,6 +392,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
         while len(bracket) > 0:
             is_final = (len(bracket) == 1 and bracket[0][0] is not None and bracket[0][1] is not None)
             is_semi = (len(bracket) == 2)
+            is_quarter = (len(bracket) <= 4 and not is_semi and not is_final)
 
             round_name = "결승" if is_final else f"{'준결승' if is_semi else f'{current_round}라운드'}"
 
@@ -332,6 +436,8 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                         context, chat_id,
                         uid1, data1, uid2, data2,
                         is_final=is_final,
+                        is_semi=is_semi,
+                        is_quarter=is_quarter,
                     )
                     winners.append((winner_id, winner_data))
                     await asyncio.sleep(1)
