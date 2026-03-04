@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
-from utils.helpers import hearts_display, rarity_display, rarity_badge, rarity_badge_label, escape_html
+from utils.helpers import hearts_display, rarity_display, rarity_badge, rarity_badge_label, escape_html, type_badge
 from utils.card_generator import generate_card
 from utils.parse import parse_number, parse_name_arg
 from utils.battle_calc import iv_total
@@ -269,7 +269,8 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
                 se = slot_emojis[slot] if 0 <= slot < 6 else "▸"
                 shiny = "✨" if p.get("is_shiny") else ""
                 rb = rarity_badge(p.get("rarity", ""))
-                lines.append(f"{se} {rb}{shiny}{p['emoji']} {p['name_ko']}")
+                tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+                lines.append(f"{se} {rb}{tb}{shiny}{p['emoji']} {p['name_ko']}")
         lines.append("━━━━━━━")
 
     lines.append("")
@@ -284,11 +285,13 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
             if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
                 evo_mark = " ⭐"
             rb = rarity_badge(p.get("rarity", ""))
-            lines.append(f"{item_num}. {rb}{shiny}{p['emoji']} {p['name_ko']}  {hearts}{evo_mark}")
+            tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+            lines.append(f"{item_num}. {rb}{tb}{shiny}{p['emoji']} {p['name_ko']}  {hearts}{evo_mark}")
         else:  # group
             _, pid, indices, first, count = item
             rb = rarity_badge(first.get("rarity", ""))
-            lines.append(f"{item_num}. {rb}{first['emoji']} {first['name_ko']}  x{count}")
+            tb = type_badge(first["pokemon_id"], first.get("pokemon_type"))
+            lines.append(f"{item_num}. {rb}{tb}{first['emoji']} {first['name_ko']}  x{count}")
         item_num += 1
 
     lines.append(f"\n번호를 눌러 상세 보기")
@@ -334,7 +337,8 @@ def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: i
 
     first = members[0]
     rb = rarity_badge(first.get("rarity", ""))
-    lines = [f"{rb}{first['emoji']} {first['name_ko']} 보유 목록 ({len(members)}마리)\n"]
+    tb = type_badge(first["pokemon_id"], first.get("pokemon_type"))
+    lines = [f"{rb}{tb}{first['emoji']} {first['name_ko']} 보유 목록 ({len(members)}마리)\n"]
 
     buttons = []
     row = []
@@ -418,10 +422,21 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
             f"\nSPA:{stats['spa']} SPDEF:{stats['spdef']} SPD:{stats['spd']}"
         )
 
+    tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+    # Type name display
+    from models.pokemon_base_stats import POKEMON_BASE_STATS
+    pbs = POKEMON_BASE_STATS.get(p["pokemon_id"])
+    if pbs:
+        types = pbs[-1]
+        type_names = "/".join(config.TYPE_NAME_KO.get(t, t) for t in types)
+    else:
+        type_names = config.TYPE_NAME_KO.get(p.get("pokemon_type", ""), "")
+    type_display = f"  {tb}{type_names}" if type_names else ""
+
     lines = [
         f"내 포켓몬 상세 ({num}/{total})\n",
         f"{shiny_mark}{p['emoji']} {p['name_ko']}{shiny_text}",
-        f"등급: {rarity_text}",
+        f"등급: {rarity_text}{type_display}",
         f"친밀도: {hearts} ({p['friendship']}/{max_f}){evo_text}{iv_line}{stats_line}",
     ]
 
@@ -1168,6 +1183,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from database import battle_queries as bq
     from utils.battle_calc import calc_battle_stats, format_stats_line, EVO_STAGE_MAP
     from models.pokemon_skills import POKEMON_SKILLS
+    from models.pokemon_base_stats import POKEMON_BASE_STATS
 
     user = await queries.get_user(user_id)
     pokemon_list = await queries.get_user_pokemon_list(user_id)
@@ -1212,10 +1228,14 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if partner:
         evo = EVO_STAGE_MAP.get(partner["pokemon_id"], 3)
         stats = calc_battle_stats(partner["rarity"], partner["stat_type"], partner["friendship"], evo_stage=evo)
-        type_emoji = config.TYPE_EMOJI.get(partner["pokemon_type"], "")
-        type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
+        tb = type_badge(partner["pokemon_id"], partner["pokemon_type"])
+        pbs = POKEMON_BASE_STATS.get(partner["pokemon_id"])
+        if pbs:
+            type_name = "/".join(config.TYPE_NAME_KO.get(t, t) for t in pbs[-1])
+        else:
+            type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
         skill = POKEMON_SKILLS.get(partner["pokemon_id"], ("몸통박치기", 1.2))
-        lines.append(f"🤝 파트너: {partner['emoji']} {partner['name_ko']}  {type_emoji}{type_name}")
+        lines.append(f"🤝 파트너: {partner['emoji']} {partner['name_ko']}  {tb}{type_name}")
         lines.append(f"   ❤️ 친밀도: {hearts_display(partner['friendship'])}")
         lines.append(f"   📊 {format_stats_line(stats)}")
         lines.append(f"   💥 기술: {skill[0]}")
@@ -1233,7 +1253,8 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             stats = calc_battle_stats(t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo)
             skill = POKEMON_SKILLS.get(t["pokemon_id"], ("몸통박치기", 1.2))
             power = stats["hp"] + stats["atk"] + stats["def"] + stats["spd"]
-            lines.append(f"  {i}. {t['emoji']} {t['name_ko']}  💥{skill[0]}  ⚡{power}")
+            ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
+            lines.append(f"  {i}. {ttb}{t['emoji']} {t['name_ko']}  💥{skill[0]}  ⚡{power}")
         if team2:
             lines.append(f"  (팀2 등록됨: {len(team2)}마리)")
     else:

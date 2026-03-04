@@ -5,7 +5,11 @@ import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from config import TITLES, LEGEND_HUNTER_THRESHOLD, LEGEND_HUNTER_TITLE, RARITY_EMOJI, RARITY_LABEL, RARITY_CUSTOM_EMOJI
+from config import (
+    TITLES, LEGEND_HUNTER_THRESHOLD, LEGEND_HUNTER_TITLE,
+    RARITY_EMOJI, RARITY_LABEL, RARITY_CUSTOM_EMOJI,
+    TYPE_EMOJI, TYPE_CUSTOM_EMOJI,
+)
 from database import queries
 
 _logger = logging.getLogger(__name__)
@@ -51,6 +55,32 @@ def rarity_display(rarity: str) -> str:
     emoji = RARITY_EMOJI.get(rarity, "⚪")
     label = RARITY_LABEL.get(rarity, rarity)
     return f"{emoji} {label}"
+
+
+def _type_emoji(type_key: str) -> str:
+    """Return a single type emoji (custom or unicode fallback)."""
+    eid = TYPE_CUSTOM_EMOJI.get(type_key, "")
+    fallback = TYPE_EMOJI.get(type_key, "")
+    if eid:
+        return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji>'
+    return fallback
+
+
+def type_badge(pokemon_id: int, fallback_type: str = None) -> str:
+    """Return type emoji(s) for a pokemon, including dual types.
+
+    Looks up dual type info from POKEMON_BASE_STATS.
+    Falls back to single fallback_type if pokemon not in base stats.
+    """
+    from models.pokemon_base_stats import POKEMON_BASE_STATS
+    stats = POKEMON_BASE_STATS.get(pokemon_id)
+    if stats:
+        types = stats[-1]  # last element is [type1] or [type1, type2]
+        return "".join(_type_emoji(t) for t in types)
+    # Fallback to single type from DB
+    if fallback_type:
+        return _type_emoji(fallback_type)
+    return ""
 
 
 def rarity_badge(rarity: str) -> str:

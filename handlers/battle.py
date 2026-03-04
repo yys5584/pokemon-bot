@@ -9,7 +9,7 @@ import config
 from database import queries
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, format_stats_line, get_type_multiplier, EVO_STAGE_MAP
-from utils.helpers import escape_html, truncate_name, rarity_badge
+from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +39,8 @@ def _build_partner_list(user_id: int, pokemon_list: list, page: int,
     for i, p in enumerate(page_pokemon):
         num = start + i + 1
         mark = " ✅" if p["id"] == current_partner_id else ""
-        type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
-        lines.append(f"{num}. {type_emoji}{p['emoji']} {p['name_ko']}{mark}")
+        tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+        lines.append(f"{num}. {tb}{p['emoji']} {p['name_ko']}{mark}")
     lines.append("\n포켓몬을 눌러 파트너로 지정!")
 
     # Buttons: 2 per row
@@ -106,14 +106,19 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             iv_def=partner.get("iv_def"), iv_spa=partner.get("iv_spa"),
             iv_spdef=partner.get("iv_spdef"), iv_spd=partner.get("iv_spd"),
         )
-        type_emoji = config.TYPE_EMOJI.get(partner["pokemon_type"], "")
-        type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
+        tb = type_badge(partner["pokemon_id"], partner["pokemon_type"])
+        from models.pokemon_base_stats import POKEMON_BASE_STATS
+        pbs = POKEMON_BASE_STATS.get(partner["pokemon_id"])
+        if pbs:
+            type_name = "/".join(config.TYPE_NAME_KO.get(t, t) for t in pbs[-1])
+        else:
+            type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
         buttons = InlineKeyboardMarkup([[
             InlineKeyboardButton("🔄 변경", callback_data=f"partner_p_{user_id}_0"),
         ]])
         await update.message.reply_text(
             f"🤝 나의 파트너\n\n"
-            f"{partner['emoji']} {partner['name_ko']}  {type_emoji}{type_name}\n"
+            f"{partner['emoji']} {partner['name_ko']}  {tb}{type_name}\n"
             f"📊 {format_stats_line(stats)}\n\n"
             f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!",
             reply_markup=buttons,
@@ -178,9 +183,9 @@ async def _set_partner_and_reply(message, user_id: int, chosen: dict):
     """Set partner and send confirmation."""
     await bq.set_partner(user_id, chosen["id"])
 
-    type_emoji = config.TYPE_EMOJI.get(chosen.get("pokemon_type", "normal"), "")
+    tb = type_badge(chosen["pokemon_id"], chosen.get("pokemon_type"))
     await message.reply_text(
-        f"🤝 {type_emoji}{chosen['emoji']} {chosen['name_ko']}을(를) 파트너로 지정했습니다!\n"
+        f"🤝 {tb}{chosen['emoji']} {chosen['name_ko']}을(를) 파트너로 지정했습니다!\n"
         f"배틀 시 파트너가 팀에 포함되면 ATK +5% 보너스!"
     )
 
@@ -244,7 +249,7 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         if not await queries.has_title(owner_id, "partner_set"):
             await queries.unlock_title(owner_id, "partner_set")
 
-        type_emoji = config.TYPE_EMOJI.get(chosen.get("pokemon_type", "normal"), "")
+        tb = type_badge(chosen["pokemon_id"], chosen.get("pokemon_type"))
         evo_stage = EVO_STAGE_MAP.get(chosen["pokemon_id"], 3)
         stats = calc_battle_stats(
             chosen["rarity"], chosen.get("stat_type", "balanced"), chosen["friendship"],
@@ -256,7 +261,7 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         try:
             await query.edit_message_text(
                 f"🤝 파트너 지정 완료!\n\n"
-                f"{type_emoji}{chosen['emoji']} {chosen['name_ko']}\n"
+                f"{tb}{chosen['emoji']} {chosen['name_ko']}\n"
                 f"📊 {format_stats_line(stats)}\n\n"
                 f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!"
             )
@@ -297,13 +302,13 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
     for i, p in enumerate(page_pokemon):
         idx = start + i
         num = idx + 1
-        type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
+        tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
         rb = rarity_badge(p.get("rarity", ""))
         if idx in selected_set:
             slot_num = selected.index(idx)
-            lines.append(f"☑ {slot_emojis[slot_num]} {rb}{type_emoji}{p['emoji']} {p['name_ko']}")
+            lines.append(f"☑ {slot_emojis[slot_num]} {rb}{tb}{p['emoji']} {p['name_ko']}")
         else:
-            lines.append(f"☐ {num}. {rb}{type_emoji}{p['emoji']} {p['name_ko']}")
+            lines.append(f"☐ {num}. {rb}{tb}{p['emoji']} {p['name_ko']}")
 
     # Encode selected indices as compact string
     sel_str = ",".join(str(s) for s in selected) if selected else "x"
@@ -418,11 +423,11 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             iv_def=p.get("iv_def"), iv_spa=p.get("iv_spa"),
             iv_spdef=p.get("iv_spdef"), iv_spd=p.get("iv_spd"),
         )
-        type_emoji = config.TYPE_EMOJI.get(p["pokemon_type"], "")
+        tb = type_badge(p["pokemon_id"], p["pokemon_type"])
         partner_mark = " 🤝" if p["pokemon_instance_id"] == partner_instance else ""
         rb = rarity_badge(p["rarity"])
         lines.append(
-            f"{slot_emojis[i]} {rb}{type_emoji}{p['emoji']} {p['name_ko']}{partner_mark}  "
+            f"{slot_emojis[i]} {rb}{tb}{p['emoji']} {p['name_ko']}{partner_mark}  "
             f"{format_stats_line(stats)}"
         )
 
@@ -533,8 +538,8 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
     lines = [f"⚔️ 배틀 팀 {team_num} 등록 완료!\n"]
     for i, n in enumerate(nums):
         p = pokemon_list[n - 1]
-        type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
-        lines.append(f"{slot_emojis[i]} {type_emoji}{p['emoji']} {p['name_ko']}")
+        tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+        lines.append(f"{slot_emojis[i]} {tb}{p['emoji']} {p['name_ko']}")
     await update.message.reply_text("\n".join(lines))
 
 
@@ -760,8 +765,8 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         for si, idx in enumerate(selected):
             if 0 <= idx < len(pokemon_list):
                 p = pokemon_list[idx]
-                type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
-                lines.append(f"{slot_emojis[si]} {type_emoji}{p['emoji']} {p['name_ko']}")
+                tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+                lines.append(f"{slot_emojis[si]} {tb}{p['emoji']} {p['name_ko']}")
         try:
             await query.edit_message_text("\n".join(lines))
         except Exception:
@@ -1575,13 +1580,18 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         eff_tank = stats["hp"] * (1 + eff_def * 0.003)
         power = eff_atk * eff_tank / 1000
 
-        type_emoji = config.TYPE_EMOJI.get(r["pokemon_type"], "")
-        type_ko = config.TYPE_NAME_KO.get(r["pokemon_type"], r["pokemon_type"])
+        tb = type_badge(r["id"], r["pokemon_type"])
+        from models.pokemon_base_stats import POKEMON_BASE_STATS as _PBS
+        _pbs = _PBS.get(r["id"])
+        if _pbs:
+            type_ko = "/".join(config.TYPE_NAME_KO.get(t, t) for t in _pbs[-1])
+        else:
+            type_ko = config.TYPE_NAME_KO.get(r["pokemon_type"], r["pokemon_type"])
         stat_ko = {"offensive": "공격", "defensive": "방어", "balanced": "균형", "speedy": "속도"}.get(r["stat_type"], r["stat_type"])
 
         scored.append({
             "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
-            "rarity": r["rarity"], "type_emoji": type_emoji, "type_ko": type_ko,
+            "rarity": r["rarity"], "type_emoji": tb, "type_ko": type_ko,
             "stat_ko": stat_ko, "power": power, "skill_name": skill[0],
             "skill_power": skill[1], "stats": stats,
         })

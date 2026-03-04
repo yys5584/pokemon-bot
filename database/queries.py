@@ -998,7 +998,8 @@ async def get_pending_trades_for_user(user_id: int) -> list[dict]:
     rows = await pool.fetch(
         """SELECT t.*, u.display_name as from_name,
                   pm.name_ko as offer_name, pm.emoji as offer_emoji,
-                  up.is_shiny as offer_is_shiny
+                  up.is_shiny as offer_is_shiny,
+                  up.pokemon_id as offer_pokemon_id
            FROM trades t
            JOIN users u ON t.from_user_id = u.user_id
            JOIN user_pokemon up ON t.offer_pokemon_instance_id = up.id

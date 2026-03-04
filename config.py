@@ -501,3 +501,8 @@ RARITY_CUSTOM_EMOJI = {
     "rare": "6140797725601438152",
     "common": "6140791433474351151",
 }
+
+# --- Custom Emoji IDs (Type Badges) ---
+# Placeholder: add custom Telegram emoji IDs here when created.
+# When empty, falls back to TYPE_EMOJI (unicode emoji).
+TYPE_CUSTOM_EMOJI = {}
