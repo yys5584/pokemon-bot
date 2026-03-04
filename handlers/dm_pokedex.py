@@ -341,7 +341,11 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 shiny = "✨" if p.get("is_shiny") else ""
                 rb = rarity_badge(p.get("rarity", ""))
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-                lines.append(f"{se} {rb}{tb}{shiny} {p['name_ko']}")
+                iv_tag = ""
+                if p.get("iv_hp") is not None:
+                    grade, _ = config.get_iv_grade(_iv_sum(p))
+                    iv_tag = f" [{grade}]"
+                lines.append(f"{se} {rb}{tb}{shiny} {p['name_ko']}{iv_tag}")
         lines.append("━━━━━━━")
 
     lines.append("")
@@ -1435,6 +1439,8 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines.append("")
     if team:
         lines.append(f"👥 배틀팀 {active_num} ({len(team)}/6)")
+        total_power = 0
+        total_base_power = 0
         for i, t in enumerate(team, 1):
             evo = EVO_STAGE_MAP.get(t["pokemon_id"], 3)
             stats = calc_battle_stats(
@@ -1444,9 +1450,14 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 iv_spdef=t.get("iv_spdef"), iv_spd=t.get("iv_spd"),
             )
             tbase = calc_battle_stats(t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo)
+            total_power += calc_power(stats)
+            total_base_power += calc_power(tbase)
             skill = POKEMON_SKILLS.get(t["pokemon_id"], ("몸통박치기", 1.2))
             ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
             lines.append(f"  {i}. {ttb} {t['name_ko']}  💥{skill[0]}  ⚡{format_power(stats, tbase)}")
+        iv_diff = total_power - total_base_power
+        total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
+        lines.append(f"  💪 팀 전투력: {total_tag}")
         if team2:
             lines.append(f"  (팀2 등록됨: {len(team2)}마리)")
     else:

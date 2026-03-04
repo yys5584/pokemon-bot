@@ -5,7 +5,7 @@ import logging
 
 import config
 from database import battle_queries as bq
-from utils.battle_calc import calc_battle_stats, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
+from utils.battle_calc import calc_battle_stats, calc_power, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
 from utils.helpers import type_badge
 from models.pokemon_skills import POKEMON_SKILLS
 
@@ -333,12 +333,16 @@ async def execute_battle(
     # Get updated stats for display
     final_stats = await bq.get_battle_stats(winner_id)
 
+    # Calculate total team power
+    c_total_power = sum(calc_power(c["stats"]) for c in c_combatants)
+    d_total_power = sum(calc_power(d["stats"]) for d in d_combatants)
+
     # Build display text — challenger LEFT, defender RIGHT (consistent with log)
     lines = [
         "⚔️ 배틀 결과!",
         "━━━━━━━━━━━━━━━",
         f"{c_title_str}{c_name}  ⚔  {d_title_str}{d_name}",
-        f"({len(challenger_team)}마리)          ({len(defender_team)}마리)",
+        f"⚡{c_total_power}          ⚡{d_total_power}",
         "━━━━━━━━━━━━━━━",
         "",
         result["log"],

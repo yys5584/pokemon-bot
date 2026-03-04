@@ -1,6 +1,7 @@
 """Battle system handlers: partner, team, challenge, accept/decline, rankings, BP shop."""
 
 import logging
+import re
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -83,6 +84,8 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     text = (update.message.text or "").strip()
+    # Strip emoji prefix from keyboard button "🤝 파트너"
+    text = re.sub(r"^🤝\s*", "", text).strip()
     parts = text.split()
 
     # "파트너" alone → show current partner + 변경 버튼
