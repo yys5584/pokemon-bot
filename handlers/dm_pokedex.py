@@ -1508,19 +1508,19 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
         skill = POKEMON_SKILLS.get(partner["pokemon_id"], ("몸통박치기", 1.2))
-        lines.append(f"🤝 파트너: {tb} {partner['name_ko']}  {type_name}  ⚡{format_power(stats, base)}")
-        lines.append(f"   ❤️ 친밀도: {hearts_display(partner['friendship'])}")
-        lines.append(f"   📊 {format_stats_line(stats, base)}")
-        lines.append(f"   💥 기술: {skill[0]}")
+        lines.append(f"{icon_emoji('pokemon-love')} 파트너: {tb} {partner['name_ko']}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}")
+        lines.append(f"   {icon_emoji('favorite')} 친밀도: {hearts_display(partner['friendship'])}")
+        lines.append(f"   {icon_emoji('stationery')} {format_stats_line(stats, base)}")
+        lines.append(f"   {icon_emoji('skill')} 기술: {skill[0]}")
     else:
-        lines.append("🤝 파트너: 미지정 ('파트너' 명령어로 설정)")
+        lines.append(f"{icon_emoji('pokemon-love')} 파트너: 미지정 ('파트너' 명령어로 설정)")
 
     # 팀
     active_num = await bq.get_active_team_number(user_id)
     team2 = await bq.get_battle_team(user_id, 2)
     lines.append("")
     if team:
-        lines.append(f"👥 배틀팀 {active_num} ({len(team)}/6)")
+        lines.append(f"{icon_emoji('battle')} 배틀팀 {active_num} ({len(team)}/6)")
         total_power = 0
         total_base_power = 0
         for i, t in enumerate(team, 1):
@@ -1536,14 +1536,14 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             total_base_power += calc_power(tbase)
             skill = POKEMON_SKILLS.get(t["pokemon_id"], ("몸통박치기", 1.2))
             ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
-            lines.append(f"  {i}. {ttb} {t['name_ko']}  💥{skill[0]}  ⚡{format_power(stats, tbase)}")
+            lines.append(f"  {i}. {ttb} {t['name_ko']}  {icon_emoji('skill')}{skill[0]}  {icon_emoji('bolt')}{format_power(stats, tbase)}")
         iv_diff = total_power - total_base_power
         total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
         lines.append(f"  💪 팀 전투력: {total_tag}")
         if team2:
             lines.append(f"  (팀2 등록됨: {len(team2)}마리)")
     else:
-        lines.append("👥 배틀팀: 미등록 ('팀등록' 명령어로 설정)")
+        lines.append(f"{icon_emoji('battle')} 배틀팀: 미등록 ('팀등록' 명령어로 설정)")
 
     # 아이템
     arcade_tickets = await queries.get_arcade_tickets(user_id)

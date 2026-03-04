@@ -569,6 +569,8 @@ ICON_CUSTOM_EMOJI = {
     "pokecenter": "6142954550803307680",
     "shopping-bag": "6143287260444892433",
     "bolt": "6143251942928818741",
+    "skill": "6143088085631507366",
+    "stationery": "6143168289850792706",
     # Pokemon characters (titles)
     "caterpie": "6143387998902819747",
     "rattata": "6143003788308389605",

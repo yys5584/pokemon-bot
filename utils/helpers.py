@@ -147,6 +147,8 @@ _ICON_FALLBACK = {
     "pokecenter": "🏥",
     "shopping-bag": "🛍️",
     "bolt": "⚡",
+    "skill": "💥",
+    "stationery": "📊",
     # Pokemon characters (titles)
     "caterpie": "🐛",
     "rattata": "🐭",
