@@ -298,13 +298,12 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
         idx = start + i
         num = idx + 1
         type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
+        rb = rarity_badge(p.get("rarity", ""))
         if idx in selected_set:
             slot_num = selected.index(idx)
-            rb = rarity_badge(p.get("rarity", ""))
-            lines.append(f"{slot_emojis[slot_num]} {rb}{type_emoji}{p['emoji']} {p['name_ko']}")
+            lines.append(f"☑ {slot_emojis[slot_num]} {rb}{type_emoji}{p['emoji']} {p['name_ko']}")
         else:
-            rb = rarity_badge(p.get("rarity", ""))
-            lines.append(f"　 {num}. {rb}{type_emoji}{p['emoji']} {p['name_ko']}")
+            lines.append(f"☐ {num}. {rb}{type_emoji}{p['emoji']} {p['name_ko']}")
 
     # Encode selected indices as compact string
     sel_str = ",".join(str(s) for s in selected) if selected else "x"
@@ -317,9 +316,9 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
         idx = start + i
         if idx in selected_set:
             slot_num = selected.index(idx)
-            label = f"{slot_emojis[slot_num]} {p['emoji']}{p['name_ko']}"
+            label = f"☑ {slot_emojis[slot_num]} {p['name_ko']}"
         else:
-            label = f"{p['emoji']}{p['name_ko']}"
+            label = f"☐ {p['name_ko']}"
         row.append(InlineKeyboardButton(
             label,
             callback_data=f"ts_{user_id}_{idx}_{page}_{sel_str}_{tn}",

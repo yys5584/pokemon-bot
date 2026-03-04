@@ -209,55 +209,111 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, InlineKeyboardMarkup]:
-    """Build a text-based list of pokemon with inline buttons."""
+    """Build a text-based list of pokemon with inline buttons.
+    Shows team pokemon first, then groups duplicate species.
+    """
     total = len(pokemon_list)
-    total_pages = (total + MYPOKE_PAGE_SIZE - 1) // MYPOKE_PAGE_SIZE
+    slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+
+    # Separate team pokemon from non-team
+    team_pokemon = [p for p in pokemon_list if p.get("team_slot") is not None]
+    non_team = [p for p in pokemon_list if p.get("team_slot") is None]
+
+    # Group non-team by pokemon_id
+    from collections import OrderedDict
+    groups = OrderedDict()
+    for p in non_team:
+        pid = p["pokemon_id"]
+        if pid not in groups:
+            groups[pid] = []
+        groups[pid].append(p)
+
+    # Build display items: each is either a single pokemon or a group
+    display_items = []  # (type, data) — 'single'/(idx, p) or 'group'/(pokemon_id, [indices], representative_p)
+
+    # Map original indices for non-team pokemon
+    non_team_indices = {id(p): pokemon_list.index(p) for p in non_team}
+
+    for pid, members in groups.items():
+        if len(members) == 1:
+            p = members[0]
+            display_items.append(("single", non_team_indices[id(p)], p))
+        else:
+            first = members[0]
+            indices = [non_team_indices[id(m)] for m in members]
+            display_items.append(("group", pid, indices, first, len(members)))
+
+    # Paginate display items
+    total_items = len(display_items)
+    total_pages = max(1, (total_items + MYPOKE_PAGE_SIZE - 1) // MYPOKE_PAGE_SIZE)
     page = max(0, min(page, total_pages - 1))
-
     start = page * MYPOKE_PAGE_SIZE
-    end = min(start + MYPOKE_PAGE_SIZE, total)
-    page_pokemon = pokemon_list[start:end]
+    end = min(start + MYPOKE_PAGE_SIZE, total_items)
+    page_items = display_items[start:end]
 
-    lines = [f"🎒 내 포켓몬 ({total}마리)  [{page + 1}/{total_pages}]\n"]
+    lines = [f"🎒 내 포켓몬 ({total}마리)  [{page + 1}/{total_pages}]"]
 
-    for i, p in enumerate(page_pokemon):
-        idx = start + i
-        num = idx + 1
-        max_f = config.get_max_friendship(p)
-        hearts = hearts_display(p["friendship"], max_f)
-        shiny_mark = "✨" if p.get("is_shiny") else ""
+    # Show team section only on first page
+    if page == 0 and team_pokemon:
+        # Group by team_num
+        teams = {}
+        for p in team_pokemon:
+            tn = p.get("team_num", 1)
+            if tn not in teams:
+                teams[tn] = []
+            teams[tn].append(p)
+        for tn in sorted(teams.keys()):
+            lines.append(f"\n⚔️ 팀{tn}")
+            for p in teams[tn]:
+                slot = p.get("team_slot", 1) - 1
+                se = slot_emojis[slot] if 0 <= slot < 6 else "▸"
+                shiny = "✨" if p.get("is_shiny") else ""
+                rb = rarity_badge(p.get("rarity", ""))
+                lines.append(f"{se} {rb}{shiny}{p['emoji']} {p['name_ko']}")
+        lines.append("━━━━━━━")
 
-        # Mark evolution-ready (진화는 친밀도 5 이상이면 가능)
-        evo_mark = ""
-        if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
-            evo_mark = " ⭐진화가능"
-        elif p["evolves_to"] and p["evolution_method"] == "trade":
-            evo_mark = " 🔄교환진화"
+    lines.append("")
+    item_num = start + 1
+    for item in page_items:
+        if item[0] == "single":
+            _, idx, p = item
+            max_f = config.get_max_friendship(p)
+            hearts = hearts_display(p["friendship"], max_f)
+            shiny = "✨" if p.get("is_shiny") else ""
+            evo_mark = ""
+            if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
+                evo_mark = " ⭐"
+            rb = rarity_badge(p.get("rarity", ""))
+            lines.append(f"{item_num}. {rb}{shiny}{p['emoji']} {p['name_ko']}  {hearts}{evo_mark}")
+        else:  # group
+            _, pid, indices, first, count = item
+            rb = rarity_badge(first.get("rarity", ""))
+            lines.append(f"{item_num}. {rb}{first['emoji']} {first['name_ko']}  x{count}")
+        item_num += 1
 
-        rb = rarity_badge(p.get("rarity", ""))
-        lines.append(f"{num}. {rb}{shiny_mark}{p['emoji']} {p['name_ko']}  {hearts}{evo_mark}")
+    lines.append(f"\n번호를 눌러 상세 보기")
 
-    lines.append(f"\n번호를 눌러 상세 보기 / 밥·놀기")
-
-    # Build buttons: pokemon selection (2 per row)
+    # Build buttons
     select_buttons = []
     row = []
-    for i, p in enumerate(page_pokemon):
-        idx = start + i
-        num = idx + 1
-        row.append(
-            InlineKeyboardButton(
-                f"{num}. {p['emoji']}{p['name_ko']}",
-                callback_data=f"mypoke_v_{user_id}_{idx}_{page}",
-            )
-        )
+    for i, item in enumerate(page_items):
+        num = start + i + 1
+        if item[0] == "single":
+            _, idx, p = item
+            label = f"{num}. {p['emoji']}{p['name_ko']}"
+            cb = f"mypoke_v_{user_id}_{idx}_{page}"
+        else:
+            _, pid, indices, first, count = item
+            label = f"{num}. {first['emoji']}{first['name_ko']} x{count}"
+            cb = f"mypoke_g_{user_id}_{pid}_{page}"
+        row.append(InlineKeyboardButton(label, callback_data=cb))
         if len(row) == 2:
             select_buttons.append(row)
             row = []
     if row:
         select_buttons.append(row)
 
-    # Pagination row
+    # Pagination
     nav_row = []
     if page > 0:
         nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"mypoke_l_{user_id}_{page - 1}"))
@@ -268,6 +324,48 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
 
     markup = InlineKeyboardMarkup(select_buttons)
     return "\n".join(lines), markup
+
+
+def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: int) -> tuple[str, InlineKeyboardMarkup]:
+    """Show individual pokemon within a duplicate group."""
+    members = [p for p in pokemon_list if p["pokemon_id"] == pokemon_id]
+    if not members:
+        return "해당 포켓몬을 찾을 수 없습니다.", InlineKeyboardMarkup([])
+
+    first = members[0]
+    rb = rarity_badge(first.get("rarity", ""))
+    lines = [f"{rb}{first['emoji']} {first['name_ko']} 보유 목록 ({len(members)}마리)\n"]
+
+    buttons = []
+    row = []
+    for i, p in enumerate(members):
+        idx = pokemon_list.index(p)
+        num = i + 1
+        shiny = " ✨이로치" if p.get("is_shiny") else ""
+        max_f = config.get_max_friendship(p)
+        hearts = hearts_display(p["friendship"], max_f)
+
+        # IV grade
+        iv_tag = ""
+        iv_hp = p.get("iv_hp")
+        if iv_hp is not None:
+            total = iv_total(iv_hp, p.get("iv_atk"), p.get("iv_def"),
+                             p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
+            grade, _ = config.get_iv_grade(total)
+            iv_tag = f" [{grade}]"
+
+        lines.append(f"#{num}  {first['emoji']}{first['name_ko']}{shiny}  {hearts}{iv_tag}")
+
+        label = f"#{num}{shiny[:1]}{iv_tag}"
+        row.append(InlineKeyboardButton(label, callback_data=f"mypoke_v_{user_id}_{idx}_{page}"))
+        if len(row) == 3:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+
+    buttons.append([InlineKeyboardButton("📋 목록으로", callback_data=f"mypoke_l_{user_id}_{page}")])
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 
 def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) -> tuple[str, InlineKeyboardMarkup]:
@@ -327,10 +425,35 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
         f"친밀도: {hearts} ({p['friendship']}/{max_f}){evo_text}{iv_line}{stats_line}",
     ]
 
-    # Action/navigation buttons
+    # Team info
+    team_info = ""
+    if p.get("team_slot") is not None:
+        team_info = f"\n⚔️ 팀{p.get('team_num', 1)} — {p['team_slot']}번 슬롯"
+    lines.append(team_info)
+
+    # Action buttons
     buttons = []
 
-    # Prev/Next pokemon in same detail view
+    # Row 1: actions
+    action_row = [
+        InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
+        InlineKeyboardButton("🍖 밥", callback_data=f"mypoke_feed_{user_id}_{idx}_{page}"),
+        InlineKeyboardButton("🎮 놀기", callback_data=f"mypoke_play_{user_id}_{idx}_{page}"),
+    ]
+    # Add evolution button if eligible
+    can_evo_friendship = p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP
+    can_evo_trade = p["evolves_to"] and p["evolution_method"] == "trade"
+    if can_evo_friendship:
+        action_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))
+    buttons.append(action_row)
+
+    # Row 2: team add
+    buttons.append([
+        InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{idx}_{page}"),
+        InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{idx}_{page}"),
+    ])
+
+    # Row 3: navigation
     detail_nav = []
     if idx > 0:
         detail_nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"mypoke_v_{user_id}_{idx - 1}_{page}"))
@@ -344,24 +467,20 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
 
 
 async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle 내포켓몬 callbacks: list pagination and detail view."""
+    """Handle 내포켓몬 callbacks: list, detail, group, and action buttons."""
     query = update.callback_query
     if not query or not query.data.startswith("mypoke_"):
         return
 
-    await query.answer()
-
     data = query.data
     parts = data.split("_")
-    # Format: mypoke_l_{user_id}_{page}  (list view)
-    #         mypoke_v_{user_id}_{idx}_{page}  (detail view)
-
-    action = parts[1]  # 'l' = list, 'v' = view detail
+    action = parts[1]
     user_id = int(parts[2])
 
-    # Only the owner can navigate
     if query.from_user.id != user_id:
         return
+
+    await query.answer()
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
@@ -373,20 +492,193 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     try:
         if action == "l":
-            # List view
             page = int(parts[3])
             text, markup = _build_list_view(user_id, pokemon_list, page)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "v":
-            # Detail view
             idx = int(parts[3])
             page = int(parts[4]) if len(parts) > 4 else idx // MYPOKE_PAGE_SIZE
             idx = max(0, min(idx, len(pokemon_list) - 1))
             text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "g":
+            # Group view: mypoke_g_{user_id}_{pokemon_id}_{page}
+            pokemon_id = int(parts[3])
+            page = int(parts[4]) if len(parts) > 4 else 0
+            text, markup = _build_group_view(user_id, pokemon_list, pokemon_id, page)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "appr":
+            # Appraisal: show IV info inline
+            idx = int(parts[3])
+            page = int(parts[4]) if len(parts) > 4 else 0
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            p = pokemon_list[idx]
+            text = _format_appraisal(p)
+            # Back button to detail
+            markup = InlineKeyboardMarkup([[
+                InlineKeyboardButton("◀ 돌아가기", callback_data=f"mypoke_v_{user_id}_{idx}_{page}")
+            ]])
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "feed":
+            idx = int(parts[3])
+            page = int(parts[4]) if len(parts) > 4 else 0
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            p = pokemon_list[idx]
+            result = await _do_feed(p, user_id)
+            await query.answer(result, show_alert=True)
+            # Refresh detail
+            pokemon_list = await queries.get_user_pokemon_list(user_id)
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "play":
+            idx = int(parts[3])
+            page = int(parts[4]) if len(parts) > 4 else 0
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            p = pokemon_list[idx]
+            result = await _do_play(p, user_id)
+            await query.answer(result, show_alert=True)
+            pokemon_list = await queries.get_user_pokemon_list(user_id)
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "evo":
+            idx = int(parts[3])
+            page = int(parts[4]) if len(parts) > 4 else 0
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            p = pokemon_list[idx]
+            result = await _do_evolve(p, user_id)
+            await query.answer(result, show_alert=True)
+            pokemon_list = await queries.get_user_pokemon_list(user_id)
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action in ("t1", "t2"):
+            idx = int(parts[3])
+            page = int(parts[4]) if len(parts) > 4 else 0
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            p = pokemon_list[idx]
+            team_num = 1 if action == "t1" else 2
+            result = await _do_add_to_team(p, user_id, team_num)
+            await query.answer(result, show_alert=True)
+            pokemon_list = await queries.get_user_pokemon_list(user_id)
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
     except Exception:
         pass
+
+
+def _format_appraisal(p: dict) -> str:
+    """Format IV appraisal text for a pokemon."""
+    shiny = "✨" if p.get("is_shiny") else ""
+    rb = rarity_badge(p.get("rarity", "common"))
+    ivs = {
+        "HP": p.get("iv_hp"), "ATK": p.get("iv_atk"), "DEF": p.get("iv_def"),
+        "SPA": p.get("iv_spa"), "SPDEF": p.get("iv_spdef"), "SPD": p.get("iv_spd"),
+    }
+    total = iv_total(ivs["HP"], ivs["ATK"], ivs["DEF"], ivs["SPA"], ivs["SPDEF"], ivs["SPD"])
+    grade, _ = config.get_iv_grade(total)
+    pct = round(total / 186 * 100, 1)
+
+    stat_labels = {"HP": "HP   ", "ATK": "공격 ", "DEF": "방어 ", "SPA": "특공 ", "SPDEF": "특방 ", "SPD": "스피드"}
+    lines = [f"📋 {shiny}{rb}{p['emoji']} {p['name_ko']} 감정 결과\n"]
+    for key in ("HP", "ATK", "DEF", "SPA", "SPDEF", "SPD"):
+        v = ivs[key] if ivs[key] is not None else 15
+        filled = round(v / 31 * 6)
+        bar = "█" * filled + "░" * (6 - filled)
+        mark = " ★" if v >= 28 else (" ✗" if v <= 5 else "")
+        lines.append(f"{stat_labels[key]} {bar} {v}/31{mark}")
+    lines.append(f"\n총합: {total}/186 ({pct}%)")
+    lines.append(f"등급: {grade}")
+    flavor = {"S": "최상급 개체!", "A": "매우 뛰어남", "B": "괜찮은 개체", "C": "평범", "D": "개체값 낮음"}
+    lines.append(flavor.get(grade, ""))
+    return "\n".join(lines)
+
+
+async def _do_feed(p: dict, user_id: int) -> str:
+    """Execute feed action, return result message."""
+    if p["fed_today"] >= config.FEED_PER_DAY:
+        return f"오늘은 이미 밥을 {config.FEED_PER_DAY}번 줬습니다!"
+    max_f = config.get_max_friendship(p)
+    if p["friendship"] >= max_f:
+        return f"{p['name_ko']} 친밀도 MAX!"
+    from services.event_service import get_friendship_boost
+    boost = await get_friendship_boost()
+    gain = config.FRIENDSHIP_PER_FEED * boost
+    new_f = min(max_f, p["friendship"] + gain)
+    await queries.update_pokemon_friendship(p["id"], new_f)
+    await queries.increment_feed(p["id"])
+    remaining = config.FEED_PER_DAY - p["fed_today"] - 1
+    return f"🍖 {p['name_ko']}에게 밥! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
+
+
+async def _do_play(p: dict, user_id: int) -> str:
+    """Execute play action, return result message."""
+    if p["played_today"] >= config.PLAY_PER_DAY:
+        return f"오늘은 이미 {config.PLAY_PER_DAY}번 놀아줬습니다!"
+    max_f = config.get_max_friendship(p)
+    if p["friendship"] >= max_f:
+        return f"{p['name_ko']} 친밀도 MAX!"
+    from services.event_service import get_friendship_boost
+    boost = await get_friendship_boost()
+    gain = config.FRIENDSHIP_PER_PLAY * boost
+    new_f = min(max_f, p["friendship"] + gain)
+    await queries.update_pokemon_friendship(p["id"], new_f)
+    await queries.increment_play(p["id"])
+    remaining = config.PLAY_PER_DAY - p["played_today"] - 1
+    return f"🎮 {p['name_ko']}와 놀기! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
+
+
+async def _do_evolve(p: dict, user_id: int) -> str:
+    """Execute evolution, return result message."""
+    if not p["evolves_to"]:
+        return "이 포켓몬은 진화할 수 없습니다."
+    if p["evolution_method"] == "trade":
+        return "이 포켓몬은 교환으로만 진화합니다."
+    max_f = config.get_max_friendship(p)
+    if p["friendship"] < max_f:
+        return f"친밀도가 부족합니다 ({p['friendship']}/{max_f})"
+    # Perform evolution
+    evo_target = await queries.get_pokemon_master(p["evolves_to"])
+    if not evo_target:
+        return "진화 대상을 찾을 수 없습니다."
+    await queries.evolve_pokemon(p["id"], p["evolves_to"])
+    return f"✨ {p['name_ko']}이(가) {evo_target['name_ko']}(으)로 진화했습니다!"
+
+
+async def _do_add_to_team(p: dict, user_id: int, team_num: int) -> str:
+    """Add pokemon to battle team, return result message."""
+    from database import battle_queries as bq
+    team = await bq.get_battle_team(user_id, team_num)
+    # Check if already on this team
+    for t in team:
+        if t.get("pokemon_instance_id") == p["id"]:
+            return f"이미 팀{team_num}에 등록되어 있습니다!"
+    if len(team) >= config.TEAM_MAX:
+        return f"팀{team_num}이 가득 찼습니다 ({config.TEAM_MAX}마리)!"
+    # Legendary limit
+    if p["rarity"] == "legendary":
+        leg_count = sum(1 for t in team if t.get("rarity") == "legendary")
+        if leg_count >= 1:
+            return "전설 포켓몬은 팀당 1마리만 가능합니다!"
+    # Epic duplicate check
+    if p["rarity"] == "epic":
+        for t in team:
+            if t.get("rarity") == "epic" and t.get("pokemon_id") == p["pokemon_id"]:
+                return "같은 종의 에픽 포켓몬은 중복 불가!"
+    # Add to team
+    instance_ids = [t["pokemon_instance_id"] for t in team] + [p["id"]]
+    await bq.set_battle_team(user_id, instance_ids, team_num)
+    return f"✅ {p['name_ko']}을(를) 팀{team_num}에 추가! ({len(instance_ids)}/{config.TEAM_MAX})"
 
 
 # --- Pokemon TMI data (웃긴 버전) ---
@@ -1067,3 +1359,90 @@ async def appraisal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines.append(flavor.get(grade, ""))
 
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
+# ============================================================
+# Type Chart (상성표)
+# ============================================================
+
+async def type_chart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '상성 [타입]' command — show type effectiveness."""
+    if not update.effective_user or not update.message:
+        return
+
+    text = update.message.text or ""
+    name_arg = parse_name_arg(text)
+
+    if name_arg:
+        # Specific type detail
+        # Find type by Korean name or English key
+        target_type = None
+        for eng, ko in config.TYPE_NAME_KO.items():
+            if name_arg == ko or name_arg.lower() == eng:
+                target_type = eng
+                break
+        if not target_type:
+            type_list = " ".join(f"{config.TYPE_EMOJI[t]}{config.TYPE_NAME_KO[t]}" for t in config.TYPE_ADVANTAGE)
+            await update.message.reply_text(f"'{name_arg}' 타입을 찾을 수 없습니다.\n\n사용 가능: {type_list}")
+            return
+
+        emoji = config.TYPE_EMOJI.get(target_type, "")
+        ko = config.TYPE_NAME_KO.get(target_type, target_type)
+
+        # Offense: what this type is strong against
+        strong = config.TYPE_ADVANTAGE.get(target_type, [])
+        # Offense: what this type is immune to (hits for 0.3x)
+        immune_vs = config.TYPE_IMMUNITY.get(target_type, [])
+
+        # Defense: what is strong against this type
+        weak_to = []
+        resist = []
+        immune_from = []
+        for atk_type, adv_list in config.TYPE_ADVANTAGE.items():
+            if target_type in adv_list:
+                weak_to.append(atk_type)
+        for atk_type, imm_list in config.TYPE_IMMUNITY.items():
+            if target_type in imm_list:
+                immune_from.append(atk_type)
+        # Resist: types whose attacks are not very effective
+        for atk_type, adv_list in config.TYPE_ADVANTAGE.items():
+            if atk_type in config.TYPE_ADVANTAGE.get(target_type, []):
+                # target is strong against atk_type → resists it
+                pass
+        # Simpler: types that target_type resists = types that list target_type in their disadvantage
+        # Actually resistance in this system: if defender's type is in attacker's advantage, attacker does 1.3x
+        # So resistance = attacker types where target_type is NOT in their advantage (neutral or resist)
+        # Let's show what's useful: weak_to and immune_from
+
+        def fmt(types):
+            if not types:
+                return "없음"
+            return " ".join(f"{config.TYPE_EMOJI.get(t, '')}{config.TYPE_NAME_KO.get(t, t)}" for t in types)
+
+        lines = [
+            f"{emoji} {ko} 타입 상성\n",
+            f"⚔️ 공격 시 효과적 (1.3x):",
+            f"  {fmt(strong)}",
+        ]
+        if immune_vs:
+            lines.append(f"\n🚫 공격 시 면역 (0.3x):")
+            lines.append(f"  {fmt(immune_vs)}")
+        lines.append(f"\n🛡️ 방어 시 약점 (1.3x 피해):")
+        lines.append(f"  {fmt(weak_to)}")
+        if immune_from:
+            lines.append(f"\n🛡️ 방어 시 면역 (0.3x 피해):")
+            lines.append(f"  {fmt(immune_from)}")
+
+        await update.message.reply_text("\n".join(lines))
+    else:
+        # Full chart summary
+        lines = ["⚔️ 타입 상성표\n"]
+        for atk_type, adv_list in config.TYPE_ADVANTAGE.items():
+            if not adv_list:
+                continue
+            emoji = config.TYPE_EMOJI.get(atk_type, "")
+            ko = config.TYPE_NAME_KO.get(atk_type, atk_type)
+            targets = " ".join(f"{config.TYPE_EMOJI.get(t, '')}{config.TYPE_NAME_KO.get(t, t)}" for t in adv_list)
+            lines.append(f"{emoji}{ko} → {targets}")
+        lines.append(f"\n💡 상성 [타입] 으로 상세 보기\n예: 상성 불꽃")
+        await update.message.reply_text("\n".join(lines))

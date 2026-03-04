@@ -334,21 +334,26 @@ async def give_pokemon_to_user(
 
 
 async def get_user_pokemon_list(user_id: int) -> list[dict]:
-    """Get all active Pokemon owned by a user."""
+    """Get all active Pokemon owned by a user, with battle team info."""
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT up.*, pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
                   pm.evolves_to, pm.evolution_method,
-                  pm.pokemon_type, pm.stat_type
+                  pm.pokemon_type, pm.stat_type,
+                  bt.slot AS team_slot, bt.team_number AS team_num
            FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           LEFT JOIN battle_teams bt ON bt.pokemon_instance_id = up.id
            WHERE up.user_id = $1 AND up.is_active = 1
-           ORDER BY CASE pm.rarity
-               WHEN 'legendary' THEN 1
-               WHEN 'epic' THEN 2
-               WHEN 'rare' THEN 3
-               WHEN 'common' THEN 4
-           END, up.id DESC""",
+           ORDER BY
+               CASE WHEN bt.slot IS NOT NULL THEN 0 ELSE 1 END,
+               bt.team_number NULLS LAST, bt.slot NULLS LAST,
+               CASE pm.rarity
+                   WHEN 'legendary' THEN 1
+                   WHEN 'epic' THEN 2
+                   WHEN 'rare' THEN 3
+                   WHEN 'common' THEN 4
+               END, up.id DESC""",
         user_id,
     )
     return [dict(r) for r in rows]
