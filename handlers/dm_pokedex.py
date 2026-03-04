@@ -392,7 +392,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
     shiny_text = "  ✨이로치" if p.get("is_shiny") else ""
 
     # IV information
-    from utils.battle_calc import calc_battle_stats, iv_total, EVO_STAGE_MAP
+    from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, iv_total, EVO_STAGE_MAP
     iv_hp = p.get("iv_hp")
     iv_atk = p.get("iv_atk")
     iv_def = p.get("iv_def")
@@ -417,9 +417,13 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
             iv_hp=iv_hp, iv_atk=iv_atk, iv_def=iv_def,
             iv_spa=iv_spa, iv_spdef=iv_spdef, iv_spd=iv_spd,
         )
+        base = calc_battle_stats(
+            p["rarity"], p.get("stat_type", "balanced"), p["friendship"],
+            evo_stage=evo_stage,
+        )
         stats_line = (
-            f"\nHP:{stats['hp']} ATK:{stats['atk']} DEF:{stats['def']}"
-            f"\nSPA:{stats['spa']} SPDEF:{stats['spdef']} SPD:{stats['spd']}"
+            f"\n⚡ 전투력: {format_power(stats, base)}"
+            f"\n{format_stats_line(stats, base)}"
         )
 
     tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
@@ -1181,7 +1185,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
     from database import battle_queries as bq
-    from utils.battle_calc import calc_battle_stats, format_stats_line, EVO_STAGE_MAP
+    from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, calc_power, EVO_STAGE_MAP
     from models.pokemon_skills import POKEMON_SKILLS
     from models.pokemon_base_stats import POKEMON_BASE_STATS
 
@@ -1227,7 +1231,13 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines.append("")
     if partner:
         evo = EVO_STAGE_MAP.get(partner["pokemon_id"], 3)
-        stats = calc_battle_stats(partner["rarity"], partner["stat_type"], partner["friendship"], evo_stage=evo)
+        stats = calc_battle_stats(
+            partner["rarity"], partner["stat_type"], partner["friendship"], evo_stage=evo,
+            iv_hp=partner.get("iv_hp"), iv_atk=partner.get("iv_atk"),
+            iv_def=partner.get("iv_def"), iv_spa=partner.get("iv_spa"),
+            iv_spdef=partner.get("iv_spdef"), iv_spd=partner.get("iv_spd"),
+        )
+        base = calc_battle_stats(partner["rarity"], partner["stat_type"], partner["friendship"], evo_stage=evo)
         tb = type_badge(partner["pokemon_id"], partner["pokemon_type"])
         pbs = POKEMON_BASE_STATS.get(partner["pokemon_id"])
         if pbs:
@@ -1235,9 +1245,9 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
         skill = POKEMON_SKILLS.get(partner["pokemon_id"], ("몸통박치기", 1.2))
-        lines.append(f"🤝 파트너: {tb} {partner['name_ko']}  {type_name}")
+        lines.append(f"🤝 파트너: {tb} {partner['name_ko']}  {type_name}  ⚡{format_power(stats, base)}")
         lines.append(f"   ❤️ 친밀도: {hearts_display(partner['friendship'])}")
-        lines.append(f"   📊 {format_stats_line(stats)}")
+        lines.append(f"   📊 {format_stats_line(stats, base)}")
         lines.append(f"   💥 기술: {skill[0]}")
     else:
         lines.append("🤝 파트너: 미지정 ('파트너' 명령어로 설정)")
@@ -1250,11 +1260,16 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(f"👥 배틀팀 {active_num} ({len(team)}/6)")
         for i, t in enumerate(team, 1):
             evo = EVO_STAGE_MAP.get(t["pokemon_id"], 3)
-            stats = calc_battle_stats(t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo)
+            stats = calc_battle_stats(
+                t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo,
+                iv_hp=t.get("iv_hp"), iv_atk=t.get("iv_atk"),
+                iv_def=t.get("iv_def"), iv_spa=t.get("iv_spa"),
+                iv_spdef=t.get("iv_spdef"), iv_spd=t.get("iv_spd"),
+            )
+            tbase = calc_battle_stats(t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo)
             skill = POKEMON_SKILLS.get(t["pokemon_id"], ("몸통박치기", 1.2))
-            power = stats["hp"] + stats["atk"] + stats["def"] + stats["spd"]
             ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
-            lines.append(f"  {i}. {ttb} {t['name_ko']}  💥{skill[0]}  ⚡{power}")
+            lines.append(f"  {i}. {ttb} {t['name_ko']}  💥{skill[0]}  ⚡{format_power(stats, tbase)}")
         if team2:
             lines.append(f"  (팀2 등록됨: {len(team2)}마리)")
     else:

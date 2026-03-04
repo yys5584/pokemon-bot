@@ -152,9 +152,34 @@ def get_type_multiplier(attacker_type: str, defender_type: str) -> float:
     return 1.0
 
 
-def format_stats_line(stats: dict) -> str:
-    """Format stats dict as a compact display string."""
-    return (
-        f"HP:{stats['hp']} ATK:{stats['atk']} DEF:{stats['def']} "
-        f"SPA:{stats['spa']} SPDEF:{stats['spdef']} SPD:{stats['spd']}"
-    )
+def _iv_tag(val: int, base: int) -> str:
+    """Format a single stat with IV bonus: '191(+5)' or '191'."""
+    diff = val - base
+    if diff > 0:
+        return f"{val}(+{diff})"
+    return str(val)
+
+
+def format_stats_line(stats: dict, base: dict = None) -> str:
+    """Format stats dict with Korean labels, optionally showing IV bonus."""
+    keys = [("hp", "체"), ("atk", "공"), ("def", "방"),
+            ("spa", "특공"), ("spdef", "특방"), ("spd", "속")]
+    if base:
+        return " ".join(f"{lb}{_iv_tag(stats[k], base[k])}" for k, lb in keys)
+    return " ".join(f"{lb}{stats[k]}" for k, lb in keys)
+
+
+def calc_power(stats: dict) -> int:
+    """Calculate total battle power (sum of all 6 stats)."""
+    return stats['hp'] + stats['atk'] + stats['def'] + stats['spa'] + stats['spdef'] + stats['spd']
+
+
+def format_power(stats: dict, base: dict = None) -> str:
+    """Format power as '639(+50)' or '639'."""
+    power = calc_power(stats)
+    if base:
+        base_power = calc_power(base)
+        diff = power - base_power
+        if diff > 0:
+            return f"{power}(+{diff})"
+    return str(power)

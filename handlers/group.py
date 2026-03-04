@@ -12,7 +12,7 @@ import config
 from database import queries
 from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
-from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete
+from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete, ball_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         attempt_msg = await context.bot.send_message(
             chat_id=chat_id,
-            text=f"🎯 {decorated} 도전!",
+            text=f"{ball_emoji('pokeball')} {decorated} 포켓볼을 던졌다!",
             parse_mode="HTML",
         )
         track_attempt_message(session["id"], chat_id, attempt_msg.message_id)
@@ -167,10 +167,19 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Record attempt with master ball flag
         await queries.record_catch_attempt(session["id"], user_id, used_master_ball=True)
 
+        user = await queries.get_user(user_id)
+        decorated = get_decorated_name(
+            display_name,
+            user.get("title", "") if user else "",
+            user.get("title_emoji", "") if user else "",
+            username,
+            html=True,
+        )
         remaining = balls - 1
         msg = await context.bot.send_message(
             chat_id=chat_id,
-            text=f"🟣 {display_name} 마스터볼 투척! (남은 마스터볼: {remaining}개)",
+            text=f"{ball_emoji('masterball')} {decorated} 마스터볼을 던졌다! (남은: {remaining}개)",
+            parse_mode="HTML",
         )
         track_attempt_message(session["id"], chat_id, msg.message_id)
 
@@ -222,10 +231,19 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # Record attempt (does NOT increment catch limit)
         await queries.record_catch_attempt(session["id"], user_id, used_hyper_ball=True)
 
+        user = await queries.get_user(user_id)
+        decorated = get_decorated_name(
+            display_name,
+            user.get("title", "") if user else "",
+            user.get("title_emoji", "") if user else "",
+            username,
+            html=True,
+        )
         remaining = await queries.get_hyper_balls(user_id)
         hyper_msg = await context.bot.send_message(
             chat_id=chat_id,
-            text=f"🔵 {display_name} 하이퍼볼 투척! (남은: {remaining}개)",
+            text=f"{ball_emoji('hyperball')} {decorated} 하이퍼볼을 던졌다! (남은: {remaining}개)",
+            parse_mode="HTML",
         )
         track_attempt_message(session["id"], chat_id, hyper_msg.message_id)
 

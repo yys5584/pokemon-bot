@@ -612,7 +612,30 @@ async function loadTier(){
     let mx={hp:1,atk:1,def:1,spa:1,spdef:1,spd:1};
     for(const p of tiers){mx.hp=Math.max(mx.hp,p.hp);mx.atk=Math.max(mx.atk,p.atk);mx.def=Math.max(mx.def,p.def_);mx.spa=Math.max(mx.spa,p.spa||0);mx.spdef=Math.max(mx.spdef,p.spdef||0);mx.spd=Math.max(mx.spd,p.spd)}
 
-    let h=`<table><thead><tr><th>포켓몬</th><th>타입</th><th>등급</th><th class="hide-m">스킬</th><th>HP</th><th>ATK</th><th>DEF</th><th class="hide-m">SPA</th><th class="hide-m">SPDEF</th><th>SPD</th><th>전투력</th></tr></thead><tbody>`;
+    let h=`<div style="margin-bottom:14px;font-size:12px;color:var(--muted);line-height:2;background:var(--card);padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.06)">
+        <div style="margin-bottom:6px">
+            <b style="color:var(--text)">⚡ 전투력</b> = max(공격,특공) × 스킬배율 × 내구력(HP×방어)
+            &nbsp;|&nbsp; 상위 2개 스탯 <b>굵게</b> 표시
+            &nbsp;|&nbsp; 타입 아이콘 호버 시 상성 확인
+        </div>
+        <div style="margin-bottom:6px">
+            <b style="color:var(--text)">등급</b>
+            <span class="badge badge-legendary" style="font-size:9px">전설</span>
+            <span class="badge badge-epic" style="font-size:9px">에픽</span>
+            <span class="badge badge-rare" style="font-size:9px">희귀</span>
+            <span class="badge badge-common" style="font-size:9px">일반</span>
+        </div>
+        <div>
+            <b style="color:var(--text)">IV 등급</b>
+            <span style="color:var(--gold);font-weight:700">S</span> 168+ (90%)
+            <span style="color:var(--green);font-weight:700">&nbsp;A</span> 140+ (75%)
+            <span style="color:var(--blue);font-weight:700">&nbsp;B</span> 93+ (50%)
+            <span style="color:var(--orange);font-weight:700">&nbsp;C</span> 47+ (25%)
+            <span style="color:var(--red);font-weight:700">&nbsp;D</span> 0+
+            <span style="color:var(--muted)">&nbsp;(총합 /186)</span>
+        </div>
+    </div>`;
+    h+=`<table><thead><tr><th>포켓몬</th><th>타입</th><th>등급</th><th class="hide-m">스킬</th><th>체</th><th>공</th><th>방</th><th class="hide-m">특공</th><th class="hide-m">특방</th><th>속</th><th>전투력</th></tr></thead><tbody>`;
     for(const p of tiers){
         const tops=topStats(p);
         const t1=typeTip(p.type1,chart,names);
@@ -632,13 +655,6 @@ async function loadTier(){
         </tr>`;
     }
     h+="</tbody></table>";
-    h+=`<div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.8">
-        전투력 = max(ATK,SPA) × 스킬배율 × 내구력(HP×방어) &nbsp;|&nbsp; 상위 2개 스탯 <b>굵게</b> 표시 &nbsp;|&nbsp; 타입 아이콘 호버 시 상성 확인<br>
-        등급: <span class="badge badge-legendary" style="font-size:9px">전설</span>
-        <span class="badge badge-epic" style="font-size:9px">에픽</span>
-        <span class="badge badge-rare" style="font-size:9px">희귀</span>
-        <span class="badge badge-common" style="font-size:9px">일반</span>
-    </div>`;
     document.getElementById("tierTable").innerHTML=h;
 }
 

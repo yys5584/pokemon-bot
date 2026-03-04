@@ -8,7 +8,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config import (
     TITLES, LEGEND_HUNTER_THRESHOLD, LEGEND_HUNTER_TITLE,
     RARITY_EMOJI, RARITY_LABEL, RARITY_CUSTOM_EMOJI,
-    TYPE_EMOJI, TYPE_CUSTOM_EMOJI,
+    TYPE_EMOJI, TYPE_CUSTOM_EMOJI, BALL_CUSTOM_EMOJI,
 )
 from database import queries
 
@@ -100,6 +100,24 @@ def rarity_badge_label(rarity: str) -> str:
     if eid:
         return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji> {label}'
     return f"{fallback} {label}"
+
+
+# --- Ball emoji fallbacks ---
+_BALL_FALLBACK = {
+    "pokeball": "🔴",
+    "hyperball": "🔵",
+    "masterball": "🟣",
+    "greatball": "🟢",
+}
+
+
+def ball_emoji(ball_key: str) -> str:
+    """Return custom emoji HTML tag for a ball type."""
+    eid = BALL_CUSTOM_EMOJI.get(ball_key, "")
+    fallback = _BALL_FALLBACK.get(ball_key, "⚪")
+    if eid:
+        return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji>'
+    return fallback
 
 
 async def calculate_title(user_id: int) -> tuple[str, str]:

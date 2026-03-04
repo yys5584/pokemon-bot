@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from database import battle_queries as bq
-from utils.battle_calc import calc_battle_stats, format_stats_line, get_type_multiplier, EVO_STAGE_MAP
+from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, get_type_multiplier, EVO_STAGE_MAP
 from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge
 
 logger = logging.getLogger(__name__)
@@ -106,6 +106,10 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             iv_def=partner.get("iv_def"), iv_spa=partner.get("iv_spa"),
             iv_spdef=partner.get("iv_spdef"), iv_spd=partner.get("iv_spd"),
         )
+        base = calc_battle_stats(
+            partner["rarity"], partner["stat_type"], partner["friendship"],
+            evo_stage=evo_stage,
+        )
         tb = type_badge(partner["pokemon_id"], partner["pokemon_type"])
         from models.pokemon_base_stats import POKEMON_BASE_STATS
         pbs = POKEMON_BASE_STATS.get(partner["pokemon_id"])
@@ -118,9 +122,9 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]])
         await update.message.reply_text(
             f"🤝 나의 파트너\n\n"
-            f"{tb} {partner['name_ko']}  {type_name}\n"
-            f"📊 {format_stats_line(stats)}\n\n"
-            f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!",
+            f"{tb} {partner['name_ko']}  {type_name}  ⚡{format_power(stats, base)}\n"
+            f"📊 {format_stats_line(stats, base)}\n\n"
+            f"💡 배틀 시 파트너가 팀에 포함되면 공격 +5%!",
             reply_markup=buttons,
             parse_mode="HTML",
         )
@@ -260,12 +264,16 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
             iv_def=chosen.get("iv_def"), iv_spa=chosen.get("iv_spa"),
             iv_spdef=chosen.get("iv_spdef"), iv_spd=chosen.get("iv_spd"),
         )
+        base = calc_battle_stats(
+            chosen["rarity"], chosen.get("stat_type", "balanced"), chosen["friendship"],
+            evo_stage=evo_stage,
+        )
         try:
             await query.edit_message_text(
                 f"🤝 파트너 지정 완료!\n\n"
-                f"{tb} {chosen['name_ko']}\n"
-                f"📊 {format_stats_line(stats)}\n\n"
-                f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!",
+                f"{tb} {chosen['name_ko']}  ⚡{format_power(stats, base)}\n"
+                f"📊 {format_stats_line(stats, base)}\n\n"
+                f"💡 배틀 시 파트너가 팀에 포함되면 공격 +5%!",
                 parse_mode="HTML",
             )
         except Exception:
@@ -417,6 +425,8 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
     lines = [f"⚔️ 배틀 팀 {team_num}{active_mark}\n"]
 
+    total_power = 0
+    total_base_power = 0
     for i, p in enumerate(team):
         evo_stage = EVO_STAGE_MAP.get(p["pokemon_id"], 3)
         stats = calc_battle_stats(
@@ -426,13 +436,22 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             iv_def=p.get("iv_def"), iv_spa=p.get("iv_spa"),
             iv_spdef=p.get("iv_spdef"), iv_spd=p.get("iv_spd"),
         )
+        base = calc_battle_stats(
+            p["rarity"], p["stat_type"], p["friendship"],
+            evo_stage=evo_stage,
+        )
+        total_power += calc_power(stats)
+        total_base_power += calc_power(base)
         tb = type_badge(p["pokemon_id"], p["pokemon_type"])
         partner_mark = " 🤝" if p["pokemon_instance_id"] == partner_instance else ""
         rb = rarity_badge(p["rarity"])
         lines.append(
-            f"{slot_emojis[i]} {rb}{tb} {p['name_ko']}{partner_mark}  "
-            f"{format_stats_line(stats)}"
+            f"{slot_emojis[i]} {rb}{tb} {p['name_ko']}{partner_mark}  ⚡{format_power(stats, base)}\n"
+            f"    {format_stats_line(stats, base)}"
         )
+    iv_diff = total_power - total_base_power
+    total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
+    lines.append(f"\n💪 팀 전투력: {total_tag}")
 
     if team_num != active_num:
         lines.append(f"\n💡 '팀선택 {team_num}'으로 이 팀을 배틀에 사용할 수 있습니다.")
@@ -1606,7 +1625,7 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         trap = " (함정)" if p["atk"] < 40 else ""
         lines.append(
             f"{rank}. {rb}{p['type_emoji']}<b>{p['name']}</b>{trap}  "
-            f"HP:{p['hp']} ATK:{p['atk']} DEF:{p['def']} SPD:{p['spd']}  "
+            f"체{p['hp']} 공{p['atk']} 방{p['def']} 속{p['spd']}  "
             f"⚡{p['power']}"
         )
 
