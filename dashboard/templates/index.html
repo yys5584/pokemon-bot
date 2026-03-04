@@ -1656,8 +1656,9 @@ async function loadSimulator(){
             _myPokemon=await r.json();
         }catch(e){}
     }
-    // Restore chat sessions from localStorage
-    _restoreChatFromStorage();
+    // AI chat disabled — clear old sessions
+    localStorage.removeItem("tgpoke_sessions");
+    localStorage.removeItem("tgpoke_chat");
     // Load donation progress
     try{const don=await fetchJSON("/api/donation");if(don)renderDonation(don)}catch(e){renderDonation({current:0,goal:200})}
 }
