@@ -144,7 +144,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
         "c_idx": c_idx, "d_idx": d_idx,
         "c_total": c_total, "d_total": d_total,
         "c_hp": c_mon["current_hp"], "d_hp": d_mon["current_hp"],
-        "c_max_hp": c_mon["current_hp"], "d_max_hp": d_mon["current_hp"],
+        "c_max_hp": c_mon["stats"]["hp"], "d_max_hp": d_mon["stats"]["hp"],
     })
 
     while c_idx < len(challenger_team) and d_idx < len(defender_team):
@@ -200,6 +200,8 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             "c_eff": c_eff, "d_eff": d_eff,
             "c_hp": max(0, c_mon["current_hp"]), "d_hp": max(0, d_mon["current_hp"]),
             "c_max_hp": c_max, "d_max_hp": d_max,
+            "c_idx": c_idx, "d_idx": d_idx,
+            "c_total": c_total, "d_total": d_total,
             "first_is_challenger": first_is_challenger,
         })
 
@@ -227,7 +229,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
                         "c_idx": c_idx, "d_idx": d_idx,
                         "c_total": c_total, "d_total": d_total,
                         "c_hp": c_mon["current_hp"], "d_hp": d_mon["current_hp"],
-                        "c_max_hp": c_mon["current_hp"], "d_max_hp": d_mon["current_hp"],
+                        "c_max_hp": c_mon["stats"]["hp"], "d_max_hp": d_mon["stats"]["hp"],
                     })
             else:
                 log_lines.append(f" {SKULL}{dead_name} 쓰러짐!")
@@ -256,7 +258,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
                         "c_idx": c_idx, "d_idx": d_idx,
                         "c_total": c_total, "d_total": d_total,
                         "c_hp": challenger_team[c_idx]["current_hp"], "d_hp": d_mon["current_hp"],
-                        "c_max_hp": challenger_team[c_idx]["current_hp"], "d_max_hp": d_mon["current_hp"],
+                        "c_max_hp": challenger_team[c_idx]["stats"]["hp"], "d_max_hp": d_mon["stats"]["hp"],
                     })
             else:
                 log_lines.append(f" {SKULL}{dead_name} 쓰러짐!")
@@ -390,8 +392,10 @@ async def execute_battle(
     d_user = await queries.get_user(defender_id)
     c_name = c_user["display_name"] if c_user else "???"
     d_name = d_user["display_name"] if d_user else "???"
-    c_title_str = f"{c_user['title_emoji']} " if c_user and c_user.get("title_emoji") else ""
-    d_title_str = f"{d_user['title_emoji']} " if d_user and d_user.get("title_emoji") else ""
+    c_te = c_user.get("title_emoji", "") if c_user else ""
+    d_te = d_user.get("title_emoji", "") if d_user else ""
+    c_title_str = f"{icon_emoji(c_te)} " if c_te and c_te in config.ICON_CUSTOM_EMOJI else ""
+    d_title_str = f"{icon_emoji(d_te)} " if d_te and d_te in config.ICON_CUSTOM_EMOJI else ""
 
     winner_name = c_name if result["winner"] == "challenger" else d_name
 
@@ -402,7 +406,7 @@ async def execute_battle(
     c_total_power = sum(calc_power(c["stats"]) for c in c_combatants)
     d_total_power = sum(calc_power(d["stats"]) for d in d_combatants)
 
-    # Build display text — challenger LEFT, defender RIGHT (consistent with log)
+    # Build compact display text from turn_data
     lines = [
         f"{icon_emoji('battle')} 배틀 결과!",
         "━━━━━━━━━━━━━━━",
@@ -410,26 +414,65 @@ async def execute_battle(
         f"{icon_emoji('bolt')}{c_total_power}          {icon_emoji('bolt')}{d_total_power}",
         "━━━━━━━━━━━━━━━",
         "",
-        result["log"],
-        "",
-        "━━━━━━━━━━━━━━━",
-        f"🏆 {winner_name} 승리! (남은 포켓몬: {winner_remaining}마리)",
     ]
 
+    # Compact matchup-by-matchup summary from turn_data
+    cur_c_name, cur_d_name = "", ""
+    cur_c_idx, cur_d_idx = 0, 0
+    cur_c_tb, cur_d_tb = "", ""
+    matchup_winner = ""
+    matchup_winner_hp = 0
+    last_was_ko = False
+
+    def _matchup_line():
+        w_name = cur_c_name if matchup_winner == "c" else cur_d_name
+        return f"{cur_c_tb}{cur_c_name}({cur_c_idx}) ⚔ {cur_d_tb}{cur_d_name}({cur_d_idx}) → {w_name} 승 HP {matchup_winner_hp}"
+
+    for td in result["turn_data"]:
+        if td["type"] == "matchup":
+            cur_c_name = td["c_name"]
+            cur_d_name = td["d_name"]
+            cur_c_idx = td["c_idx"] + 1
+            cur_d_idx = td["d_idx"] + 1
+            cur_c_tb = td.get("c_tb", "")
+            cur_d_tb = td.get("d_tb", "")
+            last_was_ko = False
+        elif td["type"] == "turn":
+            if td["c_hp"] <= 0:
+                matchup_winner = "d"
+                matchup_winner_hp = td["d_hp"]
+            elif td["d_hp"] <= 0:
+                matchup_winner = "c"
+                matchup_winner_hp = td["c_hp"]
+            else:
+                matchup_winner = "c" if td["c_hp"] >= td["d_hp"] else "d"
+                matchup_winner_hp = td["c_hp"] if matchup_winner == "c" else td["d_hp"]
+            last_was_ko = False
+        elif td["type"] == "ko":
+            if not last_was_ko:
+                lines.append(_matchup_line())
+            last_was_ko = True
+
+    # Final matchup (timeout or last KO was the battle-ender)
+    if not last_was_ko and matchup_winner:
+        lines.append(_matchup_line())
+
+    lines.append("")
+    lines.append("━━━━━━━━━━━━━━━")
+    lines.append(f"🏆 {winner_name} 승리! (남은 {winner_remaining}마리)")
+
+    footer = []
     if not skip_bp:
-        lines.append("")
-        lines.append(f"💰 +{bp_won} BP")
-
+        footer.append(f"💰 +{bp_won} BP")
     if new_streak >= 2:
-        lines.append(f"{new_streak}연승!")
-
+        footer.append(f"{new_streak}연승!")
     if result["perfect_win"]:
-        lines.append("✨ 완벽한 승리!")
-
-    lines.append(
-        f"📊 {winner_name} 전적: {final_stats['battle_wins']}승 "
+        footer.append("✨ 완벽한 승리!")
+    footer.append(
+        f"📊 {winner_name} {final_stats['battle_wins']}승 "
         f"{final_stats['battle_losses']}패"
     )
+    lines.append(" | ".join(footer))
 
     # Check and unlock battle titles
     await _check_battle_titles(winner_id, final_stats, result["perfect_win"])
