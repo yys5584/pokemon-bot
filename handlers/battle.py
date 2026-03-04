@@ -504,6 +504,26 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return
 
+    # 에픽 포켓몬 같은 종 중복 제한
+    epic_seen: set[int] = set()
+    epic_dups: list[str] = []
+    for n in nums:
+        p = pokemon_list[n - 1]
+        if p.get("rarity") == "epic":
+            if p["pokemon_id"] in epic_seen:
+                epic_dups.append(f"{p['emoji']} {p['name_ko']}")
+            epic_seen.add(p["pokemon_id"])
+    if epic_dups:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"⚠️ 에픽 포켓몬은 같은 종을 팀에 중복으로 넣을 수 없습니다!\n\n"
+                f"중복: {', '.join(epic_dups)}\n"
+                f"같은 종의 에픽 포켓몬은 1마리만 남기고 다시 등록해주세요."
+            ),
+        )
+        return
+
     instance_ids = [pokemon_list[n - 1]["id"] for n in nums]
     await bq.set_battle_team(user_id, instance_ids, team_num)
 
@@ -616,6 +636,20 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
                     await query.answer("⚠️ 전설 포켓몬은 1마리만!", show_alert=True)
                     return
 
+            # 에픽 포켓몬 같은 종 중복 제한
+            if (pokemon_list and 0 <= idx < len(pokemon_list)
+                    and pokemon_list[idx].get("rarity") == "epic"):
+                adding_pid = pokemon_list[idx]["pokemon_id"]
+                epic_same = any(
+                    0 <= s < len(pokemon_list)
+                    and pokemon_list[s].get("rarity") == "epic"
+                    and pokemon_list[s]["pokemon_id"] == adding_pid
+                    for s in selected
+                )
+                if epic_same:
+                    await query.answer("⚠️ 같은 에픽 포켓몬은 1마리만!", show_alert=True)
+                    return
+
             selected.append(idx)
 
         pokemon_list = await queries.get_user_pokemon_list(owner_id)
@@ -688,6 +722,30 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             except Exception:
                 pass
             await query.answer("⚠️ 전설 포켓몬은 1마리만!", show_alert=True)
+            return
+
+        # 에픽 포켓몬 같은 종 중복 제한 최종 체크
+        epic_pid_seen: set[int] = set()
+        epic_dup_names: list[str] = []
+        for s in selected:
+            if 0 <= s < len(pokemon_list) and pokemon_list[s].get("rarity") == "epic":
+                pid = pokemon_list[s]["pokemon_id"]
+                if pid in epic_pid_seen:
+                    epic_dup_names.append(f"{pokemon_list[s]['emoji']} {pokemon_list[s]['name_ko']}")
+                epic_pid_seen.add(pid)
+        if epic_dup_names:
+            try:
+                await context.bot.send_message(
+                    chat_id=owner_id,
+                    text=(
+                        f"⚠️ 에픽 포켓몬은 같은 종을 팀에 중복으로 넣을 수 없습니다!\n\n"
+                        f"중복: {', '.join(epic_dup_names)}\n"
+                        f"같은 종의 에픽 포켓몬은 1마리만 남기고 다시 등록해주세요."
+                    ),
+                )
+            except Exception:
+                pass
+            await query.answer("⚠️ 같은 에픽은 1마리만!", show_alert=True)
             return
 
         instance_ids = [pokemon_list[i]["id"] for i in selected if 0 <= i < len(pokemon_list)]
