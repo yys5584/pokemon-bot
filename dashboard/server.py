@@ -174,8 +174,6 @@ async def api_battle_tiers(request):
     # Only final evolutions (evolves_to IS NULL or evo_stage == 3)
     final_evos = [r for r in rows if r["evolves_to"] is None]
 
-    TIER_ORDER = {"S+": 0, "S": 1, "A+": 2, "A": 3, "B+": 4, "B": 5, "C+": 6, "C": 7, "D+": 8, "D": 9}
-
     scored = []
     for r in final_evos:
         base = get_normalized_base_stats(r["id"])
@@ -195,55 +193,22 @@ async def api_battle_tiers(request):
         eff_tank = stats["hp"] * (1 + eff_def * 0.003)
         power = eff_atk * eff_tank / 1000
 
-        type_emoji = config.TYPE_EMOJI.get(r["pokemon_type"], "")
         type_ko = config.TYPE_NAME_KO.get(r["pokemon_type"], r["pokemon_type"])
         stat_ko = {"offensive": "공격", "defensive": "방어", "balanced": "균형", "speedy": "속도"}.get(r["stat_type"], r["stat_type"])
 
-        # Assign tier based on rarity + best_atk
-        if r["rarity"] == "legendary":
-            tier = "S+" if best_atk >= 140 else "S"
-        elif r["rarity"] == "epic":
-            if best_atk >= 110:
-                tier = "A+"
-            elif best_atk >= 85:
-                tier = "A"
-            elif best_atk >= 70:
-                tier = "B+"
-            else:
-                tier = "B"
-        elif r["rarity"] == "rare":
-            tier = "C+" if best_atk >= 55 else "C"
-        else:  # common
-            tier = "D+" if best_atk >= 45 else "D"
-
-        rarity_emoji = config.RARITY_EMOJI.get(r["rarity"], "")
-        rarity_label = config.RARITY_LABEL.get(r["rarity"], "")
-
         scored.append({
             "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
-            "rarity": r["rarity"], "rarity_emoji": rarity_emoji, "rarity_label": rarity_label,
-            "type_emoji": type_emoji, "type_ko": type_ko,
-            "stat_ko": stat_ko, "power": round(power, 1), "tier": tier,
+            "rarity": r["rarity"],
+            "pokemon_type": r["pokemon_type"], "type_ko": type_ko,
+            "stat_ko": stat_ko, "power": round(power, 1),
             "skill_name": skill[0], "skill_power": skill[1],
             "hp": stats["hp"], "atk": stats["atk"],
             "def_": stats["def"], "spa": stats["spa"],
             "spdef": stats["spdef"], "spd": stats["spd"],
-            "op": False,
         })
 
-    # Mark OP: only #1 power in each tier
-    tier_groups = {}
-    for p in scored:
-        tier_groups.setdefault(p["tier"], []).append(p)
-
-    for tier, members in tier_groups.items():
-        if len(members) < 2:
-            continue
-        best = max(members, key=lambda m: m["power"])
-        best["op"] = True
-
-    # Sort by tier order, then power desc
-    scored.sort(key=lambda x: (TIER_ORDER.get(x["tier"], 99), -x["power"]))
+    # Sort by power descending
+    scored.sort(key=lambda x: -x["power"])
     return pg_json_response(scored)
 
 

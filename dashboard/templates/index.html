@@ -533,55 +533,48 @@ async function loadBattleRank(){
 }
 
 // --- POKEMON TIER ---
-function rarityDot(r){return`<span class="rarity-dot rdot-${r}"></span>`}
-function statBar(val,max,color){const pct=Math.min(val/max*100,100);return`<span class="stat-bar" style="width:${pct}%;background:${color}"></span>`}
 async function loadTier(){
     const tiers=await fetchJSON("/api/battle/tiers");
     if(!tiers||!tiers.length){document.getElementById("tierTable").innerHTML='<p class="empty-msg">데이터 없음</p>';return}
 
-    // Find max stats for bar scaling
-    let maxStat=1;
-    for(const p of tiers){maxStat=Math.max(maxStat,p.hp,p.atk,p.def_,p.spa||0,p.spdef||0,p.spd)}
+    // Helper: determine top 2 stats for bold highlighting
+    function topStats(p){
+        const vals=[["hp",p.hp],["atk",p.atk],["def",p.def_],["spa",p.spa||0],["spdef",p.spdef||0],["spd",p.spd]];
+        vals.sort((a,b)=>b[1]-a[1]);
+        return new Set([vals[0][0],vals[1][0]]);
+    }
+    function sw(key,tops){return tops.has(key)?'font-weight:700':'font-weight:400'}
 
-    // Count per tier
-    const tierCounts={};
-    for(const p of tiers){tierCounts[p.tier]=(tierCounts[p.tier]||0)+1}
+    const rarityLabel={"legendary":"전설","epic":"에픽","rare":"희귀","common":"일반"};
 
-    let currentTier="";
-    let h=`<table><thead><tr><th style="width:60px">티어</th><th>포켓몬</th><th>등급</th><th>타입</th><th class="hide-m">성향</th><th class="hide-m">스킬</th><th>HP</th><th>ATK</th><th>DEF</th><th class="hide-m">SPA</th><th class="hide-m">SPDEF</th><th>SPD</th><th>전투력</th></tr></thead><tbody>`;
-    for(const p of tiers){
-        let showTier=p.tier!==currentTier;
-        if(showTier){
-            if(currentTier) h+=`<tr class="tier-sep"><td colspan="13"></td></tr>`;
-            currentTier=p.tier;
-        }
-        const tierCell=showTier?`${tierBadge(p.tier)} <span style="font-size:10px;color:var(--muted)">${tierCounts[p.tier]}</span>`:"";
-        const opBadge=p.op?'<span class="op-badge">OP</span>':"";
-        const rarityLabel={"legendary":"🟡전설","epic":"🟣레어","rare":"🔵희귀","common":"🟢일반"}[p.rarity]||p.rarity;
-        h+=`<tr${p.op?' style="background:rgba(198,40,40,0.08)"':''}>
-            <td>${tierCell}${showTier?'':''} ${opBadge}</td>
-            <td>${p.emoji} <b>${p.name}</b></td>
-            <td><span class="badge badge-${p.rarity}" style="font-size:9px">${rarityLabel}</span></td>
-            <td>${p.type_emoji}${p.type_ko}</td>
+    let h=`<table><thead><tr><th style="width:36px">#</th><th>포켓몬</th><th>등급</th><th class="hide-m">성향</th><th class="hide-m">스킬</th><th>HP</th><th>ATK</th><th>DEF</th><th class="hide-m">SPA</th><th class="hide-m">SPDEF</th><th>SPD</th><th>전투력</th></tr></thead><tbody>`;
+    for(let i=0;i<tiers.length;i++){
+        const p=tiers[i];
+        const rank=i+1;
+        const tops=topStats(p);
+        const tIcon=`<img class="tc-icon-sm" src="/static/types/${p.pokemon_type}.png" alt="${p.type_ko}" title="${p.type_ko}">`;
+        h+=`<tr>
+            <td style="color:var(--muted);font-size:11px">${rank}</td>
+            <td>${tIcon} ${p.emoji} <b>${p.name}</b></td>
+            <td><span class="badge badge-${p.rarity}" style="font-size:9px">${rarityLabel[p.rarity]||p.rarity}</span></td>
             <td class="hide-m">${p.stat_ko}</td>
             <td class="hide-m" style="color:var(--orange)" title="${p.skill_name}">${p.skill_power}x</td>
-            <td style="color:var(--green)">${p.hp}</td>
-            <td style="color:var(--red);font-weight:${p.atk>=p.spa?'700':'400'}">${p.atk}</td>
-            <td style="color:var(--blue)">${p.def_}</td>
-            <td class="hide-m" style="color:var(--purple);font-weight:${(p.spa||0)>p.atk?'700':'400'}">${p.spa||'-'}</td>
-            <td class="hide-m" style="color:var(--blue)">${p.spdef||'-'}</td>
-            <td style="color:var(--gold)">${p.spd}</td>
+            <td style="color:var(--green);${sw('hp',tops)}">${p.hp}</td>
+            <td style="color:var(--red);${sw('atk',tops)}">${p.atk}</td>
+            <td style="color:var(--blue);${sw('def',tops)}">${p.def_}</td>
+            <td class="hide-m" style="color:var(--purple);${sw('spa',tops)}">${p.spa||'-'}</td>
+            <td class="hide-m" style="color:var(--blue);${sw('spdef',tops)}">${p.spdef||'-'}</td>
+            <td style="color:var(--gold);${sw('spd',tops)}">${p.spd}</td>
             <td style="font-weight:700">${p.power}</td>
         </tr>`;
     }
     h+="</tbody></table>";
     h+=`<div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.8">
-        전투력 = max(ATK,SPA) × 스킬배율 × 내구력 &nbsp;|&nbsp; <span class="op-badge">OP</span> = 티어 내 1위<br>
-        등급: <span class="badge badge-legendary" style="font-size:9px">🟡전설</span>
-        <span class="badge badge-epic" style="font-size:9px">🟣레어</span>
-        <span class="badge badge-rare" style="font-size:9px">🔵희귀</span>
-        <span class="badge badge-common" style="font-size:9px">🟢일반</span>
-        &nbsp;|&nbsp; 물공/특공 중 높은 스탯 <b>굵게</b> 표시
+        전투력 = max(ATK,SPA) × 스킬배율 × 내구력(HP×방어) &nbsp;|&nbsp; 상위 2개 스탯 <b>굵게</b> 표시<br>
+        등급: <span class="badge badge-legendary" style="font-size:9px">전설</span>
+        <span class="badge badge-epic" style="font-size:9px">에픽</span>
+        <span class="badge badge-rare" style="font-size:9px">희귀</span>
+        <span class="badge badge-common" style="font-size:9px">일반</span>
     </div>`;
     document.getElementById("tierTable").innerHTML=h;
 }
