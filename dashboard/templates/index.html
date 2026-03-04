@@ -139,7 +139,7 @@
         .tw-badge{font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.08);color:var(--gold);cursor:help}
 
         /* Battle & Ranking 2-col layout */
-        .grid-rank{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin-bottom:10px}
+        .grid-rank{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px}
 
         /* Tier collapsible */
         .tier-group-hdr{display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;user-select:none;border-bottom:1px solid var(--border)}
@@ -245,11 +245,13 @@
         <!-- BATTLE & RANKING -->
         <div class="page" id="page-battlerank">
             <div class="grid-rank">
-                <div class="section"><h2>⚔️ 배틀 랭킹</h2><div class="rank-filters" id="battleSortBtns"><button class="rank-filter active" data-sort="bp">BP</button><button class="rank-filter" data-sort="wr">승률</button><button class="rank-filter" data-sort="wins">승리</button><button class="rank-filter" data-sort="streak">연승</button></div><div id="battleRanking"><div class="loading">로딩 중...</div></div></div>
-                <div>
-                    <div class="section"><h2>📖 도감 랭킹</h2><div id="fullUsersTable"><div class="loading">로딩 중...</div></div></div>
-                    <div class="section" style="margin-top:10px"><h2>⭐ 이로치 보유자</h2><div id="shinyHoldersFull"><div class="loading">로딩 중...</div></div></div>
-                </div>
+                <div class="section"><h2>⚔️ 랭크전</h2><div class="rank-filters" id="battleSortBtns"><button class="rank-filter active" data-sort="bp">BP</button><button class="rank-filter" data-sort="wr">승률</button><button class="rank-filter" data-sort="wins">승리</button><button class="rank-filter" data-sort="streak">연승</button></div><div id="battleRanking"><div class="loading">로딩 중...</div></div></div>
+                <div class="section"><h2>⚔️ 최근 배틀</h2><div id="recentBattles"><div class="loading">로딩 중...</div></div></div>
+            </div>
+            <div class="grid-3" style="margin-top:10px">
+                <div class="section"><h2>🏆 토너먼트 우승자</h2><div id="tournamentWinnersBR"><div class="loading">로딩 중...</div></div></div>
+                <div class="section"><h2>📖 도감 랭킹</h2><div id="fullUsersTable"><div class="loading">로딩 중...</div></div></div>
+                <div class="section"><h2>⭐ 이로치 보유자</h2><div id="shinyHoldersFull"><div class="loading">로딩 중...</div></div></div>
             </div>
         </div>
 
@@ -515,11 +517,13 @@ async function loadChannels(){
 
 // --- BATTLE & RANKING ---
 async function loadBattleRank(){
-    const[ranking,teams,users,kpi]=await Promise.all([
+    const[ranking,teams,users,kpi,recentBattles,tWinnersBR]=await Promise.all([
         fetchJSON("/api/battle/ranking"),
         fetchJSON("/api/battle/ranking-teams"),
         fetchJSON("/api/users"),
-        fetchJSON("/api/fun-kpis")
+        fetchJSON("/api/fun-kpis"),
+        fetchJSON("/api/battle/recent"),
+        fetchJSON("/api/tournament/winners")
     ]);
 
     // Battle ranking with paging + team tooltip + sort
@@ -576,17 +580,34 @@ async function loadBattleRank(){
         });
     }
 
-    // Shiny holders with paging
+    // Shiny holders (top 10 only, no paging)
     if(kpi&&kpi.shiny_holders&&kpi.shiny_holders.length){
-        renderPaged("shinyHoldersFull",kpi.shiny_holders,10,function(slice,offset){
-            let h=`<table><thead><tr><th>#</th><th>이름</th><th>이로치 수</th></tr></thead><tbody>`;
-            slice.forEach((r,i)=>{
-                const idx=offset+i;
-                h+=`<tr><td>${idx<3?medals[idx]:idx+1}</td><td>${r.display_name}</td><td style="font-weight:700;color:var(--gold)">★ ${r.shiny_count}</td></tr>`;
-            });
-            return h+"</tbody></table>";
-        });
+        const top10=kpi.shiny_holders.slice(0,10);
+        let sh=`<table><thead><tr><th>#</th><th>이름</th><th>이로치</th></tr></thead><tbody>`;
+        top10.forEach((r,i)=>{sh+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td style="font-weight:700;color:var(--gold)">★ ${r.shiny_count}</td></tr>`});
+        document.getElementById("shinyHoldersFull").innerHTML=sh+"</tbody></table>";
     }else{document.getElementById("shinyHoldersFull").innerHTML='<p class="empty-msg">이로치 보유자 없음</p>'}
+
+    // Recent battles
+    const rbEl=document.getElementById("recentBattles");
+    if(recentBattles&&recentBattles.length){
+        let h=`<table><thead><tr><th>승자</th><th>패자</th><th>남은</th><th>BP</th></tr></thead><tbody>`;
+        recentBattles.forEach(b=>{
+            h+=`<tr><td style="color:var(--green);font-weight:600">${b.winner_name}</td><td style="color:var(--muted)">${b.loser_name}</td><td>${b.winner_remaining}마리</td><td style="color:var(--gold)">+${b.bp_earned}</td></tr>`;
+        });
+        rbEl.innerHTML=h+"</tbody></table>";
+    }else{rbEl.innerHTML='<p class="empty-msg">배틀 기록 없음</p>'}
+
+    // Tournament winners (for battle page)
+    const twBREl=document.getElementById("tournamentWinnersBR");
+    if(tWinnersBR&&tWinnersBR.length){
+        let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th></tr></thead><tbody>`;
+        tWinnersBR.forEach((w,i)=>{
+            const titleBadges=w.titles.map(t=>`<span class="tw-badge" title="${t.title_desc}">${t.title_emoji} ${t.title_name}</span>`).join(" ");
+            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${w.display_name}</td><td>${titleBadges}</td></tr>`;
+        });
+        twBREl.innerHTML=h+"</tbody></table>";
+    }else{twBREl.innerHTML='<p class="empty-msg">우승자 없음</p>'}
 }
 
 // --- HELPERS ---

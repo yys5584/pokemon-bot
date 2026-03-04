@@ -152,6 +152,21 @@ async def api_battle_ranking(request):
     return pg_json_response(ranking)
 
 
+async def api_battle_recent(request):
+    """Get recent battle records."""
+    pool = await queries.get_db()
+    rows = await pool.fetch("""
+        SELECT br.id, br.winner_id, br.loser_id, br.winner_remaining,
+               br.total_rounds, br.bp_earned, br.created_at,
+               w.display_name as winner_name, l.display_name as loser_name
+        FROM battle_records br
+        JOIN users w ON br.winner_id = w.user_id
+        JOIN users l ON br.loser_id = l.user_id
+        ORDER BY br.created_at DESC LIMIT 15
+    """)
+    return pg_json_response([dict(r) for r in rows])
+
+
 async def api_battle_ranking_teams(request):
     """Get battle teams + partner info for top 10 rankers."""
     ranking = await bq.get_battle_ranking(10)
@@ -307,6 +322,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/events", api_events)
     app.router.add_get("/api/fun-kpis", api_fun_kpis)
     app.router.add_get("/api/battle/ranking", api_battle_ranking)
+    app.router.add_get("/api/battle/recent", api_battle_recent)
     app.router.add_get("/api/battle/ranking-teams", api_battle_ranking_teams)
     app.router.add_get("/api/battle/tiers", api_battle_tiers)
     app.router.add_get("/api/tournament/winners", api_tournament_winners)
