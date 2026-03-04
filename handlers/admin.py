@@ -665,3 +665,12 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text("🕹️ 아케이드 해제됨. 일반 스폰으로 복구됩니다.")
         logger.info(f"Arcade channel unregistered: {chat_id}")
+
+
+async def force_tournament_reg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 대회시작 — manually trigger tournament registration."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from services.tournament_service import start_registration
+    await start_registration(context)
+    await update.message.reply_text("✅ 대회 등록 수동 시작!")
