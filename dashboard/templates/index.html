@@ -708,12 +708,7 @@ window.addEventListener("popstate",(e)=>{
     navigateTo(page,false);
 });
 
-// Initial route from URL
-(()=>{
-    const initPage=PATH_PAGES[location.pathname]||"home";
-    if(initPage!=="home")navigateTo(initPage,false);
-    else history.replaceState({page:"home"},"","/");
-})();
+// Initial route handled in Init block below (after checkAuth)
 
 // --- Page Loaders ---
 const loaded={};
@@ -1508,9 +1503,13 @@ async function loadSimulator(){
 }
 
 // --- Init ---
-checkAuth();
-loadPage("home");
-setInterval(()=>{loaded[currentPage]=false;loadPage(currentPage)},60000);
+(async()=>{
+    await checkAuth();
+    const initPage=PATH_PAGES[location.pathname]||"home";
+    if(initPage!=="home"){navigateTo(initPage,false)}
+    else{loadPage("home")}
+    setInterval(()=>{loaded[currentPage]=false;loadPage(currentPage)},60000);
+})();
 </script>
 </body>
 </html>
