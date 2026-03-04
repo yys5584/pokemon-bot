@@ -161,7 +161,7 @@ async def api_battle_tiers(request):
     """Build tier list data for ALL pokemon (final evolution only)."""
     from database.connection import get_db
     import config
-    from utils.battle_calc import calc_battle_stats, EVO_STAGE_MAP
+    from utils.battle_calc import calc_battle_stats, EVO_STAGE_MAP, get_normalized_base_stats
     from models.pokemon_skills import POKEMON_SKILLS
 
     pool = await get_db()
@@ -178,8 +178,12 @@ async def api_battle_tiers(request):
 
     scored = []
     for r in final_evos:
-        evo_stage = EVO_STAGE_MAP.get(r["id"], 3)
-        stats = calc_battle_stats(r["rarity"], r["stat_type"], 5, evo_stage=evo_stage)
+        base = get_normalized_base_stats(r["id"])
+        stats = calc_battle_stats(
+            r["rarity"], r["stat_type"], 5,
+            evo_stage=3 if base else EVO_STAGE_MAP.get(r["id"], 3),
+            **(base or {}),
+        )
         skill = POKEMON_SKILLS.get(r["id"], ("몸통박치기", 1.2))
 
         # Best offensive stat (physical or special)

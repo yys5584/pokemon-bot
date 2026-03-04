@@ -24,6 +24,28 @@ def _build_evo_stage_map() -> dict[int, int]:
 EVO_STAGE_MAP: dict[int, int] = _build_evo_stage_map()
 
 
+def normalize_stat(raw: int) -> int:
+    """Normalize raw base stat (5~255) → game range (20~180)."""
+    return round(20 + (raw - 5) / (255 - 5) * (180 - 20))
+
+
+def get_normalized_base_stats(pokemon_id: int) -> dict | None:
+    """Get normalized base stats for a pokemon. Returns None if not found."""
+    from models.pokemon_base_stats import POKEMON_BASE_STATS
+    entry = POKEMON_BASE_STATS.get(pokemon_id)
+    if entry is None:
+        return None
+    hp, atk, def_, spa, spdef, spd = entry[:6]
+    return {
+        "base_hp": normalize_stat(hp),
+        "base_atk": normalize_stat(atk),
+        "base_def": normalize_stat(def_),
+        "base_spa": normalize_stat(spa),
+        "base_spdef": normalize_stat(spdef),
+        "base_spd": normalize_stat(spd),
+    }
+
+
 def _iv_mult(iv: int | None) -> float:
     """IV → stat multiplier. None (기존 포켓몬) = 1.0 (변화 없음)."""
     if iv is None:

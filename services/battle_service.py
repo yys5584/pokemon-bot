@@ -5,7 +5,7 @@ import logging
 
 import config
 from database import battle_queries as bq
-from utils.battle_calc import calc_battle_stats, get_type_multiplier, EVO_STAGE_MAP
+from utils.battle_calc import calc_battle_stats, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats
 from models.pokemon_skills import POKEMON_SKILLS
 
 logger = logging.getLogger(__name__)
@@ -14,18 +14,19 @@ logger = logging.getLogger(__name__)
 def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
     """Prepare a single pokemon for battle with computed stats."""
     pid = pokemon.get("pokemon_id") or pokemon.get("id")
-    evo_stage = EVO_STAGE_MAP.get(pid, 3)
+    base = get_normalized_base_stats(pid)
     stats = calc_battle_stats(
         pokemon["rarity"],
         pokemon["stat_type"],
         pokemon["friendship"],
-        evo_stage=evo_stage,
+        evo_stage=3 if base else EVO_STAGE_MAP.get(pid, 3),
         iv_hp=pokemon.get("iv_hp"),
         iv_atk=pokemon.get("iv_atk"),
         iv_def=pokemon.get("iv_def"),
         iv_spa=pokemon.get("iv_spa"),
         iv_spdef=pokemon.get("iv_spdef"),
         iv_spd=pokemon.get("iv_spd"),
+        **(base or {}),
     )
 
     # Partner bonus: ATK +5%
