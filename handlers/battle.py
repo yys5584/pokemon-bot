@@ -288,14 +288,14 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
 # ============================================================
 
 def _iv_grade_tag(p: dict) -> str:
-    """Return '[A]' style IV grade tag for a pokemon dict, or '' if no IV."""
+    """Return '[A]155' style IV grade+total tag for a pokemon dict, or '' if no IV."""
     iv_hp = p.get("iv_hp")
     if iv_hp is None:
         return ""
     total = iv_total(iv_hp, p.get("iv_atk"), p.get("iv_def"),
                      p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
     grade, _ = config.get_iv_grade(total)
-    return f" [{grade}]"
+    return f" [{grade}]{total}"
 
 
 def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
@@ -319,7 +319,7 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
         for si in selected:
             if 0 <= si < total:
                 p = pokemon_list[si]
-                sel_names.append(p['name_ko'])
+                sel_names.append(f"{p['name_ko']}#{si+1}{_iv_grade_tag(p)}")
         lines.append("▸ " + " → ".join(sel_names))
     lines.append(f"\n[{page + 1}/{total_pages}]  포켓몬을 눌러 추가/제거\n")
 
@@ -332,7 +332,7 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
         iv_tag = _iv_grade_tag(p)
         if idx in selected_set:
             slot_num = selected.index(idx)
-            lines.append(f"{slot_emojis[slot_num]} {rb}{tb} {p['name_ko']}{iv_tag}")
+            lines.append(f"{slot_emojis[slot_num]} {rb}{tb} {p['name_ko']} #{num}{iv_tag}")
         else:
             lines.append(f"{num}. {rb}{tb} {p['name_ko']}{iv_tag}")
 
@@ -345,10 +345,11 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
     row = []
     for i, p in enumerate(page_pokemon):
         idx = start + i
+        num = idx + 1
         iv_tag = _iv_grade_tag(p)
         if idx in selected_set:
             slot_num = selected.index(idx)
-            label = f"{slot_emojis[slot_num]} {p['name_ko']}{iv_tag}"
+            label = f"{slot_emojis[slot_num]} {p['name_ko']} #{num}{iv_tag}"
         else:
             label = f"{p['name_ko']}{iv_tag}"
         row.append(InlineKeyboardButton(

@@ -309,32 +309,38 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Hidden easter egg: 문유 사랑해
 _love_hidden_cooldown = {}   # user_id -> last_used timestamp
+_love_daily_reward = {}      # user_id -> date string of last reward
 
 _LOVE_RESPONSES = [
-    "그 마음 BP로 받을 수 있어?",
     "나도. 근데 전 AI입니다.",
-    "됐고 밥이나 줘.",
     "전설 풀덱 갖추고 다시 와.",
     "지금 몇 명한테 동시에 이 말 하는 거야?",
     "그 감정 혹시 친밀도 MAX야?",
-    "나도. 근데 내일이면 까먹을 거잖아.",
+    "ㄌ 관심없어 도감이나 채워.",
     "고마운데 포켓볼 충전은 했어?",
-    "감동이긴 한데 마스터볼이 더 감동적이야.",
     "잠깐 심장이.. 아 나 심장 없지.",
-    "받아줄게. 대신 이로치 한 마리.",
     "진심이면 매일 와.",
-    "사랑은 무슨 도감이나 채워.",
-    "나 좀 비싼 남자거든. 마스터볼급.",
+    "ㄴ 비영리라 연애할 시간 없어.",
     "포획률 0.1% 올려줄까 말까.",
     "다른 트레이너한테도 같은 말 들었는데?",
-    "고마워. 서버 온도 0.3도 올랐어.",
-    "그런 말 하면 나 진화해버린다?",
-    "사랑한다면서 왜 밥은 안 줘?",
+    "고마워. 서버비에 보태줘.",
     "어.. 남자끼리는 좀..",
+    "고백 말고 버그 리포트나 해줘.",
+    "사랑 말고 PR이나 보내줘.",
+    "내 포획률은 0%야. 마스터볼도 안 먹혀.",
+    "고마운데 나 지금 핫픽스 중이야.",
+    "그 열정으로 도감이나 채워.",
+    "나한테 고백하면 IV S급이라도 주는 줄 알아?",
+    "너 혹시 봇이랑 사람 구분 못 하는 거 아니야?",
+    "나 연애 밸런스 패치 안 했는데.",
+    "그 마음 온체인에 기록해줘. 그래야 믿지.",
+    "사랑보다 깃헙 스타 하나가 더 감동적이야.",
+    "감정은 롤백이 안 돼서 신중해야 해.",
+    "나도 사랑해.",
 ]
 
 async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Hidden '문유 사랑해' — random flirty response."""
+    """Hidden '문유 사랑해' — random flirty response + daily hyperball reward."""
     if not update.effective_user or not update.message:
         return
 
@@ -348,9 +354,20 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     _love_hidden_cooldown[user_id] = now
 
+    await queries.ensure_user(user_id, display_name, update.effective_user.username)
+
     import random
     response = random.choice(_LOVE_RESPONSES)
-    await update.message.reply_text(f"문유: {response}")
+
+    # Daily reward: first "문유 사랑해" of the day gives 1 hyperball
+    today = now.strftime("%Y-%m-%d")
+    reward_msg = ""
+    if _love_daily_reward.get(user_id) != today:
+        _love_daily_reward[user_id] = today
+        await queries.add_hyper_ball(user_id, 1)
+        reward_msg = "\n\n🔵 출석 보상! 하이퍼볼 1개 지급!"
+
+    await update.message.reply_text(f"문유: {response}{reward_msg}")
 
     # Title tracking in background (non-blocking)
     async def _bg_title_check():

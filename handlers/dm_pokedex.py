@@ -280,27 +280,30 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     # Identify team pokemon (for header display) — only in default mode
     team_pokemon = [p for p in pokemon_list if p.get("team_slot") is not None] if not has_filter else []
 
-    # Group ALL pokemon by pokemon_id
+    # Group pokemon by pokemon_id — skip grouping in IV sort mode (show individual ranking)
     from collections import OrderedDict
-    groups = OrderedDict()
-    for p in filtered:
-        pid = p["pokemon_id"]
-        if pid not in groups:
-            groups[pid] = []
-        groups[pid].append(p)
-
-    # Build display items
-    display_items = []
     all_indices = {id(p): i for i, p in enumerate(pokemon_list)}
+    skip_grouping = filt.get("sort") == "iv"
 
-    for pid, members in groups.items():
-        if len(members) == 1:
-            p = members[0]
-            display_items.append(("single", all_indices[id(p)], p))
-        else:
-            first = members[0]
-            indices = [all_indices[id(m)] for m in members]
-            display_items.append(("group", pid, indices, first, len(members)))
+    if skip_grouping:
+        display_items = [("single", all_indices[id(p)], p) for p in filtered]
+    else:
+        groups = OrderedDict()
+        for p in filtered:
+            pid = p["pokemon_id"]
+            if pid not in groups:
+                groups[pid] = []
+            groups[pid].append(p)
+
+        display_items = []
+        for pid, members in groups.items():
+            if len(members) == 1:
+                p = members[0]
+                display_items.append(("single", all_indices[id(p)], p))
+            else:
+                first = members[0]
+                indices = [all_indices[id(m)] for m in members]
+                display_items.append(("group", pid, indices, first, len(members)))
 
     # Paginate
     total_items = len(display_items)
@@ -367,8 +370,12 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 # IV grade
                 iv_tag = ""
                 if p.get("iv_hp") is not None:
-                    grade, _ = config.get_iv_grade(_iv_sum(p))
-                    iv_tag = f" [{grade}]"
+                    iv_sum = _iv_sum(p)
+                    grade, _ = config.get_iv_grade(iv_sum)
+                    if filt.get("sort") == "iv":
+                        iv_tag = f" [{grade}]{iv_sum}"
+                    else:
+                        iv_tag = f" [{grade}]"
                 rb = rarity_badge(p.get("rarity", ""))
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
                 lines.append(f"{item_num}. {rb}{tb}{shiny}{fav} {p['name_ko']}{iv_tag}  {hearts}{evo_mark}")
