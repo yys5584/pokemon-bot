@@ -140,6 +140,7 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"수락 {trade_id} — 교환 수락\n"
                     f"거절 {trade_id} — 교환 거절"
                 ),
+                parse_mode="HTML",
             )
         except Exception as e:
             logger.warning(f"Could not DM trade notification to {to_user_id}: {e}")
@@ -194,6 +195,7 @@ async def accept_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"{tb} {trade_info['offer_name']} "
                     f"새 트레이너에게 갔습니다."
                 ),
+                parse_mode="HTML",
             )
         except Exception as e:
             logger.warning(f"Could not DM trade completion to sender: {e}")
@@ -256,6 +258,7 @@ async def reject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{receiver_name}이(가) 교환을 거절했습니다.\n"
                 f"{tb} {trade['offer_name']} 돌아왔습니다."
             ),
+            parse_mode="HTML",
         )
     except Exception as e:
         logger.warning(f"Could not DM trade rejection to sender: {e}")
