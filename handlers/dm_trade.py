@@ -4,10 +4,12 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
+import config
 from database import queries
 from services.trade_service import create_trade_offer, accept_trade
 from utils.parse import parse_args
-from utils.helpers import type_badge
+from utils.helpers import type_badge, hearts_display
+from utils.battle_calc import iv_total
 
 logger = logging.getLogger(__name__)
 
@@ -91,10 +93,16 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Show selection list
             lines = [f"⚠️ {pokemon_name}을(를) {len(all_matches)}마리 보유 중입니다.\n번호를 지정해주세요:\n"]
             for i, p in enumerate(all_matches, 1):
-                shiny = " ★이로치" if p.get("is_shiny") else ""
-                friendship = p.get("friendship", 0)
+                shiny = " ✨이로치" if p.get("is_shiny") else ""
                 tb = type_badge(p["pokemon_id"])
-                lines.append(f"  #{i} — {tb} {p['name_ko']}{shiny} (친밀도: {friendship})")
+                iv_tag = ""
+                if p.get("iv_hp") is not None:
+                    total = iv_total(p.get("iv_hp"), p.get("iv_atk"), p.get("iv_def"),
+                                     p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
+                    grade, _ = config.get_iv_grade(total)
+                    iv_tag = f" [{grade}]"
+                hearts = hearts_display(p["friendship"], config.get_max_friendship(p))
+                lines.append(f"  #{i} — {tb} {p['name_ko']}{shiny}{iv_tag}  {hearts}")
             lines.append(f"\n사용법: 교환 @{target_username} {pokemon_name} #번호")
             await update.message.reply_text("\n".join(lines), parse_mode="HTML")
             return

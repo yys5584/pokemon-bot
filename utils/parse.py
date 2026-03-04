@@ -41,4 +41,14 @@ def parse_name_arg(text: str) -> str | None:
     arg = parts[1].strip()
     if re.match(r'^\d+$', arg):
         return None  # It's a number, not a name
-    return arg
+    # Strip #N selector if present
+    arg = re.sub(r'\s*#\d+$', '', arg).strip()
+    return arg if arg else None
+
+
+def parse_select_index(text: str) -> int | None:
+    """Extract #N selector from end of text.
+    e.g. '밥 망나뇽 #2' -> 2, '밥 피카츄' -> None
+    """
+    m = re.search(r'#(\d+)\s*$', _strip_emoji_prefix(text))
+    return int(m.group(1)) if m else None
