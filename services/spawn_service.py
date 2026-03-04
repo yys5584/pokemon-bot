@@ -355,7 +355,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Check for active event indicator
         from services.event_service import get_active_event_summary
         event_summary = await get_active_event_summary()
-        event_tag = " 🎪" if event_summary else ""
+        event_tag = ""
 
         # Weather indicator
         weather_tag = get_weather_display()
@@ -365,7 +365,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         tb = type_badge(pokemon["id"], pokemon.get("pokemon_type"))
         caption = (
-            f"🌿 야생의{shiny_text} {tb} {pokemon['name_ko']}이(가) 나타났다!{bonus_text}{event_tag}{weather_tag}\n"
+            f"{icon_emoji('footsteps')} 야생의{shiny_text} {tb} {pokemon['name_ko']}이(가) 나타났다!{bonus_text}{weather_tag}\n"
             f"ㅊ 입력으로 잡기 ({window}초)"
         )
 

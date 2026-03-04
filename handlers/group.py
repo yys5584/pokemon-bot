@@ -302,7 +302,7 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check cap (max 100 bonus)
     bonus = await queries.get_bonus_catches(user_id, today)
     if bonus >= 100:
-        await update.message.reply_text("🔴 오늘 포켓볼 충전 한도를 모두 사용했어요! (최대 100회)")
+        await update.message.reply_text(f"{ball_emoji('pokeball')} 오늘 포켓볼 충전 한도를 모두 사용했어요! (최대 100회)", parse_mode="HTML")
         return
 
     # Grant +10 bonus catches
@@ -312,8 +312,9 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Reply FIRST (fast response)
     await update.message.reply_text(
-        f"🔴 포켓볼 충전 완료!\n"
+        f"{ball_emoji('pokeball')} 포켓볼 충전 완료!\n"
         f"🎁 {display_name}의 오늘 잡기 횟수 +10! (총 {total}회)",
+        parse_mode="HTML",
     )
 
     # Title tracking in background (non-blocking)
