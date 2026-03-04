@@ -635,7 +635,7 @@ async function loadTier(){
             <span style="color:var(--muted)">&nbsp;(총합 /186)</span>
         </div>
     </div>`;
-    h+=`<table><thead><tr><th>포켓몬</th><th>타입</th><th>등급</th><th class="hide-m">스킬</th><th>체</th><th>공</th><th>방</th><th class="hide-m">특공</th><th class="hide-m">특방</th><th>속</th><th>전투력</th></tr></thead><tbody>`;
+    h+=`<table><thead><tr><th>포켓몬</th><th>타입</th><th>등급</th><th class="hide-m">스킬</th><th>체력</th><th>공격</th><th>방어</th><th class="hide-m">특수공격</th><th class="hide-m">특수방어</th><th>속도</th><th>전투력</th></tr></thead><tbody>`;
     for(const p of tiers){
         const tops=topStats(p);
         const t1=typeTip(p.type1,chart,names);
