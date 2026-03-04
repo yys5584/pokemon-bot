@@ -127,19 +127,19 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_FEED * boost
-    new_friendship = min(max_f, pokemon["friendship"] + gain)
-    await queries.update_pokemon_friendship(pokemon["id"], new_friendship)
-    await queries.increment_feed(pokemon["id"])
+    new_friendship = await queries.atomic_feed(pokemon["id"], gain, max_f)
+    if new_friendship is None:
+        return
 
     remaining = feed_limit - pokemon["fed_today"] - 1
     hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 
     evo_hint = ""
-    if new_friendship >= config.MAX_FRIENDSHIP:
-        if pokemon["evolves_to"] and pokemon["evolution_method"] == "friendship":
+    if new_friendship >= max_f:
+        if pokemon.get("evolves_to") and pokemon.get("evolution_method") == "friendship":
             evo_hint = f"\n\n💖 친밀도 MAX! 진화 {pokemon['name_ko']} 로 진화할 수 있습니다!"
-        elif pokemon["evolves_to"] and pokemon["evolution_method"] == "trade":
+        elif pokemon.get("evolves_to") and pokemon.get("evolution_method") == "trade":
             evo_hint = f"\n\n💖 친밀도 MAX! 이 포켓몬은 교환으로만 진화합니다."
 
     await update.message.reply_text(
@@ -184,19 +184,19 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_PLAY * boost
-    new_friendship = min(max_f, pokemon["friendship"] + gain)
-    await queries.update_pokemon_friendship(pokemon["id"], new_friendship)
-    await queries.increment_play(pokemon["id"])
+    new_friendship = await queries.atomic_play(pokemon["id"], gain, max_f)
+    if new_friendship is None:
+        return
 
     remaining = config.PLAY_PER_DAY - pokemon["played_today"] - 1
     hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 
     evo_hint = ""
-    if new_friendship >= config.MAX_FRIENDSHIP:
-        if pokemon["evolves_to"] and pokemon["evolution_method"] == "friendship":
+    if new_friendship >= max_f:
+        if pokemon.get("evolves_to") and pokemon.get("evolution_method") == "friendship":
             evo_hint = f"\n\n💖 친밀도 MAX! 진화 {pokemon['name_ko']} 로 진화할 수 있습니다!"
-        elif pokemon["evolves_to"] and pokemon["evolution_method"] == "trade":
+        elif pokemon.get("evolves_to") and pokemon.get("evolution_method") == "trade":
             evo_hint = f"\n\n💖 친밀도 MAX! 이 포켓몬은 교환으로만 진화합니다."
 
     await update.message.reply_text(
@@ -285,19 +285,19 @@ async def _do_feed(query, user_id, pokemon):
 
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_FEED * boost
-    new_friendship = min(max_f, pokemon["friendship"] + gain)
-    await queries.update_pokemon_friendship(pokemon["id"], new_friendship)
-    await queries.increment_feed(pokemon["id"])
+    new_friendship = await queries.atomic_feed(pokemon["id"], gain, max_f)
+    if new_friendship is None:
+        return
 
     remaining = feed_limit - pokemon["fed_today"] - 1
     hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 
     evo_hint = ""
-    if new_friendship >= config.MAX_FRIENDSHIP:
-        if pokemon["evolves_to"] and pokemon["evolution_method"] == "friendship":
+    if new_friendship >= max_f:
+        if pokemon.get("evolves_to") and pokemon.get("evolution_method") == "friendship":
             evo_hint = f"\n\n💖 친밀도 MAX! 진화 {pokemon['name_ko']} 로 진화할 수 있습니다!"
-        elif pokemon["evolves_to"] and pokemon["evolution_method"] == "trade":
+        elif pokemon.get("evolves_to") and pokemon.get("evolution_method") == "trade":
             evo_hint = f"\n\n💖 친밀도 MAX! 이 포켓몬은 교환으로만 진화합니다."
 
     await query.edit_message_text(
@@ -327,19 +327,19 @@ async def _do_play(query, user_id, pokemon):
 
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_PLAY * boost
-    new_friendship = min(max_f, pokemon["friendship"] + gain)
-    await queries.update_pokemon_friendship(pokemon["id"], new_friendship)
-    await queries.increment_play(pokemon["id"])
+    new_friendship = await queries.atomic_play(pokemon["id"], gain, max_f)
+    if new_friendship is None:
+        return
 
     remaining = config.PLAY_PER_DAY - pokemon["played_today"] - 1
     hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 
     evo_hint = ""
-    if new_friendship >= config.MAX_FRIENDSHIP:
-        if pokemon["evolves_to"] and pokemon["evolution_method"] == "friendship":
+    if new_friendship >= max_f:
+        if pokemon.get("evolves_to") and pokemon.get("evolution_method") == "friendship":
             evo_hint = f"\n\n💖 친밀도 MAX! 진화 {pokemon['name_ko']} 로 진화할 수 있습니다!"
-        elif pokemon["evolves_to"] and pokemon["evolution_method"] == "trade":
+        elif pokemon.get("evolves_to") and pokemon.get("evolution_method") == "trade":
             evo_hint = f"\n\n💖 친밀도 MAX! 이 포켓몬은 교환으로만 진화합니다."
 
     await query.edit_message_text(

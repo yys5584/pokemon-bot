@@ -833,9 +833,9 @@ async def _do_feed(p: dict, user_id: int) -> str:
     from services.event_service import get_friendship_boost
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_FEED * boost
-    new_f = min(max_f, p["friendship"] + gain)
-    await queries.update_pokemon_friendship(p["id"], new_f)
-    await queries.increment_feed(p["id"])
+    new_f = await queries.atomic_feed(p["id"], gain, max_f)
+    if new_f is None:
+        return "오류가 발생했습니다."
     remaining = config.FEED_PER_DAY - p["fed_today"] - 1
     return f"{icon_emoji('ham')} {p['name_ko']}에게 밥! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
 
@@ -850,9 +850,9 @@ async def _do_play(p: dict, user_id: int) -> str:
     from services.event_service import get_friendship_boost
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_PLAY * boost
-    new_f = min(max_f, p["friendship"] + gain)
-    await queries.update_pokemon_friendship(p["id"], new_f)
-    await queries.increment_play(p["id"])
+    new_f = await queries.atomic_play(p["id"], gain, max_f)
+    if new_f is None:
+        return "오류가 발생했습니다."
     remaining = config.PLAY_PER_DAY - p["played_today"] - 1
     return f"{icon_emoji('game')} {p['name_ko']}와 놀기! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
 
