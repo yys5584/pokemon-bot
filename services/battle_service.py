@@ -407,10 +407,11 @@ async def execute_battle(
     d_total_power = sum(calc_power(d["stats"]) for d in d_combatants)
 
     # Build compact display text from turn_data
+    vs = icon_emoji('battle')
     lines = [
-        f"{icon_emoji('battle')} 배틀 결과!",
+        f"{vs} 배틀 결과!",
         "━━━━━━━━━━━━━━━",
-        f"{c_title_str}{c_name}  ⚔  {d_title_str}{d_name}",
+        f"🔴 {c_title_str}{c_name}  {vs}  {d_title_str}{d_name} 🔵",
         f"{icon_emoji('bolt')}{c_total_power}          {icon_emoji('bolt')}{d_total_power}",
         "━━━━━━━━━━━━━━━",
         "",
@@ -426,7 +427,8 @@ async def execute_battle(
 
     def _matchup_line():
         w_name = cur_c_name if matchup_winner == "c" else cur_d_name
-        return f"{cur_c_tb}{cur_c_name}({cur_c_idx}) ⚔ {cur_d_tb}{cur_d_name}({cur_d_idx}) → {w_name} 승 HP {matchup_winner_hp}"
+        arrow = "》" if matchup_winner == "c" else "《"
+        return f"{cur_c_tb}{cur_c_name}({cur_c_idx}) {arrow} {cur_d_tb}{cur_d_name}({cur_d_idx}) → {w_name} 승 HP {matchup_winner_hp}"
 
     for td in result["turn_data"]:
         if td["type"] == "matchup":

@@ -704,14 +704,41 @@ async def get_last_spawn_time(chat_id: int):
     return None
 
 
-async def cleanup_expired_sessions():
-    """Resolve ALL unresolved sessions on startup (safety net for crashes)."""
+async def cleanup_expired_sessions() -> list[tuple[int, str]]:
+    """Resolve ALL unresolved sessions on startup (safety net for crashes).
+    Returns list of (user_id, ball_type) for refunded balls.
+    """
     pool = await get_db()
+    # 미해결 세션에서 마볼/하이퍼볼 사용자 찾아서 환불
+    refunds = await pool.fetch(
+        """SELECT ca.user_id, ca.used_master_ball, ca.used_hyper_ball
+           FROM catch_attempts ca
+           JOIN spawn_sessions ss ON ca.session_id = ss.id
+           WHERE ss.is_resolved = 0
+             AND (ca.used_master_ball = 1 OR ca.used_hyper_ball = 1)"""
+    )
+    refunded = []
+    for r in refunds:
+        if r["used_master_ball"]:
+            await pool.execute(
+                "UPDATE users SET master_balls = master_balls + 1 WHERE user_id = $1",
+                r["user_id"],
+            )
+            refunded.append((r["user_id"], "master"))
+        if r["used_hyper_ball"]:
+            await pool.execute(
+                "UPDATE users SET hyper_balls = hyper_balls + 1 WHERE user_id = $1",
+                r["user_id"],
+            )
+            refunded.append((r["user_id"], "hyper"))
+    if refunded:
+        logger.info(f"Refunded {len(refunded)} balls from {len(refunds)} unresolved attempts")
     await pool.execute(
         """UPDATE spawn_sessions
            SET is_resolved = 1
            WHERE is_resolved = 0"""
     )
+    return refunded
 
 
 # ============================================================

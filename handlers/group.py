@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
+from database import battle_queries as bq
 from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
 from services.tournament_service import is_tournament_active
@@ -260,7 +261,8 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             if not success:
                 remaining = await queries.get_hyper_balls(user_id)
                 await update.message.reply_text(
-                    f"🔵 하이퍼볼이 없습니다! (보유: {remaining}개)\nDM에서 '구매 하이퍼볼'로 구매하세요."
+                    f"{ball_emoji('hyperball')} 하이퍼볼이 없습니다! (보유: {remaining}개)\nDM에서 '상점' → 하이퍼볼로 구매하세요. ({config.BP_HYPER_BALL_COST} BP)",
+                    parse_mode="HTML",
                 )
                 return
 
@@ -354,7 +356,6 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Hidden easter egg: 문유 사랑해
 _love_hidden_cooldown = {}   # user_id -> last_used timestamp
-_love_daily_reward = {}      # user_id -> date string of last reward
 
 _LOVE_RESPONSES = [
     "나도. 근데 전 AI입니다.",
@@ -406,11 +407,11 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     import random
     response = random.choice(_LOVE_RESPONSES)
 
-    # Daily reward: first "문유 사랑해" of the day gives 1 hyperball
-    today = now.strftime("%Y-%m-%d")
+    # Daily reward: first "문유 사랑해" of the day gives 1 hyperball (DB persistent)
     reward_msg = ""
-    if _love_daily_reward.get(user_id) != today:
-        _love_daily_reward[user_id] = today
+    already_claimed = await bq.get_bp_purchases_today(user_id, "love_hidden_reward")
+    if already_claimed == 0:
+        await bq.log_bp_purchase(user_id, "love_hidden_reward", 1)
         await queries.add_hyper_ball(user_id, 1)
         reward_msg = f"\n\n{ball_emoji('hyperball')} 출석 보상! 하이퍼볼 1개 지급!"
 

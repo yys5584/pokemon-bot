@@ -388,25 +388,8 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
 
     # Build buttons
     select_buttons = []
-    row = []
-    for i, item in enumerate(page_items):
-        num = start + i + 1
-        if item[0] == "single":
-            _, idx, p = item
-            label = f"{num}. {p['name_ko']}"
-            cb = f"mypoke_v_{user_id}_{idx}_{page}"
-        else:
-            _, pid, indices, first, count = item
-            label = f"{num}. {first['name_ko']} x{count}"
-            cb = f"mypoke_g_{user_id}_{pid}_{page}"
-        row.append(InlineKeyboardButton(label, callback_data=cb))
-        if len(row) == 2:
-            select_buttons.append(row)
-            row = []
-    if row:
-        select_buttons.append(row)
 
-    # Filter buttons row
+    # Filter/sort row (above pokemon list for easy access)
     sort_mode = filt.get("sort", "default")
     fav_on = filt.get("fav", False)
     type_on = filt.get("type")
@@ -426,7 +409,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     ]
     select_buttons.append(filter_row)
 
-    # Type filter row (show active type or "타입" button)
+    # Type filter row
     if type_on:
         type_name = config.TYPE_NAME_KO.get(type_on, type_on)
         select_buttons.append([
@@ -437,6 +420,25 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
         select_buttons.append([
             InlineKeyboardButton("🏷 타입필터", callback_data=f"mypoke_tmore_{user_id}"),
         ])
+
+    # Pokemon selection buttons
+    row = []
+    for i, item in enumerate(page_items):
+        num = start + i + 1
+        if item[0] == "single":
+            _, idx, p = item
+            label = f"{num}. {p['name_ko']}"
+            cb = f"mypoke_v_{user_id}_{idx}_{page}"
+        else:
+            _, pid, indices, first, count = item
+            label = f"{num}. {first['name_ko']} x{count}"
+            cb = f"mypoke_g_{user_id}_{pid}_{page}"
+        row.append(InlineKeyboardButton(label, callback_data=cb))
+        if len(row) == 2:
+            select_buttons.append(row)
+            row = []
+    if row:
+        select_buttons.append(row)
 
     # Pagination
     nav_row = []
@@ -576,25 +578,24 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
     # Action buttons
     buttons = []
 
-    # Row 1: actions
-    action_row = [
-        InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
+    # Row 1: care actions (most used)
+    care_row = [
         InlineKeyboardButton("🍖 밥", callback_data=f"mypoke_feed_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("🎮 놀기", callback_data=f"mypoke_play_{user_id}_{idx}_{page}"),
     ]
-    # Add evolution button if eligible
     can_evo_friendship = p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP
     can_evo_trade = p["evolves_to"] and p["evolution_method"] == "trade"
     if can_evo_friendship:
-        action_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))
-    buttons.append(action_row)
+        care_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))
+    buttons.append(care_row)
 
-    # Row 2: team add + favorite
-    fav_label = "⭐ 즐찾해제" if p.get("is_favorite") else "☆ 즐겨찾기"
+    # Row 2: info + settings
+    fav_label = "⭐ 즐찾해제" if p.get("is_favorite") else "☆ 즐찾"
     buttons.append([
+        InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
+        InlineKeyboardButton(fav_label, callback_data=f"mypoke_fav_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{idx}_{page}"),
-        InlineKeyboardButton(fav_label, callback_data=f"mypoke_fav_{user_id}_{idx}_{page}"),
     ])
 
     # Row 3: navigation

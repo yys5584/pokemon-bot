@@ -553,6 +553,13 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         for loser in master_ball_losers:
             await queries.add_master_ball(loser["user_id"])
             logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
+            try:
+                await context.bot.send_message(
+                    chat_id=loser["user_id"],
+                    text="🟣 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
+                )
+            except Exception:
+                pass
 
         # Give Pokemon (with IV generation)
         _inst_id, caught_ivs = await queries.give_pokemon_to_user(
