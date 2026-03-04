@@ -94,7 +94,7 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 shiny = " ★이로치" if p.get("is_shiny") else ""
                 friendship = p.get("friendship", 0)
                 tb = type_badge(p["pokemon_id"])
-                lines.append(f"  #{i} — {tb}{p['emoji']} {p['name_ko']}{shiny} (친밀도: {friendship})")
+                lines.append(f"  #{i} — {tb} {p['name_ko']}{shiny} (친밀도: {friendship})")
             lines.append(f"\n사용법: 교환 @{target_username} {pokemon_name} #번호")
             await update.message.reply_text("\n".join(lines))
             return
@@ -127,7 +127,7 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if selected_pokemon:
                 shiny_tag = " ★이로치" if selected_pokemon.get("is_shiny") else ""
                 tb = type_badge(selected_pokemon["pokemon_id"])
-                pokemon_display = f"{tb}{selected_pokemon['emoji']} {selected_pokemon['name_ko']}{shiny_tag}"
+                pokemon_display = f"{tb} {selected_pokemon['name_ko']}{shiny_tag}"
             else:
                 pokemon_display = pokemon_name
 
@@ -171,7 +171,7 @@ async def accept_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tb = type_badge(t["offer_pokemon_id"]) if t.get("offer_pokemon_id") else ""
             lines.append(
                 f"#{t['id']} — {t['from_name']}의 "
-                f"{tb}{t['offer_emoji']} {t['offer_name']}{shiny_tag}\n"
+                f"{tb} {t['offer_name']}{shiny_tag}\n"
                 f"  수락 {t['id']} 또는 거절 {t['id']}"
             )
         await update.message.reply_text("\n".join(lines))
@@ -191,7 +191,7 @@ async def accept_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=(
                     f"✅ 교환 완료!\n\n"
                     f"{receiver_name}이(가) 교환을 수락했습니다.\n"
-                    f"{tb}{trade_info['offer_emoji']} {trade_info['offer_name']}이(가) "
+                    f"{tb} {trade_info['offer_name']} "
                     f"새 트레이너에게 갔습니다."
                 ),
             )
@@ -220,7 +220,7 @@ async def reject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tb = type_badge(t["offer_pokemon_id"]) if t.get("offer_pokemon_id") else ""
             lines.append(
                 f"#{t['id']} — {t['from_name']}의 "
-                f"{tb}{t['offer_emoji']} {t['offer_name']}{shiny_tag}\n"
+                f"{tb} {t['offer_name']}{shiny_tag}\n"
                 f"  수락 {t['id']} 또는 거절 {t['id']}"
             )
         await update.message.reply_text("\n".join(lines))
@@ -242,7 +242,7 @@ async def reject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tb = type_badge(trade["offer_pokemon_id"]) if trade.get("offer_pokemon_id") else ""
     await update.message.reply_text(
         f"❌ 교환을 거절했습니다.\n"
-        f"({tb}{trade['offer_emoji']} {trade['offer_name']})"
+        f"({tb} {trade['offer_name']})"
     )
 
     try:
@@ -253,7 +253,7 @@ async def reject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=(
                 f"❌ 교환 거절\n\n"
                 f"{receiver_name}이(가) 교환을 거절했습니다.\n"
-                f"{tb}{trade['offer_emoji']} {trade['offer_name']}이(가) 돌아왔습니다."
+                f"{tb} {trade['offer_name']} 돌아왔습니다."
             ),
         )
     except Exception as e:

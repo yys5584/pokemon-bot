@@ -5,7 +5,7 @@ import config
 from database import queries
 from database import battle_queries as bq
 from services.evolution_service import try_trade_evolve
-from utils.helpers import update_title
+from utils.helpers import update_title, type_badge
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +126,10 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
     await update_title(from_user_id)
 
     shiny_tag = " ★이로치" if is_shiny else ""
+    tb = type_badge(trade["offer_pokemon_id"]) if trade.get("offer_pokemon_id") else ""
     msg = (
         f"✅ 교환 성사!\n\n"
-        f"{trade['offer_emoji']} {trade['offer_name']}{shiny_tag}을(를) 받았습니다!"
+        f"{tb} {trade['offer_name']}{shiny_tag}을(를) 받았습니다!"
     )
     if evo_msg:
         msg += evo_msg

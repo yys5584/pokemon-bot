@@ -365,7 +365,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         tb = type_badge(pokemon["id"], pokemon.get("pokemon_type"))
         caption = (
-            f"🌿 야생의{shiny_text} {tb}{pokemon['emoji']} {pokemon['name_ko']}이(가) 나타났다!{bonus_text}{event_tag}{weather_tag}\n"
+            f"🌿 야생의{shiny_text} {tb} {pokemon['name_ko']}이(가) 나타났다!{bonus_text}{event_tag}{weather_tag}\n"
             f"ㅊ 입력으로 잡기 ({window}초)"
         )
 
@@ -465,7 +465,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"흔들흔들... 💨{shiny_tag} {rbadge}{tb}{pokemon_emoji} {pokemon_name} 도망갔다!",
+                text=f"흔들흔들... 💨{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
                 parse_mode="HTML",
             )
             await queries.close_spawn_session(session_id)
@@ -521,7 +521,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"흔들흔들... 💨{shiny_tag} {rbadge}{tb}{pokemon_emoji} {pokemon_name} 도망갔다!",
+                text=f"흔들흔들... 💨{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
                 parse_mode="HTML",
             )
             await queries.close_spawn_session(session_id)
@@ -591,14 +591,14 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         rbadge = rarity_badge(rarity)
         tb = type_badge(pokemon_id)
         if winner.get("used_master_ball"):
-            msg = f"🟣 마스터볼! {decorated} — {shiny_label}{rbadge}{tb}{pokemon_emoji} {pokemon_name} 확정 포획!{iv_tag}"
+            msg = f"🟣 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 확정 포획!{iv_tag}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
-            msg = f"🔵 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb}{pokemon_emoji} {pokemon_name} 포획!{iv_tag}"
+            msg = f"🔵 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
         elif rarity in ("epic", "legendary") and is_first:
-            msg = f"🌟 {decorated} — {shiny_label}{rbadge}{tb}{pokemon_emoji} {pokemon_name} 포획! (이 방 최초){iv_tag}"
+            msg = f"🌟 {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획! (이 방 최초){iv_tag}"
         else:
-            msg = f"딸깍! ✨ {decorated} — {shiny_label}{rbadge}{tb}{pokemon_emoji} {pokemon_name} 포획!{iv_tag}"
+            msg = f"딸깍! ✨ {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
 
         # Shiny catch announcement
         if is_shiny:
@@ -629,7 +629,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         # DM notification to catcher
         try:
-            dm_text = f"🎉 {tb}{pokemon_emoji} {pokemon_name} 포획 성공!"
+            dm_text = f"🎉 {tb} {pokemon_name} 포획 성공!"
             if is_shiny:
                 dm_text = f"✨ {dm_text} (★이로치)"
             asyncio.create_task(context.bot.send_message(chat_id=winner_id, text=dm_text))

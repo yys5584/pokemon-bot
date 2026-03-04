@@ -40,7 +40,7 @@ def _build_partner_list(user_id: int, pokemon_list: list, page: int,
         num = start + i + 1
         mark = " ✅" if p["id"] == current_partner_id else ""
         tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-        lines.append(f"{num}. {tb}{p['emoji']} {p['name_ko']}{mark}")
+        lines.append(f"{num}. {tb} {p['name_ko']}{mark}")
     lines.append("\n포켓몬을 눌러 파트너로 지정!")
 
     # Buttons: 2 per row
@@ -49,7 +49,7 @@ def _build_partner_list(user_id: int, pokemon_list: list, page: int,
     for i, p in enumerate(page_pokemon):
         idx = start + i
         row.append(InlineKeyboardButton(
-            f"{idx + 1}. {p['emoji']}{p['name_ko']}",
+            f"{idx + 1}. {p['name_ko']}",
             callback_data=f"partner_s_{user_id}_{idx}_{page}",
         ))
         if len(row) == 2:
@@ -118,7 +118,7 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]])
         await update.message.reply_text(
             f"🤝 나의 파트너\n\n"
-            f"{partner['emoji']} {partner['name_ko']}  {tb}{type_name}\n"
+            f"{tb} {partner['name_ko']}  {type_name}\n"
             f"📊 {format_stats_line(stats)}\n\n"
             f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!",
             reply_markup=buttons,
@@ -157,7 +157,7 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines = [f"'{search_name}' 검색 결과가 {len(matches)}마리입니다:\n"]
             for p in matches:
                 idx = pokemon_list.index(p) + 1
-                lines.append(f"  {idx}. {p['emoji']} {p['name_ko']}")
+                lines.append(f"  {idx}. {p['name_ko']}")
             lines.append("\n번호로 지정: 파트너 [번호]")
             await update.message.reply_text("\n".join(lines))
             return
@@ -185,7 +185,7 @@ async def _set_partner_and_reply(message, user_id: int, chosen: dict):
 
     tb = type_badge(chosen["pokemon_id"], chosen.get("pokemon_type"))
     await message.reply_text(
-        f"🤝 {tb}{chosen['emoji']} {chosen['name_ko']}을(를) 파트너로 지정했습니다!\n"
+        f"🤝 {tb} {chosen['name_ko']} 파트너로 지정!\n"
         f"배틀 시 파트너가 팀에 포함되면 ATK +5% 보너스!"
     )
 
@@ -261,7 +261,7 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         try:
             await query.edit_message_text(
                 f"🤝 파트너 지정 완료!\n\n"
-                f"{tb}{chosen['emoji']} {chosen['name_ko']}\n"
+                f"{tb} {chosen['name_ko']}\n"
                 f"📊 {format_stats_line(stats)}\n\n"
                 f"💡 배틀 시 파트너가 팀에 포함되면 ATK +5%!"
             )
@@ -294,7 +294,7 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
         for si in selected:
             if 0 <= si < total:
                 p = pokemon_list[si]
-                sel_names.append(f"{p['emoji']}{p['name_ko']}")
+                sel_names.append(p['name_ko'])
         lines.append("▸ " + " → ".join(sel_names))
     lines.append(f"\n[{page + 1}/{total_pages}]  포켓몬을 눌러 추가/제거\n")
 
@@ -306,9 +306,9 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
         rb = rarity_badge(p.get("rarity", ""))
         if idx in selected_set:
             slot_num = selected.index(idx)
-            lines.append(f"☑ {slot_emojis[slot_num]} {rb}{tb}{p['emoji']} {p['name_ko']}")
+            lines.append(f"☑ {slot_emojis[slot_num]} {rb}{tb} {p['name_ko']}")
         else:
-            lines.append(f"☐ {num}. {rb}{tb}{p['emoji']} {p['name_ko']}")
+            lines.append(f"☐ {num}. {rb}{tb} {p['name_ko']}")
 
     # Encode selected indices as compact string
     sel_str = ",".join(str(s) for s in selected) if selected else "x"
@@ -427,7 +427,7 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         partner_mark = " 🤝" if p["pokemon_instance_id"] == partner_instance else ""
         rb = rarity_badge(p["rarity"])
         lines.append(
-            f"{slot_emojis[i]} {rb}{tb}{p['emoji']} {p['name_ko']}{partner_mark}  "
+            f"{slot_emojis[i]} {rb}{tb} {p['name_ko']}{partner_mark}  "
             f"{format_stats_line(stats)}"
         )
 
@@ -498,7 +498,7 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
     legendary_count = sum(1 for n in nums if pokemon_list[n - 1].get("rarity") == "legendary")
     if legendary_count > 1:
         legend_names = [
-            f"{pokemon_list[n-1]['emoji']} {pokemon_list[n-1]['name_ko']}"
+            pokemon_list[n-1]['name_ko']
             for n in nums if pokemon_list[n-1].get("rarity") == "legendary"
         ]
         await context.bot.send_message(
@@ -518,7 +518,7 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
         p = pokemon_list[n - 1]
         if p.get("rarity") == "epic":
             if p["pokemon_id"] in epic_seen:
-                epic_dups.append(f"{p['emoji']} {p['name_ko']}")
+                epic_dups.append(p['name_ko'])
             epic_seen.add(p["pokemon_id"])
     if epic_dups:
         await context.bot.send_message(
@@ -539,7 +539,7 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
     for i, n in enumerate(nums):
         p = pokemon_list[n - 1]
         tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-        lines.append(f"{slot_emojis[i]} {tb}{p['emoji']} {p['name_ko']}")
+        lines.append(f"{slot_emojis[i]} {tb} {p['name_ko']}")
     await update.message.reply_text("\n".join(lines))
 
 
@@ -713,7 +713,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         )
         if legend_count > 1:
             legend_names = [
-                f"{pokemon_list[s]['emoji']} {pokemon_list[s]['name_ko']}"
+                pokemon_list[s]['name_ko']
                 for s in selected
                 if 0 <= s < len(pokemon_list) and pokemon_list[s].get("rarity") == "legendary"
             ]
@@ -738,7 +738,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             if 0 <= s < len(pokemon_list) and pokemon_list[s].get("rarity") == "epic":
                 pid = pokemon_list[s]["pokemon_id"]
                 if pid in epic_pid_seen:
-                    epic_dup_names.append(f"{pokemon_list[s]['emoji']} {pokemon_list[s]['name_ko']}")
+                    epic_dup_names.append(pokemon_list[s]['name_ko'])
                 epic_pid_seen.add(pid)
         if epic_dup_names:
             try:
@@ -766,7 +766,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             if 0 <= idx < len(pokemon_list):
                 p = pokemon_list[idx]
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-                lines.append(f"{slot_emojis[si]} {tb}{p['emoji']} {p['name_ko']}")
+                lines.append(f"{slot_emojis[si]} {tb} {p['name_ko']}")
         try:
             await query.edit_message_text("\n".join(lines))
         except Exception:
@@ -1637,8 +1637,8 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             current_tier = tier
 
         lines.append(
-            f"{p['emoji']}<b>{p['name']}</b>  "
-            f"{p['type_emoji']}{p['type_ko']}/{p['stat_ko']}  "
+            f"{p['type_emoji']}<b>{p['name']}</b>  "
+            f"{p['type_ko']}/{p['stat_ko']}  "
             f"「{p['skill_name']}」{p['skill_power']}x"
         )
 

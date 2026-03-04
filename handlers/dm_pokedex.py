@@ -75,7 +75,7 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             trade_mark = " 🔄교환" if entry["method"] == "trade" else ""
             rb = rarity_badge(pm["rarity"])
             lines.append(
-                f"{pid:03d} {rb}{pm['emoji']} {pm['name_ko']}{evo_mark}{trade_mark}"
+                f"{pid:03d} {rb} {pm['name_ko']}{evo_mark}{trade_mark}"
             )
         else:
             lines.append(f"{pid:03d} ・ ???")
@@ -140,7 +140,7 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             trade_mark = " 🔄교환" if entry["method"] == "trade" else ""
             rb = rarity_badge(pm["rarity"])
             lines.append(
-                f"{pid:03d} {rb}{pm['emoji']} {pm['name_ko']}{evo_mark}{trade_mark}"
+                f"{pid:03d} {rb} {pm['name_ko']}{evo_mark}{trade_mark}"
             )
         else:
             lines.append(f"{pid:03d} ・ ???")
@@ -270,7 +270,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
                 shiny = "✨" if p.get("is_shiny") else ""
                 rb = rarity_badge(p.get("rarity", ""))
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-                lines.append(f"{se} {rb}{tb}{shiny}{p['emoji']} {p['name_ko']}")
+                lines.append(f"{se} {rb}{tb}{shiny} {p['name_ko']}")
         lines.append("━━━━━━━")
 
     lines.append("")
@@ -286,12 +286,12 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
                 evo_mark = " ⭐"
             rb = rarity_badge(p.get("rarity", ""))
             tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-            lines.append(f"{item_num}. {rb}{tb}{shiny}{p['emoji']} {p['name_ko']}  {hearts}{evo_mark}")
+            lines.append(f"{item_num}. {rb}{tb}{shiny} {p['name_ko']}  {hearts}{evo_mark}")
         else:  # group
             _, pid, indices, first, count = item
             rb = rarity_badge(first.get("rarity", ""))
             tb = type_badge(first["pokemon_id"], first.get("pokemon_type"))
-            lines.append(f"{item_num}. {rb}{tb}{first['emoji']} {first['name_ko']}  x{count}")
+            lines.append(f"{item_num}. {rb}{tb} {first['name_ko']}  x{count}")
         item_num += 1
 
     lines.append(f"\n번호를 눌러 상세 보기")
@@ -303,11 +303,11 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
         num = start + i + 1
         if item[0] == "single":
             _, idx, p = item
-            label = f"{num}. {p['emoji']}{p['name_ko']}"
+            label = f"{num}. {p['name_ko']}"
             cb = f"mypoke_v_{user_id}_{idx}_{page}"
         else:
             _, pid, indices, first, count = item
-            label = f"{num}. {first['emoji']}{first['name_ko']} x{count}"
+            label = f"{num}. {first['name_ko']} x{count}"
             cb = f"mypoke_g_{user_id}_{pid}_{page}"
         row.append(InlineKeyboardButton(label, callback_data=cb))
         if len(row) == 2:
@@ -338,7 +338,7 @@ def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: i
     first = members[0]
     rb = rarity_badge(first.get("rarity", ""))
     tb = type_badge(first["pokemon_id"], first.get("pokemon_type"))
-    lines = [f"{rb}{tb}{first['emoji']} {first['name_ko']} 보유 목록 ({len(members)}마리)\n"]
+    lines = [f"{rb}{tb} {first['name_ko']} 보유 목록 ({len(members)}마리)\n"]
 
     buttons = []
     row = []
@@ -358,7 +358,7 @@ def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: i
             grade, _ = config.get_iv_grade(total)
             iv_tag = f" [{grade}]"
 
-        lines.append(f"#{num}  {first['emoji']}{first['name_ko']}{shiny}  {hearts}{iv_tag}")
+        lines.append(f"#{num}  {first['name_ko']}{shiny}  {hearts}{iv_tag}")
 
         label = f"#{num}{shiny[:1]}{iv_tag}"
         row.append(InlineKeyboardButton(label, callback_data=f"mypoke_v_{user_id}_{idx}_{page}"))
@@ -435,7 +435,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
 
     lines = [
         f"내 포켓몬 상세 ({num}/{total})\n",
-        f"{shiny_mark}{p['emoji']} {p['name_ko']}{shiny_text}",
+        f"{shiny_mark}{tb} {p['name_ko']}{shiny_text}",
         f"등급: {rarity_text}{type_display}",
         f"친밀도: {hearts} ({p['friendship']}/{max_f}){evo_text}{iv_line}{stats_line}",
     ]
@@ -605,7 +605,7 @@ def _format_appraisal(p: dict) -> str:
     pct = round(total / 186 * 100, 1)
 
     stat_labels = {"HP": "HP   ", "ATK": "공격 ", "DEF": "방어 ", "SPA": "특공 ", "SPDEF": "특방 ", "SPD": "스피드"}
-    lines = [f"📋 {shiny}{rb}{p['emoji']} {p['name_ko']} 감정 결과\n"]
+    lines = [f"📋 {shiny}{rb} {p['name_ko']} 감정 결과\n"]
     for key in ("HP", "ATK", "DEF", "SPA", "SPDEF", "SPD"):
         v = ivs[key] if ivs[key] is not None else 15
         filled = round(v / 31 * 6)
@@ -976,7 +976,7 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
     tmi = POKEMON_TMI.get(pid, "")
 
     lines = [
-        f"{pokemon['emoji']} No.{pid:03d} {pokemon['name_ko']} ({pokemon['name_en']})",
+        f"No.{pid:03d} {pokemon['name_ko']} ({pokemon['name_en']})",
         f"등급: {rarity_text}",
         f"포획률: {int(pokemon['catch_rate'] * 100)}%",
         f"상태: {owned}",
@@ -1012,7 +1012,7 @@ async def _build_evo_chain(pokemon: dict) -> str:
 
     # Walk forward
     while current:
-        chain.append(f"{current['emoji']}{current['name_ko']}")
+        chain.append(current['name_ko'])
         if current.get("evolves_to"):
             nxt = await queries.get_pokemon(current["evolves_to"])
             current = nxt
@@ -1235,7 +1235,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
         skill = POKEMON_SKILLS.get(partner["pokemon_id"], ("몸통박치기", 1.2))
-        lines.append(f"🤝 파트너: {partner['emoji']} {partner['name_ko']}  {tb}{type_name}")
+        lines.append(f"🤝 파트너: {tb} {partner['name_ko']}  {type_name}")
         lines.append(f"   ❤️ 친밀도: {hearts_display(partner['friendship'])}")
         lines.append(f"   📊 {format_stats_line(stats)}")
         lines.append(f"   💥 기술: {skill[0]}")
@@ -1254,7 +1254,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             skill = POKEMON_SKILLS.get(t["pokemon_id"], ("몸통박치기", 1.2))
             power = stats["hp"] + stats["atk"] + stats["def"] + stats["spd"]
             ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
-            lines.append(f"  {i}. {ttb}{t['emoji']} {t['name_ko']}  💥{skill[0]}  ⚡{power}")
+            lines.append(f"  {i}. {ttb} {t['name_ko']}  💥{skill[0]}  ⚡{power}")
         if team2:
             lines.append(f"  (팀2 등록됨: {len(team2)}마리)")
     else:
@@ -1349,7 +1349,7 @@ async def appraisal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "SPA": "특공 ", "SPDEF": "특방 ", "SPD": "스피드",
     }
 
-    lines = [f"📋 {shiny}{rb}{pokemon['emoji']} {name} 감정 결과\n"]
+    lines = [f"📋 {shiny}{rb} {name} 감정 결과\n"]
     max_iv = config.IV_MAX  # 31
 
     for key in ("HP", "ATK", "DEF", "SPA", "SPDEF", "SPD"):
