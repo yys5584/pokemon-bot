@@ -889,6 +889,16 @@ async def _fallback_response(msg: str, pokemon: list, meta: dict) -> dict:
     return {"team": team, "analysis": analysis, "warnings": warnings}
 
 
+async def api_my_quota(request):
+    """Return remaining LLM quota for the current user."""
+    sess = _get_session(request)
+    if not sess:
+        return web.json_response({"error": "로그인이 필요합니다."}, status=401)
+    uid = sess["user_id"]
+    _, remaining, bonus = await _check_llm_limit(uid)
+    return web.json_response({"remaining": remaining, "bonus_remaining": bonus})
+
+
 async def api_my_chat(request):
     """AI chat endpoint — Gemini Flash with battle context."""
     sess = _get_session(request)
@@ -1507,6 +1517,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/my/summary", api_my_summary)
     app.router.add_post("/api/my/team-recommend", api_my_team_recommend)
     app.router.add_post("/api/my/chat", api_my_chat)
+    app.router.add_get("/api/my/quota", api_my_quota)
     # Donation, Payment & Admin
     app.router.add_get("/api/donation", api_donation)
     app.router.add_post("/api/payment/create", api_payment_create)
