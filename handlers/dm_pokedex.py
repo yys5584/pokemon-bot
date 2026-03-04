@@ -1315,6 +1315,8 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"{icon_emoji('exchange')} 교환": ["trader"],
         f"{icon_emoji('battle')} 배틀": ["battle_first", "battle_fighter", "battle_champion", "battle_legend",
                     "battle_streak3", "battle_streak10", "battle_sweep", "partner_set"],
+        "🏆 토너먼트": ["tournament_first", "inaugural_champ", "tournament_champ"],
+        f"{icon_emoji('crystal')} 이로치": ["shiny_hunter", "shiny_master", "shiny_legend"],
     }
 
     for cat_name, title_ids in categories.items():
@@ -1326,7 +1328,17 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             name, emoji, desc, _, _ = t_info
             status = icon_emoji("check") if tid in unlocked_ids else "🔒"
             badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
-            cat_lines.append(f"  {status} {badge} {name} — {desc}")
+            buff = config.TITLE_BUFFS.get(tid)
+            buff_text = ""
+            if buff:
+                parts = []
+                if buff.get("daily_masterball"):
+                    parts.append(f"마볼+{buff['daily_masterball']}/일")
+                if buff.get("extra_feed"):
+                    parts.append(f"밥+{buff['extra_feed']}")
+                if parts:
+                    buff_text = f" ✨{', '.join(parts)}"
+            cat_lines.append(f"  {status} {badge} {name} — {desc}{buff_text}")
 
         if cat_lines:
             lines.append(f"\n{cat_name}")
@@ -1380,7 +1392,17 @@ async def title_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         name, emoji, desc, _, _ = t_info
         badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
         equipped = f" {icon_emoji('check')}" if name == current_title else ""
-        lines.append(f"{badge} {name}{equipped} — {desc}")
+        buff = config.TITLE_BUFFS.get(tid)
+        buff_text = ""
+        if buff:
+            parts = []
+            if buff.get("daily_masterball"):
+                parts.append(f"마볼+{buff['daily_masterball']}/일")
+            if buff.get("extra_feed"):
+                parts.append(f"밥+{buff['extra_feed']}")
+            if parts:
+                buff_text = f" ✨{', '.join(parts)}"
+        lines.append(f"{badge} {name}{equipped} — {desc}{buff_text}")
         btn_label = f"{'✅ ' if name == current_title else ''}{name}"
         buttons.append(InlineKeyboardButton(btn_label, callback_data=f"title_{tid}"))
 
