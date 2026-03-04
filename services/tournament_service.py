@@ -48,6 +48,16 @@ def _reset_state():
     _tournament_state["chat_id"] = None
 
 
+def is_tournament_active(chat_id: int) -> bool:
+    """Return True if tournament is running or registering in this chat."""
+    if not _tournament_state["chat_id"]:
+        return False
+    return (
+        _tournament_state["chat_id"] == chat_id
+        and (_tournament_state["running"] or _tournament_state["registering"])
+    )
+
+
 # ── Registration ────────────────────────────────────────────────
 
 async def start_registration(context: ContextTypes.DEFAULT_TYPE):
@@ -262,7 +272,7 @@ async def _run_match(
         return lines
 
     if is_final:
-        # ── Finals: rich turn-by-turn display ──
+        # ── Finals: rich turn-by-turn display (3s delay) ──
         await _safe_send(context.bot, chat_id,
             text=(
                 f"🏆 결승전!\n"
@@ -271,7 +281,7 @@ async def _run_match(
             ),
             parse_mode="HTML",
         )
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
 
         for td in result["turn_data"]:
             if td["type"] == "matchup":
@@ -279,7 +289,7 @@ async def _run_match(
                     text=f"\n⚔ {C}{td['c_tb']}{td['c_name']} vs {D}{td['d_tb']}{td['d_name']}!",
                     parse_mode="HTML",
                 )
-                await asyncio.sleep(2)
+                await asyncio.sleep(3)
 
             elif td["type"] == "turn":
                 lines = []
@@ -312,7 +322,7 @@ async def _run_match(
                     lines.append(f"  ←{second_dmg} 데미지 ({second_target_name} HP: {bar2} {second_target_hp}/{second_target_max})")
 
                 await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
-                await asyncio.sleep(2)
+                await asyncio.sleep(3)
 
             elif td["type"] == "ko":
                 m = _mark(td["side"])
@@ -321,14 +331,14 @@ async def _run_match(
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(3)
 
         await _safe_send(context.bot, chat_id,
             text=f"\n🎉 {winner_data['name']} 우승! (남은 {remaining}마리)",
         )
 
     elif is_semi:
-        # ── Semi-finals: grouped by matchup ──
+        # ── Semi-finals: 2 turns per message (3s delay) ──
         await _safe_send(context.bot, chat_id,
             text=(
                 f"⚔️ 준결승! — {C}{p1_data['name']} vs {D}{p2_data['name']}\n"
@@ -336,20 +346,21 @@ async def _run_match(
             ),
             parse_mode="HTML",
         )
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
 
-        for section in _build_sections(result["turn_data"]):
-            lines = _format_section(section)
-            if lines:
-                await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
-                await asyncio.sleep(2)
+        # Format all lines, then send 2 lines at a time
+        all_lines = _format_section(result["turn_data"])
+        for i in range(0, len(all_lines), 2):
+            chunk = "\n".join(all_lines[i:i+2])
+            await _safe_send(context.bot, chat_id, text=chunk, parse_mode="HTML")
+            await asyncio.sleep(3)
 
         await _safe_send(context.bot, chat_id,
             text=f"→ {winner_data['name']} 승리! (남은 {remaining}마리)",
         )
 
     elif is_quarter:
-        # ── Quarter-finals: grouped by matchup ──
+        # ── Quarter-finals: grouped by matchup (3s delay) ──
         await _safe_send(context.bot, chat_id,
             text=(
                 f"⚔️ {C}{p1_data['name']} vs {D}{p2_data['name']}\n"
@@ -357,13 +368,13 @@ async def _run_match(
             ),
             parse_mode="HTML",
         )
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
 
         for section in _build_sections(result["turn_data"]):
             lines = _format_section(section)
             if lines:
                 await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
-                await asyncio.sleep(2)
+                await asyncio.sleep(3)
 
         await _safe_send(context.bot, chat_id,
             text=f"→ {winner_data['name']} 승리! (남은 {remaining}마리)",

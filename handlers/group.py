@@ -12,6 +12,7 @@ import config
 from database import queries
 from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
+from services.tournament_service import is_tournament_active
 from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete, ball_emoji, shiny_emoji, icon_emoji
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,9 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     display_name = update.effective_user.first_name or "트레이너"
     username = update.effective_user.username
 
+    # Block during tournament
+    if is_tournament_active(chat_id):
+        return
 
     # Auto-delete the "ㅊ" command message
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
@@ -137,6 +141,10 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.effective_chat.id
     display_name = update.effective_user.first_name or "트레이너"
     username = update.effective_user.username
+
+    # Block during tournament
+    if is_tournament_active(chat_id):
+        return
 
     # Auto-delete the "ㅁ" command message
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
@@ -216,6 +224,10 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     display_name = update.effective_user.first_name or "트레이너"
     username = update.effective_user.username
 
+    # Block during tournament
+    if is_tournament_active(chat_id):
+        return
+
     try:
         await queries.ensure_user(user_id, display_name, username)
 
@@ -282,6 +294,8 @@ _love_cooldown = {}  # user_id -> last_used timestamp
 async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '포켓볼 충전' — grants +10 bonus catches for today."""
     if not update.effective_user or not update.message:
+        return
+    if update.effective_chat and is_tournament_active(update.effective_chat.id):
         return
 
     user_id = update.effective_user.id
@@ -374,6 +388,8 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Hidden '문유 사랑해' — random flirty response + daily hyperball reward."""
     if not update.effective_user or not update.message:
         return
+    if update.effective_chat and is_tournament_active(update.effective_chat.id):
+        return
 
     user_id = update.effective_user.id
     display_name = update.effective_user.first_name or "트레이너"
@@ -426,6 +442,8 @@ async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /랭킹 command in group chat."""
     if not update.effective_chat:
         return
+    if is_tournament_active(update.effective_chat.id):
+        return
 
     try:
         rankings = await queries.get_rankings(limit=5)
@@ -460,6 +478,8 @@ async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /로그 command in group chat."""
     if not update.effective_chat:
         return
+    if is_tournament_active(update.effective_chat.id):
+        return
 
     try:
         logs = await queries.get_recent_logs(update.effective_chat.id, limit=10)
@@ -489,6 +509,8 @@ async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def dashboard_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '대시보드' command — show dashboard link."""
+    if update.effective_chat and is_tournament_active(update.effective_chat.id):
+        return
     await update.message.reply_text(
         f"{icon_emoji('computer')} <b>포켓몬 봇 대시보드</b>\n\n"
         "🔗 <a href='https://tgpoke.com'>tgpoke.com</a>\n\n"

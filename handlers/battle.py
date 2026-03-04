@@ -1173,6 +1173,10 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
         return
 
     chat_id = update.effective_chat.id
+
+    from services.tournament_service import is_tournament_active
+    if is_tournament_active(chat_id):
+        return
     challenger_id = update.effective_user.id
     challenger_name = update.effective_user.first_name or "트레이너"
 
