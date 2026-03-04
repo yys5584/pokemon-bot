@@ -820,10 +820,10 @@ async def get_bonus_catches(user_id: int, date: str) -> int:
 
 
 async def reset_bonus_catches(user_id: int, date: str):
-    """Reset bonus catches to 0 (shop pokeball reset)."""
+    """Reset catch attempts and bonus catches to 0 (shop pokeball reset)."""
     pool = await get_db()
     await pool.execute(
-        "UPDATE catch_limits SET bonus_catches = 0 WHERE user_id = $1 AND date = $2",
+        "UPDATE catch_limits SET attempt_count = 0, bonus_catches = 0 WHERE user_id = $1 AND date = $2",
         user_id, date,
     )
 
