@@ -1603,8 +1603,9 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for rank, p in enumerate(top20, 1):
         rb = rarity_badge(p["rarity"])
+        trap = " (함정)" if p["atk"] < 40 else ""
         lines.append(
-            f"{rank}. {rb}{p['type_emoji']}<b>{p['name']}</b>  "
+            f"{rank}. {rb}{p['type_emoji']}<b>{p['name']}</b>{trap}  "
             f"HP:{p['hp']} ATK:{p['atk']} DEF:{p['def']} SPD:{p['spd']}  "
             f"⚡{p['power']}"
         )

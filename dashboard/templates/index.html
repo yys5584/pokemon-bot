@@ -579,7 +579,7 @@ function sw(key,tops){return tops.has(key)?'font-weight:700':'font-weight:400'}
 function sbar(val,mx,color){const pct=Math.min(val/mx*100,100);return`<span class="stat-bar-wrap"><span class="stat-bar-fill" style="width:${pct}%;background:${color}"></span></span>`}
 
 function typeTip(type,chart,names){
-    if(!chart||!chart[type])return`<img class="tc-icon-sm" src="/static/types/${type}.png" alt="${type}">`;
+    if(!chart||!chart[type])return`<img class="tc-icon-sm" src="/static/types/${type}.png?v=2" alt="${type}">`;
     const strong=[],weak=[],immune=[];
     for(const [def,v] of Object.entries(chart[type])){
         if(v===2) strong.push(names[def]||def);
@@ -598,7 +598,7 @@ function typeTip(type,chart,names){
     if(weak.length) tip+=`<span style="color:#e63946">공격 약함:</span> ${weak.join(', ')}<br>`;
     if(weakTo.length) tip+=`<span style="color:#e63946">약점:</span> ${weakTo.join(', ')}<br>`;
     if(resistTo.length) tip+=`<span style="color:#52b788">내성:</span> ${resistTo.join(', ')}`;
-    return`<span class="type-tip"><img class="tc-icon-sm" src="/static/types/${type}.png" alt="${type}"><span class="type-tip-content">${tip}</span></span>`;
+    return`<span class="type-tip"><img class="tc-icon-sm" src="/static/types/${type}.png?v=2" alt="${type}"><span class="type-tip-content">${tip}</span></span>`;
 }
 
 // --- POKEMON TIER ---
@@ -645,7 +645,7 @@ async function loadTier(){
 // --- TYPE CHART ---
 function typeIcon(type,size){
     const sz=size||"tc-icon";
-    return `<img class="${sz}" src="/static/types/${type}.png" alt="${type}" title="${type}">`;
+    return `<img class="${sz}" src="/static/types/${type}.png?v=2" alt="${type}" title="${type}">`;
 }
 async function loadTypeChart(){
     const data=await fetchJSON("/api/type-chart");
