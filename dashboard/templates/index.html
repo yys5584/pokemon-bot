@@ -461,7 +461,7 @@
             <!-- Quick Buttons: AI (LLM) -->
             <div style="margin-bottom:8px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-                    <span style="font-size:11px;font-weight:700;color:var(--purple)">🤖 AI 상담</span>
+                    <span style="font-size:11px;font-weight:700;color:var(--purple)">🤖 AI 분석</span>
                     <span style="font-size:10px;color:var(--muted)">· 2회 차감</span>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -1324,6 +1324,30 @@ function renderMyPokemon(){
 // --- AI CHAT ADVISOR ---
 let _chatHistory=[];
 let _chatBusy=false;
+let _chatMsgs=[];  // [{role, html}] for localStorage
+
+function _saveChatToStorage(){
+    try{localStorage.setItem("tgpoke_chat",JSON.stringify({msgs:_chatMsgs.slice(-30),history:_chatHistory.slice(-10)}))}catch(e){}
+}
+function _restoreChatFromStorage(){
+    try{
+        const d=JSON.parse(localStorage.getItem("tgpoke_chat")||"null");
+        if(!d||!d.msgs||!d.msgs.length)return;
+        _chatHistory=d.history||[];
+        _chatMsgs=d.msgs;
+        const el=document.getElementById("chatMessages");
+        // Remove default welcome message
+        el.innerHTML="";
+        for(const m of _chatMsgs){
+            const div=document.createElement("div");
+            div.className=`chat-msg ${m.role}`;
+            if(m.role==="ai") div.innerHTML='<div class="chat-sender">🤖 배틀 어드바이저</div>'+m.html;
+            else div.innerHTML='<div class="chat-sender">🗣️ 나</div>'+m.html;
+            el.appendChild(div);
+        }
+        el.scrollTop=el.scrollHeight;
+    }catch(e){}
+}
 
 // Mode button mapping → algorithm API (1 token)
 const _MODE_MAP={
@@ -1368,6 +1392,8 @@ function addChatMsg(role, html){
     else div.innerHTML='<div class="chat-sender">🗣️ 나</div>'+html;
     el.appendChild(div);
     el.scrollTop=el.scrollHeight;
+    _chatMsgs.push({role,html});
+    _saveChatToStorage();
     return div;
 }
 
@@ -1524,6 +1550,8 @@ async function loadSimulator(){
             _myPokemon=await r.json();
         }catch(e){}
     }
+    // Restore chat history from localStorage
+    if(!_chatMsgs.length) _restoreChatFromStorage();
     // Load donation progress
     try{const don=await fetchJSON("/api/donation");if(don)renderDonation(don)}catch(e){renderDonation({current:0,goal:200})}
 }
