@@ -872,7 +872,7 @@ async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> str
         "systemInstruction": {"parts": [{"text": system_prompt}]},
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 2048,
+            "maxOutputTokens": 4096,
             "topP": 0.9,
         },
     }
@@ -881,13 +881,16 @@ async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> str
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=45)) as resp:
                 if resp.status != 200:
                     logger.warning(f"Gemini API error: {resp.status}")
                     return ""
                 data = await resp.json()
                 candidates = data.get("candidates", [])
                 if candidates:
+                    finish = candidates[0].get("finishReason", "")
+                    if finish and finish != "STOP":
+                        logger.warning(f"Gemini finishReason: {finish}")
                     parts = candidates[0].get("content", {}).get("parts", [])
                     if parts:
                         return parts[0].get("text", "")
