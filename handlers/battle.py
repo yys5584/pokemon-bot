@@ -1600,53 +1600,25 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "skill_power": skill[1], "stats": stats,
         })
 
-    # Assign tier first, then sort by tier order + power
-    tier_order = {"S+": 0, "S": 1, "A+": 2, "A": 3, "B+": 4, "B": 5}
-    tier_labels = {
-        "S+": ("🔴", "S+"),
-        "S": ("🟡", "S"),
-        "A+": ("🟠", "A+"),
-        "A": ("🔵", "A"),
-        "B+": ("🟣", "B+"),
-        "B": ("⚪", "B"),
-    }
-
-    for p in scored:
-        best_atk = max(p["stats"]["atk"], p["stats"]["spa"])
-        if p["rarity"] == "legendary":
-            p["tier"] = "S+" if best_atk >= 140 else "S"
-        else:  # epic
-            if best_atk >= 110:
-                p["tier"] = "A+"
-            elif best_atk >= 85:
-                p["tier"] = "A"
-            elif best_atk >= 70:
-                p["tier"] = "B+"
-            else:
-                p["tier"] = "B"
-
-    scored.sort(key=lambda x: (tier_order.get(x["tier"], 9), -x["power"]))
+    # Sort by power descending, take top 20
+    scored.sort(key=lambda x: -x["power"])
+    top20 = scored[:20]
 
     # Build tier display
-    lines = ["⚔️ <b>배틀 티어표</b> (에픽 이상, 친밀도 MAX)"]
-    lines.append("━━━━━━━━━━━━━━━━━━━━")
+    lines = ["⚔️ <b>배틀 티어표</b> (전투력 TOP 20)"]
+    lines.append("━━━━━━━━━━━━━━━━━━━━\n")
 
-    current_tier = None
-    for p in scored:
-        if p["tier"] != current_tier:
-            dot, label = tier_labels.get(p["tier"], ("⚪", p["tier"]))
-            lines.append(f"\n{dot} <b>── {label} 티어 ──</b>")
-            current_tier = p["tier"]
-
+    for rank, p in enumerate(top20, 1):
+        rb = rarity_badge(p["rarity"])
         lines.append(
-            f"{p['type_emoji']}<b>{p['name']}</b>  "
+            f"{rank}. {rb}{p['type_emoji']}<b>{p['name']}</b>  "
             f"{p['type_ko']}/{p['stat_ko']}  "
             f"「{p['skill_name']}」{p['skill_power']}x"
         )
 
     lines.append("\n─────────────────")
     lines.append("💡 전투력 = (ATK or SPA) x 스킬 x 내구")
-    lines.append("💡 같은 티어 내 타입상성으로 역전 가능")
+    lines.append("💡 타입상성으로 역전 가능")
 
     _tier_cache = "\n".join(lines)
     await update.message.reply_text(_tier_cache, parse_mode="HTML")
