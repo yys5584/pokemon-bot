@@ -161,7 +161,7 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Increment count and show remaining
         await queries.increment_force_spawn(chat_id)
         used = count + 1
-        resp = await update.message.reply_text(f"⚡ 강제스폰! ({used}/50회)")
+        resp = await update.message.reply_text(f"{icon_emoji('bolt')} 강제스폰! ({used}/50회)", parse_mode="HTML")
         schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         logger.info(f"force_spawn: success in chat {chat_id} ({used}/50)")
     except Exception as e:
