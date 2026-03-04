@@ -725,7 +725,7 @@ def _build_system_prompt(pokemon_data: list, meta: dict) -> str:
         ranker_lines.append(f"- {r['name']}: {r['wins']}승/{r['losses']}패 BP:{r['bp']} 연승:{r['streak']}")
 
     return f"""당신은 TGPoke(텔레포켓몬) 배틀 전략 AI 어드바이저입니다. 한국어로 답변하세요.
-TGPoke는 텔레그램 기반 포켓몬 수집·육성·배틀 게임으로, 원작과 비슷하지만 독자적인 전투 시스템을 사용합니다.
+TGPoke는 텔레그램 기반 포켓몬 수집·육성·배틀 시뮬레이터로, 원작과 비슷하지만 독자적인 전투 시스템을 사용합니다.
 
 ## 배틀 시스템 핵심
 - 팀은 최대 6마리. 전설(legendary) 최대 1마리, 에픽(epic) 같은 종 중복 불가
