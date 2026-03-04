@@ -104,7 +104,7 @@ SPAWN_TIERS = [
 ]
 
 # --- Catch Limits (Anti-abuse) ---
-MAX_CATCH_ATTEMPTS_PER_DAY = 10
+MAX_CATCH_ATTEMPTS_PER_DAY = 20
 CONSECUTIVE_CATCH_COOLDOWN = 2     # After N consecutive catches, skip next
 
 # --- Nurture System ---
@@ -376,8 +376,8 @@ BP_PERFECT_WIN = 50                 # 무피해 완승 보너스
 BP_STREAK_BONUS = 10                # 3연승마다 추가
 BP_MASTERBALL_COST = 200            # 마스터볼 1개 가격
 BP_MASTERBALL_DAILY_LIMIT = 3       # 마스터볼 일일 구매 제한
-BP_FORCE_SPAWN_TICKET_COST = 0      # 강제스폰권 가격 (이벤트: 무료, 원래 500)
-BP_POKEBALL_RESET_COST = 0          # 포켓볼 초기화(100개) 가격 (이벤트: 무료, 원래 200)
+BP_FORCE_SPAWN_TICKET_COST = 500      # 강제스폰권 가격 (이벤트: 무료, 원래 500)
+BP_POKEBALL_RESET_COST = 200          # 포켓볼 초기화(100개) 가격 (이벤트: 무료, 원래 200)
 BP_HYPER_BALL_COST = 20              # 하이퍼볼 1회 사용 BP
 HYPER_BALL_CATCH_MULTIPLIER = 3.0    # 하이퍼볼 포획률 배수
 
@@ -419,7 +419,7 @@ TOURNAMENT_PRIZE_4TH_BP = 50    # 4강 BP
 
 # --- Tournament Titles ---
 TOURNAMENT_TITLES = {
-    "tournament_first": ("초대 챔피언",     "🏛️", "최초의 토너먼트 우승자",  "tournament_first", 1),
+    "tournament_first": ("쉬었음청년",     "🏛️", "임시대회 우승자",  "tournament_first", 1),
     "tournament_champ": ("토너먼트 챔피언", "🏆", "토너먼트 우승 1회",       "tournament_win", 1),
 }
 UNLOCKABLE_TITLES.update(TOURNAMENT_TITLES)
@@ -448,24 +448,56 @@ YACHA_CHALLENGE_TIMEOUT = 60               # 수락 대기 시간 (1분)
 
 # 야차 티배깅 멘트 (20개, 랜덤)
 YACHA_TEABAG_MESSAGES = [
-    "💀 {winner}이(가) {loser}에게 비웃었다! 치욕적인 패배...",
-    '💀 {winner}: "다음엔 잘 해보세요~"',
-    "💀 {loser}의 지갑이 가벼워졌다...",
-    "💀 {winner}이(가) {loser}의 BP를 맛있게 먹었다!",
-    '💀 {winner}: "감사합니다 ㅋㅋ"',
-    "💀 {loser}... 이게 야차의 무서움이다",
-    "💀 {winner}이(가) 승리의 춤을 춘다! 💃",
-    "💀 돈을 잃은 {loser}의 눈에서 빛이 사라졌다...",
-    '💀 {winner}: "다시 올 때 더 많이 가져와"',
-    "💀 {loser}의 포켓몬들이 고개를 숙였다...",
-    "💀 {winner}이(가) {loser}의 빈 지갑을 구경한다",
-    "💀 {loser}: (할 말을 잃었다)",
-    "💀 야차의 신이 {winner}에게 미소짓는다",
-    "💀 {winner}이(가) 전리품을 챙기며 유유히 떠난다",
-    "💀 {loser}의 통장에서 찬바람이 분다... 🌬️",
-    '💀 {winner}: "이 정도면 쉬운 돈이네"',
-    "💀 {loser}의 포켓몬이 트레이너를 원망스럽게 바라본다",
-    "💀 오늘의 교훈: {loser}, 야차는 아무나 하는 게 아니다",
-    "💀 {winner}이(가) BP를 세며 흐뭇해한다 🤑",
-    "💀 {loser}... 그래도 경험은 +1 됐잖아? (위로)",
+    # --- 크립토 테마 ---
+    '💀 {loser} 청산됨',
+    '💀 {winner}: "{loser}아 시드 얼마 남았어" {loser}: "..."',
+    '💀 아직도 야차해? 비탈릭도 팔고 있는데',
+    '💀 비트 1억 간다! 아.. {loser} BP는 0원 간다',
+    '💀 {loser}의 BP가 루나됨',
+    '💀 {winner}: "고점에 물렸네 ㅋ"',
+    '💀 {loser}아 존버해봤자 상폐인데',
+    '💀 숏 쳤는데 떡상한 기분이 이런건가 — {loser}',
+    '💀 {winner}: "김프 먹듯이 잘 먹었습니다"',
+    '💀 {loser} 물타기 하고 싶은데 물이 없음',
+    '💀 {loser}의 BP 차트 데드크로스 뜸',
+    '💀 {winner}: "이거 투자야 기부야?"',
+    '💀 {loser}아 손절은 빠를수록 좋은건데',
+    '💀 {loser}에게 마진콜이 왔습니다',
+    '💀 코인은 반등이라도 있지.. 야차는 없어',
+    '💀 {loser} 매수 타이밍 실화냐 고점 롱이잖아',
+    '💀 {winner}: "다이아몬드 핸즈래놓고 종이였네"',
+    '💀 {loser}아 업비트 말고 야차부터 접어',
+    '💀 {loser}의 포폴: BTC -90% ETH -95% 야차 -100%',
+    '💀 {winner}: "또 와 ㅎ 오늘 수익률 좋다"',
+    # --- 일반/트렌드 ---
+    '💀 {loser} 공양 감사합니다',
+    '💀 {winner}: "팀 그대로 온거야..?"',
+    '💀 {loser}아 그거 배틀이야 기부야',
+    '💀 {winner}이(가) 밤티를 시전했다 ☕',
+    '💀 {loser}의 포켓몬이 트레이너를 원망하는 눈빛',
+    '💀 {winner}: "아 미안 나 팀도 안 바꿨는데"',
+    '💀 {loser}아 리플레이 볼 필요 없어 봐도 답 없음',
+    '💀 {winner}: "녹화했는데 올려도 돼?"',
+    '💀 {loser} 택배 왔다 📦 (내용물: L)',
+    '💀 {loser}아 배틀 말고 수집이 맞는 것 같아',
+    '💀 {winner}: "스킬 한번도 안 떴어? 그건 좀.."',
+    '💀 {loser}아 포켓몬한테 미안하지도 않냐',
+    '💀 {loser}의 포켓몬이 트레이너를 바꾸고 싶어함',
+    '💀 {winner}: "다음엔 팀 좀 바꿔와"',
+    "💀 방금 그 배틀 교본에 실린다 '이러면 안 됩니다' 편",
+    '💀 {loser}아 이겨본 적은 있지? 설마',
+    '💀 {winner}: "gg" {loser}: (읽씹)',
+    '💀 세상에 공짜는 없는데 {loser} BP는 공짜였음',
+    '💀 {loser}아 그 팀으로 야차를 왜 걸어 용감하긴 하다',
+    '💀 {winner}: "저녁은 {loser} BP로 먹는다 🍗"',
+    '💀 {winner}: "ChatGPT한테 배틀 상담 좀 받고올래?"',
 ]
+
+
+# --- Custom Emoji IDs (Rarity Badges) ---
+RARITY_CUSTOM_EMOJI = {
+    "legendary": "6141080849845591919",
+    "epic": "6141022159117492116",
+    "rare": "6140797725601438152",
+    "common": "6140791433474351151",
+}

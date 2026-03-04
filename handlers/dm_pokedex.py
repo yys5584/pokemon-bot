@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
-from utils.helpers import hearts_display, rarity_display, escape_html
+from utils.helpers import hearts_display, rarity_display, rarity_badge, rarity_badge_label, escape_html
 from utils.card_generator import generate_card
 
 logger = logging.getLogger(__name__)
@@ -71,8 +71,9 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             entry = caught_ids[pid]
             evo_mark = " ★진화" if entry["method"] == "evolve" else ""
             trade_mark = " 🔄교환" if entry["method"] == "trade" else ""
+            rb = rarity_badge(pm["rarity"])
             lines.append(
-                f"{pid:03d} {pm['emoji']} {pm['name_ko']}{evo_mark}{trade_mark}"
+                f"{pid:03d} {rb}{pm['emoji']} {pm['name_ko']}{evo_mark}{trade_mark}"
             )
         else:
             lines.append(f"{pid:03d} ・ ???")
@@ -95,6 +96,7 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "\n".join(lines),
         reply_markup=markup,
+        parse_mode="HTML",
     )
 
 
@@ -134,8 +136,9 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             entry = caught_ids[pid]
             evo_mark = " ★진화" if entry["method"] == "evolve" else ""
             trade_mark = " 🔄교환" if entry["method"] == "trade" else ""
+            rb = rarity_badge(pm["rarity"])
             lines.append(
-                f"{pid:03d} {pm['emoji']} {pm['name_ko']}{evo_mark}{trade_mark}"
+                f"{pid:03d} {rb}{pm['emoji']} {pm['name_ko']}{evo_mark}{trade_mark}"
             )
         else:
             lines.append(f"{pid:03d} ・ ???")
@@ -158,6 +161,7 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             "\n".join(lines),
             reply_markup=markup,
+            parse_mode="HTML",
         )
     except Exception:
         pass  # Message might not have changed
@@ -194,12 +198,12 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         idx = max(0, min(num - 1, len(pokemon_list) - 1))
         page = idx // MYPOKE_PAGE_SIZE
         detail_text, detail_markup = _build_detail_view(user_id, pokemon_list, idx, page)
-        await update.message.reply_text(detail_text, reply_markup=detail_markup)
+        await update.message.reply_text(detail_text, reply_markup=detail_markup, parse_mode="HTML")
         return
 
     # Default: show list view page 0
     list_text, list_markup = _build_list_view(user_id, pokemon_list, page=0)
-    await update.message.reply_text(list_text, reply_markup=list_markup)
+    await update.message.reply_text(list_text, reply_markup=list_markup, parse_mode="HTML")
 
 
 def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, InlineKeyboardMarkup]:
@@ -228,7 +232,8 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int) -> tuple[str, 
         elif p["evolves_to"] and p["evolution_method"] == "trade":
             evo_mark = " 🔄교환진화"
 
-        lines.append(f"{num}. {shiny_mark}{p['emoji']} {p['name_ko']}  {hearts}{evo_mark}")
+        rb = rarity_badge(p.get("rarity", ""))
+        lines.append(f"{num}. {rb}{shiny_mark}{p['emoji']} {p['name_ko']}  {hearts}{evo_mark}")
 
     lines.append(f"\n번호를 눌러 상세 보기 / 밥·놀기")
 
@@ -279,7 +284,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
     elif p["evolves_to"] and p["evolution_method"] == "trade":
         evo_text = "\n🔄 교환으로 진화 가능"
 
-    rarity_text = rarity_display(p["rarity"])
+    rarity_text = rarity_badge_label(p["rarity"])
     shiny_text = "  ✨이로치" if p.get("is_shiny") else ""
 
     # IV information
@@ -369,7 +374,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             # List view
             page = int(parts[3])
             text, markup = _build_list_view(user_id, pokemon_list, page)
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "v":
             # Detail view
@@ -377,7 +382,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             page = int(parts[4]) if len(parts) > 4 else idx // MYPOKE_PAGE_SIZE
             idx = max(0, min(idx, len(pokemon_list) - 1))
             text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
     except Exception:
         pass
 
@@ -648,7 +653,7 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
         return
 
     pid = pokemon["id"]
-    rarity_text = rarity_display(pokemon["rarity"])
+    rarity_text = rarity_badge_label(pokemon["rarity"])
 
     # Check if user has it
     pokedex = await queries.get_user_pokedex(user_id)
@@ -681,7 +686,7 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
 
     # Generate 16:9 card image
     card_buf = generate_card(pid, pokemon["name_ko"], pokemon["rarity"], pokemon["emoji"])
-    await update.message.reply_photo(photo=card_buf, caption=caption)
+    await update.message.reply_photo(photo=card_buf, caption=caption, parse_mode="HTML")
 
 
 async def _build_evo_chain(pokemon: dict) -> str:

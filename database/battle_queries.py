@@ -386,7 +386,7 @@ async def get_bp_purchases_today(user_id: int, item: str) -> int:
         """SELECT COALESCE(SUM(amount), 0) as total
            FROM bp_purchase_log
            WHERE user_id = $1 AND item = $2
-             AND purchased_at::date = CURRENT_DATE""",
+             AND (purchased_at AT TIME ZONE 'Asia/Seoul')::date = (NOW() AT TIME ZONE 'Asia/Seoul')::date""",
         user_id, item,
     )
     return row["total"] if row else 0

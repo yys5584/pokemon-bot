@@ -71,7 +71,7 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"Tournament registration started for chat {chat_id}")
 
     # Send DM notification to all users
-    asyncio.create_task(_broadcast_tournament_dm(context))
+    # asyncio.create_task(_broadcast_tournament_dm(context))  # TEMP DISABLED
 
 
 async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
@@ -176,14 +176,14 @@ async def _run_match(
     """
     # Prepare combatants
     partner1 = await bq.get_partner(p1_id)
-    partner1_id = partner1["pokemon_instance_id"] if partner1 else None
+    partner1_id = partner1["instance_id"] if partner1 else None
     team1 = [
         _prepare_combatant(p, is_partner=(p.get("pokemon_instance_id") == partner1_id))
         for p in p1_data["team"]
     ]
 
     partner2 = await bq.get_partner(p2_id)
-    partner2_id = partner2["pokemon_instance_id"] if partner2 else None
+    partner2_id = partner2["instance_id"] if partner2 else None
     team2 = [
         _prepare_combatant(p, is_partner=(p.get("pokemon_instance_id") == partner2_id))
         for p in p2_data["team"]

@@ -95,8 +95,9 @@ async def post_init(application: Application):
     await start_dashboard()
     logger.info("Dashboard server started.")
 
+
     # Notify recently active users about restart
-    asyncio.create_task(_notify_restart(application.bot))
+    # asyncio.create_task(_notify_restart(application.bot))  # DM 알림 비활성화
 
 
 async def _notify_restart(bot):
@@ -140,6 +141,9 @@ async def midnight_reset(context):
 
     # Reset force spawn counts
     await queries.reset_force_spawn_counts()
+
+    # Reset daily spawn counts for chat rooms
+    await queries.reset_daily_spawn_counts()
 
     # Clean old activity data
     await queries.cleanup_old_activity(days=7)
@@ -349,17 +353,12 @@ def main():
     kst = timezone(timedelta(hours=9))
     app.job_queue.run_daily(
         midnight_reset,
-        time=dt_time(9, 0, 0, tzinfo=kst),
-        name="reset_9am",
-    )
-    app.job_queue.run_daily(
-        midnight_reset,
-        time=dt_time(21, 0, 0, tzinfo=kst),
-        name="reset_9pm",
+        time=dt_time(0, 0, 0, tzinfo=kst),
+        name="reset_midnight",
     )
 
-    # 3-hourly catch recharge (50%) at 0, 3, 6, 12, 15, 18 KST
-    # (9 KST and 21 KST already do full reset via midnight_reset)
+    # 3-hourly catch recharge at 3, 6, 9, 12, 15, 18, 21 KST
+    # (0 KST is full reset via midnight_reset)
     for hour in (0, 3, 6, 12, 15, 18):
         app.job_queue.run_daily(
             catch_recharge_job,

@@ -12,9 +12,30 @@ from database import queries
 from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_pokemon_boost
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
-from utils.helpers import schedule_delete, close_button
+from utils.helpers import schedule_delete, close_button, rarity_badge
 
 logger = logging.getLogger(__name__)
+
+# Track attempt messages for cleanup when spawn resolves
+# {session_id: [(chat_id, message_id), ...]}
+_attempt_messages: dict[int, list[tuple[int, int]]] = {}
+
+
+def track_attempt_message(session_id: int, chat_id: int, message_id: int):
+    """Store an attempt message for later deletion."""
+    if session_id not in _attempt_messages:
+        _attempt_messages[session_id] = []
+    _attempt_messages[session_id].append((chat_id, message_id))
+
+
+async def _delete_attempt_messages(bot, session_id: int):
+    """Delete all tracked attempt messages for a resolved spawn."""
+    messages = _attempt_messages.pop(session_id, [])
+    for cid, mid in messages:
+        try:
+            await bot.delete_message(chat_id=cid, message_id=mid)
+        except Exception:
+            pass
 
 
 def calculate_daily_spawns(member_count: int) -> int:
@@ -255,7 +276,7 @@ async def restore_temp_arcades(app):
         remaining = max(0, int((expires - datetime.now(timezone.utc)).total_seconds()))
 
         if remaining > 30:  # At least 30 seconds left
-            start_temp_arcade(app, chat_id, remaining)
+            start_temp_arcade(app, chat_id, remaining, interval=config.ARCADE_TICKET_SPAWN_INTERVAL)
             logger.info(f"Restored temp arcade for chat {chat_id} ({remaining}s remaining)")
 
 
@@ -433,12 +454,17 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Get all catch attempts
         attempts = await queries.get_session_attempts(session_id)
 
+        # Delete all attempt messages (도전!, 마스터볼 투척!, 하이퍼볼 투척!)
+        await _delete_attempt_messages(context.bot, session_id)
+
         if not attempts:
             # Nobody tried
             shiny_tag = " ✨이로치" if is_shiny else ""
+            rbadge = rarity_badge(rarity)
             escape_msg = await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"흔들흔들... 💨{shiny_tag} {pokemon_emoji} {pokemon_name} 도망갔다!",
+                text=f"흔들흔들... 💨{shiny_tag} {rbadge}{pokemon_emoji} {pokemon_name} 도망갔다!",
+                parse_mode="HTML",
             )
             schedule_delete(escape_msg, config.AUTO_DEL_SPAWN_ESCAPE)
             await queries.close_spawn_session(session_id)
@@ -490,9 +516,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         if not winners:
             # Everyone failed
             shiny_tag = " ✨이로치" if is_shiny else ""
+            rbadge = rarity_badge(rarity)
             escape_msg = await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"흔들흔들... 💨{shiny_tag} {pokemon_emoji} {pokemon_name} 도망갔다!",
+                text=f"흔들흔들... 💨{shiny_tag} {rbadge}{pokemon_emoji} {pokemon_name} 도망갔다!",
+                parse_mode="HTML",
             )
             schedule_delete(escape_msg, config.AUTO_DEL_SPAWN_ESCAPE)
             await queries.close_spawn_session(session_id)
@@ -559,15 +587,16 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         iv_grade, _stars = config.get_iv_grade(iv_sum)
         iv_tag = f" [{iv_grade}]" if iv_grade in ("S", "A") else f" [{iv_grade}]"
 
+        rbadge = rarity_badge(rarity)
         if winner.get("used_master_ball"):
-            msg = f"🟣 마스터볼! {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 확정 포획!{iv_tag}"
+            msg = f"🟣 마스터볼! {decorated} — {shiny_label}{rbadge}{pokemon_emoji} {pokemon_name} 확정 포획!{iv_tag}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
-            msg = f"🔵 하이퍼볼! {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획!{iv_tag}"
+            msg = f"🔵 하이퍼볼! {decorated} — {shiny_label}{rbadge}{pokemon_emoji} {pokemon_name} 포획!{iv_tag}"
         elif rarity in ("epic", "legendary") and is_first:
-            msg = f"🌟 {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획! (이 방 최초){iv_tag}"
+            msg = f"🌟 {decorated} — {shiny_label}{rbadge}{pokemon_emoji} {pokemon_name} 포획! (이 방 최초){iv_tag}"
         else:
-            msg = f"딸깍! ✨ {decorated} — {shiny_label}{pokemon_emoji} {pokemon_name} 포획!{iv_tag}"
+            msg = f"딸깍! ✨ {decorated} — {shiny_label}{rbadge}{pokemon_emoji} {pokemon_name} 포획!{iv_tag}"
 
         # Shiny catch announcement
         if is_shiny:
@@ -594,7 +623,16 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id, text=msg, parse_mode="HTML",
             reply_markup=close_button(),
         )
-        schedule_delete(catch_msg, config.AUTO_DEL_CATCH_RESULT)
+        # catch result stays visible
+
+        # DM notification to catcher
+        try:
+            dm_text = f"🎉 {pokemon_emoji} {pokemon_name} 포획 성공!"
+            if is_shiny:
+                dm_text = f"✨ {dm_text} (★이로치)"
+            asyncio.create_task(context.bot.send_message(chat_id=winner_id, text=dm_text))
+        except Exception:
+            pass
 
         # Check and unlock titles
         from utils.title_checker import check_and_unlock_titles
@@ -608,7 +646,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\nDM에서 '칭호'로 장착하세요!",
                 parse_mode="HTML",
             )
-            schedule_delete(title_msg, config.AUTO_DEL_CATCH_RESULT)
+            # title msg stays visible
 
         # Also check titles for failed catchers (background, non-blocking)
         async def _bg_check_failed():

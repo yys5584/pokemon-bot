@@ -343,7 +343,12 @@ async def get_user_pokemon_list(user_id: int) -> list[dict]:
            FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
            WHERE up.user_id = $1 AND up.is_active = 1
-           ORDER BY up.id""",
+           ORDER BY CASE pm.rarity
+               WHEN 'legendary' THEN 1
+               WHEN 'epic' THEN 2
+               WHEN 'rare' THEN 3
+               WHEN 'common' THEN 4
+           END, up.id DESC""",
         user_id,
     )
     return [dict(r) for r in rows]
@@ -593,7 +598,7 @@ async def update_chat_spawn_info(chat_id: int, target: int):
     pool = await get_db()
     await pool.execute(
         """UPDATE chat_rooms
-           SET spawns_today_target = $1, daily_spawn_count = 0
+           SET spawns_today_target = $1
            WHERE chat_id = $2""",
         target, chat_id,
     )
@@ -797,6 +802,15 @@ async def get_bonus_catches(user_id: int, date: str) -> int:
         user_id, date,
     )
     return row["bonus_catches"] if row else 0
+
+
+async def reset_bonus_catches(user_id: int, date: str):
+    """Reset bonus catches to 0 (shop pokeball reset)."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE catch_limits SET bonus_catches = 0 WHERE user_id = $1 AND date = $2",
+        user_id, date,
+    )
 
 
 # ============================================================

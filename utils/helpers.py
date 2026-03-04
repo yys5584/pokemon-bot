@@ -5,7 +5,7 @@ import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from config import TITLES, LEGEND_HUNTER_THRESHOLD, LEGEND_HUNTER_TITLE, RARITY_EMOJI, RARITY_LABEL
+from config import TITLES, LEGEND_HUNTER_THRESHOLD, LEGEND_HUNTER_TITLE, RARITY_EMOJI, RARITY_LABEL, RARITY_CUSTOM_EMOJI
 from database import queries
 
 _logger = logging.getLogger(__name__)
@@ -47,10 +47,29 @@ def hearts_display(friendship: int, max_hearts: int = 5) -> str:
 
 
 def rarity_display(rarity: str) -> str:
-    """Display rarity with emoji and label."""
+    """Display rarity with emoji and label (plain text)."""
     emoji = RARITY_EMOJI.get(rarity, "⚪")
     label = RARITY_LABEL.get(rarity, rarity)
     return f"{emoji} {label}"
+
+
+def rarity_badge(rarity: str) -> str:
+    """Return custom emoji HTML tag for rarity badge (no label)."""
+    eid = RARITY_CUSTOM_EMOJI.get(rarity, "")
+    fallback = RARITY_EMOJI.get(rarity, "⚪")
+    if eid:
+        return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji>'
+    return fallback
+
+
+def rarity_badge_label(rarity: str) -> str:
+    """Return custom emoji HTML tag + Korean label."""
+    eid = RARITY_CUSTOM_EMOJI.get(rarity, "")
+    fallback = RARITY_EMOJI.get(rarity, "⚪")
+    label = RARITY_LABEL.get(rarity, rarity)
+    if eid:
+        return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji> {label}'
+    return f"{fallback} {label}"
 
 
 async def calculate_title(user_id: int) -> tuple[str, str]:

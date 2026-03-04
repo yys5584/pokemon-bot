@@ -9,7 +9,7 @@ import config
 from database import queries
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, format_stats_line, get_type_multiplier, EVO_STAGE_MAP
-from utils.helpers import escape_html, truncate_name
+from utils.helpers import escape_html, truncate_name, rarity_badge
 
 logger = logging.getLogger(__name__)
 
@@ -226,7 +226,7 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         partner_id = partner["instance_id"] if partner else None
         text_msg, markup = _build_partner_list(owner_id, pokemon_list, page, partner_id)
         try:
-            await query.edit_message_text(text_msg, reply_markup=markup)
+            await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -300,9 +300,11 @@ def _build_team_select(user_id: int, pokemon_list: list, selected: list[int],
         type_emoji = config.TYPE_EMOJI.get(p.get("pokemon_type", "normal"), "")
         if idx in selected_set:
             slot_num = selected.index(idx)
-            lines.append(f"{slot_emojis[slot_num]} {type_emoji}{p['emoji']} {p['name_ko']}")
+            rb = rarity_badge(p.get("rarity", ""))
+            lines.append(f"{slot_emojis[slot_num]} {rb}{type_emoji}{p['emoji']} {p['name_ko']}")
         else:
-            lines.append(f"　 {num}. {type_emoji}{p['emoji']} {p['name_ko']}")
+            rb = rarity_badge(p.get("rarity", ""))
+            lines.append(f"　 {num}. {rb}{type_emoji}{p['emoji']} {p['name_ko']}")
 
     # Encode selected indices as compact string
     sel_str = ",".join(str(s) for s in selected) if selected else "x"
@@ -398,7 +400,7 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("보유한 포켓몬이 없습니다.")
             return
         text_msg, markup = _build_team_select(user_id, pokemon_list, [], 0, team_num)
-        await update.message.reply_text(text_msg, reply_markup=markup)
+        await update.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
         return
 
     partner = await bq.get_partner(user_id)
@@ -419,8 +421,9 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         type_emoji = config.TYPE_EMOJI.get(p["pokemon_type"], "")
         partner_mark = " 🤝" if p["pokemon_instance_id"] == partner_instance else ""
+        rb = rarity_badge(p["rarity"])
         lines.append(
-            f"{slot_emojis[i]} {type_emoji}{p['emoji']} {p['name_ko']}{partner_mark}  "
+            f"{slot_emojis[i]} {rb}{type_emoji}{p['emoji']} {p['name_ko']}{partner_mark}  "
             f"{format_stats_line(stats)}"
         )
 
@@ -431,7 +434,7 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         InlineKeyboardButton("🔄 변경", callback_data=f"tcl_{user_id}_0_keep_{team_num}"),
         InlineKeyboardButton("🗑 해제", callback_data=f"tdel_{user_id}_{team_num}"),
     ]])
-    await update.message.reply_text("\n".join(lines), reply_markup=buttons)
+    await update.message.reply_text("\n".join(lines), reply_markup=buttons, parse_mode="HTML")
 
 
 def _parse_team_number(text: str) -> int:
@@ -468,7 +471,7 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
         current_team = await bq.get_battle_team(user_id, team_num)
         pre_selected = _team_to_selected(current_team, pokemon_list) if current_team else []
         text_msg, markup = _build_team_select(user_id, pokemon_list, pre_selected, 0, team_num)
-        await update.message.reply_text(text_msg, reply_markup=markup)
+        await update.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
         return
 
     # "팀등록1 1 3 5" → text-based registration
@@ -657,7 +660,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             return
         text_msg, markup = _build_team_select(owner_id, pokemon_list, selected, page, tn)
         try:
-            await query.edit_message_text(text_msg, reply_markup=markup)
+            await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -677,7 +680,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             return
         text_msg, markup = _build_team_select(owner_id, pokemon_list, selected, page, tn)
         try:
-            await query.edit_message_text(text_msg, reply_markup=markup)
+            await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -788,7 +791,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             pre_selected = _team_to_selected(current_team, pokemon_list) if current_team else []
         text_msg, markup = _build_team_select(owner_id, pokemon_list, pre_selected, page, tn)
         try:
-            await query.edit_message_text(text_msg, reply_markup=markup)
+            await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -890,7 +893,7 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💰 보유 BP: {bp}\n",
         f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
         f"⚡ 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
-        f"🔴 포켓볼 충전 100개 — {pb_label}",
+        f"🔴 포켓볼 충전 리셋 — {pb_label}",
         f"🔵 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
         f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
     ]
@@ -901,7 +904,7 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton(f"⚡ 강스권", callback_data="shop_forcespawn"),
         ],
         [
-            InlineKeyboardButton(f"🔴 포켓볼 100개", callback_data="shop_pokeball"),
+            InlineKeyboardButton(f"🔴 포켓볼 리셋", callback_data="shop_pokeball"),
             InlineKeyboardButton(f"🔵 하이퍼볼", callback_data="shop_hyperball"),
         ],
         [
@@ -988,15 +991,13 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         today = config.get_kst_today()
-        await queries.add_bonus_catches(user_id, today, 100)
-        await bq.log_bp_purchase(user_id, "pokeball_100", 1)
+        await queries.reset_bonus_catches(user_id, today)
+        await bq.log_bp_purchase(user_id, "pokeball_reset", 1)
         bp = await bq.get_bp(user_id)
-        bonus = await queries.get_bonus_catches(user_id, today)
-        total = config.MAX_CATCH_ATTEMPTS_PER_DAY + bonus
         await update.message.reply_text(
-            f"🔴 포켓볼 100개 충전 완료!\n"
+            f"🔴 포켓볼 충전 한도 리셋 완료!\n"
             f"💰 남은 BP: {bp}\n"
-            f"📦 오늘 잡기 가능: {total}회"
+            f"🔄 다시 포켓볼 충전 으로 10개씩 충전 가능! (최대 100개)"
         )
 
     elif item in ("하이퍼볼", "하이퍼", "ㅎ"):
@@ -1115,10 +1116,10 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
             return
         today = config.get_kst_today()
-        await queries.add_bonus_catches(user_id, today, 100)
-        await bq.log_bp_purchase(user_id, "pokeball_100", 1)
+        await queries.reset_bonus_catches(user_id, today)
+        await bq.log_bp_purchase(user_id, "pokeball_reset", 1)
         bp = await bq.get_bp(user_id)
-        await query.answer(f"🔴 포켓볼 100개 충전! (남은 BP: {bp})", show_alert=True)
+        await query.answer(f"🔴 충전 한도 리셋! 다시 충전 가능 (남은 BP: {bp})", show_alert=True)
 
     elif item == "하이퍼볼":
         cost = config.BP_HYPER_BALL_COST
@@ -1164,7 +1165,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             f"💰 보유 BP: {bp}\n",
             f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
             f"⚡ 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
-            f"🔴 포켓볼 충전 100개 — {pb_label}",
+            f"🔴 포켓볼 충전 리셋 — {pb_label}",
             f"🔵 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
             f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
         ]
@@ -1175,7 +1176,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 InlineKeyboardButton(f"⚡ 강스권", callback_data="shop_forcespawn"),
             ],
             [
-                InlineKeyboardButton(f"🔴 포켓볼 100개", callback_data="shop_pokeball"),
+                InlineKeyboardButton(f"🔴 포켓볼 리셋", callback_data="shop_pokeball"),
                 InlineKeyboardButton(f"🔵 하이퍼볼", callback_data="shop_hyperball"),
             ],
             [
@@ -1474,11 +1475,14 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
         except Exception:
             pass
 
-        # Send teabag as new message in chat
+        # Send random teabag message (same pool as yacha)
+        msg = random.choice(config.YACHA_TEABAG_MESSAGES).format(
+            winner=w_name, loser=l_name,
+        )
         try:
             await context.bot.send_message(
                 chat_id=query.message.chat_id,
-                text=f"🫖 {w_name}이(가) {l_name}을(를) 조롱했다!",
+                text=msg,
             )
         except Exception:
             pass

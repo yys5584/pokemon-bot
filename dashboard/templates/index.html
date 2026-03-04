@@ -130,6 +130,19 @@
         .fun-card .fun-title{color:var(--muted);font-size:10px;margin:2px 0}
         .fun-card .fun-value{font-size:16px;font-weight:700;color:var(--text)}
         .fun-card .fun-name{color:var(--gold);font-size:11px}
+        .tw-badge{font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.08);color:var(--gold);cursor:help}
+
+        /* Battle & Ranking 2-col layout */
+        .grid-rank{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin-bottom:10px}
+
+        /* Tier collapsible */
+        .tier-group-hdr{display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;user-select:none;border-bottom:1px solid var(--border)}
+        .tier-group-hdr:hover{background:var(--hover)}
+        .tier-group-hdr .arrow{transition:transform .2s;font-size:10px;color:var(--muted)}
+        .tier-group-hdr .arrow.open{transform:rotate(90deg)}
+        .tier-group-body{overflow:hidden}
+        .tier-group-body.collapsed{display:none}
+        tr.op-row td{background:rgba(230,57,70,.08)}
 
         /* Channel rank card */
         .ch-rank{display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border)}
@@ -151,6 +164,7 @@
         /* Responsive */
         @media(max-width:900px){
             .grid-2,.grid-3{grid-template-columns:1fr 1fr}
+            .grid-rank{grid-template-columns:1fr}
             .cards{grid-template-columns:repeat(3,1fr)}
         }
         /* Type Chart */
@@ -172,6 +186,7 @@
 
         @media(max-width:600px){
             .grid-2,.grid-3{grid-template-columns:1fr}
+            .grid-rank{grid-template-columns:1fr}
             .cards{grid-template-columns:repeat(2,1fr)}
             .container{padding:8px 6px}
             .nav-tab{padding:8px 14px;font-size:12px}
@@ -207,10 +222,10 @@
                 <div class="section"><h2>📈 DAU & 리텐션</h2><div id="dauSection"><div class="loading">로딩 중...</div></div></div>
                 <div class="section"><h2>💰 경제 건강도</h2><div id="economySection"><div class="loading">로딩 중...</div></div></div>
             </div>
-            <div class="grid-3" id="funHighlights"></div>
-            <div class="grid-2">
+            <div class="grid-3">
+                <div class="section"><h2>🏆 토너먼트 우승자</h2><div id="tournamentWinners"><div class="loading">로딩 중...</div></div></div>
+                <div class="section"><h2>📖 도감 랭킹</h2><div id="usersTable"><div class="loading">로딩 중...</div></div></div>
                 <div class="section"><h2>⭐ 이로치 보유자</h2><div id="shinyHoldersHome"><div class="loading">로딩 중...</div></div></div>
-                <div class="section"><h2>🏆 도감 랭킹</h2><div id="usersTable"><div class="loading">로딩 중...</div></div></div>
             </div>
             <div class="section"><h2>📋 최근 스폰</h2><div id="recentLogHome"><div class="loading">로딩 중...</div></div></div>
         </div>
@@ -223,9 +238,13 @@
 
         <!-- BATTLE & RANKING -->
         <div class="page" id="page-battlerank">
-            <div class="section"><h2>⚔️ 배틀 랭킹</h2><div id="battleRanking"><div class="loading">로딩 중...</div></div></div>
-            <div class="section"><h2>🏆 도감 랭킹</h2><div id="fullUsersTable"><div class="loading">로딩 중...</div></div></div>
-            <div class="section"><h2>⭐ 이로치 보유자</h2><div id="shinyHoldersFull"><div class="loading">로딩 중...</div></div></div>
+            <div class="grid-rank">
+                <div class="section"><h2>⚔️ 배틀 랭킹</h2><div id="battleRanking"><div class="loading">로딩 중...</div></div></div>
+                <div>
+                    <div class="section"><h2>📖 도감 랭킹</h2><div id="fullUsersTable"><div class="loading">로딩 중...</div></div></div>
+                    <div class="section" style="margin-top:10px"><h2>⭐ 이로치 보유자</h2><div id="shinyHoldersFull"><div class="loading">로딩 중...</div></div></div>
+                </div>
+            </div>
         </div>
 
         <!-- POKEMON TIER -->
@@ -278,7 +297,7 @@ async function fetchJSON(u){
 }
 function rarityBadge(r){const l={common:"일반",rare:"희귀",epic:"에픽",legendary:"전설"};return`<span class="badge badge-${r}">${l[r]||r}</span>`}
 function tierBadge(t){const c={"S+":"sp","S":"s","A+":"ap","A":"a","B+":"bp","B":"b","C+":"cp","C":"c","D+":"dp","D":"d"};return`<span class="tier tier-${c[t]||'d'}">${t}</span>`}
-function formatTime(t){return t?t.replace("T"," ").substring(0,16):"-"}
+function formatTime(t){if(!t)return"-";var d=new Date(t);d=new Date(d.getTime()+9*60*60*1000);return d.toISOString().replace("T"," ").substring(0,16)}
 function simpleTable(h,rows){
     if(!rows||!rows.length)return'<p class="empty-msg">데이터 없음</p>';
     return`<table><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
@@ -357,10 +376,10 @@ function loadCurrentPage(){
 
 // --- HOME ---
 async function loadHome(){
-    const[d,kpi,events,dkpi,spawns]=await Promise.all([
+    const[d,kpi,events,dkpi,spawns,tWinners]=await Promise.all([
         fetchJSON("/api/overview"),fetchJSON("/api/fun-kpis"),
         fetchJSON("/api/events"),fetchJSON("/api/dashboard-kpi"),
-        fetchJSON("/api/spawns/recent")
+        fetchJSON("/api/spawns/recent"),fetchJSON("/api/tournament/winners")
     ]);
 
     // Overview cards
@@ -413,15 +432,7 @@ async function loadHome(){
             </div>`;
     }else{ecoEl.innerHTML='<p class="empty-msg">서버 업데이트 후 이용 가능합니다</p>'}
 
-    // Fun highlights
-    const hl=document.getElementById("funHighlights"),cards=[];
-    if(kpi.escape_masters&&kpi.escape_masters.length){const e=kpi.escape_masters[0];cards.push(`<div class="fun-card"><div class="fun-emoji">💨</div><div class="fun-title">도망 장인</div><div class="fun-value">${e.catch_fail_count}회</div><div class="fun-name">${e.display_name}</div></div>`)}
-    if(kpi.night_owls&&kpi.night_owls.length){const n=kpi.night_owls[0];cards.push(`<div class="fun-card"><div class="fun-emoji">🦉</div><div class="fun-title">올빼미족</div><div class="fun-value">${n.midnight_catch_count}회</div><div class="fun-name">${n.display_name}</div></div>`)}
-    if(kpi.love_leaders&&kpi.love_leaders.length){const l=kpi.love_leaders[0];cards.push(`<div class="fun-card"><div class="fun-emoji">💕</div><div class="fun-title">사랑꾼</div><div class="fun-value">${l.love_count}회</div><div class="fun-name">${l.display_name}</div></div>`)}
-    if(kpi.longest_streak)cards.push(`<div class="fun-card"><div class="fun-emoji">📅</div><div class="fun-title">최장 연속출석</div><div class="fun-value">${kpi.longest_streak.login_streak}일</div><div class="fun-name">${kpi.longest_streak.display_name}</div></div>`);
-    if(kpi.lucky_users&&kpi.lucky_users.length){const u=kpi.lucky_users[0];cards.push(`<div class="fun-card"><div class="fun-emoji">🍀</div><div class="fun-title">행운아</div><div class="fun-value">${u.catch_rate}%</div><div class="fun-name">${u.display_name}</div></div>`)}
-    if(kpi.unlucky_users&&kpi.unlucky_users.length){const u=kpi.unlucky_users[0];cards.push(`<div class="fun-card"><div class="fun-emoji">😭</div><div class="fun-title">불행아</div><div class="fun-value">${u.catch_rate}%</div><div class="fun-name">${u.display_name}</div></div>`)}
-    hl.innerHTML=cards.join("");
+
 
     // Shiny holders (compact, home)
     if(kpi.shiny_holders&&kpi.shiny_holders.length){
@@ -449,6 +460,19 @@ async function loadHome(){
         });
         document.getElementById("recentLogHome").innerHTML=h+"</ul>";
     }else{document.getElementById("recentLogHome").innerHTML='<p class="empty-msg">최근 스폰 없음</p>'}
+
+    // Tournament winners (table)
+    const twEl=document.getElementById("tournamentWinners");
+    if(tWinners&&tWinners.length){
+        let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th></tr></thead><tbody>`;
+        tWinners.forEach((w,i)=>{
+            const titleBadges=w.titles.map(t=>`<span class="tw-badge" title="${t.title_desc}">${t.title_emoji} ${t.title_name}</span>`).join(" ");
+            const teamTip=w.team.length?`<span class="tip-content">${w.team.map(p=>`${p.shiny?'✨':''}${p.emoji} ${p.name}`).join("<br>")}</span>`:"";
+            const nameCell=teamTip?`<span class="team-tip">${w.display_name}${teamTip}</span>`:w.display_name;
+            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${nameCell}</td><td>${titleBadges}</td></tr>`;
+        });
+        twEl.innerHTML=h+"</tbody></table>";
+    }else{twEl.innerHTML='<p class="empty-msg">아직 우승자가 없습니다</p>'}
 }
 
 // --- CHANNELS ---

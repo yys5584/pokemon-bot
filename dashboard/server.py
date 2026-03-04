@@ -292,10 +292,66 @@ def create_app() -> web.Application:
     app.router.add_get("/api/battle/ranking", api_battle_ranking)
     app.router.add_get("/api/battle/ranking-teams", api_battle_ranking_teams)
     app.router.add_get("/api/battle/tiers", api_battle_tiers)
+    app.router.add_get("/api/tournament/winners", api_tournament_winners)
     app.router.add_get("/api/dashboard-kpi", api_dashboard_kpi)
     app.router.add_get("/api/type-chart", api_type_chart)
     return app
 
+
+
+async def api_tournament_winners(request):
+    """Get tournament winners grouped by user, with battle team."""
+    from database.connection import get_db
+    pool = await get_db()
+    import config
+
+    # Get all tournament titles
+    rows = await pool.fetch("""
+        SELECT ut.title_id, ut.unlocked_at, ut.user_id,
+               u.display_name, u.username
+        FROM user_titles ut
+        JOIN users u ON ut.user_id = u.user_id
+        WHERE ut.title_id LIKE 'tournament%'
+        ORDER BY ut.unlocked_at DESC
+    """)
+
+    # Group by user
+    seen = {}
+    for r in rows:
+        uid = r["user_id"]
+        title_info = config.TOURNAMENT_TITLES.get(r["title_id"])
+        if not title_info:
+            continue
+        title_entry = {
+            "title_id": r["title_id"],
+            "title_name": title_info[0],
+            "title_emoji": title_info[1],
+            "title_desc": title_info[2],
+            "unlocked_at": r["unlocked_at"].isoformat() if r["unlocked_at"] else None,
+        }
+        if uid not in seen:
+            seen[uid] = {
+                "user_id": uid,
+                "display_name": r["display_name"],
+                "username": r["username"],
+                "titles": [],
+                "team": [],
+            }
+        seen[uid]["titles"].append(title_entry)
+
+    # Fetch battle teams for each winner
+    for uid, data in seen.items():
+        team_rows = await pool.fetch("""
+            SELECT bt.slot, pm.name_ko, pm.emoji, up.is_shiny
+            FROM battle_teams bt
+            JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
+            JOIN pokemon_master pm ON up.pokemon_id = pm.id
+            WHERE bt.user_id = $1
+            ORDER BY bt.slot
+        """, uid)
+        data["team"] = [{"slot": t["slot"], "name": t["name_ko"], "emoji": t["emoji"], "shiny": bool(t["is_shiny"])} for t in team_rows]
+
+    return pg_json_response(list(seen.values()))
 
 async def start_dashboard():
     """Start the dashboard web server in the background."""

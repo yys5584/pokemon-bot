@@ -11,6 +11,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from services.catch_service import can_attempt_catch, record_attempt
+from services.spawn_service import track_attempt_message
 from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete
 
 logger = logging.getLogger(__name__)
@@ -110,7 +111,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=f"🎯 {decorated} 도전!",
             parse_mode="HTML",
         )
-        schedule_delete(attempt_msg, config.AUTO_DEL_CATCH_ATTEMPT)
+        track_attempt_message(session["id"], chat_id, attempt_msg.message_id)
 
     except Exception as e:
         logger.error(f"Catch handler error: {e}")
@@ -171,7 +172,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             chat_id=chat_id,
             text=f"🟣 {display_name} 마스터볼 투척! (남은 마스터볼: {remaining}개)",
         )
-        schedule_delete(msg, config.AUTO_DEL_CATCH_ATTEMPT)
+        track_attempt_message(session["id"], chat_id, msg.message_id)
 
     except Exception as e:
         logger.error(f"Master ball handler error: {e}")
@@ -222,10 +223,11 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await queries.record_catch_attempt(session["id"], user_id, used_hyper_ball=True)
 
         remaining = await queries.get_hyper_balls(user_id)
-        await context.bot.send_message(
+        hyper_msg = await context.bot.send_message(
             chat_id=chat_id,
             text=f"🔵 {display_name} 하이퍼볼 투척! (남은: {remaining}개)",
         )
+        track_attempt_message(session["id"], chat_id, hyper_msg.message_id)
 
     except Exception as e:
         logger.error(f"Hyper ball handler error: {e}")
