@@ -328,6 +328,9 @@ def create_preview_app():
         "/api/tournament/winners", "/api/iv-ranking",
     ]:
         app.router.add_get(api_path, mock_json)
+    # SPA catch-all
+    for p in ["/channels", "/battle", "/tier", "/types", "/stats", "/mypokemon", "/ai"]:
+        app.router.add_get(p, index)
     return app
 
 

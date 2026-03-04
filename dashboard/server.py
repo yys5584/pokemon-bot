@@ -1539,6 +1539,10 @@ def create_app() -> web.Application:
     app.router.add_get("/api/tournament/winners", api_tournament_winners)
     app.router.add_get("/api/dashboard-kpi", api_dashboard_kpi)
     app.router.add_get("/api/type-chart", api_type_chart)
+    # SPA catch-all: serve index.html for all non-API, non-static paths
+    SPA_PAGES = {"/channels", "/battle", "/tier", "/types", "/stats", "/mypokemon", "/ai"}
+    for p in SPA_PAGES:
+        app.router.add_get(p, index)
     return app
 
 
