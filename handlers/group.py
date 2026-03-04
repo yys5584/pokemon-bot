@@ -396,9 +396,9 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if _love_daily_reward.get(user_id) != today:
         _love_daily_reward[user_id] = today
         await queries.add_hyper_ball(user_id, 1)
-        reward_msg = "\n\n🔵 출석 보상! 하이퍼볼 1개 지급!"
+        reward_msg = f"\n\n{ball_emoji('hyperball')} 출석 보상! 하이퍼볼 1개 지급!"
 
-    await update.message.reply_text(f"문유: {response}{reward_msg}")
+    await update.message.reply_text(f"문유: {response}{reward_msg}", parse_mode="HTML")
 
     # Title tracking in background (non-blocking)
     async def _bg_title_check():

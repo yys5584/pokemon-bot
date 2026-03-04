@@ -668,7 +668,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         # Check and unlock titles
         from utils.title_checker import check_and_unlock_titles
-        from utils.helpers import escape_html, icon_emoji
+        from utils.helpers import escape_html
         new_titles = await check_and_unlock_titles(winner_id)
         if new_titles:
             title_msgs = [
