@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
-from utils.helpers import hearts_display, rarity_display, rarity_badge, rarity_badge_label, escape_html, type_badge
+from utils.helpers import hearts_display, rarity_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji
 from utils.card_generator import generate_card
 from utils.parse import parse_number, parse_name_arg
 from utils.battle_calc import iv_total
@@ -1404,11 +1404,11 @@ async def type_chart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 target_type = eng
                 break
         if not target_type:
-            type_list = " ".join(f"{config.TYPE_EMOJI[t]}{config.TYPE_NAME_KO[t]}" for t in config.TYPE_ADVANTAGE)
-            await update.message.reply_text(f"'{name_arg}' 타입을 찾을 수 없습니다.\n\n사용 가능: {type_list}")
+            type_list = " ".join(f"{_type_emoji(t)}{config.TYPE_NAME_KO[t]}" for t in config.TYPE_ADVANTAGE)
+            await update.message.reply_text(f"'{name_arg}' 타입을 찾을 수 없습니다.\n\n사용 가능: {type_list}", parse_mode="HTML")
             return
 
-        emoji = config.TYPE_EMOJI.get(target_type, "")
+        te = _type_emoji(target_type)
         ko = config.TYPE_NAME_KO.get(target_type, target_type)
 
         # Offense: what this type is strong against
@@ -1418,7 +1418,6 @@ async def type_chart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         # Defense: what is strong against this type
         weak_to = []
-        resist = []
         immune_from = []
         for atk_type, adv_list in config.TYPE_ADVANTAGE.items():
             if target_type in adv_list:
@@ -1426,23 +1425,14 @@ async def type_chart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         for atk_type, imm_list in config.TYPE_IMMUNITY.items():
             if target_type in imm_list:
                 immune_from.append(atk_type)
-        # Resist: types whose attacks are not very effective
-        for atk_type, adv_list in config.TYPE_ADVANTAGE.items():
-            if atk_type in config.TYPE_ADVANTAGE.get(target_type, []):
-                # target is strong against atk_type → resists it
-                pass
-        # Simpler: types that target_type resists = types that list target_type in their disadvantage
-        # Actually resistance in this system: if defender's type is in attacker's advantage, attacker does 1.3x
-        # So resistance = attacker types where target_type is NOT in their advantage (neutral or resist)
-        # Let's show what's useful: weak_to and immune_from
 
         def fmt(types):
             if not types:
                 return "없음"
-            return " ".join(f"{config.TYPE_EMOJI.get(t, '')}{config.TYPE_NAME_KO.get(t, t)}" for t in types)
+            return " ".join(f"{_type_emoji(t)}{config.TYPE_NAME_KO.get(t, t)}" for t in types)
 
         lines = [
-            f"{emoji} {ko} 타입 상성\n",
+            f"{te} {ko} 타입 상성\n",
             f"⚔️ 공격 시 효과적 (1.3x):",
             f"  {fmt(strong)}",
         ]
@@ -1455,16 +1445,16 @@ async def type_chart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             lines.append(f"\n🛡️ 방어 시 면역 (0.3x 피해):")
             lines.append(f"  {fmt(immune_from)}")
 
-        await update.message.reply_text("\n".join(lines))
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
     else:
         # Full chart summary
         lines = ["⚔️ 타입 상성표\n"]
         for atk_type, adv_list in config.TYPE_ADVANTAGE.items():
             if not adv_list:
                 continue
-            emoji = config.TYPE_EMOJI.get(atk_type, "")
+            te = _type_emoji(atk_type)
             ko = config.TYPE_NAME_KO.get(atk_type, atk_type)
-            targets = " ".join(f"{config.TYPE_EMOJI.get(t, '')}{config.TYPE_NAME_KO.get(t, t)}" for t in adv_list)
-            lines.append(f"{emoji}{ko} → {targets}")
+            targets = " ".join(f"{_type_emoji(t)}{config.TYPE_NAME_KO.get(t, t)}" for t in adv_list)
+            lines.append(f"{te}{ko} → {targets}")
         lines.append(f"\n💡 상성 [타입] 으로 상세 보기\n예: 상성 불꽃")
-        await update.message.reply_text("\n".join(lines))
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
