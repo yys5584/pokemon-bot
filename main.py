@@ -89,8 +89,9 @@ async def post_init(application: Application):
     logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready. 251 Pokemon seeded.")
 
     # Phase 3: 독립 작업 병렬 (cleanup + missed_reset + dashboard)
+    from services.spawn_service import resolve_unresolved_sessions
     refunded_balls, *_ = await asyncio.gather(
-        queries.cleanup_expired_sessions(),
+        resolve_unresolved_sessions(application.bot),
         queries.cleanup_expired_events(),
         _check_missed_reset(),
         start_dashboard(),

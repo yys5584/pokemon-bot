@@ -720,3 +720,180 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Spawn resolution failed for session {session_id}: {e}")
         await queries.close_spawn_session(session_id)
+
+
+async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
+    """Resolve pending spawn sessions on startup instead of just cleaning up.
+    Returns list of (user_id, ball_type) for refunded balls."""
+    from database.connection import get_db
+
+    pool = await get_db()
+    # Find unresolved sessions with pokemon info
+    sessions = await pool.fetch("""
+        SELECT ss.id, ss.chat_id, ss.pokemon_id, pm.name_ko, pm.emoji,
+               pm.rarity, pm.catch_rate,
+               CASE WHEN ss.spawned_at < NOW() - INTERVAL '5 minutes' THEN 1 ELSE 0 END as too_old
+        FROM spawn_sessions ss
+        JOIN pokemon_master pm ON ss.pokemon_id = pm.id
+        WHERE ss.is_resolved = 0
+    """)
+
+    if not sessions:
+        return []
+
+    refunded = []
+    for sess in sessions:
+        session_id = sess["id"]
+        chat_id = sess["chat_id"]
+        pokemon_id = sess["pokemon_id"]
+        pokemon_name = sess["name_ko"]
+        rarity = sess["rarity"]
+        catch_rate = sess["catch_rate"]
+
+        try:
+            # Mark resolved
+            await pool.execute(
+                "UPDATE spawn_sessions SET is_resolved = 1 WHERE id = $1", session_id
+            )
+
+            # Too old (>5min) — just refund balls, skip resolve
+            if sess["too_old"]:
+                refund_rows = await pool.fetch(
+                    """SELECT user_id, used_master_ball, used_hyper_ball
+                       FROM catch_attempts WHERE session_id = $1
+                       AND (used_master_ball = 1 OR used_hyper_ball = 1)""",
+                    session_id,
+                )
+                for r in refund_rows:
+                    if r["used_master_ball"]:
+                        await pool.execute(
+                            "UPDATE users SET master_balls = master_balls + 1 WHERE user_id = $1",
+                            r["user_id"],
+                        )
+                        refunded.append((r["user_id"], "master"))
+                    if r["used_hyper_ball"]:
+                        await pool.execute(
+                            "UPDATE users SET hyper_balls = hyper_balls + 1 WHERE user_id = $1",
+                            r["user_id"],
+                        )
+                        refunded.append((r["user_id"], "hyper"))
+                continue
+
+            # Get attempts
+            attempts = await queries.get_session_attempts(session_id)
+            if not attempts:
+                rbadge = rarity_badge(rarity)
+                tb = type_badge(pokemon_id)
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=f"흔들흔들... {icon_emoji('windy')} {rbadge}{tb} {pokemon_name} 도망갔다!",
+                    parse_mode="HTML",
+                )
+                await queries.log_spawn(
+                    chat_id, pokemon_id, pokemon_name, sess["emoji"],
+                    rarity, None, None, 0,
+                )
+                continue
+
+            # Roll catches
+            catch_boost = await get_catch_boost()
+            effective_rate = min(1.0, catch_rate * catch_boost)
+
+            results = []
+            for attempt in attempts:
+                if attempt.get("used_master_ball"):
+                    roll, success = -1.0, True
+                elif attempt.get("used_hyper_ball"):
+                    hyper_rate = min(1.0, effective_rate * config.HYPER_BALL_CATCH_MULTIPLIER)
+                    roll = random.random()
+                    success = roll < hyper_rate
+                else:
+                    total = await queries.count_total_catches(attempt["user_id"])
+                    if total < 2:
+                        roll, success = 0.0, True
+                    else:
+                        roll = random.random()
+                        success = roll < effective_rate
+                results.append({
+                    "user_id": attempt["user_id"],
+                    "display_name": attempt["display_name"],
+                    "username": attempt["username"],
+                    "roll": roll, "success": success,
+                    "used_master_ball": bool(attempt.get("used_master_ball")),
+                    "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
+                })
+
+            winners = [r for r in results if r["success"]]
+            participants = len(attempts)
+
+            if not winners:
+                rbadge = rarity_badge(rarity)
+                tb = type_badge(pokemon_id)
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=f"흔들흔들... {icon_emoji('windy')} {rbadge}{tb} {pokemon_name} 도망갔다!",
+                    parse_mode="HTML",
+                )
+                await queries.log_spawn(
+                    chat_id, pokemon_id, pokemon_name, sess["emoji"],
+                    rarity, None, None, participants,
+                )
+                continue
+
+            # Pick winner
+            winners.sort(key=lambda x: x["roll"])
+            winner = winners[0]
+            winner_id = winner["user_id"]
+            winner_name = winner["display_name"]
+
+            # Refund master balls to losers
+            for loser in results:
+                if loser["used_master_ball"] and loser["user_id"] != winner_id:
+                    await queries.add_master_ball(loser["user_id"])
+                    refunded.append((loser["user_id"], "master"))
+
+            # Give pokemon
+            _inst_id, caught_ivs = await queries.give_pokemon_to_user(
+                winner_id, pokemon_id, chat_id,
+            )
+            await queries.register_pokedex(winner_id, pokemon_id, "catch")
+            await queries.close_spawn_session(session_id, caught_by=winner_id)
+
+            # Build message
+            from utils.helpers import get_decorated_name
+            from utils.battle_calc import iv_total
+            user_data = await queries.get_user(winner_id)
+            decorated = get_decorated_name(
+                winner_name,
+                user_data.get("title", "") if user_data else "",
+                user_data.get("title_emoji", "") if user_data else "",
+                winner.get("username"), html=True,
+            )
+            iv_sum = iv_total(caught_ivs["iv_hp"], caught_ivs["iv_atk"],
+                              caught_ivs["iv_def"], caught_ivs["iv_spa"],
+                              caught_ivs["iv_spdef"], caught_ivs["iv_spd"])
+            iv_grade, _ = config.get_iv_grade(iv_sum)
+            iv_tag = f" [{iv_grade}]"
+            rbadge = rarity_badge(rarity)
+            tb = type_badge(pokemon_id)
+            be = ball_emoji("masterball") if winner["used_master_ball"] else \
+                 ball_emoji("hyperball") if winner["used_hyper_ball"] else \
+                 ball_emoji("pokeball")
+            msg = f"🔄 서버 복구 — {be} {decorated} — {rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
+
+            await bot.send_message(
+                chat_id=chat_id, text=msg, parse_mode="HTML",
+            )
+            await queries.log_spawn(
+                chat_id, pokemon_id, pokemon_name, sess["emoji"],
+                rarity, winner_id, winner_name, participants,
+            )
+            logger.info(f"[startup resolve] {winner_name} caught {pokemon_name} in {chat_id}")
+
+        except Exception as e:
+            logger.error(f"[startup resolve] session {session_id} failed: {e}")
+            await queries.close_spawn_session(session_id)
+
+    if refunded:
+        logger.info(f"[startup resolve] Refunded {len(refunded)} balls")
+    return refunded
