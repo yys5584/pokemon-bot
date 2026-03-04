@@ -1158,7 +1158,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             ],
         ])
 
-        await query.edit_message_text("\n".join(lines), reply_markup=buttons)
+        await query.edit_message_text("\n".join(lines), reply_markup=buttons, parse_mode="HTML")
     except Exception:
         pass
 
