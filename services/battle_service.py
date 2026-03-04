@@ -340,7 +340,7 @@ async def execute_battle(
 
     # Build display text — challenger LEFT, defender RIGHT (consistent with log)
     lines = [
-        "⚔️ 배틀 결과!",
+        f"{icon_emoji('battle')} 배틀 결과!",
         "━━━━━━━━━━━━━━━",
         f"{c_title_str}{c_name}  ⚔  {d_title_str}{d_name}",
         f"⚡{c_total_power}          ⚡{d_total_power}",

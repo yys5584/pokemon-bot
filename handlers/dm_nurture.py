@@ -8,7 +8,7 @@ import config
 from database import queries
 from services.evolution_service import try_evolve
 from services.event_service import get_friendship_boost
-from utils.helpers import hearts_display, type_badge, shiny_emoji
+from utils.helpers import hearts_display, type_badge, shiny_emoji, icon_emoji
 from utils.parse import parse_number, parse_name_arg, parse_select_index
 from utils.battle_calc import iv_total
 
@@ -128,10 +128,11 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             evo_hint = f"\n\n💖 친밀도 MAX! 이 포켓몬은 교환으로만 진화합니다."
 
     await update.message.reply_text(
-        f"🍖 {pokemon['name_ko']}에게 밥을 줬습니다!{boost_text}\n"
+        f"{icon_emoji('ham')} {pokemon['name_ko']}에게 밥을 줬습니다!{boost_text}\n"
         f"친밀도: {hearts} ({new_friendship}/{max_f})\n"
         f"남은 횟수: {remaining}회"
-        f"{evo_hint}"
+        f"{evo_hint}",
+        parse_mode="HTML",
     )
 
 

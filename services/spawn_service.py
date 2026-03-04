@@ -12,7 +12,7 @@ from database import queries
 from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_pokemon_boost
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
-from utils.helpers import schedule_delete, close_button, rarity_badge, type_badge, ball_emoji, shiny_emoji
+from utils.helpers import schedule_delete, close_button, rarity_badge, type_badge, ball_emoji, shiny_emoji, icon_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -466,7 +466,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"흔들흔들... 💨{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
+                text=f"흔들흔들... {icon_emoji('windy')}{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
                 parse_mode="HTML",
             )
             await queries.close_spawn_session(session_id)
@@ -522,7 +522,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"흔들흔들... 💨{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
+                text=f"흔들흔들... {icon_emoji('windy')}{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
                 parse_mode="HTML",
             )
             await queries.close_spawn_session(session_id)
@@ -668,10 +668,13 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         # Check and unlock titles
         from utils.title_checker import check_and_unlock_titles
-        from utils.helpers import escape_html
+        from utils.helpers import escape_html, icon_emoji
         new_titles = await check_and_unlock_titles(winner_id)
         if new_titles:
-            title_msgs = [f"🎉 <b>「{temoji} {tname}」</b> 칭호 해금!" for _, tname, temoji in new_titles]
+            title_msgs = [
+                f"🎉 <b>「{icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji} {tname}」</b> 칭호 해금!"
+                for _, tname, temoji in new_titles
+            ]
             safe_name = escape_html(winner_name)
             title_msg = await context.bot.send_message(
                 chat_id=chat_id,

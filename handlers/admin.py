@@ -10,7 +10,7 @@ import config
 from database import queries
 from services.spawn_service import schedule_spawns_for_chat
 from services.event_service import invalidate_event_cache
-from utils.helpers import schedule_delete
+from utils.helpers import schedule_delete, icon_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ async def spawn_rate_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if room:
         await schedule_spawns_for_chat(context.application, chat_id, room["member_count"])
 
-    await update.message.reply_text(f"✅ 스폰 배율이 {multiplier}x로 설정되었습니다!")
+    await update.message.reply_text(f"{icon_emoji('check')} 스폰 배율이 {multiplier}x로 설정되었습니다!", parse_mode="HTML")
 
 
 # ============================================================
@@ -228,7 +228,7 @@ async def force_spawn_reset_handler(update: Update, context: ContextTypes.DEFAUL
             return
 
     await queries.reset_force_spawn_counts()
-    await update.message.reply_text("✅ 모든 방의 강제스폰 횟수가 초기화되었습니다!")
+    await update.message.reply_text(f"{icon_emoji('check')} 모든 방의 강제스폰 횟수가 초기화되었습니다!", parse_mode="HTML")
 
 
 async def pokeball_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -251,7 +251,7 @@ async def pokeball_reset_handler(update: Update, context: ContextTypes.DEFAULT_T
             return
 
     await queries.reset_catch_limits()
-    await update.message.reply_text("✅ 모든 유저의 포켓볼(잡기 횟수)이 초기화되었습니다!")
+    await update.message.reply_text(f"{icon_emoji('check')} 모든 유저의 포켓볼(잡기 횟수)이 초기화되었습니다!", parse_mode="HTML")
 
 
 # ============================================================
@@ -376,7 +376,7 @@ async def event_end_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await queries.end_event(event_id)
     invalidate_event_cache()
-    await update.message.reply_text(f"✅ 이벤트 #{event_id} 종료되었습니다.")
+    await update.message.reply_text(f"{icon_emoji('check')} 이벤트 #{event_id} 종료되었습니다.", parse_mode="HTML")
 
 
 # ============================================================
@@ -531,10 +531,11 @@ async def grant_masterball_handler(update: Update, context: ContextTypes.DEFAULT
     new_total = await queries.get_master_balls(target_user_id)
 
     await update.message.reply_text(
-        f"✅ 마스터볼 지급 완료!\n"
+        f"{icon_emoji('check')} 마스터볼 지급 완료!\n"
         f"대상: {user['display_name']}\n"
         f"지급: {count}개\n"
-        f"현재 보유: {new_total}개"
+        f"현재 보유: {new_total}개",
+        parse_mode="HTML",
     )
 
     # 대상 유저에게 DM 알림
@@ -570,7 +571,7 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Check active temp pass
         active_pass = await queries.get_active_arcade_pass(chat_id)
         if chat_id in config.ARCADE_CHAT_IDS:
-            status = "✅ 영구 등록"
+            status = f"{icon_emoji('check')} 영구 등록"
         elif active_pass:
             from datetime import datetime, timezone
             expires = active_pass["expires_at"]

@@ -13,6 +13,7 @@ from database import queries
 from database import battle_queries as bq
 from database.connection import get_db
 from services.battle_service import _prepare_combatant, _resolve_battle
+from utils.helpers import icon_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,7 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
 
     count = len(_tournament_state["participants"])
     return True, (
-        f"✅ {display_name} 참가 등록 완료!\n"
+        f"{icon_emoji('check')} {display_name} 참가 등록 완료!\n"
         f"현재 참가자: {count}명"
     )
 
@@ -431,14 +432,17 @@ async def _award_prizes(context, chat_id, winner_id, winner_data, final_bracket,
     # Title unlocks
     if new_titles:
         lines.append("")
+        from utils.helpers import icon_emoji
         for _, tname, temoji in new_titles:
-            lines.append(f"🎉 {winner_data['name']}이(가) 「{temoji} {tname}」 칭호를 획득!")
+            badge = icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji
+            lines.append(f"🎉 {winner_data['name']}이(가) 「{badge} {tname}」 칭호를 획득!")
 
     lines.append("\n스폰이 곧 재개됩니다.")
 
     await context.bot.send_message(
         chat_id=chat_id,
         text="\n".join(lines),
+        parse_mode="HTML",
     )
 
 

@@ -39,7 +39,7 @@ def _build_partner_list(user_id: int, pokemon_list: list, page: int,
     lines = [f"🤝 파트너 선택  [{page + 1}/{total_pages}]\n"]
     for i, p in enumerate(page_pokemon):
         num = start + i + 1
-        mark = " ✅" if p["id"] == current_partner_id else ""
+        mark = f" {icon_emoji('check')}" if p["id"] == current_partner_id else ""
         tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
         lines.append(f"{num}. {tb} {p['name_ko']}{mark}")
     lines.append("\n포켓몬을 눌러 파트너로 지정!")
@@ -306,7 +306,7 @@ async def _build_team_select(user_id: int, pokemon_list: list,
     team = await bq.get_battle_team(user_id, team_num)
     team_instance_ids = {t["pokemon_instance_id"] for t in team}
     slot_map = {t["slot"]: t for t in team}
-    slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+    slot_emojis = [icon_emoji(str(i)) for i in range(1, 7)]
 
     # Filter out pokemon already on team
     available = [(i, p) for i, p in enumerate(pokemon_list) if p["id"] not in team_instance_ids]
@@ -318,7 +318,7 @@ async def _build_team_select(user_id: int, pokemon_list: list,
     page_available = available[start:end]
 
     # Header: current team slots
-    lines = [f"⚔️ 배틀 팀 {team_num} 편집  ({len(team)}/{TEAM_MAX})\n"]
+    lines = [f"{icon_emoji('battle')} 배틀 팀 {team_num} 편집  ({len(team)}/{TEAM_MAX})\n"]
     for s in range(1, 7):
         if s in slot_map:
             t = slot_map[s]
@@ -377,11 +377,12 @@ async def _build_team_slot_picker(user_id: int, pokemon: dict, pokemon_idx: int,
     """Show 6 slot buttons for placing a pokemon into a team slot."""
     team = await bq.get_battle_team(user_id, team_num)
     slot_map = {t["slot"]: t for t in team}
-    slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+    slot_emojis = [icon_emoji(str(i)) for i in range(1, 7)]
+    slot_plain = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
 
     shiny = shiny_emoji() if pokemon.get("is_shiny") else ""
     tb = type_badge(pokemon["pokemon_id"], pokemon.get("pokemon_type"))
-    lines = [f"⚔️ {tb}{shiny} {pokemon['name_ko']}을(를) 배치할 슬롯 선택\n"]
+    lines = [f"{icon_emoji('battle')} {tb}{shiny} {pokemon['name_ko']}을(를) 배치할 슬롯 선택\n"]
 
     buttons = []
     for s in range(1, 7):
@@ -391,10 +392,10 @@ async def _build_team_slot_picker(user_id: int, pokemon: dict, pokemon_idx: int,
             iv_tag = _iv_grade_tag(t)
             t_shiny = shiny_emoji() if t.get("is_shiny") else ""
             lines.append(f"{slot_emojis[s-1]} {ttb}{t_shiny} {t['name_ko']}{iv_tag}")
-            label = f"{slot_emojis[s-1]} {t['name_ko']} → 교체"
+            label = f"{slot_plain[s-1]} {t['name_ko']} → 교체"
         else:
             lines.append(f"{slot_emojis[s-1]} (빈 슬롯)")
-            label = f"{slot_emojis[s-1]} 빈 슬롯 ← 배치"
+            label = f"{slot_plain[s-1]} 빈 슬롯 ← 배치"
         buttons.append([InlineKeyboardButton(
             label, callback_data=f"tslot_{user_id}_{pokemon_idx}_{s}_{team_num}",
         )])
@@ -435,9 +436,9 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     partner = await bq.get_partner(user_id)
     partner_instance = partner["instance_id"] if partner else None
 
-    active_mark = " ✅" if team_num == active_num else ""
-    slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
-    lines = [f"⚔️ 배틀 팀 {team_num}{active_mark}\n"]
+    active_mark = f" {icon_emoji('check')}" if team_num == active_num else ""
+    slot_emojis = [icon_emoji(str(i)) for i in range(1, 7)]
+    lines = [f"{icon_emoji('battle')} 배틀 팀 {team_num}{active_mark}\n"]
 
     total_power = 0
     total_base_power = 0
@@ -568,8 +569,8 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
     instance_ids = [pokemon_list[n - 1]["id"] for n in nums]
     await bq.set_battle_team(user_id, instance_ids, team_num)
 
-    slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
-    lines = [f"⚔️ 배틀 팀 {team_num} 등록 완료!\n"]
+    slot_emojis = [icon_emoji(str(i)) for i in range(1, 7)]
+    lines = [f"{icon_emoji('battle')} 배틀 팀 {team_num} 등록 완료!\n"]
     for i, n in enumerate(nums):
         p = pokemon_list[n - 1]
         tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
@@ -586,7 +587,7 @@ async def team_clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     text = (update.message.text or "").strip()
     team_num = 2 if text.endswith("2") else 1
     await bq.clear_battle_team(user_id, team_num)
-    await update.message.reply_text(f"⚔️ 배틀 팀 {team_num}이(가) 해제되었습니다.")
+    await update.message.reply_text(f"{icon_emoji('battle')} 배틀 팀 {team_num}이(가) 해제되었습니다.", parse_mode="HTML")
 
 
 async def team_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -610,7 +611,7 @@ async def team_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     await bq.set_active_team(user_id, team_num)
-    await update.message.reply_text(f"✅ 배틀 팀 {team_num}을(를) 활성 팀으로 설정했습니다!")
+    await update.message.reply_text(f"{icon_emoji('check')} 배틀 팀 {team_num}을(를) 활성 팀으로 설정했습니다!", parse_mode="HTML")
 
 
 async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -776,7 +777,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             return
         await bq.clear_battle_team(owner_id, tn)
         try:
-            await query.edit_message_text(f"⚔️ 배틀 팀 {tn}이(가) 해제되었습니다.")
+            await query.edit_message_text(f"{icon_emoji('battle')} 배틀 팀 {tn}이(가) 해제되었습니다.", parse_mode="HTML")
         except Exception:
             pass
 
@@ -810,14 +811,14 @@ async def battle_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     win_rate = round(wins / total * 100, 1) if total > 0 else 0
 
     lines = [
-        "⚔️ 나의 배틀 전적\n",
+        f"{icon_emoji('battle')} 나의 배틀 전적\n",
         f"🏆 {wins}승 {losses}패  ({win_rate}%)",
         f"🔥 현재 연승: {stats['battle_streak']}",
         f"💫 최고 연승: {stats['best_streak']}",
-        f"💰 보유 BP: {stats['battle_points']}",
+        f"{icon_emoji('coin')} 보유 BP: {stats['battle_points']}",
     ]
 
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
 
 async def bp_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -827,7 +828,7 @@ async def bp_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
     bp = await bq.get_bp(user_id)
-    await update.message.reply_text(f"💰 보유 BP: {bp}\n\nBP상점 으로 교환 가능")
+    await update.message.reply_text(f"{icon_emoji('coin')} 보유 BP: {bp}\n\nBP상점 으로 교환 가능", parse_mode="HTML")
 
 
 def _masterball_price(bought_today: int) -> int:
@@ -861,8 +862,8 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     arcade_tickets = await queries.get_arcade_tickets(user_id)
 
     lines = [
-        "🏪 BP 상점\n",
-        f"💰 보유 BP: {bp}\n",
+        f"{icon_emoji('shopping-bag')} BP 상점\n",
+        f"{icon_emoji('coin')} 보유 BP: {bp}\n",
         f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
         f"⚡ 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
         f"🔴 포켓볼 충전 리셋 — {pb_label}",
@@ -927,7 +928,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         next_str = f" (다음: {next_price} BP)" if next_price else ""
         await update.message.reply_text(
             f"🟣 마스터볼 1개 구매 완료! ({cost} BP)\n"
-            f"💰 남은 BP: {bp}\n"
+            f"{icon_emoji('coin')} 남은 BP: {bp}\n"
             f"📦 오늘 남은 구매: {remaining}개{next_str}"
         )
 
@@ -947,7 +948,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tickets = await queries.get_force_spawn_tickets(user_id)
         await update.message.reply_text(
             f"⚡ 강스권 1개 구매 완료!\n"
-            f"💰 남은 BP: {bp}\n"
+            f"{icon_emoji('coin')} 남은 BP: {bp}\n"
             f"📦 보유 강스권: {tickets}개\n\n"
             "채팅방에서 '강스권' 입력으로 해당 채널의 강제스폰 50회를 초기화합니다!"
         )
@@ -968,7 +969,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bp = await bq.get_bp(user_id)
         await update.message.reply_text(
             f"🔴 포켓볼 충전 한도 리셋 완료!\n"
-            f"💰 남은 BP: {bp}\n"
+            f"{icon_emoji('coin')} 남은 BP: {bp}\n"
             f"🔄 다시 포켓볼 충전 으로 10개씩 충전 가능! (최대 100개)"
         )
 
@@ -996,7 +997,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         hyper_balls = await queries.get_hyper_balls(user_id)
         await update.message.reply_text(
             f"🔵 하이퍼볼 {qty}개 구매 완료! ({cost} BP)\n"
-            f"💰 남은 BP: {bp}\n"
+            f"{icon_emoji('coin')} 남은 BP: {bp}\n"
             f"📦 보유 하이퍼볼: {hyper_balls}개\n\n"
             "채팅방에서 'ㅎ'으로 사용하세요!"
         )
@@ -1018,7 +1019,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tickets = await queries.get_arcade_tickets(user_id)
         await update.message.reply_text(
             f"🎮 아케이드 티켓 1개 구매 완료! ({cost} BP)\n"
-            f"💰 남은 BP: {bp}\n"
+            f"{icon_emoji('coin')} 남은 BP: {bp}\n"
             f"📦 보유 티켓: {tickets}개\n\n"
             "채팅방에서 '아케이드 등록'으로 사용하세요!\n"
             f"⏱ 사용 시 {config.ARCADE_PASS_DURATION // 60}분간 아케이드 채널화"
@@ -1133,13 +1134,13 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         pb_label = "🎉 무료!" if config.BP_POKEBALL_RESET_COST == 0 else f"{config.BP_POKEBALL_RESET_COST} BP"
 
         lines = [
-            "🏪 BP 상점\n",
-            f"💰 보유 BP: {bp}\n",
+            f"{icon_emoji('shopping-bag')} BP 상점\n",
+            f"{icon_emoji('coin')} 보유 BP: {bp}\n",
             f"🟣 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
-            f"⚡ 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
+            f"{icon_emoji('bolt')} 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
             f"🔴 포켓볼 충전 리셋 — {pb_label}",
             f"🔵 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
-            f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
+            f"{icon_emoji('game')} 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
         ]
 
         buttons = InlineKeyboardMarkup([
@@ -1178,7 +1179,7 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     reply = update.message.reply_to_message
     if not reply or not reply.from_user:
         await update.message.reply_text(
-            "⚔️ 배틀을 신청하려면 상대방의 메시지에 답장하며 '배틀'을 입력하세요!"
+            f"{icon_emoji('battle')} 배틀을 신청하려면 상대방의 메시지에 답장하며 '배틀'을 입력하세요!", parse_mode="HTML"
         )
         return
 
@@ -1237,8 +1238,9 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     c_team = await bq.get_battle_team(challenger_id)
     if not c_team:
         await update.message.reply_text(
-            "⚔️ 배틀 팀이 없습니다!\n"
-            "DM에서 '팀등록 [번호들]'로 먼저 팀을 등록하세요."
+            f"{icon_emoji('battle')} 배틀 팀이 없습니다!\n"
+            "DM에서 '팀등록 [번호들]'로 먼저 팀을 등록하세요.",
+            parse_mode="HTML",
         )
         return
 
@@ -1270,9 +1272,10 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     ])
 
     await update.message.reply_text(
-        f"⚔️ {challenger_name}님이 {defender_name}님에게 배틀을 신청했습니다!\n"
+        f"{icon_emoji('battle')} {challenger_name}님이 {defender_name}님에게 배틀을 신청했습니다!\n"
         f"{config.BATTLE_CHALLENGE_TIMEOUT}초 내에 수락해주세요!",
         reply_markup=buttons,
+        parse_mode="HTML",
     )
 
 
@@ -1346,8 +1349,9 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         if not d_team:
             try:
                 await query.edit_message_text(
-                    "⚔️ 수비자의 배틀 팀이 없습니다!\n"
-                    "DM에서 '팀등록 [번호들]'로 먼저 팀을 등록하세요."
+                    f"{icon_emoji('battle')} 수비자의 배틀 팀이 없습니다!\n"
+                    "DM에서 '팀등록 [번호들]'로 먼저 팀을 등록하세요.",
+                    parse_mode="HTML",
                 )
             except Exception:
                 pass
@@ -1356,7 +1360,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         c_team = await bq.get_battle_team(challenge["challenger_id"])
         if not c_team:
             try:
-                await query.edit_message_text("⚔️ 도전자의 배틀 팀이 없습니다!")
+                await query.edit_message_text(f"{icon_emoji('battle')} 도전자의 배틀 팀이 없습니다!", parse_mode="HTML")
             except Exception:
                 pass
             return
@@ -1492,7 +1496,7 @@ async def battle_ranking_handler(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     medals = ["🥇", "🥈", "🥉"]
-    lines = ["⚔️ <b>배틀 랭킹</b>\n"]
+    lines = [f"{icon_emoji('battle')} <b>배틀 랭킹</b>\n"]
 
     for i, r in enumerate(rankings):
         rank = medals[i] if i < 3 else f"<b>{i + 1}.</b>"
@@ -1565,7 +1569,7 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     scored.sort(key=lambda x: -x["power"])
     top20 = scored[:20]
 
-    lines = ["⚔️ <b>배틀 티어표</b> (전투력 TOP 20)"]
+    lines = [f"{icon_emoji('battle')} <b>배틀 티어표</b> (전투력 TOP 20)"]
     lines.append("━━━━━━━━━━━━━━━━━━━━\n")
 
     for rank, p in enumerate(top20, 1):
@@ -2037,10 +2041,10 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     # Build yacha result message
     # Replace the header from execute_battle with yacha header
     battle_text = result["display_text"]
-    # The first line is "⚔️ 배틀 결과!" - replace it
+    # The first line is battle result header - replace it
     lines = battle_text.split("\n")
-    # Remove the original first line ("⚔️ 배틀 결과!")
-    if lines and lines[0].startswith("⚔️"):
+    # Remove the original first line (battle result header)
+    if lines and ("배틀 결과" in lines[0]):
         lines = lines[1:]
 
     yacha_header = [

@@ -12,7 +12,7 @@ import config
 from database import queries
 from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
-from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete, ball_emoji, shiny_emoji
+from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete, ball_emoji, shiny_emoji, icon_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -323,10 +323,14 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from utils.title_checker import check_and_unlock_titles
             new_titles = await check_and_unlock_titles(user_id)
             if new_titles:
-                title_msg = "\n".join(f"🎉 새 칭호 해금! 「{temoji} {tname}」" for _, tname, temoji in new_titles)
+                title_msg = "\n".join(
+                    f"🎉 새 칭호 해금! 「{icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji} {tname}」"
+                    for _, tname, temoji in new_titles
+                )
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=f"🏷️ {display_name}의 {title_msg}",
+                    parse_mode="HTML",
                 )
         except Exception:
             pass
@@ -403,10 +407,14 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             from utils.title_checker import check_and_unlock_titles
             new_titles = await check_and_unlock_titles(user_id)
             if new_titles:
-                title_msg = "\n".join(f"🎉 새 칭호 해금! 「{temoji} {tname}」" for _, tname, temoji in new_titles)
+                title_msg = "\n".join(
+                    f"🎉 새 칭호 해금! 「{icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji} {tname}」"
+                    for _, tname, temoji in new_titles
+                )
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=f"🏷️ {display_name}의 {title_msg}",
+                    parse_mode="HTML",
                 )
         except Exception:
             pass
@@ -459,7 +467,7 @@ async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("아직 출현 기록이 없습니다!")
             return
 
-        lines = ["📋 최근 출현 기록"]
+        lines = [f"{icon_emoji('bookmark')} 최근 출현 기록"]
         for log in logs:
             ago = time_ago(log["spawned_at"])
             shiny = shiny_emoji() if log.get("is_shiny") else ""
@@ -471,7 +479,7 @@ async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{ago} {shiny}{log['pokemon_emoji']} {log['pokemon_name']} {result}"
             )
 
-        await update.message.reply_text("\n".join(lines))
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
     except Exception as e:
         logger.error(f"Log handler error: {e}")
@@ -481,7 +489,7 @@ async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def dashboard_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '대시보드' command — show dashboard link."""
     await update.message.reply_text(
-        "📊 <b>포켓몬 봇 대시보드</b>\n\n"
+        f"{icon_emoji('computer')} <b>포켓몬 봇 대시보드</b>\n\n"
         "🔗 <a href='https://tgpoke.com'>tgpoke.com</a>\n\n"
         "에픽/전설 보유자 랭킹, 도망 장인, 행운아/불행아,\n"
         "교환왕, 올빼미족 등 재미있는 통계를 확인하세요!",

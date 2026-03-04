@@ -139,44 +139,44 @@ LEGEND_HUNTER_TITLE = ("레전드 헌터", "🐉")
 #             master_ball_use, total_catch
 UNLOCKABLE_TITLES = {
     # 1세대 도감 기반 (관동)
-    "beginner":     ("초보 트레이너",   "🔰", "1세대 도감 15종 달성",     "pokedex_gen1", 15),
-    "collector":    ("포켓몬 수집가",   "📦", "1세대 도감 45종 달성",     "pokedex_gen1", 45),
-    "trainer":      ("포켓몬 트레이너", "⭐", "1세대 도감 75종 달성",     "pokedex_gen1", 75),
-    "master":       ("포켓몬 마스터",   "🏆", "1세대 도감 120종 달성",    "pokedex_gen1", 120),
-    "champion":     ("챔피언",         "👑", "1세대 도감 151종 완성!",   "pokedex_gen1", 151),
-    "living_dex":   ("살아있는 도감",   "📖", "1세대 도감 100종 달성",    "pokedex_gen1", 100),
+    "beginner":     ("초보 트레이너",   "caterpie",   "1세대 도감 15종 달성",     "pokedex_gen1", 15),
+    "collector":    ("포켓몬 수집가",   "rattata",    "1세대 도감 45종 달성",     "pokedex_gen1", 45),
+    "trainer":      ("포켓몬 트레이너", "pikachu",    "1세대 도감 75종 달성",     "pokedex_gen1", 75),
+    "master":       ("포켓몬 마스터",   "charmander", "1세대 도감 120종 달성",    "pokedex_gen1", 120),
+    "champion":     ("챔피언",         "crown",      "1세대 도감 151종 완성!",   "pokedex_gen1", 151),
+    "living_dex":   ("살아있는 도감",   "bulbasaur",  "1세대 도감 100종 달성",    "pokedex_gen1", 100),
     # 2세대 도감 기반 (성도)
-    "gen2_starter":   ("성도의 초보",    "🌏", "2세대 도감 15종 달성",   "pokedex_gen2", 15),
-    "gen2_collector": ("성도 수집가",    "🎒", "2세대 도감 45종 달성",   "pokedex_gen2", 45),
-    "gen2_trainer":   ("성도 트레이너",  "🌟", "2세대 도감 75종 달성",   "pokedex_gen2", 75),
-    "gen2_master":    ("성도 마스터",    "🏅", "2세대 도감 100종 완성!", "pokedex_gen2", 100),
+    "gen2_starter":   ("성도의 초보",    "chikorita",  "2세대 도감 15종 달성",   "pokedex_gen2", 15),
+    "gen2_collector": ("성도 수집가",    "bellsprout",  "2세대 도감 45종 달성",   "pokedex_gen2", 45),
+    "gen2_trainer":   ("성도 트레이너",  "eevee",      "2세대 도감 75종 달성",   "pokedex_gen2", 75),
+    "gen2_master":    ("성도 마스터",    "victini",    "2세대 도감 100종 완성!", "pokedex_gen2", 100),
     # 전체 도감
-    "grand_master":   ("그랜드마스터",   "💫", "전체 도감 251종 완성!",  "pokedex_all", 251),
+    "grand_master":   ("그랜드마스터",   "mew",        "전체 도감 251종 완성!",  "pokedex_all", 251),
     # 전설
-    "legend_hunter":("레전드 헌터",    "🐉", "전설 포켓몬 3마리 포획",   "legendary", 3),
+    "legend_hunter":("레전드 헌터",    "dratini",    "전설 포켓몬 3마리 포획",   "legendary", 3),
     # 활동 기반
-    "first_catch":  ("여정의 시작",    "🌱", "첫 포켓몬 포획",          "first_catch", 1),
-    "catch_master": ("잡기의 달인",    "🎯", "포획 성공 100회",         "total_catch", 100),
-    "run_expert":   ("도망가 전문가",   "💨", "포획 실패 50회",          "catch_fail", 50),
-    "owl":          ("올빼미족",       "🦉", "심야(2~5시) 포획 10회",    "midnight_catch", 10),
-    "masterball_rich":("마볼 부자",    "🟣", "마스터볼 5개 보유",        "master_ball_own", 5),
-    "decisive":     ("결단의 트레이너", "⚡", "마스터볼 사용 1회",        "master_ball_use", 1),
-    "love_fan":     ("문유 광팬",      "💕", "???",                    "love_count", 20),
-    "trader":       ("교환의 신",      "🤝", "교환 10회 완료",          "trade", 10),
+    "first_catch":  ("여정의 시작",    "bulbasaur",  "첫 포켓몬 포획",          "first_catch", 1),
+    "catch_master": ("잡기의 달인",    "mankey",     "포획 성공 100회",         "total_catch", 100),
+    "run_expert":   ("도망가 전문가",   "zubat",      "포획 실패 50회",          "catch_fail", 50),
+    "owl":          ("올빼미족",       "venonat",    "심야(2~5시) 포획 10회",    "midnight_catch", 10),
+    "masterball_rich":("마볼 부자",    "meowth",     "마스터볼 5개 보유",        "master_ball_own", 5),
+    "decisive":     ("결단의 트레이너", "pikachu",    "마스터볼 사용 1회",        "master_ball_use", 1),
+    "love_fan":     ("문유 광팬",      "jigglypuff", "???",                    "love_count", 20),
+    "trader":       ("교환의 신",      "abra",       "교환 10회 완료",          "trade", 10),
     # 수집 특화
-    "furry":        ("퍼리수집가",     "🐾", "일반 포켓몬 50마리 포획",  "common_catch", 50),
-    "rare_hunter":  ("레어 헌터",      "💎", "에픽+전설 10마리 포획",    "rare_catch", 10),
+    "furry":        ("퍼리수집가",     "eevee",      "일반 포켓몬 50마리 포획",  "common_catch", 50),
+    "rare_hunter":  ("레어 헌터",      "articuno",   "에픽+전설 10마리 포획",    "rare_catch", 10),
     # 출석
-    "diligent":     ("개근상",         "📅", "7일 연속 출석",           "streak", 7),
+    "diligent":     ("개근상",         "snorlax",    "7일 연속 출석",           "streak", 7),
     # 배틀 칭호
-    "battle_first":    ("첫 배틀",       "⚔️", "배틀 1회 참여",     "battle_total", 1),
-    "battle_fighter":  ("배틀 파이터",   "🥊", "배틀 5승 달성",     "battle_wins", 5),
-    "battle_champion": ("배틀 챔피언",   "🏆", "배틀 20승 달성",    "battle_wins", 20),
-    "battle_legend":   ("배틀 레전드",   "👑", "배틀 50승 달성",    "battle_wins", 50),
-    "battle_streak3":  ("연승 전사",     "🔥", "3연승 달성",        "battle_streak", 3),
-    "battle_streak10": ("무적의 전사",   "💫", "10연승 달성",       "battle_streak", 10),
-    "battle_sweep":    ("완벽한 승리",   "✨", "무피해 완승",       "battle_sweep", 1),
-    "partner_set":     ("나의 파트너",   "🤝", "파트너 포켓몬 지정", "partner_set", 1),
+    "battle_first":    ("첫 배틀",       "squirtle",   "배틀 1회 참여",     "battle_total", 1),
+    "battle_fighter":  ("배틀 파이터",   "mankey",     "배틀 5승 달성",     "battle_wins", 5),
+    "battle_champion": ("배틀 챔피언",   "charmander", "배틀 20승 달성",    "battle_wins", 20),
+    "battle_legend":   ("배틀 레전드",   "crown",      "배틀 50승 달성",    "battle_wins", 50),
+    "battle_streak3":  ("연승 전사",     "moltres",    "3연승 달성",        "battle_streak", 3),
+    "battle_streak10": ("무적의 전사",   "psyduck",    "10연승 달성",       "battle_streak", 10),
+    "battle_sweep":    ("완벽한 승리",   "victini",    "무피해 완승",       "battle_sweep", 1),
+    "partner_set":     ("나의 파트너",   "pikachu",    "파트너 포켓몬 지정", "partner_set", 1),
 }
 
 # --- Trade Evolution Pokemon IDs ---
@@ -393,14 +393,14 @@ SHINY_RATE_ARCADE = 1 / 512          # 아케이드 샤이니 확률 (~0.20%)
 # --- Battle Titles ---
 # title_id: (name, emoji, description, check_type, threshold)
 BATTLE_TITLES = {
-    "battle_first":    ("첫 배틀",       "⚔️", "배틀 1회 참여",     "battle_total", 1),
-    "battle_fighter":  ("배틀 파이터",   "🥊", "배틀 5승 달성",     "battle_wins", 5),
-    "battle_champion": ("배틀 챔피언",   "🏆", "배틀 20승 달성",    "battle_wins", 20),
-    "battle_legend":   ("배틀 레전드",   "👑", "배틀 50승 달성",    "battle_wins", 50),
-    "battle_streak3":  ("연승 전사",     "🔥", "3연승 달성",        "battle_streak", 3),
-    "battle_streak10": ("무적의 전사",   "💫", "10연승 달성",       "battle_streak", 10),
-    "battle_sweep":    ("완벽한 승리",   "✨", "무피해 완승",       "battle_sweep", 1),
-    "partner_set":     ("나의 파트너",   "🤝", "파트너 포켓몬 지정", "partner_set", 1),
+    "battle_first":    ("첫 배틀",       "squirtle",   "배틀 1회 참여",     "battle_total", 1),
+    "battle_fighter":  ("배틀 파이터",   "mankey",     "배틀 5승 달성",     "battle_wins", 5),
+    "battle_champion": ("배틀 챔피언",   "charmander", "배틀 20승 달성",    "battle_wins", 20),
+    "battle_legend":   ("배틀 레전드",   "crown",      "배틀 50승 달성",    "battle_wins", 50),
+    "battle_streak3":  ("연승 전사",     "moltres",    "3연승 달성",        "battle_streak", 3),
+    "battle_streak10": ("무적의 전사",   "psyduck",    "10연승 달성",       "battle_streak", 10),
+    "battle_sweep":    ("완벽한 승리",   "victini",    "무피해 완승",       "battle_sweep", 1),
+    "partner_set":     ("나의 파트너",   "pikachu",    "파트너 포켓몬 지정", "partner_set", 1),
 }
 
 # Merge battle titles into main UNLOCKABLE_TITLES so they appear in 칭호목록 and can be equipped
@@ -419,16 +419,16 @@ TOURNAMENT_PRIZE_4TH_BP = 50    # 4강 BP
 
 # --- Tournament Titles ---
 TOURNAMENT_TITLES = {
-    "tournament_first": ("쉬었음청년",     "🏛️", "임시대회 우승자",  "tournament_first", 1),
-    "tournament_champ": ("토너먼트 챔피언", "🏆", "토너먼트 우승 1회",       "tournament_win", 1),
+    "tournament_first": ("쉬었음청년",     "snorlax",    "임시대회 우승자",  "tournament_first", 1),
+    "tournament_champ": ("토너먼트 챔피언", "crown",      "토너먼트 우승 1회",       "tournament_win", 1),
 }
 UNLOCKABLE_TITLES.update(TOURNAMENT_TITLES)
 
 # --- Shiny (이로치) Titles ---
 SHINY_TITLES = {
-    "shiny_hunter":  ("이로치 헌터",   "✨", "이로치 포켓몬 3마리 포획",  "shiny_catch", 3),
-    "shiny_master":  ("이로치 마스터",  "🌟", "이로치 포켓몬 10마리 포획", "shiny_catch", 10),
-    "shiny_legend":  ("전설의 빛",     "💫", "이로치 전설 포켓몬 포획",   "shiny_legendary", 1),
+    "shiny_hunter":  ("이로치 헌터",   "crystal",    "이로치 포켓몬 3마리 포획",  "shiny_catch", 3),
+    "shiny_master":  ("이로치 마스터",  "crystal",    "이로치 포켓몬 10마리 포획", "shiny_catch", 10),
+    "shiny_legend":  ("전설의 빛",     "crystal",    "이로치 전설 포켓몬 포획",   "shiny_legendary", 1),
 }
 SHINY_MAX_FRIENDSHIP = 7              # 이로치 최대 친밀도
 
@@ -536,6 +536,61 @@ BALL_CUSTOM_EMOJI = {
 
 # --- Custom Emoji IDs (Icons) ---
 ICON_CUSTOM_EMOJI = {
+    # Special
     "skull": "6143450305993382989",
     "crystal": "6143120589944004477",
+    # Numbers + Check
+    "1": "6143285920415097548",
+    "2": "6143042181021048615",
+    "3": "6143166034992963719",
+    "4": "6143030576019414291",
+    "5": "6142993896998706810",
+    "6": "6143287445128486521",
+    "7": "6143241351539465226",
+    "8": "6142976008459919189",
+    "9": "6143232271978601697",
+    "10": "6143456946012824214",
+    "check": "6143254176311811828",
+    # UI Icons
+    "bookmark": "6143229132357509310",
+    "container": "6143067620112342405",
+    "pokedex": "6143439418251287575",
+    "battle": "6143344370625026850",
+    "ham": "6142983498882882214",
+    "game": "6143111020756868297",
+    "favorite": "6143055418110258728",
+    "pokemon-love": "6143084091311922140",
+    "gotcha": "6143385318843227267",
+    "windy": "6143007563584641911",
+    "exchange": "6143035201699193195",
+    "computer": "6143068826998151784",
+    "coin": "6143083713354801765",
+    "footsteps": "6143075514262233319",
+    "pokecenter": "6142954550803307680",
+    "shopping-bag": "6143287260444892433",
+    "bolt": "6143251942928818741",
+    # Pokemon characters (titles)
+    "caterpie": "6143387998902819747",
+    "rattata": "6143003788308389605",
+    "pikachu": "6143424549074508692",
+    "charmander": "6142987961353903580",
+    "crown": "6143265588039916937",
+    "mew": "6143355370036274725",
+    "chikorita": "6143450619525996657",
+    "bellsprout": "6143374276482308192",
+    "eevee": "6143466343401268847",
+    "victini": "6143322638090510138",
+    "dratini": "6143371373084417997",
+    "bulbasaur": "6142953352507432594",
+    "mankey": "6143320679585422922",
+    "zubat": "6143065038836997684",
+    "venonat": "6143267851487681129",
+    "meowth": "6143055950686199889",
+    "jigglypuff": "6143158604699540827",
+    "abra": "6143248605739227640",
+    "articuno": "6143098067135503734",
+    "snorlax": "6143350078636563496",
+    "squirtle": "6143034596108803222",
+    "moltres": "6142975986985081276",
+    "psyduck": "6143060400272317013",
 }

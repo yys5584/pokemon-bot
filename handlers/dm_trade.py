@@ -8,7 +8,7 @@ import config
 from database import queries
 from services.trade_service import create_trade_offer, accept_trade
 from utils.parse import parse_args
-from utils.helpers import type_badge, hearts_display, shiny_emoji
+from utils.helpers import type_badge, hearts_display, shiny_emoji, icon_emoji
 from utils.battle_calc import iv_total
 
 logger = logging.getLogger(__name__)
@@ -198,7 +198,7 @@ async def accept_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id=trade_info["from_user_id"],
                 text=(
-                    f"✅ 교환 완료!\n\n"
+                    f"{icon_emoji('check')} 교환 완료!\n\n"
                     f"{receiver_name}이(가) 교환을 수락했습니다.\n"
                     f"{tb} {trade_info['offer_name']} "
                     f"새 트레이너에게 갔습니다."
