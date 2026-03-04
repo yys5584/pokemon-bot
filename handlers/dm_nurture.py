@@ -106,7 +106,7 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if pokemon["friendship"] >= max_f:
         await update.message.reply_text(
             f"{pokemon['name_ko']}의 친밀도가 이미 MAX입니다!\n"
-            f"진화 {index} 로 진화를 시도해보세요."
+            f"진화 {pokemon['name_ko']} 로 진화를 시도해보세요."
         )
         return
 
@@ -123,7 +123,7 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     evo_hint = ""
     if new_friendship >= config.MAX_FRIENDSHIP:
         if pokemon["evolves_to"] and pokemon["evolution_method"] == "friendship":
-            evo_hint = f"\n\n✨ 친밀도 MAX! 진화 {index} 로 진화할 수 있습니다!"
+            evo_hint = f"\n\n✨ 친밀도 MAX! 진화 {pokemon['name_ko']} 로 진화할 수 있습니다!"
         elif pokemon["evolves_to"] and pokemon["evolution_method"] == "trade":
             evo_hint = f"\n\n✨ 친밀도 MAX! 이 포켓몬은 교환으로만 진화합니다."
 
@@ -162,7 +162,7 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if pokemon["friendship"] >= max_f:
         await update.message.reply_text(
             f"{pokemon['name_ko']}의 친밀도가 이미 MAX입니다!\n"
-            f"진화 {index} 로 진화를 시도해보세요."
+            f"진화 {pokemon['name_ko']} 로 진화를 시도해보세요."
         )
         return
 
@@ -179,7 +179,7 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     evo_hint = ""
     if new_friendship >= config.MAX_FRIENDSHIP:
         if pokemon["evolves_to"] and pokemon["evolution_method"] == "friendship":
-            evo_hint = f"\n\n✨ 친밀도 MAX! 진화 {index} 로 진화할 수 있습니다!"
+            evo_hint = f"\n\n✨ 친밀도 MAX! 진화 {pokemon['name_ko']} 로 진화할 수 있습니다!"
         elif pokemon["evolves_to"] and pokemon["evolution_method"] == "trade":
             evo_hint = f"\n\n✨ 친밀도 MAX! 이 포켓몬은 교환으로만 진화합니다."
 
