@@ -1465,7 +1465,7 @@ async function sendQuick(text){
             const r=await fetch("/api/my/team-recommend",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode})});
             const d=await r.json();
             const elapsed=Date.now()-t0;
-            if(elapsed<5000) await new Promise(ok=>setTimeout(ok,5000-elapsed));
+            if(elapsed<3000) await new Promise(ok=>setTimeout(ok,3000-elapsed));
             hideTyping();
             if(d.error){addChatMsg('ai','오류: '+d.error)}
             else{addChatMsg('ai',formatAiResponse(d))}
