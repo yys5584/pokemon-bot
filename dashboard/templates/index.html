@@ -539,26 +539,32 @@ async function loadBattleRank(){
     }else{document.getElementById("shinyHoldersFull").innerHTML='<p class="empty-msg">이로치 보유자 없음</p>'}
 }
 
+// --- HELPERS ---
+function tIcons(p){
+    let h=`<img class="tc-icon-sm" src="/static/types/${p.type1}.png" alt="${p.type1}" title="${p.type1}">`;
+    if(p.type2) h+=`<img class="tc-icon-sm" src="/static/types/${p.type2}.png" alt="${p.type2}" title="${p.type2}" style="margin-left:1px">`;
+    return h;
+}
+function topStats(p){
+    const vals=[["hp",p.hp],["atk",p.atk],["def",p.def_],["spa",p.spa||0],["spdef",p.spdef||0],["spd",p.spd]];
+    vals.sort((a,b)=>b[1]-a[1]);
+    return new Set([vals[0][0],vals[1][0]]);
+}
+function sw(key,tops){return tops.has(key)?'font-weight:700':'font-weight:400'}
+
 // --- POKEMON TIER ---
 async function loadTier(){
     const tiers=await fetchJSON("/api/battle/tiers");
     if(!tiers||!tiers.length){document.getElementById("tierTable").innerHTML='<p class="empty-msg">데이터 없음</p>';return}
 
-    function topStats(p){
-        const vals=[["hp",p.hp],["atk",p.atk],["def",p.def_],["spa",p.spa||0],["spdef",p.spdef||0],["spd",p.spd]];
-        vals.sort((a,b)=>b[1]-a[1]);
-        return new Set([vals[0][0],vals[1][0]]);
-    }
-    function sw(key,tops){return tops.has(key)?'font-weight:700':'font-weight:400'}
-
     const rarityLabel={"legendary":"전설","epic":"에픽","rare":"희귀","common":"일반"};
 
-    let h=`<table><thead><tr><th>포켓몬</th><th>등급</th><th class="hide-m">성향</th><th class="hide-m">스킬</th><th>HP</th><th>ATK</th><th>DEF</th><th class="hide-m">SPA</th><th class="hide-m">SPDEF</th><th>SPD</th><th>전투력</th></tr></thead><tbody>`;
+    let h=`<table><thead><tr><th>포켓몬</th><th>타입</th><th>등급</th><th class="hide-m">성향</th><th class="hide-m">스킬</th><th>HP</th><th>ATK</th><th>DEF</th><th class="hide-m">SPA</th><th class="hide-m">SPDEF</th><th>SPD</th><th>전투력</th></tr></thead><tbody>`;
     for(const p of tiers){
         const tops=topStats(p);
-        const tIcon=`<img class="tc-icon-sm" src="/static/types/${p.pokemon_type}.png" alt="${p.type_ko}" title="${p.type_ko}">`;
         h+=`<tr>
-            <td>${tIcon} ${p.emoji} <b>${p.name}</b></td>
+            <td>${p.emoji} <b>${p.name}</b></td>
+            <td>${tIcons(p)}</td>
             <td><span class="badge badge-${p.rarity}" style="font-size:9px">${rarityLabel[p.rarity]||p.rarity}</span></td>
             <td class="hide-m">${p.stat_ko}</td>
             <td class="hide-m" style="color:var(--orange)" title="${p.skill_name}">${p.skill_power}x</td>
@@ -587,31 +593,23 @@ async function loadBaseStats(){
     const data=await fetchJSON("/api/battle/tiers");
     if(!data||!data.length){document.getElementById("baseStatsTable").innerHTML='<p class="empty-msg">데이터 없음</p>';return}
 
-    function topStats(p){
-        const vals=[["hp",p.hp],["atk",p.atk],["def",p.def_],["spa",p.spa||0],["spdef",p.spdef||0],["spd",p.spd]];
-        vals.sort((a,b)=>b[1]-a[1]);
-        return new Set([vals[0][0],vals[1][0]]);
-    }
-    function sw(key,tops){return tops.has(key)?'font-weight:700':'font-weight:400'}
-    // Find max for each stat for bar scaling
     let mx={hp:1,atk:1,def:1,spa:1,spdef:1,spd:1};
     for(const p of data){mx.hp=Math.max(mx.hp,p.hp);mx.atk=Math.max(mx.atk,p.atk);mx.def=Math.max(mx.def,p.def_);mx.spa=Math.max(mx.spa,p.spa||0);mx.spdef=Math.max(mx.spdef,p.spdef||0);mx.spd=Math.max(mx.spd,p.spd)}
     function bar(val,max,color){const pct=Math.min(val/max*100,100);return`<div style="display:flex;align-items:center;gap:4px"><span style="min-width:28px;text-align:right">${val}</span><span style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:${color};border-radius:4px"></span></span></div>`}
 
-    // Sort by total stats descending
     const sorted=[...data].sort((a,b)=>{
         const ta=a.hp+a.atk+a.def_+(a.spa||0)+(a.spdef||0)+a.spd;
         const tb=b.hp+b.atk+b.def_+(b.spa||0)+(b.spdef||0)+b.spd;
         return tb-ta;
     });
 
-    let h=`<table><thead><tr><th>포켓몬</th><th style="min-width:90px">HP</th><th style="min-width:90px">ATK</th><th style="min-width:90px">DEF</th><th style="min-width:90px" class="hide-m">SPA</th><th style="min-width:90px" class="hide-m">SPDEF</th><th style="min-width:90px">SPD</th><th>합계</th></tr></thead><tbody>`;
+    let h=`<table><thead><tr><th>포켓몬</th><th>타입</th><th style="min-width:90px">HP</th><th style="min-width:90px">ATK</th><th style="min-width:90px">DEF</th><th style="min-width:90px" class="hide-m">SPA</th><th style="min-width:90px" class="hide-m">SPDEF</th><th style="min-width:90px">SPD</th><th>합계</th></tr></thead><tbody>`;
     for(const p of sorted){
         const tops=topStats(p);
-        const tIcon=`<img class="tc-icon-sm" src="/static/types/${p.pokemon_type}.png" alt="${p.type_ko}" title="${p.type_ko}">`;
         const total=p.hp+p.atk+p.def_+(p.spa||0)+(p.spdef||0)+p.spd;
         h+=`<tr>
-            <td>${tIcon} ${p.emoji} <b>${p.name}</b></td>
+            <td>${p.emoji} <b>${p.name}</b></td>
+            <td>${tIcons(p)}</td>
             <td style="${sw('hp',tops)}">${bar(p.hp,mx.hp,'var(--green)')}</td>
             <td style="${sw('atk',tops)}">${bar(p.atk,mx.atk,'var(--red)')}</td>
             <td style="${sw('def',tops)}">${bar(p.def_,mx.def,'var(--blue)')}</td>

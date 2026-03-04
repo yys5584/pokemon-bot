@@ -163,6 +163,7 @@ async def api_battle_tiers(request):
     import config
     from utils.battle_calc import calc_battle_stats, EVO_STAGE_MAP, get_normalized_base_stats
     from models.pokemon_skills import POKEMON_SKILLS
+    from models.pokemon_base_stats import POKEMON_BASE_STATS
 
     pool = await get_db()
     rows = await pool.fetch("""
@@ -193,13 +194,18 @@ async def api_battle_tiers(request):
         eff_tank = stats["hp"] * (1 + eff_def * 0.003)
         power = eff_atk * eff_tank / 1000
 
-        type_ko = config.TYPE_NAME_KO.get(r["pokemon_type"], r["pokemon_type"])
+        # Dual type from base stats data
+        bs_entry = POKEMON_BASE_STATS.get(r["id"])
+        types = bs_entry[6] if bs_entry else [r["pokemon_type"]]
+        type1 = types[0] if types else r["pokemon_type"]
+        type2 = types[1] if len(types) > 1 else None
+
         stat_ko = {"offensive": "공격", "defensive": "방어", "balanced": "균형", "speedy": "속도"}.get(r["stat_type"], r["stat_type"])
 
         scored.append({
             "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
             "rarity": r["rarity"],
-            "pokemon_type": r["pokemon_type"], "type_ko": type_ko,
+            "type1": type1, "type2": type2,
             "stat_ko": stat_ko, "power": round(power, 1),
             "skill_name": skill[0], "skill_power": skill[1],
             "hp": stats["hp"], "atk": stats["atk"],
