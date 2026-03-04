@@ -88,16 +88,18 @@ async def post_init(application: Application):
         logger.info(f"IV migration: {iv_assigned} pokemon received random IVs.")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready. 251 Pokemon seeded.")
 
-    # Phase 3: 독립 작업 병렬 (cleanup + weather + missed_reset + dashboard)
-    weather_city = os.getenv("WEATHER_CITY", "Seoul")
+    # Phase 3: 독립 작업 병렬 (cleanup + missed_reset + dashboard)
     await asyncio.gather(
         queries.cleanup_expired_sessions(),
         queries.cleanup_expired_events(),
-        update_weather(weather_city),
         _check_missed_reset(),
         start_dashboard(),
     )
-    logger.info(f"[{time.monotonic()-t0:.1f}s] Cleanup + weather + dashboard done")
+    logger.info(f"[{time.monotonic()-t0:.1f}s] Cleanup + dashboard done")
+
+    # Weather는 느릴 수 있으므로 백그라운드로 (시작 차단 안 함)
+    weather_city = os.getenv("WEATHER_CITY", "Seoul")
+    asyncio.create_task(update_weather(weather_city))
 
     # Phase 4: 스폰 스케줄링 (Telegram API 호출 필요, 마지막)
     await schedule_all_chats(application)

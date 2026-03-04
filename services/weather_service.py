@@ -133,7 +133,7 @@ WEATHER_BOOSTS = {
 async def fetch_weather(city: str) -> dict | None:
     """Fetch current weather from wttr.in (free, no API key needed)."""
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.get(
                 f"https://wttr.in/{city}?format=j1",
                 headers={"Accept-Language": "ko"},
