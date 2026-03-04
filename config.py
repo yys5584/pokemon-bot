@@ -419,8 +419,8 @@ TOURNAMENT_PRIZE_4TH_BP = 50    # 4강 BP
 
 # --- Tournament Titles ---
 TOURNAMENT_TITLES = {
-    "tournament_first": ("쉬었음청년",     "snorlax",    "임시대회 우승자",  "tournament_first", 1),
-    "tournament_champ": ("토너먼트 챔피언", "crown",      "토너먼트 우승 1회",       "tournament_win", 1),
+    "tournament_first": ("쉬었음청년",     "champion_first",    "임시대회 우승자",  "tournament_first", 1),
+    "tournament_champ": ("토너먼트 챔피언", "champion",      "토너먼트 우승 1회",       "tournament_win", 1),
 }
 UNLOCKABLE_TITLES.update(TOURNAMENT_TITLES)
 
@@ -539,6 +539,9 @@ ICON_CUSTOM_EMOJI = {
     # Special
     "skull": "6143450305993382989",
     "crystal": "6143120589944004477",
+    # Champion animated effects
+    "champion_first": "6143110286317461809",
+    "champion": "6143325296675266325",
     # Numbers + Check
     "1": "6143285920415097548",
     "2": "6143042181021048615",

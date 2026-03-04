@@ -885,7 +885,7 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ],
     ])
 
-    await update.message.reply_text("\n".join(lines), reply_markup=buttons)
+    await update.message.reply_text("\n".join(lines), reply_markup=buttons, parse_mode="HTML")
 
 
 async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -968,9 +968,10 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await bq.log_bp_purchase(user_id, "pokeball_reset", 1)
         bp = await bq.get_bp(user_id)
         await update.message.reply_text(
-            f"🔴 포켓볼 충전 한도 리셋 완료!\n"
+            f"{ball_emoji('pokeball')} 포켓볼 충전 한도 리셋 완료!\n"
             f"{icon_emoji('coin')} 남은 BP: {bp}\n"
-            f"🔄 다시 포켓볼 충전 으로 10개씩 충전 가능! (최대 100개)"
+            f"🔄 다시 포켓볼 충전 으로 10개씩 충전 가능! (최대 100개)",
+            parse_mode="HTML"
         )
 
     elif item in ("하이퍼볼", "하이퍼", "ㅎ"):

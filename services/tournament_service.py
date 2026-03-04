@@ -13,7 +13,7 @@ from database import queries
 from database import battle_queries as bq
 from database.connection import get_db
 from services.battle_service import _prepare_combatant, _resolve_battle, _hp_bar
-from utils.helpers import icon_emoji
+from utils.helpers import icon_emoji, ball_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -262,7 +262,7 @@ async def _run_match(
                     bar2 = _hp_bar(second_target_hp, second_target_max)
                     lines.append(f"  ←{second_dmg} 데미지 ({second_target_name} HP: {bar2} {second_target_hp}/{second_target_max})")
 
-                await context.bot.send_message(chat_id=chat_id, text="\n".join(lines))
+                await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), parse_mode="HTML")
                 await asyncio.sleep(2)
 
             elif td["type"] == "ko":
@@ -519,7 +519,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data, final_bracket,
         "\n🏆 토너먼트 결과",
         "━━━━━━━━━━━━━━━",
         f"🥇 {winner_data['name']}",
-        f"   🟣 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP} BP",
+        f"   {ball_emoji('masterball')} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP} BP",
     ]
 
     if runner_up_id:
