@@ -864,6 +864,12 @@ async def get_chats_with_force_spawns() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+async def reset_daily_spawn_counts():
+    """Reset daily spawn counts for all chat rooms."""
+    pool = await get_db()
+    await pool.execute("UPDATE chat_rooms SET daily_spawn_count = 0")
+
+
 async def reset_catch_limits():
     """Reset all catch limits and bonus catches."""
     pool = await get_db()
