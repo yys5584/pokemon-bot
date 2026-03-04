@@ -695,8 +695,8 @@ async def _get_battle_meta() -> dict:
     # Top rankers
     ranking = await bq.get_battle_ranking(5)
     rankers = [{"name": r["display_name"], "wins": r["battle_wins"],
-                "losses": r["battle_losses"], "bp": r["bp"],
-                "streak": r.get("battle_streak", 0)} for r in ranking]
+                "losses": r["battle_losses"], "bp": r.get("battle_points", 0),
+                "streak": r.get("best_streak", 0)} for r in ranking]
 
     return {"pokemon_meta": meta_pokemon, "top_rankers": rankers}
 
