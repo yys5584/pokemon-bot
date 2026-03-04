@@ -469,41 +469,37 @@
                     </button>
                 </div>
             </div>
-            <!-- Quick Buttons: AI (LLM) -->
-            <div style="margin-bottom:8px">
+            <!-- AI 분석 (점검 중) -->
+            <div style="margin-bottom:8px;opacity:0.5;pointer-events:none">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
                     <span style="font-size:11px;font-weight:700;color:var(--purple)">🤖 AI 분석</span>
-                    <span style="font-size:10px;color:var(--muted)">· 2회 차감</span>
+                    <span style="font-size:10px;color:var(--red);font-weight:700">🔧 점검 중</span>
                     <span style="font-size:9px;color:var(--dim);margin-left:auto">Gemini 2.0 Flash</span>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
-                    <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('요즘 승률 높은 포켓몬이 뭐야?')">
+                    <button class="chat-quick-btn ai-btn" disabled style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0;opacity:0.5">
                         <span style="font-size:14px">📊</span><span style="font-weight:700;font-size:11px">메타</span>
                     </button>
-                    <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 포켓몬 중 키울 만한 거 추천해줘')">
+                    <button class="chat-quick-btn ai-btn" disabled style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0;opacity:0.5">
                         <span style="font-size:14px">🌱</span><span style="font-weight:700;font-size:11px">육성</span>
                     </button>
-                    <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 팀 약점 분석해줘')">
+                    <button class="chat-quick-btn ai-btn" disabled style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0;opacity:0.5">
                         <span style="font-size:14px">🔍</span><span style="font-weight:700;font-size:11px">약점</span>
                     </button>
                 </div>
             </div>
-            <!-- Chat Sessions -->
-            <div id="chatSessionBar" style="display:flex;align-items:center;gap:4px;margin-bottom:6px;overflow-x:auto;padding-bottom:2px">
-                <!-- session tabs rendered by JS -->
-            </div>
-            <!-- Chat Area (expanded) -->
-            <div class="chat-container" style="height:calc(100vh - 230px);min-height:380px;max-height:680px">
+            <!-- Chat Area (disabled) -->
+            <div class="chat-container" style="height:calc(100vh - 200px);min-height:380px;max-height:680px">
                 <div class="chat-messages" id="chatMessages">
                     <div class="chat-msg ai">
                         <div class="chat-sender">🤖 배틀 어드바이저</div>
-                        포켓몬 배틀 전략 AI입니다. 위 버튼을 누르거나 자유롭게 질문하세요!<br>
-                        <span style="font-size:11px;color:var(--muted)">예: "내 마기라스 어때?", "페어리 카운터 추천", "팀 약점 분석"</span>
+                        🔧 AI 분석 기능을 점검 중입니다. 빠른 분석(전투력/시너지/카운터/밸런스)은 정상 이용 가능합니다.<br>
+                        <span style="font-size:11px;color:var(--muted)">점검이 완료되면 다시 이용하실 수 있습니다.</span>
                     </div>
                 </div>
-                <div class="chat-input-area">
-                    <input class="chat-input" id="chatInput" placeholder="질문을 입력하세요..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}">
-                    <button class="chat-send" id="chatSendBtn" onclick="sendChat()">➤</button>
+                <div class="chat-input-area" style="opacity:0.5;pointer-events:none">
+                    <input class="chat-input" id="chatInput" placeholder="AI 분석 점검 중..." disabled>
+                    <button class="chat-send" id="chatSendBtn" disabled>➤</button>
                 </div>
             </div>
             <!-- Donation Section -->
