@@ -155,23 +155,30 @@ async def schedule_all_chats(app):
         logger.info(f"Loaded arcade channels from DB: {config.ARCADE_CHAT_IDS}")
 
     chats = await queries.get_all_active_chats()
-    for chat in chats:
+
+    # 채팅방별 멤버수 조회 + 스폰 스케줄링 병렬 처리
+    async def _schedule_one(chat):
+        cid = chat["chat_id"]
+        if cid in config.ARCADE_CHAT_IDS:
+            return
         try:
-            cid = chat["chat_id"]
-            # Skip arcade channels (they use their own scheduler)
-            if cid in config.ARCADE_CHAT_IDS:
-                continue
+            count = await app.bot.get_chat_member_count(cid)
+            await queries.update_chat_member_count(cid, count)
+        except Exception:
+            count = chat["member_count"]
+        await schedule_spawns_for_chat(app, cid, count)
 
-            # Try to update member count from Telegram
+    # 동시 5개씩 배치 (Telegram API rate limit 방지)
+    import asyncio
+    sem = asyncio.Semaphore(5)
+    async def _limited(chat):
+        async with sem:
             try:
-                count = await app.bot.get_chat_member_count(cid)
-                await queries.update_chat_member_count(cid, count)
-            except Exception:
-                count = chat["member_count"]
+                await _schedule_one(chat)
+            except Exception as e:
+                logger.error(f"Failed to schedule for chat {chat['chat_id']}: {e}")
 
-            await schedule_spawns_for_chat(app, cid, count)
-        except Exception as e:
-            logger.error(f"Failed to schedule for chat {chat['chat_id']}: {e}")
+    await asyncio.gather(*[_limited(c) for c in chats])
 
     # Schedule permanent arcade channels (repeating every N seconds)
     schedule_arcade_spawns(app)
