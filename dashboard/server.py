@@ -216,9 +216,13 @@ async def api_battle_tiers(request):
         else:  # common
             tier = "D+" if best_atk >= 45 else "D"
 
+        rarity_emoji = config.RARITY_EMOJI.get(r["rarity"], "")
+        rarity_label = config.RARITY_LABEL.get(r["rarity"], "")
+
         scored.append({
             "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
-            "rarity": r["rarity"], "type_emoji": type_emoji, "type_ko": type_ko,
+            "rarity": r["rarity"], "rarity_emoji": rarity_emoji, "rarity_label": rarity_label,
+            "type_emoji": type_emoji, "type_ko": type_ko,
             "stat_ko": stat_ko, "power": round(power, 1), "tier": tier,
             "skill_name": skill[0], "skill_power": skill[1],
             "hp": stats["hp"], "atk": stats["atk"],
