@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>포켓몬 봇 대시보드</title>
+    <title>TGPoke 대시보드</title>
+    <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         :root{--bg:#EDE4D3;--card:#F8F2E4;--border:#C4B395;--hover:#E8DCC8;--text:#4A3728;--muted:#907A5F;--dim:#B8A88A;--red:#C62828;--green:#2E7D32;--blue:#1565C0;--purple:#7B1FA2;--gold:#F9A825;--orange:#E65100}
@@ -14,9 +15,77 @@
         .header h1{font-size:18px;color:#FFF3E0}
         .header h1 span{color:#FFD54F}
         .header-right{display:flex;align-items:center;gap:8px}
-        .refresh-btn{background:#D32F2F;color:#FFF3E0;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px}
-        .refresh-btn:hover{background:#B71C1C}
+        .connect-btn{background:linear-gradient(135deg,#0088cc,#0077b5);color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;transition:all .2s}
+        .connect-btn:hover{background:linear-gradient(135deg,#006daa,#005f8f);transform:translateY(-1px)}
+        .connect-btn svg{width:16px;height:16px;fill:#fff}
+        .user-info{display:flex;align-items:center;gap:8px;color:#FFF3E0;font-size:12px}
+        .user-avatar{width:28px;height:28px;border-radius:50%;border:2px solid #FFD54F}
+        .user-name{font-weight:600;color:#FFD54F}
+        .logout-btn{background:rgba(255,255,255,.15);color:#FFCCBC;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px}
+        .logout-btn:hover{background:rgba(255,255,255,.25)}
         .last-update{color:#FFCCBC;font-size:11px}
+        .nav-auth{display:none}
+
+        /* My Pokemon Page */
+        .poke-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+        .poke-filter{padding:5px 14px;border:1px solid var(--border);border-radius:16px;background:var(--card);color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s}
+        .poke-filter:hover{color:var(--text);border-color:var(--text)}
+        .poke-filter.active{background:var(--red);color:#fff;border-color:var(--red);font-weight:600}
+        .poke-select{padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12px;cursor:pointer}
+        .poke-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+        .poke-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;transition:all .2s;position:relative}
+        .poke-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.08)}
+        .poke-card.shiny{border-color:var(--gold);background:linear-gradient(135deg,#FFF8E1,#F8F2E4)}
+        .poke-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+        .poke-emoji{font-size:24px}
+        .poke-name{font-weight:700;font-size:14px;color:var(--text)}
+        .poke-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+        .poke-stars{color:var(--gold);font-size:12px;letter-spacing:-1px}
+        .poke-iv-badge{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700}
+        .iv-s{background:#C62828;color:#fff}.iv-a{background:#E65100;color:#fff}.iv-b{background:#1565C0;color:#fff}.iv-c{background:#2E7D32;color:#fff}.iv-d{background:#757575;color:#fff}
+        .synergy-badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:var(--hover);color:var(--text)}
+        .poke-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:3px 10px;margin-top:6px;font-size:12px}
+        .poke-stat{display:flex;justify-content:space-between;align-items:center}
+        .poke-stat-name{color:var(--muted);font-size:11px;min-width:28px}
+        .poke-stat-val{font-weight:600}
+        .poke-stat-iv{color:var(--green);font-size:10px;margin-left:2px}
+        .poke-stat-bar{flex:1;height:4px;background:var(--border);border-radius:2px;margin:0 6px;min-width:30px}
+        .poke-stat-fill{height:100%;border-radius:2px}
+        .poke-power{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+        .poke-power-label{color:var(--muted);font-size:11px}
+        .poke-power-val{font-size:16px;font-weight:700;color:var(--red)}
+        .poke-power-diff{font-size:11px;color:var(--green);margin-left:4px}
+        .poke-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px}
+        .poke-summary .card{text-align:center}
+
+        /* AI Chat Simulator */
+        .chat-container{display:flex;flex-direction:column;height:calc(100vh - 160px);min-height:400px;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+        .chat-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+        .chat-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.6;animation:chatIn .3s ease}
+        @keyframes chatIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        .chat-msg.ai{align-self:flex-start;background:#f0ebe0;color:var(--text);border-bottom-left-radius:4px}
+        .chat-msg.user{align-self:flex-end;background:linear-gradient(135deg,#8B0000,#A52A2A);color:#FFF3E0;border-bottom-right-radius:4px}
+        .chat-msg.ai .chat-sender{font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px}
+        .chat-msg.user .chat-sender{font-size:11px;font-weight:600;color:#FFD54F;margin-bottom:4px}
+        .chat-msg.ai .chat-team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin:8px 0}
+        .chat-msg.ai .chat-warning{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:5px 8px;font-size:11px;color:#856404;margin-top:6px}
+        .chat-msg.ai .chat-meta{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0;font-size:11px;color:var(--muted)}
+        .chat-msg.ai .chat-meta b{color:var(--text)}
+        .chat-typing{align-self:flex-start;padding:10px 18px;background:#f0ebe0;border-radius:12px;border-bottom-left-radius:4px}
+        .chat-typing span{display:inline-block;width:6px;height:6px;background:var(--muted);border-radius:50%;animation:typing 1.2s infinite;margin:0 2px}
+        .chat-typing span:nth-child(2){animation-delay:.2s}
+        .chat-typing span:nth-child(3){animation-delay:.4s}
+        @keyframes typing{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+        .chat-quick{display:flex;gap:6px;padding:8px 14px;flex-wrap:wrap;border-top:1px solid var(--border);background:var(--bg)}
+        .chat-quick-btn{padding:6px 12px;border:1px solid var(--border);border-radius:16px;background:var(--card);color:var(--text);font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap}
+        .chat-quick-btn:hover{border-color:var(--red);color:var(--red);background:#fff5f5}
+        .chat-input-area{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);background:var(--card)}
+        .chat-input{flex:1;border:1px solid var(--border);border-radius:20px;padding:8px 16px;font-size:13px;background:var(--bg);color:var(--text);outline:none;transition:border-color .2s;font-family:inherit}
+        .chat-input:focus{border-color:var(--red)}
+        .chat-input::placeholder{color:var(--dim)}
+        .chat-send{width:36px;height:36px;border:none;border-radius:50%;background:linear-gradient(135deg,#8B0000,#A52A2A);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:16px}
+        .chat-send:hover{transform:scale(1.05);box-shadow:0 2px 8px rgba(139,0,0,.3)}
+        .chat-send:disabled{opacity:.5;cursor:not-allowed;transform:none}
 
         /* Tab Navigation */
         .nav{display:flex;gap:0;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
@@ -47,6 +116,20 @@
         .card.hl-purple{border-color:var(--purple)}.card.hl-purple .value{color:var(--purple)}
         .card.hl-blue{border-color:var(--blue)}.card.hl-blue .value{color:var(--blue)}
         .card.hl-gold{border-color:var(--gold)}.card.hl-gold .value{color:var(--gold)}
+
+        /* Donation Progress */
+        .donate-bar-wrap{background:var(--card);border-radius:8px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border)}
+        .donate-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+        .donate-title{font-size:13px;font-weight:700;color:var(--text)}
+        .donate-amount{font-size:18px;font-weight:800;color:var(--primary)}
+        .donate-amount .goal{font-size:13px;color:var(--muted);font-weight:500}
+        .donate-track{height:22px;background:#f0e6d6;border-radius:11px;overflow:hidden;position:relative}
+        .donate-fill{height:100%;border-radius:11px;transition:width .8s ease;background:linear-gradient(90deg,#e8a87c,#d4776b)}
+        .donate-fill.over{background:linear-gradient(90deg,#e8a87c,#d4776b,#c44569);animation:donateGlow 1.5s ease-in-out infinite alternate}
+        .donate-pct{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+        .donate-label{font-size:10px;color:var(--muted);margin-top:4px;text-align:center}
+        .donate-over-badge{display:inline-block;background:linear-gradient(135deg,#f7971e,#ffd200);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;animation:donateGlow 1.5s ease-in-out infinite alternate}
+        @keyframes donateGlow{0%{box-shadow:0 0 4px rgba(244,167,71,.4)}100%{box-shadow:0 0 12px rgba(244,167,71,.8)}}
 
         /* Sections */
         .section{background:var(--card);border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid var(--border)}
@@ -204,9 +287,14 @@
 </head>
 <body>
     <div class="header">
-        <h1><span>Pokemon</span> Dashboard</h1>
+        <h1><span>TG</span>Poke</h1>
         <div class="header-right">
-            <button class="refresh-btn" onclick="loadCurrentPage()">새로고침</button>
+            <div id="authArea">
+                <button class="connect-btn" onclick="telegramConnect()">
+                    <svg viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                    Connect
+                </button>
+            </div>
             <span class="last-update" id="lastUpdate"></span>
         </div>
     </div>
@@ -214,9 +302,11 @@
         <div class="nav-tab active" data-page="home">홈</div>
         <div class="nav-tab" data-page="channels">채널 TOP 5</div>
         <div class="nav-tab" data-page="battlerank">배틀 & 랭킹</div>
-        <div class="nav-tab" data-page="tier">포켓몬 티어</div>
+        <div class="nav-tab" data-page="tier">푸키몬 티어</div>
         <div class="nav-tab" data-page="typechart">상성표</div>
         <div class="nav-tab" data-page="stats">통계</div>
+        <div class="nav-tab nav-auth" data-page="mypokemon">📦 내 푸키몬</div>
+        <div class="nav-tab nav-auth" data-page="simulator">🤖 AI 어드바이저</div>
     </div>
     <div class="container">
 
@@ -257,7 +347,7 @@
 
         <!-- POKEMON TIER -->
         <div class="page" id="page-tier">
-            <div class="section"><h2>📋 포켓몬 배틀 티어표 <span style="color:var(--dim);font-size:10px;font-weight:400;margin-left:4px">VER 1.1</span></h2><div id="tierTable"><div class="loading">로딩 중...</div></div></div>
+            <div class="section"><h2>📋 푸키몬 배틀 티어표 <span style="color:var(--dim);font-size:10px;font-weight:400;margin-left:4px">VER 1.1</span></h2><div id="tierTable"><div class="loading">로딩 중...</div></div></div>
         </div>
 
         <!-- TYPE CHART -->
@@ -281,13 +371,136 @@
                 <div class="section"><h2>😭 불행아 TOP 5</h2><div id="unluckyUsers"></div></div>
                 <div class="section"><h2>🤝 교환왕 TOP 5</h2><div id="tradeKings"></div></div>
                 <div class="section"><h2>🟣 마볼 부자 TOP 5</h2><div id="masterballRich"></div></div>
-                <div class="section"><h2>👻 도망 많은 포켓몬 TOP 5</h2><div id="mostEscaped"></div></div>
+                <div class="section"><h2>👻 도망 많은 푸키몬 TOP 5</h2><div id="mostEscaped"></div></div>
                 <div class="section"><h2>🔴 포볼 중독자 TOP 5</h2><div id="pokeballAddicts"></div></div>
             </div>
-            <div class="section"><h2>🔥 포켓몬 포획 순위</h2><div id="pokemonStats"><div class="loading">로딩 중...</div></div></div>
+            <div class="section"><h2>🔥 푸키몬 포획 순위</h2><div id="pokemonStats"><div class="loading">로딩 중...</div></div></div>
         </div>
 
-        <div class="footer">Pokemon TG Bot Dashboard &copy; 2026</div>
+        <!-- MY POKEMON -->
+        <div class="page" id="page-mypokemon">
+            <div class="poke-summary" id="mySummary"><div class="loading">로딩 중...</div></div>
+            <div class="section">
+                <h2>📦 내 푸키몬</h2>
+                <div class="poke-filters" id="pokeFilters">
+                    <button class="poke-filter active" data-filter="all">전체</button>
+                    <button class="poke-filter" data-filter="shiny">✨ 이로치</button>
+                    <button class="poke-filter" data-filter="legendary">전설</button>
+                    <button class="poke-filter" data-filter="epic">에픽</button>
+                    <select class="poke-select" id="pokeTypeFilter">
+                        <option value="">타입 전체</option>
+                    </select>
+                    <select class="poke-select" id="pokeSortBy">
+                        <option value="real_power">실전투력순</option>
+                        <option value="iv_total">IV 총합순</option>
+                        <option value="synergy_score">시너지순</option>
+                        <option value="friendship">친밀도순</option>
+                        <option value="name">이름순</option>
+                        <option value="recent">최근획득순</option>
+                    </select>
+                </div>
+                <div class="poke-grid" id="pokeGrid"><div class="loading">로딩 중...</div></div>
+                <div id="pokeGridNav"></div>
+            </div>
+        </div>
+
+        <!-- AI TEAM ADVISOR -->
+        <div class="page" id="page-simulator">
+            <!-- Quick Mode Cards (top) -->
+            <div class="section">
+                <h2>🤖 AI 팀 시뮬레이터</h2>
+                <p style="color:var(--muted);font-size:12px;margin-bottom:14px">모드를 선택하면 즉시 추천, 또는 아래 채팅으로 자유롭게 질문하세요.</p>
+                <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+                    <div class="chat-quick-btn" style="flex:1;min-width:120px;text-align:center;padding:12px 8px" onclick="sendQuick('내 최강 팀 추천해줘')">
+                        <div style="font-size:22px;margin-bottom:2px">💪</div>
+                        <div style="font-weight:700;font-size:12px">전투력 몰빵</div>
+                        <div style="font-size:10px;color:var(--muted)">실전투력 TOP 6</div>
+                    </div>
+                    <div class="chat-quick-btn" style="flex:1;min-width:120px;text-align:center;padding:12px 8px" onclick="sendQuick('IV 시너지 좋은 팀 짜줘')">
+                        <div style="font-size:22px;margin-bottom:2px">🎯</div>
+                        <div style="font-weight:700;font-size:12px">특성 시너지</div>
+                        <div style="font-size:10px;color:var(--muted)">IV-종족값 궁합</div>
+                    </div>
+                    <div class="chat-quick-btn" style="flex:1;min-width:120px;text-align:center;padding:12px 8px" onclick="sendQuick('랭커 카운터 팀 추천해줘')">
+                        <div style="font-size:22px;margin-bottom:2px">🛡️</div>
+                        <div style="font-weight:700;font-size:12px">카운터 덱</div>
+                        <div style="font-size:10px;color:var(--muted)">랭커 팀 분석</div>
+                    </div>
+                    <div class="chat-quick-btn" style="flex:1;min-width:120px;text-align:center;padding:12px 8px" onclick="sendQuick('밸런스 좋은 팀 추천')">
+                        <div style="font-size:22px;margin-bottom:2px">⚖️</div>
+                        <div style="font-weight:700;font-size:12px">밸런스 추천</div>
+                        <div style="font-size:10px;color:var(--muted)">전투력+시너지+타입</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Chat Area (bottom) -->
+            <div class="chat-container" style="height:420px;margin-top:10px">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-msg ai">
+                        <div class="chat-sender">🤖 배틀 어드바이저</div>
+                        안녕하세요! 내 푸키몬 데이터 + 실시간 배틀 메타를 분석하는 AI입니다.<br>
+                        위 모드를 클릭하거나, 자유롭게 질문해주세요!<br>
+                        <span style="font-size:11px;color:var(--muted)">예: "요즘 승률 높은 포켓몬?", "내 마기라스 어때?", "페어리 카운터 추천"</span>
+                    </div>
+                </div>
+                <div class="chat-quick" id="chatQuick">
+                    <button class="chat-quick-btn" onclick="sendQuick('요즘 승률 높은 포켓몬이 뭐야?')">📊 메타 분석</button>
+                    <button class="chat-quick-btn" onclick="sendQuick('내 포켓몬 중 키울 만한 거 추천해줘')">🌱 육성 추천</button>
+                    <button class="chat-quick-btn" onclick="sendQuick('내 팀 약점 분석해줘')">🔍 약점 분석</button>
+                </div>
+                <div class="chat-input-area">
+                    <input class="chat-input" id="chatInput" placeholder="팀 구성, 메타 분석, 육성 추천 등 자유롭게 질문하세요..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}">
+                    <button class="chat-send" id="chatSendBtn" onclick="sendChat()">➤</button>
+                </div>
+            </div>
+            <!-- Donation Section -->
+            <div class="donate-bar-wrap" style="margin-top:14px">
+                <div class="donate-header">
+                    <div class="donate-title">☕ 서버 운영 후원 <span style="font-size:10px;font-weight:400;color:var(--muted)">(클로드 MAX 멘징비)</span></div>
+                    <div id="donateAmount" class="donate-amount">$0 <span class="goal">/ $200</span></div>
+                </div>
+                <div class="donate-track">
+                    <div id="donateFill" class="donate-fill" style="width:0%"></div>
+                    <span id="donatePct" class="donate-pct">0%</span>
+                </div>
+                <div id="donateLabel" class="donate-label">후원하시면 AI 채팅 보너스가 지급됩니다!</div>
+            </div>
+            <div class="section" style="margin-top:10px">
+                <h2>💎 AI 채팅 추가 후원</h2>
+                <p style="font-size:11px;color:var(--muted);margin-bottom:10px">후원 시 AI 채팅 보너스가 지급됩니다. 송금 후 아래 확인 버튼을 눌러주세요.</p>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#fff8f0,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,1)" data-tier="1" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
+                        <div style="font-size:18px">☕</div>
+                        <div style="font-weight:700;font-size:13px">$3</div>
+                        <div style="font-size:11px;color:var(--muted)">AI +50회</div>
+                        <div style="font-size:10px;color:var(--primary)">🟣 +1마볼</div>
+                    </div>
+                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid var(--primary);background:linear-gradient(180deg,#fff0ec,#fff);box-shadow:0 2px 12px rgba(180,80,50,0.15);transition:all .2s" onclick="selectDonTier(this,2)" data-tier="2" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
+                        <div style="font-size:18px">🔥</div>
+                        <div style="font-weight:700;font-size:13px">$7</div>
+                        <div style="font-size:11px;color:var(--muted)">AI +100회 <span style="color:var(--primary)">(+50)</span></div>
+                        <div style="font-size:10px;color:var(--primary)">🟣 +3마볼</div>
+                        <div style="font-size:9px;color:var(--primary);font-weight:700">BEST</div>
+                    </div>
+                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#fffbe6,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,3)" data-tier="3" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
+                        <div style="font-size:18px">⭐</div>
+                        <div style="font-weight:700;font-size:13px">$15</div>
+                        <div style="font-size:11px;color:var(--muted)">AI +250회 <span style="color:var(--primary)">(+250)</span></div>
+                        <div style="font-size:10px;color:var(--primary)">🟣 +7마볼</div>
+                    </div>
+                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#f0f4ff,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,'custom')" data-tier="custom" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
+                        <div style="font-size:18px">✏️</div>
+                        <div style="display:flex;align-items:center;justify-content:center;gap:2px"><span style="font-weight:700;font-size:13px">$</span><input type="number" id="customDonAmount" min="1" max="1000" placeholder="?" style="width:36px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-weight:700;text-align:center;background:var(--card)" oninput="selectCustomTier()" onclick="event.stopPropagation()"></div>
+                        <div id="customQuotaLabel" style="font-size:11px;color:var(--primary);font-weight:700">직접입력</div>
+                    </div>
+                </div>
+                <button id="payBtn" onclick="startPayment()" style="width:100%;padding:14px 20px;font-size:16px;font-weight:700;border:none;border-radius:10px;background:linear-gradient(135deg,#e85d3a,#c0392b);color:#fff;cursor:pointer;margin-bottom:8px;box-shadow:0 4px 15px rgba(200,60,40,0.35);letter-spacing:0.5px;transition:all .2s" onmouseenter="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px rgba(200,60,40,0.45)'" onmouseleave="this.style.transform='';this.style.boxShadow='0 4px 15px rgba(200,60,40,0.35)'">💳 암호화폐로 후원하기</button>
+                <div id="payStatus" style="display:none;text-align:center;font-size:12px;padding:8px;border-radius:6px;margin-bottom:8px"></div>
+                <div style="font-size:10px;color:var(--muted);text-align:center">후원 완료 시 AI 채팅 보너스 + 마스터볼이 자동 지급됩니다.</div>
+            </div>
+        </div>
+
+        <div class="footer">TGPoke &copy; 2026</div>
     </div>
 
 <script>
@@ -306,6 +519,7 @@ async function fetchJSON(u){
 function rarityBadge(r){const l={common:"일반",rare:"희귀",epic:"에픽",legendary:"전설"};return`<span class="badge badge-${r}">${l[r]||r}</span>`}
 function tierBadge(t){const c={"S+":"sp","S":"s","A+":"ap","A":"a","B+":"bp","B":"b","C+":"cp","C":"c","D+":"dp","D":"d"};return`<span class="tier tier-${c[t]||'d'}">${t}</span>`}
 function formatTime(t){if(!t)return"-";var d=new Date(t);d=new Date(d.getTime()+9*60*60*1000);return d.toISOString().replace("T"," ").substring(0,16)}
+function shortNum(n){if(n>=1e6)return(n/1e6).toFixed(1).replace(/\.0$/,'')+'M';if(n>=1e4)return Math.round(n/1e3)+'k';if(n>=1e3)return(n/1e3).toFixed(1).replace(/\.0$/,'')+'k';return String(n)}
 function simpleTable(h,rows){
     if(!rows||!rows.length)return'<p class="empty-msg">데이터 없음</p>';
     return`<table><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
@@ -344,14 +558,81 @@ function pgNav(id,dir){
     _drawPage(id);
 }
 
+// --- Auth State ---
+let _authUser=null;
+const _BOT_ID="8578621482";
+
+async function checkAuth(){
+    try{
+        const r=await fetch("/api/auth/me");
+        const d=await r.json();
+        if(d.ok){_authUser=d.user;updateAuthUI()}
+    }catch(e){}
+}
+
+function telegramConnect(){
+    // Mock login for local preview
+    if(location.hostname==='127.0.0.1'||location.hostname==='localhost'){
+        (async()=>{
+            try{
+                const r=await fetch("/api/auth/telegram",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:1832746512,first_name:"테스트유저",auth_date:Math.floor(Date.now()/1000),hash:"mock"})});
+                const result=await r.json();
+                if(result.ok){_authUser=result.user;updateAuthUI();loadPage("mypokemon")}
+            }catch(e){}
+        })();
+        return;
+    }
+    if(typeof Telegram==='undefined'||!Telegram.Login){
+        alert("텔레그램 로그인을 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+        return;
+    }
+    Telegram.Login.auth({bot_id:_BOT_ID,request_access:true},async function(data){
+        if(!data){return}
+        try{
+            const r=await fetch("/api/auth/telegram",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
+            const result=await r.json();
+            if(result.ok){_authUser=result.user;updateAuthUI();loadPage("mypokemon")}
+            else{alert("인증 실패: "+(result.error||"다시 시도해주세요"))}
+        }catch(e){alert("서버 연결 실패")}
+    });
+}
+
+async function telegramLogout(){
+    await fetch("/api/auth/logout",{method:"POST"});
+    _authUser=null;
+    updateAuthUI();
+    // Switch to home if on auth-required page
+    if(currentPage==="mypokemon"||currentPage==="simulator"){
+        document.querySelector('.nav-tab[data-page="home"]').click();
+    }
+}
+
+function updateAuthUI(){
+    const area=document.getElementById("authArea");
+    const authTabs=document.querySelectorAll(".nav-auth");
+    if(_authUser){
+        const photo=_authUser.photo_url?`<img class="user-avatar" src="${_authUser.photo_url}" alt="">`:'';
+        area.innerHTML=`<div class="user-info">${photo}<span class="user-name">${_authUser.display_name}</span><button class="logout-btn" onclick="telegramLogout()">로그아웃</button></div>`;
+        authTabs.forEach(t=>t.style.display="block");
+    }else{
+        area.innerHTML=`<button class="connect-btn" onclick="telegramConnect()"><svg viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>Connect</button>`;
+        authTabs.forEach(t=>t.style.display="none");
+    }
+}
+
 // --- Tab Navigation ---
 let currentPage="home";
 document.querySelectorAll(".nav-tab").forEach(tab=>{
     tab.addEventListener("click",()=>{
+        const page=tab.dataset.page;
+        // Auth-required pages
+        if((page==="mypokemon"||page==="simulator")&&!_authUser){
+            telegramConnect();
+            return;
+        }
         document.querySelectorAll(".nav-tab").forEach(t=>t.classList.remove("active"));
         document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
         tab.classList.add("active");
-        const page=tab.dataset.page;
         document.getElementById("page-"+page).classList.add("active");
         currentPage=page;
         loadPage(page);
@@ -371,6 +652,8 @@ async function loadPage(page){
         else if(page==="tier") await loadTier();
         else if(page==="typechart") await loadTypeChart();
         else if(page==="stats") await loadStats();
+        else if(page==="mypokemon") await loadMyPokemon();
+        else if(page==="simulator") await loadSimulator();
     }catch(e){console.error("Load error:",e)}
     document.getElementById("lastUpdate").textContent="업데이트: "+new Date().toLocaleTimeString("ko-KR");
 }
@@ -383,13 +666,24 @@ function loadCurrentPage(){
 }
 
 // --- HOME ---
+function renderDonation(data){
+    const current=data.current||0,goal=data.goal||200;
+    const pct=Math.round((current/goal)*100);
+    const isOver=pct>=100;
+    document.getElementById("donateAmount").innerHTML=`$${current} <span class="goal">/ $${goal}</span>${isOver?` <span class="donate-over-badge">🎉 ${pct}% 달성!</span>`:''}`;
+    const fill=document.getElementById("donateFill");
+    fill.style.width=Math.min(pct,100)+"%";
+    if(isOver)fill.classList.add("over");else fill.classList.remove("over");
+    document.getElementById("donatePct").textContent=pct+"%";
+    document.getElementById("donateLabel").textContent=isOver?"감사합니다! 목표를 초과 달성했어요! 🎉":"후원해주시면 더 좋은 서비스를 만들 수 있어요!";
+}
+
 async function loadHome(){
     const[d,kpi,events,dkpi,spawns,tWinners]=await Promise.all([
         fetchJSON("/api/overview"),fetchJSON("/api/fun-kpis"),
         fetchJSON("/api/events"),fetchJSON("/api/dashboard-kpi"),
         fetchJSON("/api/spawns/recent"),fetchJSON("/api/tournament/winners")
     ]);
-
     // Overview cards
     document.getElementById("overviewCards").innerHTML=`
         <div class="card hl-red"><div class="label">총 유저</div><div class="value">${d.total_users}</div></div>
@@ -399,7 +693,9 @@ async function loadHome(){
         <div class="card"><div class="label">총 포획</div><div class="value">${d.total_catches}</div><div class="sub">오늘 ${d.today_catches}</div></div>
         <div class="card"><div class="label">총 교환</div><div class="value">${d.total_trades}</div></div>
         <div class="card hl-green"><div class="label">🎯 포획률</div><div class="value">${kpi.global_catch_rate}%</div></div>
-        <div class="card hl-purple"><div class="label">🟣 마볼 사용</div><div class="value">${kpi.total_master_balls_used}</div></div>`;
+        <div class="card hl-purple"><div class="label">☕ 후원 현황</div><div class="value" id="homeDonateVal">$0</div></div>`;
+    // Load donation for home KPI
+    fetchJSON("/api/donation").then(don=>{if(don)document.getElementById("homeDonateVal").textContent=`$${don.current}`}).catch(()=>{});
 
     // Events
     const eSec=document.getElementById("eventsSection");
@@ -408,37 +704,38 @@ async function loadHome(){
         document.getElementById("eventsList").innerHTML=events.map(e=>`<div class="event-card"><div class="event-name">${e.description||e.name}</div><div class="event-end">종료: ${formatTime(e.end_time)}</div></div>`).join("");
     }else{eSec.style.display="none"}
 
-    // DAU & Retention
+    // DAU & Retention (compact)
     const dauEl=document.getElementById("dauSection");
     if(dkpi){
         const ret=dkpi.retention;
-        const hist=dkpi.dau_history||[];
+        const hist=(dkpi.dau_history||[]).slice(-5);
         const maxDau=Math.max(...hist.map(h=>h.dau),1);
         let bars=hist.map(h=>{
             const pct=Math.round(h.dau/maxDau*100);
             const day=h.day.substring(5);
-            return`<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="color:var(--muted);font-size:11px;min-width:42px">${day}</span><div style="background:var(--red);height:16px;border-radius:3px;min-width:2px;width:${pct}%"></div><span style="font-size:11px;font-weight:600">${h.dau}</span></div>`;
+            return`<div style="display:flex;align-items:center;gap:4px;margin:2px 0"><span style="color:var(--muted);font-size:10px;min-width:36px">${day}</span><div style="background:var(--red);height:12px;border-radius:2px;min-width:2px;width:${pct}%"></div><span style="font-size:10px;font-weight:600">${h.dau}</span></div>`;
         }).join("");
         dauEl.innerHTML=`
-            <div style="display:flex;gap:16px;margin-bottom:10px;flex-wrap:wrap">
-                <div><span style="color:var(--muted);font-size:11px">D+1 리텐션</span><div style="font-size:20px;font-weight:700;color:var(--green)">${ret.rate}%</div><div style="font-size:11px;color:var(--muted)">${ret.retained}/${ret.total_new}명</div></div>
-                <div><span style="color:var(--muted);font-size:11px">오늘 DAU</span><div style="font-size:20px;font-weight:700;color:var(--blue)">${dkpi.dau}</div></div>
-            </div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:4px">📊 일별 DAU (최근 7일)</div>${bars}`;
-    }else{dauEl.innerHTML='<p class="empty-msg">서버 업데이트 후 이용 가능합니다</p>'}
+            <div style="display:flex;gap:14px;margin-bottom:6px">
+                <div><span style="color:var(--muted);font-size:10px">리텐션</span><div style="font-size:16px;font-weight:700;color:var(--green)">${ret.rate}%</div><div style="font-size:10px;color:var(--muted)">${ret.retained}/${ret.total_new}명</div></div>
+                <div><span style="color:var(--muted);font-size:10px">오늘 DAU</span><div style="font-size:16px;font-weight:700;color:var(--blue)">${dkpi.dau}</div></div>
+            </div>${bars}`;
+    }else{dauEl.innerHTML='<p class="empty-msg">데이터 없음</p>'}
 
-    // Economy health
+    // Economy health (6 cards: 마볼/하볼/BP × 유통/소비)
     const ecoEl=document.getElementById("economySection");
     if(dkpi){
         const eco=dkpi.economy;
         ecoEl.innerHTML=`
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div class="card" style="margin:0"><div class="label">🟣 마볼 유통량</div><div class="value" style="font-size:18px">${eco.master_balls_circulation}</div><div class="sub">인당 평균 ${eco.master_balls_avg}개</div></div>
-                <div class="card" style="margin:0"><div class="label">🟣 마볼 소비량</div><div class="value" style="font-size:18px">${eco.master_balls_used_total}</div><div class="sub">누적 사용</div></div>
-                <div class="card" style="margin:0"><div class="label">⚔️ BP 유통량</div><div class="value" style="font-size:18px">${eco.bp_circulation}</div><div class="sub">인당 평균 ${eco.bp_avg}</div></div>
-                <div class="card" style="margin:0"><div class="label">📦 보유 포켓몬</div><div class="value" style="font-size:18px">${eco.total_pokemon_owned}</div><div class="sub">전체 활성</div></div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                <div class="card" style="margin:0"><div class="label">⚔️ BP 유통량</div><div class="value" style="font-size:16px">${shortNum(eco.bp_circulation||0)}</div><div class="sub">인당 ${shortNum(Math.round(eco.bp_avg||0))}</div></div>
+                <div class="card" style="margin:0"><div class="label">🟣 마볼 유통량</div><div class="value" style="font-size:16px">${eco.master_balls_circulation}</div><div class="sub">인당 ${eco.master_balls_avg}개</div></div>
+                <div class="card" style="margin:0"><div class="label">🔵 하볼 유통량</div><div class="value" style="font-size:16px">${eco.hyper_balls_circulation||0}</div><div class="sub">인당 ${eco.hyper_balls_avg||0}개</div></div>
+                <div class="card" style="margin:0"><div class="label">⚔️ BP 소비량</div><div class="value" style="font-size:16px">${shortNum(eco.bp_spent_total||0)}</div><div class="sub">배틀 보상</div></div>
+                <div class="card" style="margin:0"><div class="label">🟣 마볼 소비량</div><div class="value" style="font-size:16px">${eco.master_balls_used_total}</div><div class="sub">누적 사용</div></div>
+                <div class="card" style="margin:0"><div class="label">🔵 하볼 소비량</div><div class="value" style="font-size:16px">${eco.hyper_balls_used_total||0}</div><div class="sub">누적 사용</div></div>
             </div>`;
-    }else{ecoEl.innerHTML='<p class="empty-msg">서버 업데이트 후 이용 가능합니다</p>'}
+    }else{ecoEl.innerHTML='<p class="empty-msg">데이터 없음</p>'}
 
 
 
@@ -591,7 +888,7 @@ async function loadBattleRank(){
     // IV ranking (top 10)
     const ivEl=document.getElementById("ivRankingFull");
     if(ivRanking&&ivRanking.length){
-        let ih=`<table><thead><tr><th>#</th><th>이름</th><th>포켓몬</th><th>개체값</th></tr></thead><tbody>`;
+        let ih=`<table><thead><tr><th>#</th><th>이름</th><th>푸키몬</th><th>개체값</th></tr></thead><tbody>`;
         ivRanking.forEach((r,i)=>{
             const shiny=r.is_shiny?"✨":"";
             ih+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td>${shiny}${r.emoji} ${r.name_ko}</td><td style="font-weight:700;color:var(--green)">${r.iv_grade}급 ${r.iv_total}점</td></tr>`;
@@ -691,7 +988,7 @@ async function loadTier(){
             <span style="color:var(--muted)">&nbsp;(총합 /186)</span>
         </div>
     </div>`;
-    h+=`<table><thead><tr><th>포켓몬</th><th>타입</th><th>등급</th><th class="hide-m">스킬</th><th>체력</th><th>공격</th><th>방어</th><th class="hide-m">특수공격</th><th class="hide-m">특수방어</th><th>속도</th><th>전투력</th></tr></thead><tbody>`;
+    h+=`<table><thead><tr><th>푸키몬</th><th>타입</th><th>등급</th><th class="hide-m">스킬</th><th>체력</th><th>공격</th><th>방어</th><th class="hide-m">특수공격</th><th class="hide-m">특수방어</th><th>속도</th><th>전투력</th></tr></thead><tbody>`;
     for(const p of tiers){
         const tops=topStats(p);
         const t1=typeTip(p.type1,chart,names);
@@ -760,17 +1057,362 @@ async function loadStats(){
         document.getElementById("unluckyUsers").innerHTML=simpleTable(["#","이름","시도","성공","포획률"],kpi.unlucky_users.map((e,i)=>[i+1,e.display_name,e.attempts,e.catches,e.catch_rate+"%"]));
         document.getElementById("tradeKings").innerHTML=simpleTable(["#","이름","교환"],kpi.trade_kings.map((e,i)=>[i+1,e.display_name,e.trade_count+"회"]));
         document.getElementById("masterballRich").innerHTML=simpleTable(["#","이름","보유"],kpi.masterball_rich.map((e,i)=>[i+1,e.display_name,e.master_balls+"개"]));
-        document.getElementById("mostEscaped").innerHTML=simpleTable(["#","포켓몬","등급","도망"],kpi.most_escaped.map((e,i)=>[i+1,e.pokemon_emoji+" "+e.pokemon_name,rarityBadge(e.rarity),e.escape_count+"회"]));
+        document.getElementById("mostEscaped").innerHTML=simpleTable(["#","푸키몬","등급","도망"],kpi.most_escaped.map((e,i)=>[i+1,e.pokemon_emoji+" "+e.pokemon_name,rarityBadge(e.rarity),e.escape_count+"회"]));
         document.getElementById("pokeballAddicts").innerHTML=simpleTable(["#","이름","충전량"],kpi.pokeball_addicts.map((e,i)=>[i+1,e.display_name,e.bonus_catches+"회"]));
     }
     if(pkstats&&pkstats.length){
-        let h=`<table><thead><tr><th>#</th><th>포켓몬</th><th>등급</th><th>포획수</th></tr></thead><tbody>`;
+        let h=`<table><thead><tr><th>#</th><th>푸키몬</th><th>등급</th><th>포획수</th></tr></thead><tbody>`;
         pkstats.forEach((p,i)=>{h+=`<tr><td>${i+1}</td><td>${p.pokemon_emoji} ${p.pokemon_name}</td><td>${rarityBadge(p.rarity)}</td><td>${p.catch_count}</td></tr>`});
         document.getElementById("pokemonStats").innerHTML=h+"</tbody></table>";
     }
 }
 
+// --- MY POKEMON ---
+let _myPokemon=[];
+let _pokeFilter="all";
+let _pokeSort="real_power";
+let _pokeTypeFilter="";
+
+const TYPE_NAMES={normal:"노말",fire:"불꽃",water:"물",grass:"풀",electric:"전기",ice:"얼음",fighting:"격투",poison:"독",ground:"땅",flying:"비행",psychic:"에스퍼",bug:"벌레",rock:"바위",ghost:"고스트",dragon:"드래곤",dark:"악",steel:"강철",fairy:"페어리"};
+const TYPE_EMOJI_MAP={normal:"⚪",fire:"🔥",water:"💧",grass:"🌿",electric:"⚡",ice:"❄️",fighting:"👊",poison:"☠️",ground:"🌍",flying:"🕊️",psychic:"🔮",bug:"🐛",rock:"🪨",ghost:"👻",dragon:"🐉",dark:"🌑",steel:"⚙️",fairy:"🧚"};
+const STAT_COLORS={hp:"var(--green)",atk:"var(--red)",def:"var(--blue)",spa:"var(--purple)",spdef:"#0277BD",spd:"var(--gold)"};
+const STAT_NAMES={hp:"HP",atk:"공격",def:"방어",spa:"특공",spdef:"특방",spd:"속도"};
+const STAT_TYPE_KO={offensive:"공격형",defensive:"방어형",balanced:"균형형",speedy:"속도형"};
+
+async function loadMyPokemon(){
+    const[pokemon,summary]=await Promise.all([
+        fetch("/api/my/pokemon").then(r=>r.json()),
+        fetch("/api/my/summary").then(r=>r.json())
+    ]);
+    if(pokemon.error){document.getElementById("pokeGrid").innerHTML='<div class="sim-empty">로그인이 필요합니다.</div>';return}
+
+    _myPokemon=pokemon;
+
+    // Summary cards
+    const wr=summary.battle_wins+summary.battle_losses>0?Math.round(summary.battle_wins/(summary.battle_wins+summary.battle_losses)*100):0;
+    document.getElementById("mySummary").innerHTML=`
+        <div class="card hl-red"><div class="label">보유 푸키몬</div><div class="value">${summary.total_pokemon}</div></div>
+        <div class="card hl-gold"><div class="label">✨ 이로치</div><div class="value">${summary.shiny_count}</div></div>
+        <div class="card hl-blue"><div class="label">📖 도감</div><div class="value">${summary.dex_count}/251</div></div>
+        <div class="card hl-green"><div class="label">⚔️ 전적</div><div class="value">${summary.battle_wins}승 ${summary.battle_losses}패</div><div class="sub">승률 ${wr}%</div></div>
+        <div class="card hl-purple"><div class="label">🏆 BP</div><div class="value">${summary.battle_points}</div></div>
+        <div class="card"><div class="label">🔥 최고연승</div><div class="value">${summary.best_streak}</div></div>
+    `;
+
+    // Populate type filter
+    const typeSelect=document.getElementById("pokeTypeFilter");
+    if(typeSelect.options.length<=1){
+        const types=new Set(pokemon.map(p=>p.pokemon_type));
+        [...types].sort().forEach(t=>{
+            const opt=document.createElement("option");
+            opt.value=t;opt.textContent=(TYPE_EMOJI_MAP[t]||"")+" "+(TYPE_NAMES[t]||t);
+            typeSelect.appendChild(opt);
+        });
+    }
+
+    // Filter buttons
+    document.querySelectorAll("#pokeFilters .poke-filter").forEach(btn=>{
+        btn.onclick=()=>{
+            document.querySelectorAll("#pokeFilters .poke-filter").forEach(b=>b.classList.remove("active"));
+            btn.classList.add("active");
+            _pokeFilter=btn.dataset.filter;
+            _pgState._pokePg=0;
+            renderMyPokemon();
+        };
+    });
+    document.getElementById("pokeTypeFilter").onchange=function(){_pokeTypeFilter=this.value;_pgState._pokePg=0;renderMyPokemon()};
+    document.getElementById("pokeSortBy").onchange=function(){_pokeSort=this.value;_pgState._pokePg=0;renderMyPokemon()};
+
+    renderMyPokemon();
+}
+
+function filterAndSortPokemon(){
+    let list=[..._myPokemon];
+    // Filter
+    if(_pokeFilter==="shiny") list=list.filter(p=>p.is_shiny);
+    else if(_pokeFilter==="legendary") list=list.filter(p=>p.rarity==="legendary");
+    else if(_pokeFilter==="epic") list=list.filter(p=>p.rarity==="epic");
+    if(_pokeTypeFilter) list=list.filter(p=>p.pokemon_type===_pokeTypeFilter||p.type2===_pokeTypeFilter);
+    // Sort
+    if(_pokeSort==="real_power") list.sort((a,b)=>b.real_power-a.real_power);
+    else if(_pokeSort==="iv_total") list.sort((a,b)=>b.iv_total-a.iv_total);
+    else if(_pokeSort==="synergy_score") list.sort((a,b)=>b.synergy_score-a.synergy_score);
+    else if(_pokeSort==="friendship") list.sort((a,b)=>b.friendship-a.friendship);
+    else if(_pokeSort==="name") list.sort((a,b)=>a.name_ko.localeCompare(b.name_ko));
+    else if(_pokeSort==="recent") list.sort((a,b)=>b.id-a.id);
+    return list;
+}
+
+function renderPokemonCard(p){
+    const stars="★".repeat(p.friendship)+"☆".repeat(Math.max(0,(p.is_shiny?7:5)-p.friendship));
+    const ivCls="iv-"+p.iv_grade.toLowerCase();
+    const shinyMark=p.is_shiny?'<span style="color:var(--gold);font-size:12px">✨</span>':"";
+    const typeStr=(TYPE_EMOJI_MAP[p.pokemon_type]||"")+(p.type2?" "+(TYPE_EMOJI_MAP[p.type2]||""):"");
+    const statKeys=["hp","atk","def","spa","spdef","spd"];
+    const maxStat=Math.max(...statKeys.map(k=>p.real_stats[k]));
+
+    let statsHtml="";
+    for(const k of statKeys){
+        const rv=p.real_stats[k];
+        const bv=p.stats[k];
+        const diff=rv-bv;
+        const diffStr=diff>0?`<span class="poke-stat-iv">(+${diff})</span>`:diff<0?`<span style="color:var(--red);font-size:10px">(${diff})</span>`:"";
+        const pct=Math.min(rv/maxStat*100,100);
+        statsHtml+=`<div class="poke-stat">
+            <span class="poke-stat-name">${STAT_NAMES[k]}</span>
+            <div class="poke-stat-bar"><div class="poke-stat-fill" style="width:${pct}%;background:${STAT_COLORS[k]}"></div></div>
+            <span class="poke-stat-val">${rv}</span>${diffStr}
+        </div>`;
+    }
+
+    return`<div class="poke-card${p.is_shiny?' shiny':''}">
+        <div class="poke-header">
+            <span class="poke-emoji">${p.emoji}</span>
+            <div>
+                <div class="poke-name">${p.name_ko} ${shinyMark}</div>
+                <div class="poke-meta">
+                    ${typeStr} ${rarityBadge(p.rarity)}
+                    <span class="poke-stars">${stars}</span>
+                    <span class="poke-iv-badge ${ivCls}">${p.iv_grade}: ${p.iv_total}</span>
+                    <span class="synergy-badge">${p.synergy_emoji} ${p.synergy_label}</span>
+                </div>
+            </div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${STAT_TYPE_KO[p.stat_type]||p.stat_type} · IV: HP${p.ivs.hp} 공${p.ivs.atk} 방${p.ivs.def} 특공${p.ivs.spa} 특방${p.ivs.spdef} 속${p.ivs.spd}</div>
+        <div class="poke-stats">${statsHtml}</div>
+        <div class="poke-power">
+            <div><span class="poke-power-label">실전투력</span></div>
+            <div><span class="poke-power-val">${p.real_power}</span><span class="poke-power-diff">${p.iv_bonus>0?'(+'+p.iv_bonus+')':p.iv_bonus<0?'('+p.iv_bonus+')':''}</span></div>
+        </div>
+    </div>`;
+}
+
+function renderMyPokemon(){
+    const list=filterAndSortPokemon();
+    const grid=document.getElementById("pokeGrid");
+    const navEl=document.getElementById("pokeGridNav");
+    if(!list.length){grid.innerHTML='<div class="sim-empty">조건에 맞는 푸키몬이 없습니다.</div>';navEl.innerHTML='';return}
+    const perPage=12;
+    if(!_pgState._pokePg) _pgState._pokePg=0;
+    const total=Math.ceil(list.length/perPage);
+    _pgState._pokePg=Math.min(_pgState._pokePg,total-1);
+    const pg=_pgState._pokePg;
+    const slice=list.slice(pg*perPage,pg*perPage+perPage);
+    grid.innerHTML=slice.map(renderPokemonCard).join("");
+    let nav='<div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:10px">';
+    nav+=`<span style="color:var(--muted);font-size:12px">${list.length}마리</span>`;
+    if(total>1){
+        nav+=`<button class="pg-btn" onclick="_pgState._pokePg=Math.max(0,_pgState._pokePg-1);renderMyPokemon()"${pg===0?' disabled':''}>◀</button>
+            <span style="color:var(--muted);font-size:11px">${pg+1} / ${total}</span>
+            <button class="pg-btn" onclick="_pgState._pokePg=Math.min(${total-1},_pgState._pokePg+1);renderMyPokemon()"${pg>=total-1?' disabled':''}>▶</button>`;
+    }
+    nav+='</div>';
+    navEl.innerHTML=nav;
+}
+
+// --- AI CHAT ADVISOR ---
+let _chatHistory=[];
+let _chatBusy=false;
+
+// Mode button mapping → algorithm API (no LLM)
+const _MODE_MAP={
+    '내 최강 팀 추천해줘':'power',
+    'IV 시너지 좋은 팀 짜줘':'synergy',
+    '랭커 카운터 팀 추천해줘':'counter',
+    '밸런스 좋은 팀 추천':'balance',
+};
+
+async function sendQuick(text){
+    if(_chatBusy) return;
+    if(!_authUser){telegramConnect();return}
+    const mode=_MODE_MAP[text];
+    if(mode){
+        // 4 mode buttons → algorithm API (no LLM)
+        addChatMsg('user', text.replace(/</g,'&lt;'));
+        _chatBusy=true;
+        document.getElementById("chatSendBtn").disabled=true;
+        showTyping();
+        try{
+            const r=await fetch("/api/my/team-recommend",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode})});
+            const d=await r.json();
+            hideTyping();
+            if(d.error){addChatMsg('ai','오류: '+d.error)}
+            else{addChatMsg('ai',formatAiResponse(d))}
+        }catch(e){hideTyping();addChatMsg('ai','서버 연결 실패')}
+        _chatBusy=false;
+        document.getElementById("chatSendBtn").disabled=false;
+    } else {
+        // Free text → LLM chat
+        document.getElementById("chatInput").value=text;
+        sendChat();
+    }
+}
+
+function addChatMsg(role, html){
+    const el=document.getElementById("chatMessages");
+    const div=document.createElement("div");
+    div.className=`chat-msg ${role}`;
+    if(role==="ai") div.innerHTML='<div class="chat-sender">🤖 배틀 어드바이저</div>'+html;
+    else div.innerHTML='<div class="chat-sender">🗣️ 나</div>'+html;
+    el.appendChild(div);
+    el.scrollTop=el.scrollHeight;
+    return div;
+}
+
+function showTyping(){
+    const el=document.getElementById("chatMessages");
+    const div=document.createElement("div");
+    div.className="chat-typing";
+    div.id="chatTyping";
+    div.innerHTML="<span></span><span></span><span></span>";
+    el.appendChild(div);
+    el.scrollTop=el.scrollHeight;
+}
+
+function hideTyping(){
+    const t=document.getElementById("chatTyping");
+    if(t) t.remove();
+}
+
+function formatAiResponse(data){
+    let html='';
+    // If team is included, render cards
+    if(data.team&&data.team.length){
+        let totalPower=data.team.reduce((s,p)=>s+p.real_power,0);
+        let types=[...new Set(data.team.map(p=>TYPE_EMOJI_MAP[p.pokemon_type]||"?"))];
+        html+=`<div class="chat-meta">
+            <span>총 실전투력: <b style="color:var(--red)">${totalPower}</b></span>
+            <span>평균: <b>${Math.round(totalPower/data.team.length)}</b></span>
+            <span>타입: <b>${types.join(" ")}</b></span>
+        </div>`;
+        html+='<div class="chat-team-grid">';
+        data.team.forEach(p=>{html+=renderPokemonCard(p)});
+        html+='</div>';
+    }
+    // AI analysis text
+    if(data.analysis){
+        html+=`<div style="margin-top:6px;white-space:pre-wrap">${data.analysis}</div>`;
+    }
+    // Warnings
+    if(data.warnings&&data.warnings.length){
+        data.warnings.forEach(w=>{html+=`<div class="chat-warning">⚠️ ${w}</div>`});
+    }
+    return html;
+}
+
+async function sendChat(){
+    if(_chatBusy) return;
+    if(!_authUser){telegramConnect();return}
+    const input=document.getElementById("chatInput");
+    const msg=input.value.trim();
+    if(!msg) return;
+    input.value='';
+
+    addChatMsg('user', msg.replace(/</g,'&lt;'));
+    _chatHistory.push({role:'user',content:msg});
+
+    _chatBusy=true;
+    document.getElementById("chatSendBtn").disabled=true;
+    showTyping();
+
+    try{
+        const r=await fetch("/api/my/chat",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({message:msg, history:_chatHistory.slice(-10)})
+        });
+        const d=await r.json();
+        hideTyping();
+        if(d.error){
+            addChatMsg('ai','죄송합니다. 오류가 발생했어요: '+d.error);
+        } else {
+            let html=formatAiResponse(d);
+            if(d.remaining!==undefined){
+                let rText=`남은 AI 채팅: ${d.remaining}회`;
+                if(d.bonus_remaining>0) rText+=` (보너스 ${d.bonus_remaining}회)`;
+                html+=`<div style="text-align:right;font-size:10px;color:var(--dim);margin-top:4px">${rText}</div>`;
+            }
+            addChatMsg('ai', html);
+            if(d.analysis) _chatHistory.push({role:'assistant',content:d.analysis});
+        }
+    }catch(e){
+        hideTyping();
+        addChatMsg('ai','서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
+    _chatBusy=false;
+    document.getElementById("chatSendBtn").disabled=false;
+}
+
+let _selectedTier=2;
+const _tierAmounts={1:3,2:7,3:15};
+function _calcQuota(usd){return Math.floor(usd/7*150)}
+function _calcMasterBalls(usd){return Math.max(1,Math.floor(usd/3))}
+
+function selectDonTier(el,tier){
+    _selectedTier=tier;
+    document.querySelectorAll('[data-tier]').forEach(c=>c.style.border='2px solid transparent');
+    el.style.border='2px solid var(--primary)';
+    if(tier!=='custom'){
+        document.getElementById("customDonAmount").value="";
+        document.getElementById("customQuotaLabel").textContent="직접입력";
+    }
+}
+function selectCustomTier(){
+    const v=parseInt(document.getElementById("customDonAmount").value)||0;
+    if(v>0){
+        _selectedTier="custom";
+        document.querySelectorAll('[data-tier]').forEach(c=>c.style.border='2px solid transparent');
+        document.querySelector('[data-tier="custom"]').style.border='2px solid var(--primary)';
+        document.getElementById("customQuotaLabel").textContent=`+${_calcQuota(v)}회 +${_calcMasterBalls(v)}마볼`;
+    }else{
+        document.getElementById("customQuotaLabel").textContent="직접입력";
+    }
+}
+async function startPayment(){
+    const btn=document.getElementById("payBtn");
+    const status=document.getElementById("payStatus");
+    const customAmt=_selectedTier==="custom"?parseInt(document.getElementById("customDonAmount").value)||0:0;
+
+    if(_selectedTier==="custom"&&customAmt<1){
+        status.style.display="block";status.style.background="#fff3cd";status.style.color="#856404";
+        status.textContent="금액을 입력해주세요.";return;
+    }
+
+    btn.disabled=true;btn.textContent="후원 준비 중...";
+    status.style.display="none";
+
+    const body=_selectedTier==="custom"?{custom_amount:customAmt}:{tier:_selectedTier};
+    try{
+        const r=await fetch("/api/payment/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+        const d=await r.json();
+        if(d.ok&&d.invoice_url){
+            window.open(d.invoice_url,"_blank");
+            status.style.display="block";status.style.background="#d4edda";status.style.color="#155724";
+            status.textContent="후원 페이지가 열렸습니다. 완료 후 보상이 자동 지급됩니다!";
+        }else{
+            status.style.display="block";status.style.background="#f8d7da";status.style.color="#721c24";
+            status.textContent=d.error||"후원 생성에 실패했습니다.";
+        }
+    }catch(e){
+        status.style.display="block";status.style.background="#f8d7da";status.style.color="#721c24";
+        status.textContent="서버 연결에 실패했습니다.";
+    }
+    btn.disabled=false;btn.textContent="💳 암호화폐로 후원하기";
+}
+
+async function loadSimulator(){
+    if(!_myPokemon.length){
+        try{
+            const r=await fetch("/api/my/pokemon");
+            _myPokemon=await r.json();
+        }catch(e){}
+    }
+    // Load donation progress
+    try{const don=await fetchJSON("/api/donation");if(don)renderDonation(don)}catch(e){renderDonation({current:0,goal:200})}
+}
+
 // --- Init ---
+checkAuth();
 loadPage("home");
 setInterval(()=>{loaded[currentPage]=false;loadPage(currentPage)},60000);
 </script>

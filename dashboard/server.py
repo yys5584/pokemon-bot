@@ -112,8 +112,8 @@ _llm_usage: dict[int, dict[str, int]] = {}
 LLM_DAILY_LIMIT = 10
 
 
-def _check_llm_limit(user_id: int) -> tuple[bool, int]:
-    """Check if user can use LLM. Returns (allowed, remaining)."""
+async def _check_llm_limit(user_id: int) -> tuple[bool, int, int]:
+    """Check if user can use LLM. Returns (allowed, remaining_total, bonus_remaining)."""
     today = datetime.now().strftime("%Y-%m-%d")
     if user_id not in _llm_usage:
         _llm_usage[user_id] = {}
@@ -123,16 +123,34 @@ def _check_llm_limit(user_id: int) -> tuple[bool, int]:
         if d != today:
             del usage[d]
     count = usage.get(today, 0)
-    remaining = max(0, LLM_DAILY_LIMIT - count)
-    return count < LLM_DAILY_LIMIT, remaining
+    free_remaining = max(0, LLM_DAILY_LIMIT - count)
+    # Check bonus quota from DB
+    pool = await queries.get_db()
+    bonus = await pool.fetchval(
+        "SELECT llm_bonus_quota FROM users WHERE user_id = $1", user_id
+    )
+    bonus = bonus or 0
+    total_remaining = free_remaining + bonus
+    return total_remaining > 0, total_remaining, bonus
 
 
-def _record_llm_usage(user_id: int):
-    """Record one LLM usage for today."""
+async def _record_llm_usage(user_id: int):
+    """Record one LLM usage. Uses free quota first, then bonus."""
     today = datetime.now().strftime("%Y-%m-%d")
     if user_id not in _llm_usage:
         _llm_usage[user_id] = {}
-    _llm_usage[user_id][today] = _llm_usage[user_id].get(today, 0) + 1
+    count = _llm_usage[user_id].get(today, 0)
+    if count < LLM_DAILY_LIMIT:
+        # Still within free daily quota
+        _llm_usage[user_id][today] = count + 1
+    else:
+        # Free exhausted, decrement bonus
+        pool = await queries.get_db()
+        await pool.execute(
+            "UPDATE users SET llm_bonus_quota = llm_bonus_quota - 1 "
+            "WHERE user_id = $1 AND llm_bonus_quota > 0",
+            user_id,
+        )
 
 
 def _verify_telegram_auth(data: dict) -> bool:
@@ -889,11 +907,11 @@ async def api_my_chat(request):
 
     # Rate limit check
     uid = sess["user_id"]
-    allowed, remaining = _check_llm_limit(uid)
+    allowed, remaining, bonus_rem = await _check_llm_limit(uid)
     if not allowed:
         return pg_json_response({
-            "analysis": f"오늘의 AI 채팅 횟수({LLM_DAILY_LIMIT}회)를 모두 사용했습니다.\n내일 다시 이용해주세요!\n\n💡 위 모드 버튼(전투력/시너지/카운터/밸런스)은 제한 없이 사용 가능합니다.",
-            "team": [], "warnings": [], "remaining": 0,
+            "analysis": f"AI 채팅 횟수를 모두 사용했습니다.\n\n💡 위 모드 버튼(전투력/시너지/카운터/밸런스)은 제한 없이 사용 가능합니다.\n💎 아래 후원하기로 추가 AI 채팅을 구매할 수 있어요!",
+            "team": [], "warnings": [], "remaining": 0, "bonus_remaining": 0,
         })
 
     # Load user's pokemon
@@ -913,8 +931,8 @@ async def api_my_chat(request):
     meta = await _get_battle_meta()
 
     # Record LLM usage
-    _record_llm_usage(uid)
-    _, remaining_after = _check_llm_limit(uid)
+    await _record_llm_usage(uid)
+    _, remaining_after, bonus_after = await _check_llm_limit(uid)
 
     # Try Gemini first
     gemini_key = os.getenv("GEMINI_API_KEY", "")
@@ -936,11 +954,13 @@ async def api_my_chat(request):
                 "team": team,
                 "warnings": [],
                 "remaining": remaining_after,
+                "bonus_remaining": bonus_after,
             })
 
     # Fallback: algorithm-based
     result = await _fallback_response(user_msg, pokemon, meta)
     result["remaining"] = remaining_after
+    result["bonus_remaining"] = bonus_after
     return pg_json_response(result)
 
 
@@ -1263,6 +1283,205 @@ async def api_type_chart(request):
     })
 
 
+# --- Admin: Add LLM Bonus Quota ---
+
+async def api_admin_add_quota(request):
+    """Admin: add LLM bonus quota to a user after donation verification."""
+    sess = _get_session(request)
+    if not sess or sess["user_id"] not in config.ADMIN_IDS:
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    target_user_id = body.get("user_id")
+    amount = body.get("amount", 0)
+    if not target_user_id or not isinstance(amount, int) or amount <= 0:
+        return web.json_response({"error": "user_id and positive amount required"}, status=400)
+    pool = await queries.get_db()
+    new_quota = await pool.fetchval(
+        "UPDATE users SET llm_bonus_quota = llm_bonus_quota + $2 "
+        "WHERE user_id = $1 RETURNING llm_bonus_quota",
+        target_user_id, amount,
+    )
+    if new_quota is None:
+        return web.json_response({"error": "User not found"}, status=404)
+    return web.json_response({"ok": True, "user_id": target_user_id, "new_quota": new_quota})
+
+
+# --- NOWPayments Integration ---
+
+import aiohttp as _aiohttp
+
+NOWPAYMENTS_API_KEY = os.getenv("NOWPAYMENTS_API_KEY", "")
+NOWPAYMENTS_IPN_SECRET = os.getenv("NOWPAYMENTS_IPN_SECRET", "")
+NOWPAYMENTS_API = "https://api.nowpayments.io/v1"
+
+# Tier configuration: {tier_id: {price_usd, llm_quota, master_balls, label}}
+PAYMENT_TIERS = {
+    1: {"price_usd": 3, "llm_quota": 50, "master_balls": 1, "label": "$3 - AI 50회 + 마볼 1개"},
+    2: {"price_usd": 7, "llm_quota": 150, "master_balls": 3, "label": "$7 - AI 150회 + 마볼 3개"},
+    3: {"price_usd": 15, "llm_quota": 500, "master_balls": 7, "label": "$15 - AI 500회 + 마볼 7개"},
+}
+
+
+async def api_payment_create(request):
+    """Create NOWPayments invoice for a donation tier."""
+    sess = _get_session(request)
+    if not sess:
+        return web.json_response({"error": "로그인이 필요합니다."}, status=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    tier_id = body.get("tier")
+    custom_amount = body.get("custom_amount")
+
+    if custom_amount and isinstance(custom_amount, (int, float)) and custom_amount >= 1:
+        price_usd = float(custom_amount)
+        llm_quota = int(price_usd / 7 * 150)
+        master_balls = max(1, int(price_usd / 3))
+        label = f"${price_usd:.0f} - AI {llm_quota}회 + 마볼 {master_balls}개"
+    elif tier_id in PAYMENT_TIERS:
+        tier = PAYMENT_TIERS[tier_id]
+        price_usd = tier["price_usd"]
+        llm_quota = tier["llm_quota"]
+        master_balls = tier["master_balls"]
+        label = tier["label"]
+    else:
+        return web.json_response({"error": "Invalid tier"}, status=400)
+
+    if not NOWPAYMENTS_API_KEY:
+        return web.json_response({"error": "Payment not configured"}, status=500)
+
+    user_id = sess["user_id"]
+    order_id = f"tgpoke_{user_id}_{int(time.time())}_{tier_id or 'c'}"
+
+    # Store order info for webhook fulfillment
+    pool = await queries.get_db()
+    await pool.execute(
+        """INSERT INTO bot_settings (key, value) VALUES ($1, $2)
+           ON CONFLICT (key) DO UPDATE SET value = $2""",
+        f"order_{order_id}",
+        json.dumps({"user_id": user_id, "llm_quota": llm_quota,
+                     "master_balls": master_balls, "price_usd": price_usd}),
+    )
+
+    # Create NOWPayments invoice
+    base_url = str(request.url.origin())
+    payload = {
+        "price_amount": price_usd,
+        "price_currency": "usd",
+        "order_id": order_id,
+        "order_description": label,
+        "ipn_callback_url": base_url + "/api/payment/webhook",
+        "success_url": base_url + "/?payment=success",
+        "cancel_url": base_url + "/?payment=cancel",
+    }
+    headers = {"x-api-key": NOWPAYMENTS_API_KEY, "Content-Type": "application/json"}
+
+    try:
+        async with _aiohttp.ClientSession() as cs:
+            async with cs.post(f"{NOWPAYMENTS_API}/invoice", json=payload, headers=headers) as resp:
+                data = await resp.json()
+                if resp.status != 200:
+                    logger.error(f"NOWPayments invoice error: {data}")
+                    return web.json_response({"error": "결제 생성 실패"}, status=500)
+                return web.json_response({
+                    "ok": True,
+                    "invoice_url": data.get("invoice_url"),
+                    "invoice_id": data.get("id"),
+                })
+    except Exception as e:
+        logger.error(f"NOWPayments request failed: {e}")
+        return web.json_response({"error": "결제 서비스 연결 실패"}, status=500)
+
+
+async def api_payment_webhook(request):
+    """NOWPayments IPN webhook — auto-fulfill rewards on payment."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.Response(status=400)
+
+    # Verify HMAC signature
+    sig = request.headers.get("x-nowpayments-sig", "")
+    if NOWPAYMENTS_IPN_SECRET and sig:
+        sorted_body = json.dumps(body, sort_keys=True, separators=(',', ':'))
+        expected = hmac.new(
+            NOWPAYMENTS_IPN_SECRET.encode(),
+            sorted_body.encode(),
+            hashlib.sha512,
+        ).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            logger.warning("NOWPayments webhook: invalid signature")
+            return web.Response(status=403)
+
+    payment_status = body.get("payment_status")
+    order_id = body.get("order_id", "")
+
+    logger.info(f"NOWPayments webhook: order={order_id} status={payment_status}")
+
+    # Only fulfill on "finished" status
+    if payment_status != "finished":
+        return web.json_response({"ok": True})
+
+    # Look up order
+    pool = await queries.get_db()
+    order_data = await pool.fetchval(
+        "SELECT value FROM bot_settings WHERE key = $1", f"order_{order_id}"
+    )
+    if not order_data:
+        logger.warning(f"NOWPayments webhook: unknown order {order_id}")
+        return web.json_response({"ok": True})
+
+    order = json.loads(order_data)
+    user_id = order["user_id"]
+    llm_quota = order["llm_quota"]
+    master_balls = order["master_balls"]
+    price_usd = order.get("price_usd", 0)
+
+    # Fulfill rewards
+    await pool.execute(
+        "UPDATE users SET llm_bonus_quota = llm_bonus_quota + $2, "
+        "master_balls = master_balls + $3 WHERE user_id = $1",
+        user_id, llm_quota, master_balls,
+    )
+
+    # Update donation total
+    await pool.execute(
+        """INSERT INTO bot_settings (key, value) VALUES ('donation_current', $1::text)
+           ON CONFLICT (key) DO UPDATE SET value = (COALESCE(bot_settings.value::int, 0) + $1)::text""",
+        int(price_usd),
+    )
+
+    # Mark order as fulfilled
+    await pool.execute(
+        "UPDATE bot_settings SET value = $2 WHERE key = $1",
+        f"order_{order_id}",
+        json.dumps({**order, "fulfilled": True, "fulfilled_at": datetime.now().isoformat()}),
+    )
+
+    logger.info(f"Payment fulfilled: user={user_id} llm=+{llm_quota} masterball=+{master_balls} ${price_usd}")
+    return web.json_response({"ok": True})
+
+
+# --- Donation Progress ---
+
+DONATION_GOAL = 200  # USD
+
+async def api_donation(request):
+    """Return donation progress from bot_settings."""
+    from database.connection import get_db
+    pool = await get_db()
+    row = await pool.fetchval(
+        "SELECT value FROM bot_settings WHERE key = 'donation_current'"
+    )
+    current = int(row) if row else 0
+    return web.json_response({"current": current, "goal": DONATION_GOAL})
+
+
 # --- Page Handler ---
 
 async def index(request):
@@ -1288,6 +1507,11 @@ def create_app() -> web.Application:
     app.router.add_get("/api/my/summary", api_my_summary)
     app.router.add_post("/api/my/team-recommend", api_my_team_recommend)
     app.router.add_post("/api/my/chat", api_my_chat)
+    # Donation, Payment & Admin
+    app.router.add_get("/api/donation", api_donation)
+    app.router.add_post("/api/payment/create", api_payment_create)
+    app.router.add_post("/api/payment/webhook", api_payment_webhook)
+    app.router.add_post("/api/admin/add-quota", api_admin_add_quota)
     # Public APIs
     app.router.add_get("/api/overview", api_overview)
     app.router.add_get("/api/chats", api_chats)
