@@ -1,5 +1,6 @@
 """Admin handlers for event management and spawn settings."""
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 
@@ -13,6 +14,9 @@ from services.event_service import invalidate_event_cache
 from utils.helpers import schedule_delete, icon_emoji
 
 logger = logging.getLogger(__name__)
+
+# Per-chat lock to prevent concurrent force spawns (race condition)
+_force_spawn_locks: dict[int, asyncio.Lock] = {}
 
 
 def is_admin(user_id: int) -> bool:
@@ -107,67 +111,76 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     logger.info(f"force_spawn: admin check passed for user {user_id} in chat {chat_id}")
 
-    # Check if there's already an active spawn
-    active = await queries.get_active_spawn(chat_id)
-    if active:
-        resp = await update.message.reply_text(
-            f"⚠️ 이미 스폰 중인 포켓몬이 있습니다!\n"
-            f"{active['emoji']} {active['name_ko']}을(를) 먼저 잡아주세요."
-        )
-        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
-        return
+    # Acquire per-chat lock to prevent duplicate spawns from rapid button presses
+    if chat_id not in _force_spawn_locks:
+        _force_spawn_locks[chat_id] = asyncio.Lock()
+    lock = _force_spawn_locks[chat_id]
 
-    # Check minimum members
-    room = await queries.get_chat_room(chat_id)
-    member_count = room["member_count"] if room else 0
-    if member_count < config.SPAWN_MIN_MEMBERS:
-        resp = await update.message.reply_text(
-            f"🚫 멤버가 {config.SPAWN_MIN_MEMBERS}명 이상인 방에서만 사용 가능합니다. (현재 {member_count}명)"
-        )
-        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
-        return
+    if lock.locked():
+        return  # Another spawn is already in progress — silently ignore
 
-    # Check force spawn limit (50 per chat)
-    count = await queries.get_force_spawn_count(chat_id)
-    if count >= 50:
-        resp = await update.message.reply_text("🚫 이 방의 강제스폰 횟수를 모두 사용했습니다! (50/50회)")
-        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
-        return
+    async with lock:
+        # Check if there's already an active spawn
+        active = await queries.get_active_spawn(chat_id)
+        if active:
+            resp = await update.message.reply_text(
+                f"⚠️ 이미 스폰 중인 포켓몬이 있습니다!\n"
+                f"{active['emoji']} {active['name_ko']}을(를) 먼저 잡아주세요."
+            )
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            return
 
-    logger.info(f"force_spawn: executing spawn in chat {chat_id} (count: {count}/50)")
+        # Check minimum members
+        room = await queries.get_chat_room(chat_id)
+        member_count = room["member_count"] if room else 0
+        if member_count < config.SPAWN_MIN_MEMBERS:
+            resp = await update.message.reply_text(
+                f"🚫 멤버가 {config.SPAWN_MIN_MEMBERS}명 이상인 방에서만 사용 가능합니다. (현재 {member_count}명)"
+            )
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            return
 
-    try:
-        # Trigger spawn immediately (force=True skips activity check)
-        from services.spawn_service import execute_spawn
+        # Check force spawn limit (50 per chat)
+        count = await queries.get_force_spawn_count(chat_id)
+        if count >= 50:
+            resp = await update.message.reply_text("🚫 이 방의 강제스폰 횟수를 모두 사용했습니다! (50/50회)")
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            return
 
-        class FakeJob:
-            def __init__(self, data):
-                self.data = data
-                self.name = None
+        logger.info(f"force_spawn: executing spawn in chat {chat_id} (count: {count}/50)")
 
-        class FakeContext:
-            def __init__(self, bot, job_queue, data):
-                self.bot = bot
-                self.job_queue = job_queue
-                self.job = FakeJob(data)
+        try:
+            # Trigger spawn immediately (force=True skips activity check)
+            from services.spawn_service import execute_spawn
 
-        fake_ctx = FakeContext(
-            context.bot,
-            context.application.job_queue,
-            {"chat_id": chat_id, "force": True},
-        )
-        await execute_spawn(fake_ctx)
+            class FakeJob:
+                def __init__(self, data):
+                    self.data = data
+                    self.name = None
 
-        # Increment count and show remaining
-        await queries.increment_force_spawn(chat_id)
-        used = count + 1
-        resp = await update.message.reply_text(f"{icon_emoji('bolt')} 강제스폰! ({used}/50회)", parse_mode="HTML")
-        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
-        logger.info(f"force_spawn: success in chat {chat_id} ({used}/50)")
-    except Exception as e:
-        logger.error(f"force_spawn FAILED in chat {chat_id}: {e}", exc_info=True)
-        resp = await update.message.reply_text(f"❌ 강제스폰 실패: {e}")
-        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            class FakeContext:
+                def __init__(self, bot, job_queue, data):
+                    self.bot = bot
+                    self.job_queue = job_queue
+                    self.job = FakeJob(data)
+
+            fake_ctx = FakeContext(
+                context.bot,
+                context.application.job_queue,
+                {"chat_id": chat_id, "force": True},
+            )
+            await execute_spawn(fake_ctx)
+
+            # Increment count and show remaining
+            await queries.increment_force_spawn(chat_id)
+            used = count + 1
+            resp = await update.message.reply_text(f"{icon_emoji('bolt')} 강제스폰! ({used}/50회)", parse_mode="HTML")
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            logger.info(f"force_spawn: success in chat {chat_id} ({used}/50)")
+        except Exception as e:
+            logger.error(f"force_spawn FAILED in chat {chat_id}: {e}", exc_info=True)
+            resp = await update.message.reply_text(f"❌ 강제스폰 실패: {e}")
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
 
 
 async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -185,9 +185,9 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
-            # Use master ball
-            used = await queries.use_master_ball(user_id)
-            if not used:
+            # Use master ball (returns remaining count or None)
+            remaining = await queries.use_master_ball(user_id)
+            if remaining is None:
                 return
 
             # Record attempt with master ball flag
@@ -201,7 +201,6 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 username,
                 html=True,
             )
-            remaining = balls - 1
             msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"{ball_emoji('masterball')} {decorated} 마스터볼을 던졌다! (남은: {remaining}개)",

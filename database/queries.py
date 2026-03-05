@@ -104,8 +104,8 @@ async def add_master_ball(user_id: int, count: int = 1):
     )
 
 
-async def use_master_ball(user_id: int) -> bool:
-    """Use one master ball. Returns True if successful (atomic operation)."""
+async def use_master_ball(user_id: int) -> int | None:
+    """Use one master ball. Returns remaining count, or None if not available."""
     pool = await get_db()
     row = await pool.fetchrow(
         "UPDATE users SET master_balls = master_balls - 1 "
@@ -113,7 +113,7 @@ async def use_master_ball(user_id: int) -> bool:
         "RETURNING master_balls",
         user_id,
     )
-    return row is not None
+    return row["master_balls"] if row else None
 
 
 async def get_hyper_balls(user_id: int) -> int:
