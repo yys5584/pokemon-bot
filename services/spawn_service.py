@@ -662,6 +662,9 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML",
         )
 
+        # Auto-delete spawn image after 1 hour to reduce chat clutter
+        schedule_delete(message, 3600)
+
         # 6. Create spawn session AFTER image is sent
         expires = (datetime.now() + timedelta(seconds=window))
 
