@@ -1579,13 +1579,21 @@ async def api_payment_webhook(request):
 DONATION_GOAL = 200  # USD
 
 async def api_donation(request):
-    """Return donation progress from bot_settings."""
+    """Return donation progress — sum of fulfilled order price_usd."""
+    import json as _json
     from database.connection import get_db
     pool = await get_db()
-    row = await pool.fetchval(
-        "SELECT value FROM bot_settings WHERE key = 'donation_current'"
+    rows = await pool.fetch(
+        "SELECT value FROM bot_settings WHERE key LIKE 'order_%'"
     )
-    current = int(row) if row else 0
+    current = 0
+    for r in rows:
+        try:
+            data = _json.loads(r["value"])
+            if data.get("fulfilled"):
+                current += int(data.get("price_usd", 0))
+        except Exception:
+            pass
     return web.json_response({"current": current, "goal": DONATION_GOAL})
 
 
