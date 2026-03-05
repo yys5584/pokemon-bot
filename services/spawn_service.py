@@ -741,7 +741,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
     # Find unresolved sessions with pokemon info
     sessions = await pool.fetch("""
         SELECT ss.id, ss.chat_id, ss.pokemon_id, pm.name_ko, pm.emoji,
-               pm.rarity, pm.catch_rate,
+               pm.rarity, pm.catch_rate, ss.is_shiny,
                CASE WHEN ss.spawned_at < NOW() - INTERVAL '5 minutes' THEN 1 ELSE 0 END as too_old
         FROM spawn_sessions ss
         JOIN pokemon_master pm ON ss.pokemon_id = pm.id
@@ -759,6 +759,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
         pokemon_name = sess["name_ko"]
         rarity = sess["rarity"]
         catch_rate = sess["catch_rate"]
+        is_shiny = bool(sess.get("is_shiny"))
 
         try:
             # Mark resolved
@@ -864,7 +865,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
 
             # Give pokemon
             _inst_id, caught_ivs = await queries.give_pokemon_to_user(
-                winner_id, pokemon_id, chat_id,
+                winner_id, pokemon_id, chat_id, is_shiny=is_shiny,
             )
             await queries.register_pokedex(winner_id, pokemon_id, "catch")
             await queries.close_spawn_session(session_id, caught_by=winner_id)
@@ -889,7 +890,8 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             be = ball_emoji("masterball") if winner["used_master_ball"] else \
                  ball_emoji("hyperball") if winner["used_hyper_ball"] else \
                  ball_emoji("pokeball")
-            msg = f"🔄 서버 복구 — {be} {decorated} — {rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
+            shiny_label = f"{shiny_emoji()}이로치 " if is_shiny else ""
+            msg = f"🔄 서버 복구 — {be} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
 
             await bot.send_message(
                 chat_id=chat_id, text=msg, parse_mode="HTML",
