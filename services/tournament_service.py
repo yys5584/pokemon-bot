@@ -30,11 +30,16 @@ def _rpad(s: str, target: int) -> str:
     return s + ' ' * max(0, target - _dw(s))
 
 
-def _render_bracket(bracket) -> str:
+def _render_bracket(bracket, round_results=None) -> str:
     """Render tournament bracket as ASCII tree in <pre> block.
 
-    bracket: list of (p1, p2) tuples, each p is (uid, data) or None (bye).
+    bracket: list of (p1, p2) tuples for round 1.
+    round_results: dict {round_num: [winner_name, ...]} — completed rounds.
+                   round 1 = first round (leaf), round 2 = next level, etc.
     """
+    if round_results is None:
+        round_results = {}
+
     players = []
     for p1, p2 in bracket:
         players.append(p1[1]['name'] if p1 else "부전승")
@@ -45,13 +50,32 @@ def _render_bracket(bracket) -> str:
 
     nw = max(_dw(n) for n in players)
 
+    # Mutable counter: track match index per round level
+    round_counters = {}
+
     def _build(names, root=False):
         n = len(names)
+        rnd = int(math.log2(n))  # round number for this junction
+
+        # Look up result for this junction
+        idx = round_counters.get(rnd, 0)
+        round_counters[rnd] = idx + 1
+        winner = None
+        if rnd in round_results and idx < len(round_results[rnd]):
+            w = round_results[rnd][idx]
+            if w:
+                winner = w
+
         if n == 2:
             a = _rpad(names[0], nw)
             b = _rpad(names[1], nw)
             sp = ' ' * nw
-            return [a + " ─┐", sp + "  │", b + " ─┘"], 1
+            if winner:
+                tag = f"  ├─🏆 {winner}" if root else f"  ├─ {winner}"
+                return [a + " ─┐", sp + tag, b + " ─┘"], 1
+            else:
+                tag = "  ├─🏆" if root else "  │"
+                return [a + " ─┐", sp + tag, b + " ─┘"], 1
 
         mid = n // 2
         top, tj = _build(names[:mid])
@@ -70,7 +94,10 @@ def _render_bracket(bracket) -> str:
                 out.append(line + p + "   ")
 
         sp = ' ' * cw
-        out.append(sp + "  ├─🏆" if root else sp + "  ├──")
+        if root:
+            out.append(sp + (f"  ├─🏆 {winner}" if winner else "  ├─🏆"))
+        else:
+            out.append(sp + (f"  ├─ {winner}" if winner else "  ├──"))
         jrow = len(out) - 1
 
         for i, line in enumerate(bot):
@@ -619,6 +646,8 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
 
     # Generate first round bracket
     bracket = _generate_bracket(player_list)
+    original_bracket = list(bracket)
+    round_results = {}
 
     # Show full bracket tree
     tree = _render_bracket(bracket)
@@ -664,10 +693,12 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                 await asyncio.sleep(1)
 
             winners = []
+            round_winner_names = []
             match_count = sum(1 for a, b in bracket if a is not None or b is not None)
             match_num = 0
             for p1, p2 in bracket:
                 if p1 is None and p2 is None:
+                    round_winner_names.append("")
                     continue
                 match_num += 1
                 match_label = f"\n[ {match_num}번째 매치 ]" if match_count > 1 and not is_final else ""
@@ -678,6 +709,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                         text=f"{match_label}\n🏃 {data2['name']} — 부전승!" if match_label else f"🏃 {data2['name']} — 부전승!",
                     )
                     winners.append(p2)
+                    round_winner_names.append(data2['name'])
                 elif p2 is None:
                     # p1 gets bye
                     uid1, data1 = p1
@@ -685,6 +717,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                         text=f"{match_label}\n🏃 {data1['name']} — 부전승!" if match_label else f"🏃 {data1['name']} — 부전승!",
                     )
                     winners.append(p1)
+                    round_winner_names.append(data1['name'])
                 else:
                     uid1, data1 = p1
                     uid2, data2 = p2
@@ -707,14 +740,34 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                         is_quarter=is_quarter,
                     )
                     winners.append((winner_id, winner_data))
+                    round_winner_names.append(winner_data['name'])
                     await asyncio.sleep(2)
 
+            round_results[current_round] = round_winner_names
+
             if is_final:
+                # Show final bracket tree with champion
+                tree = _render_bracket(original_bracket, round_results)
+                if tree:
+                    await _safe_send(context.bot, chat_id,
+                        text=f"📋 최종 대진표\n{tree}",
+                        parse_mode="HTML",
+                    )
+                    await asyncio.sleep(3)
                 # Tournament complete — give prizes
                 if winners:
                     winner_uid, winner_d = winners[0]
                     await _award_prizes(context, chat_id, winner_uid, winner_d, bracket, semi_finalists)
                 break
+
+            # Show updated bracket tree after this round
+            tree = _render_bracket(original_bracket, round_results)
+            if tree:
+                await _safe_send(context.bot, chat_id,
+                    text=f"📋 대진표 ({round_name} 결과)\n{tree}",
+                    parse_mode="HTML",
+                )
+                await asyncio.sleep(7)
 
             # Next round
             next_bracket = []
