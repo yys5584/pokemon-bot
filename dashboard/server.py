@@ -169,6 +169,38 @@ async def _record_llm_usage(user_id: int, cost: int = 1):
     """, user_id, today, count)
 
 
+async def _refund_llm_usage(user_id: int, cost: int = 1):
+    """Refund LLM tokens on error. Reverses _record_llm_usage."""
+    pool = await queries.get_db()
+    today = datetime.now().date()
+    count = await pool.fetchval(
+        "SELECT count FROM llm_daily_usage WHERE user_id = $1 AND usage_date = $2",
+        user_id, today,
+    )
+    count = count or 0
+    refunded = 0
+    for _ in range(cost):
+        if count > LLM_DAILY_LIMIT:
+            # Was bonus usage — refund bonus
+            await pool.execute(
+                "UPDATE users SET llm_bonus_quota = llm_bonus_quota + 1 WHERE user_id = $1",
+                user_id,
+            )
+            count -= 1
+            refunded += 1
+        elif count > 0:
+            count -= 1
+            refunded += 1
+    if refunded:
+        await pool.execute("""
+            INSERT INTO llm_daily_usage (user_id, usage_date, count)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, usage_date)
+            DO UPDATE SET count = $3
+        """, user_id, today, count)
+    logger.info(f"Refunded {refunded} LLM tokens for user {user_id}")
+
+
 def _verify_telegram_auth(data: dict) -> bool:
     """Verify Telegram Login Widget HMAC-SHA256 hash."""
     bot_token = os.getenv("BOT_TOKEN", "")
@@ -851,13 +883,13 @@ TGPoke는 텔레그램 기반 포켓몬 수집·육성·배틀 시뮬레이터�
 - 포켓몬 배틀 전략 외 질문: "포켓몬 배틀 관련 질문만 답변할 수 있어요!" """
 
 
-async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> str:
-    """Call Gemini Flash API. Returns response text."""
+async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> tuple[str, bool]:
+    """Call Gemini Flash API. Returns (response_text, truncated)."""
     import aiohttp
 
     api_key = os.getenv("GEMINI_API_KEY", "")
     if not api_key:
-        return ""
+        return "", False
 
     # Build Gemini chat format
     contents = []
@@ -884,7 +916,7 @@ async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> str
             async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=90)) as resp:
                 if resp.status != 200:
                     logger.warning(f"Gemini API error: {resp.status}")
-                    return ""
+                    return "", False
                 data = await resp.json()
                 candidates = data.get("candidates", [])
                 if candidates:
@@ -897,12 +929,11 @@ async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> str
                         if "text" in p:
                             text = p["text"]
                     if text:
-                        if finish == "MAX_TOKENS":
-                            text += "\n\n⚠️ *답변이 길어서 일부가 잘렸어요. 더 구체적으로 질문하면 자세한 답변을 받을 수 있어요!*"
-                        return text
+                        truncated = finish == "MAX_TOKENS"
+                        return text, truncated
     except Exception as e:
         logger.warning(f"Gemini API call failed: {e}")
-    return ""
+    return "", False
 
 
 def _parse_team_ids(text: str) -> list[int]:
@@ -1061,16 +1092,16 @@ async def api_my_chat(request):
     pokemon = await _build_pokemon_data(rows)
     meta = await _get_battle_meta()
 
-    # Record LLM usage
+    # Record LLM usage (will refund on error)
     await _record_llm_usage(uid, cost=chat_cost)
-    _, remaining_after, bonus_after = await _check_llm_limit(uid)
 
     # Try Gemini first
     gemini_key = os.getenv("GEMINI_API_KEY", "")
     if gemini_key:
         system_prompt = _build_system_prompt(pokemon, meta)
-        ai_text = await _call_gemini(system_prompt, history, user_msg)
+        ai_text, truncated = await _call_gemini(system_prompt, history, user_msg)
         if ai_text:
+            _, remaining_after, bonus_after = await _check_llm_limit(uid)
             # Extract team IDs if present
             team_ids = _parse_team_ids(ai_text)
             team = []
@@ -1080,12 +1111,24 @@ async def api_my_chat(request):
             # Clean [TEAM:...] from display text
             import re
             clean_text = re.sub(r'\[TEAM:[\d,]+\]', '', ai_text).strip()
-            return pg_json_response({
+            resp = {
                 "analysis": clean_text,
                 "team": team,
                 "warnings": [],
                 "remaining": remaining_after,
                 "bonus_remaining": bonus_after,
+            }
+            if truncated:
+                resp["truncated"] = True
+            return pg_json_response(resp)
+        else:
+            # Gemini returned empty — refund tokens
+            await _refund_llm_usage(uid, cost=chat_cost)
+            _, remaining_after, bonus_after = await _check_llm_limit(uid)
+            return pg_json_response({
+                "analysis": "AI 응답을 받지 못했어요. 토큰이 반환되었습니다.",
+                "team": [], "warnings": [], "refunded": True,
+                "remaining": remaining_after, "bonus_remaining": bonus_after,
             })
 
     # Fallback: algorithm-based

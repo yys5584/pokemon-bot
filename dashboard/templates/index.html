@@ -1770,9 +1770,15 @@ async function sendChat(){
         const d=await r.json();
         hideTyping();
         if(d.error){
-            addChatMsg('ai','죄송합니다. 오류가 발생했어요: '+d.error);
+            addChatMsg('ai','죄송합니다. 오류가 발생했어요: '+d.error+_retryBtn(msg));
+        } else if(d.refunded){
+            addChatMsg('ai', d.analysis+_retryBtn(msg));
+            if(d.remaining!==undefined) updateQuotaBadge(d.remaining,d.bonus_remaining||0);
         } else {
             let html=formatAiResponse(d);
+            if(d.truncated){
+                html+='<div style="margin-top:8px;padding:6px 10px;background:rgba(139,0,0,.06);border-radius:6px;font-size:11px;color:var(--muted)">⚠️ 답변이 길어서 일부가 잘렸어요.'+_retryBtn(msg)+'</div>';
+            }
             if(d.remaining!==undefined && !d.no_cost){
                 updateQuotaBadge(d.remaining,d.bonus_remaining||0);
             }
@@ -1781,10 +1787,18 @@ async function sendChat(){
         }
     }catch(e){
         hideTyping();
-        addChatMsg('ai','서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        addChatMsg('ai','서버 연결에 실패했습니다.'+_retryBtn(msg));
     }
     _chatBusy=false;
     document.getElementById("chatSendBtn").disabled=false;
+}
+function _retryBtn(msg){
+    const escaped=msg.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    return ' <button onclick="_retryChat(\''+escaped+'\')" style="background:var(--red);color:#fff;border:none;padding:3px 10px;border-radius:5px;font-size:11px;cursor:pointer;margin-left:4px">🔄 다시 시도</button>';
+}
+function _retryChat(msg){
+    document.getElementById("chatInput").value=msg;
+    sendChat();
 }
 
 let _selectedTier=2;
