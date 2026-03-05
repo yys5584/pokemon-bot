@@ -814,7 +814,7 @@ def _build_system_prompt(pokemon_data: list, meta: dict) -> str:
     """Build Gemini system prompt with full battle context."""
     # Summarize user's pokemon
     poke_summary = []
-    for p in pokemon_data[:30]:  # cap at 30 for prompt size
+    for p in pokemon_data[:50]:  # cap at 50 (sorted by power)
         ivs = p.get("ivs", {})
         iv_str = "/".join(str(ivs.get(k, 0)) for k in ["hp","atk","def","spa","spdef","spd"])
         poke_summary.append(
@@ -1158,6 +1158,8 @@ async def api_my_chat(request):
     """, sess["user_id"])
 
     pokemon = await _build_pokemon_data(rows)
+    # Sort by real_power desc so strongest pokemon are included in prompt
+    pokemon.sort(key=lambda p: p["real_power"], reverse=True)
     meta = await _get_battle_meta()
 
     # Record LLM usage (will refund on error)
