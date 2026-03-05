@@ -101,14 +101,28 @@ async def rate_limit_middleware(request, handler):
 
 
 # ============================================================
-# Session Management
+# Session Management (DB-persisted)
 # ============================================================
-_sessions: dict[str, dict] = {}  # session_id -> {user_id, display_name, auth_date}
 SESSION_MAX_AGE = 86400  # 24 hours
-MAX_SESSIONS = 1000  # prevent memory bomb
+MAX_SESSIONS = 1000  # prevent DB bloat
 
 # LLM rate limiting: DB-persisted daily usage
 LLM_DAILY_LIMIT = 3
+
+
+async def _ensure_session_table():
+    """Create dashboard_sessions table if not exists."""
+    pool = await queries.get_db()
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS dashboard_sessions (
+            sid TEXT PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            display_name TEXT NOT NULL DEFAULT '',
+            photo_url TEXT NOT NULL DEFAULT '',
+            username TEXT NOT NULL DEFAULT '',
+            created_at DOUBLE PRECISION NOT NULL
+        )
+    """)
 
 
 async def _ensure_llm_usage_table():
@@ -221,16 +235,28 @@ def _verify_telegram_auth(data: dict) -> bool:
     return True
 
 
-def _get_session(request) -> dict | None:
-    """Get session from cookie. Returns user dict or None."""
+async def _get_session(request) -> dict | None:
+    """Get session from cookie (DB-backed). Returns user dict or None."""
     sid = request.cookies.get("sid")
-    if not sid or sid not in _sessions:
+    if not sid:
         return None
-    sess = _sessions[sid]
-    if time.time() - sess.get("created", 0) > SESSION_MAX_AGE:
-        del _sessions[sid]
+    pool = await queries.get_db()
+    row = await pool.fetchrow(
+        "SELECT user_id, display_name, photo_url, username, created_at "
+        "FROM dashboard_sessions WHERE sid = $1", sid,
+    )
+    if not row:
         return None
-    return sess
+    if time.time() - row["created_at"] > SESSION_MAX_AGE:
+        await pool.execute("DELETE FROM dashboard_sessions WHERE sid = $1", sid)
+        return None
+    return {
+        "user_id": row["user_id"],
+        "display_name": row["display_name"],
+        "photo_url": row["photo_url"],
+        "username": row["username"],
+        "created": row["created_at"],
+    }
 
 
 # ============================================================
@@ -250,21 +276,30 @@ async def api_auth_telegram(request):
     user_id = int(data["id"])
     display_name = data.get("first_name", "") + (" " + data.get("last_name", "")).rstrip()
 
-    # Evict oldest sessions if too many (prevent memory bomb)
-    if len(_sessions) >= MAX_SESSIONS:
-        oldest = sorted(_sessions, key=lambda s: _sessions[s].get("created", 0))
-        for old_sid in oldest[: len(_sessions) - MAX_SESSIONS + 1]:
-            del _sessions[old_sid]
+    pool = await queries.get_db()
+
+    # Evict expired + oldest sessions if too many (prevent DB bloat)
+    await pool.execute(
+        "DELETE FROM dashboard_sessions WHERE created_at < $1",
+        time.time() - SESSION_MAX_AGE,
+    )
+    cnt = await pool.fetchval("SELECT COUNT(*) FROM dashboard_sessions")
+    if cnt >= MAX_SESSIONS:
+        await pool.execute("""
+            DELETE FROM dashboard_sessions WHERE sid IN (
+                SELECT sid FROM dashboard_sessions
+                ORDER BY created_at ASC LIMIT $1
+            )
+        """, cnt - MAX_SESSIONS + 1)
 
     # Create session
     sid = secrets.token_hex(32)
-    _sessions[sid] = {
-        "user_id": user_id,
-        "display_name": display_name.strip(),
-        "photo_url": data.get("photo_url", ""),
-        "username": data.get("username", ""),
-        "created": time.time(),
-    }
+    await pool.execute(
+        "INSERT INTO dashboard_sessions (sid, user_id, display_name, photo_url, username, created_at) "
+        "VALUES ($1, $2, $3, $4, $5, $6)",
+        sid, user_id, display_name.strip(),
+        data.get("photo_url", ""), data.get("username", ""), time.time(),
+    )
 
     resp = web.json_response({
         "ok": True,
@@ -280,7 +315,7 @@ async def api_auth_telegram(request):
 
 async def api_auth_me(request):
     """Return current logged-in user info."""
-    sess = _get_session(request)
+    sess = await _get_session(request)
     if not sess:
         return web.json_response({"ok": False})
     return web.json_response({
@@ -297,8 +332,9 @@ async def api_auth_me(request):
 async def api_auth_logout(request):
     """Destroy session."""
     sid = request.cookies.get("sid")
-    if sid and sid in _sessions:
-        del _sessions[sid]
+    if sid:
+        pool = await queries.get_db()
+        await pool.execute("DELETE FROM dashboard_sessions WHERE sid = $1", sid)
     resp = web.json_response({"ok": True})
     resp.del_cookie("sid")
     return resp
@@ -420,7 +456,7 @@ async def _build_pokemon_data(rows) -> list[dict]:
 
 async def api_my_pokemon(request):
     """Return all pokemon for the logged-in user with full stat data."""
-    sess = _get_session(request)
+    sess = await _get_session(request)
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=401)
 
@@ -442,7 +478,7 @@ async def api_my_pokemon(request):
 
 async def api_my_summary(request):
     """Return summary stats for the logged-in user."""
-    sess = _get_session(request)
+    sess = await _get_session(request)
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=401)
 
@@ -663,7 +699,7 @@ def _recommend_balance(pokemon: list[dict]) -> tuple[list[dict], str]:
 
 async def api_my_team_recommend(request):
     """AI team recommendation for the logged-in user (costs 1 token)."""
-    sess = _get_session(request)
+    sess = await _get_session(request)
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=401)
 
@@ -1083,7 +1119,7 @@ async def _fallback_response(msg: str, pokemon: list, meta: dict) -> dict:
 
 async def api_my_quota(request):
     """Return remaining LLM quota for the current user."""
-    sess = _get_session(request)
+    sess = await _get_session(request)
     if not sess:
         return web.json_response({"error": "로그인이 필요합니다."}, status=401)
     uid = sess["user_id"]
@@ -1093,7 +1129,7 @@ async def api_my_quota(request):
 
 async def api_my_chat(request):
     """AI chat endpoint — Gemini Flash with battle context."""
-    sess = _get_session(request)
+    sess = await _get_session(request)
     if not sess:
         return web.json_response({"error": "로그인이 필요합니다."}, status=401)
 
@@ -1528,7 +1564,7 @@ async def api_type_chart(request):
 
 async def api_admin_add_quota(request):
     """Admin: add LLM bonus quota to a user after donation verification."""
-    sess = _get_session(request)
+    sess = await _get_session(request)
     if not sess or sess["user_id"] not in config.ADMIN_IDS:
         return web.json_response({"error": "Unauthorized"}, status=403)
     try:
@@ -1555,9 +1591,9 @@ async def api_admin_add_quota(request):
 import aiohttp as _aiohttp
 
 
-def _admin_check(request):
+async def _admin_check(request):
     """Return session if admin, else None."""
-    sess = _get_session(request)
+    sess = await _get_session(request)
     if not sess or sess["user_id"] not in config.ADMIN_IDS:
         return None
     return sess
@@ -1579,7 +1615,7 @@ async def _admin_send_dm(user_id: int, text: str) -> bool:
 
 async def api_admin_users(request):
     """Admin: list all users with search/pagination."""
-    if not _admin_check(request):
+    if not await _admin_check(request):
         return web.json_response({"error": "Unauthorized"}, status=403)
     pool = await queries.get_db()
     search = request.query.get("q", "").strip()[:100]
@@ -1629,7 +1665,7 @@ async def api_admin_users(request):
 
 async def api_admin_orders(request):
     """Admin: list all payment orders."""
-    if not _admin_check(request):
+    if not await _admin_check(request):
         return web.json_response({"error": "Unauthorized"}, status=403)
     pool = await queries.get_db()
     rows = await pool.fetch(
@@ -1655,7 +1691,7 @@ async def api_admin_orders(request):
 
 async def api_admin_grant_credit(request):
     """Admin: grant credits + send DM."""
-    sess = _admin_check(request)
+    sess = await _admin_check(request)
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=403)
     try:
@@ -1684,7 +1720,7 @@ async def api_admin_grant_credit(request):
 
 async def api_admin_grant_masterball(request):
     """Admin: grant master balls + send DM."""
-    sess = _admin_check(request)
+    sess = await _admin_check(request)
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=403)
     try:
@@ -1713,7 +1749,7 @@ async def api_admin_grant_masterball(request):
 
 async def api_admin_fulfill_order(request):
     """Admin: manually fulfill an unfulfilled order."""
-    sess = _admin_check(request)
+    sess = await _admin_check(request)
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=403)
     try:
@@ -1763,7 +1799,7 @@ async def api_admin_fulfill_order(request):
 
 async def api_admin_send_dm(request):
     """Admin: send custom DM to a user."""
-    sess = _admin_check(request)
+    sess = await _admin_check(request)
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=403)
     try:
@@ -1798,7 +1834,7 @@ PAYMENT_TIERS = {
 
 async def api_payment_create(request):
     """Create NOWPayments invoice for a donation tier."""
-    sess = _get_session(request)
+    sess = await _get_session(request)
     if not sess:
         return web.json_response({"error": "로그인이 필요합니다."}, status=401)
     try:
@@ -2124,6 +2160,7 @@ async def api_tournament_winners(request):
 
 async def start_dashboard():
     """Start the dashboard web server in the background."""
+    await _ensure_session_table()
     await _ensure_llm_usage_table()
     port = int(os.getenv("DASHBOARD_PORT", "8080"))
     app = create_app()
