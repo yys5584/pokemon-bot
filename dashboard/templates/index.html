@@ -1664,6 +1664,36 @@ function hideTyping(){
     if(t) t.remove();
 }
 
+function mdToHtml(text){
+    // Lightweight markdown → HTML for AI responses
+    let h=text
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        // Headers: ### → h4, ## → h3
+        .replace(/^### (.+)$/gm,'<div style="font-size:13px;font-weight:700;color:#8B0000;margin:10px 0 4px;border-bottom:1px solid rgba(139,0,0,.15);padding-bottom:3px">$1</div>')
+        .replace(/^## (.+)$/gm,'<div style="font-size:14px;font-weight:700;color:#8B0000;margin:12px 0 6px;border-bottom:1px solid rgba(139,0,0,.2);padding-bottom:4px">$1</div>')
+        // Bold: **text**
+        .replace(/\*\*([^*]+)\*\*/g,'<b style="color:#5D1A1A">$1</b>')
+        // Italic: *text*
+        .replace(/\*([^*]+)\*/g,'<em>$1</em>')
+        // Bullet list items
+        .replace(/^(\s*)\* /gm,'$1• ')
+        .replace(/^(\s*)- /gm,'$1• ')
+        // Numbered list with indent
+        .replace(/^(\d+)\.\s+/gm,'<span style="color:#8B0000;font-weight:600">$1.</span> ')
+        // Inline code
+        .replace(/`([^`]+)`/g,'<code style="background:rgba(139,0,0,.08);padding:1px 4px;border-radius:3px;font-size:11px">$1</code>')
+        // Type advantage highlight (1.3x, 0.3x etc)
+        .replace(/\b(1\.3배|1\.3x)\b/g,'<span style="color:#2E7D32;font-weight:600">$1</span>')
+        .replace(/\b(0\.3배|0\.3x|면역)\b/g,'<span style="color:#C62828;font-weight:600">$1</span>')
+        // Rarity colors
+        .replace(/(🟢커먼|커먼)/g,'<span style="color:#4CAF50">$1</span>')
+        .replace(/(🔵레어|레어)/g,'<span style="color:#1976D2">$1</span>')
+        .replace(/(🟣에픽|에픽)/g,'<span style="color:#7B1FA2">$1</span>')
+        .replace(/(🟡전설|전설)/g,'<span style="color:#F57F17">$1</span>')
+        // Newlines
+        .replace(/\n/g,'<br>');
+    return h;
+}
 function formatAiResponse(data){
     let html='';
     // Compact team list (not full cards)
@@ -1686,9 +1716,9 @@ function formatAiResponse(data){
         });
         html+='</div>';
     }
-    // AI analysis text
+    // AI analysis text (with markdown rendering)
     if(data.analysis){
-        html+=`<div style="margin-top:6px;white-space:pre-wrap;font-size:12px;line-height:1.6">${data.analysis}</div>`;
+        html+=`<div style="margin-top:6px;font-size:12px;line-height:1.7">${mdToHtml(data.analysis)}</div>`;
     }
     // Warnings
     if(data.warnings&&data.warnings.length){
