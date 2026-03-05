@@ -11,6 +11,20 @@ ASSETS_DIR = Path(__file__).parent.parent / "assets" / "pokemon"
 CARD_WIDTH = 960
 CARD_HEIGHT = 540  # 16:9
 
+# Font paths: try Windows (malgun) then Linux (NanumGothic)
+_FONT_PATHS = [
+    "C:/Windows/Fonts/malgun.ttf",
+    "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+    "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+]
+
+@lru_cache(maxsize=8)
+def _get_font(size: int) -> ImageFont.FreeTypeFont:
+    for path in _FONT_PATHS:
+        if os.path.exists(path):
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
 # Rarity → gradient colors (top, bottom)
 RARITY_COLORS = {
     "common":    ((34, 49, 34),   (20, 30, 20)),
@@ -100,15 +114,11 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "") -
     )
 
     # 5. Pokemon name text at bottom
-    try:
-        font = ImageFont.truetype("C:/Windows/Fonts/malgun.ttf", 32)
-        font_small = ImageFont.truetype("C:/Windows/Fonts/malgun.ttf", 18)
-    except (OSError, IOError):
-        font = ImageFont.load_default()
-        font_small = font
+    font = _get_font(32)
+    font_small = _get_font(18)
 
-    # Name
-    text = f"{emoji} {name_ko}" if emoji else name_ko
+    # Name (emoji omitted — font can't render Unicode emoji)
+    text = name_ko
     bbox = draw.textbbox((0, 0), text, font=font)
     tw = bbox[2] - bbox[0]
     tx = (CARD_WIDTH - tw) // 2

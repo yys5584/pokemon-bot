@@ -409,7 +409,6 @@ UNLOCKABLE_TITLES.update(BATTLE_TITLES)
 TOURNAMENT_REG_HOUR = 21        # 등록 시작 시각 (21시 KST)
 TOURNAMENT_START_HOUR = 22      # 대회 시작 시각 (22시 KST)
 TOURNAMENT_MIN_PLAYERS = 4      # 최소 참가자
-TOURNAMENT_PRIZE_1ST_MB = 2     # 우승 마스터볼
 TOURNAMENT_PRIZE_1ST_BP = 200   # 우승 BP
 TOURNAMENT_PRIZE_2ND_BP = 100   # 준우승 BP
 TOURNAMENT_PRIZE_4TH_BP = 50    # 4강 BP
@@ -426,6 +425,7 @@ UNLOCKABLE_TITLES.update(TOURNAMENT_TITLES)
 # title_id -> {"daily_masterball": int, "extra_feed": int}
 TITLE_BUFFS = {
     "inaugural_champ": {"daily_masterball": 1, "extra_feed": 1},
+    "tournament_champ": {"extra_feed": 1},
 }
 
 def get_title_buff_by_name(title_name: str) -> dict | None:

@@ -87,7 +87,7 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
             "📋 참가 방법: ㄷ 입력\n"
             "⚔️ 배틀팀이 등록되어 있어야 참가 가능!\n\n"
             "🏆 우승 보상\n"
-            f"  🥇 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP} BP\n"
+            f"  🥇 {config.TOURNAMENT_PRIZE_1ST_BP} BP + 챔피언 칭호 (밥+1회)\n"
             f"  🥈 {config.TOURNAMENT_PRIZE_2ND_BP} BP\n"
             f"  🏅 4강 {config.TOURNAMENT_PRIZE_4TH_BP} BP\n\n"
             "스폰은 대회 종료 후 재개됩니다."
@@ -110,7 +110,7 @@ async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
             "⏰ 21:00~22:00 등록 / 22:00 대회 시작\n"
             "📋 아케이드 채널에서 ㄷ 입력으로 참가\n"
             "⚔️ 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
-            "🏆 우승: 마스터볼 2개 + 200 BP\n"
+            "🏆 우승: 200 BP + 챔피언 칭호 (밥+1회)\n"
             "🥈 준우승: 100 BP\n"
             "🏅 4강: 50 BP\n\n"
             "최초 우승자에겐 특별 칭호 🏛️초대 챔피언!\n\n"
@@ -581,7 +581,6 @@ async def _award_prizes(context, chat_id, winner_id, winner_data, final_bracket,
     pool = await get_db()
 
     # 1st place
-    await queries.add_master_ball(winner_id, config.TOURNAMENT_PRIZE_1ST_MB)
     await pool.execute(
         "UPDATE users SET battle_points = battle_points + $1 WHERE user_id = $2",
         config.TOURNAMENT_PRIZE_1ST_BP, winner_id,
@@ -623,7 +622,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data, final_bracket,
         "\n🏆 토너먼트 결과",
         "━━━━━━━━━━━━━━━",
         f"🥇 {winner_data['name']}",
-        f"   {ball_emoji('masterball')} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP} BP",
+        f"   {config.TOURNAMENT_PRIZE_1ST_BP} BP + 🎖️ 챔피언 칭호 (밥+1회)",
     ]
 
     if runner_up_id:
