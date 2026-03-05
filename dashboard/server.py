@@ -873,6 +873,7 @@ async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> str
             "temperature": 0.7,
             "maxOutputTokens": 8192,
             "topP": 0.9,
+            "thinkingConfig": {"thinkingBudget": 2048},
         },
     }
 
@@ -891,8 +892,14 @@ async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> str
                     if finish and finish != "STOP":
                         logger.warning(f"Gemini finishReason: {finish}")
                     parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts:
-                        return parts[0].get("text", "")
+                    text = ""
+                    for p in parts:
+                        if "text" in p:
+                            text = p["text"]
+                    if text:
+                        if finish == "MAX_TOKENS":
+                            text += "\n\n⚠️ *답변이 길어서 일부가 잘렸어요. 더 구체적으로 질문하면 자세한 답변을 받을 수 있어요!*"
+                        return text
     except Exception as e:
         logger.warning(f"Gemini API call failed: {e}")
     return ""
@@ -1001,6 +1008,24 @@ async def api_my_chat(request):
     history = body.get("history", [])
     if not user_msg:
         return web.json_response({"error": "메시지를 입력해주세요."}, status=400)
+
+    # Off-topic filter — reject clearly non-Pokemon messages before spending tokens
+    import re as _re
+    _pokemon_keywords = [
+        "포켓몬", "푸키몬", "팀", "배틀", "전투", "타입", "상성", "메타", "육성", "진화",
+        "카운터", "약점", "시너지", "전투력", "iv", "개체값", "레어", "에픽", "전설", "커먼",
+        "마스터볼", "포획", "친밀도", "스탯", "공격", "방어", "속도", "체력", "특공", "특방",
+        "추천", "분석", "어떻게", "어때", "뭐가", "누구", "최강", "1티어", "덱", "조합",
+        "hp", "atk", "def", "spa", "spd", "spdef", "랭킹", "승률", "밸런스",
+    ]
+    _msg_clean = _re.sub(r'[^가-힣a-z0-9]', '', user_msg.lower())
+    _has_pokemon_context = any(k in _msg_clean for k in _pokemon_keywords) or len(history) >= 2
+    if not _has_pokemon_context and len(user_msg) < 20:
+        return pg_json_response({
+            "analysis": "포켓몬 배틀 관련 질문만 답변할 수 있어요!\n\n💡 이런 질문을 해보세요:\n• \"내 팀 분석해줘\"\n• \"리자몽 카운터 추천\"\n• \"에픽 포켓몬 육성 순서\"",
+            "team": [], "warnings": [], "remaining": -1, "bonus_remaining": -1,
+            "no_cost": True,
+        })
 
     # Determine cost by message type: meta=2, 육성/약점=3, other=2
     uid = sess["user_id"]
