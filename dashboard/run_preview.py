@@ -392,6 +392,15 @@ async def mock_admin_kpi(request):
             "visitors": 15 + (i * 3) % 20,
             "pageviews": 40 + (i * 7) % 60,
         })
+    cf_data = []
+    for i in range(6, -1, -1):
+        d = today - datetime.timedelta(days=i)
+        cf_data.append({
+            "date": d.isoformat(),
+            "requests": 8000 + (i * 3000) % 15000,
+            "pageviews": 150 + (i * 30) % 200,
+            "visitors": 80 + (i * 20) % 100,
+        })
     return web.json_response({
         "today": {"visitors": 42, "pageviews": 185, "avg_duration": 312},
         "daily": daily,
@@ -409,6 +418,7 @@ async def mock_admin_kpi(request):
             {"hour": h, "views": max(1, int(20 * (1 + __import__('math').sin(
                 (h - 14) * 3.14159 / 12))))} for h in range(24)
         ],
+        "cloudflare": cf_data,
     })
 
 

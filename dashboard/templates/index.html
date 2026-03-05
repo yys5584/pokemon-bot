@@ -2297,6 +2297,14 @@ async function admKpiLoad(){
             <div class="kpi-value">${pvPerVisitor}</div>
             <div class="kpi-sub">Pages / Visitor</div>
         </div>`;
+    // Cloudflare summary bar
+    const cf=d.cloudflare||[];
+    const cfToday=cf.find(r=>r.date===new Date().toISOString().slice(0,10));
+    if(cfToday||cf.length){
+        const cft=cfToday||cf[cf.length-1];
+        const cfLabel=cfToday?"오늘":"최근("+cft.date.slice(5)+")";
+        cards.insertAdjacentHTML("afterend",`<div style="margin:-8px 0 12px;padding:6px 12px;background:rgba(255,255,255,.04);border-radius:6px;font-size:11px;color:rgba(255,255,255,.5);display:flex;gap:16px;align-items:center"><span style="color:#f6a623">☁️ Cloudflare</span><span>${cfLabel} 방문자 <b style="color:#f6a623">${cft.visitors.toLocaleString()}</b></span><span>페이지뷰 <b style="color:#f6a623">${cft.pageviews.toLocaleString()}</b></span><span>요청 <b style="color:#f6a623">${cft.requests.toLocaleString()}</b></span></div>`);
+    }
 
     // Update timestamp
     const upd=document.getElementById("kpiLastUpdate");
@@ -2311,7 +2319,7 @@ async function admKpiLoad(){
     const tickColor="rgba(255,255,255,.3)";
     const defaultOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickColor,font:chartFont,boxWidth:10,padding:12}}},animation:{duration:800}};
 
-    // 1. Daily visitors — area chart (Grafana-style gradient fill)
+    // 1. Daily visitors — area chart (Grafana-style gradient fill) + Cloudflare overlay
     const dailyCtx=document.getElementById("kpiChartDaily");
     if(dailyCtx&&d.daily.length){
         const dCtx=dailyCtx.getContext("2d");
@@ -2319,12 +2327,20 @@ async function admKpiLoad(){
         grad1.addColorStop(0,"rgba(0,212,255,.35)");grad1.addColorStop(1,"rgba(0,212,255,.02)");
         const grad2=dCtx.createLinearGradient(0,0,0,220);
         grad2.addColorStop(0,"rgba(0,255,136,.25)");grad2.addColorStop(1,"rgba(0,255,136,.02)");
+        // Merge Cloudflare visitors by date
+        const cfMap={};(d.cloudflare||[]).forEach(r=>{cfMap[r.date]=r.visitors});
+        const cfVis=d.daily.map(r=>cfMap[r.date]||null);
+        const hasCf=cfVis.some(v=>v!==null);
+        const datasets=[
+            {label:"방문자(웹)",data:d.daily.map(r=>r.visitors),borderColor:_NEON.cyan,backgroundColor:grad1,fill:true,tension:.4,pointRadius:4,pointBackgroundColor:_NEON.cyan,pointBorderColor:"#0a0a14",pointBorderWidth:2,borderWidth:2},
+            {label:"페이지뷰",data:d.daily.map(r=>r.pageviews),borderColor:_NEON.green,backgroundColor:grad2,fill:true,tension:.4,pointRadius:4,pointBackgroundColor:_NEON.green,pointBorderColor:"#0a0a14",pointBorderWidth:2,borderWidth:2},
+        ];
+        if(hasCf){
+            datasets.push({label:"CF 방문자",data:cfVis,borderColor:_NEON.orange,backgroundColor:"rgba(246,166,35,.08)",fill:false,tension:.4,pointRadius:4,pointBackgroundColor:_NEON.orange,pointBorderColor:"#0a0a14",pointBorderWidth:2,borderWidth:2,borderDash:[5,3]});
+        }
         _kpiCharts.daily=new Chart(dailyCtx,{type:"line",data:{
             labels:d.daily.map(r=>{const dt=new Date(r.date);return (dt.getMonth()+1)+"/"+dt.getDate()}),
-            datasets:[
-                {label:"방문자",data:d.daily.map(r=>r.visitors),borderColor:_NEON.cyan,backgroundColor:grad1,fill:true,tension:.4,pointRadius:4,pointBackgroundColor:_NEON.cyan,pointBorderColor:"#0a0a14",pointBorderWidth:2,borderWidth:2},
-                {label:"페이지뷰",data:d.daily.map(r=>r.pageviews),borderColor:_NEON.green,backgroundColor:grad2,fill:true,tension:.4,pointRadius:4,pointBackgroundColor:_NEON.green,pointBorderColor:"#0a0a14",pointBorderWidth:2,borderWidth:2},
-            ]
+            datasets
         },options:{...defaultOpts,scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},x:{grid:{color:"rgba(255,255,255,.03)"},ticks:{color:tickColor,font:chartFont}}}}});
     }
 

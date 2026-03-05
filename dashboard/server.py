@@ -2171,6 +2171,66 @@ async def api_analytics_session(request):
     return web.json_response({"ok": True})
 
 
+# --- Cloudflare Analytics ---
+_CF_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN", "")
+_CF_ZONE = os.getenv("CLOUDFLARE_ZONE_ID", "")
+_cf_cache: dict = {"data": None, "ts": 0}
+
+async def _fetch_cloudflare_analytics(days: int = 7) -> list[dict]:
+    """Fetch visitor analytics from Cloudflare GraphQL API (5-min cache)."""
+    now = time.time()
+    if _cf_cache["data"] is not None and now - _cf_cache["ts"] < 300:
+        return _cf_cache["data"]
+
+    if not _CF_TOKEN or not _CF_ZONE:
+        return []
+
+    from datetime import timedelta
+    today = datetime.utcnow().date()
+    date_start = str(today - timedelta(days=days - 1))
+    date_end = str(today)
+
+    query = """{
+      viewer {
+        zones(filter: {zoneTag: "%s"}) {
+          httpRequests1dGroups(limit: %d, filter: {date_geq: "%s", date_leq: "%s"}, orderBy: [date_ASC]) {
+            dimensions { date }
+            sum { requests pageViews }
+            uniq { uniques }
+          }
+        }
+      }
+    }""" % (_CF_ZONE, days, date_start, date_end)
+
+    try:
+        import aiohttp as _aio
+        async with _aio.ClientSession() as sess:
+            async with sess.post(
+                "https://api.cloudflare.com/client/v4/graphql",
+                headers={"Authorization": f"Bearer {_CF_TOKEN}", "Content-Type": "application/json"},
+                json={"query": query},
+                timeout=_aio.ClientTimeout(total=10),
+            ) as resp:
+                body = await resp.json()
+        zones = body.get("data", {}).get("viewer", {}).get("zones", [])
+        if not zones:
+            return []
+        result = []
+        for row in zones[0].get("httpRequests1dGroups", []):
+            result.append({
+                "date": row["dimensions"]["date"],
+                "requests": row["sum"]["requests"],
+                "pageviews": row["sum"]["pageViews"],
+                "visitors": row["uniq"]["uniques"],
+            })
+        _cf_cache["data"] = result
+        _cf_cache["ts"] = now
+        return result
+    except Exception as e:
+        logger.warning(f"Cloudflare analytics fetch failed: {e}")
+        return _cf_cache.get("data") or []
+
+
 async def api_admin_kpi(request):
     """Admin: web analytics KPI dashboard data."""
     if not await _admin_check(request):
@@ -2225,11 +2285,15 @@ async def api_admin_kpi(request):
         GROUP BY hour ORDER BY hour
     """)
 
+    # Cloudflare analytics (parallel fetch)
+    cf_data = await _fetch_cloudflare_analytics(7)
+
     return web.json_response({
         "today": {"visitors": today_visitors, "pageviews": today_pv, "avg_duration": round(float(avg_dur))},
         "daily": [{"date": str(r["day"]), "visitors": r["visitors"], "pageviews": r["pageviews"]} for r in daily],
         "by_page": [{"page": r["page"], "views": r["views"]} for r in by_page],
         "by_hour": [{"hour": r["hour"], "views": r["views"]} for r in by_hour],
+        "cloudflare": cf_data,
     })
 
 
