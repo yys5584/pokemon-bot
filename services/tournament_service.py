@@ -649,14 +649,29 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     original_bracket = list(bracket)
     round_results = {}
 
-    # Show full bracket tree
-    tree = _render_bracket(bracket)
-    if tree:
-        await _safe_send(context.bot, chat_id,
-            text=f"📋 대진표\n{tree}",
-            parse_mode="HTML",
-        )
-        await asyncio.sleep(3)
+    # Show bracket — ASCII tree for ≤16 players, text list for larger tournaments
+    total_players = len(player_list)
+    if total_players <= 16:
+        tree = _render_bracket(bracket)
+        if tree:
+            await _safe_send(context.bot, chat_id,
+                text=f"📋 대진표\n{tree}",
+                parse_mode="HTML",
+            )
+    else:
+        # Large tournament: show match list in chunks (Telegram 4096 char limit)
+        lines = [f"📋 대진표 ({total_players}명 참가)"]
+        for i, (bp1, bp2) in enumerate(bracket, 1):
+            n1 = bp1[1]['name'] if bp1 else "부전승"
+            n2 = bp2[1]['name'] if bp2 else "부전승"
+            lines.append(f"{i}. {n1} vs {n2}")
+            if len("\n".join(lines)) > 3500:
+                await _safe_send(context.bot, chat_id, text="\n".join(lines))
+                lines = [f"📋 대진표 (계속)"]
+                await asyncio.sleep(1)
+        if len(lines) > 1:
+            await _safe_send(context.bot, chat_id, text="\n".join(lines))
+    await asyncio.sleep(3)
 
     # Run rounds
     total_rounds = int(math.log2(len(bracket) * 2))
@@ -746,28 +761,36 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
             round_results[current_round] = round_winner_names
 
             if is_final:
-                # Show final bracket tree with champion
-                tree = _render_bracket(original_bracket, round_results)
-                if tree:
-                    await _safe_send(context.bot, chat_id,
-                        text=f"📋 최종 대진표\n{tree}",
-                        parse_mode="HTML",
-                    )
-                    await asyncio.sleep(3)
+                # Show final bracket tree with champion (skip if too large)
+                if total_players <= 16:
+                    tree = _render_bracket(original_bracket, round_results)
+                    if tree and len(tree) < 4000:
+                        await _safe_send(context.bot, chat_id,
+                            text=f"📋 최종 대진표\n{tree}",
+                            parse_mode="HTML",
+                        )
+                        await asyncio.sleep(3)
                 # Tournament complete — give prizes
                 if winners:
                     winner_uid, winner_d = winners[0]
                     await _award_prizes(context, chat_id, winner_uid, winner_d, bracket, semi_finalists)
                 break
 
-            # Show updated bracket tree after this round
-            tree = _render_bracket(original_bracket, round_results)
-            if tree:
-                await _safe_send(context.bot, chat_id,
-                    text=f"📋 대진표 ({round_name} 결과)\n{tree}",
-                    parse_mode="HTML",
-                )
-                await asyncio.sleep(7)
+            # Show updated bracket after this round
+            # Large tournaments: only show ASCII tree from quarterfinals onward
+            if len(bracket) <= 8:
+                tree = _render_bracket(original_bracket, round_results)
+                if tree and len(tree) < 4000:
+                    await _safe_send(context.bot, chat_id,
+                        text=f"📋 대진표 ({round_name} 결과)\n{tree}",
+                        parse_mode="HTML",
+                    )
+                    await asyncio.sleep(7)
+            else:
+                # Just show round summary for large early rounds
+                summary = f"📋 {round_name} 종료 — {len(winners)}명 진출"
+                await _safe_send(context.bot, chat_id, text=summary)
+                await asyncio.sleep(3)
 
             # Next round
             next_bracket = []
