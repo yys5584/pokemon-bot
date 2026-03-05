@@ -1791,7 +1791,7 @@ async def api_payment_create(request):
     tier_id = body.get("tier")
     custom_amount = body.get("custom_amount")
 
-    if custom_amount and isinstance(custom_amount, (int, float)) and custom_amount >= 1:
+    if custom_amount and isinstance(custom_amount, (int, float)) and custom_amount >= 10:
         price_usd = float(custom_amount)
         llm_quota = int(price_usd / 7 * 50)
         master_balls = max(1, int(price_usd / 3))
