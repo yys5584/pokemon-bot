@@ -313,6 +313,55 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
     await _safe_send(context.bot, chat_id, text="\n".join(lines))
 
 
+# ── Group Stage (for 17+ players) ─────────────────────────────
+
+async def _run_preliminary_round(context, chat_id: int, players: list, target: int) -> list:
+    """Run preliminary matches to reduce players to target size.
+
+    Only the excess players (total - target) need to be eliminated.
+    excess*2 players fight in preliminary matches, the rest get byes.
+
+    Args:
+        players: list of (uid, data) tuples
+        target: power of 2 to reduce to (e.g. 16, 8, 4)
+    Returns:
+        list of target (uid, data) tuples for the main bracket
+    """
+    random.shuffle(players)
+    excess = len(players) - target  # number of players to eliminate
+
+    # First excess*2 players play prelims, rest get seeded directly
+    prelim_players = players[:excess * 2]
+    seeded_players = players[excess * 2:]
+
+    # Build prelim match pairs
+    matches = []
+    for i in range(0, len(prelim_players), 2):
+        matches.append((prelim_players[i], prelim_players[i + 1]))
+
+    lines = [f"🏟 예선전 ({len(matches)}경기)"]
+
+    prelim_winners = []
+    for mi, (p1, p2) in enumerate(matches):
+        winner_id, winner_data = await _run_match(
+            context, chat_id,
+            p1[0], p1[1], p2[0], p2[1],
+            is_final=False, is_semi=False, is_quarter=False,
+        )
+        winner_name = winner_data["name"]
+        mark = f"{mi + 1}."
+        lines.append(f"{mark} {p1[1]['name']} vs {p2[1]['name']} → {winner_name} 승리 ✓")
+
+        winner_tuple = (p1[0], p1[1]) if winner_id == p1[0] else (p2[0], p2[1])
+        prelim_winners.append(winner_tuple)
+
+    await _safe_send(context.bot, chat_id, text="\n".join(lines))
+    await asyncio.sleep(3)
+
+    # Combine: prelim winners + seeded players = 16
+    return prelim_winners + seeded_players
+
+
 # ── Bracket Generation ──────────────────────────────────────────
 
 def _generate_bracket(players: list) -> list:
@@ -630,48 +679,66 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
         await _resume_spawns(context, chat_id)
         return
 
-    await _safe_send(context.bot, chat_id,
-        text=(
-            f"🏟️ 토너먼트 시작!\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"참가자: {count}명\n"
-            f"방식: 싱글 엘리미네이션\n\n"
-            f"대진표를 생성합니다..."
-        ),
-    )
-    await asyncio.sleep(2)
-
     # Build player list
     player_list = [(uid, data) for uid, data in participants.items()]
+    total_players = len(player_list)
 
-    # Generate first round bracket
-    bracket = _generate_bracket(player_list)
+    # Find target bracket size (largest power of 2 ≤ total_players)
+    target = 1
+    while target * 2 <= total_players:
+        target *= 2
+    excess = total_players - target
+
+    round_labels = {16: "16강", 8: "8강", 4: "4강", 2: "결승"}
+    round_label = round_labels.get(target, f"{target}강")
+
+    if excess > 0:
+        # ── Preliminary round to reduce to clean bracket ──
+        await _safe_send(context.bot, chat_id,
+            text=(
+                f"🏟️ 토너먼트 시작!\n"
+                f"━━━━━━━━━━━━━━━\n"
+                f"참가자: {count}명\n"
+                f"방식: 예선 {excess}경기 → {round_label} 본선\n\n"
+                f"예선전을 시작합니다..."
+            ),
+        )
+        await asyncio.sleep(3)
+
+        qualifiers = await _run_preliminary_round(context, chat_id, player_list, target)
+
+        q_names = ", ".join(q[1]["name"] for q in qualifiers)
+        await _safe_send(context.bot, chat_id,
+            text=f"🏆 {round_label} 진출자\n━━━━━━━━━━━━━━━\n{q_names}",
+        )
+        await asyncio.sleep(5)
+
+        bracket = _generate_bracket(qualifiers)
+    else:
+        # ── Perfect power of 2 — no prelims needed ──
+        await _safe_send(context.bot, chat_id,
+            text=(
+                f"🏟️ 토너먼트 시작!\n"
+                f"━━━━━━━━━━━━━━━\n"
+                f"참가자: {count}명\n"
+                f"방식: 싱글 엘리미네이션\n\n"
+                f"대진표를 생성합니다..."
+            ),
+        )
+        await asyncio.sleep(2)
+        bracket = _generate_bracket(player_list)
+
     original_bracket = list(bracket)
     round_results = {}
 
-    # Show bracket — ASCII tree for ≤16 players, text list for larger tournaments
-    total_players = len(player_list)
-    if total_players <= 16:
-        tree = _render_bracket(bracket)
-        if tree:
-            await _safe_send(context.bot, chat_id,
-                text=f"📋 대진표\n{tree}",
-                parse_mode="HTML",
-            )
-    else:
-        # Large tournament: show match list in chunks (Telegram 4096 char limit)
-        lines = [f"📋 대진표 ({total_players}명 참가)"]
-        for i, (bp1, bp2) in enumerate(bracket, 1):
-            n1 = bp1[1]['name'] if bp1 else "부전승"
-            n2 = bp2[1]['name'] if bp2 else "부전승"
-            lines.append(f"{i}. {n1} vs {n2}")
-            if len("\n".join(lines)) > 3500:
-                await _safe_send(context.bot, chat_id, text="\n".join(lines))
-                lines = [f"📋 대진표 (계속)"]
-                await asyncio.sleep(1)
-        if len(lines) > 1:
-            await _safe_send(context.bot, chat_id, text="\n".join(lines))
-    await asyncio.sleep(3)
+    # Show bracket (ASCII tree)
+    tree = _render_bracket(bracket)
+    if tree:
+        await _safe_send(context.bot, chat_id,
+            text=f"📋 {round_label + ' ' if excess > 0 else ''}대진표\n{tree}",
+            parse_mode="HTML",
+        )
+    await asyncio.sleep(7 if excess > 0 else 3)
 
     # Run rounds
     total_rounds = int(math.log2(len(bracket) * 2))
