@@ -54,6 +54,17 @@ from dashboard.server import start_dashboard
 
 load_dotenv()
 
+# Sentry error monitoring (disabled if SENTRY_DSN is not set)
+_sentry_dsn = os.getenv("SENTRY_DSN", "")
+if _sentry_dsn:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        traces_sample_rate=0.1,
+        environment="production",
+        send_default_pii=False,
+    )
+
 # Logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
