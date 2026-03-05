@@ -36,14 +36,14 @@ from handlers.battle import (
     yacha_handler, yacha_type_callback, yacha_amount_callback,
     yacha_response_callback, yacha_result_callback,
 )
-from handlers.dm_nurture import feed_handler, play_handler, evolve_handler
+from handlers.dm_nurture import feed_handler, play_handler, evolve_handler, nurture_callback_handler
 from handlers.dm_trade import trade_handler, accept_handler, reject_handler
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
     pokeball_reset_handler,
     event_start_handler, event_list_handler, event_end_handler,
     stats_handler, channel_list_handler, grant_masterball_handler,
-    arcade_handler,
+    arcade_handler, force_tournament_reg_handler, force_tournament_run_handler,
 )
 
 from services.spawn_service import schedule_all_chats
@@ -66,37 +66,56 @@ logger = logging.getLogger(__name__)
 
 async def post_init(application: Application):
     """Called after Application.initialize() — set up DB, seed, schedule."""
+    import time
+    t0 = time.monotonic()
+
+    # Phase 1: DB 연결 + 테이블 생성 + 포켓몬 시드 (순차 필수)
     logger.info("Initializing database...")
     await get_db()
     await create_tables()
     await seed_pokemon_data()
-    await seed_battle_data()
-    migrated = await migrate_18_types()
+    logger.info(f"[{time.monotonic()-t0:.1f}s] DB + schema + seed done")
+
+    # Phase 2: 배틀데이터 시드 + 마이그레이션 (병렬)
+    migrated, iv_assigned, _ = await asyncio.gather(
+        migrate_18_types(),
+        migrate_assign_ivs(),
+        seed_battle_data(),
+    )
     if migrated:
         logger.info(f"18-type migration applied: {migrated} pokemon updated.")
-    iv_assigned = await migrate_assign_ivs()
     if iv_assigned:
         logger.info(f"IV migration: {iv_assigned} pokemon received random IVs.")
-    logger.info("Database ready. 251 Pokemon seeded.")
+    logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready. 251 Pokemon seeded.")
 
-    # Cleanup expired sessions and events from previous runs
-    await queries.cleanup_expired_sessions()
-    await queries.cleanup_expired_events()
+    # Phase 3: 독립 작업 병렬 (cleanup + missed_reset + dashboard)
+    from services.spawn_service import resolve_unresolved_sessions
+    refunded_balls, *_ = await asyncio.gather(
+        resolve_unresolved_sessions(application.bot),
+        queries.cleanup_expired_events(),
+        _check_missed_reset(),
+        start_dashboard(),
+    )
+    # 환불된 마볼/하이퍼볼 DM 알림
+    if refunded_balls:
+        for uid, ball_type in refunded_balls:
+            try:
+                msg = ("🟣 서버 점검으로 인해 마스터볼이 환불되었습니다."
+                       if ball_type == "master" else
+                       "🔵 서버 점검으로 인해 하이퍼볼이 환불되었습니다.")
+                await application.bot.send_message(chat_id=uid, text=msg)
+            except Exception:
+                pass
+        logger.info(f"Sent {len(refunded_balls)} ball refund DMs")
+    logger.info(f"[{time.monotonic()-t0:.1f}s] Cleanup + dashboard done")
 
-    # Fetch initial weather
+    # Weather는 느릴 수 있으므로 백그라운드로 (시작 차단 안 함)
     weather_city = os.getenv("WEATHER_CITY", "Seoul")
-    await update_weather(weather_city)
+    asyncio.create_task(update_weather(weather_city))
 
-    # Check if daily reset was missed (e.g. bot restarted after midnight)
-    await _check_missed_reset()
-
-    # Schedule spawns for all active chats
+    # Phase 4: 스폰 스케줄링 (Telegram API 호출 필요, 마지막)
     await schedule_all_chats(application)
-    logger.info("Spawn scheduling complete.")
-
-    # Start dashboard web server
-    await start_dashboard()
-    logger.info("Dashboard server started.")
+    logger.info(f"[{time.monotonic()-t0:.1f}s] Startup complete.")
 
 
     # Notify recently active users about restart
@@ -131,64 +150,81 @@ async def post_shutdown(application: Application):
 
 
 async def _check_missed_reset():
-    """Run daily reset if it was missed (bot was down at midnight)."""
+    """Run daily reset if it was missed (bot was down at midnight).
+    Compares last_daily_reset marker with today's KST date.
+    """
     from database.connection import get_db
     pool = await get_db()
-    # Check if any pokemon still has fed_today/played_today > 0
-    # If yes AND last_reset_at was before today, run the reset
-    row = await pool.fetchrow(
-        "SELECT COUNT(*) AS cnt FROM user_pokemon WHERE is_active = 1 AND (fed_today > 0 OR played_today > 0)"
+    marker = await pool.fetchval(
+        "SELECT value FROM bot_settings WHERE key = 'last_daily_reset'"
     )
-    if row and row["cnt"] > 0:
-        # Check last reset timestamp from a simple marker table
-        marker = await pool.fetchval(
-            "SELECT value FROM bot_settings WHERE key = 'last_daily_reset'"
-        )
-        today = config.get_kst_today()
-        if marker != today:
-            logger.info(f"Missed daily reset detected (last={marker}, today={today}). Running now...")
-            await queries.reset_daily_nurture()
-            await queries.reset_catch_limits()
-            await queries.reset_force_spawn_counts()
-            await queries.reset_daily_spawn_counts()
-            await queries.cleanup_old_activity(days=7)
-            await pool.execute(
-                """INSERT INTO bot_settings (key, value) VALUES ('last_daily_reset', $1)
-                   ON CONFLICT (key) DO UPDATE SET value = $1""",
-                today,
-            )
-            logger.info("Missed daily reset completed.")
-        else:
-            logger.info("Daily reset already ran today, skipping.")
-    else:
-        logger.info("No nurture data to reset (fresh start or already reset).")
+    today = config.get_kst_today()
+    if marker == today:
+        logger.info(f"Daily reset already ran for {today}, skipping.")
+        return
+
+    logger.info(f"Missed daily reset detected (last={marker}, today={today}). Running now...")
+    await asyncio.gather(
+        queries.reset_daily_nurture(),
+        queries.reset_catch_limits(),
+        queries.reset_force_spawn_counts(),
+        queries.reset_daily_spawn_counts(),
+        queries.cleanup_old_activity(days=7),
+    )
+    await pool.execute(
+        """INSERT INTO bot_settings (key, value) VALUES ('last_daily_reset', $1)
+           ON CONFLICT (key) DO UPDATE SET value = $1""",
+        today,
+    )
+    logger.info("Missed daily reset completed.")
 
 
 # --- Midnight reset job ---
 
+async def _grant_title_buffs():
+    """칭호 버프: 일일 마스터볼 지급."""
+    if not config.BUFF_TITLE_NAMES:
+        return
+    from database.connection import get_db
+    pool = await get_db()
+    buff_users = await pool.fetch(
+        "SELECT user_id, title FROM users WHERE title = ANY($1)",
+        config.BUFF_TITLE_NAMES,
+    )
+    for bu in buff_users:
+        buff = config.get_title_buff_by_name(bu["title"])
+        if buff and buff.get("daily_masterball"):
+            await queries.add_master_ball(bu["user_id"], buff["daily_masterball"])
+            logger.info(f"Title buff: +{buff['daily_masterball']} masterball to user {bu['user_id']} ({bu['title']})")
+
+
 async def midnight_reset(context):
-    """Reset at 9AM/9PM KST: catch limits, bonus, nurture, force spawn, spawns."""
-    logger.info("Running scheduled reset...")
-
-    # Reset daily feed/play counts
-    await queries.reset_daily_nurture()
-
-    # Reset catch limits & bonus catches
-    await queries.reset_catch_limits()
-
-    # Reset force spawn counts
-    await queries.reset_force_spawn_counts()
-
-    # Reset daily spawn counts for chat rooms
-    await queries.reset_daily_spawn_counts()
-
-    # Clean old activity data
-    await queries.cleanup_old_activity(days=7)
-
-    # Record reset timestamp
+    """자정(0시 KST) 일일 리셋: 잡기횟수, 보너스, 밥/놀기, 강제스폰, 스폰카운트."""
     from database.connection import get_db
     pool = await get_db()
     today = config.get_kst_today()
+
+    # 중복 실행 방지: 이미 오늘 리셋했으면 스킵
+    marker = await pool.fetchval(
+        "SELECT value FROM bot_settings WHERE key = 'last_daily_reset'"
+    )
+    if marker == today:
+        logger.info(f"midnight_reset: already ran for {today}, skipping.")
+        return
+
+    logger.info("Running scheduled reset...")
+
+    # 모든 리셋 작업 병렬 실행
+    await asyncio.gather(
+        queries.reset_daily_nurture(),
+        queries.reset_catch_limits(),
+        queries.reset_force_spawn_counts(),
+        queries.reset_daily_spawn_counts(),
+        queries.cleanup_old_activity(days=7),
+        _grant_title_buffs(),
+    )
+
+    # Record reset timestamp
     await pool.execute(
         """INSERT INTO bot_settings (key, value) VALUES ('last_daily_reset', $1)
            ON CONFLICT (key) DO UPDATE SET value = $1""",
@@ -304,6 +340,8 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^이벤트종료"), event_end_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^마볼지급"), grant_masterball_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^아케이드"), arcade_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회시작$"), force_tournament_reg_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회진행$"), force_tournament_run_handler))
 
     # Pokeball recharge
     app.add_handler(MessageHandler(group & filters.Regex(r"^포켓볼\s*충전$"), love_easter_egg))
@@ -374,7 +412,7 @@ def main():
     app.add_handler(CallbackQueryHandler(partner_callback_handler, pattern=r"^partner_"))
 
     # Team selection callback
-    app.add_handler(CallbackQueryHandler(team_callback_handler, pattern=r"^t(s|slot|p|cl|del|no)_"))
+    app.add_handler(CallbackQueryHandler(team_callback_handler, pattern=r"^t(edit|slot_view|pick|rem|p|cl|done|cancel|del)_"))
 
     # Battle accept/decline callback
     app.add_handler(CallbackQueryHandler(battle_callback_handler, pattern=r"^battle_"))
@@ -384,6 +422,9 @@ def main():
 
     # Shop purchase callback
     app.add_handler(CallbackQueryHandler(shop_callback_handler, pattern=r"^shop_"))
+
+    # Nurture (feed/play/evolve) duplicate selection callbacks
+    app.add_handler(CallbackQueryHandler(nurture_callback_handler, pattern=r"^nurt_"))
 
     # Yacha (betting battle) callbacks
     app.add_handler(CallbackQueryHandler(yacha_type_callback, pattern=r"^yc_"))

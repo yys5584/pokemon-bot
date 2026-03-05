@@ -412,6 +412,35 @@ async def update_pokemon_friendship(instance_id: int, friendship: int):
     )
 
 
+async def atomic_feed(instance_id: int, gain: int, max_friendship: int) -> int | None:
+    """Atomically increment friendship + fed_today, return new friendship.
+    Returns None if already at feed limit (fed_today >= fed_limit checked by caller)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """UPDATE user_pokemon
+           SET friendship = LEAST(friendship + $2, $3),
+               fed_today = fed_today + 1
+           WHERE id = $1
+           RETURNING friendship""",
+        instance_id, gain, max_friendship,
+    )
+    return row["friendship"] if row else None
+
+
+async def atomic_play(instance_id: int, gain: int, max_friendship: int) -> int | None:
+    """Atomically increment friendship + played_today, return new friendship."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """UPDATE user_pokemon
+           SET friendship = LEAST(friendship + $2, $3),
+               played_today = played_today + 1
+           WHERE id = $1
+           RETURNING friendship""",
+        instance_id, gain, max_friendship,
+    )
+    return row["friendship"] if row else None
+
+
 async def increment_feed(instance_id: int):
     pool = await get_db()
     await pool.execute(
@@ -704,14 +733,41 @@ async def get_last_spawn_time(chat_id: int):
     return None
 
 
-async def cleanup_expired_sessions():
-    """Resolve ALL unresolved sessions on startup (safety net for crashes)."""
+async def cleanup_expired_sessions() -> list[tuple[int, str]]:
+    """Resolve ALL unresolved sessions on startup (safety net for crashes).
+    Returns list of (user_id, ball_type) for refunded balls.
+    """
     pool = await get_db()
+    # 미해결 세션에서 마볼/하이퍼볼 사용자 찾아서 환불
+    refunds = await pool.fetch(
+        """SELECT ca.user_id, ca.used_master_ball, ca.used_hyper_ball
+           FROM catch_attempts ca
+           JOIN spawn_sessions ss ON ca.session_id = ss.id
+           WHERE ss.is_resolved = 0
+             AND (ca.used_master_ball = 1 OR ca.used_hyper_ball = 1)"""
+    )
+    refunded = []
+    for r in refunds:
+        if r["used_master_ball"]:
+            await pool.execute(
+                "UPDATE users SET master_balls = master_balls + 1 WHERE user_id = $1",
+                r["user_id"],
+            )
+            refunded.append((r["user_id"], "master"))
+        if r["used_hyper_ball"]:
+            await pool.execute(
+                "UPDATE users SET hyper_balls = hyper_balls + 1 WHERE user_id = $1",
+                r["user_id"],
+            )
+            refunded.append((r["user_id"], "hyper"))
+    if refunded:
+        logger.info(f"Refunded {len(refunded)} balls from {len(refunds)} unresolved attempts")
     await pool.execute(
         """UPDATE spawn_sessions
            SET is_resolved = 1
            WHERE is_resolved = 0"""
     )
+    return refunded
 
 
 # ============================================================
@@ -1713,27 +1769,26 @@ async def get_retention_d1() -> dict:
 
 
 async def get_economy_health() -> dict:
-    """경제 건강도: 마볼 유통량, BP 총합, 평균 등."""
+    """경제 건강도: 마볼/하볼/BP 유통량 및 소비량."""
     pool = await get_db()
-    mb = await pool.fetchrow(
-        "SELECT SUM(master_balls) as total, AVG(master_balls) as avg FROM users WHERE master_balls > 0"
-    )
-    bp = await pool.fetchrow(
-        "SELECT SUM(battle_points) as total, AVG(battle_points) as avg FROM users WHERE battle_points > 0"
-    )
-    mb_used = await pool.fetchrow(
-        "SELECT COUNT(*) as cnt FROM catch_attempts WHERE used_master_ball = 1"
-    )
-    total_pokemon = await pool.fetchrow(
-        "SELECT COUNT(*) as cnt FROM user_pokemon WHERE is_active = 1"
+    mb, hb, bp, mb_used, hb_used, bp_spent = await asyncio.gather(
+        pool.fetchrow("SELECT COALESCE(SUM(master_balls),0) as total, COALESCE(AVG(master_balls),0) as avg FROM users WHERE master_balls > 0"),
+        pool.fetchrow("SELECT COALESCE(SUM(hyper_balls),0) as total, COALESCE(AVG(hyper_balls),0) as avg FROM users WHERE hyper_balls > 0"),
+        pool.fetchrow("SELECT COALESCE(SUM(battle_points),0) as total, COALESCE(AVG(battle_points),0) as avg FROM users WHERE battle_points > 0"),
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM catch_attempts WHERE used_master_ball = 1"),
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM catch_attempts WHERE used_hyper_ball = 1"),
+        pool.fetchrow("SELECT COALESCE(SUM(bp_earned),0) as total FROM battle_records"),
     )
     return {
-        "master_balls_circulation": int(mb["total"]) if mb and mb["total"] else 0,
-        "master_balls_avg": round(float(mb["avg"]), 1) if mb and mb["avg"] else 0,
+        "master_balls_circulation": int(mb["total"]),
+        "master_balls_avg": round(float(mb["avg"]), 1),
         "master_balls_used_total": mb_used["cnt"] if mb_used else 0,
-        "bp_circulation": int(bp["total"]) if bp and bp["total"] else 0,
-        "bp_avg": round(float(bp["avg"]), 1) if bp and bp["avg"] else 0,
-        "total_pokemon_owned": total_pokemon["cnt"] if total_pokemon else 0,
+        "hyper_balls_circulation": int(hb["total"]),
+        "hyper_balls_avg": round(float(hb["avg"]), 1),
+        "hyper_balls_used_total": hb_used["cnt"] if hb_used else 0,
+        "bp_circulation": int(bp["total"]),
+        "bp_avg": round(float(bp["avg"]), 1),
+        "bp_spent_total": int(bp_spent["total"]),
     }
 
 

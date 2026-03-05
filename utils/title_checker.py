@@ -129,6 +129,13 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
                     "SELECT EXISTS(SELECT 1 FROM user_titles WHERE title_id = 'tournament_first')"
                 )
                 unlocked = not first_exists
+        elif check_type == "inaugural_champ":
+            # 초대 챔피언 — 최초 공식 토너먼트 우승자 (단 1명)
+            if stats.get("tournament_wins", 0) >= threshold:
+                first_exists = await pool.fetchval(
+                    "SELECT EXISTS(SELECT 1 FROM user_titles WHERE title_id = 'inaugural_champ')"
+                )
+                unlocked = not first_exists
 
         if unlocked:
             was_new = await queries.unlock_title(user_id, title_id)

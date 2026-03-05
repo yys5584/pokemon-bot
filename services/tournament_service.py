@@ -8,12 +8,27 @@ from datetime import datetime
 
 from telegram.ext import ContextTypes
 
+from telegram.error import RetryAfter
+
 import config
 from database import queries
 from database import battle_queries as bq
 from database.connection import get_db
 from services.battle_service import _prepare_combatant, _resolve_battle, _hp_bar
-from utils.helpers import icon_emoji
+
+
+async def _safe_send(bot, chat_id, text, **kwargs):
+    """send_message with RetryAfter auto-retry."""
+    for attempt in range(3):
+        try:
+            return await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+        except RetryAfter as e:
+            wait = e.retry_after + 1
+            logger.warning(f"Flood control, waiting {wait}s (attempt {attempt+1})")
+            await asyncio.sleep(wait)
+    # last attempt without catch
+    return await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+from utils.helpers import icon_emoji, ball_emoji, rarity_badge
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +46,16 @@ def _reset_state():
     _tournament_state["running"] = False
     _tournament_state["participants"] = {}
     _tournament_state["chat_id"] = None
+
+
+def is_tournament_active(chat_id: int) -> bool:
+    """Return True if tournament is running or registering in this chat."""
+    if not _tournament_state["chat_id"]:
+        return False
+    return (
+        _tournament_state["chat_id"] == chat_id
+        and (_tournament_state["running"] or _tournament_state["registering"])
+    )
 
 
 # ── Registration ────────────────────────────────────────────────
@@ -54,8 +79,7 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
         ):
             job.schedule_removal()
 
-    await context.bot.send_message(
-        chat_id=chat_id,
+    await _safe_send(context.bot, chat_id,
         text=(
             "🏟️ 아케이드 토너먼트!\n"
             "━━━━━━━━━━━━━━━\n\n"
@@ -183,6 +207,9 @@ async def _run_match(
     Returns (winner_user_id, winner_data).
     """
     SKULL = icon_emoji("skull")
+    # Team labels: challenger = red badge, defender = rare(blue) badge
+    C = rarity_badge("red")
+    D = rarity_badge("rare")
 
     # Prepare combatants
     partner1 = await bq.get_partner(p1_id)
@@ -209,126 +236,168 @@ async def _run_match(
         winner_id, winner_data = p2_id, p2_data
         remaining = result["defender_remaining"]
 
+    # Helper: team marker for KO/next based on side
+    def _mark(side):
+        return C if side == "challenger" else D
+
+    # Helper: build matchup sections from turn_data
+    def _build_sections(turn_data):
+        sections, cur = [], []
+        for td in turn_data:
+            if td["type"] == "matchup" and cur:
+                sections.append(cur)
+                cur = [td]
+            else:
+                cur.append(td)
+        if cur:
+            sections.append(cur)
+        return sections
+
+    # Helper: format a section into lines (for quarter/semi)
+    def _format_section(section):
+        lines = []
+        for td in section:
+            if td["type"] == "matchup":
+                lines.append(f"{C}{td['c_tb']}{td['c_name']} vs {D}{td['d_tb']}{td['d_name']}")
+            elif td["type"] == "turn":
+                c_part = f"→{td['c_dmg']}{td['c_crit']}{td['c_eff']}" if td["c_dmg"] else ""
+                d_part = f"←{td['d_dmg']}{td['d_crit']}{td['d_eff']}" if td["d_dmg"] else ""
+                lines.append(f" {td['turn_num']}턴: {C}{td['c_name']} {c_part} | {D}{td['d_name']} {d_part}")
+            elif td["type"] == "ko":
+                m = _mark(td["side"])
+                if td["next_name"]:
+                    lines.append(f" {SKULL}{m}{td['dead_name']} 쓰러짐! ▶ {m}{td['next_name']} 등장!")
+                else:
+                    lines.append(f" {SKULL}{m}{td['dead_name']} 쓰러짐!")
+        return lines
+
     if is_final:
-        # ── Finals: rich turn-by-turn display ──
-        await context.bot.send_message(
-            chat_id=chat_id,
+        # ── Finals: rich turn-by-turn display (3s delay) ──
+        p1_name = p1_data['name']
+        p2_name = p2_data['name']
+        await _safe_send(context.bot, chat_id,
             text=(
                 f"🏆 결승전!\n"
-                f"{p1_data['name']} vs {p2_data['name']}\n"
+                f"{C}{p1_name} vs {D}{p2_name}\n"
                 f"━━━━━━━━━━━━━━━"
             ),
             parse_mode="HTML",
         )
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
+
+        # Track current matchup indices for header
+        cur_c_idx, cur_d_idx = 0, 0
+        cur_c_total, cur_d_total = 0, 0
 
         for td in result["turn_data"]:
             if td["type"] == "matchup":
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=f"\n⚔ {td['c_tb']}{td['c_name']} vs {td['d_tb']}{td['d_name']}!",
+                cur_c_idx = td["c_idx"]
+                cur_d_idx = td["d_idx"]
+                cur_c_total = td["c_total"]
+                cur_d_total = td["d_total"]
+                await _safe_send(context.bot, chat_id,
+                    text=f"⚔ {C}{td['c_tb']}{td['c_name']} vs {D}{td['d_tb']}{td['d_name']}!",
                     parse_mode="HTML",
                 )
-                await asyncio.sleep(2)
+                await asyncio.sleep(3)
 
             elif td["type"] == "turn":
                 lines = []
-                # First attacker
+                # 헤더: 트레이너명 + 몇 번째 포켓몬
+                lines.append(f"{C}{p1_name}({td.get('c_idx', cur_c_idx)+1}/{td.get('c_total', cur_c_total)}) vs {D}{p2_name}({td.get('d_idx', cur_d_idx)+1}/{td.get('d_total', cur_d_total)})")
+
                 if td["first_is_challenger"]:
+                    first_mark, second_mark = C, D
                     first_name, first_dmg, first_crit, first_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
                     second_name, second_dmg, second_crit, second_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
                     first_target_hp, first_target_max = td["d_hp"], td["d_max_hp"]
                     second_target_hp, second_target_max = td["c_hp"], td["c_max_hp"]
                     first_target_name, second_target_name = td["d_name"], td["c_name"]
+                    first_target_mark, second_target_mark = D, C
                 else:
+                    first_mark, second_mark = D, C
                     first_name, first_dmg, first_crit, first_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
                     second_name, second_dmg, second_crit, second_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
                     first_target_hp, first_target_max = td["c_hp"], td["c_max_hp"]
                     second_target_hp, second_target_max = td["d_hp"], td["d_max_hp"]
                     first_target_name, second_target_name = td["c_name"], td["d_name"]
+                    first_target_mark, second_target_mark = C, D
 
-                # Turn header
                 crit_label = " 크리티컬!" if first_crit else ""
-                skill_label = f"의{first_eff} 발동!" if first_eff else "의 공격!"
-                lines.append(f"{td['turn_num']}턴 ─ {first_name}{skill_label}{crit_label}")
+                skill_label = f" {first_eff}!" if first_eff else " 공격!"
+                lines.append(f"{td['turn_num']}턴 ─ {first_mark}{first_name}{skill_label}{crit_label}")
                 bar = _hp_bar(first_target_hp, first_target_max)
-                lines.append(f"  →{first_dmg} 데미지 ({first_target_name} HP: {bar} {first_target_hp}/{first_target_max})")
+                lines.append(f"  {first_target_mark}{first_target_name} {bar} {first_target_hp}/{first_target_max} (-{first_dmg})")
 
-                # Second attacker (counterattack)
                 if second_dmg > 0:
                     crit2_label = " 크리티컬!" if second_crit else ""
-                    skill2_label = f"의{second_eff} 발동!" if second_eff else "의 반격!"
-                    lines.append(f"{second_name}{skill2_label}{crit2_label}")
+                    skill2_label = f" {second_eff}!" if second_eff else " 반격!"
+                    lines.append(f"{second_mark}{second_name}{skill2_label}{crit2_label}")
                     bar2 = _hp_bar(second_target_hp, second_target_max)
-                    lines.append(f"  ←{second_dmg} 데미지 ({second_target_name} HP: {bar2} {second_target_hp}/{second_target_max})")
+                    lines.append(f"  {second_target_mark}{second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})")
 
-                await context.bot.send_message(chat_id=chat_id, text="\n".join(lines))
-                await asyncio.sleep(2)
+                await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
+                await asyncio.sleep(3)
 
             elif td["type"] == "ko":
+                m = _mark(td["side"])
                 if td["next_name"]:
-                    text = f"{SKULL} {td['dead_name']} 쓰러짐!\n▶ {td['next_name']} 등장! ({td['next_idx']+1}/{td['next_total']})"
+                    text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n▶ {m}{td['next_name']} 등장! ({td['next_idx']+1}/{td['next_total']})"
                 else:
-                    text = f"{SKULL} {td['dead_name']} 쓰러짐!"
-                await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
-                await asyncio.sleep(1.5)
+                    text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
+                await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
+                await asyncio.sleep(3)
 
-        # Winner announcement
-        await context.bot.send_message(
-            chat_id=chat_id,
+        await _safe_send(context.bot, chat_id,
             text=f"\n🎉 {winner_data['name']} 우승! (남은 {remaining}마리)",
         )
 
     elif is_semi:
-        # ── Semi-finals: 1 line at a time ──
-        await context.bot.send_message(
-            chat_id=chat_id,
+        # ── Semi-finals: 2 turns per message (3s delay) ──
+        await _safe_send(context.bot, chat_id,
             text=(
-                f"⚔️ 준결승! — {p1_data['name']} vs {p2_data['name']}\n"
+                f"⚔️ 준결승! — {C}{p1_data['name']} vs {D}{p2_data['name']}\n"
                 f"━━━━━━━━━━━━━━━"
             ),
             parse_mode="HTML",
         )
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(3)
 
-        log_lines = result["log"].split("\n")
-        for line in log_lines:
-            if line.strip():
-                await context.bot.send_message(chat_id=chat_id, text=line, parse_mode="HTML")
-                await asyncio.sleep(1.5)
+        # Format all lines, then send 2 lines at a time
+        all_lines = _format_section(result["turn_data"])
+        for i in range(0, len(all_lines), 2):
+            chunk = "\n".join(all_lines[i:i+2])
+            await _safe_send(context.bot, chat_id, text=chunk, parse_mode="HTML")
+            await asyncio.sleep(3)
 
-        await context.bot.send_message(
-            chat_id=chat_id,
+        await _safe_send(context.bot, chat_id,
             text=f"→ {winner_data['name']} 승리! (남은 {remaining}마리)",
         )
 
     elif is_quarter:
-        # ── Quarter-finals: 2 lines at a time ──
-        await context.bot.send_message(
-            chat_id=chat_id,
+        # ── Quarter-finals: grouped by matchup (3s delay) ──
+        await _safe_send(context.bot, chat_id,
             text=(
-                f"⚔️ {p1_data['name']} vs {p2_data['name']}\n"
+                f"⚔️ {C}{p1_data['name']} vs {D}{p2_data['name']}\n"
                 f"━━━━━━━━━━━━━━━"
             ),
             parse_mode="HTML",
         )
-        await asyncio.sleep(1)
+        await asyncio.sleep(3)
 
-        log_lines = [l for l in result["log"].split("\n") if l.strip()]
-        for i in range(0, len(log_lines), 2):
-            chunk = "\n".join(log_lines[i:i+2])
-            await context.bot.send_message(chat_id=chat_id, text=chunk, parse_mode="HTML")
-            await asyncio.sleep(1)
+        for section in _build_sections(result["turn_data"]):
+            lines = _format_section(section)
+            if lines:
+                await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
+                await asyncio.sleep(3)
 
-        await context.bot.send_message(
-            chat_id=chat_id,
+        await _safe_send(context.bot, chat_id,
             text=f"→ {winner_data['name']} 승리! (남은 {remaining}마리)",
         )
 
     else:
         # ── Lower rounds: one-line summary ──
-        await context.bot.send_message(
-            chat_id=chat_id,
+        await _safe_send(context.bot, chat_id,
             text=f"⚔️ {p1_data['name']} vs {p2_data['name']} → {winner_data['name']} 승리!",
             parse_mode="HTML",
         )
@@ -353,8 +422,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     count = len(participants)
 
     if count < config.TOURNAMENT_MIN_PLAYERS:
-        await context.bot.send_message(
-            chat_id=chat_id,
+        await _safe_send(context.bot, chat_id,
             text=(
                 f"❌ 참가자 부족으로 대회가 취소되었습니다.\n"
                 f"(참가자: {count}명 / 최소: {config.TOURNAMENT_MIN_PLAYERS}명)\n\n"
@@ -365,8 +433,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
         await _resume_spawns(context, chat_id)
         return
 
-    await context.bot.send_message(
-        chat_id=chat_id,
+    await _safe_send(context.bot, chat_id,
         text=(
             f"🏟️ 토너먼트 시작!\n"
             f"━━━━━━━━━━━━━━━\n"
@@ -397,8 +464,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
             round_name = "결승" if is_final else f"{'준결승' if is_semi else f'{current_round}라운드'}"
 
             if not is_final:
-                await context.bot.send_message(
-                    chat_id=chat_id,
+                await _safe_send(context.bot, chat_id,
                     text=f"\n📢 {round_name}",
                 )
                 await asyncio.sleep(1)
@@ -410,16 +476,14 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                 elif p1 is None:
                     # p2 gets bye
                     uid2, data2 = p2
-                    await context.bot.send_message(
-                        chat_id=chat_id,
+                    await _safe_send(context.bot, chat_id,
                         text=f"🏃 {data2['name']} — 부전승!",
                     )
                     winners.append(p2)
                 elif p2 is None:
                     # p1 gets bye
                     uid1, data1 = p1
-                    await context.bot.send_message(
-                        chat_id=chat_id,
+                    await _safe_send(context.bot, chat_id,
                         text=f"🏃 {data1['name']} — 부전승!",
                     )
                     winners.append(p1)
@@ -462,8 +526,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Tournament error: {e}", exc_info=True)
-        await context.bot.send_message(
-            chat_id=chat_id,
+        await _safe_send(context.bot, chat_id,
             text="⚠️ 토너먼트 진행 중 오류가 발생했습니다.",
         )
 
@@ -519,7 +582,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data, final_bracket,
         "\n🏆 토너먼트 결과",
         "━━━━━━━━━━━━━━━",
         f"🥇 {winner_data['name']}",
-        f"   🟣 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP} BP",
+        f"   {ball_emoji('masterball')} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP} BP",
     ]
 
     if runner_up_id:
@@ -545,8 +608,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data, final_bracket,
 
     lines.append("\n스폰이 곧 재개됩니다.")
 
-    await context.bot.send_message(
-        chat_id=chat_id,
+    await _safe_send(context.bot, chat_id,
         text="\n".join(lines),
         parse_mode="HTML",
     )

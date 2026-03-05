@@ -419,10 +419,27 @@ TOURNAMENT_PRIZE_4TH_BP = 50    # 4강 BP
 
 # --- Tournament Titles ---
 TOURNAMENT_TITLES = {
-    "tournament_first": ("쉬었음청년",     "snorlax",    "임시대회 우승자",  "tournament_first", 1),
-    "tournament_champ": ("토너먼트 챔피언", "crown",      "토너먼트 우승 1회",       "tournament_win", 1),
+    "tournament_first": ("쉬었음청년",     "champion_first",    "임시대회 우승자",  "tournament_first", 1),
+    "inaugural_champ":  ("초대 챔피언",    "champion_first",    "최초 공식 토너먼트 우승자", "inaugural_champ", 1),
+    "tournament_champ": ("토너먼트 챔피언", "champion",      "토너먼트 우승 1회",       "tournament_win", 1),
 }
 UNLOCKABLE_TITLES.update(TOURNAMENT_TITLES)
+
+# --- Title Buffs (착용 시 효과) ---
+# title_id -> {"daily_masterball": int, "extra_feed": int}
+TITLE_BUFFS = {
+    "inaugural_champ": {"daily_masterball": 1, "extra_feed": 1},
+}
+
+def get_title_buff_by_name(title_name: str) -> dict | None:
+    """착용 중인 칭호 이름으로 버프 dict 반환. 없으면 None."""
+    for title_id, buff in TITLE_BUFFS.items():
+        if UNLOCKABLE_TITLES[title_id][0] == title_name:
+            return buff
+    return None
+
+# 버프가 있는 칭호 이름 목록 (DB 쿼리용)
+BUFF_TITLE_NAMES = [UNLOCKABLE_TITLES[tid][0] for tid in TITLE_BUFFS]
 
 # --- Shiny (이로치) Titles ---
 SHINY_TITLES = {
@@ -500,6 +517,10 @@ RARITY_CUSTOM_EMOJI = {
     "epic": "6141022159117492116",
     "rare": "6140797725601438152",
     "common": "6140791433474351151",
+    "red": "6143244830462975904",
+    "blue": "6145689478603217072",
+    "bracket_red": "6143460931742475685",
+    "bracket_blue": "6143145066962624038",
 }
 
 # --- Custom Emoji IDs (Type Badges) ---
@@ -539,6 +560,9 @@ ICON_CUSTOM_EMOJI = {
     # Special
     "skull": "6143450305993382989",
     "crystal": "6143120589944004477",
+    # Champion animated effects
+    "champion_first": "6143110286317461809",
+    "champion": "6143325296675266325",
     # Numbers + Check
     "1": "6143285920415097548",
     "2": "6143042181021048615",

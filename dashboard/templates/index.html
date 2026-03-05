@@ -341,11 +341,11 @@
         <div class="page active" id="page-home">
             <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
                 <a href="https://t.me/tg_poke" target="_blank" style="flex:1;min-width:200px;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#1a6b3c,#2E7D32);color:#fff;padding:12px 16px;border-radius:10px;text-decoration:none;transition:all .2s;box-shadow:0 2px 8px rgba(46,125,50,.25)" onmouseenter="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(46,125,50,.35)'" onmouseleave="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(46,125,50,.25)'">
-                    <img src="/static/icons/catch-pokemon.png" alt="" style="width:32px;height:32px">
+                    <div style="font-size:24px">🎯</div>
                     <div><div style="font-size:13px;font-weight:700">푸키몬 채팅방 입장</div><div style="font-size:11px;opacity:.85;margin-top:2px">24시간 무한 스폰 · 실시간 포획</div></div>
                 </a>
                 <a href="https://t.me/tg_poke" target="_blank" style="flex:1;min-width:200px;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#B71C1C,#C62828);color:#fff;padding:12px 16px;border-radius:10px;text-decoration:none;transition:all .2s;box-shadow:0 2px 8px rgba(183,28,28,.25)" onmouseenter="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(183,28,28,.35)'" onmouseleave="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(183,28,28,.25)'">
-                    <img src="/static/icons/crown.png" alt="" style="width:32px;height:32px">
+                    <div style="font-size:24px">🏆</div>
                     <div><div style="font-size:13px;font-weight:700">매일 밤 10시 토너먼트</div><div style="font-size:11px;opacity:.85;margin-top:2px">자동 매칭 배틀 대회 · 랭킹 보상</div></div>
                 </a>
             </div>
@@ -620,38 +620,37 @@
                     </button>
                 </div>
             </div>
-            <!-- AI 분석 -->
-            <div style="margin-bottom:8px">
+            <!-- AI 분석 (점검 중) -->
+            <div style="margin-bottom:8px;opacity:0.5;pointer-events:none">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
                     <span style="font-size:11px;font-weight:700;color:var(--purple)">🤖 AI 분석</span>
+                    <span style="font-size:10px;color:var(--red);font-weight:700">🔧 점검 중</span>
                     <span style="font-size:9px;color:var(--dim);margin-left:auto">Gemini 2.0 Flash</span>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
-                    <button class="chat-quick-btn ai-btn" onclick="sendQuick('메타 분석해줘')" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0">
+                    <button class="chat-quick-btn ai-btn" disabled style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0;opacity:0.5">
                         <span style="font-size:14px">📊</span><span style="font-weight:700;font-size:11px">메타</span>
                     </button>
-                    <button class="chat-quick-btn ai-btn" onclick="sendQuick('육성 추천해줘')" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0">
+                    <button class="chat-quick-btn ai-btn" disabled style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0;opacity:0.5">
                         <span style="font-size:14px">🌱</span><span style="font-weight:700;font-size:11px">육성</span>
                     </button>
-                    <button class="chat-quick-btn ai-btn" onclick="sendQuick('약점 분석해줘')" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0">
+                    <button class="chat-quick-btn ai-btn" disabled style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0;opacity:0.5">
                         <span style="font-size:14px">🔍</span><span style="font-weight:700;font-size:11px">약점</span>
                     </button>
                 </div>
             </div>
-            <!-- Session Bar -->
-            <div id="chatSessionBar" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;align-items:center"></div>
-            <!-- Chat Area -->
+            <!-- Chat Area (disabled) -->
             <div class="chat-container" style="height:calc(100vh - 200px);min-height:380px;max-height:680px">
                 <div class="chat-messages" id="chatMessages">
                     <div class="chat-msg ai">
                         <div class="chat-sender">🤖 배틀 어드바이저</div>
-                        안녕하세요! 배틀 전략에 대해 물어보세요.<br>
-                        <span style="font-size:11px;color:var(--muted)">빠른분석(1회) · AI분석(2회) 차감</span>
+                        🔧 AI 분석 기능을 점검 중입니다. 빠른 분석(전투력/시너지/카운터/밸런스)은 정상 이용 가능합니다.<br>
+                        <span style="font-size:11px;color:var(--muted)">점검이 완료되면 다시 이용하실 수 있습니다.</span>
                     </div>
                 </div>
-                <div class="chat-input-area">
-                    <input class="chat-input" id="chatInput" placeholder="배틀 전략을 물어보세요...">
-                    <button class="chat-send" id="chatSendBtn">➤</button>
+                <div class="chat-input-area" style="opacity:0.5;pointer-events:none">
+                    <input class="chat-input" id="chatInput" placeholder="AI 분석 점검 중..." disabled>
+                    <button class="chat-send" id="chatSendBtn" disabled>➤</button>
                 </div>
             </div>
             <!-- Donation Section -->
@@ -848,7 +847,7 @@ function updateQuotaBadge(remaining,bonus){
 }
 
 // --- Tab Navigation with URL routing ---
-const PAGE_PATHS={home:"/",patchnotes:"/patchnotes",battlerank:"/battle",tier:"/tier",typechart:"/types",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai"};
+const PAGE_PATHS={home:"/",channels:"/channels",patchnotes:"/patchnotes",battlerank:"/battle",tier:"/tier",typechart:"/types",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai"};
 const PATH_PAGES=Object.fromEntries(Object.entries(PAGE_PATHS).map(([k,v])=>[v,k]));
 let currentPage="home";
 
@@ -913,7 +912,7 @@ async function loadPage(page){
         else if(page==="battlerank") await loadBattleRank();
         else if(page==="tier") await loadTier();
         else if(page==="typechart") await loadTypeChart();
-        else if(page==="stats"){await loadStats();await loadChannelTop5();}
+        else if(page==="stats") await loadStats();
         else if(page==="mypokemon"){if(_authUser)await loadMyPokemon()}
         else if(page==="simulator"){if(_authUser)await loadSimulator()}
     }catch(e){console.error("Load error:",e)}
@@ -1583,11 +1582,6 @@ function _restoreChatFromStorage(){
         _renderChatMsgs();
     }
     _renderSessionBar();
-    // Bind chat input events
-    const ci=document.getElementById("chatInput");
-    if(ci) ci.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}});
-    const sb=document.getElementById("chatSendBtn");
-    if(sb) sb.addEventListener("click",()=>sendChat());
 }
 
 // Mode button mapping → algorithm API (1 token)
@@ -1804,8 +1798,9 @@ async function loadSimulator(){
             _myPokemon=await r.json();
         }catch(e){}
     }
-    // Restore chat sessions
-    _restoreChatFromStorage();
+    // AI chat disabled — clear old sessions
+    localStorage.removeItem("tgpoke_sessions");
+    localStorage.removeItem("tgpoke_chat");
     // Load donation progress
     try{const don=await fetchJSON("/api/donation");if(don)renderDonation(don)}catch(e){renderDonation({current:0,goal:200})}
 }

@@ -388,25 +388,8 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
 
     # Build buttons
     select_buttons = []
-    row = []
-    for i, item in enumerate(page_items):
-        num = start + i + 1
-        if item[0] == "single":
-            _, idx, p = item
-            label = f"{num}. {p['name_ko']}"
-            cb = f"mypoke_v_{user_id}_{idx}_{page}"
-        else:
-            _, pid, indices, first, count = item
-            label = f"{num}. {first['name_ko']} x{count}"
-            cb = f"mypoke_g_{user_id}_{pid}_{page}"
-        row.append(InlineKeyboardButton(label, callback_data=cb))
-        if len(row) == 2:
-            select_buttons.append(row)
-            row = []
-    if row:
-        select_buttons.append(row)
 
-    # Filter buttons row
+    # Filter/sort row (above pokemon list for easy access)
     sort_mode = filt.get("sort", "default")
     fav_on = filt.get("fav", False)
     type_on = filt.get("type")
@@ -426,7 +409,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     ]
     select_buttons.append(filter_row)
 
-    # Type filter row (show active type or "타입" button)
+    # Type filter row
     if type_on:
         type_name = config.TYPE_NAME_KO.get(type_on, type_on)
         select_buttons.append([
@@ -437,6 +420,25 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
         select_buttons.append([
             InlineKeyboardButton("🏷 타입필터", callback_data=f"mypoke_tmore_{user_id}"),
         ])
+
+    # Pokemon selection buttons
+    row = []
+    for i, item in enumerate(page_items):
+        num = start + i + 1
+        if item[0] == "single":
+            _, idx, p = item
+            label = f"{num}. {p['name_ko']}"
+            cb = f"mypoke_v_{user_id}_{idx}_{page}"
+        else:
+            _, pid, indices, first, count = item
+            label = f"{num}. {first['name_ko']} x{count}"
+            cb = f"mypoke_g_{user_id}_{pid}_{page}"
+        row.append(InlineKeyboardButton(label, callback_data=cb))
+        if len(row) == 2:
+            select_buttons.append(row)
+            row = []
+    if row:
+        select_buttons.append(row)
 
     # Pagination
     nav_row = []
@@ -576,25 +578,24 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
     # Action buttons
     buttons = []
 
-    # Row 1: actions
-    action_row = [
-        InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
+    # Row 1: care actions (most used)
+    care_row = [
         InlineKeyboardButton("🍖 밥", callback_data=f"mypoke_feed_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("🎮 놀기", callback_data=f"mypoke_play_{user_id}_{idx}_{page}"),
     ]
-    # Add evolution button if eligible
     can_evo_friendship = p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP
     can_evo_trade = p["evolves_to"] and p["evolution_method"] == "trade"
     if can_evo_friendship:
-        action_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))
-    buttons.append(action_row)
+        care_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))
+    buttons.append(care_row)
 
-    # Row 2: team add + favorite
-    fav_label = "⭐ 즐찾해제" if p.get("is_favorite") else "☆ 즐겨찾기"
+    # Row 2: info + settings
+    fav_label = "⭐ 즐찾해제" if p.get("is_favorite") else "☆ 즐찾"
     buttons.append([
+        InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
+        InlineKeyboardButton(fav_label, callback_data=f"mypoke_fav_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{idx}_{page}"),
-        InlineKeyboardButton(fav_label, callback_data=f"mypoke_fav_{user_id}_{idx}_{page}"),
     ])
 
     # Row 3: navigation
@@ -832,9 +833,9 @@ async def _do_feed(p: dict, user_id: int) -> str:
     from services.event_service import get_friendship_boost
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_FEED * boost
-    new_f = min(max_f, p["friendship"] + gain)
-    await queries.update_pokemon_friendship(p["id"], new_f)
-    await queries.increment_feed(p["id"])
+    new_f = await queries.atomic_feed(p["id"], gain, max_f)
+    if new_f is None:
+        return "오류가 발생했습니다."
     remaining = config.FEED_PER_DAY - p["fed_today"] - 1
     return f"{icon_emoji('ham')} {p['name_ko']}에게 밥! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
 
@@ -849,9 +850,9 @@ async def _do_play(p: dict, user_id: int) -> str:
     from services.event_service import get_friendship_boost
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_PLAY * boost
-    new_f = min(max_f, p["friendship"] + gain)
-    await queries.update_pokemon_friendship(p["id"], new_f)
-    await queries.increment_play(p["id"])
+    new_f = await queries.atomic_play(p["id"], gain, max_f)
+    if new_f is None:
+        return "오류가 발생했습니다."
     remaining = config.PLAY_PER_DAY - p["played_today"] - 1
     return f"{icon_emoji('game')} {p['name_ko']}와 놀기! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
 
@@ -1315,6 +1316,8 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"{icon_emoji('exchange')} 교환": ["trader"],
         f"{icon_emoji('battle')} 배틀": ["battle_first", "battle_fighter", "battle_champion", "battle_legend",
                     "battle_streak3", "battle_streak10", "battle_sweep", "partner_set"],
+        "🏆 토너먼트": ["tournament_first", "inaugural_champ", "tournament_champ"],
+        f"{icon_emoji('crystal')} 이로치": ["shiny_hunter", "shiny_master", "shiny_legend"],
     }
 
     for cat_name, title_ids in categories.items():
@@ -1326,7 +1329,17 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             name, emoji, desc, _, _ = t_info
             status = icon_emoji("check") if tid in unlocked_ids else "🔒"
             badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
-            cat_lines.append(f"  {status} {badge} {name} — {desc}")
+            buff = config.TITLE_BUFFS.get(tid)
+            buff_text = ""
+            if buff:
+                parts = []
+                if buff.get("daily_masterball"):
+                    parts.append(f"마볼+{buff['daily_masterball']}/일")
+                if buff.get("extra_feed"):
+                    parts.append(f"밥+{buff['extra_feed']}")
+                if parts:
+                    buff_text = f" ✨{', '.join(parts)}"
+            cat_lines.append(f"  {status} {badge} {name} — {desc}{buff_text}")
 
         if cat_lines:
             lines.append(f"\n{cat_name}")
@@ -1380,7 +1393,17 @@ async def title_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         name, emoji, desc, _, _ = t_info
         badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
         equipped = f" {icon_emoji('check')}" if name == current_title else ""
-        lines.append(f"{badge} {name}{equipped} — {desc}")
+        buff = config.TITLE_BUFFS.get(tid)
+        buff_text = ""
+        if buff:
+            parts = []
+            if buff.get("daily_masterball"):
+                parts.append(f"마볼+{buff['daily_masterball']}/일")
+            if buff.get("extra_feed"):
+                parts.append(f"밥+{buff['extra_feed']}")
+            if parts:
+                buff_text = f" ✨{', '.join(parts)}"
+        lines.append(f"{badge} {name}{equipped} — {desc}{buff_text}")
         btn_label = f"{'✅ ' if name == current_title else ''}{name}"
         buttons.append(InlineKeyboardButton(btn_label, callback_data=f"title_{tid}"))
 
@@ -1411,8 +1434,15 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     title_id = query.data.replace("title_", "")
 
     if title_id == "none":
+        # 기존 칭호에 버프가 있었는지 확인
+        user = await queries.get_user(user_id)
+        old_title = user.get("title", "") if user else ""
+        old_buff = config.get_title_buff_by_name(old_title) if old_title else None
         await queries.equip_title(user_id, "", "")
-        await query.edit_message_text("🚫 칭호를 해제했습니다.")
+        warn = ""
+        if old_buff:
+            warn = "\n\n⚠️ 칭호 효과가 비활성화됩니다!"
+        await query.edit_message_text(f"🚫 칭호를 해제했습니다.{warn}")
         return
 
     # Check if user has this title
@@ -1427,7 +1457,23 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name, emoji, desc, _, _ = t_info
     await queries.equip_title(user_id, name, emoji)
     badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
-    await query.edit_message_text(f"{icon_emoji('check')} 칭호 장착: 「{badge} {name}」\n\n채팅방에서 이름 옆에 표시됩니다!", parse_mode="HTML")
+
+    buff = config.TITLE_BUFFS.get(title_id)
+    buff_msg = ""
+    if buff:
+        parts = []
+        if buff.get("daily_masterball"):
+            parts.append(f"  • 매일 마스터볼 +{buff['daily_masterball']}개 지급")
+        if buff.get("extra_feed"):
+            parts.append(f"  • 밥주기 횟수 +{buff['extra_feed']}회 (일 {config.FEED_PER_DAY + buff['extra_feed']}회)")
+        if parts:
+            buff_msg = "\n\n✨ 칭호 효과 활성화!\n" + "\n".join(parts)
+
+    await query.edit_message_text(
+        f"{icon_emoji('check')} 칭호 장착: 「{badge} {name}」\n\n"
+        f"채팅방에서 이름 옆에 표시됩니다!{buff_msg}",
+        parse_mode="HTML",
+    )
 
 
 # ============================================================

@@ -730,7 +730,6 @@ async def _get_battle_meta() -> dict:
         meta_pokemon.append({
             "name": data["name"], "type": data["type"], "rarity": data["rarity"],
             "usage": data["usage"], "win_rate": wr,
-            "wins": data["total_wins"], "losses": data["total_losses"],
             "used_by": data["users"][:3],
         })
 
@@ -1569,21 +1568,14 @@ async def api_payment_webhook(request):
 DONATION_GOAL = 200  # USD
 
 async def api_donation(request):
-    """Return donation progress from actual fulfilled payments."""
+    """Return donation progress from bot_settings."""
     from database.connection import get_db
     pool = await get_db()
-    rows = await pool.fetch(
-        "SELECT value FROM bot_settings WHERE key LIKE 'order_%'"
+    row = await pool.fetchval(
+        "SELECT value FROM bot_settings WHERE key = 'donation_current'"
     )
-    total = 0
-    for row in rows:
-        try:
-            order = json.loads(row["value"])
-            if order.get("fulfilled"):
-                total += int(order.get("price_usd", 0))
-        except Exception:
-            continue
-    return web.json_response({"current": total, "goal": DONATION_GOAL})
+    current = int(row) if row else 0
+    return web.json_response({"current": current, "goal": DONATION_GOAL})
 
 
 # --- Page Handler ---
@@ -1636,7 +1628,7 @@ def create_app() -> web.Application:
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all: serve index.html for all non-API, non-static paths
-    SPA_PAGES = {"/patchnotes", "/battle", "/tier", "/types", "/stats", "/mypokemon", "/ai"}
+    SPA_PAGES = {"/channels", "/patchnotes", "/battle", "/tier", "/types", "/stats", "/mypokemon", "/ai"}
     for p in SPA_PAGES:
         app.router.add_get(p, index)
     return app
