@@ -117,6 +117,12 @@ async def post_init(application: Application):
     await schedule_all_chats(application)
     logger.info(f"[{time.monotonic()-t0:.1f}s] Startup complete.")
 
+    # Auto-start tournament registration if flag file exists
+    if os.path.exists("/tmp/auto_tournament_reg"):
+        os.remove("/tmp/auto_tournament_reg")
+        from services.tournament_service import start_registration
+        asyncio.create_task(start_registration(application))
+        logger.info("Auto-started tournament registration (flag file)")
 
     # Notify recently active users about restart
     # asyncio.create_task(_notify_restart(application.bot))  # DM 알림 비활성화

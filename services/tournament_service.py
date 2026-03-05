@@ -2,6 +2,7 @@
 
 import asyncio
 import math
+import os
 import random
 import logging
 from datetime import datetime
@@ -217,13 +218,17 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"Tournament registration started for chat {chat_id}")
 
     # Send DM notification to all users
-    asyncio.create_task(_broadcast_tournament_dm(context))
+    if not os.path.exists("/tmp/skip_tournament_dm"):
+        asyncio.create_task(_broadcast_tournament_dm(context))
+    else:
+        os.remove("/tmp/skip_tournament_dm")
+        logger.info("Skipped tournament DM broadcast (flag file)")
 
 
 async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
     """Send DM to all registered users about tournament registration."""
     try:
-        user_ids = await queries.get_recently_active_user_ids(minutes=60)
+        user_ids = await queries.get_recently_active_user_ids(minutes=240)
         logger.info(f"Broadcasting tournament DM to {len(user_ids)} users")
 
         msg = (
