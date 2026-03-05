@@ -214,7 +214,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
                 log_lines.append(
                     f" {SKULL}{dead_name} 쓰러짐! ▶ {c_mon['name']} 등장!"
                 )
-                turn_data.append({"type": "ko", "dead_name": dead_name, "next_name": c_mon["name"], "next_idx": c_idx, "next_total": c_total, "side": "challenger"})
+                turn_data.append({"type": "ko", "dead_name": dead_name, "next_name": c_mon["name"], "next_rarity": c_mon.get("rarity", ""), "next_idx": c_idx, "next_total": c_total, "side": "challenger"})
                 # New matchup entry for correct max_hp tracking
                 if d_idx < len(defender_team) and d_mon["current_hp"] > 0:
                     match_turn = 0
@@ -244,7 +244,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
                 log_lines.append(
                     f" {SKULL}{dead_name} 쓰러짐! ▶ {d_mon['name']} 등장!"
                 )
-                turn_data.append({"type": "ko", "dead_name": dead_name, "next_name": d_mon["name"], "next_idx": d_idx, "next_total": d_total, "side": "defender"})
+                turn_data.append({"type": "ko", "dead_name": dead_name, "next_name": d_mon["name"], "next_rarity": d_mon.get("rarity", ""), "next_idx": d_idx, "next_total": d_total, "side": "defender"})
                 if c_idx < len(challenger_team):
                     match_turn = 0  # reset turn counter for new matchup
                     log_lines.append(

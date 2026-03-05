@@ -16,6 +16,100 @@ from database import battle_queries as bq
 from database.connection import get_db
 from services.battle_service import _prepare_combatant, _resolve_battle, _hp_bar
 
+# ── Bracket Tree Renderer ──────────────────────────────────────
+import unicodedata
+
+
+def _dw(s: str) -> int:
+    """Display width: CJK/fullwidth chars count as 2."""
+    return sum(2 if unicodedata.east_asian_width(c) in ('W', 'F') else 1 for c in s)
+
+
+def _rpad(s: str, target: int) -> str:
+    """Right-pad string to target display width."""
+    return s + ' ' * max(0, target - _dw(s))
+
+
+def _render_bracket(bracket) -> str:
+    """Render tournament bracket as ASCII tree in <pre> block.
+
+    bracket: list of (p1, p2) tuples, each p is (uid, data) or None (bye).
+    """
+    players = []
+    for p1, p2 in bracket:
+        players.append(p1[1]['name'] if p1 else "부전승")
+        players.append(p2[1]['name'] if p2 else "부전승")
+
+    if len(players) < 2:
+        return ""
+
+    nw = max(_dw(n) for n in players)
+
+    def _build(names, root=False):
+        n = len(names)
+        if n == 2:
+            a = _rpad(names[0], nw)
+            b = _rpad(names[1], nw)
+            sp = ' ' * nw
+            return [a + " ─┐", sp + "  │", b + " ─┘"], 1
+
+        mid = n // 2
+        top, tj = _build(names[:mid])
+        bot, bj = _build(names[mid:])
+
+        cw = max(_dw(l) for l in top + bot)
+        out = []
+
+        for i, line in enumerate(top):
+            p = ' ' * (cw - _dw(line))
+            if i == tj:
+                out.append(line + p + " ─┐")
+            elif i > tj:
+                out.append(line + p + "  │")
+            else:
+                out.append(line + p + "   ")
+
+        sp = ' ' * cw
+        out.append(sp + "  ├─🏆" if root else sp + "  ├──")
+        jrow = len(out) - 1
+
+        for i, line in enumerate(bot):
+            p = ' ' * (cw - _dw(line))
+            if i == bj:
+                out.append(line + p + " ─┘")
+            elif i < bj:
+                out.append(line + p + "  │")
+            else:
+                out.append(line + p + "   ")
+
+        return out, jrow
+
+    lines, _ = _build(players, root=True)
+    return "<pre>" + "\n".join(lines) + "</pre>"
+
+
+# ── Switch-in lines (randomly picked) ─────────────────────────
+_SWITCH_NORMAL = [
+    "{trainer}: {dead} 돌아와! 가라, {next}!",
+    "{trainer}: {dead} 수고했어! {next}, 네 차례야!",
+    "{trainer}: {dead} 돌아와! 부탁해, {next}!",
+    "{trainer}: {dead} 잘 싸웠어! {next}, 출발!",
+    "{trainer}: {dead} 고생했어! 가자, {next}!",
+]
+_SWITCH_LEGENDARY = [
+    "{trainer}: ...{next}, 네 힘을 보여줘!",
+    "{trainer}: 최후의 카드다... 가라, {next}!",
+    "{trainer}: 전설의 힘이여... {next}, 출격!",
+    "{trainer}: 승부를 결정지어라, {next}!",
+    "{trainer}: 이건 양보할 수 없다... {next}, 간다!",
+]
+
+
+def _switch_line(trainer: str, dead: str, next_name: str, next_rarity: str = "") -> str:
+    """Pick a random switch-in line. Legendary gets dramatic lines."""
+    pool = _SWITCH_LEGENDARY if next_rarity in ("legendary", "epic") else _SWITCH_NORMAL
+    return random.choice(pool).format(trainer=trainer, dead=dead, next=next_name)
+
 
 async def _safe_send(bot, chat_id, text, **kwargs):
     """send_message with RetryAfter auto-retry."""
@@ -284,22 +378,55 @@ async def _run_match(
             sections.append(cur)
         return sections
 
-    # Helper: format a section into lines (for quarter/semi)
+    # Helper: format a section into lines (for quarter/semi) — with HP bars
     def _format_section(section):
         lines = []
+        # Get trainer name for KO messages
+        c_trainer = p1_data['name']
+        d_trainer = p2_data['name']
         for td in section:
             if td["type"] == "matchup":
-                lines.append(f"{C}{td['c_tb']}{td['c_name']} vs {D}{td['d_tb']}{td['d_name']}")
+                lines.append(f"⚔ {C}{td['c_tb']}{td['c_name']} vs {D}{td['d_tb']}{td['d_name']}")
             elif td["type"] == "turn":
-                c_part = f"→{td['c_dmg']}{td['c_crit']}{td['c_eff']}" if td["c_dmg"] else ""
-                d_part = f"←{td['d_dmg']}{td['d_crit']}{td['d_eff']}" if td["d_dmg"] else ""
-                lines.append(f" {td['turn_num']}턴: {C}{td['c_name']} {c_part} | {D}{td['d_name']} {d_part}")
+                # Determine who goes first
+                if td["first_is_challenger"]:
+                    first_mark, second_mark = C, D
+                    first_name, first_dmg, first_crit, first_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
+                    second_name, second_dmg, second_crit, second_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
+                    first_target_hp, first_target_max = td["d_hp"], td["d_max_hp"]
+                    second_target_hp, second_target_max = td["c_hp"], td["c_max_hp"]
+                    first_target_mark, second_target_mark = D, C
+                    first_target_name, second_target_name = td["d_name"], td["c_name"]
+                else:
+                    first_mark, second_mark = D, C
+                    first_name, first_dmg, first_crit, first_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
+                    second_name, second_dmg, second_crit, second_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
+                    first_target_hp, first_target_max = td["c_hp"], td["c_max_hp"]
+                    second_target_hp, second_target_max = td["d_hp"], td["d_max_hp"]
+                    first_target_mark, second_target_mark = C, D
+                    first_target_name, second_target_name = td["c_name"], td["d_name"]
+
+                crit1 = " 크리티컬!" if first_crit else ""
+                skill1 = f" {first_eff}!" if first_eff else " 공격!"
+                bar1 = _hp_bar(first_target_hp, first_target_max)
+                lines.append(f"{td['turn_num']}턴 ─ {first_mark}{first_name}{skill1}{crit1}")
+                lines.append(f"  {first_target_mark}{first_target_name} {bar1} {first_target_hp}/{first_target_max} (-{first_dmg})")
+
+                if second_dmg > 0:
+                    crit2 = " 크리티컬!" if second_crit else ""
+                    skill2 = f" {second_eff}!" if second_eff else " 반격!"
+                    bar2 = _hp_bar(second_target_hp, second_target_max)
+                    lines.append(f"{second_mark}{second_name}{skill2}{crit2}")
+                    lines.append(f"  {second_target_mark}{second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})")
+
             elif td["type"] == "ko":
                 m = _mark(td["side"])
+                trainer = c_trainer if td["side"] == "challenger" else d_trainer
                 if td["next_name"]:
-                    lines.append(f" {SKULL}{m}{td['dead_name']} 쓰러짐! ▶ {m}{td['next_name']} 등장!")
+                    lines.append(f"{SKULL} {m}{td['dead_name']} 쓰러짐!")
+                    lines.append(_switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', '')))
                 else:
-                    lines.append(f" {SKULL}{m}{td['dead_name']} 쓰러짐!")
+                    lines.append(f"{SKULL} {m}{td['dead_name']} 쓰러짐!")
         return lines
 
     if is_final:
@@ -372,8 +499,10 @@ async def _run_match(
 
             elif td["type"] == "ko":
                 m = _mark(td["side"])
+                trainer = p1_name if td["side"] == "challenger" else p2_name
                 if td["next_name"]:
-                    text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n▶ {m}{td['next_name']} 등장! ({td['next_idx']+1}/{td['next_total']})"
+                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''))
+                    text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n{switch}"
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
@@ -491,6 +620,15 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     # Generate first round bracket
     bracket = _generate_bracket(player_list)
 
+    # Show full bracket tree
+    tree = _render_bracket(bracket)
+    if tree:
+        await _safe_send(context.bot, chat_id,
+            text=f"📋 대진표\n{tree}",
+            parse_mode="HTML",
+        )
+        await asyncio.sleep(3)
+
     # Run rounds
     total_rounds = int(math.log2(len(bracket) * 2))
     current_round = 1
@@ -505,27 +643,46 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
             round_name = "결승" if is_final else f"{'준결승' if is_semi else f'{current_round}라운드'}"
 
             if not is_final:
+                # Show bracket for this round
+                bracket_lines = [f"📋 {round_name} 대진표", "━━━━━━━━━━━━━━━"]
+                bnum = 0
+                for bp1, bp2 in bracket:
+                    if bp1 is None and bp2 is None:
+                        continue
+                    bnum += 1
+                    n1 = bp1[1]['name'] if bp1 else "부전승"
+                    n2 = bp2[1]['name'] if bp2 else "부전승"
+                    bracket_lines.append(f"{bnum}. {n1} vs {n2}")
+                await _safe_send(context.bot, chat_id,
+                    text="\n".join(bracket_lines),
+                )
+                await asyncio.sleep(3)
+
                 await _safe_send(context.bot, chat_id,
                     text=f"\n📢 {round_name}",
                 )
                 await asyncio.sleep(1)
 
             winners = []
+            match_count = sum(1 for a, b in bracket if a is not None or b is not None)
+            match_num = 0
             for p1, p2 in bracket:
                 if p1 is None and p2 is None:
                     continue
-                elif p1 is None:
+                match_num += 1
+                match_label = f"\n[ {match_num}번째 매치 ]" if match_count > 1 and not is_final else ""
+                if p1 is None:
                     # p2 gets bye
                     uid2, data2 = p2
                     await _safe_send(context.bot, chat_id,
-                        text=f"🏃 {data2['name']} — 부전승!",
+                        text=f"{match_label}\n🏃 {data2['name']} — 부전승!" if match_label else f"🏃 {data2['name']} — 부전승!",
                     )
                     winners.append(p2)
                 elif p2 is None:
                     # p1 gets bye
                     uid1, data1 = p1
                     await _safe_send(context.bot, chat_id,
-                        text=f"🏃 {data1['name']} — 부전승!",
+                        text=f"{match_label}\n🏃 {data1['name']} — 부전승!" if match_label else f"🏃 {data1['name']} — 부전승!",
                     )
                     winners.append(p1)
                 else:
@@ -537,6 +694,11 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                         semi_finalists.add(uid1)
                         semi_finalists.add(uid2)
 
+                    # Match label (e.g. "[ 1번째 매치 ]")
+                    if match_label:
+                        await _safe_send(context.bot, chat_id, text=match_label)
+                        await asyncio.sleep(1)
+
                     winner_id, winner_data = await _run_match(
                         context, chat_id,
                         uid1, data1, uid2, data2,
@@ -545,7 +707,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                         is_quarter=is_quarter,
                     )
                     winners.append((winner_id, winner_data))
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(2)
 
             if is_final:
                 # Tournament complete — give prizes
