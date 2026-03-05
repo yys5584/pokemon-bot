@@ -564,7 +564,43 @@ async def _recommend_counter(pokemon: list[dict]) -> tuple[list[dict], str]:
         p["_counter"] = counter_scores.get(p["pokemon_type"], 0) * 100 + p["real_power"]
 
     sorted_p = sorted(pokemon, key=lambda x: x["_counter"], reverse=True)
-    team = _pick_team(sorted_p)
+
+    # Greedy pick with TYPE DIVERSITY — prevent mono-type teams
+    team = []
+    used_types = {}  # type -> count
+    epic_species = set()
+    has_legendary = False
+    max_same_type = 2  # same type at most 2
+
+    for p in sorted_p:
+        if len(team) >= 6:
+            break
+        ptype = p["pokemon_type"]
+        if used_types.get(ptype, 0) >= max_same_type:
+            continue
+        if p["rarity"] == "legendary":
+            if has_legendary:
+                continue
+            has_legendary = True
+        if p["rarity"] == "epic":
+            if p["pokemon_id"] in epic_species:
+                continue
+            epic_species.add(p["pokemon_id"])
+        team.append(p)
+        used_types[ptype] = used_types.get(ptype, 0) + 1
+
+    # If not enough, fill remaining without type restriction
+    if len(team) < 6:
+        for p in sorted_p:
+            if len(team) >= 6:
+                break
+            if p in team:
+                continue
+            if p["rarity"] == "legendary" and has_legendary:
+                continue
+            if p["rarity"] == "epic" and p["pokemon_id"] in epic_species:
+                continue
+            team.append(p)
 
     # Cleanup temp field
     for p in pokemon:
@@ -572,7 +608,12 @@ async def _recommend_counter(pokemon: list[dict]) -> tuple[list[dict], str]:
 
     top_enemy = type_freq.most_common(3)
     enemy_str = ", ".join(f"{config.TYPE_NAME_KO.get(t, t)}({c})" for t, c in top_enemy)
-    analysis = f"상위 랭커 팀 분석: {enemy_str} 타입이 많습니다. 이에 유리한 포켓몬으로 구성했습니다."
+    team_types = set(p["pokemon_type"] for p in team)
+    type_names = ", ".join(config.TYPE_NAME_KO.get(t, t) for t in team_types)
+    analysis = (
+        f"상위 랭커 팀에 {enemy_str} 타입이 많습니다.\n"
+        f"다양한 카운터 타입({type_names})으로 구성해 상성 약점을 최소화했습니다."
+    )
 
     return team, analysis
 
