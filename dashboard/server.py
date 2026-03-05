@@ -1818,6 +1818,300 @@ async def api_admin_send_dm(request):
     return web.json_response({"ok": True, "dm_sent": dm_ok})
 
 
+# --- Admin DB Browser APIs ---
+
+def _iv_grade(total: int) -> str:
+    """IV total → grade letter."""
+    if total >= 168: return "S"
+    if total >= 140: return "A"
+    if total >= 93: return "B"
+    if total >= 47: return "C"
+    return "D"
+
+_RARITY_LABEL = {"common": "일반", "rare": "희귀", "epic": "에픽", "legendary": "전설"}
+
+
+async def api_admin_db_overview(request):
+    """Admin DB: server overview stats."""
+    if not await _admin_check(request):
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    pool = await queries.get_db()
+    rows = await asyncio.gather(
+        pool.fetchval("SELECT COUNT(*) FROM users"),
+        pool.fetchval("SELECT COUNT(*) FROM user_pokemon WHERE is_active = 1"),
+        pool.fetchval("SELECT COUNT(*) FROM user_pokemon WHERE is_active = 1 AND is_shiny = 1"),
+        pool.fetchval("SELECT COALESCE(SUM(master_balls),0) FROM users"),
+        pool.fetchval("SELECT COALESCE(SUM(hyper_balls),0) FROM users"),
+        pool.fetchval("SELECT COUNT(*) FROM spawn_log WHERE spawned_at >= CURRENT_DATE"),
+        pool.fetchval("SELECT COUNT(*) FROM spawn_log WHERE spawned_at >= CURRENT_DATE AND caught_by_user_id IS NOT NULL"),
+        pool.fetchval("SELECT COUNT(*) FROM spawn_log WHERE is_shiny = 1"),
+        pool.fetchval("SELECT COUNT(*) FROM spawn_log WHERE is_shiny = 1 AND caught_by_user_id IS NOT NULL"),
+        pool.fetchval("SELECT COUNT(*) FROM spawn_log"),
+    )
+    total_spawns_today = rows[5] or 0
+    caught_today = rows[6] or 0
+    return web.json_response({
+        "total_users": rows[0] or 0,
+        "total_pokemon": rows[1] or 0,
+        "total_shiny": rows[2] or 0,
+        "total_masterballs": rows[3] or 0,
+        "total_hyperballs": rows[4] or 0,
+        "spawns_today": total_spawns_today,
+        "caught_today": caught_today,
+        "catch_rate_today": round(caught_today / total_spawns_today * 100, 1) if total_spawns_today else 0,
+        "shiny_spawned": rows[7] or 0,
+        "shiny_caught": rows[8] or 0,
+        "total_spawns": rows[9] or 0,
+    })
+
+
+async def api_admin_db_shiny(request):
+    """Admin DB: shiny spawn log with IVs."""
+    if not await _admin_check(request):
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    pool = await queries.get_db()
+    days = min(int(request.query.get("days", "0")), 365)
+    rarity = request.query.get("rarity", "")
+    page = max(1, int(request.query.get("page", "1")))
+    per_page = 50
+
+    where = ["sl.is_shiny = 1"]
+    params = []
+    idx = 1
+    if days > 0:
+        where.append(f"sl.spawned_at >= NOW() - INTERVAL '{days} days'")
+    if rarity in ("common", "rare", "epic", "legendary"):
+        where.append(f"sl.rarity = ${idx}")
+        params.append(rarity)
+        idx += 1
+
+    where_sql = " AND ".join(where)
+
+    total = await pool.fetchval(f"SELECT COUNT(*) FROM spawn_log sl WHERE {where_sql}", *params)
+
+    rows = await pool.fetch(f"""
+        SELECT sl.id, sl.pokemon_name, sl.rarity, sl.spawned_at,
+               sl.caught_by_user_id, sl.caught_by_name,
+               cr.chat_title,
+               up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd
+        FROM spawn_log sl
+        LEFT JOIN chat_rooms cr ON sl.chat_id = cr.chat_id
+        LEFT JOIN user_pokemon up ON (
+            up.user_id = sl.caught_by_user_id
+            AND up.pokemon_id = sl.pokemon_id
+            AND up.is_shiny = 1
+            AND up.caught_at BETWEEN sl.spawned_at - INTERVAL '5 minutes' AND sl.spawned_at + INTERVAL '5 minutes'
+        )
+        WHERE {where_sql}
+        ORDER BY sl.spawned_at DESC
+        LIMIT {per_page} OFFSET {(page - 1) * per_page}
+    """, *params)
+
+    # Summary counts
+    summary = await pool.fetchrow(f"""
+        SELECT COUNT(*) as total,
+               COUNT(caught_by_user_id) as caught,
+               COUNT(*) - COUNT(caught_by_user_id) as escaped
+        FROM spawn_log sl WHERE {where_sql}
+    """, *params)
+
+    items = []
+    for r in rows:
+        iv_total = None
+        iv_grade = None
+        ivs = None
+        if r["iv_hp"] is not None:
+            iv_total = r["iv_hp"] + r["iv_atk"] + r["iv_def"] + r["iv_spa"] + r["iv_spdef"] + r["iv_spd"]
+            iv_grade = _iv_grade(iv_total)
+            ivs = {"hp": r["iv_hp"], "atk": r["iv_atk"], "def": r["iv_def"],
+                    "spa": r["iv_spa"], "spdef": r["iv_spdef"], "spd": r["iv_spd"]}
+        items.append({
+            "pokemon": r["pokemon_name"],
+            "rarity": r["rarity"],
+            "rarity_label": _RARITY_LABEL.get(r["rarity"], r["rarity"]),
+            "chat": r["chat_title"] or "?",
+            "caught_by": r["caught_by_name"],
+            "caught_uid": r["caught_by_user_id"],
+            "time": r["spawned_at"].isoformat() if r["spawned_at"] else None,
+            "iv_grade": iv_grade,
+            "iv_total": iv_total,
+            "ivs": ivs,
+        })
+    return web.json_response({
+        "items": items, "total": total, "page": page, "pages": max(1, -(-total // per_page)),
+        "summary": {"total": summary["total"], "caught": summary["caught"], "escaped": summary["escaped"]},
+    })
+
+
+async def api_admin_db_spawns(request):
+    """Admin DB: spawn log with filters."""
+    if not await _admin_check(request):
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    pool = await queries.get_db()
+    days = min(int(request.query.get("days", "1")), 365)
+    rarity = request.query.get("rarity", "")
+    shiny_only = request.query.get("shiny", "") == "1"
+    caught_filter = request.query.get("caught", "")  # "yes", "no", or ""
+    page = max(1, int(request.query.get("page", "1")))
+    per_page = 50
+
+    where = []
+    params = []
+    idx = 1
+    if days > 0:
+        where.append(f"sl.spawned_at >= NOW() - INTERVAL '{days} days'")
+    if rarity in ("common", "rare", "epic", "legendary"):
+        where.append(f"sl.rarity = ${idx}")
+        params.append(rarity)
+        idx += 1
+    if shiny_only:
+        where.append("sl.is_shiny = 1")
+    if caught_filter == "yes":
+        where.append("sl.caught_by_user_id IS NOT NULL")
+    elif caught_filter == "no":
+        where.append("sl.caught_by_user_id IS NULL")
+
+    where_sql = " AND ".join(where) if where else "1=1"
+
+    total = await pool.fetchval(f"SELECT COUNT(*) FROM spawn_log sl WHERE {where_sql}", *params)
+
+    rows = await pool.fetch(f"""
+        SELECT sl.pokemon_name, sl.rarity, sl.is_shiny, sl.spawned_at,
+               sl.caught_by_name, sl.participants, cr.chat_title
+        FROM spawn_log sl
+        LEFT JOIN chat_rooms cr ON sl.chat_id = cr.chat_id
+        WHERE {where_sql}
+        ORDER BY sl.spawned_at DESC
+        LIMIT {per_page} OFFSET {(page - 1) * per_page}
+    """, *params)
+
+    items = [{
+        "pokemon": r["pokemon_name"],
+        "rarity": r["rarity"],
+        "rarity_label": _RARITY_LABEL.get(r["rarity"], r["rarity"]),
+        "shiny": bool(r["is_shiny"]),
+        "chat": r["chat_title"] or "?",
+        "caught_by": r["caught_by_name"],
+        "participants": r["participants"] or 0,
+        "time": r["spawned_at"].isoformat() if r["spawned_at"] else None,
+    } for r in rows]
+    return web.json_response({
+        "items": items, "total": total, "page": page, "pages": max(1, -(-total // per_page)),
+    })
+
+
+async def api_admin_db_user_pokemon(request):
+    """Admin DB: browse a user's pokemon collection."""
+    if not await _admin_check(request):
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    pool = await queries.get_db()
+
+    q = request.query.get("q", "").strip()[:100]
+    if not q:
+        return web.json_response({"error": "q (user_id or name) required"}, status=400)
+
+    rarity = request.query.get("rarity", "")
+    shiny_only = request.query.get("shiny", "") == "1"
+    iv_filter = request.query.get("iv", "")  # S, A, B, C, D
+
+    # Find user
+    try:
+        uid = int(q)
+        user = await pool.fetchrow("SELECT user_id, display_name, username FROM users WHERE user_id = $1", uid)
+    except ValueError:
+        user = await pool.fetchrow(
+            "SELECT user_id, display_name, username FROM users WHERE display_name ILIKE $1 LIMIT 1", f"%{q}%"
+        )
+    if not user:
+        return web.json_response({"error": "User not found", "items": [], "summary": {}})
+
+    uid = user["user_id"]
+
+    where = ["up.user_id = $1"]
+    params = [uid]
+    idx = 2
+    if rarity in ("common", "rare", "epic", "legendary"):
+        where.append(f"pm.rarity = ${idx}")
+        params.append(rarity)
+        idx += 1
+    if shiny_only:
+        where.append("up.is_shiny = 1")
+
+    where_sql = " AND ".join(where)
+
+    rows = await pool.fetch(f"""
+        SELECT up.id, pm.name_ko, pm.rarity, up.is_shiny, up.is_active, up.caught_at,
+               up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd
+        FROM user_pokemon up
+        JOIN pokemon_master pm ON up.pokemon_id = pm.id
+        WHERE {where_sql}
+        ORDER BY up.id DESC
+    """, *params)
+
+    items = []
+    for r in rows:
+        iv_total = (r["iv_hp"] or 0) + (r["iv_atk"] or 0) + (r["iv_def"] or 0) + \
+                   (r["iv_spa"] or 0) + (r["iv_spdef"] or 0) + (r["iv_spd"] or 0)
+        grade = _iv_grade(iv_total)
+        if iv_filter and grade != iv_filter:
+            continue
+        items.append({
+            "id": r["id"],
+            "name": r["name_ko"],
+            "rarity": r["rarity"],
+            "rarity_label": _RARITY_LABEL.get(r["rarity"], r["rarity"]),
+            "shiny": bool(r["is_shiny"]),
+            "active": bool(r["is_active"]),
+            "time": r["caught_at"].isoformat() if r["caught_at"] else None,
+            "iv_grade": grade,
+            "iv_total": iv_total,
+            "ivs": {"hp": r["iv_hp"], "atk": r["iv_atk"], "def": r["iv_def"],
+                    "spa": r["iv_spa"], "spdef": r["iv_spdef"], "spd": r["iv_spd"]},
+        })
+
+    # Summary
+    summary_rows = await pool.fetch("""
+        SELECT pm.rarity, COUNT(*) as cnt, SUM(CASE WHEN up.is_shiny=1 THEN 1 ELSE 0 END) as shiny_cnt
+        FROM user_pokemon up JOIN pokemon_master pm ON up.pokemon_id = pm.id
+        WHERE up.user_id = $1 AND up.is_active = 1
+        GROUP BY pm.rarity
+    """, uid)
+    summary = {r["rarity"]: {"count": r["cnt"], "shiny": r["shiny_cnt"]} for r in summary_rows}
+    total_active = sum(r["cnt"] for r in summary_rows)
+    total_shiny = sum(r["shiny_cnt"] for r in summary_rows)
+
+    return web.json_response({
+        "user": {"id": uid, "name": user["display_name"], "username": user["username"]},
+        "items": items, "total": len(items),
+        "summary": {"total": total_active, "shiny": total_shiny, "by_rarity": summary},
+    })
+
+
+async def api_admin_db_economy(request):
+    """Admin DB: economy rankings (top holders)."""
+    if not await _admin_check(request):
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    pool = await queries.get_db()
+    limit = min(int(request.query.get("limit", "20")), 50)
+
+    mb, hb, bp, cr = await asyncio.gather(
+        pool.fetch(f"SELECT user_id, display_name, master_balls as val FROM users WHERE master_balls > 0 ORDER BY master_balls DESC LIMIT {limit}"),
+        pool.fetch(f"SELECT user_id, display_name, hyper_balls as val FROM users WHERE hyper_balls > 0 ORDER BY hyper_balls DESC LIMIT {limit}"),
+        pool.fetch(f"SELECT user_id, display_name, battle_points as val FROM users WHERE battle_points > 0 ORDER BY battle_points DESC LIMIT {limit}"),
+        pool.fetch(f"SELECT user_id, display_name, llm_bonus_quota as val FROM users WHERE llm_bonus_quota > 0 ORDER BY llm_bonus_quota DESC LIMIT {limit}"),
+    )
+
+    def to_list(rows):
+        return [{"uid": r["user_id"], "name": r["display_name"], "val": r["val"]} for r in rows]
+
+    return web.json_response({
+        "masterballs": to_list(mb),
+        "hyperballs": to_list(hb),
+        "bp": to_list(bp),
+        "credits": to_list(cr),
+    })
+
+
 # --- NOWPayments Integration ---
 
 NOWPAYMENTS_API_KEY = os.getenv("NOWPAYMENTS_API_KEY", "")
@@ -2036,6 +2330,12 @@ def create_app() -> web.Application:
     app.router.add_post("/api/admin/grant-masterball", api_admin_grant_masterball)
     app.router.add_post("/api/admin/fulfill-order", api_admin_fulfill_order)
     app.router.add_post("/api/admin/send-dm", api_admin_send_dm)
+    # Admin DB Browser
+    app.router.add_get("/api/admin/db/overview", api_admin_db_overview)
+    app.router.add_get("/api/admin/db/shiny", api_admin_db_shiny)
+    app.router.add_get("/api/admin/db/spawns", api_admin_db_spawns)
+    app.router.add_get("/api/admin/db/user-pokemon", api_admin_db_user_pokemon)
+    app.router.add_get("/api/admin/db/economy", api_admin_db_economy)
     # Public APIs
     app.router.add_get("/api/overview", api_overview)
     app.router.add_get("/api/chats", api_chats)

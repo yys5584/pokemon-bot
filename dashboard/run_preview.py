@@ -328,6 +328,48 @@ async def mock_admin_action(request):
     return web.json_response({"ok": True, "new_credits": 55, "new_master_balls": 15, "dm_sent": True})
 
 
+async def mock_admin_db_overview(request):
+    return web.json_response({"total_users":226,"total_pokemon":5834,"total_shiny":42,"total_masterballs":187,"total_hyperballs":340,"spawns_today":312,"caught_today":198,"catch_rate_today":63.5,"shiny_spawned":85,"shiny_caught":42,"total_spawns":18420})
+
+
+async def mock_admin_db_shiny(request):
+    items = [
+        {"pokemon":"앤테이","rarity":"legendary","rarity_label":"전설","chat":"tg_poke","caught_by":"크립토비밥","caught_uid":53720317,"time":"2026-03-05T23:46:00","iv_grade":"B","iv_total":112,"ivs":{"hp":16,"atk":18,"def":23,"spa":16,"spdef":25,"spd":14}},
+        {"pokemon":"에브이","rarity":"rare","rarity_label":"희귀","chat":"tg_poke","caught_by":"문유","caught_uid":123,"time":"2026-03-04T15:30:00","iv_grade":"A","iv_total":155,"ivs":{"hp":28,"atk":25,"def":27,"spa":26,"spdef":24,"spd":25}},
+        {"pokemon":"잠만보","rarity":"epic","rarity_label":"에픽","chat":"tg_poke","caught_by":None,"caught_uid":None,"time":"2026-03-03T12:00:00","iv_grade":None,"iv_total":None,"ivs":None},
+    ]
+    return web.json_response({"items":items,"total":3,"page":1,"pages":1,"summary":{"total":85,"caught":42,"escaped":43}})
+
+
+async def mock_admin_db_spawns(request):
+    items = [
+        {"pokemon":"피카츄","rarity":"common","rarity_label":"일반","shiny":False,"chat":"tg_poke","caught_by":"코인한나","participants":3,"time":"2026-03-05T23:50:00"},
+        {"pokemon":"앤테이","rarity":"legendary","rarity_label":"전설","shiny":True,"chat":"tg_poke","caught_by":"크립토비밥","participants":5,"time":"2026-03-05T23:46:00"},
+        {"pokemon":"이상해씨","rarity":"common","rarity_label":"일반","shiny":False,"chat":"tg_poke","caught_by":None,"participants":0,"time":"2026-03-05T23:30:00"},
+    ]
+    return web.json_response({"items":items,"total":3,"page":1,"pages":1})
+
+
+async def mock_admin_db_user_pokemon(request):
+    q = request.query.get("q", "")
+    if not q:
+        return web.json_response({"error": "q required"})
+    items = [
+        {"id":13987,"name":"옥타콘","rarity":"rare","rarity_label":"희귀","shiny":True,"active":True,"time":"2026-03-05T23:49:00","iv_grade":"A","iv_total":148,"ivs":{"hp":25,"atk":22,"def":28,"spa":24,"spdef":26,"spd":23}},
+        {"id":13985,"name":"앤테이","rarity":"legendary","rarity_label":"전설","shiny":True,"active":True,"time":"2026-03-05T23:46:00","iv_grade":"B","iv_total":112,"ivs":{"hp":16,"atk":18,"def":23,"spa":16,"spdef":25,"spd":14}},
+    ]
+    return web.json_response({"user":{"id":53720317,"name":"크립토비밥","username":"phyllrar"},"items":items,"total":2,"summary":{"total":45,"shiny":3,"by_rarity":{"common":{"count":20,"shiny":0},"rare":{"count":15,"shiny":1},"epic":{"count":7,"shiny":1},"legendary":{"count":3,"shiny":1}}}})
+
+
+async def mock_admin_db_economy(request):
+    return web.json_response({
+        "masterballs":[{"uid":1,"name":"코인한나","val":15},{"uid":2,"name":"크립토비밥","val":12},{"uid":3,"name":"문유","val":8}],
+        "hyperballs":[{"uid":1,"name":"크립토비밥","val":25},{"uid":2,"name":"코인한나","val":18}],
+        "bp":[{"uid":1,"name":"살려주세요","val":3200},{"uid":2,"name":"크립토비밥","val":2800}],
+        "credits":[{"uid":1,"name":"문유","val":50},{"uid":2,"name":"코인한나","val":30}],
+    })
+
+
 def create_preview_app():
     app = web.Application()
     app.router.add_get("/", index)
@@ -354,6 +396,12 @@ def create_preview_app():
     app.router.add_post("/api/admin/grant-masterball", mock_admin_action)
     app.router.add_post("/api/admin/fulfill-order", mock_admin_action)
     app.router.add_post("/api/admin/send-dm", mock_admin_action)
+    # Admin DB Browser (mock)
+    app.router.add_get("/api/admin/db/overview", mock_admin_db_overview)
+    app.router.add_get("/api/admin/db/shiny", mock_admin_db_shiny)
+    app.router.add_get("/api/admin/db/spawns", mock_admin_db_spawns)
+    app.router.add_get("/api/admin/db/user-pokemon", mock_admin_db_user_pokemon)
+    app.router.add_get("/api/admin/db/economy", mock_admin_db_economy)
     # Catch-all for API routes
     for api_path in [
         "/api/overview", "/api/chats", "/api/users", "/api/spawns/recent",
