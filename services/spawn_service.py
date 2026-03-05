@@ -687,9 +687,20 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("가방에 넣기 ✅", callback_data=f"catch_keep_{_inst_id}"),
                 InlineKeyboardButton("방생하기 🔄", callback_data=f"catch_release_{_inst_id}"),
             ]])
-            asyncio.create_task(context.bot.send_message(chat_id=winner_id, text=dm_text, parse_mode="HTML", reply_markup=catch_buttons))
-        except Exception:
-            pass
+
+            async def _send_catch_dm():
+                try:
+                    await context.bot.send_message(
+                        chat_id=winner_id, text=dm_text,
+                        parse_mode="HTML", reply_markup=catch_buttons,
+                    )
+                    logger.info(f"Catch DM sent to {winner_id} for {pokemon_name}")
+                except Exception as dm_err:
+                    logger.error(f"Failed to send catch DM to {winner_id}: {dm_err}")
+
+            asyncio.create_task(_send_catch_dm())
+        except Exception as e:
+            logger.error(f"Catch DM construction failed for {winner_id}: {e}")
 
         # Check and unlock titles
         from utils.title_checker import check_and_unlock_titles
