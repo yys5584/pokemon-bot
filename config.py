@@ -96,11 +96,10 @@ AUTO_DEL_FORCE_SPAWN_RESP = 10  # 강스 응답 메시지 삭제
 # Small-group optimized spawn count per day
 SPAWN_TIERS = [
     # (min_members, max_members, spawns_per_day)
-    (10, 29, 2),
-    (30, 49, 3),
-    (50, 99, 4),
-    (100, 499, 5),
-    # 500+: use formula 2 + floor((members - 10) / 500)
+    (10, 49, 2),
+    (50, 499, 3),
+    (500, 999, 4),
+    (1000, 99999, 5),
 ]
 
 # --- Catch Limits (Anti-abuse) ---
@@ -405,8 +404,6 @@ BATTLE_TITLES = {
 
 # Merge battle titles into main UNLOCKABLE_TITLES so they appear in 칭호목록 and can be equipped
 UNLOCKABLE_TITLES.update(BATTLE_TITLES)
-
-SPAWN_MAX_DAILY = 20  # 하루 최대 스폰 수
 
 # --- Tournament ---
 TOURNAMENT_REG_HOUR = 21        # 등록 시작 시각 (21시 KST)

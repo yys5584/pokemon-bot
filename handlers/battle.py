@@ -684,7 +684,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
-            pass
+            logger.exception("tedit edit_message_text failed")
 
     # tslot_view_{uid}_{slot}_{tn} — view slot → show pokemon list
     elif data.startswith("tslot_view_"):
@@ -701,7 +701,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
-            pass
+            logger.exception("tslot_view edit_message_text failed")
 
     # tpick_{uid}_{slot}_{instance_id}_{page}_{tn} — pick pokemon for slot
     elif data.startswith("tpick_"):
@@ -713,12 +713,12 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if not _check_owner(owner_id):
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
             return
-        await query.answer()
         draft = await _get_draft(owner_id, tn)
 
         # Get pokemon info for validation
         pokemon = await queries.get_user_pokemon_by_id(inst_id)
         if not pokemon or pokemon["user_id"] != owner_id:
+            await query.answer()
             return
 
         # Swap logic: if pokemon is in another slot, swap
@@ -760,12 +760,13 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         current[slot] = inst_id
         draft["names"][inst_id] = pokemon["name_ko"]
 
+        await query.answer()
         # Return to slot main view
         text_msg, markup = _build_team_slots(owner_id, draft, tn)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
-            pass
+            logger.exception("tpick edit_message_text failed")
 
     # trem_{uid}_{slot}_{tn} — remove pokemon from slot
     elif data.startswith("trem_"):
@@ -785,7 +786,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
-            pass
+            logger.exception("trem edit_message_text failed")
 
     # tp_{uid}_{slot}_{page}_{tn} — pokemon list pagination
     elif data.startswith("tp_"):
@@ -802,7 +803,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
-            pass
+            logger.exception("tp edit_message_text failed")
 
     # tcl_{uid}_{tn} — back to slot main view
     elif data.startswith("tcl_"):
@@ -817,7 +818,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
-            pass
+            logger.exception("tcl edit_message_text failed")
 
     # tdone_{uid}_{tn} — save draft to DB
     elif data.startswith("tdone_"):
@@ -848,7 +849,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             await query.edit_message_text("\n".join(lines), parse_mode="HTML")
         except Exception:
-            pass
+            logger.exception("tdone edit_message_text failed")
 
     # tcancel_{uid}_{tn} — cancel and restore original
     elif data.startswith("tcancel_"):
@@ -863,7 +864,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             await query.edit_message_text("팀 편집이 취소되었습니다.")
         except Exception:
-            pass
+            logger.exception("tcancel edit_message_text failed")
 
     # tdel_{uid}_{tn} — delete team
     elif data.startswith("tdel_"):
