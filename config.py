@@ -387,8 +387,8 @@ ARCADE_PASS_DURATION = 3600          # 이용권 지속시간 (초) = 1시간
 ARCADE_PASS_DAILY_LIMIT = 3          # 일일 구매 제한
 
 # --- Shiny System ---
-SHINY_RATE_NATURAL = 1 / 64          # 자연 스폰 샤이니 확률 (~1.56%)
-SHINY_RATE_ARCADE = 1 / 512          # 아케이드 샤이니 확률 (~0.20%)
+SHINY_RATE_NATURAL = 0.10            # 자연 스폰 이로치 확률 10%
+SHINY_RATE_ARCADE = 0.005            # 아케이드/강스 이로치 확률 0.5%
 
 # --- Battle Titles ---
 # title_id: (name, emoji, description, check_type, threshold)

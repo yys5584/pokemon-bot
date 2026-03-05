@@ -93,13 +93,22 @@ async def get_friendship_boost() -> int:
 
 async def get_active_event_summary() -> str:
     """Get a formatted summary of active events for display."""
-    events = await _get_all_active_events()
-    if not events:
-        return ""
     lines = []
+    # Permanent config-level events
+    from config import SHINY_RATE_NATURAL, SHINY_RATE_ARCADE
+    BASE_NAT = 1 / 64
+    BASE_ARC = 1 / 512
+    if SHINY_RATE_NATURAL > BASE_NAT:
+        nat_mult = round(SHINY_RATE_NATURAL / BASE_NAT)
+        lines.append(f"  ✨ 이로치 자연발생 {nat_mult}배 증가! ({SHINY_RATE_NATURAL:.0%})")
+    if SHINY_RATE_ARCADE > BASE_ARC:
+        arc_mult = round(SHINY_RATE_ARCADE / BASE_ARC)
+        lines.append(f"  ✨ 이로치 아케이드 {arc_mult}배 증가! ({SHINY_RATE_ARCADE:.1%})")
+    # DB events
+    events = await _get_all_active_events()
     for e in events:
         lines.append(f"  {e['description']}")
-    return "\n".join(lines)
+    return "\n".join(lines) if lines else ""
 
 
 def invalidate_event_cache():

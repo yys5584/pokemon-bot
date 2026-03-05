@@ -337,16 +337,27 @@ async def event_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await queries.cleanup_expired_events()
     events = await queries.get_active_events()
 
-    if not events:
-        await update.message.reply_text("현재 진행 중인 이벤트가 없습니다.")
-        return
-
     lines = ["📋 진행 중인 이벤트\n"]
+
+    # Config-level permanent events
+    base_nat = 1 / 64
+    base_arc = 1 / 512
+    if config.SHINY_RATE_NATURAL > base_nat:
+        nat_mult = round(config.SHINY_RATE_NATURAL / base_nat)
+        lines.append(f"✨ 이로치 자연발생 {nat_mult}배 ({config.SHINY_RATE_NATURAL:.0%}) (상시)")
+    if config.SHINY_RATE_ARCADE > base_arc:
+        arc_mult = round(config.SHINY_RATE_ARCADE / base_arc)
+        lines.append(f"✨ 이로치 아케이드 {arc_mult}배 ({config.SHINY_RATE_ARCADE:.1%}) (상시)")
+
     for e in events:
         lines.append(
             f"#{e['id']} {e['description']}\n"
             f"   종료: {e['end_time']}"
         )
+
+    if len(lines) == 1:
+        await update.message.reply_text("현재 진행 중인 이벤트가 없습니다.")
+        return
 
     lines.append("\n이벤트종료 [번호] 로 종료할 수 있습니다.")
     await update.message.reply_text("\n".join(lines))

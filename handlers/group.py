@@ -439,6 +439,32 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     asyncio.create_task(_bg_title_check())
 
 
+async def attendance_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '출석' command — daily hyperball reward (shared with 문유 사랑해)."""
+    if not update.effective_user or not update.message:
+        return
+    if update.effective_chat and is_tournament_active(update.effective_chat.id):
+        return
+
+    user_id = update.effective_user.id
+    display_name = update.effective_user.first_name or "트레이너"
+
+    await queries.ensure_user(user_id, display_name, update.effective_user.username)
+
+    # Same DB key as love_hidden — only 1 reward per day between both commands
+    already_claimed = await bq.get_bp_purchases_today(user_id, "love_hidden_reward")
+    if already_claimed > 0:
+        await update.message.reply_text("이미 오늘 출석 보상을 받았어요!", parse_mode="HTML")
+        return
+
+    await bq.log_bp_purchase(user_id, "love_hidden_reward", 1)
+    await queries.add_hyper_ball(user_id, 1)
+    await update.message.reply_text(
+        f"{ball_emoji('hyperball')} 금일 출석체크 완료!\n하이퍼볼 1개 지급! 자정에 초기화됩니다.",
+        parse_mode="HTML",
+    )
+
+
 async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /랭킹 command in group chat."""
     if not update.effective_chat:
