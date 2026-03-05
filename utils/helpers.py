@@ -198,7 +198,7 @@ async def calculate_title(user_id: int) -> tuple[str, str]:
 
     # Check legendary hunter
     if legendary_count >= LEGEND_HUNTER_THRESHOLD:
-        return LEGEND_HUNTER_TITLE
+        return (LEGEND_HUNTER_TITLE[0], icon_emoji("dratini"))
 
     # Check standard titles
     for threshold, title, emoji in TITLES:

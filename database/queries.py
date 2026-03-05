@@ -353,7 +353,7 @@ async def get_user_pokemon_list(user_id: int) -> list[dict]:
                    WHEN 'epic' THEN 2
                    WHEN 'rare' THEN 3
                    WHEN 'common' THEN 4
-               END, up.id DESC""",
+               END, up.id ASC""",
         user_id,
     )
     return [dict(r) for r in rows]
