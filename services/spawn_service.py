@@ -598,13 +598,8 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             # Quick-resolve the overlapping spawn (determine catch, send result)
             await _resolve_overlapping_spawn(context, active)
 
-            # Delete old spawn message from chat
-            old_msg_id = active.get("message_id")
-            if old_msg_id:
-                try:
-                    await context.bot.delete_message(chat_id=chat_id, message_id=old_msg_id)
-                except Exception:
-                    pass  # Message may already be deleted
+            # Note: don't delete old spawn image — keep it as context
+            # (normal resolve_spawn also doesn't delete the photo)
 
         # 2.5 Cooldown: skip if last spawn was within 5 minutes (skip for arcade and force)
         if not arcade and not force:
