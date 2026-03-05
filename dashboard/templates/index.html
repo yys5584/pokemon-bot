@@ -786,7 +786,7 @@ function telegramConnect(){
             try{
                 const r=await fetch("/api/auth/telegram",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:1832746512,first_name:"테스트유저",auth_date:Math.floor(Date.now()/1000),hash:"mock"})});
                 const result=await r.json();
-                if(result.ok){_authUser=result.user;updateAuthUI();loadPage("mypokemon")}
+                if(result.ok){_authUser=result.user;updateAuthUI();loadPage(currentPage==="simulator"?"simulator":"mypokemon")}
             }catch(e){}
         })();
         return;
@@ -800,7 +800,7 @@ function telegramConnect(){
         try{
             const r=await fetch("/api/auth/telegram",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
             const result=await r.json();
-            if(result.ok){_authUser=result.user;updateAuthUI();loadPage("mypokemon")}
+            if(result.ok){_authUser=result.user;updateAuthUI();loadPage(currentPage==="simulator"?"simulator":"mypokemon")}
             else{alert("인증 실패: "+(result.error||"다시 시도해주세요"))}
         }catch(e){alert("서버 연결 실패")}
     });
