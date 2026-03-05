@@ -255,6 +255,12 @@ EVENT_TEMPLATES = {
         "target": None,
         "description": "💕 친밀도 2배! 밥/놀기 효과 2배",
     },
+    "이로치2배": {
+        "event_type": "shiny_boost",
+        "multiplier": 2.0,
+        "target": None,
+        "description": "✨ 이로치 2배! 이로치 출현 확률 2배",
+    },
 }
 
 # ============================================================

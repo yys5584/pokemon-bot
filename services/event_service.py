@@ -82,6 +82,15 @@ async def get_all_pokemon_boosts() -> dict[int, float]:
     return boosts
 
 
+async def get_shiny_boost() -> float:
+    """Get shiny rate multiplier from active shiny_boost events."""
+    events = _filter_events(await _get_all_active_events(), "shiny_boost")
+    multiplier = 1.0
+    for e in events:
+        multiplier *= e["multiplier"]
+    return multiplier
+
+
 async def get_friendship_boost() -> int:
     """Get friendship gain multiplier from active friendship_boost events."""
     events = _filter_events(await _get_all_active_events(), "friendship_boost")

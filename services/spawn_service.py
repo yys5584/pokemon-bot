@@ -10,7 +10,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
-from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_pokemon_boost
+from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_pokemon_boost, get_shiny_boost
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
 from utils.helpers import schedule_delete, close_button, rarity_badge, type_badge, ball_emoji, shiny_emoji, icon_emoji
@@ -352,9 +352,10 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # 4. Pick random Pokemon
         pokemon = await pick_random_pokemon(rarity)
 
-        # 4.5 Shiny determination
+        # 4.5 Shiny determination (with event boost)
         shiny_rate = config.SHINY_RATE_ARCADE if arcade else config.SHINY_RATE_NATURAL
-        is_shiny = random.random() < shiny_rate
+        shiny_mult = await get_shiny_boost()
+        is_shiny = random.random() < min(1.0, shiny_rate * shiny_mult)
 
         # 5. Generate card image FIRST (before creating session)
         shiny_text = f" {shiny_emoji()}이로치" if is_shiny else ""

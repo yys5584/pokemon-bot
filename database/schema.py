@@ -180,7 +180,7 @@ TABLES = [
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         event_type TEXT NOT NULL
-            CHECK(event_type IN ('spawn_boost','catch_boost','rarity_boost','pokemon_boost','friendship_boost')),
+            CHECK(event_type IN ('spawn_boost','catch_boost','rarity_boost','pokemon_boost','friendship_boost','shiny_boost')),
         multiplier DOUBLE PRECISION NOT NULL DEFAULT 2.0,
         target TEXT,
         description TEXT,
@@ -370,6 +370,11 @@ SHINY_MIGRATIONS = [
     "ALTER TABLE user_pokemon ADD CONSTRAINT user_pokemon_friendship_check CHECK(friendship >= 0 AND friendship <= 7)",
 ]
 
+SHINY_BOOST_MIGRATIONS = [
+    "ALTER TABLE events DROP CONSTRAINT IF EXISTS events_event_type_check",
+    "ALTER TABLE events ADD CONSTRAINT events_event_type_check CHECK(event_type IN ('spawn_boost','catch_boost','rarity_boost','pokemon_boost','friendship_boost','shiny_boost'))",
+]
+
 TEAM_SLOT_MIGRATIONS = [
     "ALTER TABLE battle_teams ADD COLUMN team_number INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE battle_teams DROP CONSTRAINT IF EXISTS battle_teams_user_id_slot_key",
@@ -448,6 +453,12 @@ async def create_tables():
         pass
     # LLM bonus quota migration
     for mig in LLM_QUOTA_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+    # Shiny boost event type migration
+    for mig in SHINY_BOOST_MIGRATIONS:
         try:
             await pool.execute(mig)
         except Exception:
