@@ -137,7 +137,7 @@ _mock_user = None
 
 async def mock_auth_telegram(request):
     global _mock_user
-    _mock_user = {"user_id": 1832746512, "display_name": "테스트유저", "photo_url": ""}
+    _mock_user = {"user_id": 1832746512, "display_name": "테스트유저", "photo_url": "", "is_admin": True}
     resp = web.json_response({"ok": True, "user": _mock_user})
     resp.set_cookie("sid", "mock_session", max_age=86400)
     return resp
@@ -300,6 +300,34 @@ async def mock_chat(request):
         })
 
 
+async def mock_admin_users(request):
+    page = int(request.query.get("page", "1"))
+    q = request.query.get("q", "")
+    mock_users = [
+        {"user_id": 1832746512, "username": "moon_ys_yu", "display_name": "문유", "master_balls": 12, "bp": 3500, "credits": 45, "registered_at": "2026-02-01T10:00:00", "last_active": "2026-03-05T14:30:00"},
+        {"user_id": 2000000001, "username": "trainer_a", "display_name": "트레이너A", "master_balls": 8, "bp": 1250, "credits": 20, "registered_at": "2026-02-10T08:00:00", "last_active": "2026-03-05T13:00:00"},
+        {"user_id": 2000000002, "username": "poke_fan", "display_name": "포켓몬팬", "master_balls": 3, "bp": 800, "credits": 5, "registered_at": "2026-02-15T12:00:00", "last_active": "2026-03-05T12:00:00"},
+        {"user_id": 2000000003, "username": "", "display_name": "초보트레이너", "master_balls": 6, "bp": 500, "credits": 10, "registered_at": "2026-03-01T09:00:00", "last_active": "2026-03-04T22:00:00"},
+        {"user_id": 2000000004, "username": "battle_king", "display_name": "배틀킹", "master_balls": 15, "bp": 5200, "credits": 0, "registered_at": "2026-02-05T15:00:00", "last_active": "2026-03-05T14:00:00"},
+    ]
+    if q:
+        mock_users = [u for u in mock_users if q.lower() in u["display_name"].lower() or q in str(u["user_id"]) or q.lower() in u["username"].lower()]
+    return web.json_response({"total": len(mock_users), "page": page, "per_page": 50, "users": mock_users})
+
+
+async def mock_admin_orders(request):
+    return web.json_response({"orders": [
+        {"order_key": "order_tgpoke_1832746512_1709654321_1", "user_id": 1832746512, "price_usd": 3, "llm_quota": 20, "master_balls": 1, "fulfilled": True, "fulfilled_at": "2026-03-03T15:00:00"},
+        {"order_key": "order_tgpoke_2000000001_1709654400_2", "user_id": 2000000001, "price_usd": 7, "llm_quota": 50, "master_balls": 3, "fulfilled": True, "fulfilled_at": "2026-03-04T10:00:00"},
+        {"order_key": "order_tgpoke_2000000004_1709654500_1", "user_id": 2000000004, "price_usd": 3, "llm_quota": 20, "master_balls": 1, "fulfilled": False, "fulfilled_at": ""},
+    ]})
+
+
+async def mock_admin_action(request):
+    body = await request.json()
+    return web.json_response({"ok": True, "new_credits": 55, "new_master_balls": 15, "dm_sent": True})
+
+
 def create_preview_app():
     app = web.Application()
     app.router.add_get("/", index)
@@ -319,6 +347,13 @@ def create_preview_app():
     app.router.add_get("/api/my/quota", lambda r: web.json_response({"remaining": max(0, 20 - _mock_chat_count), "bonus_remaining": 45}))
     app.router.add_get("/api/donation", lambda r: web.json_response({"current": 75, "goal": 200}))
     app.router.add_post("/api/payment/create", lambda r: web.json_response({"ok": True, "invoice_url": "https://nowpayments.io/payment/?iid=mock_preview", "invoice_id": "mock_123"}))
+    # Admin routes (mock)
+    app.router.add_get("/api/admin/users", mock_admin_users)
+    app.router.add_get("/api/admin/orders", mock_admin_orders)
+    app.router.add_post("/api/admin/grant-credit", mock_admin_action)
+    app.router.add_post("/api/admin/grant-masterball", mock_admin_action)
+    app.router.add_post("/api/admin/fulfill-order", mock_admin_action)
+    app.router.add_post("/api/admin/send-dm", mock_admin_action)
     # Catch-all for API routes
     for api_path in [
         "/api/overview", "/api/chats", "/api/users", "/api/spawns/recent",
@@ -331,7 +366,7 @@ def create_preview_app():
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all
-    for p in ["/channels", "/patchnotes", "/battle", "/tier", "/types", "/stats", "/mypokemon", "/ai"]:
+    for p in ["/channels", "/patchnotes", "/battle", "/tier", "/types", "/stats", "/mypokemon", "/ai", "/admin"]:
         app.router.add_get(p, index)
     return app
 
