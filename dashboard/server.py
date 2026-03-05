@@ -14,6 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from aiohttp import web
+from asyncpg import InterfaceError
 
 import config
 from database import queries
@@ -500,30 +501,33 @@ async def api_my_summary(request):
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=401)
 
-    pool = await queries.get_db()
-    uid = sess["user_id"]
+    try:
+        pool = await queries.get_db()
+        uid = sess["user_id"]
 
-    row = await pool.fetchrow("""
-        SELECT COUNT(*) as total,
-               COUNT(CASE WHEN is_shiny = 1 THEN 1 END) as shiny_count,
-               COUNT(DISTINCT pokemon_id) as dex_count
-        FROM user_pokemon WHERE user_id = $1 AND is_active = 1
-    """, uid)
+        row = await pool.fetchrow("""
+            SELECT COUNT(*) as total,
+                   COUNT(CASE WHEN is_shiny = 1 THEN 1 END) as shiny_count,
+                   COUNT(DISTINCT pokemon_id) as dex_count
+            FROM user_pokemon WHERE user_id = $1 AND is_active = 1
+        """, uid)
 
-    battle_row = await pool.fetchrow("""
-        SELECT battle_points, battle_wins, battle_losses, best_streak
-        FROM users WHERE user_id = $1
-    """, uid)
+        battle_row = await pool.fetchrow("""
+            SELECT battle_points, battle_wins, battle_losses, best_streak
+            FROM users WHERE user_id = $1
+        """, uid)
 
-    return pg_json_response({
-        "total_pokemon": row["total"],
-        "shiny_count": row["shiny_count"],
-        "dex_count": row["dex_count"],
-        "battle_points": battle_row["battle_points"] if battle_row else 0,
-        "battle_wins": battle_row["battle_wins"] if battle_row else 0,
-        "battle_losses": battle_row["battle_losses"] if battle_row else 0,
-        "best_streak": battle_row["best_streak"] if battle_row else 0,
-    })
+        return pg_json_response({
+            "total_pokemon": row["total"],
+            "shiny_count": row["shiny_count"],
+            "dex_count": row["dex_count"],
+            "battle_points": battle_row["battle_points"] if battle_row else 0,
+            "battle_wins": battle_row["battle_wins"] if battle_row else 0,
+            "battle_losses": battle_row["battle_losses"] if battle_row else 0,
+            "best_streak": battle_row["best_streak"] if battle_row else 0,
+        })
+    except InterfaceError:
+        return web.json_response({"error": "서버 재시작 중입니다"}, status=503)
 
 
 # ============================================================
@@ -1449,24 +1453,27 @@ async def api_battle_recent(request):
 
 async def api_battle_ranking_teams(request):
     """Get battle teams + partner info for top 10 rankers."""
-    ranking = await bq.get_battle_ranking(10)
-    result = {}
-    for r in ranking:
-        uid = r["user_id"]
-        team_task = bq.get_battle_team(uid)
-        partner_task = bq.get_partner(uid)
-        team, partner = await asyncio.gather(team_task, partner_task)
-        partner_iid = partner["instance_id"] if partner else None
-        result[str(uid)] = [
-            {
-                "emoji": p["emoji"],
-                "name_ko": p["name_ko"],
-                "is_partner": p["pokemon_instance_id"] == partner_iid,
-                "is_shiny": bool(p.get("is_shiny", 0)),
-            }
-            for p in team
-        ]
-    return pg_json_response(result)
+    try:
+        ranking = await bq.get_battle_ranking(10)
+        result = {}
+        for r in ranking:
+            uid = r["user_id"]
+            team_task = bq.get_battle_team(uid)
+            partner_task = bq.get_partner(uid)
+            team, partner = await asyncio.gather(team_task, partner_task)
+            partner_iid = partner["instance_id"] if partner else None
+            result[str(uid)] = [
+                {
+                    "emoji": p["emoji"],
+                    "name_ko": p["name_ko"],
+                    "is_partner": p["pokemon_instance_id"] == partner_iid,
+                    "is_shiny": bool(p.get("is_shiny", 0)),
+                }
+                for p in team
+            ]
+        return pg_json_response(result)
+    except InterfaceError:
+        return web.json_response({"error": "서버 재시작 중입니다"}, status=503)
 
 
 async def api_battle_tiers(request):

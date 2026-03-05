@@ -521,7 +521,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 )
                 logger.info(f"Catch DM sent to {winner_id} for {pokemon_name}")
             except Exception as dm_err:
-                logger.error(f"Failed to send catch DM to {winner_id}: {dm_err}")
+                logger.warning(f"Failed to send catch DM to {winner_id}: {dm_err}")
         except Exception as e:
             logger.error(f"Catch DM construction failed for {winner_id}: {e}")
 
@@ -964,7 +964,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 )
                 logger.info(f"Catch DM sent to {winner_id} for {pokemon_name}")
             except Exception as dm_err:
-                logger.error(f"Failed to send catch DM to {winner_id}: {dm_err}")
+                logger.warning(f"Failed to send catch DM to {winner_id}: {dm_err}")
         except Exception as e:
             logger.error(f"Catch DM construction failed for {winner_id}: {e}")
 

@@ -4,6 +4,7 @@ import logging
 import re
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 import config
@@ -683,6 +684,9 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         text_msg, markup = _build_team_slots(owner_id, draft, tn)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
         except Exception:
             logger.exception("tedit edit_message_text failed")
 
@@ -700,6 +704,9 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         text_msg, markup = await _build_slot_pokemon_list(owner_id, slot, draft, 0, tn)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
         except Exception:
             logger.exception("tslot_view edit_message_text failed")
 
@@ -765,6 +772,9 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         text_msg, markup = _build_team_slots(owner_id, draft, tn)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
         except Exception:
             logger.exception("tpick edit_message_text failed")
 
@@ -785,6 +795,9 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         text_msg, markup = _build_team_slots(owner_id, draft, tn)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
         except Exception:
             logger.exception("trem edit_message_text failed")
 
@@ -802,6 +815,9 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         text_msg, markup = await _build_slot_pokemon_list(owner_id, slot, draft, page, tn)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
         except Exception:
             logger.exception("tp edit_message_text failed")
 
@@ -817,6 +833,9 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         text_msg, markup = _build_team_slots(owner_id, draft, tn)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
         except Exception:
             logger.exception("tcl edit_message_text failed")
 
@@ -848,6 +867,9 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             lines.append(f"{slot_plain[s-1]} {draft['names'].get(current[s], '???')}")
         try:
             await query.edit_message_text("\n".join(lines), parse_mode="HTML")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
         except Exception:
             logger.exception("tdone edit_message_text failed")
 
@@ -863,6 +885,9 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         context.user_data.pop(f"team_draft_{tn}", None)
         try:
             await query.edit_message_text("팀 편집이 취소되었습니다.")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
         except Exception:
             logger.exception("tcancel edit_message_text failed")
 
