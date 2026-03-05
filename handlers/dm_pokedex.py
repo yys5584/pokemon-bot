@@ -74,8 +74,9 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             evo_mark = " ★진화" if entry["method"] == "evolve" else ""
             trade_mark = " 🔄교환" if entry["method"] == "trade" else ""
             rb = rarity_badge(pm["rarity"])
+            tb = type_badge(pid)
             lines.append(
-                f"{pid:03d} {rb} {pm['name_ko']}{evo_mark}{trade_mark}"
+                f"{pid:03d} {rb}{tb} {pm['name_ko']}{evo_mark}{trade_mark}"
             )
         else:
             lines.append(f"{pid:03d} ・ ???")
@@ -139,8 +140,9 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             evo_mark = " ★진화" if entry["method"] == "evolve" else ""
             trade_mark = " 🔄교환" if entry["method"] == "trade" else ""
             rb = rarity_badge(pm["rarity"])
+            tb = type_badge(pid)
             lines.append(
-                f"{pid:03d} {rb} {pm['name_ko']}{evo_mark}{trade_mark}"
+                f"{pid:03d} {rb}{tb} {pm['name_ko']}{evo_mark}{trade_mark}"
             )
         else:
             lines.append(f"{pid:03d} ・ ???")
@@ -1235,15 +1237,36 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
     # TMI
     tmi = POKEMON_TMI.get(pid, "")
 
+    # Type display
+    from models.pokemon_base_stats import POKEMON_BASE_STATS
+    tb = type_badge(pid)
+    pbs = POKEMON_BASE_STATS.get(pid)
+    if pbs:
+        type_names = "/".join(config.TYPE_NAME_KO.get(t, t) for t in pbs[-1])
+    else:
+        type_names = config.TYPE_NAME_KO.get(pokemon.get("pokemon_type", ""), "")
+
+    # Evolution stage
+    from utils.battle_calc import EVO_STAGE_MAP
+    evo_stage = EVO_STAGE_MAP.get(pid, 3)
+    _STAGE_LABELS = {1: "기본", 2: "1진화", 3: "최종"}
+    # For single-form pokemon (no evo chain), show "단일"
+    stage_label = _STAGE_LABELS[evo_stage]
+    if evo_stage == 3 and not pokemon.get("evolves_from"):
+        stage_label = "단일"
+
     lines = [
         f"No.{pid:03d} {pokemon['name_ko']} ({pokemon['name_en']})",
         f"등급: {rarity_text}",
+        f"타입: {tb}{type_names}",
         f"포획률: {int(pokemon['catch_rate'] * 100)}%",
         f"상태: {owned}",
     ]
 
     if evo_line:
-        lines.append(f"\n📊 진화: {evo_line}")
+        # Bold the current pokemon in the chain
+        evo_display = evo_line.replace(pokemon['name_ko'], f"<b>[{pokemon['name_ko']}]</b>")
+        lines.append(f"\n📊 진화: {evo_display} ({stage_label})")
 
     if pokemon["evolution_method"] == "trade":
         lines.append("⚠️ 교환으로만 진화 가능!")
