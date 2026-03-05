@@ -624,7 +624,8 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         # 5. Generate card image FIRST (before creating session)
         shiny_text = f" {shiny_emoji()}이로치" if is_shiny else ""
-        bonus_text = " 🌙" if midnight else ""
+        from utils.helpers import _type_emoji
+        bonus_text = f" {_type_emoji('dark')}" if midnight else ""
 
         # Check for active event indicator
         from services.event_service import get_active_event_summary
