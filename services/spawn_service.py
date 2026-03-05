@@ -638,7 +638,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         master_ball_drop = random.random() < 0.02
         if master_ball_drop:
             await queries.add_master_ball(winner_id)
-            msg += "\n\n🟣 마스터볼을 획득했다!"
+            msg += f"\n\n{ball_emoji('masterball')} 마스터볼을 획득했다!"
 
         catch_msg = await context.bot.send_message(
             chat_id=chat_id, text=msg, parse_mode="HTML",
