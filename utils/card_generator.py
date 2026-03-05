@@ -83,7 +83,104 @@ def _draw_glow(draw: ImageDraw.Draw, cx: int, cy: int, radius: int, color: tuple
         )
 
 
-def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "") -> io.BytesIO:
+# Rainbow colors for shiny border
+_RAINBOW = [
+    (255, 0, 0), (255, 127, 0), (255, 255, 0),
+    (0, 200, 0), (0, 150, 255), (100, 0, 255), (200, 0, 255),
+]
+
+
+def _draw_shiny_bottom_rainbow(card: Image.Image, band_height: int = 60) -> Image.Image:
+    """Draw a horizontal rainbow gradient band at the bottom of the card."""
+    w, h = card.size
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    pixels = layer.load()
+    colors = _RAINBOW
+
+    for x in range(w):
+        # Map x position across rainbow spectrum
+        t = x / w * len(colors)
+        idx = int(t) % len(colors)
+        nxt = (idx + 1) % len(colors)
+        frac = t - int(t)
+        c1, c2 = colors[idx], colors[nxt]
+        r = int(c1[0] + (c2[0] - c1[0]) * frac)
+        g = int(c1[1] + (c2[1] - c1[1]) * frac)
+        b = int(c1[2] + (c2[2] - c1[2]) * frac)
+
+        for y_off in range(band_height):
+            y = h - band_height + y_off
+            # Fade in from top of band, full at bottom
+            alpha = int(180 * (y_off / band_height))
+            pixels[x, y] = (r, g, b, alpha)
+
+    return Image.alpha_composite(card, layer)
+
+
+def _draw_shiny_glow(card: Image.Image, accent: tuple) -> Image.Image:
+    """Draw enhanced shiny glow: brighter, larger, with sparkle particles."""
+    import math
+    import random
+    w, h = card.size
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    cx, cy = w // 2, h // 2 - 20
+
+    bright = tuple(min(255, c + 80) for c in accent)
+    white_accent = tuple(min(255, c + 160) for c in accent)
+
+    # Bright outer glow (large)
+    for i in range(30, 0, -1):
+        alpha = int(50 * (i / 30))
+        r = int(280 * (i / 30))
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(*bright, alpha))
+
+    # Inner white-ish core
+    for i in range(15, 0, -1):
+        alpha = int(65 * (i / 15))
+        r = int(120 * (i / 15))
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(*white_accent, alpha))
+
+    # Diagonal shimmer rays
+    for angle_deg in (30, 150, 210, 330):
+        angle = math.radians(angle_deg)
+        for dist in range(80, 260, 2):
+            rx = int(cx + dist * math.cos(angle))
+            ry = int(cy + dist * math.sin(angle))
+            if 0 <= rx < w and 0 <= ry < h:
+                fade = max(0, int(50 * (1 - (dist - 80) / 180)))
+                draw.ellipse([rx - 2, ry - 2, rx + 2, ry + 2], fill=(*bright, fade))
+
+    # Sparkle particles (반짝반짝) scattered around the glow area
+    rng = random.Random(42)  # Fixed seed for consistent output
+    for _ in range(55):
+        angle = rng.uniform(0, 2 * math.pi)
+        dist = rng.uniform(40, 250)
+        sx = int(cx + dist * math.cos(angle))
+        sy = int(cy + dist * math.sin(angle))
+        if not (0 <= sx < w and 0 <= sy < h):
+            continue
+        size = rng.choice([2, 3, 4, 5])
+        sparkle_alpha = rng.randint(120, 230)
+
+        # Draw 4-pointed star shape
+        arm = size * 2
+        # Vertical line
+        draw.line([(sx, sy - arm), (sx, sy + arm)], fill=(255, 255, 255, sparkle_alpha), width=1)
+        # Horizontal line
+        draw.line([(sx - arm, sy), (sx + arm, sy)], fill=(255, 255, 255, sparkle_alpha), width=1)
+        # Center bright dot
+        draw.ellipse([sx - size, sy - size, sx + size, sy + size],
+                     fill=(255, 255, 255, sparkle_alpha))
+        # Tiny color tinted halo
+        draw.ellipse([sx - size - 1, sy - size - 1, sx + size + 1, sy + size + 1],
+                     outline=(*bright, sparkle_alpha // 2))
+
+    return Image.alpha_composite(card, layer)
+
+
+def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
+                  is_shiny: bool = False) -> io.BytesIO:
     """Generate a 16:9 Pokemon card image and return as BytesIO (PNG)."""
     top_col, bot_col = RARITY_COLORS.get(rarity, RARITY_COLORS["common"])
     accent = RARITY_ACCENT.get(rarity, RARITY_ACCENT["common"])
@@ -92,12 +189,15 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "") -
     card = _make_gradient(CARD_WIDTH, CARD_HEIGHT, top_col, bot_col)
     card = card.convert("RGBA")
 
-    # 2. Glow behind Pokemon
+    # 2. Glow behind Pokemon (enhanced for shiny)
     glow_layer = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
     glow_draw = ImageDraw.Draw(glow_layer)
     cx, cy = CARD_WIDTH // 2, CARD_HEIGHT // 2 - 10
     _draw_glow(glow_draw, cx, cy, 200, accent)
     card = Image.alpha_composite(card, glow_layer)
+
+    if is_shiny:
+        card = _draw_shiny_glow(card, accent)
 
     # 3. Load and place Pokemon sprite (cached & pre-scaled)
     sprite = _load_sprite(pokemon_id)
@@ -144,9 +244,39 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "") -
     )
     draw.text((badge_x, badge_y), rarity_text, fill=(255, 255, 255, 255), font=font_small)
 
+    # Shiny badge (left of rarity badge)
+    if is_shiny:
+        shiny_text = "이로치"
+        sbbox = draw.textbbox((0, 0), shiny_text, font=font_small)
+        sw = sbbox[2] - sbbox[0]
+        shiny_x = badge_x - sw - 28
+        draw.rounded_rectangle(
+            [shiny_x - 8, badge_y - 4, shiny_x + sw + 8, badge_y + 24],
+            radius=6,
+            fill=(205, 92, 92, 220),
+        )
+        draw.text((shiny_x, badge_y), shiny_text, fill=(255, 255, 255, 255), font=font_small)
+
     # 6. Pokemon ID top-left
     id_text = f"#{pokemon_id:03d}"
     draw.text((22, 16), id_text, fill=(255, 255, 255, 100), font=font_small)
+
+    # 7. Shiny: thin rainbow accent line at bottom (replaces rarity line)
+    if is_shiny:
+        rainbow_layer = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
+        rl_pixels = rainbow_layer.load()
+        for x in range(CARD_WIDTH):
+            t = x / CARD_WIDTH * len(_RAINBOW)
+            idx = int(t) % len(_RAINBOW)
+            nxt = (idx + 1) % len(_RAINBOW)
+            frac = t - int(t)
+            c1, c2 = _RAINBOW[idx], _RAINBOW[nxt]
+            rc = (int(c1[0] + (c2[0] - c1[0]) * frac),
+                  int(c1[1] + (c2[1] - c1[1]) * frac),
+                  int(c1[2] + (c2[2] - c1[2]) * frac))
+            for yy in range(CARD_HEIGHT - 6, CARD_HEIGHT):
+                rl_pixels[x, yy] = (*rc, 240)
+        card = Image.alpha_composite(card, rainbow_layer)
 
     # Convert to bytes (JPEG: much smaller & faster than PNG)
     buf = io.BytesIO()
