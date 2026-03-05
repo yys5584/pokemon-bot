@@ -246,8 +246,21 @@ def get_weather_pokemon_boost(pokemon_id: int) -> float:
     return 1.0
 
 
+# Weather condition → Pokemon type mapping for custom emoji display
+_WEATHER_TYPE_MAP = {
+    "rain": "water",
+    "snow": "ice",
+    "thunder": "electric",
+    "fog": "ghost",
+    "clear_hot": "fire",
+    "clear_night": "dark",
+    "wind": "flying",
+    "clear": "grass",
+}
+
+
 def get_weather_display() -> str:
-    """Get weather display string for spawn messages."""
+    """Get weather display string for spawn messages (custom type emoji)."""
     if not _cache.get("condition") or not _cache.get("updated_at"):
         return ""
 
@@ -255,4 +268,8 @@ def get_weather_display() -> str:
     if datetime.now() - _cache["updated_at"] > timedelta(hours=2):
         return ""
 
+    from utils.helpers import _type_emoji
+    type_key = _WEATHER_TYPE_MAP.get(_cache["condition"], "")
+    if type_key:
+        return f" {_type_emoji(type_key)}"
     return f" {_cache['emoji']}"

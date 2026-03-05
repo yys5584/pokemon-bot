@@ -181,7 +181,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             # Check if user has master balls
             balls = await queries.get_master_balls(user_id)
             if balls < 1:
-                resp = await update.message.reply_text("🟣 마스터볼이 없습니다!")
+                resp = await update.message.reply_text(f"{ball_emoji('masterball')} 마스터볼이 없습니다!", parse_mode="HTML")
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
