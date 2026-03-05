@@ -138,6 +138,24 @@ async def _ensure_llm_usage_table():
     """)
 
 
+async def _ensure_analytics_table():
+    """Create web_analytics table if not exists."""
+    pool = await queries.get_db()
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS web_analytics (
+            id SERIAL PRIMARY KEY,
+            event_type TEXT NOT NULL,
+            user_id BIGINT,
+            page TEXT,
+            duration_sec INT DEFAULT 0,
+            pages_viewed INT DEFAULT 0,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    await pool.execute("CREATE INDEX IF NOT EXISTS idx_wa_created ON web_analytics(created_at)")
+    await pool.execute("CREATE INDEX IF NOT EXISTS idx_wa_type ON web_analytics(event_type)")
+
+
 async def _check_llm_limit(user_id: int, cost: int = 1) -> tuple[bool, int, int]:
     """Check if user can use LLM. Returns (allowed, remaining_total, bonus_remaining)."""
     pool = await queries.get_db()
@@ -2112,6 +2130,109 @@ async def api_admin_db_economy(request):
     })
 
 
+# --- Web Analytics APIs ---
+
+async def api_analytics_pageview(request):
+    """Record a pageview event (public, rate limited)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False}, status=400)
+    page = str(body.get("page", ""))[:50]
+    if not page:
+        return web.json_response({"ok": False}, status=400)
+    sess = await _get_session(request)
+    uid = sess["user_id"] if sess else None
+    pool = await queries.get_db()
+    await pool.execute(
+        "INSERT INTO web_analytics (event_type, user_id, page) VALUES ('pageview', $1, $2)",
+        uid, page,
+    )
+    return web.json_response({"ok": True})
+
+
+async def api_analytics_session(request):
+    """Record session end with duration (public, via sendBeacon)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False}, status=400)
+    duration = min(int(body.get("duration_sec", 0)), 86400)
+    pages = min(int(body.get("pages_viewed", 0)), 1000)
+    if duration <= 0:
+        return web.json_response({"ok": False})
+    sess = await _get_session(request)
+    uid = sess["user_id"] if sess else None
+    pool = await queries.get_db()
+    await pool.execute(
+        "INSERT INTO web_analytics (event_type, user_id, duration_sec, pages_viewed) VALUES ('session', $1, $2, $3)",
+        uid, duration, pages,
+    )
+    return web.json_response({"ok": True})
+
+
+async def api_admin_kpi(request):
+    """Admin: web analytics KPI dashboard data."""
+    if not await _admin_check(request):
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    pool = await queries.get_db()
+
+    # Today stats
+    today_pv = await pool.fetchval(
+        "SELECT COUNT(*) FROM web_analytics WHERE event_type='pageview' AND created_at >= CURRENT_DATE"
+    ) or 0
+    today_visitors = await pool.fetchval(
+        "SELECT COUNT(DISTINCT COALESCE(user_id, -1 * id)) FROM web_analytics WHERE event_type='pageview' AND created_at >= CURRENT_DATE"
+    ) or 0
+    avg_dur = await pool.fetchval(
+        "SELECT COALESCE(AVG(duration_sec), 0) FROM web_analytics WHERE event_type='session' AND created_at >= CURRENT_DATE AND duration_sec > 0"
+    ) or 0
+
+    # Daily trend (7 days)
+    daily = await pool.fetch("""
+        SELECT d::date as day,
+               COALESCE(pv.cnt, 0) as pageviews,
+               COALESCE(vis.cnt, 0) as visitors
+        FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, '1 day') d
+        LEFT JOIN (
+            SELECT created_at::date as day, COUNT(*) as cnt
+            FROM web_analytics WHERE event_type='pageview'
+            AND created_at >= CURRENT_DATE - INTERVAL '6 days'
+            GROUP BY created_at::date
+        ) pv ON pv.day = d::date
+        LEFT JOIN (
+            SELECT created_at::date as day, COUNT(DISTINCT COALESCE(user_id, -1 * id)) as cnt
+            FROM web_analytics WHERE event_type='pageview'
+            AND created_at >= CURRENT_DATE - INTERVAL '6 days'
+            GROUP BY created_at::date
+        ) vis ON vis.day = d::date
+        ORDER BY d
+    """)
+
+    # By page (last 7 days)
+    by_page = await pool.fetch("""
+        SELECT page, COUNT(*) as views
+        FROM web_analytics
+        WHERE event_type='pageview' AND created_at >= CURRENT_DATE - INTERVAL '6 days'
+        GROUP BY page ORDER BY views DESC LIMIT 15
+    """)
+
+    # By hour (last 7 days)
+    by_hour = await pool.fetch("""
+        SELECT EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Seoul')::int as hour, COUNT(*) as views
+        FROM web_analytics
+        WHERE event_type='pageview' AND created_at >= CURRENT_DATE - INTERVAL '6 days'
+        GROUP BY hour ORDER BY hour
+    """)
+
+    return web.json_response({
+        "today": {"visitors": today_visitors, "pageviews": today_pv, "avg_duration": round(float(avg_dur))},
+        "daily": [{"date": str(r["day"]), "visitors": r["visitors"], "pageviews": r["pageviews"]} for r in daily],
+        "by_page": [{"page": r["page"], "views": r["views"]} for r in by_page],
+        "by_hour": [{"hour": r["hour"], "views": r["views"]} for r in by_hour],
+    })
+
+
 # --- NOWPayments Integration ---
 
 NOWPAYMENTS_API_KEY = os.getenv("NOWPAYMENTS_API_KEY", "")
@@ -2336,6 +2457,10 @@ def create_app() -> web.Application:
     app.router.add_get("/api/admin/db/spawns", api_admin_db_spawns)
     app.router.add_get("/api/admin/db/user-pokemon", api_admin_db_user_pokemon)
     app.router.add_get("/api/admin/db/economy", api_admin_db_economy)
+    # Analytics
+    app.router.add_post("/api/analytics/pageview", api_analytics_pageview)
+    app.router.add_post("/api/analytics/session", api_analytics_session)
+    app.router.add_get("/api/admin/kpi", api_admin_kpi)
     # Public APIs
     app.router.add_get("/api/overview", api_overview)
     app.router.add_get("/api/chats", api_chats)
@@ -2462,6 +2587,7 @@ async def start_dashboard():
     """Start the dashboard web server in the background."""
     await _ensure_session_table()
     await _ensure_llm_usage_table()
+    await _ensure_analytics_table()
     port = int(os.getenv("DASHBOARD_PORT", "8080"))
     app = create_app()
     runner = web.AppRunner(app)

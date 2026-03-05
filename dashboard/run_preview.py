@@ -370,6 +370,48 @@ async def mock_admin_db_economy(request):
     })
 
 
+async def mock_analytics_pageview(request):
+    """Silently accept pageview events (no DB in preview)."""
+    return web.json_response({"ok": True})
+
+
+async def mock_analytics_session(request):
+    """Silently accept session events (no DB in preview)."""
+    return web.json_response({"ok": True})
+
+
+async def mock_admin_kpi(request):
+    """Return mock KPI data for preview."""
+    import datetime
+    today = datetime.date.today()
+    daily = []
+    for i in range(6, -1, -1):
+        d = today - datetime.timedelta(days=i)
+        daily.append({
+            "date": d.isoformat(),
+            "visitors": 15 + (i * 3) % 20,
+            "pageviews": 40 + (i * 7) % 60,
+        })
+    return web.json_response({
+        "today": {"visitors": 42, "pageviews": 185, "avg_duration": 312},
+        "daily": daily,
+        "by_page": [
+            {"page": "home", "views": 80},
+            {"page": "battlerank", "views": 45},
+            {"page": "stats", "views": 38},
+            {"page": "mypokemon", "views": 32},
+            {"page": "simulator", "views": 28},
+            {"page": "tier", "views": 22},
+            {"page": "typechart", "views": 15},
+            {"page": "patchnotes", "views": 12},
+        ],
+        "by_hour": [
+            {"hour": h, "views": max(1, int(20 * (1 + __import__('math').sin(
+                (h - 14) * 3.14159 / 12))))} for h in range(24)
+        ],
+    })
+
+
 def create_preview_app():
     app = web.Application()
     app.router.add_get("/", index)
@@ -402,6 +444,10 @@ def create_preview_app():
     app.router.add_get("/api/admin/db/spawns", mock_admin_db_spawns)
     app.router.add_get("/api/admin/db/user-pokemon", mock_admin_db_user_pokemon)
     app.router.add_get("/api/admin/db/economy", mock_admin_db_economy)
+    # Analytics & KPI (mock)
+    app.router.add_post("/api/analytics/pageview", mock_analytics_pageview)
+    app.router.add_post("/api/analytics/session", mock_analytics_session)
+    app.router.add_get("/api/admin/kpi", mock_admin_kpi)
     # Catch-all for API routes
     for api_path in [
         "/api/overview", "/api/chats", "/api/users", "/api/spawns/recent",

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TGPoke 대시보드</title>
     <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         :root{--bg:#EDE4D3;--card:#F8F2E4;--border:#C4B395;--hover:#E8DCC8;--text:#4A3728;--muted:#907A5F;--dim:#B8A88A;--red:#C62828;--green:#2E7D32;--blue:#1565C0;--purple:#7B1FA2;--gold:#F9A825;--orange:#E65100}
@@ -729,9 +730,18 @@
 
         <!-- ADMIN PANEL -->
         <div class="page" id="page-admin">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
                 <h2 style="font-size:16px;font-weight:700;color:var(--text);margin:0">🔧 관리자 패널</h2>
             </div>
+            <!-- Admin Category Tabs -->
+            <div style="display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">
+                <div class="poke-filter active" onclick="admCatSwitch('manage')" id="admCatBtn-manage">⚡ 관리</div>
+                <div class="poke-filter" onclick="admCatSwitch('db')" id="admCatBtn-db">🗄️ DB</div>
+                <div class="poke-filter" onclick="admCatSwitch('kpi')" id="admCatBtn-kpi">📈 KPI</div>
+            </div>
+
+            <!-- Category: Manage -->
+            <div id="admCat-manage">
 
             <!-- Quick Actions -->
             <div class="section" style="margin-bottom:10px">
@@ -778,9 +788,11 @@
                 <div id="admUsersTable"><div class="loading">로딩 중...</div></div>
                 <div id="admUsersPager" style="display:flex;justify-content:center;gap:4px;margin-top:8px"></div>
             </div>
+            </div><!-- /admCat-manage -->
 
-            <!-- DB Browser -->
-            <div class="section" style="margin-top:10px">
+            <!-- Category: DB Browser -->
+            <div id="admCat-db" style="display:none">
+            <div class="section">
                 <h2>🗄️ DB 브라우저</h2>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
                     <div class="poke-filter active" onclick="admDbTab('overview')">📊 서버현황</div>
@@ -791,6 +803,30 @@
                 </div>
                 <div id="admDbContent"><div class="loading">탭을 선택하세요</div></div>
             </div>
+            </div><!-- /admCat-db -->
+
+            <!-- Category: KPI Dashboard -->
+            <div id="admCat-kpi" style="display:none">
+            <div class="section">
+                <h2>📈 웹 분석 KPI</h2>
+                <div id="admKpiCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:14px"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                    <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
+                        <div style="font-size:12px;font-weight:700;margin-bottom:8px">📊 일별 방문자 추이 (7일)</div>
+                        <canvas id="kpiChartDaily" height="200"></canvas>
+                    </div>
+                    <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
+                        <div style="font-size:12px;font-weight:700;margin-bottom:8px">📂 카테고리별 조회수</div>
+                        <canvas id="kpiChartPage" height="200"></canvas>
+                    </div>
+                </div>
+                <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
+                    <div style="font-size:12px;font-weight:700;margin-bottom:8px">🕐 시간대별 접속 (KST)</div>
+                    <canvas id="kpiChartHour" height="160"></canvas>
+                </div>
+            </div>
+            </div><!-- /admCat-kpi -->
+
         </div>
 
         <div class="footer">
@@ -986,6 +1022,7 @@ function navigateTo(page,pushState=true){
     currentPage=page;
     if(pushState)history.pushState({page},"",(PAGE_PATHS[page]||"/"));
     loadPage(page);
+    _trackPageview(page);
 }
 
 document.querySelectorAll(".nav-tab").forEach(tab=>{
@@ -2102,6 +2139,103 @@ async function adminFulfillOrder(orderKey){
     }catch(e){_showAdmResult("서버 연결 실패","#f8d7da","#721c24")}
 }
 
+// --- Admin Category Tabs ---
+function admCatSwitch(cat){
+    ["manage","db","kpi"].forEach(c=>{
+        const el=document.getElementById("admCat-"+c);
+        const btn=document.getElementById("admCatBtn-"+c);
+        if(el)el.style.display=c===cat?"":"none";
+        if(btn)btn.classList.toggle("active",c===cat);
+    });
+    if(cat==="db")admDbTab(_admDbCur||"overview");
+    if(cat==="kpi")admKpiLoad();
+}
+
+// --- KPI Dashboard ---
+let _kpiCharts={};
+const _PAGE_LABELS={home:"홈",patchnotes:"패치노트",battlerank:"배틀&랭킹",tier:"티어",typechart:"상성표",stats:"통계",mypokemon:"내포켓몬",simulator:"AI어드바이저",admin:"관리자"};
+
+async function admKpiLoad(){
+    const cards=document.getElementById("admKpiCards");
+    cards.innerHTML='<div class="loading" style="grid-column:1/-1">로딩 중...</div>';
+    const d=await fetchJSON("/api/admin/kpi");
+    if(!d){cards.innerHTML='<p class="empty-msg" style="grid-column:1/-1">로드 실패</p>';return}
+    const t=d.today;
+    const durMin=Math.floor(t.avg_duration/60);
+    const durSec=t.avg_duration%60;
+    cards.innerHTML=`
+        <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
+            <div style="font-size:11px;color:var(--muted)">오늘 방문자</div>
+            <div style="font-size:24px;font-weight:700;color:var(--blue)">${t.visitors}</div>
+        </div>
+        <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
+            <div style="font-size:11px;color:var(--muted)">오늘 페이지뷰</div>
+            <div style="font-size:24px;font-weight:700;color:var(--green)">${t.pageviews}</div>
+        </div>
+        <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
+            <div style="font-size:11px;color:var(--muted)">평균 체류시간</div>
+            <div style="font-size:24px;font-weight:700;color:var(--purple)">${durMin}분 ${durSec}초</div>
+        </div>`;
+
+    // Destroy old charts
+    Object.values(_kpiCharts).forEach(c=>{try{c.destroy()}catch(e){}});
+    _kpiCharts={};
+
+    const chartFont={family:"'Pretendard',-apple-system,sans-serif"};
+    const gridColor="rgba(74,55,40,0.08)";
+
+    // Daily visitors chart
+    const dailyCtx=document.getElementById("kpiChartDaily");
+    if(dailyCtx&&d.daily.length){
+        _kpiCharts.daily=new Chart(dailyCtx,{type:"line",data:{
+            labels:d.daily.map(r=>{const dt=new Date(r.date);return (dt.getMonth()+1)+"/"+dt.getDate()}),
+            datasets:[
+                {label:"방문자",data:d.daily.map(r=>r.visitors),borderColor:"#1565C0",backgroundColor:"rgba(21,101,192,.1)",fill:true,tension:.3,pointRadius:4},
+                {label:"페이지뷰",data:d.daily.map(r=>r.pageviews),borderColor:"#2E7D32",backgroundColor:"rgba(46,125,50,.1)",fill:true,tension:.3,pointRadius:4},
+            ]
+        },options:{responsive:true,plugins:{legend:{labels:{font:chartFont,boxWidth:12}}},scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{font:chartFont}},x:{grid:{display:false},ticks:{font:chartFont}}}}});
+    }
+
+    // By page chart
+    const pageCtx=document.getElementById("kpiChartPage");
+    if(pageCtx&&d.by_page.length){
+        const colors=["#C62828","#1565C0","#2E7D32","#7B1FA2","#E65100","#F9A825","#00695C","#283593","#4E342E"];
+        _kpiCharts.page=new Chart(pageCtx,{type:"bar",data:{
+            labels:d.by_page.map(r=>_PAGE_LABELS[r.page]||r.page),
+            datasets:[{label:"조회수",data:d.by_page.map(r=>r.views),backgroundColor:d.by_page.map((_,i)=>colors[i%colors.length]+"CC")}]
+        },options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{font:chartFont}},x:{grid:{display:false},ticks:{font:chartFont,maxRotation:45}}}}});
+    }
+
+    // By hour chart
+    const hourCtx=document.getElementById("kpiChartHour");
+    if(hourCtx&&d.by_hour.length){
+        const hourData=Array(24).fill(0);
+        d.by_hour.forEach(r=>{hourData[r.hour]=r.views});
+        _kpiCharts.hour=new Chart(hourCtx,{type:"bar",data:{
+            labels:Array.from({length:24},(_,i)=>i+"시"),
+            datasets:[{label:"접속수",data:hourData,backgroundColor:"rgba(21,101,192,.6)",borderRadius:3}]
+        },options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{font:chartFont}},x:{grid:{display:false},ticks:{font:chartFont,maxRotation:0}}}}});
+    }
+}
+
+// --- Pageview Tracker ---
+let _pvSessionStart=Date.now();
+let _pvCount=0;
+
+function _trackPageview(page){
+    _pvCount++;
+    try{fetch("/api/analytics/pageview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({page:page})})}catch(e){}
+}
+
+// Session end tracker
+window.addEventListener("beforeunload",()=>{
+    const dur=Math.round((Date.now()-_pvSessionStart)/1000);
+    if(dur>1&&_pvCount>0){
+        try{navigator.sendBeacon("/api/analytics/session",JSON.stringify({duration_sec:dur,pages_viewed:_pvCount}))}catch(e){}
+    }
+});
+
+
 // --- Admin DB Browser ---
 let _admDbCur="overview";
 const _admDbState={shiny:{days:0,rarity:"",page:1},spawns:{days:1,rarity:"",shiny:"",caught:"",page:1},userpoke:{q:"",rarity:"",shiny:"",iv:""}};
@@ -2370,11 +2504,10 @@ async function admDbEconomy(){
     </div>`;
 }
 
-// Also load DB overview when admin page loads
-const _origLoadAdmin=typeof loadAdmin==="function"?loadAdmin:null;
+// Override loadAdmin to work with category tabs
 async function loadAdmin(){
     await Promise.all([adminLoadUsers(),adminLoadOrders()]);
-    admDbTab("overview");
+    admCatSwitch("manage");
 }
 
 
