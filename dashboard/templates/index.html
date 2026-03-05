@@ -313,6 +313,108 @@
             #page-admin .section table{display:block;overflow-x:auto}
             #page-admin div[style*="grid-template-columns:repeat(3"]{grid-template-columns:1fr!important}
         }
+
+        /* ─── Admin Dark Neon Theme ─── */
+        #page-admin{background:#0a0a14;border-radius:12px;padding:16px;margin:-12px -14px;min-height:calc(100vh - 120px)}
+        #page-admin *{border-color:rgba(255,255,255,.08)}
+        #page-admin h2{color:#e0e0e0}
+        #page-admin .section{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);backdrop-filter:blur(4px)}
+        #page-admin .section h2{color:#ccc;font-weight:600}
+
+        /* Neon category tabs */
+        .adm-cat-bar{display:flex;gap:8px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.06)}
+        .adm-cat-btn{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .25s;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.45);letter-spacing:.3px}
+        .adm-cat-btn:hover{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.06)}
+        .adm-cat-btn.active-manage{background:rgba(0,255,136,.08);color:#00ff88;border-color:rgba(0,255,136,.3);box-shadow:0 0 20px rgba(0,255,136,.12),inset 0 0 20px rgba(0,255,136,.04)}
+        .adm-cat-btn.active-db{background:rgba(0,212,255,.08);color:#00d4ff;border-color:rgba(0,212,255,.3);box-shadow:0 0 20px rgba(0,212,255,.12),inset 0 0 20px rgba(0,212,255,.04)}
+        .adm-cat-btn.active-kpi{background:rgba(168,85,247,.08);color:#a855f7;border-color:rgba(168,85,247,.3);box-shadow:0 0 20px rgba(168,85,247,.12),inset 0 0 20px rgba(168,85,247,.04)}
+
+        /* Admin title */
+        .adm-title{font-size:18px;font-weight:700;color:#e8e8e8;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+        .adm-title-glow{font-size:11px;color:rgba(0,255,136,.6);font-weight:400;letter-spacing:.5px}
+
+        /* Dark inputs / buttons inside admin */
+        #page-admin input[type="number"],#page-admin input[type="text"],#page-admin textarea,#page-admin select{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.1)!important;color:#d0d0d0!important;border-radius:6px!important}
+        #page-admin input::placeholder,#page-admin textarea::placeholder{color:rgba(255,255,255,.25)!important}
+        #page-admin input:focus,#page-admin textarea:focus{border-color:rgba(0,255,136,.4)!important;outline:none;box-shadow:0 0 8px rgba(0,255,136,.1)}
+        #page-admin button{transition:all .2s}
+
+        /* Neon action buttons */
+        .neon-btn-green{background:rgba(0,255,136,.12)!important;color:#00ff88!important;border:1px solid rgba(0,255,136,.25)!important;border-radius:6px!important;font-weight:600!important;cursor:pointer}
+        .neon-btn-green:hover{background:rgba(0,255,136,.2)!important;box-shadow:0 0 15px rgba(0,255,136,.2)}
+        .neon-btn-blue{background:rgba(0,212,255,.12)!important;color:#00d4ff!important;border:1px solid rgba(0,212,255,.25)!important;border-radius:6px!important;font-weight:600!important;cursor:pointer}
+        .neon-btn-blue:hover{background:rgba(0,212,255,.2)!important;box-shadow:0 0 15px rgba(0,212,255,.2)}
+        .neon-btn-purple{background:rgba(168,85,247,.12)!important;color:#a855f7!important;border:1px solid rgba(168,85,247,.25)!important;border-radius:6px!important;font-weight:600!important;cursor:pointer}
+        .neon-btn-purple:hover{background:rgba(168,85,247,.2)!important;box-shadow:0 0 15px rgba(168,85,247,.2)}
+        .neon-btn-pink{background:rgba(255,0,110,.12)!important;color:#ff006e!important;border:1px solid rgba(255,0,110,.25)!important;border-radius:6px!important;font-weight:600!important;cursor:pointer}
+        .neon-btn-pink:hover{background:rgba(255,0,110,.2)!important;box-shadow:0 0 15px rgba(255,0,110,.2)}
+
+        /* Admin tables dark */
+        #page-admin table{border-collapse:collapse}
+        #page-admin th{color:rgba(255,255,255,.4);border-bottom:1px solid rgba(255,255,255,.08);font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px}
+        #page-admin td{color:#c8c8c8;border-bottom:1px solid rgba(255,255,255,.04);padding:6px 8px;font-size:12px}
+        #page-admin tr:hover td{background:rgba(255,255,255,.03)}
+        #page-admin .badge-active{background:rgba(0,255,136,.15);color:#00ff88}
+        #page-admin .badge-inactive{background:rgba(255,0,110,.15);color:#ff006e}
+        #page-admin .pg-btn{background:rgba(255,255,255,.06);color:#aaa;border:1px solid rgba(255,255,255,.08)}
+        #page-admin .pg-btn:hover:not(:disabled){background:rgba(0,255,136,.15);color:#00ff88;border-color:rgba(0,255,136,.3)}
+
+        /* DB browser tabs dark */
+        #page-admin .poke-filter{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08);color:rgba(255,255,255,.4)}
+        #page-admin .poke-filter:hover{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.15)}
+        #page-admin .poke-filter.active{background:rgba(0,212,255,.12);color:#00d4ff;border-color:rgba(0,212,255,.3)}
+
+        /* KPI cards neon */
+        .kpi-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:16px;position:relative;overflow:hidden}
+        .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:10px 10px 0 0}
+        .kpi-card.kpi-blue::before{background:linear-gradient(90deg,#00d4ff,#0088ff)}
+        .kpi-card.kpi-green::before{background:linear-gradient(90deg,#00ff88,#00cc6a)}
+        .kpi-card.kpi-purple::before{background:linear-gradient(90deg,#a855f7,#7c3aed)}
+        .kpi-card.kpi-pink::before{background:linear-gradient(90deg,#ff006e,#ff4081)}
+        .kpi-card .kpi-label{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+        .kpi-card .kpi-value{font-size:28px;font-weight:700;letter-spacing:-.5px}
+        .kpi-card.kpi-blue .kpi-value{color:#00d4ff}
+        .kpi-card.kpi-green .kpi-value{color:#00ff88}
+        .kpi-card.kpi-purple .kpi-value{color:#a855f7}
+        .kpi-card.kpi-pink .kpi-value{color:#ff006e}
+        .kpi-card .kpi-sub{font-size:10px;color:rgba(255,255,255,.25);margin-top:2px}
+
+        /* Chart containers dark */
+        .chart-panel{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:16px;position:relative}
+        .chart-panel .chart-title{font-size:12px;font-weight:600;color:rgba(255,255,255,.5);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+        .chart-panel .chart-title span{color:rgba(255,255,255,.2)}
+
+        /* Neon glow animation */
+        @keyframes neonPulse{0%,100%{opacity:.6}50%{opacity:1}}
+        .neon-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;animation:neonPulse 2s ease-in-out infinite}
+        .neon-dot-green{background:#00ff88;box-shadow:0 0 6px #00ff88}
+        .neon-dot-blue{background:#00d4ff;box-shadow:0 0 6px #00d4ff}
+        .neon-dot-purple{background:#a855f7;box-shadow:0 0 6px #a855f7}
+
+        /* Quick action cards dark */
+        .adm-action-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px}
+        .adm-action-card .adm-action-title{font-size:12px;font-weight:700;margin-bottom:8px;color:rgba(255,255,255,.6)}
+
+        /* Admin text colors + CSS var overrides */
+        #page-admin{--card:rgba(255,255,255,.03);--bg:rgba(255,255,255,.02);--border:rgba(255,255,255,.08);--text:#d0d0d0;--muted:rgba(255,255,255,.4);--dim:rgba(255,255,255,.2);--hover:rgba(255,255,255,.05)}
+        #page-admin .empty-msg{color:rgba(255,255,255,.25)}
+        #page-admin .loading{color:rgba(255,255,255,.25)}
+
+        /* Donut chart center label */
+        .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+        .donut-center .donut-val{font-size:22px;font-weight:700;color:#e8e8e8}
+        .donut-center .donut-label{font-size:10px;color:rgba(255,255,255,.35)}
+
+        /* Admin responsive dark */
+        @media(max-width:900px){
+            #page-admin #admKpiCards{grid-template-columns:repeat(2,1fr)!important}
+            #page-admin div[style*="grid-template-columns:1fr 1fr"],#page-admin div[style*="grid-template-columns:2fr 1fr"]{grid-template-columns:1fr!important}
+        }
+        @media(max-width:600px){
+            #page-admin{margin:-8px -6px;padding:12px 8px}
+            .adm-cat-btn{padding:6px 14px;font-size:12px}
+            #page-admin #admKpiCards{grid-template-columns:repeat(2,1fr)!important}
+        }
     </style>
 </head>
 <body>
@@ -730,14 +832,12 @@
 
         <!-- ADMIN PANEL -->
         <div class="page" id="page-admin">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                <h2 style="font-size:16px;font-weight:700;color:var(--text);margin:0">🔧 관리자 패널</h2>
-            </div>
+            <div class="adm-title">🔧 관리자 패널 <span class="adm-title-glow"><span class="neon-dot neon-dot-green"></span>SYSTEM ONLINE</span></div>
             <!-- Admin Category Tabs -->
-            <div style="display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">
-                <div class="poke-filter active" onclick="admCatSwitch('manage')" id="admCatBtn-manage">⚡ 관리</div>
-                <div class="poke-filter" onclick="admCatSwitch('db')" id="admCatBtn-db">🗄️ DB</div>
-                <div class="poke-filter" onclick="admCatSwitch('kpi')" id="admCatBtn-kpi">📈 KPI</div>
+            <div class="adm-cat-bar">
+                <div class="adm-cat-btn active-manage" onclick="admCatSwitch('manage')" id="admCatBtn-manage">⚡ 관리</div>
+                <div class="adm-cat-btn" onclick="admCatSwitch('db')" id="admCatBtn-db">🗄️ DB</div>
+                <div class="adm-cat-btn" onclick="admCatSwitch('kpi')" id="admCatBtn-kpi">📈 KPI</div>
             </div>
 
             <!-- Category: Manage -->
@@ -748,25 +848,25 @@
                 <h2>⚡ 빠른 작업</h2>
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
                     <!-- Credit Grant -->
-                    <div style="background:var(--bg);border-radius:8px;padding:10px">
-                        <div style="font-size:12px;font-weight:700;margin-bottom:6px">🎫 크레딧 지급</div>
-                        <input type="number" id="adm-cr-uid" placeholder="유저 ID" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:4px;background:var(--card)">
-                        <input type="number" id="adm-cr-amt" placeholder="수량" min="1" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:6px;background:var(--card)">
-                        <button onclick="adminGrantCredit()" style="width:100%;padding:6px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">지급 + DM</button>
+                    <div class="adm-action-card">
+                        <div class="adm-action-title">🎫 크레딧 지급</div>
+                        <input type="number" id="adm-cr-uid" placeholder="유저 ID" style="width:100%;padding:6px 10px;font-size:12px;margin-bottom:4px">
+                        <input type="number" id="adm-cr-amt" placeholder="수량" min="1" style="width:100%;padding:6px 10px;font-size:12px;margin-bottom:6px">
+                        <button onclick="adminGrantCredit()" class="neon-btn-green" style="width:100%;padding:7px;font-size:12px">지급 + DM</button>
                     </div>
                     <!-- Masterball Grant -->
-                    <div style="background:var(--bg);border-radius:8px;padding:10px">
-                        <div style="font-size:12px;font-weight:700;margin-bottom:6px">⚾ 마스터볼 지급</div>
-                        <input type="number" id="adm-mb-uid" placeholder="유저 ID" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:4px;background:var(--card)">
-                        <input type="number" id="adm-mb-amt" placeholder="수량" min="1" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:6px;background:var(--card)">
-                        <button onclick="adminGrantMasterball()" style="width:100%;padding:6px;background:var(--purple);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">지급 + DM</button>
+                    <div class="adm-action-card">
+                        <div class="adm-action-title">⚾ 마스터볼 지급</div>
+                        <input type="number" id="adm-mb-uid" placeholder="유저 ID" style="width:100%;padding:6px 10px;font-size:12px;margin-bottom:4px">
+                        <input type="number" id="adm-mb-amt" placeholder="수량" min="1" style="width:100%;padding:6px 10px;font-size:12px;margin-bottom:6px">
+                        <button onclick="adminGrantMasterball()" class="neon-btn-purple" style="width:100%;padding:7px;font-size:12px">지급 + DM</button>
                     </div>
                     <!-- DM Send -->
-                    <div style="background:var(--bg);border-radius:8px;padding:10px">
-                        <div style="font-size:12px;font-weight:700;margin-bottom:6px">💬 DM 발송</div>
-                        <input type="number" id="adm-dm-uid" placeholder="유저 ID" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:4px;background:var(--card)">
-                        <textarea id="adm-dm-msg" placeholder="메시지 내용" rows="2" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:6px;background:var(--card);resize:none;font-family:inherit"></textarea>
-                        <button onclick="adminSendDm()" style="width:100%;padding:6px;background:var(--green);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">발송</button>
+                    <div class="adm-action-card">
+                        <div class="adm-action-title">💬 DM 발송</div>
+                        <input type="number" id="adm-dm-uid" placeholder="유저 ID" style="width:100%;padding:6px 10px;font-size:12px;margin-bottom:4px">
+                        <textarea id="adm-dm-msg" placeholder="메시지 내용" rows="2" style="width:100%;padding:6px 10px;font-size:12px;margin-bottom:6px;resize:none;font-family:inherit"></textarea>
+                        <button onclick="adminSendDm()" class="neon-btn-blue" style="width:100%;padding:7px;font-size:12px">발송</button>
                     </div>
                 </div>
                 <div id="admActionResult" style="display:none;margin-top:8px;padding:8px;border-radius:6px;font-size:12px;text-align:center"></div>
@@ -780,10 +880,10 @@
 
             <!-- User List -->
             <div class="section">
-                <h2>👥 유저 목록 <span id="admUserCount" style="font-size:11px;color:var(--muted);font-weight:400"></span></h2>
+                <h2>👥 유저 목록 <span id="admUserCount" style="font-size:11px;color:rgba(255,255,255,.35);font-weight:400"></span></h2>
                 <div style="display:flex;gap:6px;margin-bottom:8px">
-                    <input type="text" id="admUserSearch" placeholder="닉네임 / 유저네임 / ID 검색" style="flex:1;padding:6px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--card)" onkeydown="if(event.key==='Enter')adminSearchUsers()">
-                    <button onclick="adminSearchUsers()" style="padding:6px 14px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">검색</button>
+                    <input type="text" id="admUserSearch" placeholder="닉네임 / 유저네임 / ID 검색" style="flex:1;padding:6px 12px;font-size:12px" onkeydown="if(event.key==='Enter')adminSearchUsers()">
+                    <button onclick="adminSearchUsers()" class="neon-btn-pink" style="padding:6px 14px;font-size:12px">검색</button>
                 </div>
                 <div id="admUsersTable"><div class="loading">로딩 중...</div></div>
                 <div id="admUsersPager" style="display:flex;justify-content:center;gap:4px;margin-top:8px"></div>
@@ -793,7 +893,7 @@
             <!-- Category: DB Browser -->
             <div id="admCat-db" style="display:none">
             <div class="section">
-                <h2>🗄️ DB 브라우저</h2>
+                <h2><span class="neon-dot neon-dot-blue"></span>DB 브라우저</h2>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
                     <div class="poke-filter active" onclick="admDbTab('overview')">📊 서버현황</div>
                     <div class="poke-filter" onclick="admDbTab('shiny')">✨ 이로치</div>
@@ -807,22 +907,32 @@
 
             <!-- Category: KPI Dashboard -->
             <div id="admCat-kpi" style="display:none">
-            <div class="section">
-                <h2>📈 웹 분석 KPI</h2>
-                <div id="admKpiCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:14px"></div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-                    <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
-                        <div style="font-size:12px;font-weight:700;margin-bottom:8px">📊 일별 방문자 추이 (7일)</div>
-                        <canvas id="kpiChartDaily" height="200"></canvas>
+            <div style="margin-bottom:14px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+                    <span class="neon-dot neon-dot-purple"></span>
+                    <span style="font-size:14px;font-weight:700;color:#e0e0e0">웹 분석 KPI</span>
+                    <span style="font-size:10px;color:rgba(255,255,255,.25);margin-left:auto" id="kpiLastUpdate"></span>
+                </div>
+                <div id="admKpiCards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 일별 방문자 추이 <span style="font-size:10px;color:rgba(255,255,255,.2)">7일</span></div>
+                        <div style="height:200px"><canvas id="kpiChartDaily"></canvas></div>
                     </div>
-                    <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
-                        <div style="font-size:12px;font-weight:700;margin-bottom:8px">📂 카테고리별 조회수</div>
-                        <canvas id="kpiChartPage" height="200"></canvas>
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 카테고리별 조회수</div>
+                        <div style="height:200px"><canvas id="kpiChartPage"></canvas></div>
                     </div>
                 </div>
-                <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
-                    <div style="font-size:12px;font-weight:700;margin-bottom:8px">🕐 시간대별 접속 (KST)</div>
-                    <canvas id="kpiChartHour" height="160"></canvas>
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 시간대별 접속 <span style="font-size:10px;color:rgba(255,255,255,.2)">KST 24h</span></div>
+                        <div style="height:180px"><canvas id="kpiChartHour"></canvas></div>
+                    </div>
+                    <div class="chart-panel" style="position:relative">
+                        <div class="chart-title"><span>━━</span> 방문자 vs 페이지뷰</div>
+                        <div style="height:180px;position:relative"><canvas id="kpiChartDonut"></canvas><div class="donut-center" id="kpiDonutCenter"></div></div>
+                    </div>
                 </div>
             </div>
             </div><!-- /admCat-kpi -->
@@ -2145,15 +2255,16 @@ function admCatSwitch(cat){
         const el=document.getElementById("admCat-"+c);
         const btn=document.getElementById("admCatBtn-"+c);
         if(el)el.style.display=c===cat?"":"none";
-        if(btn)btn.classList.toggle("active",c===cat);
+        if(btn){btn.className="adm-cat-btn"+(c===cat?" active-"+c:"")}
     });
     if(cat==="db")admDbTab(_admDbCur||"overview");
     if(cat==="kpi")admKpiLoad();
 }
 
-// --- KPI Dashboard ---
+// --- KPI Dashboard (Dark Neon) ---
 let _kpiCharts={};
 const _PAGE_LABELS={home:"홈",patchnotes:"패치노트",battlerank:"배틀&랭킹",tier:"티어",typechart:"상성표",stats:"통계",mypokemon:"내포켓몬",simulator:"AI어드바이저",admin:"관리자"};
+const _NEON={cyan:"#00d4ff",green:"#00ff88",purple:"#a855f7",pink:"#ff006e",orange:"#ff8c00",yellow:"#fbbf24",blue:"#3b82f6",red:"#ef4444"};
 
 async function admKpiLoad(){
     const cards=document.getElementById("admKpiCards");
@@ -2163,58 +2274,92 @@ async function admKpiLoad(){
     const t=d.today;
     const durMin=Math.floor(t.avg_duration/60);
     const durSec=t.avg_duration%60;
+    const pvPerVisitor=t.visitors>0?(t.pageviews/t.visitors).toFixed(1):"—";
     cards.innerHTML=`
-        <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
-            <div style="font-size:11px;color:var(--muted)">오늘 방문자</div>
-            <div style="font-size:24px;font-weight:700;color:var(--blue)">${t.visitors}</div>
+        <div class="kpi-card kpi-blue">
+            <div class="kpi-label">오늘 방문자</div>
+            <div class="kpi-value">${t.visitors.toLocaleString()}</div>
+            <div class="kpi-sub">Unique Visitors</div>
         </div>
-        <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
-            <div style="font-size:11px;color:var(--muted)">오늘 페이지뷰</div>
-            <div style="font-size:24px;font-weight:700;color:var(--green)">${t.pageviews}</div>
+        <div class="kpi-card kpi-green">
+            <div class="kpi-label">페이지뷰</div>
+            <div class="kpi-value">${t.pageviews.toLocaleString()}</div>
+            <div class="kpi-sub">Total Pageviews</div>
         </div>
-        <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
-            <div style="font-size:11px;color:var(--muted)">평균 체류시간</div>
-            <div style="font-size:24px;font-weight:700;color:var(--purple)">${durMin}분 ${durSec}초</div>
+        <div class="kpi-card kpi-purple">
+            <div class="kpi-label">평균 체류시간</div>
+            <div class="kpi-value">${durMin}<span style="font-size:14px;opacity:.6">m</span> ${durSec}<span style="font-size:14px;opacity:.6">s</span></div>
+            <div class="kpi-sub">Avg. Session</div>
+        </div>
+        <div class="kpi-card kpi-pink">
+            <div class="kpi-label">인당 페이지뷰</div>
+            <div class="kpi-value">${pvPerVisitor}</div>
+            <div class="kpi-sub">Pages / Visitor</div>
         </div>`;
+
+    // Update timestamp
+    const upd=document.getElementById("kpiLastUpdate");
+    if(upd)upd.textContent="Updated "+new Date().toLocaleTimeString("ko-KR");
 
     // Destroy old charts
     Object.values(_kpiCharts).forEach(c=>{try{c.destroy()}catch(e){}});
     _kpiCharts={};
 
-    const chartFont={family:"'Pretendard',-apple-system,sans-serif"};
-    const gridColor="rgba(74,55,40,0.08)";
+    const chartFont={family:"'Pretendard',-apple-system,sans-serif",size:11};
+    const gridColor="rgba(255,255,255,.06)";
+    const tickColor="rgba(255,255,255,.3)";
+    const defaultOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickColor,font:chartFont,boxWidth:10,padding:12}}},animation:{duration:800}};
 
-    // Daily visitors chart
+    // 1. Daily visitors — area chart (Grafana-style gradient fill)
     const dailyCtx=document.getElementById("kpiChartDaily");
     if(dailyCtx&&d.daily.length){
+        const dCtx=dailyCtx.getContext("2d");
+        const grad1=dCtx.createLinearGradient(0,0,0,220);
+        grad1.addColorStop(0,"rgba(0,212,255,.35)");grad1.addColorStop(1,"rgba(0,212,255,.02)");
+        const grad2=dCtx.createLinearGradient(0,0,0,220);
+        grad2.addColorStop(0,"rgba(0,255,136,.25)");grad2.addColorStop(1,"rgba(0,255,136,.02)");
         _kpiCharts.daily=new Chart(dailyCtx,{type:"line",data:{
             labels:d.daily.map(r=>{const dt=new Date(r.date);return (dt.getMonth()+1)+"/"+dt.getDate()}),
             datasets:[
-                {label:"방문자",data:d.daily.map(r=>r.visitors),borderColor:"#1565C0",backgroundColor:"rgba(21,101,192,.1)",fill:true,tension:.3,pointRadius:4},
-                {label:"페이지뷰",data:d.daily.map(r=>r.pageviews),borderColor:"#2E7D32",backgroundColor:"rgba(46,125,50,.1)",fill:true,tension:.3,pointRadius:4},
+                {label:"방문자",data:d.daily.map(r=>r.visitors),borderColor:_NEON.cyan,backgroundColor:grad1,fill:true,tension:.4,pointRadius:4,pointBackgroundColor:_NEON.cyan,pointBorderColor:"#0a0a14",pointBorderWidth:2,borderWidth:2},
+                {label:"페이지뷰",data:d.daily.map(r=>r.pageviews),borderColor:_NEON.green,backgroundColor:grad2,fill:true,tension:.4,pointRadius:4,pointBackgroundColor:_NEON.green,pointBorderColor:"#0a0a14",pointBorderWidth:2,borderWidth:2},
             ]
-        },options:{responsive:true,plugins:{legend:{labels:{font:chartFont,boxWidth:12}}},scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{font:chartFont}},x:{grid:{display:false},ticks:{font:chartFont}}}}});
+        },options:{...defaultOpts,scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},x:{grid:{color:"rgba(255,255,255,.03)"},ticks:{color:tickColor,font:chartFont}}}}});
     }
 
-    // By page chart
+    // 2. By page — horizontal bar (Dune-style colored bars)
     const pageCtx=document.getElementById("kpiChartPage");
     if(pageCtx&&d.by_page.length){
-        const colors=["#C62828","#1565C0","#2E7D32","#7B1FA2","#E65100","#F9A825","#00695C","#283593","#4E342E"];
+        const barColors=[_NEON.cyan,_NEON.green,_NEON.purple,_NEON.pink,_NEON.orange,_NEON.yellow,_NEON.blue,_NEON.red];
         _kpiCharts.page=new Chart(pageCtx,{type:"bar",data:{
             labels:d.by_page.map(r=>_PAGE_LABELS[r.page]||r.page),
-            datasets:[{label:"조회수",data:d.by_page.map(r=>r.views),backgroundColor:d.by_page.map((_,i)=>colors[i%colors.length]+"CC")}]
-        },options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{font:chartFont}},x:{grid:{display:false},ticks:{font:chartFont,maxRotation:45}}}}});
+            datasets:[{label:"조회수",data:d.by_page.map(r=>r.views),backgroundColor:d.by_page.map((_,i)=>barColors[i%barColors.length]+"88"),borderColor:d.by_page.map((_,i)=>barColors[i%barColors.length]),borderWidth:1,borderRadius:4,borderSkipped:false}]
+        },options:{...defaultOpts,indexAxis:"y",plugins:{...defaultOpts.plugins,legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},y:{grid:{display:false},ticks:{color:"rgba(255,255,255,.5)",font:{...chartFont,size:11}}}}}});
     }
 
-    // By hour chart
+    // 3. By hour — bar chart (gradient bars)
     const hourCtx=document.getElementById("kpiChartHour");
     if(hourCtx&&d.by_hour.length){
+        const hCtx=hourCtx.getContext("2d");
+        const hourGrad=hCtx.createLinearGradient(0,0,0,180);
+        hourGrad.addColorStop(0,_NEON.cyan+"CC");hourGrad.addColorStop(1,_NEON.purple+"44");
         const hourData=Array(24).fill(0);
         d.by_hour.forEach(r=>{hourData[r.hour]=r.views});
         _kpiCharts.hour=new Chart(hourCtx,{type:"bar",data:{
             labels:Array.from({length:24},(_,i)=>i+"시"),
-            datasets:[{label:"접속수",data:hourData,backgroundColor:"rgba(21,101,192,.6)",borderRadius:3}]
-        },options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{font:chartFont}},x:{grid:{display:false},ticks:{font:chartFont,maxRotation:0}}}}});
+            datasets:[{label:"접속수",data:hourData,backgroundColor:hourGrad,borderColor:_NEON.cyan+"66",borderWidth:1,borderRadius:3}]
+        },options:{...defaultOpts,plugins:{...defaultOpts.plugins,legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},x:{grid:{display:false},ticks:{color:tickColor,font:{...chartFont,size:9},maxRotation:0}}}}});
+    }
+
+    // 4. Donut — visitors vs pageviews (Dune-style)
+    const donutCtx=document.getElementById("kpiChartDonut");
+    if(donutCtx){
+        _kpiCharts.donut=new Chart(donutCtx,{type:"doughnut",data:{
+            labels:["방문자","페이지뷰(추가)"],
+            datasets:[{data:[t.visitors,Math.max(0,t.pageviews-t.visitors)],backgroundColor:[_NEON.cyan+"CC",_NEON.green+"66"],borderColor:["#0a0a14","#0a0a14"],borderWidth:3,hoverOffset:6}]
+        },options:{responsive:true,maintainAspectRatio:false,cutout:"68%",plugins:{legend:{display:false}},animation:{duration:800}}});
+        const dc=document.getElementById("kpiDonutCenter");
+        if(dc)dc.innerHTML=`<div class="donut-val">${t.pageviews}</div><div class="donut-label">Total Views</div>`;
     }
 }
 
