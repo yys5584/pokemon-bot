@@ -36,12 +36,12 @@ async def _retry(fn):
 # ============================================================
 
 async def ensure_user(user_id: int, display_name: str, username: str | None = None):
-    """Register or update a user. New users get welcome bonus (6 master balls + 500 BP)."""
+    """Register or update a user. New users get welcome bonus (6 master balls + 500 BP + 10 AI tokens)."""
     async def _do():
         pool = await get_db()
         await pool.execute(
-            """INSERT INTO users (user_id, username, display_name, master_balls, battle_points)
-               VALUES ($1, $2, $3, 6, 500)
+            """INSERT INTO users (user_id, username, display_name, master_balls, battle_points, llm_bonus_quota)
+               VALUES ($1, $2, $3, 6, 500, 10)
                ON CONFLICT(user_id) DO UPDATE SET
                    username = EXCLUDED.username,
                    display_name = EXCLUDED.display_name,

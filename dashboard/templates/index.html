@@ -383,7 +383,7 @@
                             <li>빠른 분석 4종: 전투력/시너지/카운터/밸런스 (알고리즘 기반)</li>
                             <li>AI 분석 3종: 메타/육성/약점 (LLM 기반) <span style="font-size:10px;color:var(--red);font-weight:700">(진행중)</span></li>
                             <li>자유 대화로 전략 상담 가능 <span style="font-size:10px;color:var(--red);font-weight:700">(진행중)</span></li>
-                            <li>일일 20회 무료 토큰 + 후원 보너스 쿼터</li>
+                            <li>일일 3회 무료 토큰 + 후원 보너스 쿼터</li>
                             <li>채팅 세션 분리 (최대 6개, 주제별 관리)</li>
                         </ul>
                         <div style="font-weight:700;font-size:12px;color:var(--purple);margin-bottom:6px">🌐 대시보드 개선</div>
@@ -624,18 +624,17 @@
             <div style="margin-bottom:8px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
                     <span style="font-size:11px;font-weight:700;color:var(--purple)">🤖 AI 분석</span>
-                    <span style="font-size:10px;color:var(--muted)">· 2회 차감</span>
                     <span style="font-size:9px;color:var(--dim);margin-left:auto">Gemini 2.5 Flash</span>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
                     <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('요즘 승률 높은 포켓몬이 뭐야?')">
-                        <span style="font-size:14px">📊</span><span style="font-weight:700;font-size:11px">메타</span>
+                        <span style="font-size:14px">📊</span><span style="font-weight:700;font-size:11px">메타</span><span style="font-size:9px;color:var(--muted)">2회</span>
                     </button>
                     <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 포켓몬 중 키울 만한 거 추천해줘')">
-                        <span style="font-size:14px">🌱</span><span style="font-weight:700;font-size:11px">육성</span>
+                        <span style="font-size:14px">🌱</span><span style="font-weight:700;font-size:11px">육성</span><span style="font-size:9px;color:var(--muted)">3회</span>
                     </button>
                     <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 팀 약점 분석해줘')">
-                        <span style="font-size:14px">🔍</span><span style="font-weight:700;font-size:11px">약점</span>
+                        <span style="font-size:14px">🔍</span><span style="font-weight:700;font-size:11px">약점</span><span style="font-size:9px;color:var(--muted)">3회</span>
                     </button>
                 </div>
             </div>
@@ -676,20 +675,20 @@
                     <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#fff8f0,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,1)" data-tier="1" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
                         <div style="font-size:18px">☕</div>
                         <div style="font-weight:700;font-size:13px">$3</div>
-                        <div style="font-size:11px;color:var(--muted)">AI +50회</div>
+                        <div style="font-size:11px;color:var(--muted)">AI +20회</div>
                         <div style="font-size:10px;color:var(--primary)">🟣 +1마볼</div>
                     </div>
                     <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid var(--primary);background:linear-gradient(180deg,#fff0ec,#fff);box-shadow:0 2px 12px rgba(180,80,50,0.15);transition:all .2s" onclick="selectDonTier(this,2)" data-tier="2" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
                         <div style="font-size:18px">🔥</div>
                         <div style="font-weight:700;font-size:13px">$7</div>
-                        <div style="font-size:11px;color:var(--muted)">AI +100회 <span style="color:var(--primary)">(+50)</span></div>
+                        <div style="font-size:11px;color:var(--muted)">AI +50회</div>
                         <div style="font-size:10px;color:var(--primary)">🟣 +3마볼</div>
                         <div style="font-size:9px;color:var(--primary);font-weight:700">BEST</div>
                     </div>
                     <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#fffbe6,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,3)" data-tier="3" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
                         <div style="font-size:18px">⭐</div>
                         <div style="font-weight:700;font-size:13px">$15</div>
-                        <div style="font-size:11px;color:var(--muted)">AI +250회 <span style="color:var(--primary)">(+250)</span></div>
+                        <div style="font-size:11px;color:var(--muted)">AI +100회</div>
                         <div style="font-size:10px;color:var(--primary)">🟣 +7마볼</div>
                     </div>
                     <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#f0f4ff,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,'custom')" data-tier="custom" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">

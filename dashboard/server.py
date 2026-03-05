@@ -108,7 +108,7 @@ SESSION_MAX_AGE = 86400  # 24 hours
 MAX_SESSIONS = 1000  # prevent memory bomb
 
 # LLM rate limiting: DB-persisted daily usage
-LLM_DAILY_LIMIT = 20
+LLM_DAILY_LIMIT = 3
 
 
 async def _ensure_llm_usage_table():
@@ -1002,12 +1002,21 @@ async def api_my_chat(request):
     if not user_msg:
         return web.json_response({"error": "메시지를 입력해주세요."}, status=400)
 
-    # Rate limit check (AI chat costs 2)
+    # Determine cost by message type: meta=2, 육성/약점=3, other=2
     uid = sess["user_id"]
-    allowed, remaining, bonus_rem = await _check_llm_limit(uid, cost=2)
+    _meta_keywords = ["메타", "승률", "요즘", "인기"]
+    _expensive_keywords = ["육성", "키울", "성장", "추천", "약점", "분석해"]
+    msg_lower = user_msg.lower()
+    if any(k in msg_lower for k in _meta_keywords):
+        chat_cost = 2
+    elif any(k in msg_lower for k in _expensive_keywords):
+        chat_cost = 3
+    else:
+        chat_cost = 2
+    allowed, remaining, bonus_rem = await _check_llm_limit(uid, cost=chat_cost)
     if not allowed:
         return pg_json_response({
-            "analysis": f"AI 채팅 횟수가 부족합니다. (2회 필요, 잔여 {remaining}회)\n\n⚡ 빠른 분석(전투력/시너지/카운터/밸런스)은 1회만 차감됩니다.\n💎 아래 후원하기로 추가 횟수를 구매할 수 있어요!",
+            "analysis": f"AI 채팅 횟수가 부족합니다. ({chat_cost}회 필요, 잔여 {remaining}회)\n\n⚡ 빠른 분석(전투력/시너지/카운터/밸런스)은 1회만 차감됩니다.\n💎 아래 후원하기로 추가 횟수를 구매할 수 있어요!",
             "team": [], "warnings": [], "remaining": remaining, "bonus_remaining": bonus_rem,
         })
 
@@ -1027,8 +1036,8 @@ async def api_my_chat(request):
     pokemon = await _build_pokemon_data(rows)
     meta = await _get_battle_meta()
 
-    # Record LLM usage (2 tokens)
-    await _record_llm_usage(uid, cost=2)
+    # Record LLM usage
+    await _record_llm_usage(uid, cost=chat_cost)
     _, remaining_after, bonus_after = await _check_llm_limit(uid)
 
     # Try Gemini first
@@ -1416,9 +1425,9 @@ NOWPAYMENTS_API = "https://api.nowpayments.io/v1"
 
 # Tier configuration: {tier_id: {price_usd, llm_quota, master_balls, label}}
 PAYMENT_TIERS = {
-    1: {"price_usd": 3, "llm_quota": 50, "master_balls": 1, "label": "$3 - AI 50회 + 마볼 1개"},
-    2: {"price_usd": 7, "llm_quota": 150, "master_balls": 3, "label": "$7 - AI 150회 + 마볼 3개"},
-    3: {"price_usd": 15, "llm_quota": 500, "master_balls": 7, "label": "$15 - AI 500회 + 마볼 7개"},
+    1: {"price_usd": 3, "llm_quota": 20, "master_balls": 1, "label": "$3 - AI 20회 + 마볼 1개"},
+    2: {"price_usd": 7, "llm_quota": 50, "master_balls": 3, "label": "$7 - AI 50회 + 마볼 3개"},
+    3: {"price_usd": 15, "llm_quota": 100, "master_balls": 7, "label": "$15 - AI 100회 + 마볼 7개"},
 }
 
 
@@ -1437,7 +1446,7 @@ async def api_payment_create(request):
 
     if custom_amount and isinstance(custom_amount, (int, float)) and custom_amount >= 1:
         price_usd = float(custom_amount)
-        llm_quota = int(price_usd / 7 * 150)
+        llm_quota = int(price_usd / 7 * 50)
         master_balls = max(1, int(price_usd / 3))
         label = f"${price_usd:.0f} - AI {llm_quota}회 + 마볼 {master_balls}개"
     elif tier_id in PAYMENT_TIERS:
