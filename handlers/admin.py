@@ -10,7 +10,7 @@ import config
 from database import queries
 from services.spawn_service import schedule_spawns_for_chat
 from services.event_service import invalidate_event_cache
-from utils.helpers import schedule_delete
+from utils.helpers import schedule_delete, icon_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ async def spawn_rate_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if room:
         await schedule_spawns_for_chat(context.application, chat_id, room["member_count"])
 
-    await update.message.reply_text(f"✅ 스폰 배율이 {multiplier}x로 설정되었습니다!")
+    await update.message.reply_text(f"{icon_emoji('check')} 스폰 배율이 {multiplier}x로 설정되었습니다!", parse_mode="HTML")
 
 
 # ============================================================
@@ -161,7 +161,7 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Increment count and show remaining
         await queries.increment_force_spawn(chat_id)
         used = count + 1
-        resp = await update.message.reply_text(f"⚡ 강제스폰! ({used}/50회)")
+        resp = await update.message.reply_text(f"{icon_emoji('bolt')} 강제스폰! ({used}/50회)", parse_mode="HTML")
         schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         logger.info(f"force_spawn: success in chat {chat_id} ({used}/50)")
     except Exception as e:
@@ -189,7 +189,7 @@ async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAU
     # Use ticket (atomic)
     success = await queries.use_force_spawn_ticket(user_id)
     if not success:
-        resp = await update.message.reply_text("⚡ 강스권이 없습니다! DM에서 '상점'으로 구매하세요.")
+        resp = await update.message.reply_text(f"{icon_emoji('bolt')} 강스권이 없습니다! DM에서 '상점'으로 구매하세요.", parse_mode="HTML")
         schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         return
 
@@ -201,9 +201,10 @@ async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAU
     room = await queries.get_chat_room(chat_id)
     chat_title = room["chat_title"] if room else "이 채팅방"
     resp = await update.message.reply_text(
-        f"⚡ {display_name}이(가) 강스권을 사용했습니다!\n"
-        f"🔄 [{chat_title}]의 강제스폰 횟수가 초기화되었습니다. (0/50)\n"
-        f"📦 남은 강스권: {remaining}개"
+        f"{icon_emoji('bolt')} {display_name}이(가) 강스권을 사용했습니다!\n"
+        f"{icon_emoji('check')} [{chat_title}]의 강제스폰 횟수가 초기화되었습니다. (0/50)\n"
+        f"{icon_emoji('container')} 남은 강스권: {remaining}개",
+        parse_mode="HTML",
     )
     schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
 
@@ -228,7 +229,7 @@ async def force_spawn_reset_handler(update: Update, context: ContextTypes.DEFAUL
             return
 
     await queries.reset_force_spawn_counts()
-    await update.message.reply_text("✅ 모든 방의 강제스폰 횟수가 초기화되었습니다!")
+    await update.message.reply_text(f"{icon_emoji('check')} 모든 방의 강제스폰 횟수가 초기화되었습니다!", parse_mode="HTML")
 
 
 async def pokeball_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -251,7 +252,7 @@ async def pokeball_reset_handler(update: Update, context: ContextTypes.DEFAULT_T
             return
 
     await queries.reset_catch_limits()
-    await update.message.reply_text("✅ 모든 유저의 포켓볼(잡기 횟수)이 초기화되었습니다!")
+    await update.message.reply_text(f"{icon_emoji('check')} 모든 유저의 포켓볼(잡기 횟수)이 초기화되었습니다!", parse_mode="HTML")
 
 
 # ============================================================
@@ -376,7 +377,7 @@ async def event_end_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await queries.end_event(event_id)
     invalidate_event_cache()
-    await update.message.reply_text(f"✅ 이벤트 #{event_id} 종료되었습니다.")
+    await update.message.reply_text(f"{icon_emoji('check')} 이벤트 #{event_id} 종료되었습니다.", parse_mode="HTML")
 
 
 # ============================================================
@@ -401,7 +402,7 @@ async def stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👥 총 유저: {total['total_users']}명",
         f"💬 활성 채팅방: {total['total_chats']}개",
         f"🌿 총 스폰: {total['total_spawns']}회",
-        f"✨ 총 포획: {total['total_catches']}회",
+        f"🎯 총 포획: {total['total_catches']}회",
         f"🔄 총 교환: {total['total_trades']}회",
         "",
         f"📅 오늘 스폰: {today['today_spawns']}회",
@@ -531,10 +532,11 @@ async def grant_masterball_handler(update: Update, context: ContextTypes.DEFAULT
     new_total = await queries.get_master_balls(target_user_id)
 
     await update.message.reply_text(
-        f"✅ 마스터볼 지급 완료!\n"
+        f"{icon_emoji('check')} 마스터볼 지급 완료!\n"
         f"대상: {user['display_name']}\n"
         f"지급: {count}개\n"
-        f"현재 보유: {new_total}개"
+        f"현재 보유: {new_total}개",
+        parse_mode="HTML",
     )
 
     # 대상 유저에게 DM 알림
@@ -570,7 +572,7 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Check active temp pass
         active_pass = await queries.get_active_arcade_pass(chat_id)
         if chat_id in config.ARCADE_CHAT_IDS:
-            status = "✅ 영구 등록"
+            status = f"{icon_emoji('check')} 영구 등록"
         elif active_pass:
             from datetime import datetime, timezone
             expires = active_pass["expires_at"]
@@ -663,3 +665,21 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text("🕹️ 아케이드 해제됨. 일반 스폰으로 복구됩니다.")
         logger.info(f"Arcade channel unregistered: {chat_id}")
+
+
+async def force_tournament_reg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 대회시작 — manually trigger tournament registration."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from services.tournament_service import start_registration
+    await start_registration(context)
+    await update.message.reply_text("✅ 대회 등록 수동 시작!")
+
+
+async def force_tournament_run_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 대회진행 — manually trigger tournament execution."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from services.tournament_service import start_tournament
+    await update.message.reply_text("⚔️ 대회 진행 시작!")
+    await start_tournament(context)

@@ -153,10 +153,12 @@ def get_type_multiplier(attacker_type: str, defender_type: str) -> float:
 
 
 def _iv_tag(val: int, base: int) -> str:
-    """Format a single stat with IV bonus: '191(+5)' or '191'."""
+    """Format a single stat with IV diff: '191(+5)', '180(-3)', or '191'."""
     diff = val - base
     if diff > 0:
         return f"{val}(+{diff})"
+    elif diff < 0:
+        return f"{val}({diff})"
     return str(val)
 
 
@@ -175,11 +177,13 @@ def calc_power(stats: dict) -> int:
 
 
 def format_power(stats: dict, base: dict = None) -> str:
-    """Format power as '639(+50)' or '639'."""
+    """Format power as '639(+50)', '639(-30)', or '639'."""
     power = calc_power(stats)
     if base:
         base_power = calc_power(base)
         diff = power - base_power
         if diff > 0:
             return f"{power}(+{diff})"
+        elif diff < 0:
+            return f"{power}({diff})"
     return str(power)

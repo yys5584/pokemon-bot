@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
-from utils.helpers import hearts_display, rarity_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji
+from utils.helpers import hearts_display, rarity_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji, shiny_emoji, icon_emoji, ball_emoji, resolve_title_badge
 from utils.card_generator import generate_card
 from utils.parse import parse_number, parse_name_arg
 from utils.battle_calc import iv_total
@@ -263,7 +263,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     Shows team pokemon first, then groups duplicate species.
     """
     original_total = len(pokemon_list)
-    slot_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+    slot_emojis = [icon_emoji(str(i)) for i in range(1, 7)]
 
     # Apply filters if provided
     if filt is None:
@@ -280,27 +280,30 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     # Identify team pokemon (for header display) — only in default mode
     team_pokemon = [p for p in pokemon_list if p.get("team_slot") is not None] if not has_filter else []
 
-    # Group ALL pokemon by pokemon_id
+    # Group pokemon by pokemon_id — skip grouping in IV sort mode (show individual ranking)
     from collections import OrderedDict
-    groups = OrderedDict()
-    for p in filtered:
-        pid = p["pokemon_id"]
-        if pid not in groups:
-            groups[pid] = []
-        groups[pid].append(p)
-
-    # Build display items
-    display_items = []
     all_indices = {id(p): i for i, p in enumerate(pokemon_list)}
+    skip_grouping = filt.get("sort") == "iv"
 
-    for pid, members in groups.items():
-        if len(members) == 1:
-            p = members[0]
-            display_items.append(("single", all_indices[id(p)], p))
-        else:
-            first = members[0]
-            indices = [all_indices[id(m)] for m in members]
-            display_items.append(("group", pid, indices, first, len(members)))
+    if skip_grouping:
+        display_items = [("single", all_indices[id(p)], p) for p in filtered]
+    else:
+        groups = OrderedDict()
+        for p in filtered:
+            pid = p["pokemon_id"]
+            if pid not in groups:
+                groups[pid] = []
+            groups[pid].append(p)
+
+        display_items = []
+        for pid, members in groups.items():
+            if len(members) == 1:
+                p = members[0]
+                display_items.append(("single", all_indices[id(p)], p))
+            else:
+                first = members[0]
+                indices = [all_indices[id(m)] for m in members]
+                display_items.append(("group", pid, indices, first, len(members)))
 
     # Paginate
     total_items = len(display_items)
@@ -334,11 +337,11 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 teams[tn] = []
             teams[tn].append(p)
         for tn in sorted(teams.keys()):
-            lines.append(f"\n⚔️ 팀{tn}")
+            lines.append(f"\n{icon_emoji('battle')} 팀{tn}")
             for p in teams[tn]:
                 slot = p.get("team_slot", 1) - 1
                 se = slot_emojis[slot] if 0 <= slot < 6 else "▸"
-                shiny = "✨" if p.get("is_shiny") else ""
+                shiny = shiny_emoji() if p.get("is_shiny") else ""
                 rb = rarity_badge(p.get("rarity", ""))
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
                 iv_tag = ""
@@ -359,7 +362,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 _, idx, p = item
                 max_f = config.get_max_friendship(p)
                 hearts = hearts_display(p["friendship"], max_f)
-                shiny = "✨" if p.get("is_shiny") else ""
+                shiny = shiny_emoji() if p.get("is_shiny") else ""
                 fav = "⭐" if p.get("is_favorite") else ""
                 evo_mark = ""
                 if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
@@ -367,8 +370,12 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 # IV grade
                 iv_tag = ""
                 if p.get("iv_hp") is not None:
-                    grade, _ = config.get_iv_grade(_iv_sum(p))
-                    iv_tag = f" [{grade}]"
+                    iv_sum = _iv_sum(p)
+                    grade, _ = config.get_iv_grade(iv_sum)
+                    if filt.get("sort") == "iv":
+                        iv_tag = f" [{grade}]{iv_sum}"
+                    else:
+                        iv_tag = f" [{grade}]"
                 rb = rarity_badge(p.get("rarity", ""))
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
                 lines.append(f"{item_num}. {rb}{tb}{shiny}{fav} {p['name_ko']}{iv_tag}  {hearts}{evo_mark}")
@@ -381,25 +388,8 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
 
     # Build buttons
     select_buttons = []
-    row = []
-    for i, item in enumerate(page_items):
-        num = start + i + 1
-        if item[0] == "single":
-            _, idx, p = item
-            label = f"{num}. {p['name_ko']}"
-            cb = f"mypoke_v_{user_id}_{idx}_{page}"
-        else:
-            _, pid, indices, first, count = item
-            label = f"{num}. {first['name_ko']} x{count}"
-            cb = f"mypoke_g_{user_id}_{pid}_{page}"
-        row.append(InlineKeyboardButton(label, callback_data=cb))
-        if len(row) == 2:
-            select_buttons.append(row)
-            row = []
-    if row:
-        select_buttons.append(row)
 
-    # Filter buttons row
+    # Filter/sort row (above pokemon list for easy access)
     sort_mode = filt.get("sort", "default")
     fav_on = filt.get("fav", False)
     type_on = filt.get("type")
@@ -419,7 +409,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     ]
     select_buttons.append(filter_row)
 
-    # Type filter row (show active type or "타입" button)
+    # Type filter row
     if type_on:
         type_name = config.TYPE_NAME_KO.get(type_on, type_on)
         select_buttons.append([
@@ -430,6 +420,25 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
         select_buttons.append([
             InlineKeyboardButton("🏷 타입필터", callback_data=f"mypoke_tmore_{user_id}"),
         ])
+
+    # Pokemon selection buttons
+    row = []
+    for i, item in enumerate(page_items):
+        num = start + i + 1
+        if item[0] == "single":
+            _, idx, p = item
+            label = f"{num}. {p['name_ko']}"
+            cb = f"mypoke_v_{user_id}_{idx}_{page}"
+        else:
+            _, pid, indices, first, count = item
+            label = f"{num}. {first['name_ko']} x{count}"
+            cb = f"mypoke_g_{user_id}_{pid}_{page}"
+        row.append(InlineKeyboardButton(label, callback_data=cb))
+        if len(row) == 2:
+            select_buttons.append(row)
+            row = []
+    if row:
+        select_buttons.append(row)
 
     # Pagination
     nav_row = []
@@ -460,7 +469,7 @@ def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: i
     for i, p in enumerate(members):
         idx = pokemon_list.index(p)
         num = i + 1
-        shiny = " ✨이로치" if p.get("is_shiny") else ""
+        shiny = f" {shiny_emoji()}이로치" if p.get("is_shiny") else ""
         max_f = config.get_max_friendship(p)
         hearts = hearts_display(p["friendship"], max_f)
 
@@ -496,7 +505,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
 
     max_f = config.get_max_friendship(p)
     hearts = hearts_display(p["friendship"], max_f)
-    shiny_mark = "✨" if p.get("is_shiny") else ""
+    shiny_mark = shiny_emoji() if p.get("is_shiny") else ""
 
     evo_text = ""
     if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
@@ -505,7 +514,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
         evo_text = "\n🔄 교환으로 진화 가능"
 
     rarity_text = rarity_badge_label(p["rarity"])
-    shiny_text = "  ✨이로치" if p.get("is_shiny") else ""
+    shiny_text = f"  {shiny_emoji()}이로치" if p.get("is_shiny") else ""
 
     # IV information
     from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, iv_total, EVO_STAGE_MAP
@@ -538,7 +547,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
             evo_stage=evo_stage,
         )
         stats_line = (
-            f"\n⚡ 전투력: {format_power(stats, base)}"
+            f"\n{icon_emoji('bolt')} 전투력: {format_power(stats, base)}"
             f"\n{format_stats_line(stats, base)}"
         )
 
@@ -563,31 +572,30 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
     # Team info
     team_info = ""
     if p.get("team_slot") is not None:
-        team_info = f"\n⚔️ 팀{p.get('team_num', 1)} — {p['team_slot']}번 슬롯"
+        team_info = f"\n{icon_emoji('battle')} 팀{p.get('team_num', 1)} — {p['team_slot']}번 슬롯"
     lines.append(team_info)
 
     # Action buttons
     buttons = []
 
-    # Row 1: actions
-    action_row = [
-        InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
+    # Row 1: care actions (most used)
+    care_row = [
         InlineKeyboardButton("🍖 밥", callback_data=f"mypoke_feed_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("🎮 놀기", callback_data=f"mypoke_play_{user_id}_{idx}_{page}"),
     ]
-    # Add evolution button if eligible
     can_evo_friendship = p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP
     can_evo_trade = p["evolves_to"] and p["evolution_method"] == "trade"
     if can_evo_friendship:
-        action_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))
-    buttons.append(action_row)
+        care_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))
+    buttons.append(care_row)
 
-    # Row 2: team add + favorite
-    fav_label = "⭐ 즐찾해제" if p.get("is_favorite") else "☆ 즐겨찾기"
+    # Row 2: info + settings
+    fav_label = "⭐ 즐찾해제" if p.get("is_favorite") else "☆ 즐찾"
     buttons.append([
+        InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
+        InlineKeyboardButton(fav_label, callback_data=f"mypoke_fav_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{idx}_{page}"),
-        InlineKeyboardButton(fav_label, callback_data=f"mypoke_fav_{user_id}_{idx}_{page}"),
     ])
 
     # Row 3: navigation
@@ -766,7 +774,18 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             idx = max(0, min(idx, len(pokemon_list) - 1))
             p = pokemon_list[idx]
             team_num = 1 if action == "t1" else 2
-            result = await _do_add_to_team(p, user_id, team_num)
+            text, markup = await _build_slot_picker(user_id, p, idx, page, team_num)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "tset":
+            # mypoke_tset_{uid}_{idx}_{page}_{slot}_{team_num}
+            idx = int(parts[3])
+            page = int(parts[4])
+            slot = int(parts[5])
+            team_num = int(parts[6])
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            p = pokemon_list[idx]
+            result = await _do_set_slot(p, user_id, team_num, slot)
             await query.answer(result, show_alert=True)
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             idx = max(0, min(idx, len(pokemon_list) - 1))
@@ -779,7 +798,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 def _format_appraisal(p: dict) -> str:
     """Format IV appraisal text for a pokemon."""
-    shiny = "✨" if p.get("is_shiny") else ""
+    shiny = shiny_emoji() if p.get("is_shiny") else ""
     rb = rarity_badge(p.get("rarity", "common"))
     ivs = {
         "HP": p.get("iv_hp"), "ATK": p.get("iv_atk"), "DEF": p.get("iv_def"),
@@ -790,7 +809,7 @@ def _format_appraisal(p: dict) -> str:
     pct = round(total / 186 * 100, 1)
 
     stat_labels = {"HP": "HP   ", "ATK": "공격 ", "DEF": "방어 ", "SPA": "특공 ", "SPDEF": "특방 ", "SPD": "스피드"}
-    lines = [f"📋 {shiny}{rb} {p['name_ko']} 감정 결과\n"]
+    lines = [f"{icon_emoji('bookmark')} {shiny}{rb} {p['name_ko']} 감정 결과\n"]
     for key in ("HP", "ATK", "DEF", "SPA", "SPDEF", "SPD"):
         v = ivs[key] if ivs[key] is not None else 15
         filled = round(v / 31 * 6)
@@ -814,11 +833,11 @@ async def _do_feed(p: dict, user_id: int) -> str:
     from services.event_service import get_friendship_boost
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_FEED * boost
-    new_f = min(max_f, p["friendship"] + gain)
-    await queries.update_pokemon_friendship(p["id"], new_f)
-    await queries.increment_feed(p["id"])
+    new_f = await queries.atomic_feed(p["id"], gain, max_f)
+    if new_f is None:
+        return "오류가 발생했습니다."
     remaining = config.FEED_PER_DAY - p["fed_today"] - 1
-    return f"🍖 {p['name_ko']}에게 밥! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
+    return f"{icon_emoji('ham')} {p['name_ko']}에게 밥! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
 
 
 async def _do_play(p: dict, user_id: int) -> str:
@@ -831,11 +850,11 @@ async def _do_play(p: dict, user_id: int) -> str:
     from services.event_service import get_friendship_boost
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_PLAY * boost
-    new_f = min(max_f, p["friendship"] + gain)
-    await queries.update_pokemon_friendship(p["id"], new_f)
-    await queries.increment_play(p["id"])
+    new_f = await queries.atomic_play(p["id"], gain, max_f)
+    if new_f is None:
+        return "오류가 발생했습니다."
     remaining = config.PLAY_PER_DAY - p["played_today"] - 1
-    return f"🎮 {p['name_ko']}와 놀기! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
+    return f"{icon_emoji('game')} {p['name_ko']}와 놀기! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
 
 
 async def _do_evolve(p: dict, user_id: int) -> str:
@@ -852,33 +871,89 @@ async def _do_evolve(p: dict, user_id: int) -> str:
     if not evo_target:
         return "진화 대상을 찾을 수 없습니다."
     await queries.evolve_pokemon(p["id"], p["evolves_to"])
-    return f"✨ {p['name_ko']}이(가) {evo_target['name_ko']}(으)로 진화했습니다!"
+    return f"🎉 {p['name_ko']}이(가) {evo_target['name_ko']}(으)로 진화했습니다!"
 
 
-async def _do_add_to_team(p: dict, user_id: int, team_num: int) -> str:
-    """Add pokemon to battle team, return result message."""
+async def _build_slot_picker(user_id: int, p: dict, idx: int, page: int,
+                             team_num: int) -> tuple[str, InlineKeyboardMarkup]:
+    """Show 6 team slots for placing a pokemon."""
     from database import battle_queries as bq
     team = await bq.get_battle_team(user_id, team_num)
+    slot_emojis = [icon_emoji(str(i)) for i in range(1, 7)]
+    slot_plain = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+    slot_map = {t["slot"]: t for t in team}
+
+    shiny = shiny_emoji() if p.get("is_shiny") else ""
+    tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+    lines = [f"{icon_emoji('battle')} 팀{team_num}에 {tb}{shiny} {p['name_ko']} 배치", "슬롯을 선택하세요:\n"]
+
+    buttons = []
+    for s in range(1, 7):
+        if s in slot_map:
+            t = slot_map[s]
+            t_iv = ""
+            if t.get("iv_hp") is not None:
+                total = iv_total(t["iv_hp"], t.get("iv_atk", 0), t.get("iv_def", 0),
+                                 t.get("iv_spa", 0), t.get("iv_spdef", 0), t.get("iv_spd", 0))
+                grade, _ = config.get_iv_grade(total)
+                t_iv = f" [{grade}]{total}"
+            ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
+            t_shiny = shiny_emoji() if t.get("is_shiny") else ""
+            lines.append(f"{slot_emojis[s-1]} {ttb}{t_shiny} {t['name_ko']}{t_iv}")
+            label = f"{slot_plain[s-1]} {t['name_ko']} → 교체"
+        else:
+            lines.append(f"{slot_emojis[s-1]} (빈 슬롯)")
+            label = f"{slot_plain[s-1]} 빈 슬롯 ← 배치"
+        buttons.append([InlineKeyboardButton(
+            label, callback_data=f"mypoke_tset_{user_id}_{idx}_{page}_{s}_{team_num}"
+        )])
+
+    buttons.append([InlineKeyboardButton("❌ 취소", callback_data=f"mypoke_v_{user_id}_{idx}_{page}")])
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
+
+async def _do_set_slot(p: dict, user_id: int, team_num: int, slot: int) -> str:
+    """Place pokemon into a specific team slot. Returns result message."""
+    from database import battle_queries as bq
+    team = await bq.get_battle_team(user_id, team_num)
+
     # Check if already on this team
     for t in team:
         if t.get("pokemon_instance_id") == p["id"]:
-            return f"이미 팀{team_num}에 등록되어 있습니다!"
-    if len(team) >= config.TEAM_MAX:
-        return f"팀{team_num}이 가득 찼습니다 ({config.TEAM_MAX}마리)!"
-    # Legendary limit
+            if t["slot"] == slot:
+                return f"이미 슬롯 {slot}에 등록되어 있습니다!"
+            return f"이미 팀{team_num}의 슬롯 {t['slot']}에 등록되어 있습니다!"
+
+    # Build new slot map
+    slot_map = {t["slot"]: t["pokemon_instance_id"] for t in team}
+    replaced_name = None
+    for t in team:
+        if t["slot"] == slot:
+            replaced_name = t["name_ko"]
+    slot_map[slot] = p["id"]
+
+    # Validate: legendary limit (exclude replaced pokemon)
     if p["rarity"] == "legendary":
-        leg_count = sum(1 for t in team if t.get("rarity") == "legendary")
+        leg_count = sum(
+            1 for t in team
+            if t.get("rarity") == "legendary" and t["slot"] != slot
+        )
         if leg_count >= 1:
             return "전설 포켓몬은 팀당 1마리만 가능합니다!"
-    # Epic duplicate check
+
+    # Validate: epic duplicate (exclude replaced pokemon)
     if p["rarity"] == "epic":
         for t in team:
-            if t.get("rarity") == "epic" and t.get("pokemon_id") == p["pokemon_id"]:
+            if t["slot"] != slot and t.get("rarity") == "epic" and t.get("pokemon_id") == p["pokemon_id"]:
                 return "같은 종의 에픽 포켓몬은 중복 불가!"
-    # Add to team
-    instance_ids = [t["pokemon_instance_id"] for t in team] + [p["id"]]
+
+    # Save
+    instance_ids = [slot_map[s] for s in sorted(slot_map.keys())]
     await bq.set_battle_team(user_id, instance_ids, team_num)
-    return f"✅ {p['name_ko']}을(를) 팀{team_num}에 추가! ({len(instance_ids)}/{config.TEAM_MAX})"
+
+    if replaced_name:
+        return f"{icon_emoji('check')} 슬롯{slot}: {replaced_name} → {p['name_ko']} 교체!"
+    return f"{icon_emoji('check')} {p['name_ko']}을(를) 슬롯 {slot}에 배치!"
 
 
 # --- Pokemon TMI data (웃긴 버전) ---
@@ -1152,7 +1227,7 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
     # Check if user has it
     pokedex = await queries.get_user_pokedex(user_id)
     caught_ids = {p["pokemon_id"] for p in pokedex}
-    owned = "✅ 보유 중" if pid in caught_ids else "❌ 미보유"
+    owned = f"{icon_emoji('check')} 보유 중" if pid in caught_ids else "❌ 미보유"
 
     # Evolution chain
     evo_line = await _build_evo_chain(pokemon)
@@ -1231,16 +1306,18 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     # Group by category
     categories = {
-        "📚 1세대 도감 (관동)": ["beginner", "collector", "trainer", "master", "champion", "living_dex"],
-        "🌏 2세대 도감 (성도)": ["gen2_starter", "gen2_collector", "gen2_trainer", "gen2_master"],
-        "💫 그랜드": ["grand_master"],
-        "🐉 전설": ["legend_hunter"],
-        "🎯 활동 기반": ["first_catch", "catch_master", "run_expert", "owl", "decisive", "love_fan", "diligent"],
-        "💎 수집 특화": ["furry", "rare_hunter"],
+        f"{icon_emoji('pokedex')} 1세대 도감 (관동)": ["beginner", "collector", "trainer", "master", "champion", "living_dex"],
+        f"{icon_emoji('chikorita')} 2세대 도감 (성도)": ["gen2_starter", "gen2_collector", "gen2_trainer", "gen2_master"],
+        f"{icon_emoji('mew')} 그랜드": ["grand_master"],
+        f"{icon_emoji('dratini')} 전설": ["legend_hunter"],
+        f"{icon_emoji('gotcha')} 활동 기반": ["first_catch", "catch_master", "run_expert", "owl", "decisive", "love_fan", "diligent"],
+        f"{icon_emoji('crystal')} 수집 특화": ["furry", "rare_hunter"],
         "🟣 마스터볼": ["masterball_rich"],
-        "🤝 교환": ["trader"],
-        "⚔️ 배틀": ["battle_first", "battle_fighter", "battle_champion", "battle_legend",
+        f"{icon_emoji('exchange')} 교환": ["trader"],
+        f"{icon_emoji('battle')} 배틀": ["battle_first", "battle_fighter", "battle_champion", "battle_legend",
                     "battle_streak3", "battle_streak10", "battle_sweep", "partner_set"],
+        "🏆 토너먼트": ["tournament_first", "inaugural_champ", "tournament_champ"],
+        f"{icon_emoji('crystal')} 이로치": ["shiny_hunter", "shiny_master", "shiny_legend"],
     }
 
     for cat_name, title_ids in categories.items():
@@ -1250,8 +1327,19 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             if not t_info:
                 continue
             name, emoji, desc, _, _ = t_info
-            status = "✅" if tid in unlocked_ids else "🔒"
-            cat_lines.append(f"  {status} {emoji} {name} — {desc}")
+            status = icon_emoji("check") if tid in unlocked_ids else "🔒"
+            badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
+            buff = config.TITLE_BUFFS.get(tid)
+            buff_text = ""
+            if buff:
+                parts = []
+                if buff.get("daily_masterball"):
+                    parts.append(f"마볼+{buff['daily_masterball']}/일")
+                if buff.get("extra_feed"):
+                    parts.append(f"밥+{buff['extra_feed']}")
+                if parts:
+                    buff_text = f" ✨{', '.join(parts)}"
+            cat_lines.append(f"  {status} {badge} {name} — {desc}{buff_text}")
 
         if cat_lines:
             lines.append(f"\n{cat_name}")
@@ -1262,7 +1350,7 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     lines.append(f"\n\n해금: {got}/{total}개")
     lines.append("'칭호' 명령어로 장착할 수 있어요!")
 
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
 
 # ============================================================
@@ -1303,13 +1391,24 @@ async def title_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not t_info:
             continue
         name, emoji, desc, _, _ = t_info
-        equipped = " ✅" if name == current_title else ""
-        lines.append(f"{emoji} {name}{equipped} — {desc}")
-        btn_label = f"{'✅ ' if name == current_title else ''}{emoji} {name}"
+        badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
+        equipped = f" {icon_emoji('check')}" if name == current_title else ""
+        buff = config.TITLE_BUFFS.get(tid)
+        buff_text = ""
+        if buff:
+            parts = []
+            if buff.get("daily_masterball"):
+                parts.append(f"마볼+{buff['daily_masterball']}/일")
+            if buff.get("extra_feed"):
+                parts.append(f"밥+{buff['extra_feed']}")
+            if parts:
+                buff_text = f" ✨{', '.join(parts)}"
+        lines.append(f"{badge} {name}{equipped} — {desc}{buff_text}")
+        btn_label = f"{'✅ ' if name == current_title else ''}{name}"
         buttons.append(InlineKeyboardButton(btn_label, callback_data=f"title_{tid}"))
 
     # Add "remove title" button
-    no_title_mark = " ✅" if not current_title else ""
+    no_title_mark = f" {icon_emoji('check')}" if not current_title else ""
     lines.append(f"\n🚫 칭호 없음{no_title_mark}")
     buttons.append(InlineKeyboardButton(f"{'✅ ' if not current_title else ''}🚫 해제", callback_data="title_none"))
 
@@ -1320,6 +1419,7 @@ async def title_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "\n".join(lines) + "\n\n⬇️ 장착할 칭호를 선택하세요:",
         reply_markup=markup,
+        parse_mode="HTML",
     )
 
 
@@ -1334,8 +1434,15 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     title_id = query.data.replace("title_", "")
 
     if title_id == "none":
+        # 기존 칭호에 버프가 있었는지 확인
+        user = await queries.get_user(user_id)
+        old_title = user.get("title", "") if user else ""
+        old_buff = config.get_title_buff_by_name(old_title) if old_title else None
         await queries.equip_title(user_id, "", "")
-        await query.edit_message_text("🚫 칭호를 해제했습니다.")
+        warn = ""
+        if old_buff:
+            warn = "\n\n⚠️ 칭호 효과가 비활성화됩니다!"
+        await query.edit_message_text(f"🚫 칭호를 해제했습니다.{warn}")
         return
 
     # Check if user has this title
@@ -1349,7 +1456,24 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     name, emoji, desc, _, _ = t_info
     await queries.equip_title(user_id, name, emoji)
-    await query.edit_message_text(f"✅ 칭호 장착: 「{emoji} {name}」\n\n채팅방에서 이름 옆에 표시됩니다!")
+    badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
+
+    buff = config.TITLE_BUFFS.get(title_id)
+    buff_msg = ""
+    if buff:
+        parts = []
+        if buff.get("daily_masterball"):
+            parts.append(f"  • 매일 마스터볼 +{buff['daily_masterball']}개 지급")
+        if buff.get("extra_feed"):
+            parts.append(f"  • 밥주기 횟수 +{buff['extra_feed']}회 (일 {config.FEED_PER_DAY + buff['extra_feed']}회)")
+        if parts:
+            buff_msg = "\n\n✨ 칭호 효과 활성화!\n" + "\n".join(parts)
+
+    await query.edit_message_text(
+        f"{icon_emoji('check')} 칭호 장착: 「{badge} {name}」\n\n"
+        f"채팅방에서 이름 옆에 표시됩니다!{buff_msg}",
+        parse_mode="HTML",
+    )
 
 
 # ============================================================
@@ -1380,23 +1504,27 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 칭호
     title = user.get("title", "") if user else ""
-    title_emoji = user.get("title_emoji", "") if user else ""
-    title_text = f"「{title_emoji} {title}」" if title else "없음"
+    title_emoji_raw = user.get("title_emoji", "") if user else ""
+    if title and title_emoji_raw:
+        badge = resolve_title_badge(title_emoji_raw, title)
+        title_text = f"「{badge} {title}」"
+    else:
+        title_text = "없음"
 
-    lines = [f"📋 {display_name}님의 상태창\n"]
+    lines = [f"{icon_emoji('bookmark')} {display_name}님의 상태창\n"]
 
     # 기본 정보
     lines.append(f"🏷️ 칭호: {title_text}")
-    lines.append(f"🔮 마스터볼: {master_balls}개")
-    lines.append(f"⚔️ BP: {bp}")
-    lines.append(f"📦 보유 포켓몬: {len(pokemon_list)}마리")
+    lines.append(f"{ball_emoji('masterball')} 마스터볼: {master_balls}개")
+    lines.append(f"{icon_emoji('coin')} BP: {bp}")
+    lines.append(f"{icon_emoji('container')} 보유 포켓몬: {len(pokemon_list)}마리")
 
     # 도감 수
     unique_ids = {p["pokemon_id"] for p in pokemon_list}
     shiny_count = sum(1 for p in pokemon_list if p.get("is_shiny"))
-    lines.append(f"📖 도감: {len(unique_ids)}/251종")
+    lines.append(f"{icon_emoji('pokedex')} 도감: {len(unique_ids)}/251종")
     if shiny_count > 0:
-        lines.append(f"✨ 이로치: {shiny_count}마리")
+        lines.append(f"{shiny_emoji()} 이로치: {shiny_count}마리")
 
     # 배틀 전적
     wins = battle_stats.get("battle_wins", 0)
@@ -1404,7 +1532,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total = wins + losses
     win_rate = f"{wins / total * 100:.0f}%" if total > 0 else "-"
     best = battle_stats.get("best_streak", 0)
-    lines.append(f"\n⚔️ 배틀 전적: {wins}승 {losses}패 (승률 {win_rate})")
+    lines.append(f"\n{icon_emoji('battle')} 배틀 전적: {wins}승 {losses}패 (승률 {win_rate})")
     if best > 0:
         lines.append(f"🔥 최고 연승: {best}연승")
 
@@ -1426,19 +1554,19 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
         skill = POKEMON_SKILLS.get(partner["pokemon_id"], ("몸통박치기", 1.2))
-        lines.append(f"🤝 파트너: {tb} {partner['name_ko']}  {type_name}  ⚡{format_power(stats, base)}")
-        lines.append(f"   ❤️ 친밀도: {hearts_display(partner['friendship'])}")
-        lines.append(f"   📊 {format_stats_line(stats, base)}")
-        lines.append(f"   💥 기술: {skill[0]}")
+        lines.append(f"{icon_emoji('pokemon-love')} 파트너: {tb} {partner['name_ko']}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}")
+        lines.append(f"   {icon_emoji('favorite')} 친밀도: {hearts_display(partner['friendship'])}")
+        lines.append(f"   {icon_emoji('stationery')} {format_stats_line(stats, base)}")
+        lines.append(f"   {icon_emoji('skill')} 기술: {skill[0]}")
     else:
-        lines.append("🤝 파트너: 미지정 ('파트너' 명령어로 설정)")
+        lines.append(f"{icon_emoji('pokemon-love')} 파트너: 미지정 ('파트너' 명령어로 설정)")
 
     # 팀
     active_num = await bq.get_active_team_number(user_id)
     team2 = await bq.get_battle_team(user_id, 2)
     lines.append("")
     if team:
-        lines.append(f"👥 배틀팀 {active_num} ({len(team)}/6)")
+        lines.append(f"{icon_emoji('battle')} 배틀팀 {active_num} ({len(team)}/6)")
         total_power = 0
         total_base_power = 0
         for i, t in enumerate(team, 1):
@@ -1454,14 +1582,14 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             total_base_power += calc_power(tbase)
             skill = POKEMON_SKILLS.get(t["pokemon_id"], ("몸통박치기", 1.2))
             ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
-            lines.append(f"  {i}. {ttb} {t['name_ko']}  💥{skill[0]}  ⚡{format_power(stats, tbase)}")
+            lines.append(f"  {i}. {ttb} {t['name_ko']}  {icon_emoji('skill')}{skill[0]}  {icon_emoji('bolt')}{format_power(stats, tbase)}")
         iv_diff = total_power - total_base_power
         total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
-        lines.append(f"  💪 팀 전투력: {total_tag}")
+        lines.append(f"  {icon_emoji('bolt')} 팀 전투력: {total_tag}")
         if team2:
             lines.append(f"  (팀2 등록됨: {len(team2)}마리)")
     else:
-        lines.append("👥 배틀팀: 미등록 ('팀등록' 명령어로 설정)")
+        lines.append(f"{icon_emoji('battle')} 배틀팀: 미등록 ('팀등록' 명령어로 설정)")
 
     # 아이템
     arcade_tickets = await queries.get_arcade_tickets(user_id)
@@ -1469,9 +1597,9 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if arcade_tickets > 0 or hyper_balls > 0:
         lines.append("")
     if arcade_tickets > 0:
-        lines.append(f"🎮 아케이드 티켓: {arcade_tickets}개")
+        lines.append(f"{icon_emoji('game')} 아케이드 티켓: {arcade_tickets}개")
     if hyper_balls > 0:
-        lines.append(f"🔵 하이퍼볼: {hyper_balls}개")
+        lines.append(f"{ball_emoji('hyperball')} 하이퍼볼: {hyper_balls}개")
 
     # DM 메뉴 키보드
     menu_keyboard = ReplyKeyboardMarkup(
@@ -1544,7 +1672,7 @@ async def appraisal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pct = round(total / 186 * 100, 1)
 
     # Build display
-    shiny = "✨" if pokemon.get("is_shiny") else ""
+    shiny = shiny_emoji() if pokemon.get("is_shiny") else ""
     rb = rarity_badge(pokemon.get("rarity", "common"))
     name = pokemon["name_ko"]
 

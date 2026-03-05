@@ -8,7 +8,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config import (
     TITLES, LEGEND_HUNTER_THRESHOLD, LEGEND_HUNTER_TITLE,
     RARITY_EMOJI, RARITY_LABEL, RARITY_CUSTOM_EMOJI,
-    TYPE_EMOJI, TYPE_CUSTOM_EMOJI, BALL_CUSTOM_EMOJI,
+    TYPE_EMOJI, TYPE_CUSTOM_EMOJI, BALL_CUSTOM_EMOJI, ICON_CUSTOM_EMOJI,
+    UNLOCKABLE_TITLES,
 )
 from database import queries
 
@@ -120,6 +121,75 @@ def ball_emoji(ball_key: str) -> str:
     return fallback
 
 
+_ICON_FALLBACK = {
+    # Special
+    "skull": "💀",
+    "crystal": "✨",
+    # Numbers
+    "1": "1️⃣", "2": "2️⃣", "3": "3️⃣", "4": "4️⃣", "5": "5️⃣",
+    "6": "6️⃣", "7": "7️⃣", "8": "8️⃣", "9": "9️⃣", "10": "🔟",
+    "check": "✅",
+    # UI Icons
+    "bookmark": "📋",
+    "container": "📦",
+    "pokedex": "📖",
+    "battle": "⚔️",
+    "ham": "🍖",
+    "game": "🎮",
+    "favorite": "❤️",
+    "pokemon-love": "💕",
+    "gotcha": "🎯",
+    "windy": "💨",
+    "exchange": "🔄",
+    "computer": "💻",
+    "coin": "💰",
+    "footsteps": "👣",
+    "pokecenter": "🏥",
+    "shopping-bag": "🛍️",
+    "bolt": "⚡",
+    "skill": "💥",
+    "stationery": "📊",
+    # Pokemon characters (titles)
+    "caterpie": "🐛",
+    "rattata": "🐭",
+    "pikachu": "⚡",
+    "charmander": "🔥",
+    "crown": "👑",
+    "mew": "🌟",
+    "chikorita": "🌿",
+    "bellsprout": "🌱",
+    "eevee": "🦊",
+    "victini": "✌️",
+    "dratini": "🐉",
+    "bulbasaur": "🌱",
+    "mankey": "👊",
+    "zubat": "🦇",
+    "venonat": "👁️",
+    "meowth": "🐱",
+    "jigglypuff": "🎤",
+    "abra": "🔮",
+    "articuno": "❄️",
+    "snorlax": "😴",
+    "squirtle": "💧",
+    "moltres": "🔥",
+    "psyduck": "🐤",
+}
+
+
+def icon_emoji(key: str) -> str:
+    """Return custom emoji HTML tag for an icon."""
+    eid = ICON_CUSTOM_EMOJI.get(key, "")
+    fallback = _ICON_FALLBACK.get(key, "⭐")
+    if eid:
+        return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji>'
+    return fallback
+
+
+def shiny_emoji() -> str:
+    """Return crystal custom emoji for shiny (이로치) indicator."""
+    return icon_emoji("crystal")
+
+
 async def calculate_title(user_id: int) -> tuple[str, str]:
     """Calculate title based on pokedex count and legendary count.
     Returns (title, emoji)."""
@@ -182,11 +252,21 @@ def truncate_name(name: str, max_len: int = 5) -> str:
     return name[:max_len] + ".."
 
 
+# Reverse map: title name → icon key (for DB records with old basic emoji)
+_TITLE_NAME_TO_ICON = {name: emoji for _id, (name, emoji, *_rest) in UNLOCKABLE_TITLES.items()}
+
+
+def resolve_title_badge(title_emoji_raw: str, title_name: str = "") -> str:
+    """Resolve title emoji (DB value or icon key) to rendered badge string."""
+    ek = title_emoji_raw if title_emoji_raw in ICON_CUSTOM_EMOJI else _TITLE_NAME_TO_ICON.get(title_name, title_emoji_raw)
+    return icon_emoji(ek) if ek in ICON_CUSTOM_EMOJI else ek
+
+
 def get_decorated_name(display_name: str, title: str = "", title_emoji: str = "", username: str = None, html: bool = False) -> str:
     """Format a display name with title badge for chat messages.
 
-    - With title (plain): 「👑 챔피언」문유
-    - With title (html):  <b>「👑 챔피언」문유</b>
+    title_emoji can be a custom icon key (e.g. "crown") or a plain emoji.
+    - With title (html):  <b>「crown_icon 챔피언」문유</b>
     - Without title: 문유
     """
     if username:
@@ -195,7 +275,11 @@ def get_decorated_name(display_name: str, title: str = "", title_emoji: str = ""
         name = escape_html(display_name) if html else display_name
 
     if title and title_emoji:
+        # Convert icon key to custom emoji if it matches ICON_CUSTOM_EMOJI
+        # Fallback: if DB has old basic emoji, look up correct key by title name
+        ek = title_emoji if title_emoji in ICON_CUSTOM_EMOJI else _TITLE_NAME_TO_ICON.get(title, title_emoji)
+        badge = icon_emoji(ek) if ek in ICON_CUSTOM_EMOJI else ek
         if html:
-            return f"<b>「{title_emoji} {title}」{name}</b>"
-        return f"「{title_emoji} {title}」{name}"
+            return f"<b>「{badge} {title}」{name}</b>"
+        return f"「{badge} {title}」{name}"
     return name

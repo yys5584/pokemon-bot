@@ -32,4 +32,4 @@ async def tournament_join_handler(update: Update, context: ContextTypes.DEFAULT_
     display_name = update.effective_user.first_name or "트레이너"
 
     success, message = await register_player(user_id, display_name)
-    await update.message.reply_text(message)
+    await update.message.reply_text(message, parse_mode="HTML")

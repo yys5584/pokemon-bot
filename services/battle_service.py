@@ -6,7 +6,7 @@ import logging
 import config
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, calc_power, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
-from utils.helpers import type_badge
+from utils.helpers import type_badge, icon_emoji, rarity_badge
 from models.pokemon_skills import POKEMON_SKILLS
 
 logger = logging.getLogger(__name__)
@@ -107,13 +107,21 @@ def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str]:
     return damage, effect_text, crit_mark
 
 
+def _hp_bar(current: int, max_hp: int, length: int = 6) -> str:
+    """Generate a text HP bar like ████░░."""
+    filled = max(0, round(current / max_hp * length)) if max_hp > 0 else 0
+    return "█" * filled + "░" * (length - filled)
+
+
 def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> dict:
     """Run the automatic battle between two teams.
 
     Each team is a list of _prepare_combatant() dicts.
-    Returns battle result dict.
+    Returns battle result dict with structured turn_data for rich display.
     """
+    SKULL = icon_emoji("skull")
     log_lines = []
+    turn_data = []  # structured data for detailed display
     c_idx = 0
     d_idx = 0
     round_num = 0
@@ -129,6 +137,15 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
         f"({c_idx+1}/{c_total}) {c_mon['tb']}{c_mon['name']}({c_mon['iv_grade']})"
         f" ⚔ ({d_idx+1}/{d_total}) {d_mon['tb']}{d_mon['name']}({d_mon['iv_grade']})"
     )
+    turn_data.append({
+        "type": "matchup",
+        "c_name": c_mon["name"], "d_name": d_mon["name"],
+        "c_tb": c_mon["tb"], "d_tb": d_mon["tb"],
+        "c_idx": c_idx, "d_idx": d_idx,
+        "c_total": c_total, "d_total": d_total,
+        "c_hp": c_mon["current_hp"], "d_hp": d_mon["current_hp"],
+        "c_max_hp": c_mon["stats"]["hp"], "d_max_hp": d_mon["stats"]["hp"],
+    })
 
     while c_idx < len(challenger_team) and d_idx < len(defender_team):
         round_num += 1
@@ -169,6 +186,25 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             f" {match_turn}턴: {c_mon['name']} {c_part} | {d_mon['name']} {d_part}"
         )
 
+        # Structured turn data
+        # Store max_hp from the matchup entry
+        last_matchup = next((t for t in reversed(turn_data) if t["type"] == "matchup"), None)
+        c_max = last_matchup["c_max_hp"] if last_matchup else c_mon["current_hp"]
+        d_max = last_matchup["d_max_hp"] if last_matchup else d_mon["current_hp"]
+        turn_data.append({
+            "type": "turn",
+            "turn_num": match_turn,
+            "c_name": c_mon["name"], "d_name": d_mon["name"],
+            "c_dmg": c_dmg, "d_dmg": d_dmg,
+            "c_crit": c_crit, "d_crit": d_crit,
+            "c_eff": c_eff, "d_eff": d_eff,
+            "c_hp": max(0, c_mon["current_hp"]), "d_hp": max(0, d_mon["current_hp"]),
+            "c_max_hp": c_max, "d_max_hp": d_max,
+            "c_idx": c_idx, "d_idx": d_idx,
+            "c_total": c_total, "d_total": d_total,
+            "first_is_challenger": first_is_challenger,
+        })
+
         # KO check - challenger's pokemon
         if c_mon["current_hp"] <= 0:
             dead_name = c_mon['name']
@@ -176,10 +212,28 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             if c_idx < len(challenger_team):
                 c_mon = challenger_team[c_idx]
                 log_lines.append(
-                    f" 💀 {dead_name} 쓰러짐! ▶ {c_mon['name']} 등장!"
+                    f" {SKULL}{dead_name} 쓰러짐! ▶ {c_mon['name']} 등장!"
                 )
+                turn_data.append({"type": "ko", "dead_name": dead_name, "next_name": c_mon["name"], "next_idx": c_idx, "next_total": c_total, "side": "challenger"})
+                # New matchup entry for correct max_hp tracking
+                if d_idx < len(defender_team) and d_mon["current_hp"] > 0:
+                    match_turn = 0
+                    log_lines.append(
+                        f"\n({c_idx+1}/{c_total}) {c_mon['tb']}{c_mon['name']}({c_mon['iv_grade']})"
+                        f" ⚔ ({d_idx+1}/{d_total}) {d_mon['tb']}{d_mon['name']}({d_mon['iv_grade']})"
+                    )
+                    turn_data.append({
+                        "type": "matchup",
+                        "c_name": c_mon["name"], "d_name": d_mon["name"],
+                        "c_tb": c_mon["tb"], "d_tb": d_mon["tb"],
+                        "c_idx": c_idx, "d_idx": d_idx,
+                        "c_total": c_total, "d_total": d_total,
+                        "c_hp": c_mon["current_hp"], "d_hp": d_mon["current_hp"],
+                        "c_max_hp": c_mon["stats"]["hp"], "d_max_hp": d_mon["stats"]["hp"],
+                    })
             else:
-                log_lines.append(f" 💀 {dead_name} 쓰러짐!")
+                log_lines.append(f" {SKULL}{dead_name} 쓰러짐!")
+                turn_data.append({"type": "ko", "dead_name": dead_name, "next_name": None, "side": "challenger"})
 
         # KO check - defender's pokemon
         if d_mon["current_hp"] <= 0:
@@ -188,16 +242,27 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             if d_idx < len(defender_team):
                 d_mon = defender_team[d_idx]
                 log_lines.append(
-                    f" 💀 {dead_name} 쓰러짐! ▶ {d_mon['name']} 등장!"
+                    f" {SKULL}{dead_name} 쓰러짐! ▶ {d_mon['name']} 등장!"
                 )
+                turn_data.append({"type": "ko", "dead_name": dead_name, "next_name": d_mon["name"], "next_idx": d_idx, "next_total": d_total, "side": "defender"})
                 if c_idx < len(challenger_team):
                     match_turn = 0  # reset turn counter for new matchup
                     log_lines.append(
                         f"\n({c_idx+1}/{c_total}) {challenger_team[c_idx]['tb']}{challenger_team[c_idx]['name']}({challenger_team[c_idx]['iv_grade']})"
                         f" ⚔ ({d_idx+1}/{d_total}) {d_mon['tb']}{d_mon['name']}({d_mon['iv_grade']})"
                     )
+                    turn_data.append({
+                        "type": "matchup",
+                        "c_name": challenger_team[c_idx]["name"], "d_name": d_mon["name"],
+                        "c_tb": challenger_team[c_idx]["tb"], "d_tb": d_mon["tb"],
+                        "c_idx": c_idx, "d_idx": d_idx,
+                        "c_total": c_total, "d_total": d_total,
+                        "c_hp": challenger_team[c_idx]["current_hp"], "d_hp": d_mon["current_hp"],
+                        "c_max_hp": challenger_team[c_idx]["stats"]["hp"], "d_max_hp": d_mon["stats"]["hp"],
+                    })
             else:
-                log_lines.append(f" 💀 {dead_name} 쓰러짐!")
+                log_lines.append(f" {SKULL}{dead_name} 쓰러짐!")
+                turn_data.append({"type": "ko", "dead_name": dead_name, "next_name": None, "side": "defender"})
 
     # Determine winner
     if round_num > config.BATTLE_MAX_ROUNDS:
@@ -206,6 +271,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
         d_hp = sum(m["current_hp"] for m in defender_team[d_idx:] if m["current_hp"] > 0)
         winner = "challenger" if c_hp >= d_hp else "defender"
         log_lines.append(f"\n⏰ {config.BATTLE_MAX_ROUNDS}라운드 초과! HP합산 판정")
+        turn_data.append({"type": "timeout"})
     elif d_idx >= len(defender_team):
         winner = "challenger"
     else:
@@ -220,6 +286,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
         "challenger_remaining": max(0, c_remaining),
         "defender_remaining": max(0, d_remaining),
         "log": "\n".join(log_lines),
+        "turn_data": turn_data,
         "perfect_win": (
             (winner == "challenger" and c_remaining == len(challenger_team))
             or (winner == "defender" and d_remaining == len(defender_team))
@@ -325,8 +392,10 @@ async def execute_battle(
     d_user = await queries.get_user(defender_id)
     c_name = c_user["display_name"] if c_user else "???"
     d_name = d_user["display_name"] if d_user else "???"
-    c_title_str = f"{c_user['title_emoji']} " if c_user and c_user.get("title_emoji") else ""
-    d_title_str = f"{d_user['title_emoji']} " if d_user and d_user.get("title_emoji") else ""
+    c_te = c_user.get("title_emoji", "") if c_user else ""
+    d_te = d_user.get("title_emoji", "") if d_user else ""
+    c_title_str = f"{icon_emoji(c_te)} " if c_te and c_te in config.ICON_CUSTOM_EMOJI else ""
+    d_title_str = f"{icon_emoji(d_te)} " if d_te and d_te in config.ICON_CUSTOM_EMOJI else ""
 
     winner_name = c_name if result["winner"] == "challenger" else d_name
 
@@ -337,34 +406,78 @@ async def execute_battle(
     c_total_power = sum(calc_power(c["stats"]) for c in c_combatants)
     d_total_power = sum(calc_power(d["stats"]) for d in d_combatants)
 
-    # Build display text — challenger LEFT, defender RIGHT (consistent with log)
+    # Build compact display text from turn_data
+    vs = icon_emoji('battle')
     lines = [
-        "⚔️ 배틀 결과!",
+        f"{vs} 배틀 결과!",
         "━━━━━━━━━━━━━━━",
-        f"{c_title_str}{c_name}  ⚔  {d_title_str}{d_name}",
-        f"⚡{c_total_power}          ⚡{d_total_power}",
+        f"{rarity_badge('red')} {c_title_str}{c_name}  {vs}  {d_title_str}{d_name} {rarity_badge('blue')}",
+        f"{icon_emoji('bolt')}{c_total_power}          {icon_emoji('bolt')}{d_total_power}",
         "━━━━━━━━━━━━━━━",
         "",
-        result["log"],
-        "",
-        "━━━━━━━━━━━━━━━",
-        f"🏆 {winner_name} 승리! (남은 포켓몬: {winner_remaining}마리)",
     ]
 
+    # Compact matchup-by-matchup summary from turn_data
+    cur_c_name, cur_d_name = "", ""
+    cur_c_idx, cur_d_idx = 0, 0
+    matchup_winner = ""
+    matchup_winner_hp = 0
+    last_was_ko = False
+
+    red = rarity_badge("red")
+    blue = rarity_badge("blue")
+    br_red = rarity_badge("bracket_red")
+    br_blue = rarity_badge("bracket_blue")
+
+    def _matchup_line():
+        w_name = cur_c_name if matchup_winner == "c" else cur_d_name
+        arrow = br_red if matchup_winner == "c" else br_blue
+        w_badge = red if matchup_winner == "c" else blue
+        return f"{cur_c_name}({cur_c_idx}) {arrow} {cur_d_name}({cur_d_idx}) → {w_badge}{w_name} 승 HP {matchup_winner_hp}"
+
+    for td in result["turn_data"]:
+        if td["type"] == "matchup":
+            cur_c_name = td["c_name"]
+            cur_d_name = td["d_name"]
+            cur_c_idx = td["c_idx"] + 1
+            cur_d_idx = td["d_idx"] + 1
+            last_was_ko = False
+        elif td["type"] == "turn":
+            if td["c_hp"] <= 0:
+                matchup_winner = "d"
+                matchup_winner_hp = td["d_hp"]
+            elif td["d_hp"] <= 0:
+                matchup_winner = "c"
+                matchup_winner_hp = td["c_hp"]
+            else:
+                matchup_winner = "c" if td["c_hp"] >= td["d_hp"] else "d"
+                matchup_winner_hp = td["c_hp"] if matchup_winner == "c" else td["d_hp"]
+            last_was_ko = False
+        elif td["type"] == "ko":
+            if not last_was_ko:
+                lines.append(_matchup_line())
+            last_was_ko = True
+
+    # Final matchup (timeout or last KO was the battle-ender)
+    if not last_was_ko and matchup_winner:
+        lines.append(_matchup_line())
+
+    lines.append("")
+    lines.append("━━━━━━━━━━━━━━━")
+    lines.append(f"🏆 {winner_name} 승리! (남은 {winner_remaining}마리)")
+
+    footer = []
     if not skip_bp:
-        lines.append("")
-        lines.append(f"💰 +{bp_won} BP")
-
+        footer.append(f"💰 +{bp_won} BP")
     if new_streak >= 2:
-        lines.append(f"{new_streak}연승!")
-
+        footer.append(f"{new_streak}연승!")
     if result["perfect_win"]:
-        lines.append("✨ 완벽한 승리!")
-
-    lines.append(
-        f"📊 {winner_name} 전적: {final_stats['battle_wins']}승 "
+        footer.append("✨ 완벽한 승리!")
+    footer.append(
+        f"📊 {winner_name} {final_stats['battle_wins']}승 "
         f"{final_stats['battle_losses']}패"
     )
+    lines.append(" | ".join(footer))
 
     # Check and unlock battle titles
     await _check_battle_titles(winner_id, final_stats, result["perfect_win"])
