@@ -288,6 +288,271 @@ async def restore_temp_arcades(app):
             logger.info(f"Restored temp arcade for chat {chat_id} ({remaining}s remaining)")
 
 
+async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active: dict):
+    """Quick-resolve an overlapping spawn before starting a new one.
+    This prevents catch attempts from being silently discarded in arcade mode."""
+    from database.connection import get_db
+
+    session_id = active["id"]
+    chat_id = active["chat_id"]
+
+    try:
+        pool = await get_db()
+        row = await pool.fetchrow(
+            "SELECT is_resolved FROM spawn_sessions WHERE id = $1", session_id
+        )
+        if not row or row["is_resolved"] == 1:
+            return  # Already resolved
+
+        # Mark as resolved
+        await pool.execute(
+            "UPDATE spawn_sessions SET is_resolved = 1 WHERE id = $1", session_id
+        )
+
+        # Get pokemon info
+        _prow = await pool.fetchrow(
+            "SELECT pm.id, pm.name_ko, pm.emoji, pm.rarity, pm.catch_rate, "
+            "pm.stat_type, ss.is_shiny "
+            "FROM spawn_sessions ss "
+            "JOIN pokemon_master pm ON ss.pokemon_id = pm.id "
+            "WHERE ss.id = $1", session_id
+        )
+        if not _prow:
+            await queries.close_spawn_session(session_id)
+            return
+        pokemon = dict(_prow)
+
+        pokemon_id = pokemon["id"]
+        pokemon_name = pokemon["name_ko"]
+        rarity = pokemon["rarity"]
+        is_shiny = bool(pokemon.get("is_shiny"))
+
+        # Get catch attempts
+        attempts = await queries.get_session_attempts(session_id)
+        _attempt_messages.pop(session_id, None)
+
+        if not attempts:
+            # Nobody tried — just close silently (don't spam "ran away" in arcade)
+            await queries.close_spawn_session(session_id)
+            await queries.log_spawn(
+                chat_id, pokemon_id, pokemon_name, pokemon["emoji"],
+                rarity, None, None, 0, is_shiny=is_shiny,
+            )
+            logger.info(f"Overlap resolve {session_id}: no attempts, closed")
+            return
+
+        # Get catch rate with event boost
+        base_rate = pokemon["catch_rate"]
+        catch_boost = await get_catch_boost()
+        catch_rate = min(1.0, base_rate * catch_boost)
+
+        # Roll for each catcher
+        results = []
+        for attempt in attempts:
+            if attempt.get("used_master_ball"):
+                roll, success = -1.0, True
+            elif attempt.get("used_hyper_ball"):
+                hyper_rate = min(1.0, catch_rate * config.HYPER_BALL_CATCH_MULTIPLIER)
+                roll = random.random()
+                success = roll < hyper_rate
+            else:
+                total = await queries.count_total_catches(attempt["user_id"])
+                if total < 2:
+                    roll, success = 0.0, True
+                else:
+                    roll = random.random()
+                    success = roll < catch_rate
+            results.append({
+                "user_id": attempt["user_id"],
+                "display_name": attempt["display_name"],
+                "username": attempt["username"],
+                "roll": roll, "success": success,
+                "used_master_ball": bool(attempt.get("used_master_ball")),
+                "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
+            })
+
+        winners = [r for r in results if r["success"]]
+        participants = len(attempts)
+
+        if not winners:
+            # Everyone failed
+            shiny_tag = f" {shiny_emoji()}이로치" if is_shiny else ""
+            rbadge = rarity_badge(rarity)
+            tb = type_badge(pokemon_id)
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"흔들흔들... {icon_emoji('windy')}{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
+                parse_mode="HTML",
+            )
+            await queries.close_spawn_session(session_id)
+            await queries.log_spawn(
+                chat_id, pokemon_id, pokemon_name, pokemon["emoji"],
+                rarity, None, None, participants, is_shiny=is_shiny,
+            )
+            logger.info(f"Overlap resolve {session_id}: all failed, {pokemon_name} escaped")
+            return
+
+        # Pick winner
+        winners.sort(key=lambda x: x["roll"])
+        winner = winners[0]
+        winner_id = winner["user_id"]
+        winner_name = winner["display_name"]
+
+        # Refund master balls to losers
+        master_ball_losers = [
+            r for r in results
+            if r["used_master_ball"] and r["user_id"] != winner_id
+        ]
+        for loser in master_ball_losers:
+            await queries.add_master_ball(loser["user_id"])
+            logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
+            try:
+                await context.bot.send_message(
+                    chat_id=loser["user_id"],
+                    text="🟣 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
+                )
+            except Exception:
+                pass
+
+        # Give Pokemon
+        _inst_id, caught_ivs = await queries.give_pokemon_to_user(
+            winner_id, pokemon_id, chat_id, is_shiny=is_shiny,
+        )
+        await queries.register_pokedex(winner_id, pokemon_id, "catch")
+        await queries.close_spawn_session(session_id, caught_by=winner_id)
+
+        # Update consecutive
+        today = config.get_kst_today()
+        await queries.increment_consecutive(winner_id, today)
+        failed_ids = [r["user_id"] for r in results if not r["success"]]
+        if failed_ids:
+            await asyncio.gather(
+                *(queries.reset_consecutive(uid, today) for uid in failed_ids)
+            )
+
+        # Build result message
+        from utils.helpers import get_decorated_name
+        from utils.battle_calc import iv_total
+        user_data = await queries.get_user(winner_id)
+        decorated = get_decorated_name(
+            winner_name,
+            user_data.get("title", "") if user_data else "",
+            user_data.get("title_emoji", "") if user_data else "",
+            winner.get("username"), html=True,
+        )
+        iv_sum = iv_total(caught_ivs["iv_hp"], caught_ivs["iv_atk"],
+                          caught_ivs["iv_def"], caught_ivs["iv_spa"],
+                          caught_ivs["iv_spdef"], caught_ivs["iv_spd"])
+        iv_grade, _ = config.get_iv_grade(iv_sum)
+        iv_tag = f" [{iv_grade}]"
+
+        rbadge = rarity_badge(rarity)
+        tb = type_badge(pokemon_id)
+        shiny_label = f"{shiny_emoji()}이로치 " if is_shiny else ""
+        be_pokeball = ball_emoji("pokeball")
+        be_master = ball_emoji("masterball")
+        be_hyper = ball_emoji("hyperball")
+
+        if winner.get("used_master_ball"):
+            msg = f"{be_master} 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 확정 포획!{iv_tag}"
+            await queries.increment_title_stat(winner_id, "master_ball_used")
+        elif winner.get("used_hyper_ball"):
+            msg = f"{be_hyper} 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
+        else:
+            msg = f"딸깍! {be_pokeball} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
+
+        if is_shiny:
+            _se = shiny_emoji()
+            msg += f"\n\n{_se}{_se}{_se} 이로치 포켓몬을 잡았다!"
+
+        # Track midnight catch for title
+        hour = config.get_kst_hour()
+        if 2 <= hour < 5:
+            await queries.increment_title_stat(winner_id, "midnight_catch_count")
+        if failed_ids:
+            await asyncio.gather(
+                *(queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
+            )
+
+        # Master Ball random drop
+        if random.random() < 0.02:
+            await queries.add_master_ball(winner_id)
+            msg += f"\n\n{ball_emoji('masterball')} 마스터볼을 획득했다!"
+
+        from utils.helpers import close_button
+        await context.bot.send_message(
+            chat_id=chat_id, text=msg, parse_mode="HTML",
+            reply_markup=close_button(),
+        )
+
+        # DM notification
+        try:
+            from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, EVO_STAGE_MAP, get_normalized_base_stats
+            evo_stage = EVO_STAGE_MAP.get(pokemon_id, 3)
+            stat_type = pokemon.get("stat_type", "balanced") or "balanced"
+            base_kwargs = {}
+            norm = get_normalized_base_stats(pokemon_id)
+            if norm:
+                base_kwargs = norm
+            stats_with_iv = calc_battle_stats(
+                rarity, stat_type, 0, evo_stage=evo_stage,
+                iv_hp=caught_ivs["iv_hp"], iv_atk=caught_ivs["iv_atk"],
+                iv_def=caught_ivs["iv_def"], iv_spa=caught_ivs["iv_spa"],
+                iv_spdef=caught_ivs["iv_spdef"], iv_spd=caught_ivs["iv_spd"],
+                **base_kwargs,
+            )
+            stats_base = calc_battle_stats(
+                rarity, stat_type, 0, evo_stage=evo_stage, **base_kwargs,
+            )
+            shiny_dm = f" {shiny_emoji()}이로치" if is_shiny else ""
+            dm_text = (
+                f"🎉 {rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
+                f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
+                f"{format_stats_line(stats_with_iv, stats_base)}"
+            )
+            catch_buttons = InlineKeyboardMarkup([[
+                InlineKeyboardButton("가방에 넣기 ✅", callback_data=f"catch_keep_{_inst_id}"),
+                InlineKeyboardButton("방생하기 🔄", callback_data=f"catch_release_{_inst_id}"),
+            ]])
+            try:
+                await context.bot.send_message(
+                    chat_id=winner_id, text=dm_text,
+                    parse_mode="HTML", reply_markup=catch_buttons,
+                )
+                logger.info(f"Catch DM sent to {winner_id} for {pokemon_name}")
+            except Exception as dm_err:
+                logger.error(f"Failed to send catch DM to {winner_id}: {dm_err}")
+        except Exception as e:
+            logger.error(f"Catch DM construction failed for {winner_id}: {e}")
+
+        # Title checks (background)
+        from utils.title_checker import check_and_unlock_titles
+        from utils.helpers import escape_html
+        new_titles = await check_and_unlock_titles(winner_id)
+        if new_titles:
+            title_msgs = [
+                f"🎉 <b>「{icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji} {tname}」</b> 칭호 해금!"
+                for _, tname, temoji in new_titles
+            ]
+            safe_name = escape_html(winner_name)
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\nDM에서 '칭호'로 장착하세요!",
+                parse_mode="HTML",
+            )
+
+        # Log
+        await queries.log_spawn(
+            chat_id, pokemon_id, pokemon_name, pokemon["emoji"],
+            rarity, winner_id, winner_name, participants, is_shiny=is_shiny,
+        )
+        logger.info(f"Overlap resolve {session_id}: {winner_name} caught {pokemon_name}")
+
+    except Exception as e:
+        logger.error(f"Overlap resolve failed for session {session_id}: {e}")
+        await queries.close_spawn_session(session_id)
+
+
 async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
     """Execute a single spawn event. Called by JobQueue."""
     chat_id = context.job.data["chat_id"]
@@ -320,13 +585,19 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         if active:
             if not arcade and not force:
                 return  # Normal spawn: skip if active spawn exists
-            # Arcade/force: close old spawn before creating new one
-            await queries.close_spawn_session(active["id"])
-            old_resolve_name = f"resolve_{active['id']}"
+            # Arcade/force: resolve old spawn before creating new one
+            old_session_id = active["id"]
+            old_resolve_name = f"resolve_{old_session_id}"
+
+            # Cancel the scheduled resolve job (we'll resolve inline)
             for job in context.job_queue.jobs():
                 if job.name == old_resolve_name:
                     job.schedule_removal()
                     break
+
+            # Quick-resolve the overlapping spawn (determine catch, send result)
+            await _resolve_overlapping_spawn(context, active)
+
             # Delete old spawn message from chat
             old_msg_id = active.get("message_id")
             if old_msg_id:
@@ -334,7 +605,6 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                     await context.bot.delete_message(chat_id=chat_id, message_id=old_msg_id)
                 except Exception:
                     pass  # Message may already be deleted
-            logger.info(f"Closed overlapping spawn {active['id']} in {chat_id}")
 
         # 2.5 Cooldown: skip if last spawn was within 5 minutes (skip for arcade and force)
         if not arcade and not force:
