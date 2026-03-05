@@ -688,17 +688,14 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("방생하기 🔄", callback_data=f"catch_release_{_inst_id}"),
             ]])
 
-            async def _send_catch_dm():
-                try:
-                    await context.bot.send_message(
-                        chat_id=winner_id, text=dm_text,
-                        parse_mode="HTML", reply_markup=catch_buttons,
-                    )
-                    logger.info(f"Catch DM sent to {winner_id} for {pokemon_name}")
-                except Exception as dm_err:
-                    logger.error(f"Failed to send catch DM to {winner_id}: {dm_err}")
-
-            asyncio.create_task(_send_catch_dm())
+            try:
+                await context.bot.send_message(
+                    chat_id=winner_id, text=dm_text,
+                    parse_mode="HTML", reply_markup=catch_buttons,
+                )
+                logger.info(f"Catch DM sent to {winner_id} for {pokemon_name}")
+            except Exception as dm_err:
+                logger.error(f"Failed to send catch DM to {winner_id}: {dm_err}")
         except Exception as e:
             logger.error(f"Catch DM construction failed for {winner_id}: {e}")
 
