@@ -204,7 +204,7 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
         text=(
             "🏟️ 아케이드 토너먼트!\n"
             "━━━━━━━━━━━━━━━\n\n"
-            "🕘 등록 시간: 지금 ~ 22:00\n"
+            "🕘 등록 시간: 지금 ~ 21:50\n"
             "📋 참가 방법: ㄷ 입력\n"
             "⚔️ 배틀팀이 등록되어 있어야 참가 가능!\n\n"
             "🏆 우승 보상\n"
@@ -217,7 +217,7 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"Tournament registration started for chat {chat_id}")
 
     # Send DM notification to all users
-    # asyncio.create_task(_broadcast_tournament_dm(context))  # TEMP DISABLED
+    asyncio.create_task(_broadcast_tournament_dm(context))
 
 
 async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
@@ -227,15 +227,15 @@ async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Broadcasting tournament DM to {len(user_ids)} users")
 
         msg = (
-            "🏟️ 오늘 밤 아케이드 토너먼트!\n\n"
-            "⏰ 21:00~22:00 등록 / 22:00 대회 시작\n"
-            "📋 아케이드 채널에서 ㄷ 입력으로 참가\n"
+            "🏟️ 아케이드 토너먼트 개최!\n\n"
+            "⏰ 21:00~21:50 등록 / 22:00 대회 시작\n"
+            "📋 아래 채널에서 ㄷ 입력으로 참가!\n"
+            "👉 https://t.me/tg_poke\n\n"
             "⚔️ 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
             "🏆 우승: 마스터볼 2개 + 200 BP + 챔피언 칭호 (밥+1회)\n"
             "🥈 준우승: 100 BP\n"
             "🏅 4강: 50 BP\n\n"
-            "최초 우승자에겐 특별 칭호 🏛️초대 챔피언!\n\n"
-            "👉 https://t.me/tg_poke"
+            "최초 우승자에겐 특별 칭호 🏛️초대 챔피언!"
         )
 
         sent = 0
