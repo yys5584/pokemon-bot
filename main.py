@@ -48,7 +48,7 @@ from handlers.admin import (
 
 from services.spawn_service import schedule_all_chats
 from services.weather_service import update_weather, get_current_weather, WEATHER_BOOSTS
-from services.tournament_service import start_registration, start_tournament
+from services.tournament_service import start_registration, start_tournament, snapshot_teams
 from handlers.tournament import tournament_join_handler
 from dashboard.server import start_dashboard
 
@@ -467,11 +467,16 @@ def main():
         name="weather_update",
     )
 
-    # Tournament schedule (21:00 registration, 22:00 start — KST)
+    # Tournament schedule (21:00 registration, 21:50 snapshot, 22:00 start — KST)
     app.job_queue.run_daily(
         start_registration,
         time=dt_time(config.TOURNAMENT_REG_HOUR, 0, 0, tzinfo=kst),
         name="tournament_reg",
+    )
+    app.job_queue.run_daily(
+        snapshot_teams,
+        time=dt_time(config.TOURNAMENT_REG_HOUR, 50, 0, tzinfo=kst),
+        name="tournament_snapshot",
     )
     app.job_queue.run_daily(
         start_tournament,

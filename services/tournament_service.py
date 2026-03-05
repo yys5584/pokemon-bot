@@ -144,21 +144,52 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
     if user_id in _tournament_state["participants"]:
         return False, "이미 등록되었습니다!"
 
-    # Check battle team
+    # Check battle team exists (validation only, snapshot later at 21:50)
     team = await bq.get_battle_team(user_id)
     if not team:
         return False, "배틀팀이 없습니다! DM에서 '팀등록'으로 팀을 먼저 구성하세요."
 
     _tournament_state["participants"][user_id] = {
         "name": display_name,
-        "team": team,
+        "team": None,  # will be snapshotted at 21:50
     }
 
     count = len(_tournament_state["participants"])
     return True, (
         f"{icon_emoji('check')} {display_name} 참가 등록 완료!\n"
-        f"현재 참가자: {count}명"
+        f"현재 참가자: {count}명\n"
+        f"💡 21:50에 배틀팀이 확정됩니다. 그 전에 팀을 변경할 수 있습니다."
     )
+
+
+async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
+    """JobQueue callback — 21:50 KST: snapshot all registered players' teams."""
+    if not _tournament_state["registering"]:
+        return
+
+    chat_id = _tournament_state["chat_id"]
+    participants = _tournament_state["participants"]
+    if not participants:
+        return
+
+    removed = []
+    for user_id, data in list(participants.items()):
+        team = await bq.get_battle_team(user_id)
+        if not team:
+            removed.append(data["name"])
+            del participants[user_id]
+        else:
+            data["team"] = team
+
+    lines = [
+        f"⚔️ 배틀팀 확정! ({len(participants)}명)",
+        "━━━━━━━━━━━━━━━",
+        "이제부터 팀 변경이 대회에 반영되지 않습니다.",
+    ]
+    if removed:
+        lines.append(f"\n⚠️ 팀 미등록으로 제외: {', '.join(removed)}")
+
+    await _safe_send(context.bot, chat_id, text="\n".join(lines))
 
 
 # ── Bracket Generation ──────────────────────────────────────────
@@ -419,6 +450,16 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     _tournament_state["running"] = True
 
     participants = _tournament_state["participants"]
+
+    # Fallback: if snapshot_teams didn't run (e.g. bot restart), snapshot now
+    for user_id, data in list(participants.items()):
+        if data.get("team") is None:
+            team = await bq.get_battle_team(user_id)
+            if not team:
+                del participants[user_id]
+            else:
+                data["team"] = team
+
     count = len(participants)
 
     if count < config.TOURNAMENT_MIN_PLAYERS:
