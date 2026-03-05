@@ -229,7 +229,7 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
     draw.text((tx, ty), text, fill=(255, 255, 255, 255), font=font)
 
     # Rarity label top-right
-    rarity_labels = {"common": "일반", "rare": "희귀", "epic": "레어", "legendary": "전설"}
+    rarity_labels = {"common": "일반", "rare": "희귀", "epic": "에픽", "legendary": "전설"}
     rarity_text = rarity_labels.get(rarity, rarity)
     rbbox = draw.textbbox((0, 0), rarity_text, font=font_small)
     rw = rbbox[2] - rbbox[0]

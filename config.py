@@ -56,7 +56,7 @@ RARITY_EMOJI = {
 RARITY_LABEL = {
     "common": "일반",
     "rare": "희귀",
-    "epic": "레어",
+    "epic": "에픽",
     "legendary": "전설",
 }
 

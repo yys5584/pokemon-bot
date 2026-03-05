@@ -22,7 +22,7 @@ from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types,
 from database import queries
 
 from handlers.start import start_handler, help_handler
-from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, ranking_handler, log_handler, dashboard_handler, on_chat_activity, close_message_callback
+from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, ranking_handler, log_handler, dashboard_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, status_handler, appraisal_handler, type_chart_handler
 from handlers.battle import (
     partner_handler, partner_callback_handler,
@@ -407,6 +407,10 @@ def main():
 
     # Close message callback (❌ button)
     app.add_handler(CallbackQueryHandler(close_message_callback, pattern=r"^close_msg$"))
+
+    # Catch DM: keep / release callbacks
+    app.add_handler(CallbackQueryHandler(catch_keep_callback, pattern=r"^catch_keep_\d+$"))
+    app.add_handler(CallbackQueryHandler(catch_release_callback, pattern=r"^catch_release_\d+$"))
 
     # Pokedex pagination callback
     app.add_handler(CallbackQueryHandler(pokedex_callback, pattern=r"^dex_\d+$"))

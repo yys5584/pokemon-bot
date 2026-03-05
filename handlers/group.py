@@ -545,3 +545,79 @@ async def dashboard_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="HTML",
         disable_web_page_preview=True,
     )
+
+
+# --- Catch DM: Keep / Release callbacks ---
+
+async def catch_keep_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '가방에 넣기' button on catch DM — just remove buttons."""
+    query = update.callback_query
+    if not query:
+        return
+    user_id = query.from_user.id
+
+    # Extract instance_id from callback_data
+    try:
+        instance_id = int(query.data.split("_")[-1])
+    except (ValueError, IndexError):
+        await query.answer("오류가 발생했습니다.")
+        return
+
+    # Verify ownership
+    from database.connection import get_db
+    pool = await get_db()
+    owner = await pool.fetchval(
+        "SELECT user_id FROM user_pokemon WHERE id = $1", instance_id
+    )
+    if owner != user_id:
+        await query.answer("본인의 포켓몬만 조작할 수 있습니다.")
+        return
+
+    # Remove buttons, append confirmation
+    new_text = query.message.text + "\n\n✅ 가방에 넣었습니다!"
+    try:
+        await query.message.edit_text(new_text, parse_mode="HTML")
+    except Exception:
+        pass
+    await query.answer("가방에 넣었습니다!")
+
+
+async def catch_release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '방생하기' button on catch DM — deactivate pokemon + grant hyperball."""
+    query = update.callback_query
+    if not query:
+        return
+    user_id = query.from_user.id
+
+    # Extract instance_id
+    try:
+        instance_id = int(query.data.split("_")[-1])
+    except (ValueError, IndexError):
+        await query.answer("오류가 발생했습니다.")
+        return
+
+    # Verify ownership + still active
+    from database.connection import get_db
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT user_id, is_active FROM user_pokemon WHERE id = $1", instance_id
+    )
+    if not row or row["user_id"] != user_id:
+        await query.answer("본인의 포켓몬만 조작할 수 있습니다.")
+        return
+    if row["is_active"] == 0:
+        await query.answer("이미 방생한 포켓몬입니다.")
+        return
+
+    # Deactivate pokemon + grant hyperball
+    await queries.deactivate_pokemon(instance_id)
+    await queries.add_hyper_ball(user_id, 1)
+
+    # Remove buttons, append release confirmation
+    be_hyper = ball_emoji("hyperball")
+    new_text = query.message.text + f"\n\n🔄 방생 완료! {be_hyper} 하이퍼볼 1개 획득!"
+    try:
+        await query.message.edit_text(new_text, parse_mode="HTML")
+    except Exception:
+        pass
+    await query.answer("방생 완료! 하이퍼볼 1개 획득!")

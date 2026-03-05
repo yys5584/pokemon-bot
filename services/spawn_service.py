@@ -5,6 +5,7 @@ import random
 import logging
 from datetime import datetime, timedelta, time as dt_time
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import config
@@ -367,8 +368,13 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Weather indicator
         weather_tag = get_weather_display()
 
-        # Arcade channels use shorter window to avoid overlap
-        window = config.ARCADE_SPAWN_WINDOW if arcade else config.SPAWN_WINDOW_SECONDS
+        # Force spawn = 30s, arcade = shorter window, normal = full window
+        if force:
+            window = 30
+        elif arcade:
+            window = config.ARCADE_SPAWN_WINDOW
+        else:
+            window = config.SPAWN_WINDOW_SECONDS
 
         tb = type_badge(pokemon["id"], pokemon.get("pokemon_type"))
         caption = (
@@ -379,7 +385,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Generate card image (run in executor to avoid blocking event loop)
         loop = asyncio.get_event_loop()
         card_buf = await loop.run_in_executor(
-            None, generate_card, pokemon["id"], pokemon["name_ko"], rarity, pokemon["emoji"]
+            None, generate_card, pokemon["id"], pokemon["name_ko"], rarity, pokemon["emoji"], is_shiny
         )
 
         # Send photo BEFORE creating session (so catch isn't possible without image)
@@ -676,7 +682,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
                 f"{format_stats_line(stats_with_iv, stats_base)}"
             )
-            asyncio.create_task(context.bot.send_message(chat_id=winner_id, text=dm_text, parse_mode="HTML"))
+            catch_buttons = InlineKeyboardMarkup([[
+                InlineKeyboardButton("가방에 넣기 ✅", callback_data=f"catch_keep_{_inst_id}"),
+                InlineKeyboardButton("방생하기 🔄", callback_data=f"catch_release_{_inst_id}"),
+            ]])
+            asyncio.create_task(context.bot.send_message(chat_id=winner_id, text=dm_text, parse_mode="HTML", reply_markup=catch_buttons))
         except Exception:
             pass
 
