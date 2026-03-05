@@ -671,7 +671,7 @@ async def api_my_team_recommend(request):
     allowed, remaining, bonus_rem = await _check_llm_limit(uid, cost=1)
     if not allowed:
         return pg_json_response({
-            "team": [], "analysis": "분석 횟수를 모두 사용했습니다.\n💎 아래 후원하기로 추가 횟수를 구매할 수 있어요!",
+            "team": [], "analysis": "크레딧을 모두 사용했습니다.\n💎 아래 후원하기로 추가 크레딧을 구매할 수 있어요!",
             "warnings": [], "remaining": 0, "bonus_remaining": 0,
         })
 
@@ -1113,7 +1113,7 @@ async def api_my_chat(request):
     allowed, remaining, bonus_rem = await _check_llm_limit(uid, cost=chat_cost)
     if not allowed:
         return pg_json_response({
-            "analysis": f"AI 채팅 횟수가 부족합니다. ({chat_cost}회 필요, 잔여 {remaining}회)\n\n⚡ 빠른 분석(전투력/시너지/카운터/밸런스)은 1회만 차감됩니다.\n💎 아래 후원하기로 추가 횟수를 구매할 수 있어요!",
+            "analysis": f"크레딧이 부족합니다. ({chat_cost}크레딧 필요, 잔여 {remaining}크레딧)\n\n⚡ 빠른 분석(전투력/시너지/카운터/밸런스)은 1크레딧만 차감됩니다.\n💎 아래 후원하기로 추가 크레딧을 구매할 수 있어요!",
             "team": [], "warnings": [], "remaining": remaining, "bonus_remaining": bonus_rem,
         })
 
@@ -1167,7 +1167,7 @@ async def api_my_chat(request):
             await _refund_llm_usage(uid, cost=chat_cost)
             _, remaining_after, bonus_after = await _check_llm_limit(uid)
             return pg_json_response({
-                "analysis": "AI 응답을 받지 못했어요. 토큰이 반환되었습니다.",
+                "analysis": "AI 응답을 받지 못했어요. 크레딧이 반환되었습니다.",
                 "team": [], "warnings": [], "refunded": True,
                 "remaining": remaining_after, "bonus_remaining": bonus_after,
             })
@@ -1534,9 +1534,9 @@ NOWPAYMENTS_API = "https://api.nowpayments.io/v1"
 
 # Tier configuration: {tier_id: {price_usd, llm_quota, master_balls, label}}
 PAYMENT_TIERS = {
-    1: {"price_usd": 3, "llm_quota": 20, "master_balls": 1, "label": "$3 - AI 20회 + 마볼 1개"},
-    2: {"price_usd": 7, "llm_quota": 50, "master_balls": 3, "label": "$7 - AI 50회 + 마볼 3개"},
-    3: {"price_usd": 15, "llm_quota": 100, "master_balls": 7, "label": "$15 - AI 100회 + 마볼 7개"},
+    1: {"price_usd": 3, "llm_quota": 20, "master_balls": 1, "label": "$3 - 20크레딧 + 마볼 1개"},
+    2: {"price_usd": 7, "llm_quota": 50, "master_balls": 3, "label": "$7 - 50크레딧 + 마볼 3개"},
+    3: {"price_usd": 15, "llm_quota": 100, "master_balls": 7, "label": "$15 - 100크레딧 + 마볼 7개"},
 }
 
 
@@ -1557,7 +1557,7 @@ async def api_payment_create(request):
         price_usd = float(custom_amount)
         llm_quota = int(price_usd / 7 * 50)
         master_balls = max(1, int(price_usd / 3))
-        label = f"${price_usd:.0f} - AI {llm_quota}회 + 마볼 {master_balls}개"
+        label = f"${price_usd:.0f} - {llm_quota}크레딧 + 마볼 {master_balls}개"
     elif tier_id in PAYMENT_TIERS:
         tier = PAYMENT_TIERS[tier_id]
         price_usd = tier["price_usd"]

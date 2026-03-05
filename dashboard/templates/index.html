@@ -388,18 +388,18 @@
                             <li>레어리티별 색상 하이라이트 (<span style="color:#4CAF50">커먼</span> / <span style="color:#1976D2">레어</span> / <span style="color:#7B1FA2">에픽</span> / <span style="color:#F57F17">전설</span>)</li>
                             <li>주제별로 나눠 관리하는 채팅 세션 (최대 6개)</li>
                         </ul>
-                        <div style="font-weight:700;font-size:12px;color:#1565C0;margin-bottom:6px">🎟️ AI 토큰 시스템</div>
+                        <div style="font-weight:700;font-size:12px;color:#1565C0;margin-bottom:6px">🎟️ 크레딧 시스템</div>
                         <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>첫 가입 시 AI 토큰 <b>10개</b> 보너스 지급!</li>
-                            <li>매일 자정에 무료 토큰 <b>3개</b> 자동 충전</li>
-                            <li>분석 유형별 차등 소모: 메타 2개 / 육성·약점 3개</li>
+                            <li>첫 가입 시 <b>10크레딧</b> 보너스 지급!</li>
+                            <li>매일 자정에 무료 <b>3크레딧</b> 자동 충전</li>
+                            <li>분석 유형별 차등 소모: 메타 2크레딧 / 육성·약점 3크레딧</li>
                         </ul>
                         <div style="font-weight:700;font-size:12px;color:#E65100;margin-bottom:6px">💰 서버 운영 후원</div>
                         <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
                             <li>암호화폐 결제로 서버 운영을 후원할 수 있어요</li>
-                            <li>$3 → AI 20회 + 마스터볼 1개</li>
-                            <li>$7 → AI 50회 + 마스터볼 3개</li>
-                            <li>$15 → AI 100회 + 마스터볼 7개</li>
+                            <li>$3 → 20크레딧 + 마스터볼 1개</li>
+                            <li>$7 → 50크레딧 + 마스터볼 3개</li>
+                            <li>$15 → 100크레딧 + 마스터볼 7개</li>
                             <li>홈 화면에서 후원 현황을 실시간으로 확인 가능</li>
                         </ul>
                         <div style="font-weight:700;font-size:12px;color:#00838F;margin-bottom:6px">📦 내 푸키몬</div>
@@ -617,8 +617,8 @@
         <div class="page" id="page-simulator">
             <!-- Quota display -->
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;padding:4px 8px;background:var(--card);border:1px solid var(--border);border-radius:8px">
-                <span id="simQuotaLabel" style="font-size:11px;font-weight:700;color:var(--text)">🎫 잔여 --회</span>
-                <span style="font-size:10px;color:var(--dim)">빠른분석 1회 · AI분석 2회 차감</span>
+                <span id="simQuotaLabel" style="font-size:11px;font-weight:700;color:var(--text)">🎫 잔여 -- 크레딧</span>
+                <span style="font-size:10px;color:var(--dim)">빠른분석 1크레딧 · AI분석 2크레딧 차감</span>
             </div>
             <!-- Quick Buttons: Basic (algorithm, 1 token) -->
             <div style="margin-bottom:6px">
@@ -649,13 +649,13 @@
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
                     <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('요즘 승률 높은 포켓몬이 뭐야?')">
-                        <span style="font-size:14px">📊</span><span style="font-weight:700;font-size:11px">메타</span><span style="font-size:9px;color:var(--muted)">2회</span>
+                        <span style="font-size:14px">📊</span><span style="font-weight:700;font-size:11px">메타</span><span style="font-size:9px;color:var(--muted)">2cr</span>
                     </button>
                     <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 포켓몬 중 키울 만한 거 추천해줘')">
-                        <span style="font-size:14px">🌱</span><span style="font-weight:700;font-size:11px">육성</span><span style="font-size:9px;color:var(--muted)">3회</span>
+                        <span style="font-size:14px">🌱</span><span style="font-weight:700;font-size:11px">육성</span><span style="font-size:9px;color:var(--muted)">3cr</span>
                     </button>
                     <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 팀 약점 분석해줘')">
-                        <span style="font-size:14px">🔍</span><span style="font-weight:700;font-size:11px">약점</span><span style="font-size:9px;color:var(--muted)">3회</span>
+                        <span style="font-size:14px">🔍</span><span style="font-weight:700;font-size:11px">약점</span><span style="font-size:9px;color:var(--muted)">3cr</span>
                     </button>
                 </div>
             </div>
@@ -687,29 +687,29 @@
                     <div id="donateFill" class="donate-fill" style="width:0%"></div>
                     <span id="donatePct" class="donate-pct">0%</span>
                 </div>
-                <div id="donateLabel" class="donate-label">후원하시면 AI 채팅 보너스가 지급됩니다!</div>
+                <div id="donateLabel" class="donate-label">후원하시면 크레딧 보너스가 지급됩니다!</div>
             </div>
             <div class="section" style="margin-top:10px">
-                <h2>💎 AI 채팅 추가 후원</h2>
-                <p style="font-size:11px;color:var(--muted);margin-bottom:10px">후원 시 AI 채팅 보너스가 지급됩니다. 송금 후 아래 확인 버튼을 눌러주세요.</p>
+                <h2>💎 크레딧 추가 후원</h2>
+                <p style="font-size:11px;color:var(--muted);margin-bottom:10px">후원 시 크레딧 보너스가 지급됩니다. 송금 후 아래 확인 버튼을 눌러주세요.</p>
                 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
                     <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#fff8f0,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,1)" data-tier="1" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
                         <div style="font-size:18px">☕</div>
                         <div style="font-weight:700;font-size:13px">$3</div>
-                        <div style="font-size:11px;color:var(--muted)">AI +20회</div>
+                        <div style="font-size:11px;color:var(--muted)">+20크레딧</div>
                         <div style="font-size:10px;color:var(--primary)">🟣 +1마볼</div>
                     </div>
                     <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid var(--primary);background:linear-gradient(180deg,#fff0ec,#fff);box-shadow:0 2px 12px rgba(180,80,50,0.15);transition:all .2s" onclick="selectDonTier(this,2)" data-tier="2" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
                         <div style="font-size:18px">🔥</div>
                         <div style="font-weight:700;font-size:13px">$7</div>
-                        <div style="font-size:11px;color:var(--muted)">AI +50회</div>
+                        <div style="font-size:11px;color:var(--muted)">+50크레딧</div>
                         <div style="font-size:10px;color:var(--primary)">🟣 +3마볼</div>
                         <div style="font-size:9px;color:var(--primary);font-weight:700">BEST</div>
                     </div>
                     <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#fffbe6,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,3)" data-tier="3" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
                         <div style="font-size:18px">⭐</div>
                         <div style="font-weight:700;font-size:13px">$15</div>
-                        <div style="font-size:11px;color:var(--muted)">AI +100회</div>
+                        <div style="font-size:11px;color:var(--muted)">+100크레딧</div>
                         <div style="font-size:10px;color:var(--primary)">🟣 +7마볼</div>
                     </div>
                     <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#f0f4ff,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,'custom')" data-tier="custom" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
@@ -720,7 +720,7 @@
                 </div>
                 <button id="payBtn" onclick="startPayment()" style="width:100%;padding:14px 20px;font-size:16px;font-weight:700;border:none;border-radius:10px;background:linear-gradient(135deg,#e85d3a,#c0392b);color:#fff;cursor:pointer;margin-bottom:8px;box-shadow:0 4px 15px rgba(200,60,40,0.35);letter-spacing:0.5px;transition:all .2s" onmouseenter="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px rgba(200,60,40,0.45)'" onmouseleave="this.style.transform='';this.style.boxShadow='0 4px 15px rgba(200,60,40,0.35)'">💳 암호화폐로 후원하기</button>
                 <div id="payStatus" style="display:none;text-align:center;font-size:12px;padding:8px;border-radius:6px;margin-bottom:8px"></div>
-                <div style="font-size:10px;color:var(--muted);text-align:center">후원 완료 시 AI 채팅 보너스 + 마스터볼이 자동 지급됩니다.</div>
+                <div style="font-size:10px;color:var(--muted);text-align:center">후원 완료 시 크레딧 + 마스터볼이 자동 지급됩니다.</div>
             </div>
         </div>
 
@@ -858,14 +858,14 @@ function updateQuotaBadge(remaining,bonus){
     if(el){
         const color=remaining<=0?"#FF8A80":remaining<=3?"#FFD54F":"#A5D6A7";
         el.style.color=color;
-        el.textContent=`🎫 AI ${remaining}회`;
-        el.title=`무료 ${Math.max(0,remaining-bonus)}회 + 보너스 ${bonus}회`;
+        el.textContent=`🎫 ${remaining}크레딧`;
+        el.title=`무료 ${Math.max(0,remaining-bonus)} + 보너스 ${bonus}`;
     }
     // Also update simulator quota label
     const sq=document.getElementById("simQuotaLabel");
     if(sq){
         const free=Math.max(0,remaining-bonus);
-        sq.textContent=bonus>0?`🎫 잔여 ${remaining}회 (무료 ${free} + 보너스 ${bonus})`:`🎫 잔여 ${remaining}회`;
+        sq.textContent=bonus>0?`🎫 ${remaining}크레딧 (무료 ${free} + 보너스 ${bonus})`:`🎫 ${remaining}크레딧`;
         sq.style.color=remaining<=0?"var(--red)":remaining<=3?"#E65100":"var(--text)";
     }
 }
