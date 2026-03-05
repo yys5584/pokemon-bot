@@ -1822,7 +1822,8 @@ async def api_payment_create(request):
     )
 
     # Create NOWPayments invoice
-    base_url = str(request.url.origin())
+    # Force HTTPS — Cloudflare Tunnel redirects HTTP→HTTPS, which drops POST body
+    base_url = str(request.url.origin()).replace("http://", "https://")
     payload = {
         "price_amount": price_usd,
         "price_currency": "usd",
