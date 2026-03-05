@@ -1199,6 +1199,7 @@ async function loadHome(){
         <div class="card"><div class="label">활성 채팅방</div><div class="value">${d.total_chats}</div></div>
         <div class="card"><div class="label">총 스폰</div><div class="value">${d.total_spawns}</div><div class="sub">오늘 ${d.today_spawns}</div></div>
         <div class="card"><div class="label">총 포획</div><div class="value">${d.total_catches}</div><div class="sub">오늘 ${d.today_catches}</div></div>
+        <div class="card hl-gold"><div class="label">✨ 이로치</div><div class="value">${d.total_shiny||0}</div></div>
         <div class="card"><div class="label">총 교환</div><div class="value">${d.total_trades}</div></div>
         <div class="card hl-green"><div class="label">🎯 포획률</div><div class="value">${kpi.global_catch_rate}%</div></div>
         <div class="card hl-purple"><div class="label">☕ 후원 현황</div><div class="value" id="homeDonateVal">$0</div></div>`;

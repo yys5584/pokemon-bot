@@ -15,7 +15,7 @@ TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 # Mock data for preview
 MOCK_OVERVIEW = {"total_users": 150, "total_pokemon": 7654, "total_chats": 25,
-                 "today_catches": 42, "today_active_users": 18}
+                 "today_catches": 42, "today_active_users": 18, "total_shiny": 7}
 MOCK_USERS = [{"user_id": 1, "display_name": "트레이너A", "title_emoji": "🏆",
                "pokemon_count": 120, "pokedex_count": 95, "shiny_count": 5}]
 MOCK_RANKING = [{"user_id": 1, "display_name": "챔피언", "title_emoji": "⚔️",

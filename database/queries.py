@@ -1240,12 +1240,16 @@ async def get_total_stats() -> dict:
     total_trades = await pool.fetchrow(
         "SELECT COUNT(*) as cnt FROM trades WHERE status = 'accepted'"
     )
+    total_shiny = await pool.fetchrow(
+        "SELECT COUNT(*) as cnt FROM user_pokemon WHERE is_active = 1 AND is_shiny = 1"
+    )
     return {
         "total_users": users["cnt"] if users else 0,
         "total_chats": chats["cnt"] if chats else 0,
         "total_spawns": total_spawns["cnt"] if total_spawns else 0,
         "total_catches": total_catches["cnt"] if total_catches else 0,
         "total_trades": total_trades["cnt"] if total_trades else 0,
+        "total_shiny": total_shiny["cnt"] if total_shiny else 0,
     }
 
 
