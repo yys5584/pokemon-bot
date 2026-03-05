@@ -932,8 +932,9 @@ TGPoke는 텔레그램 기반 포켓몬 수집·육성·배틀 시뮬레이터�
 
 
 async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> tuple[str, bool]:
-    """Call Gemini Flash API. Returns (response_text, truncated)."""
+    """Call Gemini Flash API with retry on 429. Returns (response_text, truncated)."""
     import aiohttp
+    import asyncio
 
     api_key = os.getenv("GEMINI_API_KEY", "")
     if not api_key:
@@ -959,28 +960,38 @@ async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> tup
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=90)) as resp:
-                if resp.status != 200:
-                    logger.warning(f"Gemini API error: {resp.status}")
-                    return "", False
-                data = await resp.json()
-                candidates = data.get("candidates", [])
-                if candidates:
-                    finish = candidates[0].get("finishReason", "")
-                    if finish and finish != "STOP":
-                        logger.warning(f"Gemini finishReason: {finish}")
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    text = ""
-                    for p in parts:
-                        if "text" in p:
-                            text = p["text"]
-                    if text:
-                        truncated = finish == "MAX_TOKENS"
-                        return text, truncated
-    except Exception as e:
-        logger.warning(f"Gemini API call failed: {e}")
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=90)) as resp:
+                    if resp.status == 429:
+                        wait = 2 ** attempt + 1  # 2s, 3s, 5s
+                        logger.warning(f"Gemini 429 rate limit, retry {attempt+1}/{max_retries} in {wait}s")
+                        await asyncio.sleep(wait)
+                        continue
+                    if resp.status != 200:
+                        body = await resp.text()
+                        logger.warning(f"Gemini API error {resp.status}: {body[:200]}")
+                        return "", False
+                    data = await resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        finish = candidates[0].get("finishReason", "")
+                        if finish and finish != "STOP":
+                            logger.warning(f"Gemini finishReason: {finish}")
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        text = ""
+                        for p in parts:
+                            if "text" in p:
+                                text = p["text"]
+                        if text:
+                            truncated = finish == "MAX_TOKENS"
+                            return text, truncated
+        except Exception as e:
+            logger.warning(f"Gemini API call failed (attempt {attempt+1}): {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2)
     return "", False
 
 
@@ -1143,6 +1154,7 @@ async def api_my_chat(request):
 
     # Record LLM usage (will refund on error)
     await _record_llm_usage(uid, cost=chat_cost)
+    _, remaining_after, bonus_after = await _check_llm_limit(uid)
 
     # Try Gemini first
     gemini_key = os.getenv("GEMINI_API_KEY", "")
@@ -1171,14 +1183,10 @@ async def api_my_chat(request):
                 resp["truncated"] = True
             return pg_json_response(resp)
         else:
-            # Gemini returned empty — refund tokens
+            # Gemini returned empty — refund and fall through to fallback
             await _refund_llm_usage(uid, cost=chat_cost)
             _, remaining_after, bonus_after = await _check_llm_limit(uid)
-            return pg_json_response({
-                "analysis": "AI 응답을 받지 못했어요. 크레딧이 반환되었습니다.",
-                "team": [], "warnings": [], "refunded": True,
-                "remaining": remaining_after, "bonus_remaining": bonus_after,
-            })
+            logger.warning("Gemini returned empty, falling back to algorithm")
 
     # Fallback: algorithm-based
     result = await _fallback_response(user_msg, pokemon, meta)
