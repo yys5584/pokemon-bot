@@ -467,7 +467,7 @@ async def _run_match(
         d_trainer = p2_data['name']
         for td in section:
             if td["type"] == "matchup":
-                lines.append(f"⚔ {C}{td['c_tb']}{td['c_name']} vs {D}{td['d_tb']}{td['d_name']}")
+                lines.append(f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})")
             elif td["type"] == "turn":
                 # Determine who goes first
                 if td["first_is_challenger"]:
@@ -511,7 +511,7 @@ async def _run_match(
         return lines
 
     if is_final:
-        # ── Finals: rich turn-by-turn display (3s delay) ──
+        # ── Finals: each hit as separate message (3s delay) ──
         p1_name = p1_data['name']
         p2_name = p2_data['name']
         await _safe_send(context.bot, chat_id,
@@ -524,27 +524,91 @@ async def _run_match(
         )
         await asyncio.sleep(3)
 
-        # Track current matchup indices for header
-        cur_c_idx, cur_d_idx = 0, 0
-        cur_c_total, cur_d_total = 0, 0
+        for td in result["turn_data"]:
+            if td["type"] == "matchup":
+                await _safe_send(context.bot, chat_id,
+                    text=f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})!",
+                    parse_mode="HTML",
+                )
+                await asyncio.sleep(3)
+
+            elif td["type"] == "turn":
+                if td["first_is_challenger"]:
+                    first_mark, second_mark = C, D
+                    first_name, first_dmg, first_crit, first_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
+                    second_name, second_dmg, second_crit, second_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
+                    first_target_hp, first_target_max = td["d_hp"], td["d_max_hp"]
+                    second_target_hp, second_target_max = td["c_hp"], td["c_max_hp"]
+                    first_target_name, second_target_name = td["d_name"], td["c_name"]
+                    first_target_mark, second_target_mark = D, C
+                else:
+                    first_mark, second_mark = D, C
+                    first_name, first_dmg, first_crit, first_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
+                    second_name, second_dmg, second_crit, second_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
+                    first_target_hp, first_target_max = td["c_hp"], td["c_max_hp"]
+                    second_target_hp, second_target_max = td["d_hp"], td["d_max_hp"]
+                    first_target_name, second_target_name = td["c_name"], td["d_name"]
+                    first_target_mark, second_target_mark = C, D
+
+                # First attack — separate message
+                crit_label = " 크리티컬!" if first_crit else ""
+                skill_label = f" {first_eff}!" if first_eff else " 공격!"
+                bar = _hp_bar(first_target_hp, first_target_max)
+                await _safe_send(context.bot, chat_id,
+                    text=f"{td['turn_num']}턴 ─ {first_mark}{first_name}{skill_label}{crit_label}\n  {first_target_mark}{first_target_name} {bar} {first_target_hp}/{first_target_max} (-{first_dmg})",
+                    parse_mode="HTML",
+                )
+                await asyncio.sleep(3)
+
+                # Counter attack — separate message
+                if second_dmg > 0:
+                    crit2_label = " 크리티컬!" if second_crit else ""
+                    skill2_label = f" {second_eff}!" if second_eff else " 반격!"
+                    bar2 = _hp_bar(second_target_hp, second_target_max)
+                    await _safe_send(context.bot, chat_id,
+                        text=f"{second_mark}{second_name}{skill2_label}{crit2_label}\n  {second_target_mark}{second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})",
+                        parse_mode="HTML",
+                    )
+                    await asyncio.sleep(3)
+
+            elif td["type"] == "ko":
+                m = _mark(td["side"])
+                trainer = p1_name if td["side"] == "challenger" else p2_name
+                if td["next_name"]:
+                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''))
+                    text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n{switch}"
+                else:
+                    text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
+                await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
+                await asyncio.sleep(3)
+
+        await _safe_send(context.bot, chat_id,
+            text=f"\n🎉 {winner_data['name']} 우승! (남은 {remaining}마리)",
+        )
+
+    elif is_semi:
+        # ── Semi-finals: turn-by-turn, one message per turn (3s delay) ──
+        p1_name = p1_data['name']
+        p2_name = p2_data['name']
+        await _safe_send(context.bot, chat_id,
+            text=(
+                f"⚔️ 준결승! — {C}{p1_name} vs {D}{p2_name}\n"
+                f"━━━━━━━━━━━━━━━"
+            ),
+            parse_mode="HTML",
+        )
+        await asyncio.sleep(3)
 
         for td in result["turn_data"]:
             if td["type"] == "matchup":
-                cur_c_idx = td["c_idx"]
-                cur_d_idx = td["d_idx"]
-                cur_c_total = td["c_total"]
-                cur_d_total = td["d_total"]
                 await _safe_send(context.bot, chat_id,
-                    text=f"⚔ {C}{td['c_tb']}{td['c_name']} vs {D}{td['d_tb']}{td['d_name']}!",
+                    text=f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})!",
                     parse_mode="HTML",
                 )
                 await asyncio.sleep(3)
 
             elif td["type"] == "turn":
                 lines = []
-                # 헤더: 트레이너명 + 몇 번째 포켓몬
-                lines.append(f"{C}{p1_name}({td.get('c_idx', cur_c_idx)+1}/{td.get('c_total', cur_c_total)}) vs {D}{p2_name}({td.get('d_idx', cur_d_idx)+1}/{td.get('d_total', cur_d_total)})")
-
                 if td["first_is_challenger"]:
                     first_mark, second_mark = C, D
                     first_name, first_dmg, first_crit, first_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
@@ -564,15 +628,15 @@ async def _run_match(
 
                 crit_label = " 크리티컬!" if first_crit else ""
                 skill_label = f" {first_eff}!" if first_eff else " 공격!"
-                lines.append(f"{td['turn_num']}턴 ─ {first_mark}{first_name}{skill_label}{crit_label}")
                 bar = _hp_bar(first_target_hp, first_target_max)
+                lines.append(f"{td['turn_num']}턴 ─ {first_mark}{first_name}{skill_label}{crit_label}")
                 lines.append(f"  {first_target_mark}{first_target_name} {bar} {first_target_hp}/{first_target_max} (-{first_dmg})")
 
                 if second_dmg > 0:
                     crit2_label = " 크리티컬!" if second_crit else ""
                     skill2_label = f" {second_eff}!" if second_eff else " 반격!"
-                    lines.append(f"{second_mark}{second_name}{skill2_label}{crit2_label}")
                     bar2 = _hp_bar(second_target_hp, second_target_max)
+                    lines.append(f"{second_mark}{second_name}{skill2_label}{crit2_label}")
                     lines.append(f"  {second_target_mark}{second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})")
 
                 await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
@@ -588,28 +652,6 @@ async def _run_match(
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
                 await asyncio.sleep(3)
-
-        await _safe_send(context.bot, chat_id,
-            text=f"\n🎉 {winner_data['name']} 우승! (남은 {remaining}마리)",
-        )
-
-    elif is_semi:
-        # ── Semi-finals: 2 turns per message (3s delay) ──
-        await _safe_send(context.bot, chat_id,
-            text=(
-                f"⚔️ 준결승! — {C}{p1_data['name']} vs {D}{p2_data['name']}\n"
-                f"━━━━━━━━━━━━━━━"
-            ),
-            parse_mode="HTML",
-        )
-        await asyncio.sleep(3)
-
-        # Format all lines, then send 2 lines at a time
-        all_lines = _format_section(result["turn_data"])
-        for i in range(0, len(all_lines), 2):
-            chunk = "\n".join(all_lines[i:i+2])
-            await _safe_send(context.bot, chat_id, text=chunk, parse_mode="HTML")
-            await asyncio.sleep(3)
 
         await _safe_send(context.bot, chat_id,
             text=f"→ {winner_data['name']} 승리! (남은 {remaining}마리)",
