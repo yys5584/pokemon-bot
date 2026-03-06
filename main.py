@@ -287,6 +287,17 @@ async def weather_update_job(context):
 
 # --- Weather command handler ---
 
+async def _optout_handler(update, context):
+    """Handle '수신거부' DM command — toggle patch note opt-out."""
+    user_id = update.effective_user.id
+    await queries.ensure_user(user_id, update.effective_user.first_name or "트레이너")
+    opted_out = await queries.toggle_patch_optout(user_id)
+    if opted_out:
+        await update.message.reply_text("🔕 패치노트 수신이 거부되었습니다.\n포획/미션 등 일반 DM은 정상 수신됩니다.\n\n다시 '수신거부'를 입력하면 해제됩니다.")
+    else:
+        await update.message.reply_text("🔔 패치노트 수신이 다시 활성화되었습니다!")
+
+
 async def weather_handler(update, context):
     """Handle '날씨' command — show current weather and active boost."""
     weather = get_current_weather()
@@ -337,6 +348,9 @@ def main():
     # Tutorial DM handlers (MUST be before other DM handlers)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^튜토$"), tutorial_dm_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^[ㅊㅎㅁ]$"), tutorial_dm_catch))
+
+    # Patch note opt-out (수신거부)
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^수신거부$"), _optout_handler))
 
     # Korean commands via MessageHandler + Regex (DM only)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^도움말$"), help_handler))

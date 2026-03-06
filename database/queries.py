@@ -2369,3 +2369,17 @@ async def cleanup_old_missions(days: int = 7):
     await pool.execute(
         "DELETE FROM daily_missions WHERE mission_date < $1", cutoff,
     )
+
+
+# ============================================================
+# Patch Note Opt-out
+# ============================================================
+
+async def toggle_patch_optout(user_id: int) -> bool:
+    """Toggle patch_optout for a user. Returns new state (True=opted out)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "UPDATE users SET patch_optout = NOT patch_optout WHERE user_id = $1 RETURNING patch_optout",
+        user_id,
+    )
+    return bool(row["patch_optout"]) if row else False

@@ -435,6 +435,10 @@ TUTORIAL_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN tutorial_legendary_id INTEGER DEFAULT NULL",
 ]
 
+PATCH_OPTOUT_MIGRATIONS = [
+    "ALTER TABLE users ADD COLUMN patch_optout BOOLEAN NOT NULL DEFAULT FALSE",
+]
+
 
 async def create_tables():
     """Create all tables."""
@@ -535,6 +539,12 @@ async def create_tables():
     for sql in MISSION_TABLES:
         try:
             await pool.execute(sql)
+        except Exception:
+            pass
+    # Patch note opt-out migration
+    for mig in PATCH_OPTOUT_MIGRATIONS:
+        try:
+            await pool.execute(mig)
         except Exception:
             pass
 
