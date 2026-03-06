@@ -1075,12 +1075,13 @@ def _random_shiny_pokemon(rarity: str) -> tuple[int, str]:
 async def _award_prizes(context, chat_id, winner_id, winner_data,
                         final_bracket, semi_finalists, all_participants):
     """Award prizes to top finishers + participation rewards."""
+    from utils.battle_calc import iv_total
 
     # ── 1st place: master balls + shiny legendary + title ──
     await queries.add_master_ball(winner_id, config.TOURNAMENT_PRIZE_1ST_MB)
     await queries.increment_title_stat(winner_id, "tournament_wins")
     shiny_1st_id, shiny_1st_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_1ST_SHINY)
-    await queries.give_pokemon_to_user(winner_id, shiny_1st_id, chat_id, is_shiny=True)
+    _, shiny_1st_ivs = await queries.give_pokemon_to_user(winner_id, shiny_1st_id, chat_id, is_shiny=True)
 
     # ── 2nd place (runner-up): same as semi-finalist rewards ──
     runner_up_id = None
@@ -1097,12 +1098,12 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         finalists.add(runner_up_id)
     semi_all = semi_finalists | finalists  # 4강 진출자 전원 (우승자 포함)
     semi_reward_targets = semi_all - {winner_id}  # 우승자는 별도 보상
-    shiny_semi_awards = {}  # uid -> pokemon name
+    shiny_semi_awards = {}  # uid -> (pokemon_name, ivs)
     for uid in semi_reward_targets:
         await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_SEMI_MB)
         s_id, s_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_SEMI_SHINY)
-        await queries.give_pokemon_to_user(uid, s_id, chat_id, is_shiny=True)
-        shiny_semi_awards[uid] = s_name
+        _, s_ivs = await queries.give_pokemon_to_user(uid, s_id, chat_id, is_shiny=True)
+        shiny_semi_awards[uid] = (s_name, s_ivs)
 
     # ── Participation reward: master ball for everyone ──
     already_rewarded = {winner_id} | semi_reward_targets
@@ -1115,7 +1116,20 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     from utils.title_checker import check_and_unlock_titles
     new_titles = await check_and_unlock_titles(winner_id)
 
-    # ── Build prize message ──
+    # ── Helper: format IV detail for DM ──
+    def _iv_detail(name: str, rarity: str, ivs: dict) -> str:
+        total = iv_total(ivs["iv_hp"], ivs["iv_atk"], ivs["iv_def"],
+                         ivs["iv_spa"], ivs["iv_spdef"], ivs["iv_spd"])
+        grade, _ = config.get_iv_grade(total)
+        rarity_label = config.RARITY_LABEL.get(rarity, rarity)
+        return (
+            f"✨ {name} (이로치 · {rarity_label})\n"
+            f"IV: {ivs['iv_hp']}/{ivs['iv_atk']}/{ivs['iv_def']}"
+            f"/{ivs['iv_spa']}/{ivs['iv_spdef']}/{ivs['iv_spd']}"
+            f" ({total}/186) [{grade}]"
+        )
+
+    # ── Build prize message (group chat) ──
     mb_emoji = ball_emoji('masterball')
     lines = [
         "\n🏆 토너먼트 결과",
@@ -1127,18 +1141,18 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     if runner_up_id:
         runner_up_user = await queries.get_user(runner_up_id)
         r_name = runner_up_user["display_name"] if runner_up_user else "???"
-        r_shiny = shiny_semi_awards.get(runner_up_id, "???")
+        r_shiny_name = shiny_semi_awards.get(runner_up_id, ("???", {}))[0]
         lines.append(f"🥈 {r_name}")
-        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치 {r_shiny}")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치 {r_shiny_name}")
 
     fourth_placers = semi_reward_targets - ({runner_up_id} if runner_up_id else set())
     if fourth_placers:
         for uid in fourth_placers:
             u = await queries.get_user(uid)
             u_name = u["display_name"] if u else "???"
-            u_shiny = shiny_semi_awards.get(uid, "???")
+            u_shiny_name = shiny_semi_awards.get(uid, ("???", {}))[0]
             lines.append(f"🏅 {u_name}")
-            lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치 {u_shiny}")
+            lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치 {u_shiny_name}")
 
     participant_only = all_participants - already_rewarded
     if participant_only:
@@ -1159,6 +1173,51 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         text="\n".join(lines),
         parse_mode="HTML",
     )
+
+    # ── Send DMs with detailed prize info ──
+    # Winner DM
+    winner_dm = (
+        "🏆 토너먼트 우승을 축하합니다!\n"
+        "━━━━━━━━━━━━━━━\n\n"
+        f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 지급!\n"
+        f"🎖️ 챔피언 칭호 획득!\n\n"
+        f"{_iv_detail(shiny_1st_name, config.TOURNAMENT_PRIZE_1ST_SHINY, shiny_1st_ivs)}"
+    )
+    if new_titles:
+        for _, tname, temoji in new_titles:
+            badge = icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji
+            winner_dm += f"\n\n🎉 「{badge} {tname}」 칭호를 획득!"
+    try:
+        await context.bot.send_message(chat_id=winner_id, text=winner_dm, parse_mode="HTML")
+    except Exception:
+        logger.warning(f"Failed to DM winner {winner_id}")
+
+    # Semi-finalist DMs (including runner-up)
+    for uid, (s_name, s_ivs) in shiny_semi_awards.items():
+        place = "준우승" if uid == runner_up_id else "4강"
+        dm_text = (
+            f"🏅 토너먼트 {place}을 축하합니다!\n"
+            "━━━━━━━━━━━━━━━\n\n"
+            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 지급!\n\n"
+            f"{_iv_detail(s_name, config.TOURNAMENT_PRIZE_SEMI_SHINY, s_ivs)}"
+        )
+        try:
+            await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
+        except Exception:
+            logger.warning(f"Failed to DM semi-finalist {uid}")
+
+    # Participant DMs
+    for uid in participant_only:
+        dm_text = (
+            "🎟️ 토너먼트 참가 보상!\n"
+            "━━━━━━━━━━━━━━━\n\n"
+            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 지급!\n\n"
+            "다음 대회도 기대해 주세요!"
+        )
+        try:
+            await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
+        except Exception:
+            logger.warning(f"Failed to DM participant {uid}")
 
 
 async def _resume_spawns(context, chat_id: int):
