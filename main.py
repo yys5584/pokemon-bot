@@ -38,6 +38,12 @@ from handlers.battle import (
 )
 from handlers.dm_nurture import feed_handler, play_handler, evolve_handler, nurture_callback_handler
 from handlers.dm_trade import trade_handler, accept_handler, reject_handler
+from handlers.dm_market import (
+    market_handler, market_register_handler, market_my_handler,
+    market_cancel_handler, market_buy_handler, market_search_handler,
+    market_callback_handler,
+)
+from handlers.group_trade import group_trade_handler, group_trade_callback_handler
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
@@ -237,6 +243,7 @@ async def midnight_reset(context):
         queries.reset_daily_nurture(),
         queries.reset_catch_limits(),
         queries.reset_force_spawn_counts(),
+        queries.cleanup_expired_listings(),
         queries.reset_daily_spawn_counts(),
         queries.cleanup_old_activity(days=7),
         _grant_title_buffs(),
@@ -338,6 +345,14 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^교환\s"), trade_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^수락"), accept_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^거절"), reject_handler))
+
+    # Marketplace (DM) — 구체적 서브커맨드 먼저 등록
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*등록\s"), market_register_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*취소\s"), market_cancel_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*구매\s"), market_buy_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*검색\s"), market_search_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*내꺼"), market_my_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소"), market_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?칭호목록$"), title_list_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?칭호$"), title_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?상태창$"), status_handler))
@@ -364,6 +379,9 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^아케이드"), arcade_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회시작$"), force_tournament_reg_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회진행$"), force_tournament_run_handler))
+
+    # Group trade (reply with '교환')
+    app.add_handler(MessageHandler(group & filters.Regex(r"^교환\s"), group_trade_handler))
 
     # Pokeball recharge
     app.add_handler(MessageHandler(group & filters.Regex(r"^포켓볼\s*충전$"), love_easter_egg))
@@ -454,6 +472,12 @@ def main():
 
     # Nurture (feed/play/evolve) duplicate selection callbacks
     app.add_handler(CallbackQueryHandler(nurture_callback_handler, pattern=r"^nurt_"))
+
+    # Marketplace callbacks
+    app.add_handler(CallbackQueryHandler(market_callback_handler, pattern=r"^mkt_"))
+
+    # Group trade callbacks
+    app.add_handler(CallbackQueryHandler(group_trade_callback_handler, pattern=r"^gtrade_"))
 
     # Tutorial onboarding callbacks
     app.add_handler(CallbackQueryHandler(tutorial_callback, pattern=r"^tut_"))

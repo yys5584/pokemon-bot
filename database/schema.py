@@ -352,6 +352,34 @@ CREATE TABLE IF NOT EXISTS bot_settings (
 )
 """
 
+MARKET_TABLES = [
+    """
+    CREATE TABLE IF NOT EXISTS market_listings (
+        id SERIAL PRIMARY KEY,
+        seller_id BIGINT NOT NULL REFERENCES users(user_id),
+        pokemon_instance_id INTEGER NOT NULL REFERENCES user_pokemon(id),
+        pokemon_id INTEGER NOT NULL REFERENCES pokemon_master(id),
+        pokemon_name TEXT NOT NULL,
+        is_shiny INTEGER NOT NULL DEFAULT 0,
+        price_bp INTEGER NOT NULL CHECK(price_bp >= 100),
+        status TEXT NOT NULL DEFAULT 'active'
+            CHECK(status IN ('active','sold','cancelled','expired')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        buyer_id BIGINT REFERENCES users(user_id),
+        sold_at TIMESTAMPTZ
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_market_active ON market_listings(status, created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_market_seller ON market_listings(seller_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_market_pokemon ON market_listings(pokemon_id, status)",
+]
+
+GROUP_TRADE_MIGRATIONS = [
+    "ALTER TABLE trades ADD COLUMN trade_type TEXT NOT NULL DEFAULT 'dm'",
+    "ALTER TABLE trades ADD COLUMN chat_id BIGINT DEFAULT NULL",
+    "ALTER TABLE trades ADD COLUMN message_id BIGINT DEFAULT NULL",
+]
+
 IV_MIGRATIONS = [
     "ALTER TABLE user_pokemon ADD COLUMN iv_hp SMALLINT DEFAULT NULL",
     "ALTER TABLE user_pokemon ADD COLUMN iv_atk SMALLINT DEFAULT NULL",
@@ -477,6 +505,20 @@ async def create_tables():
             pass
     # Bot settings table
     await pool.execute(BOT_SETTINGS_TABLE)
+
+    # Marketplace tables
+    for sql in MARKET_TABLES:
+        try:
+            await pool.execute(sql)
+        except Exception:
+            pass
+
+    # Group trade migrations
+    for mig in GROUP_TRADE_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
 
     # ── Performance indexes (idempotent) ──
     perf_indexes = [

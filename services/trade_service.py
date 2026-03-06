@@ -46,10 +46,10 @@ async def create_trade_offer(
     if existing:
         return False, "이미 해당 트레이너에게 보낸 교환 요청이 있습니다.", None
 
-    # Check if this Pokemon is already in another pending trade
-    existing_for_pokemon = await queries.get_pending_trade_for_pokemon(pokemon["id"])
-    if existing_for_pokemon:
-        return False, "이 포켓몬은 이미 다른 교환 요청에 등록되어 있습니다.", None
+    # Check if this Pokemon is locked (pending trade or market listing)
+    locked, lock_reason = await queries.is_pokemon_locked(pokemon["id"])
+    if locked:
+        return False, lock_reason, None
 
     # Deduct BP
     spent = await bq.spend_bp(from_user_id, cost)

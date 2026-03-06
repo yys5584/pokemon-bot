@@ -1209,6 +1209,306 @@ async def get_pending_trade_between(from_user: int, to_user: int) -> dict | None
 
 
 # ============================================================
+# Group Trades
+# ============================================================
+
+async def create_group_trade(
+    from_user_id: int, to_user_id: int,
+    offer_instance_id: int, chat_id: int, message_id: int | None = None,
+) -> int:
+    """Create a group trade offer. Returns trade id."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """INSERT INTO trades
+           (from_user_id, to_user_id, offer_pokemon_instance_id,
+            trade_type, chat_id, message_id)
+           VALUES ($1, $2, $3, 'group', $4, $5) RETURNING id""",
+        from_user_id, to_user_id, offer_instance_id, chat_id, message_id,
+    )
+    return row["id"]
+
+
+async def get_group_trade(trade_id: int) -> dict | None:
+    """Get a group trade with full Pokemon details."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT t.*, up.pokemon_id AS offer_pokemon_id,
+                  pm.name_ko AS offer_name, pm.emoji AS offer_emoji,
+                  pm.rarity AS offer_rarity,
+                  pm.evolution_method, pm.evolves_to,
+                  up.is_shiny AS offer_is_shiny,
+                  up.iv_hp, up.iv_atk, up.iv_def,
+                  up.iv_spa, up.iv_spdef, up.iv_spd,
+                  up.friendship,
+                  u_from.display_name AS from_name,
+                  u_to.display_name AS to_name
+           FROM trades t
+           JOIN user_pokemon up ON t.offer_pokemon_instance_id = up.id
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           JOIN users u_from ON t.from_user_id = u_from.user_id
+           JOIN users u_to ON t.to_user_id = u_to.user_id
+           WHERE t.id = $1""",
+        trade_id,
+    )
+    return dict(row) if row else None
+
+
+async def update_group_trade_message_id(trade_id: int, message_id: int):
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE trades SET message_id = $1 WHERE id = $2",
+        message_id, trade_id,
+    )
+
+
+# ============================================================
+# Marketplace
+# ============================================================
+
+async def create_market_listing(
+    seller_id: int, pokemon_instance_id: int,
+    pokemon_id: int, pokemon_name: str,
+    is_shiny: int, price_bp: int,
+) -> int:
+    """Create a marketplace listing. Returns listing id."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """INSERT INTO market_listings
+           (seller_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny, price_bp)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""",
+        seller_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny, price_bp,
+    )
+    return row["id"]
+
+
+async def get_active_listings(page: int = 0, page_size: int = 5) -> tuple[list[dict], int]:
+    """Get paginated active listings (newest first). Returns (listings, total_count)."""
+    pool = await get_db()
+    count_row = await pool.fetchrow(
+        """SELECT COUNT(*) AS cnt FROM market_listings
+           WHERE status = 'active'
+           AND created_at > NOW() - INTERVAL '7 days'"""
+    )
+    total = count_row["cnt"]
+    rows = await pool.fetch(
+        """SELECT ml.*, u.display_name AS seller_name,
+                  pm.emoji, pm.rarity,
+                  up.iv_hp, up.iv_atk, up.iv_def,
+                  up.iv_spa, up.iv_spdef, up.iv_spd,
+                  up.friendship
+           FROM market_listings ml
+           JOIN users u ON ml.seller_id = u.user_id
+           JOIN pokemon_master pm ON ml.pokemon_id = pm.id
+           JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
+           WHERE ml.status = 'active'
+           AND ml.created_at > NOW() - INTERVAL '7 days'
+           ORDER BY ml.created_at DESC
+           LIMIT $1 OFFSET $2""",
+        page_size, page * page_size,
+    )
+    return [dict(r) for r in rows], total
+
+
+async def get_listing_by_id(listing_id: int) -> dict | None:
+    """Get a specific listing with full details."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT ml.*, u.display_name AS seller_name,
+                  pm.emoji, pm.rarity,
+                  pm.evolution_method, pm.evolves_to,
+                  up.iv_hp, up.iv_atk, up.iv_def,
+                  up.iv_spa, up.iv_spdef, up.iv_spd,
+                  up.friendship, up.user_id AS current_owner_id
+           FROM market_listings ml
+           JOIN users u ON ml.seller_id = u.user_id
+           JOIN pokemon_master pm ON ml.pokemon_id = pm.id
+           JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
+           WHERE ml.id = $1""",
+        listing_id,
+    )
+    return dict(row) if row else None
+
+
+async def get_user_active_listings(user_id: int) -> list[dict]:
+    """Get all active listings by a specific user."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT ml.*, pm.emoji, pm.rarity
+           FROM market_listings ml
+           JOIN pokemon_master pm ON ml.pokemon_id = pm.id
+           WHERE ml.seller_id = $1 AND ml.status = 'active'
+           ORDER BY ml.created_at DESC""",
+        user_id,
+    )
+    return [dict(r) for r in rows]
+
+
+async def get_active_listing_count(user_id: int) -> int:
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT COUNT(*) AS cnt FROM market_listings WHERE seller_id = $1 AND status = 'active'",
+        user_id,
+    )
+    return row["cnt"]
+
+
+async def cancel_listing(listing_id: int):
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE market_listings SET status = 'cancelled' WHERE id = $1",
+        listing_id,
+    )
+
+
+async def search_listings(pokemon_name: str, page: int = 0, page_size: int = 5) -> tuple[list[dict], int]:
+    """Search active listings by Pokemon name."""
+    pool = await get_db()
+    pattern = f"%{pokemon_name}%"
+    count_row = await pool.fetchrow(
+        """SELECT COUNT(*) AS cnt FROM market_listings
+           WHERE status = 'active' AND pokemon_name LIKE $1
+           AND created_at > NOW() - INTERVAL '7 days'""",
+        pattern,
+    )
+    total = count_row["cnt"]
+    rows = await pool.fetch(
+        """SELECT ml.*, u.display_name AS seller_name,
+                  pm.emoji, pm.rarity,
+                  up.iv_hp, up.iv_atk, up.iv_def,
+                  up.iv_spa, up.iv_spdef, up.iv_spd,
+                  up.friendship
+           FROM market_listings ml
+           JOIN users u ON ml.seller_id = u.user_id
+           JOIN pokemon_master pm ON ml.pokemon_id = pm.id
+           JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
+           WHERE ml.status = 'active' AND ml.pokemon_name LIKE $1
+           AND ml.created_at > NOW() - INTERVAL '7 days'
+           ORDER BY ml.created_at DESC
+           LIMIT $2 OFFSET $3""",
+        pattern, page_size, page * page_size,
+    )
+    return [dict(r) for r in rows], total
+
+
+async def get_pending_listing_for_pokemon(instance_id: int) -> dict | None:
+    """Check if a Pokemon instance is currently listed on the market."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT * FROM market_listings
+           WHERE pokemon_instance_id = $1 AND status = 'active'
+           LIMIT 1""",
+        instance_id,
+    )
+    return dict(row) if row else None
+
+
+async def is_pokemon_locked(instance_id: int) -> tuple[bool, str]:
+    """Check if a Pokemon is locked (in trade or market).
+    Returns (is_locked, reason_message)."""
+    pending_trade = await get_pending_trade_for_pokemon(instance_id)
+    if pending_trade:
+        return True, "이 포켓몬은 교환 대기 중입니다."
+    pending_listing = await get_pending_listing_for_pokemon(instance_id)
+    if pending_listing:
+        return True, "이 포켓몬은 거래소에 등록되어 있습니다."
+    return False, ""
+
+
+async def complete_market_purchase(
+    listing_id: int, buyer_id: int,
+    seller_id: int, price_bp: int, fee_bp: int,
+    pokemon_instance_id: int, pokemon_id: int,
+    is_shiny: bool, ivs: dict,
+) -> int:
+    """Execute a market purchase in a single transaction. Returns new_instance_id."""
+    pool = await get_db()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            # 1. Lock listing row & verify still active
+            listing = await conn.fetchrow(
+                "SELECT * FROM market_listings WHERE id = $1 AND status = 'active' FOR UPDATE",
+                listing_id,
+            )
+            if not listing:
+                raise ValueError("이 매물은 이미 판매되었거나 취소되었습니다.")
+
+            # 2. Verify buyer has enough BP
+            buyer = await conn.fetchrow(
+                "SELECT battle_points FROM users WHERE user_id = $1 FOR UPDATE",
+                buyer_id,
+            )
+            if not buyer or buyer["battle_points"] < price_bp:
+                raise ValueError("BP가 부족합니다.")
+
+            # 3. Verify pokemon still active & owned by seller
+            pokemon = await conn.fetchrow(
+                "SELECT * FROM user_pokemon WHERE id = $1 AND is_active = 1 AND user_id = $2",
+                pokemon_instance_id, seller_id,
+            )
+            if not pokemon:
+                raise ValueError("이 포켓몬은 이미 거래되었습니다.")
+
+            # 4. Deduct BP from buyer
+            await conn.execute(
+                "UPDATE users SET battle_points = battle_points - $1 WHERE user_id = $2",
+                price_bp, buyer_id,
+            )
+
+            # 5. Add BP to seller (minus fee)
+            seller_gets = price_bp - fee_bp
+            await conn.execute(
+                "UPDATE users SET battle_points = battle_points + $1 WHERE user_id = $2",
+                seller_gets, seller_id,
+            )
+
+            # 6. Deactivate pokemon from seller
+            await conn.execute(
+                "UPDATE user_pokemon SET is_active = 0 WHERE id = $1",
+                pokemon_instance_id,
+            )
+
+            # 7. Give pokemon to buyer (preserve IVs + shiny)
+            new_row = await conn.fetchrow(
+                """INSERT INTO user_pokemon
+                       (user_id, pokemon_id, is_shiny,
+                        iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id""",
+                buyer_id, pokemon_id, 1 if is_shiny else 0,
+                ivs.get("iv_hp"), ivs.get("iv_atk"), ivs.get("iv_def"),
+                ivs.get("iv_spa"), ivs.get("iv_spdef"), ivs.get("iv_spd"),
+            )
+
+            # 8. Register in buyer's pokedex
+            await conn.execute(
+                """INSERT INTO pokedex (user_id, pokemon_id, method)
+                   VALUES ($1, $2, 'trade')
+                   ON CONFLICT (user_id, pokemon_id) DO NOTHING""",
+                buyer_id, pokemon_id,
+            )
+
+            # 9. Update listing
+            await conn.execute(
+                """UPDATE market_listings
+                   SET status = 'sold', buyer_id = $1, sold_at = NOW()
+                   WHERE id = $2""",
+                buyer_id, listing_id,
+            )
+
+            return new_row["id"]
+
+
+async def cleanup_expired_listings():
+    """Mark old active listings as expired."""
+    pool = await get_db()
+    await pool.execute(
+        """UPDATE market_listings
+           SET status = 'expired'
+           WHERE status = 'active'
+           AND created_at < NOW() - INTERVAL '7 days'"""
+    )
+
+
+# ============================================================
 # Chat Spawn Multiplier
 # ============================================================
 

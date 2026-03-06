@@ -116,6 +116,17 @@ FRIENDSHIP_PER_PLAY = 1            # +1 per play
 # --- Trade ---
 TRADE_BP_COST = 150                # 교환 시 BP 비용
 
+# --- Marketplace ---
+MARKET_FEE_RATE = 0.05             # 5% 판매 수수료
+MARKET_MIN_PRICE = 100             # 최소 등록가 (BP)
+MARKET_PAGE_SIZE = 5               # 페이지당 목록 수
+MARKET_MAX_ACTIVE_LISTINGS = 10    # 유저당 최대 동시 등록 수
+MARKET_LISTING_EXPIRE_DAYS = 7     # 등록 만료 기간 (일)
+
+# --- Group Trade ---
+GROUP_TRADE_TIMEOUT = 300          # 5분 자동 만료 (초)
+GROUP_TRADE_BP_COST = 0            # 무료
+
 # --- Title System ---
 TITLES = [
     # (min_pokemon_count, title_text, emoji)
