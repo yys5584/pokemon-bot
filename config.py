@@ -404,6 +404,7 @@ BATTLE_COOLDOWN_GLOBAL = 60         # 전체 배틀 쿨다운 (1분)
 BATTLE_MAX_ROUNDS = 50              # 최대 라운드
 BATTLE_TEAM_MIN = 1                 # 최소 팀원
 BATTLE_TEAM_MAX = 6                 # 최대 팀원
+BATTLE_HP_MULTIPLIER = 2             # 전투 HP 배수 (체력 2배 → 긴 전투)
 BATTLE_CRIT_RATE = 0.10             # 크리티컬 확률 10%
 BATTLE_CRIT_MULT = 1.5              # 크리티컬 배수
 BATTLE_TYPE_ADVANTAGE_MULT = 2.0    # 타입 유리 (본가 동일)
@@ -458,7 +459,9 @@ TOURNAMENT_PRIZE_1ST_MB = 5     # 우승 마스터볼
 TOURNAMENT_PRIZE_1ST_SHINY = "legendary"  # 우승 이로치 레어리티
 TOURNAMENT_PRIZE_SEMI_MB = 3    # 4강 마스터볼
 TOURNAMENT_PRIZE_SEMI_SHINY = "epic"      # 4강 이로치 레어리티
-TOURNAMENT_PRIZE_PARTICIPANT_MB = 1  # 참가자 마스터볼
+TOURNAMENT_PRIZE_QUARTER_MB = 2     # 8강 탈락 마스터볼
+TOURNAMENT_PRIZE_R16_MB = 1         # 16강 탈락 마스터볼
+TOURNAMENT_PRIZE_PARTICIPANT_MB = 1  # 그 외 참가자 마스터볼
 
 # --- Tournament Titles ---
 TOURNAMENT_TITLES = {

@@ -391,7 +391,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
         # Mission: trade (buyer)
         if success:
-            asyncio.create_task(_check_trade_mission_market(user_id))
+            asyncio.create_task(_check_trade_mission_market(user_id, context.bot))
 
         # Send DM notification to seller
         if success and info:
@@ -512,12 +512,12 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         return
 
 
-async def _check_trade_mission_market(user_id: int):
+async def _check_trade_mission_market(user_id: int, bot):
     """Fire-and-forget: check trade mission progress after marketplace purchase."""
     try:
         from services.mission_service import check_mission_progress
         msg = await check_mission_progress(user_id, "trade")
-        # For DM market, user is already in DM so no need to send separate message
-        # The reward message will show when they next check 미션
+        if msg:
+            await bot.send_message(chat_id=user_id, text=msg, parse_mode="HTML")
     except Exception:
         pass

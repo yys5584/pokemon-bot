@@ -487,8 +487,8 @@ def main():
     # Battle accept/decline callback
     app.add_handler(CallbackQueryHandler(battle_callback_handler, pattern=r"^battle_"))
 
-    # Battle result teabag/delete callback
-    app.add_handler(CallbackQueryHandler(battle_result_callback_handler, pattern=r"^b(tbag|del)_"))
+    # Battle result detail/skip/teabag callback
+    app.add_handler(CallbackQueryHandler(battle_result_callback_handler, pattern=r"^b(detail|skip|tbag)_"))
 
     # Shop purchase callback
     app.add_handler(CallbackQueryHandler(shop_callback_handler, pattern=r"^shop_"))

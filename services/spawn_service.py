@@ -536,7 +536,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             elif winner.get("used_hyper_ball"):
                 dm_ball = f"{ball_emoji('hyperball')} 하이퍼볼! "
             else:
-                dm_ball = "🎉 "
+                dm_ball = f"{ball_emoji('pokeball')} "
             dm_text = (
                 f"{dm_ball}{rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
                 f"{iv_line}\n"
@@ -1006,7 +1006,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             elif winner.get("used_hyper_ball"):
                 dm_ball = f"{ball_emoji('hyperball')} 하이퍼볼! "
             else:
-                dm_ball = "🎉 "
+                dm_ball = f"{ball_emoji('pokeball')} "
             dm_text = (
                 f"{dm_ball}{rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
                 f"{iv_line}\n"

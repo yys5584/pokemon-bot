@@ -1520,20 +1520,26 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             defender_team=d_team,
             challenge_id=challenge_id,
             chat_id=challenge["chat_id"],
+            bot=context.bot,
         )
 
-        # Add teabag & delete buttons
+        # Add detail / skip / teabag buttons
         winner_id = result["winner_id"]
         loser_id = result["loser_id"]
+        cache_key = result["cache_key"]
         battle_buttons = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton(
-                    "☠️ 티배깅하기",
-                    callback_data=f"btbag_{winner_id}_{loser_id}",
+                    "📋 상세보기",
+                    callback_data=f"bdetail_{cache_key}_{winner_id}_{loser_id}",
                 ),
                 InlineKeyboardButton(
-                    "✖️ 삭제",
-                    callback_data=f"bdel_{winner_id}_{loser_id}",
+                    "⏭ 스킵",
+                    callback_data=f"bskip_{winner_id}_{loser_id}",
+                ),
+                InlineKeyboardButton(
+                    "☠️ 티배깅",
+                    callback_data=f"btbag_{winner_id}_{loser_id}",
                 ),
             ]
         ])
@@ -1562,7 +1568,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 # ============================================================
 
 async def battle_result_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle teabag / delete buttons on battle results."""
+    """Handle detail / skip / teabag buttons on battle results."""
     query = update.callback_query
     if not query or not query.data:
         return
@@ -1571,10 +1577,69 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
     parts = data.split("_")
     prefix = parts[0]
 
-    if prefix == "btbag":
+    if prefix == "bdetail":
+        # Detail DM: bdetail_{cache_key}_{winner_id}_{loser_id}
+        try:
+            cache_key = int(parts[1])
+            winner_id = int(parts[2])
+            loser_id = int(parts[3])
+        except (IndexError, ValueError):
+            await query.answer()
+            return
+
+        # Only participants can view
+        if query.from_user.id not in (winner_id, loser_id):
+            await query.answer("배틀 참가자만 볼 수 있습니다!", show_alert=True)
+            return
+
+        from services.battle_service import get_battle_detail
+        detail = get_battle_detail(cache_key)
+        if not detail:
+            await query.answer("⏰ 배틀 기록이 만료되었습니다.", show_alert=True)
+            return
+
+        await query.answer("📋 DM으로 상세 결과를 보냅니다!")
+        try:
+            await context.bot.send_message(
+                chat_id=query.from_user.id,
+                text=detail["detail_dm"],
+                parse_mode="HTML",
+            )
+        except Exception as e:
+            logger.error(f"Battle detail DM failed for user {query.from_user.id}: {e}")
+            try:
+                await query.answer("❌ DM 전송 실패! 봇에게 먼저 /start를 보내주세요.", show_alert=True)
+            except Exception:
+                pass
+
+    elif prefix == "bskip":
+        # Skip (delete message): bskip_{winner_id}_{loser_id}
+        try:
+            winner_id = int(parts[1])
+            loser_id = int(parts[2])
+        except (IndexError, ValueError):
+            await query.answer()
+            return
+
+        # Both winner and loser can skip
+        if query.from_user.id not in (winner_id, loser_id):
+            await query.answer("배틀 참가자만 삭제할 수 있습니다!", show_alert=True)
+            return
+
+        await query.answer()
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+
+    elif prefix == "btbag":
         # Teabag: btbag_{winner_id}_{loser_id}
-        winner_id = int(parts[1])
-        loser_id = int(parts[2])
+        try:
+            winner_id = int(parts[1])
+            loser_id = int(parts[2])
+        except (IndexError, ValueError):
+            await query.answer()
+            return
 
         if query.from_user.id != winner_id:
             await query.answer("승자만 사용할 수 있습니다!", show_alert=True)
@@ -1587,12 +1652,12 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
 
         await query.answer()
 
-        # Replace with delete-only button (keep for scroll cleanup)
+        # Replace with skip-only button after teabag
         try:
-            delete_only = InlineKeyboardMarkup([[
-                InlineKeyboardButton("✖️ 삭제", callback_data=f"bdel_{winner_id}_{loser_id}")
+            skip_only = InlineKeyboardMarkup([[
+                InlineKeyboardButton("⏭ 스킵", callback_data=f"bskip_{winner_id}_{loser_id}")
             ]])
-            await query.edit_message_reply_markup(reply_markup=delete_only)
+            await query.edit_message_reply_markup(reply_markup=skip_only)
         except Exception:
             pass
 
@@ -1607,22 +1672,6 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
                 text=msg,
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
-
-    elif prefix == "bdel":
-        # Delete: bdel_{winner_id}_{loser_id}
-        winner_id = int(parts[1])
-        loser_id = int(parts[2])
-
-        # Both winner and loser can delete
-        if query.from_user.id not in (winner_id, loser_id):
-            await query.answer("배틀 참가자만 삭제할 수 있습니다!", show_alert=True)
-            return
-
-        await query.answer()
-        try:
-            await query.message.delete()
         except Exception:
             pass
 
@@ -2166,6 +2215,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
         challenge_id=challenge_id,
         chat_id=challenge["chat_id"],
         skip_bp=True,
+        bot=context.bot,
     )
 
     # Pay the winner
@@ -2182,39 +2232,35 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     d_name = d_user["display_name"] if d_user else "???"
     winner_name = c_name if result["winner_id"] == challenger_id else d_name
 
-    # Build yacha result message
-    # Replace the header from execute_battle with yacha header
-    battle_text = result["display_text"]
-    # The first line is battle result header - replace it
-    lines = battle_text.split("\n")
-    # Remove the original first line (battle result header)
-    if lines and ("배틀 결과" in lines[0]):
-        lines = lines[1:]
-
-    yacha_header = [
-        f"🎰 {c_name}와(과) {d_name}가 야차룰을 붙었습니다!",
-        f"배팅: {bet_display}",
-    ]
-
-    # Append yacha winnings after the battle result
-    yacha_footer = [
-        "",
-        win_display,
-    ]
-
-    full_text = "\n".join(yacha_header + lines + yacha_footer)
-
-    # Teabag & delete buttons
+    # Build yacha result message (simplified)
+    vs = icon_emoji('battle')
+    trophy = icon_emoji('crown')
     loser_id = result["loser_id"]
+    cache_key = result["cache_key"]
+
+    full_text = "\n".join([
+        f"🎰 야차 배틀!",
+        f"{rarity_badge('red')} {c_name}  {vs}  {d_name} {rarity_badge('blue')}",
+        f"배팅: {bet_display}",
+        "━━━━━━━━━━━━━━━",
+        f"{trophy} {winner_name} 승리!",
+        win_display,
+    ])
+
+    # Detail / Skip / Teabag buttons
     battle_buttons = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "☠️ 티배깅하기",
-                callback_data=f"yres_tbag_{winner_id}_{loser_id}",
+                "📋 상세보기",
+                callback_data=f"bdetail_{cache_key}_{winner_id}_{loser_id}",
             ),
             InlineKeyboardButton(
-                "✖️ 삭제",
-                callback_data=f"yres_del_{winner_id}_{loser_id}",
+                "⏭ 스킵",
+                callback_data=f"bskip_{winner_id}_{loser_id}",
+            ),
+            InlineKeyboardButton(
+                "☠️ 티배깅",
+                callback_data=f"yres_tbag_{winner_id}_{loser_id}",
             ),
         ]
     ])
@@ -2238,14 +2284,14 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle yacha result buttons (teabag / delete)."""
+    """Handle yacha result buttons (teabag only — detail/skip handled by battle_result_callback_handler)."""
     query = update.callback_query
     if not query or not query.data:
         return
 
-    data = query.data  # yres_tbag_{w}_{l} or yres_del_{w}_{l}
+    data = query.data  # yres_tbag_{w}_{l}
     parts = data.split("_")
-    action = parts[1]  # tbag or del
+    action = parts[1]  # tbag
     winner_id = int(parts[2])
     loser_id = int(parts[3])
 
@@ -2261,12 +2307,12 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
         await query.answer()
 
-        # Remove teabag button, keep delete only
+        # Replace with skip-only button after teabag
         try:
-            delete_only = InlineKeyboardMarkup([[
-                InlineKeyboardButton("✖️ 삭제", callback_data=f"yres_del_{winner_id}_{loser_id}")
+            skip_only = InlineKeyboardMarkup([[
+                InlineKeyboardButton("⏭ 스킵", callback_data=f"bskip_{winner_id}_{loser_id}")
             ]])
-            await query.edit_message_reply_markup(reply_markup=delete_only)
+            await query.edit_message_reply_markup(reply_markup=skip_only)
         except Exception:
             pass
 
@@ -2281,16 +2327,5 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 text=msg,
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
-
-    elif action == "del":
-        if query.from_user.id not in (winner_id, loser_id):
-            await query.answer("배틀 참가자만 삭제할 수 있습니다!", show_alert=True)
-            return
-
-        await query.answer()
-        try:
-            await query.message.delete()
         except Exception:
             pass

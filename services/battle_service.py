@@ -12,6 +12,79 @@ from models.pokemon_skills import POKEMON_SKILLS
 
 logger = logging.getLogger(__name__)
 
+# In-memory cache for battle detail DMs (auto-expires after 10min)
+_battle_detail_cache: dict[int, dict] = {}
+
+
+def get_battle_detail(cache_key: int) -> dict | None:
+    """Retrieve cached battle detail for DM callback."""
+    return _battle_detail_cache.get(cache_key)
+
+
+def _build_battle_detail_dm(
+    result: dict,
+    c_name: str, d_name: str,
+    c_title_str: str, d_title_str: str,
+    c_total_power: int, d_total_power: int,
+    winner_name: str, winner_remaining: int,
+    bp_won: int, new_streak: int, final_stats: dict,
+    skip_bp: bool,
+) -> str:
+    """Build detailed battle DM text from turn_data."""
+    vs = icon_emoji('battle')
+    bolt = icon_emoji('bolt')
+    skull = icon_emoji('skull')
+    trophy = icon_emoji('crown')
+    coin = icon_emoji('coin')
+    clipboard = icon_emoji('bookmark')
+    chart = icon_emoji('stationery')
+    sparkle = icon_emoji('crystal')
+    lines = [
+        f"{vs} 배틀 상세 결과",
+        f"{rarity_badge('red')} {c_title_str}{c_name}  {vs}  {d_title_str}{d_name} {rarity_badge('blue')}",
+        f"{bolt}{c_total_power}          {bolt}{d_total_power}",
+        "━━━━━━━━━━━━━━━",
+        "",
+        f"{clipboard} 턴별 전투 기록",
+    ]
+
+    for td in result["turn_data"]:
+        if td["type"] == "matchup":
+            ci, di = td["c_idx"] + 1, td["d_idx"] + 1
+            ct, dt = td["c_total"], td["d_total"]
+            lines.append(f"── ({ci}/{ct}) {td['c_tb']}{td['c_name']} vs ({di}/{dt}) {td['d_tb']}{td['d_name']} ──")
+        elif td["type"] == "turn":
+            tn = td["turn_num"]
+            c_part = f"→{td['c_dmg']}{td['c_crit']}{td['c_eff']}" if td["c_dmg"] else ""
+            d_part = f"←{td['d_dmg']}{td['d_crit']}{td['d_eff']}" if td["d_dmg"] else ""
+            lines.append(f" {tn}턴: {td['c_name']} {c_part} | {td['d_name']} {d_part}")
+        elif td["type"] == "ko":
+            if td["next_name"]:
+                lines.append(f" {skull}{td['dead_name']} 쓰러짐! ▶ {td['next_name']} 등장!")
+            else:
+                lines.append(f" {skull}{td['dead_name']} 쓰러짐!")
+        elif td["type"] == "timeout":
+            lines.append(" ⏰ 시간 초과!")
+
+    lines.append("")
+    lines.append("━━━━━━━━━━━━━━━")
+    lines.append(f"{trophy} {winner_name} 승리! (남은 {winner_remaining}마리)")
+
+    footer = []
+    if not skip_bp:
+        footer.append(f"{coin} +{bp_won} BP")
+    if new_streak >= 2:
+        footer.append(f"{new_streak}연승!")
+    if result.get("perfect_win"):
+        footer.append(f"{sparkle} 완벽한 승리!")
+    footer.append(
+        f"{chart} {winner_name} {final_stats['battle_wins']}승 "
+        f"{final_stats['battle_losses']}패"
+    )
+    lines.append(" | ".join(footer))
+
+    return "\n".join(lines)
+
 
 def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
     """Prepare a single pokemon for battle with computed stats."""
@@ -319,6 +392,7 @@ async def execute_battle(
     challenge_id: int | None,
     chat_id: int,
     skip_bp: bool = False,
+    bot=None,
 ) -> dict:
     """Execute a full battle and record results.
 
@@ -373,8 +447,8 @@ async def execute_battle(
     await bq.update_battle_stats_win(winner_id, bp_won)
     await bq.update_battle_stats_lose(loser_id, bp_lose)
 
-    # Mission: battle win (no context available — silent reward only)
-    asyncio.create_task(_silent_battle_mission(winner_id))
+    # Mission: battle win
+    asyncio.create_task(_notify_battle_mission(winner_id, bot))
 
     # Record battle
     await bq.record_battle(
@@ -410,83 +484,37 @@ async def execute_battle(
     c_total_power = sum(calc_power(c["stats"]) for c in c_combatants)
     d_total_power = sum(calc_power(d["stats"]) for d in d_combatants)
 
-    # Build compact display text from turn_data
+    # Build simplified group chat display
     vs = icon_emoji('battle')
+    trophy = icon_emoji('crown')
     lines = [
         f"{vs} 배틀 결과!",
-        "━━━━━━━━━━━━━━━",
         f"{rarity_badge('red')} {c_title_str}{c_name}  {vs}  {d_title_str}{d_name} {rarity_badge('blue')}",
-        f"{icon_emoji('bolt')}{c_total_power}          {icon_emoji('bolt')}{d_total_power}",
         "━━━━━━━━━━━━━━━",
-        "",
+        f"{trophy} {winner_name} 승리!",
     ]
 
-    # Compact matchup-by-matchup summary from turn_data
-    detail_lines = []
-    cur_c_name, cur_d_name = "", ""
-    cur_c_idx, cur_d_idx = 0, 0
-    matchup_winner = ""
-    matchup_winner_hp = 0
-    last_was_ko = False
-
-    red = rarity_badge("red")
-    blue = rarity_badge("blue")
-    br_red = rarity_badge("bracket_red")
-    br_blue = rarity_badge("bracket_blue")
-
-    def _matchup_line():
-        w_name = cur_c_name if matchup_winner == "c" else cur_d_name
-        arrow = br_red if matchup_winner == "c" else br_blue
-        w_badge = red if matchup_winner == "c" else blue
-        return f"{cur_c_name}({cur_c_idx}) {arrow} {cur_d_name}({cur_d_idx}) → {w_badge}{w_name} 승 HP {matchup_winner_hp}"
-
-    for td in result["turn_data"]:
-        if td["type"] == "matchup":
-            cur_c_name = td["c_name"]
-            cur_d_name = td["d_name"]
-            cur_c_idx = td["c_idx"] + 1
-            cur_d_idx = td["d_idx"] + 1
-            last_was_ko = False
-        elif td["type"] == "turn":
-            if td["c_hp"] <= 0:
-                matchup_winner = "d"
-                matchup_winner_hp = td["d_hp"]
-            elif td["d_hp"] <= 0:
-                matchup_winner = "c"
-                matchup_winner_hp = td["c_hp"]
-            else:
-                matchup_winner = "c" if td["c_hp"] >= td["d_hp"] else "d"
-                matchup_winner_hp = td["c_hp"] if matchup_winner == "c" else td["d_hp"]
-            last_was_ko = False
-        elif td["type"] == "ko":
-            if not last_was_ko:
-                detail_lines.append(_matchup_line())
-            last_was_ko = True
-
-    # Final matchup (timeout or last KO was the battle-ender)
-    if not last_was_ko and matchup_winner:
-        detail_lines.append(_matchup_line())
-
-    lines.append(f"🏆 {winner_name} 승리! (남은 {winner_remaining}마리)")
-
-    footer = []
-    if not skip_bp:
-        footer.append(f"💰 +{bp_won} BP")
-    if new_streak >= 2:
-        footer.append(f"{new_streak}연승!")
-    if result["perfect_win"]:
-        footer.append("✨ 완벽한 승리!")
-    footer.append(
-        f"📊 {winner_name} {final_stats['battle_wins']}승 "
-        f"{final_stats['battle_losses']}패"
+    # Build detailed DM text from turn_data
+    detail_dm = _build_battle_detail_dm(
+        result, c_name, d_name, c_title_str, d_title_str,
+        c_total_power, d_total_power,
+        winner_name, winner_remaining,
+        bp_won, new_streak, final_stats, skip_bp,
     )
-    lines.append(" | ".join(footer))
 
-    # Expandable detail block
-    if detail_lines:
-        detail_text = "\n".join(detail_lines)
-        lines.append("")
-        lines.append(f"<blockquote expandable>📋 상세 전투 기록\n{detail_text}</blockquote>")
+    # Cache detail for button callback
+    cache_key = challenge_id or id(result)  # fallback for yacha
+    _battle_detail_cache[cache_key] = {
+        "detail_dm": detail_dm,
+        "winner_id": winner_id,
+        "loser_id": loser_id,
+    }
+    # Auto-expire after 10 minutes
+    try:
+        loop = asyncio.get_event_loop()
+        loop.call_later(600, _battle_detail_cache.pop, cache_key, None)
+    except Exception:
+        pass
 
     # Check and unlock battle titles
     await _check_battle_titles(winner_id, final_stats, result["perfect_win"])
@@ -497,6 +525,10 @@ async def execute_battle(
         "winner_id": winner_id,
         "loser_id": loser_id,
         "bp_earned": bp_won,
+        "cache_key": cache_key,
+        "winner_name": winner_name,
+        "new_streak": new_streak,
+        "perfect_win": result["perfect_win"],
     }
 
 
@@ -528,10 +560,12 @@ async def _check_battle_titles(user_id: int, stats: dict, perfect_win: bool):
                 logger.info(f"Battle title unlocked: {user_id} -> {title_id}")
 
 
-async def _silent_battle_mission(user_id: int):
-    """Fire-and-forget: check battle mission progress (reward auto-claimed, no DM)."""
+async def _notify_battle_mission(user_id: int, bot):
+    """Fire-and-forget: check battle mission progress and DM user on completion."""
     try:
         from services.mission_service import check_mission_progress
-        await check_mission_progress(user_id, "battle")
+        msg = await check_mission_progress(user_id, "battle")
+        if msg and bot:
+            await bot.send_message(chat_id=user_id, text=msg, parse_mode="HTML")
     except Exception:
         pass

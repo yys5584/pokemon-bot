@@ -110,10 +110,12 @@ def calc_battle_stats(
     bonus = 1.0 + (friendship * config.FRIENDSHIP_BONUS)
     evo_mult = config.EVOLUTION_STAGE_MULT.get(evo_stage, 1.0)
 
+    hp_mult = getattr(config, 'BATTLE_HP_MULTIPLIER', 1)
+
     if base_hp is not None:
-        # Phase 2: individual base stats (Lv50 formula, no HP×3)
+        # Phase 2: individual base stats (Lv50 formula)
         return {
-            "hp":    int(base_hp * bonus * evo_mult * _iv_mult(iv_hp)),
+            "hp":    int(base_hp * bonus * evo_mult * _iv_mult(iv_hp) * hp_mult),
             "atk":   int(base_atk * bonus * evo_mult * _iv_mult(iv_atk)),
             "def":   int(base_def * bonus * evo_mult * _iv_mult(iv_def)),
             "spa":   int(base_spa * bonus * evo_mult * _iv_mult(iv_spa)),
@@ -126,7 +128,7 @@ def calc_battle_stats(
     spread = config.STAT_SPREADS.get(stat_type, config.STAT_SPREADS["balanced"])
 
     return {
-        "hp":    int(base * spread["hp"] * bonus * evo_mult * _iv_mult(iv_hp)),
+        "hp":    int(base * spread["hp"] * bonus * evo_mult * _iv_mult(iv_hp) * hp_mult),
         "atk":   int(base * spread["atk"] * bonus * evo_mult * _iv_mult(iv_atk)),
         "def":   int(base * spread["def"] * bonus * evo_mult * _iv_mult(iv_def)),
         "spa":   int(base * spread["spa"] * bonus * evo_mult * _iv_mult(iv_spa)),

@@ -930,6 +930,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     total_rounds = int(math.log2(len(bracket) * 2))
     current_round = 1
     semi_finalists = set()  # Track 4th place candidates
+    eliminated = {}  # user_id -> round_size when eliminated (16, 8, etc.)
 
     try:
         while len(bracket) > 0:
@@ -1013,6 +1014,15 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
 
             round_results[current_round] = round_winner_names
 
+            # Track eliminated players by round size
+            round_size = len(bracket) * 2  # 16, 8, 4, 2
+            winner_ids_set = {w[0] for w in winners}
+            for p1, p2 in bracket:
+                if p1 is not None and p1[0] not in winner_ids_set:
+                    eliminated[p1[0]] = round_size
+                if p2 is not None and p2[0] not in winner_ids_set:
+                    eliminated[p2[0]] = round_size
+
             if is_final:
                 # Show final bracket tree with champion (skip if too large)
                 if total_players <= 16:
@@ -1027,7 +1037,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                 if winners:
                     winner_uid, winner_d = winners[0]
                     all_participants = set(_tournament_state["participants"].keys())
-                    await _award_prizes(context, chat_id, winner_uid, winner_d, bracket, semi_finalists, all_participants)
+                    await _award_prizes(context, chat_id, winner_uid, winner_d, bracket, semi_finalists, all_participants, eliminated)
                 break
 
             # Show updated bracket after this round
@@ -1076,9 +1086,15 @@ def _random_shiny_pokemon(rarity: str) -> tuple[int, str]:
 
 
 async def _award_prizes(context, chat_id, winner_id, winner_data,
-                        final_bracket, semi_finalists, all_participants):
-    """Award prizes to top finishers + participation rewards."""
+                        final_bracket, semi_finalists, all_participants,
+                        eliminated=None):
+    """Award prizes to top finishers + participation rewards.
+
+    eliminated: dict mapping user_id -> round_size (16, 8, 4, 2) where they lost.
+    """
     from utils.battle_calc import iv_total
+    if eliminated is None:
+        eliminated = {}
 
     # ── 1st place: master balls + shiny legendary + title ──
     try:
@@ -1093,7 +1109,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     except Exception:
         logger.error(f"Failed to give shiny pokemon to winner {winner_id}")
 
-    # ── 2nd place (runner-up): same as semi-finalist rewards ──
+    # ── 2nd place (runner-up) ──
     runner_up_id = None
     if final_bracket and final_bracket[0]:
         p1, p2 = final_bracket[0]
@@ -1106,8 +1122,8 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     finalists = {winner_id}
     if runner_up_id:
         finalists.add(runner_up_id)
-    semi_all = semi_finalists | finalists  # 4강 진출자 전원 (우승자 포함)
-    semi_reward_targets = semi_all - {winner_id}  # 우승자는 별도 보상
+    semi_all = semi_finalists | finalists
+    semi_reward_targets = semi_all - {winner_id}
     shiny_semi_awards = {}  # uid -> (pokemon_name, ivs)
     for uid in semi_reward_targets:
         try:
@@ -1122,11 +1138,28 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             s_ivs = {}
         shiny_semi_awards[uid] = (s_name, s_ivs)
 
-    # ── Participation reward: master ball for everyone ──
+    # ── 8강 탈락: master balls ──
     already_rewarded = {winner_id} | semi_reward_targets
-    for uid in all_participants:
-        if uid in already_rewarded:
-            continue
+    quarter_losers = {uid for uid, rnd in eliminated.items() if rnd == 8} - already_rewarded
+    for uid in quarter_losers:
+        try:
+            await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_QUARTER_MB)
+        except Exception:
+            logger.error(f"Failed to give master ball to quarter-finalist {uid}")
+    already_rewarded |= quarter_losers
+
+    # ── 16강 탈락: master balls ──
+    r16_losers = {uid for uid, rnd in eliminated.items() if rnd == 16} - already_rewarded
+    for uid in r16_losers:
+        try:
+            await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_R16_MB)
+        except Exception:
+            logger.error(f"Failed to give master ball to R16 participant {uid}")
+    already_rewarded |= r16_losers
+
+    # ── Participation reward: master ball for the rest ──
+    participant_only = all_participants - already_rewarded
+    for uid in participant_only:
         try:
             await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_PARTICIPANT_MB)
         except Exception:
@@ -1174,10 +1207,21 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             u = await queries.get_user(uid)
             u_name = u["display_name"] if u else "???"
             u_shiny_name = shiny_semi_awards.get(uid, ("???", {}))[0]
-            lines.append(f"🏅 {u_name}")
+            lines.append(f"🏅 {u_name} (4강)")
             lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치 {u_shiny_name}")
 
-    participant_only = all_participants - already_rewarded
+    if quarter_losers:
+        q_names = []
+        for uid in quarter_losers:
+            u = await queries.get_user(uid)
+            q_names.append(u["display_name"] if u else "???")
+        lines.append(f"\n⚔️ 8강 ({len(quarter_losers)}명): {', '.join(q_names)}")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_QUARTER_MB}개씩 지급!")
+
+    if r16_losers:
+        lines.append(f"\n🎯 16강 탈락 ({len(r16_losers)}명)")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_R16_MB}개씩 지급!")
+
     if participant_only:
         lines.append(f"\n🎟️ 참가 보상 ({len(participant_only)}명)")
         lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개씩 지급!")
@@ -1229,7 +1273,33 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.warning(f"Failed to DM semi-finalist {uid}")
 
-    # Participant DMs
+    # 8강 탈락 DMs
+    for uid in quarter_losers:
+        dm_text = (
+            "⚔️ 토너먼트 8강에서 아쉽게 탈락했습니다!\n"
+            "━━━━━━━━━━━━━━━\n\n"
+            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_QUARTER_MB}개 지급!\n\n"
+            "다음엔 4강을 노려보세요! 💪"
+        )
+        try:
+            await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
+        except Exception:
+            logger.warning(f"Failed to DM quarter-finalist {uid}")
+
+    # 16강 탈락 DMs
+    for uid in r16_losers:
+        dm_text = (
+            "🎯 토너먼트 16강에서 탈락했습니다!\n"
+            "━━━━━━━━━━━━━━━\n\n"
+            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_R16_MB}개 지급!\n\n"
+            "다음엔 8강을 노려보세요! 💪"
+        )
+        try:
+            await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
+        except Exception:
+            logger.warning(f"Failed to DM R16 participant {uid}")
+
+    # Participant DMs (earlier rounds or no matches)
     for uid in participant_only:
         dm_text = (
             "🎟️ 토너먼트 참가 보상!\n"
