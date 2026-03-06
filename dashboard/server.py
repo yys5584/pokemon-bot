@@ -2137,6 +2137,47 @@ async def api_admin_db_economy(request):
     })
 
 
+async def api_admin_db_optout(request):
+    """Admin DB: list users who opted out of patch notes."""
+    if not await _admin_check(request):
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    pool = await queries.get_db()
+    rows = await pool.fetch(
+        """SELECT user_id, display_name, username, last_active_at
+           FROM users WHERE patch_optout = TRUE
+           ORDER BY last_active_at DESC"""
+    )
+    users = [
+        {
+            "uid": r["user_id"],
+            "name": r["display_name"],
+            "username": r["username"],
+            "last_active": r["last_active_at"].isoformat() if r["last_active_at"] else None,
+        }
+        for r in rows
+    ]
+    return web.json_response({"total": len(users), "users": users})
+
+
+async def api_admin_db_optout_remove(request):
+    """Admin: remove patch_optout for a user."""
+    if not await _admin_check(request):
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    uid = int(body.get("user_id", 0))
+    if uid <= 0:
+        return web.json_response({"error": "Invalid user_id"}, status=400)
+    pool = await queries.get_db()
+    await pool.execute(
+        "UPDATE users SET patch_optout = FALSE WHERE user_id = $1", uid
+    )
+    logger.info(f"ADMIN_OPTOUT_REMOVE: user_id={uid}")
+    return web.json_response({"ok": True})
+
+
 # --- Web Analytics APIs ---
 
 async def api_analytics_pageview(request):
@@ -2528,6 +2569,8 @@ def create_app() -> web.Application:
     app.router.add_get("/api/admin/db/spawns", api_admin_db_spawns)
     app.router.add_get("/api/admin/db/user-pokemon", api_admin_db_user_pokemon)
     app.router.add_get("/api/admin/db/economy", api_admin_db_economy)
+    app.router.add_get("/api/admin/db/optout", api_admin_db_optout)
+    app.router.add_post("/api/admin/db/optout-remove", api_admin_db_optout_remove)
     # Analytics
     app.router.add_post("/api/analytics/pageview", api_analytics_pageview)
     app.router.add_post("/api/analytics/session", api_analytics_session)

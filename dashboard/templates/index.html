@@ -1280,6 +1280,7 @@
                     <div class="poke-filter" onclick="admDbTab('spawns')">📋 스폰로그</div>
                     <div class="poke-filter" onclick="admDbTab('userpoke')">🎒 유저포켓몬</div>
                     <div class="poke-filter" onclick="admDbTab('economy')">💰 경제현황</div>
+                    <div class="poke-filter" onclick="admDbTab('optout')">🔕 수신거부</div>
                 </div>
                 <div id="admDbContent"><div class="loading">탭을 선택하세요</div></div>
             </div>
@@ -2789,7 +2790,7 @@ function admDbTab(tab){
     _admDbCur=tab;
     document.querySelectorAll("#page-admin .section:last-child .poke-filter").forEach(f=>{
         f.classList.toggle("active",f.textContent.includes(
-            tab==="overview"?"서버현황":tab==="shiny"?"이로치":tab==="spawns"?"스폰로그":tab==="userpoke"?"유저포켓몬":"경제현황"
+            tab==="overview"?"서버현황":tab==="shiny"?"이로치":tab==="spawns"?"스폰로그":tab==="userpoke"?"유저포켓몬":tab==="economy"?"경제현황":"수신거부"
         ))
     });
     if(tab==="overview")admDbOverview();
@@ -2797,6 +2798,7 @@ function admDbTab(tab){
     else if(tab==="spawns")admDbSpawns();
     else if(tab==="userpoke")admDbUserPoke();
     else if(tab==="economy")admDbEconomy();
+    else if(tab==="optout")admDbOptout();
 }
 
 const _rarBg={common:"#C8E6C9",rare:"#BBDEFB",epic:"#E1BEE7",legendary:"#FFF9C4"};
@@ -3047,6 +3049,41 @@ async function admDbEconomy(){
         ${rankTable("BP 보유","⚡",d.bp," BP")}
         ${rankTable("크레딧 보유","🎫",d.credits,"")}
     </div>`;
+}
+
+async function admDbOptout(){
+    const el=document.getElementById("admDbContent");
+    el.innerHTML='<div class="loading">로딩 중...</div>';
+    const d=await fetchJSON("/api/admin/db/optout");
+    if(!d){el.innerHTML='<p class="empty-msg">로드 실패</p>';return}
+    let h=`<div style="margin-bottom:10px;font-size:13px;font-weight:700;color:var(--text)">🔕 패치노트 수신거부 유저 — ${d.total}명</div>`;
+    if(!d.users.length){h+='<p class="empty-msg">수신거부 유저가 없습니다.</p>';el.innerHTML=h;return}
+    h+=`<table style="width:100%;font-size:11px;border-collapse:collapse;background:var(--card);border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+        <thead><tr style="background:rgba(255,255,255,.03)">
+            <th style="padding:8px 10px;text-align:left;font-weight:700;color:var(--muted)">유저</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:700;color:var(--muted)">ID</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:700;color:var(--muted)">마지막 활동</th>
+            <th style="padding:8px 10px;text-align:center;font-weight:700;color:var(--muted)">해제</th>
+        </tr></thead><tbody>`;
+    d.users.forEach(u=>{
+        h+=`<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 10px;font-weight:600">${escHtml(u.name)}${u.username?` <span style="color:var(--muted)">@${escHtml(u.username)}</span>`:""}</td>
+            <td style="padding:6px 10px;color:var(--muted)">${u.uid}</td>
+            <td style="padding:6px 10px;color:var(--muted)">${admTime(u.last_active)}</td>
+            <td style="padding:6px 10px;text-align:center"><button onclick="admOptoutRemove(${u.uid})" style="padding:2px 10px;font-size:10px;border:1px solid #ef5350;color:#ef5350;background:transparent;border-radius:4px;cursor:pointer">해제</button></td>
+        </tr>`;
+    });
+    h+="</tbody></table>";
+    el.innerHTML=h;
+}
+async function admOptoutRemove(uid){
+    if(!confirm("수신거부를 해제하시겠습니까?"))return;
+    try{
+        const r=await fetch("/api/admin/db/optout-remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:uid})});
+        const d=await r.json();
+        if(d.ok){admDbOptout()}
+        else{alert("실패: "+(d.error||"알 수 없음"))}
+    }catch(e){alert("서버 연결 실패")}
 }
 
 // Override loadAdmin to work with category tabs

@@ -370,6 +370,20 @@ async def mock_admin_db_economy(request):
     })
 
 
+async def mock_admin_db_optout(request):
+    return web.json_response({
+        "total": 2,
+        "users": [
+            {"uid": 123456, "name": "테스트유저", "username": "testuser", "last_active": "2026-03-06T12:30:00"},
+            {"uid": 789012, "name": "크립토비밥", "username": None, "last_active": "2026-03-05T18:00:00"},
+        ]
+    })
+
+
+async def mock_admin_db_optout_remove(request):
+    return web.json_response({"ok": True})
+
+
 async def mock_analytics_pageview(request):
     """Silently accept pageview events (no DB in preview)."""
     return web.json_response({"ok": True})
@@ -454,6 +468,8 @@ def create_preview_app():
     app.router.add_get("/api/admin/db/spawns", mock_admin_db_spawns)
     app.router.add_get("/api/admin/db/user-pokemon", mock_admin_db_user_pokemon)
     app.router.add_get("/api/admin/db/economy", mock_admin_db_economy)
+    app.router.add_get("/api/admin/db/optout", mock_admin_db_optout)
+    app.router.add_post("/api/admin/db/optout-remove", mock_admin_db_optout_remove)
     # Analytics & KPI (mock)
     app.router.add_post("/api/analytics/pageview", mock_analytics_pageview)
     app.router.add_post("/api/analytics/session", mock_analytics_session)
