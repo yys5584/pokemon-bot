@@ -452,7 +452,6 @@
         <div class="nav-tab" data-page="patchnotes">📋 패치노트</div>
         <div class="nav-tab" data-page="battlerank">배틀 & 랭킹</div>
         <div class="nav-tab" data-page="tier">푸키몬 티어</div>
-        <div class="nav-tab" data-page="typechart">상성표</div>
         <div class="nav-tab" data-page="guide">📖 가이드</div>
         <div class="nav-tab" data-page="stats">통계</div>
         <div class="nav-tab" data-page="mypokemon"><img src="/static/icons/container.png" style="width:16px;height:16px;vertical-align:middle;margin-right:2px"> 내 푸키몬</div>
@@ -749,11 +748,26 @@
                 <!-- 가이드 탭 네비게이션 -->
                 <div id="guideTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
                     <button class="guide-tab active" data-guide="battle" onclick="switchGuide('battle')">⚔️ 배틀</button>
+                    <button class="guide-tab" data-guide="typechart" onclick="switchGuide('typechart')">🔥 상성표</button>
                     <button class="guide-tab" data-guide="rarity" onclick="switchGuide('rarity')">🎯 등급 & 출현</button>
                     <button class="guide-tab" data-guide="catch" onclick="switchGuide('catch')">🔴 포획</button>
                     <button class="guide-tab" data-guide="nurture" onclick="switchGuide('nurture')">💕 육성</button>
                     <button class="guide-tab" data-guide="trade" onclick="switchGuide('trade')">🔄 거래 & 교환</button>
                     <button class="guide-tab" data-guide="mission" onclick="switchGuide('mission')">📋 일일 미션</button>
+                </div>
+
+                <!-- ===== 상성표 ===== -->
+                <div class="guide-section" id="guide-typechart">
+                    <div class="guide-card">
+                        <h3>🔥 타입 상성표 (18타입)</h3>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">세로축 = 공격 타입, 가로축 = 방어 타입. 빈칸은 1x (보통 데미지).</p>
+                        <div id="typeChartGuide"><div class="loading">로딩 중...</div></div>
+                        <div style="margin-top:8px;font-size:11px;color:var(--muted)">
+                            <span style="color:#52b788">2x</span> 효과 좋음 &nbsp;|&nbsp;
+                            <span style="color:#e63946">0.5x</span> 효과 별로 &nbsp;|&nbsp;
+                            <span style="color:#555">0x</span> 면역
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ===== 배틀 시스템 ===== -->
@@ -1457,11 +1471,13 @@ function updateQuotaBadge(remaining,bonus){
 
 // --- Tab Navigation with URL routing ---
 const PAGE_PATHS={home:"/",channels:"/channels",patchnotes:"/patchnotes",battlerank:"/battle",tier:"/tier",typechart:"/types",guide:"/guide",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",admin:"/admin"};
-function switchGuide(id){document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));document.getElementById('guide-'+id).classList.add('active');document.querySelector('.guide-tab[data-guide="'+id+'"]').classList.add('active')}
+function switchGuide(id){document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));document.getElementById('guide-'+id).classList.add('active');document.querySelector('.guide-tab[data-guide="'+id+'"]').classList.add('active');if(id==='typechart'){const src=document.getElementById('typeChartGrid');const dst=document.getElementById('typeChartGuide');if(src&&dst&&src.innerHTML&&!src.innerHTML.includes('로딩')){dst.innerHTML=src.innerHTML}else{loadTypeChart().then(()=>{const s2=document.getElementById('typeChartGrid');if(s2)dst.innerHTML=s2.innerHTML})}}}
 const PATH_PAGES=Object.fromEntries(Object.entries(PAGE_PATHS).map(([k,v])=>[v,k]));
 let currentPage="home";
 
 function navigateTo(page,pushState=true){
+    // 상성표 → 가이드 상성표 탭으로 리다이렉트
+    if(page==="typechart"){navigateTo("guide",pushState);setTimeout(()=>switchGuide("typechart"),100);return}
     const tab=document.querySelector(`.nav-tab[data-page="${page}"]`);
     if(!tab)return;
     // Admin page: admin-only
