@@ -397,7 +397,7 @@ async def count_user_pokemon_species(user_id: int, pokemon_id: int) -> int:
     """Count how many of a specific pokemon species a user owns (active only)."""
     pool = await get_db()
     row = await pool.fetchrow(
-        "SELECT COUNT(*) as cnt FROM user_pokemon WHERE user_id = $1 AND pokemon_id = $2 AND is_active = true",
+        "SELECT COUNT(*) as cnt FROM user_pokemon WHERE user_id = $1 AND pokemon_id = $2 AND is_active = 1",
         user_id, pokemon_id,
     )
     return row["cnt"] if row else 0
