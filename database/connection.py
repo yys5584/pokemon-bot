@@ -49,7 +49,7 @@ async def _create_pool() -> asyncpg.Pool:
                 min_size=3,
                 max_size=10,
                 ssl=_make_ssl(),
-                statement_cache_size=200,
+                statement_cache_size=0,  # Supabase uses PgBouncer (no prepared statements)
                 command_timeout=30,
             )
             if attempt > 1:
