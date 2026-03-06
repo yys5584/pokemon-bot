@@ -32,6 +32,8 @@ async def check_mission_progress(user_id: int, mission_key: str) -> str | None:
     return a congratulation message string.  Returns None otherwise.
     """
     date = config.get_kst_today()
+    # Lazily ensure missions exist for today before incrementing
+    await ensure_daily_missions(user_id)
     result = await queries.increment_mission_progress(user_id, date, mission_key)
     if not result:
         return None  # 해당 미션이 오늘 없거나 이미 완료됨

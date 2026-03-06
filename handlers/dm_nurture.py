@@ -307,8 +307,16 @@ async def _do_feed(query, user_id, pokemon):
     if new_friendship is None:
         return
 
-    # Mission: feed (callback path)
-    asyncio.create_task(_check_and_notify_mission(update, "feed"))
+    # Mission: feed (callback path — use user_id directly, no Update object)
+    async def _cb_feed_mission():
+        try:
+            from services.mission_service import check_mission_progress
+            msg = await check_mission_progress(user_id, "feed")
+            if msg:
+                await query.message.chat.send_message(msg, parse_mode="HTML")
+        except Exception:
+            pass
+    asyncio.create_task(_cb_feed_mission())
 
     remaining = feed_limit - pokemon["fed_today"] - 1
     hearts = hearts_display(new_friendship, max_f)
@@ -352,8 +360,16 @@ async def _do_play(query, user_id, pokemon):
     if new_friendship is None:
         return
 
-    # Mission: play (callback path)
-    asyncio.create_task(_check_and_notify_mission(update, "play"))
+    # Mission: play (callback path — use user_id directly, no Update object)
+    async def _cb_play_mission():
+        try:
+            from services.mission_service import check_mission_progress
+            msg = await check_mission_progress(user_id, "play")
+            if msg:
+                await query.message.chat.send_message(msg, parse_mode="HTML")
+        except Exception:
+            pass
+    asyncio.create_task(_cb_play_mission())
 
     remaining = config.PLAY_PER_DAY - pokemon["played_today"] - 1
     hearts = hearts_display(new_friendship, max_f)

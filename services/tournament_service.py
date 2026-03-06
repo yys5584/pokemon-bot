@@ -270,7 +270,7 @@ async def _safe_send(bot, chat_id, text, **kwargs):
             await asyncio.sleep(wait)
     # last attempt without catch
     return await bot.send_message(chat_id=chat_id, text=text, **kwargs)
-from utils.helpers import icon_emoji, ball_emoji, rarity_badge
+from utils.helpers import icon_emoji, ball_emoji, rarity_badge, shiny_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -1081,10 +1081,17 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     from utils.battle_calc import iv_total
 
     # ── 1st place: master balls + shiny legendary + title ──
-    await queries.add_master_ball(winner_id, config.TOURNAMENT_PRIZE_1ST_MB)
+    try:
+        await queries.add_master_ball(winner_id, config.TOURNAMENT_PRIZE_1ST_MB)
+    except Exception:
+        logger.error(f"Failed to give master balls to winner {winner_id}")
     await queries.increment_title_stat(winner_id, "tournament_wins")
     shiny_1st_id, shiny_1st_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_1ST_SHINY)
-    _, shiny_1st_ivs = await queries.give_pokemon_to_user(winner_id, shiny_1st_id, chat_id, is_shiny=True)
+    shiny_1st_ivs = {}
+    try:
+        _, shiny_1st_ivs = await queries.give_pokemon_to_user(winner_id, shiny_1st_id, chat_id, is_shiny=True)
+    except Exception:
+        logger.error(f"Failed to give shiny pokemon to winner {winner_id}")
 
     # ── 2nd place (runner-up): same as semi-finalist rewards ──
     runner_up_id = None
@@ -1103,9 +1110,16 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     semi_reward_targets = semi_all - {winner_id}  # 우승자는 별도 보상
     shiny_semi_awards = {}  # uid -> (pokemon_name, ivs)
     for uid in semi_reward_targets:
-        await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_SEMI_MB)
+        try:
+            await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_SEMI_MB)
+        except Exception:
+            logger.error(f"Failed to give master balls to semi-finalist {uid}")
         s_id, s_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_SEMI_SHINY)
-        _, s_ivs = await queries.give_pokemon_to_user(uid, s_id, chat_id, is_shiny=True)
+        try:
+            _, s_ivs = await queries.give_pokemon_to_user(uid, s_id, chat_id, is_shiny=True)
+        except Exception:
+            logger.error(f"Failed to give shiny pokemon to semi-finalist {uid}")
+            s_ivs = {}
         shiny_semi_awards[uid] = (s_name, s_ivs)
 
     # ── Participation reward: master ball for everyone ──
@@ -1113,7 +1127,10 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     for uid in all_participants:
         if uid in already_rewarded:
             continue
-        await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_PARTICIPANT_MB)
+        try:
+            await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_PARTICIPANT_MB)
+        except Exception:
+            logger.error(f"Failed to give master ball to participant {uid}")
 
     # Check & unlock titles for winner
     from utils.title_checker import check_and_unlock_titles
@@ -1121,6 +1138,9 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
 
     # ── Helper: format IV detail for DM ──
     def _iv_detail(name: str, rarity: str, ivs: dict) -> str:
+        if not ivs:
+            rarity_label = config.RARITY_LABEL.get(rarity, rarity)
+            return f"✨ {name} (이로치 · {rarity_label})"
         total = iv_total(ivs["iv_hp"], ivs["iv_atk"], ivs["iv_def"],
                          ivs["iv_spa"], ivs["iv_spdef"], ivs["iv_spd"])
         grade, _ = config.get_iv_grade(total)

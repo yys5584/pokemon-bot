@@ -531,8 +531,14 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                        f" ({iv_sum}/186)")
             own_count = await queries.count_user_pokemon_species(winner_id, pokemon_id)
             own_tag = f"📦 보유: {own_count}마리" if own_count > 1 else "🆕 새로운 포켓몬!"
+            if winner.get("used_master_ball"):
+                dm_ball = f"{ball_emoji('masterball')} 마스터볼! "
+            elif winner.get("used_hyper_ball"):
+                dm_ball = f"{ball_emoji('hyperball')} 하이퍼볼! "
+            else:
+                dm_ball = "🎉 "
             dm_text = (
-                f"🎉 {rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
+                f"{dm_ball}{rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
                 f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
                 f"{format_stats_line(stats_with_iv, stats_base)}\n\n"
@@ -995,8 +1001,14 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                        f" ({iv_sum}/186)")
             own_count = await queries.count_user_pokemon_species(winner_id, pokemon_id)
             own_tag = f"📦 보유: {own_count}마리" if own_count > 1 else "🆕 새로운 포켓몬!"
+            if winner.get("used_master_ball"):
+                dm_ball = f"{ball_emoji('masterball')} 마스터볼! "
+            elif winner.get("used_hyper_ball"):
+                dm_ball = f"{ball_emoji('hyperball')} 하이퍼볼! "
+            else:
+                dm_ball = "🎉 "
             dm_text = (
-                f"🎉 {rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
+                f"{dm_ball}{rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
                 f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
                 f"{format_stats_line(stats_with_iv, stats_base)}\n\n"
