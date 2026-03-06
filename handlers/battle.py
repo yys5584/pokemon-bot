@@ -583,22 +583,22 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return
 
-    # 에픽 포켓몬 같은 종 중복 제한
-    epic_seen: set[int] = set()
-    epic_dups: list[str] = []
+    # 에픽 이상 포켓몬 같은 종 중복 제한
+    high_seen: set[int] = set()
+    high_dups: list[str] = []
     for n in nums:
         p = pokemon_list[n - 1]
-        if p.get("rarity") == "epic":
-            if p["pokemon_id"] in epic_seen:
-                epic_dups.append(p['name_ko'])
-            epic_seen.add(p["pokemon_id"])
-    if epic_dups:
+        if p.get("rarity") in ("epic", "legendary", "ultra_legendary"):
+            if p["pokemon_id"] in high_seen:
+                high_dups.append(p['name_ko'])
+            high_seen.add(p["pokemon_id"])
+    if high_dups:
         await context.bot.send_message(
             chat_id=user_id,
             text=(
-                f"⚠️ 에픽 포켓몬은 같은 종을 팀에 중복으로 넣을 수 없습니다!\n\n"
-                f"중복: {', '.join(epic_dups)}\n"
-                f"같은 종의 에픽 포켓몬은 1마리만 남기고 다시 등록해주세요."
+                f"⚠️ 에픽 이상 포켓몬은 같은 종을 팀에 중복으로 넣을 수 없습니다!\n\n"
+                f"중복: {', '.join(high_dups)}\n"
+                f"같은 종은 1마리만 남기고 다시 등록해주세요."
             ),
         )
         return
@@ -754,13 +754,13 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 await query.answer("⚠️ 초전설 포켓몬은 1마리만!", show_alert=True)
                 return
 
-        # Validate epic duplicate (draft-based, exclude target slot)
-        if pokemon.get("rarity") == "epic":
+        # Validate same-species duplicate (epic/legendary/ultra_legendary)
+        if pokemon.get("rarity") in ("epic", "legendary", "ultra_legendary"):
             for s, iid in current.items():
                 if s != slot and iid is not None and iid != inst_id:
                     p_info = await queries.get_user_pokemon_by_id(iid)
-                    if p_info and p_info.get("rarity") == "epic" and p_info.get("pokemon_id") == pokemon["pokemon_id"]:
-                        await query.answer("⚠️ 같은 에픽 포켓몬은 1마리만!", show_alert=True)
+                    if p_info and p_info.get("rarity") in ("epic", "legendary", "ultra_legendary") and p_info.get("pokemon_id") == pokemon["pokemon_id"]:
+                        await query.answer("⚠️ 같은 종은 1마리만!", show_alert=True)
                         return
 
         # Place pokemon

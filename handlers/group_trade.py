@@ -317,18 +317,21 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
             pass
 
         # DM notifications
+        from utils.helpers import icon_emoji
+        _ex = icon_emoji("exchange")
         try:
             await context.bot.send_message(
                 chat_id=trade["from_user_id"],
-                text=f"📤 그룹 교환 완료!\n{trade['offer_emoji']} {trade['offer_name']}{shiny_tag}을(를) {trade['to_name']}님에게 보냈습니다.",
+                text=f"{_ex} 그룹 교환 완료!\n{trade['offer_emoji']} {trade['offer_name']}{shiny_tag}을(를) {trade['to_name']}님에게 보냈습니다.",
+                parse_mode="HTML",
             )
         except Exception:
             pass
         try:
-            recv_msg = f"📥 그룹 교환 완료!\n{trade['offer_emoji']} {trade['offer_name']}{shiny_tag}을(를) 받았습니다!"
+            recv_msg = f"{_ex} 그룹 교환 완료!\n{trade['offer_emoji']} {trade['offer_name']}{shiny_tag}을(를) 받았습니다!"
             if evo_msg:
                 recv_msg += evo_msg
-            await context.bot.send_message(chat_id=user_id, text=recv_msg)
+            await context.bot.send_message(chat_id=user_id, text=recv_msg, parse_mode="HTML")
         except Exception:
             pass
         return

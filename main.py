@@ -126,10 +126,11 @@ async def post_init(application: Application):
     if refunded_balls:
         for uid, ball_type in refunded_balls:
             try:
-                msg = ("🟣 서버 점검으로 인해 마스터볼이 환불되었습니다."
-                       if ball_type == "master" else
-                       "🔵 서버 점검으로 인해 하이퍼볼이 환불되었습니다.")
-                await application.bot.send_message(chat_id=uid, text=msg)
+                from utils.helpers import ball_emoji
+                be = ball_emoji("masterball") if ball_type == "master" else ball_emoji("hyperball")
+                bname = "마스터볼" if ball_type == "master" else "하이퍼볼"
+                msg = f"{be} 서버 점검으로 인해 {bname}이 환불되었습니다."
+                await application.bot.send_message(chat_id=uid, text=msg, parse_mode="HTML")
             except Exception:
                 pass
         logger.info(f"Sent {len(refunded_balls)} ball refund DMs")

@@ -1624,15 +1624,18 @@ async def _admin_check(request):
     return sess
 
 
-async def _admin_send_dm(user_id: int, text: str) -> bool:
+async def _admin_send_dm(user_id: int, text: str, parse_mode: str = "HTML") -> bool:
     """Send Telegram DM to a user via Bot API."""
     bot_token = os.getenv("BOT_TOKEN", "")
     if not bot_token:
         return False
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {"chat_id": user_id, "text": text}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
     try:
         async with _aiohttp.ClientSession() as cs:
-            async with cs.post(url, json={"chat_id": user_id, "text": text}) as resp:
+            async with cs.post(url, json=payload) as resp:
                 return resp.status == 200
     except Exception:
         return False
@@ -1738,7 +1741,8 @@ async def api_admin_grant_credit(request):
     )
     if new_quota is None:
         return web.json_response({"error": "User not found"}, status=404)
-    dm_ok = await _admin_send_dm(target, f"🎫 관리자가 크레딧 {amount}개를 지급했습니다!")
+    _coin = '<tg-emoji emoji-id="6143083713354801765">💰</tg-emoji>'
+    dm_ok = await _admin_send_dm(target, f"{_coin} 관리자가 크레딧 {amount}개를 지급했습니다!")
     logger.info(f"ADMIN_GRANT_CREDIT: admin={sess['user_id']} target={target} amount={amount} new={new_quota} dm={dm_ok}")
     return web.json_response({"ok": True, "new_credits": new_quota, "dm_sent": dm_ok})
 
@@ -1767,7 +1771,8 @@ async def api_admin_grant_masterball(request):
     )
     if new_count is None:
         return web.json_response({"error": "User not found"}, status=404)
-    dm_ok = await _admin_send_dm(target, f"⚾ 관리자가 마스터볼 {amount}개를 지급했습니다!")
+    _mb = '<tg-emoji emoji-id="6143130859210807699">🟣</tg-emoji>'
+    dm_ok = await _admin_send_dm(target, f"{_mb} 관리자가 마스터볼 {amount}개를 지급했습니다!")
     logger.info(f"ADMIN_GRANT_MASTERBALL: admin={sess['user_id']} target={target} amount={amount} new={new_count} dm={dm_ok}")
     return web.json_response({"ok": True, "new_master_balls": new_count, "dm_sent": dm_ok})
 
@@ -1816,7 +1821,7 @@ async def api_admin_fulfill_order(request):
     # DM
     dm_ok = await _admin_send_dm(
         user_id,
-        f"💰 결제가 확인되었습니다! 크레딧 {llm_quota}개 + 마스터볼 {master_balls}개 지급 완료"
+        f'<tg-emoji emoji-id="6143083713354801765">💰</tg-emoji> 결제가 확인되었습니다! 크레딧 {llm_quota}개 + 마스터볼 {master_balls}개 지급 완료'
     )
     logger.info(f"ADMIN_FULFILL_ORDER: admin={sess['user_id']} order={order_key} user={user_id} llm=+{llm_quota} mb=+{master_balls}")
     return web.json_response({"ok": True, "dm_sent": dm_ok})

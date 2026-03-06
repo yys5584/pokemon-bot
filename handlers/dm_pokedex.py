@@ -943,11 +943,11 @@ async def _do_set_slot(p: dict, user_id: int, team_num: int, slot: int) -> str:
         if ul_count >= 1:
             return "초전설 포켓몬은 팀당 1마리만 가능합니다!"
 
-    # Validate: epic duplicate (exclude replaced pokemon)
-    if p["rarity"] == "epic":
+    # Validate: same-species duplicate (epic/legendary/ultra_legendary)
+    if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
         for t in team:
-            if t["slot"] != slot and t.get("rarity") == "epic" and t.get("pokemon_id") == p["pokemon_id"]:
-                return "같은 종의 에픽 포켓몬은 중복 불가!"
+            if t["slot"] != slot and t.get("rarity") in ("epic", "legendary", "ultra_legendary") and t.get("pokemon_id") == p["pokemon_id"]:
+                return "같은 종의 포켓몬은 중복 불가!"
 
     # Save
     instance_ids = [slot_map[s] for s in sorted(slot_map.keys())]

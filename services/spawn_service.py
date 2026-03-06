@@ -526,10 +526,17 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 rarity, stat_type, 0, evo_stage=evo_stage, **base_kwargs,
             )
             shiny_dm = f" {shiny_emoji()}이로치" if is_shiny else ""
+            iv_line = (f"IV: {caught_ivs['iv_hp']}/{caught_ivs['iv_atk']}/{caught_ivs['iv_def']}"
+                       f"/{caught_ivs['iv_spa']}/{caught_ivs['iv_spdef']}/{caught_ivs['iv_spd']}"
+                       f" ({iv_sum}/186)")
+            own_count = await queries.count_user_pokemon_species(winner_id, pokemon_id)
+            own_tag = f"📦 보유: {own_count}마리" if own_count > 1 else "🆕 새로운 포켓몬!"
             dm_text = (
                 f"🎉 {rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
+                f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
-                f"{format_stats_line(stats_with_iv, stats_base)}"
+                f"{format_stats_line(stats_with_iv, stats_base)}\n\n"
+                f"{own_tag}"
             )
             catch_buttons = InlineKeyboardMarkup([[
                 InlineKeyboardButton("가방에 넣기 ✅", callback_data=f"catch_keep_{_inst_id}"),
@@ -913,7 +920,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                           caught_ivs["iv_def"], caught_ivs["iv_spa"],
                           caught_ivs["iv_spdef"], caught_ivs["iv_spd"])
         iv_grade, _stars = config.get_iv_grade(iv_sum)
-        iv_tag = f" [{iv_grade}]" if iv_grade in ("S", "A") else f" [{iv_grade}]"
+        iv_tag = f" [{iv_grade}]"
 
         rbadge = rarity_badge(rarity)
         tb = type_badge(pokemon_id)
@@ -983,10 +990,17 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             )
 
             shiny_dm = f" {shiny_emoji()}이로치" if is_shiny else ""
+            iv_line = (f"IV: {caught_ivs['iv_hp']}/{caught_ivs['iv_atk']}/{caught_ivs['iv_def']}"
+                       f"/{caught_ivs['iv_spa']}/{caught_ivs['iv_spdef']}/{caught_ivs['iv_spd']}"
+                       f" ({iv_sum}/186)")
+            own_count = await queries.count_user_pokemon_species(winner_id, pokemon_id)
+            own_tag = f"📦 보유: {own_count}마리" if own_count > 1 else "🆕 새로운 포켓몬!"
             dm_text = (
                 f"🎉 {rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
+                f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
-                f"{format_stats_line(stats_with_iv, stats_base)}"
+                f"{format_stats_line(stats_with_iv, stats_base)}\n\n"
+                f"{own_tag}"
             )
             catch_buttons = InlineKeyboardMarkup([[
                 InlineKeyboardButton("가방에 넣기 ✅", callback_data=f"catch_keep_{_inst_id}"),

@@ -393,6 +393,16 @@ async def give_pokemon_to_user(
     return row["id"], ivs
 
 
+async def count_user_pokemon_species(user_id: int, pokemon_id: int) -> int:
+    """Count how many of a specific pokemon species a user owns (active only)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT COUNT(*) as cnt FROM user_pokemon WHERE user_id = $1 AND pokemon_id = $2 AND is_active = true",
+        user_id, pokemon_id,
+    )
+    return row["cnt"] if row else 0
+
+
 async def get_user_pokemon_list(user_id: int) -> list[dict]:
     """Get all active Pokemon owned by a user, with battle team info."""
     pool = await get_db()

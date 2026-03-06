@@ -351,22 +351,25 @@ async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
         user_ids = await queries.get_recently_active_user_ids(minutes=240)
         logger.info(f"Broadcasting tournament DM to {len(user_ids)} users")
 
+        _mb = ball_emoji("masterball")
+        _se = shiny_emoji()
+        _bt = icon_emoji("battle")
         msg = (
-            "🏟️ 아케이드 토너먼트 개최!\n\n"
+            f"{_bt} 아케이드 토너먼트 개최!\n\n"
             "⏰ 21:00~21:50 등록 / 22:00 대회 시작\n"
-            "📋 아래 채널에서 ㄷ 입력으로 참가!\n"
+            f"{icon_emoji('bookmark')} 아래 채널에서 ㄷ 입력으로 참가!\n"
             "👉 https://t.me/tg_poke\n\n"
-            "⚔️ 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
-            f"🏆 우승: 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치(전설) + 챔피언 칭호\n"
-            f"🏅 4강: 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치(에픽)\n"
-            f"🎟️ 참가: 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개\n\n"
-            "최초 우승자에겐 특별 칭호 🏛️초대 챔피언!"
+            f"{_bt} 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
+            f"{icon_emoji('crown')} 우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {_se}이로치(전설) + 챔피언 칭호\n"
+            f"{icon_emoji('champion')} 4강: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {_se}이로치(에픽)\n"
+            f"{icon_emoji('gotcha')} 참가: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개\n\n"
+            f"최초 우승자에겐 특별 칭호 {icon_emoji('champion_first')}초대 챔피언!"
         )
 
         sent = 0
         for uid in user_ids:
             try:
-                await context.bot.send_message(chat_id=uid, text=msg)
+                await context.bot.send_message(chat_id=uid, text=msg, parse_mode="HTML")
                 sent += 1
             except Exception:
                 pass  # User blocked bot or never started DM
