@@ -434,6 +434,17 @@
         .guide-list li{margin-bottom:2px}
         .guide-formula{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;font-weight:600;color:var(--red);margin:8px 0;font-family:monospace}
         .guide-card code{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid var(--border)}
+        .board-side-item{padding:8px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;transition:background .15s}
+        .board-side-item:hover{background:var(--border)}
+        .board-side-item.active{background:#58a6ff22;color:#58a6ff}
+        .board-side-sub{padding:6px 12px 6px 28px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--muted);margin-bottom:1px;transition:background .15s}
+        .board-side-sub:hover{background:var(--border)}
+        .board-side-sub.active{color:#58a6ff;font-weight:600}
+        #boardTable tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+        #boardTable tbody tr:hover{background:var(--card)}
+        .board-tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;margin-right:4px;white-space:nowrap}
+        .board-tag-공지{background:#FF572233;color:#FF5722}
+        .board-tag-패치노트{background:#2196F333;color:#2196F3}
     </style>
 </head>
 <body>
@@ -451,7 +462,7 @@
     </div>
     <div class="nav" id="nav">
         <div class="nav-tab active" data-page="home">홈</div>
-        <div class="nav-tab" data-page="patchnotes">📋 패치노트</div>
+        <div class="nav-tab" data-page="board">💬 게시판</div>
         <div class="nav-tab" data-page="battlerank">배틀 & 랭킹</div>
         <div class="nav-tab" data-page="tier">푸키몬 티어</div>
         <div class="nav-tab" data-page="guide">📖 가이드</div>
@@ -488,226 +499,182 @@
             <div class="section"><h2>📋 최근 스폰</h2><div id="recentLogHome"><div class="loading">로딩 중...</div></div></div>
         </div>
 
-        <!-- PATCH NOTES -->
-        <div class="page" id="page-patchnotes">
-            <div class="section">
-                <h2>📋 패치노트</h2>
-                <p style="font-size:12px;color:var(--muted);margin-bottom:16px">TGPoke 업데이트 내역입니다. 최신순으로 정렬됩니다.</p>
-
-                <!-- 2026-03-06 -->
-                <div style="margin-bottom:20px">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-                        <span style="font-size:14px;font-weight:800;color:var(--red)">v1.6.0</span>
-                        <span style="font-size:11px;color:var(--muted)">2026.03.06</span>
-                        <span style="font-size:10px;font-weight:700;color:#fff;background:#FF5722;border-radius:4px;padding:1px 6px">NEW</span>
+        <!-- BOARD (Community) -->
+        <div class="page" id="page-board">
+            <div style="display:flex;gap:20px;min-height:500px">
+                <!-- Sidebar -->
+                <div id="boardSidebar" style="width:200px;flex-shrink:0">
+                    <button id="boardWriteBtn" onclick="boardShowWrite()" style="display:none;width:100%;padding:10px;background:#58a6ff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px">✏️ 글쓰기</button>
+                    <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;padding-left:4px">게시판</div>
+                    <div class="board-side-item active" data-board="notice" data-tag="" onclick="boardSideNav(this)">📢 공지사항</div>
+                    <div class="board-side-sub" data-board="notice" data-tag="" onclick="boardSideNav(this)">전체</div>
+                    <div class="board-side-sub" data-board="notice" data-tag="공지" onclick="boardSideNav(this)">공지</div>
+                    <div class="board-side-sub" data-board="notice" data-tag="패치노트" onclick="boardSideNav(this)">패치노트</div>
+                    <div class="board-side-item" data-board="community" data-tag="" onclick="boardSideNav(this)">💬 유저게시판</div>
+                    <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+                    <div class="board-side-item" data-board="legacy" onclick="boardSideNav(this)">📋 이전 패치노트</div>
+                </div>
+                <!-- Main Area -->
+                <div style="flex:1;min-width:0">
+                    <!-- Board List View -->
+                    <div id="boardListView">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                            <h2 id="boardTitle" style="font-size:16px;margin:0">📢 공지사항</h2>
+                        </div>
+                        <table id="boardTable" style="width:100%;border-collapse:collapse;font-size:12px">
+                            <thead>
+                                <tr style="border-bottom:1px solid var(--border)">
+                                    <th style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600;width:60px">태그</th>
+                                    <th style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600">제목</th>
+                                    <th style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600;width:80px">작성자</th>
+                                    <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:60px">날짜</th>
+                                    <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:40px">조회</th>
+                                    <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:40px">추천</th>
+                                </tr>
+                            </thead>
+                            <tbody id="boardTbody"></tbody>
+                        </table>
+                        <div id="boardPagination" style="display:flex;justify-content:center;gap:4px;margin-top:16px"></div>
+                        <div id="boardEmpty" style="display:none;text-align:center;padding:40px;color:var(--muted)">게시글이 없습니다.</div>
                     </div>
-                    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
-                        <div style="font-weight:700;font-size:12px;color:#FF6F00;margin-bottom:6px">🎮 대화형 튜토리얼 시스템</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>첫 포획 시도 시 DM으로 튜토리얼이 자동 시작</li>
-                            <li>채팅처럼 메시지가 올라가는 대화형 진행 (8단계)</li>
-                            <li>실제 포켓몬 카드 이미지로 포획 체험 (이브이 → 미뇽 → 전설)</li>
-                            <li>ㅊ/ㅎ/ㅁ 직접 입력 + 3초 포획 연출</li>
-                            <li>마스터볼 구매 체험 포함</li>
-                            <li>졸업 보상: 마스터볼 x2 + BP 200 + 칭호 해금</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:var(--purple);margin-bottom:6px">🏷️ 신규 칭호</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>「🐭 내 꿈은 피카츄!」 — 튜토리얼 졸업 시 해금</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:#00838F;margin-bottom:6px">🗑️ 스폰 이미지 자동 정리</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>포켓몬 출현 이미지가 1시간 후 자동 삭제됩니다</li>
-                            <li>채팅방이 더 깔끔하게 유지됩니다</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:#E65100;margin-bottom:6px">✨ 커스텀 이모지 확대 적용</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>마스터볼 부족 메시지에 커스텀 이모지 적용</li>
-                            <li>날씨 표시에 타입별 커스텀 이모지 적용 (얼음/악/물/전기 등)</li>
-                            <li>튜토리얼 전 스텝에 커스텀 이모지 적용</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:var(--purple);margin-bottom:6px">📊 모니터링 & 대시보드</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>Sentry 실시간 에러 추적 시스템 도입</li>
-                            <li>KPI 대시보드에 Cloudflare 방문자 데이터 추가</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:#2E7D32;margin-bottom:6px">🔧 안정성 개선</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 0 16px;padding:0">
-                            <li>팀 편집 버튼 더블클릭 시 발생하던 에러 수정</li>
-                            <li>서버 재시작 중 대시보드 접속 시 에러 대신 안내 표시</li>
-                            <li>DM 전송 실패 시 불필요한 에러 로깅 제거</li>
-                        </ul>
+                    <!-- Post Detail View -->
+                    <div id="boardDetailView" style="display:none">
+                        <button onclick="boardBackToList()" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:12px;margin-bottom:12px;padding:0">← 목록으로</button>
+                        <div id="boardDetailContent"></div>
+                    </div>
+                    <!-- Legacy Patch Notes -->
+                    <div id="boardLegacyView" style="display:none">
+                        <div class="section">
+                            <h2>📋 이전 패치노트</h2>
+                            <p style="font-size:12px;color:var(--muted);margin-bottom:16px">TGPoke 업데이트 내역입니다.</p>
+                            <!-- v1.6.0 -->
+                            <div style="margin-bottom:20px">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                                    <span style="font-size:14px;font-weight:800;color:var(--red)">v1.6.0</span>
+                                    <span style="font-size:11px;color:var(--muted)">2026.03.06</span>
+                                    <span style="font-size:10px;font-weight:700;color:#fff;background:#FF5722;border-radius:4px;padding:1px 6px">NEW</span>
+                                </div>
+                                <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+                                    <div style="font-weight:700;font-size:12px;color:#FF6F00;margin-bottom:6px">🎮 대화형 튜토리얼 시스템</div>
+                                    <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
+                                        <li>첫 포획 시도 시 DM으로 튜토리얼이 자동 시작</li>
+                                        <li>채팅처럼 메시지가 올라가는 대화형 진행 (8단계)</li>
+                                        <li>실제 포켓몬 카드 이미지로 포획 체험 (이브이 → 미뇽 → 전설)</li>
+                                        <li>ㅊ/ㅎ/ㅁ 직접 입력 + 3초 포획 연출</li>
+                                        <li>마스터볼 구매 체험 포함</li>
+                                        <li>졸업 보상: 마스터볼 x2 + BP 200 + 칭호 해금</li>
+                                    </ul>
+                                    <div style="font-weight:700;font-size:12px;color:var(--purple);margin-bottom:6px">🏷️ 신규 칭호</div>
+                                    <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
+                                        <li>「🐭 내 꿈은 피카츄!」 — 튜토리얼 졸업 시 해금</li>
+                                    </ul>
+                                    <div style="font-weight:700;font-size:12px;color:#00838F;margin-bottom:6px">🗑️ 스폰 이미지 자동 정리</div>
+                                    <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
+                                        <li>포켓몬 출현 이미지가 1시간 후 자동 삭제됩니다</li>
+                                        <li>채팅방이 더 깔끔하게 유지됩니다</li>
+                                    </ul>
+                                    <div style="font-weight:700;font-size:12px;color:#E65100;margin-bottom:6px">✨ 커스텀 이모지 확대 적용</div>
+                                    <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
+                                        <li>마스터볼 부족 메시지에 커스텀 이모지 적용</li>
+                                        <li>날씨 표시에 타입별 커스텀 이모지 적용</li>
+                                        <li>튜토리얼 전 스텝에 커스텀 이모지 적용</li>
+                                    </ul>
+                                    <div style="font-weight:700;font-size:12px;color:var(--purple);margin-bottom:6px">📊 모니터링 & 대시보드</div>
+                                    <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
+                                        <li>Sentry 실시간 에러 추적 시스템 도입</li>
+                                        <li>KPI 대시보드에 Cloudflare 방문자 데이터 추가</li>
+                                    </ul>
+                                    <div style="font-weight:700;font-size:12px;color:#2E7D32;margin-bottom:6px">🔧 안정성 개선</div>
+                                    <ul style="font-size:12px;line-height:1.8;margin:0 0 0 16px;padding:0">
+                                        <li>팀 편집 버튼 더블클릭 시 발생하던 에러 수정</li>
+                                        <li>서버 재시작 중 대시보드 접속 시 에러 대신 안내 표시</li>
+                                        <li>DM 전송 실패 시 불필요한 에러 로깅 제거</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <!-- v1.5.0 -->
+                            <div style="margin-bottom:20px">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                                    <span style="font-size:14px;font-weight:800;color:var(--red)">v1.5.0</span>
+                                    <span style="font-size:11px;color:var(--muted)">2026.03.05</span>
+                                </div>
+                                <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+                                    <ul style="font-size:12px;line-height:1.8;margin:0 0 0 16px;padding:0">
+                                        <li>AI 배틀 어드바이저 추가 (Gemini 2.5 Flash)</li>
+                                        <li>크레딧 시스템 + 서버 운영 후원</li>
+                                        <li>내 푸키몬 페이지 + 텔레그램 로그인</li>
+                                        <li>URL 라우팅 + 대시보드 리뉴얼</li>
+                                        <li>배틀 밸런스 조정</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <!-- v1.4.0 -->
+                            <div style="margin-bottom:20px">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                                    <span style="font-size:14px;font-weight:800;color:var(--red)">v1.4.0</span>
+                                    <span style="font-size:11px;color:var(--muted)">2026.03.04</span>
+                                </div>
+                                <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+                                    <ul style="font-size:12px;line-height:1.8;margin:0 0 0 16px;padding:0">
+                                        <li>칭호 & 토너먼트 시스템</li>
+                                        <li>배틀 UI 전면 개편</li>
+                                        <li>커스텀 이모지 전면 적용</li>
+                                        <li>IV 감정 명령어 추가</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <!-- v1.0~v1.3 -->
+                            <div style="margin-bottom:20px">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                                    <span style="font-size:14px;font-weight:800;color:var(--red)">v1.0.0 ~ v1.3.0</span>
+                                    <span style="font-size:11px;color:var(--muted)">2026.03 이전</span>
+                                </div>
+                                <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+                                    <ul style="font-size:12px;line-height:1.8;margin:0 0 0 16px;padding:0">
+                                        <li>포켓몬 수집 (Gen 1-2, 251종) + 이로치 시스템</li>
+                                        <li>친밀도 시스템 (밥/놀기/진화)</li>
+                                        <li>배틀 시스템 + 자동 매칭</li>
+                                        <li>토너먼트 시스템 (매일 밤 10시)</li>
+                                        <li>마스터볼 / 하이퍼볼 / 포켓볼 시스템</li>
+                                        <li>교환 시스템</li>
+                                        <li>IV 시스템 + 종족값</li>
+                                        <li>대시보드 오픈</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                <!-- 2026-03-05 -->
-                <div style="margin-bottom:20px">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-                        <span style="font-size:14px;font-weight:800;color:var(--red)">v1.5.0</span>
-                        <span style="font-size:11px;color:var(--muted)">2026.03.05</span>
-                        <span style="font-size:10px;font-weight:700;color:#fff;background:#4CAF50;border-radius:4px;padding:1px 6px">MAJOR</span>
+            </div>
+            <!-- Write Modal -->
+            <div id="boardWriteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:999;justify-content:center;align-items:center">
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;width:600px;max-width:90vw;max-height:80vh;overflow-y:auto">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                        <h3 id="boardWriteTitle" style="margin:0;font-size:15px">글쓰기</h3>
+                        <button onclick="boardCloseWrite()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px">&times;</button>
                     </div>
-                    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
-                        <div style="font-weight:700;font-size:12px;color:var(--purple);margin-bottom:6px">🤖 AI 배틀 어드바이저 추가</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>AI 배틀 어드바이저가 새로 추가되었습니다! (Gemini 2.5 Flash)</li>
-                            <li>내 팀을 분석해주는 빠른 분석 4종 (전투력/시너지/카운터/밸런스)</li>
-                            <li>AI에게 직접 물어보는 심층 분석 3종 (메타/육성/약점)</li>
-                            <li>자유롭게 전략을 상담할 수 있는 채팅 기능</li>
-                            <li>육성법, 카운터 전략 등 논문급 상세 분석 지원</li>
-                            <li>답변에 볼드, 컬러, 리스트 등 보기 편한 서식 적용</li>
-                            <li>레어리티별 색상 하이라이트 (<span style="color:#4CAF50">커먼</span> / <span style="color:#1976D2">레어</span> / <span style="color:#7B1FA2">에픽</span> / <span style="color:#F57F17">전설</span>)</li>
-                            <li>주제별로 나눠 관리하는 채팅 세션 (최대 6개)</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:#1565C0;margin-bottom:6px">🎟️ 크레딧 시스템</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>첫 가입 시 <b>10크레딧</b> 보너스 지급!</li>
-                            <li>매일 자정에 무료 <b>3크레딧</b> 자동 충전</li>
-                            <li>분석 유형별 차등 소모: 메타 2크레딧 / 육성·약점 3크레딧</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:#E65100;margin-bottom:6px">💰 서버 운영 후원</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>암호화폐 결제로 서버 운영을 후원할 수 있어요</li>
-                            <li>$3 → 20크레딧 + 마스터볼 1개</li>
-                            <li>$7 → 50크레딧 + 마스터볼 3개</li>
-                            <li>$15 → 100크레딧 + 마스터볼 7개</li>
-                            <li>홈 화면에서 후원 현황을 실시간으로 확인 가능</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:#00838F;margin-bottom:6px">📦 내 푸키몬</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>텔레그램 로그인으로 내 포켓몬을 웹에서 한눈에 확인!</li>
-                            <li>포켓몬마다 6스텟 (HP/ATK/DEF/SPA/SPDEF/SPD) 상세 표시</li>
-                            <li>IV 등급 (S~D) + 시너지 점수로 육성 가치를 한눈에 파악</li>
-                            <li>실전투력 기반 정렬, IV 총합순, 시너지순, 친밀도순 등 다양한 정렬</li>
-                            <li>이로치/전설/에픽 필터 + 타입별 필터로 빠른 검색</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:var(--purple);margin-bottom:6px">🌐 대시보드 개선</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>URL로 바로 접속 가능 (tgpoke.com/battle, /tier, /ai 등)</li>
-                            <li>레트로 베이지 테마로 전면 리뉴얼</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:#1565C0;margin-bottom:6px">⚔️ 배틀 & 밸런스</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>실제 종족값 기반으로 전투력이 더 정확해졌어요</li>
-                            <li>듀얼타입 표시 + 18타입 상성표 완전 구현</li>
-                            <li>에픽 등급 같은 종류 중복 팀 등록 제한</li>
-                            <li>배틀 결과에 전투력이 함께 표시됩니다</li>
-                            <li>배틀 & 랭킹 페이지 레이아웃 대폭 개편</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:#2E7D32;margin-bottom:6px">🔧 버그 수정</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 0 16px;padding:0">
-                            <li>밥/놀기 빠르게 누를 때 친밀도가 안 오르던 문제 수정</li>
-                            <li>봇 재시작 시 진행 중이던 포획이 사라지지 않도록 개선</li>
-                            <li>보안 강화 및 안정성 개선</li>
-                        </ul>
+                    <div id="boardWriteTagRow" style="margin-bottom:10px;display:none">
+                        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">태그</label>
+                        <select id="boardWriteTag" style="width:100%;padding:8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px">
+                            <option value="공지">공지</option>
+                            <option value="패치노트">패치노트</option>
+                        </select>
                     </div>
+                    <div style="margin-bottom:10px">
+                        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">제목</label>
+                        <input id="boardWriteTitleInput" type="text" maxlength="80" placeholder="제목을 입력하세요" style="width:100%;padding:8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;box-sizing:border-box">
+                    </div>
+                    <div style="margin-bottom:10px">
+                        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">내용</label>
+                        <textarea id="boardWriteContent" rows="10" maxlength="5000" placeholder="내용을 입력하세요" style="width:100%;padding:8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;resize:vertical;box-sizing:border-box;line-height:1.6"></textarea>
+                    </div>
+                    <div style="margin-bottom:14px">
+                        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">📷 이미지 첨부 (선택, 1장)</label>
+                        <input id="boardWriteImage" type="file" accept="image/jpeg,image/png,image/gif,image/webp" style="font-size:12px;color:var(--muted)">
+                        <div id="boardWriteImagePreview" style="margin-top:6px"></div>
+                    </div>
+                    <button id="boardWriteSubmitBtn" onclick="boardSubmitPost()" style="width:100%;padding:10px;background:#58a6ff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">등록</button>
                 </div>
-
-                <!-- 2026-03-04 -->
-                <div style="margin-bottom:20px">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-                        <span style="font-size:14px;font-weight:800;color:var(--red)">v1.4.0</span>
-                        <span style="font-size:11px;color:var(--muted)">2026.03.04</span>
-                        <span style="font-size:10px;font-weight:700;color:#fff;background:#2196F3;border-radius:4px;padding:1px 6px">UPDATE</span>
-                    </div>
-                    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
-                        <div style="font-weight:700;font-size:12px;color:var(--purple);margin-bottom:6px">🎖️ 칭호 & 토너먼트</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>초대 챔피언 칭호 + 칭호 버프 시스템 도입</li>
-                            <li>칭호 장착/해제 시 버프 효과 안내 메시지</li>
-                            <li>토너먼트 라운드별 연출 차등화 (8강/4강/결승)</li>
-                            <li>대회 중 명령어 차단 + 딜레이 연출</li>
-                            <li>대회 진행 관리자 명령 추가</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:#1565C0;margin-bottom:6px">⚔️ 배틀 시스템</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>배틀 UI 전면 개편 + 결승 UI</li>
-                            <li>야차 베팅배틀 추가 (BP 100/200/500)</li>
-                            <li>특수공격/특수방어 데미지 계산 적용</li>
-                            <li>배틀팀 홍팀/청팀 구분 + IV등급 표시</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:var(--purple);margin-bottom:6px">🎨 UI/UX 대폭 개선</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>커스텀 이모지 전면 적용 (타입/레어리티/볼/UI)</li>
-                            <li>내 포켓몬 필터/정렬 시스템</li>
-                            <li>밥/놀기/진화/교환 중복 포켓몬 선택 + IV등급 표시</li>
-                            <li>상성표 커스텀 타입 이모지</li>
-                            <li>감정(IV 감정) 명령어 추가</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:#E65100;margin-bottom:6px">🔧 버그 수정 & 최적화</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 0 16px;padding:0">
-                            <li>봇 시작/리셋 병렬화로 시작 속도 최적화</li>
-                            <li>날씨 API 백그라운드 분리 + 타임아웃 5초</li>
-                            <li>포켓볼 리셋 시 시도횟수도 함께 초기화</li>
-                            <li>챌린저 KO 시 HP바 오표시 수정</li>
-                            <li>독침봉 → 독침붕 오타 수정</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- 2026-03-04 초기 -->
-                <div style="margin-bottom:20px">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-                        <span style="font-size:14px;font-weight:800;color:var(--red)">v1.3.0</span>
-                        <span style="font-size:11px;color:var(--muted)">2026.03.04</span>
-                        <span style="font-size:10px;font-weight:700;color:#fff;background:#FF9800;border-radius:4px;padding:1px 6px">FEATURE</span>
-                    </div>
-                    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
-                        <div style="font-weight:700;font-size:12px;color:var(--purple);margin-bottom:6px">📊 IV 시스템 + 종족값</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 12px 16px;padding:0">
-                            <li>6스텟 IV 시스템 도입 (HP/공격/방어/특공/특방/속도)</li>
-                            <li>IV 등급 체계: S(160+) / A(140+) / B(100+) / C(60+) / D</li>
-                            <li>실제 포켓몬 종족값 기반 스텟 계산</li>
-                            <li>18타입 상성 시스템 완전 구현</li>
-                            <li>기존 포켓몬 일괄 IV 마이그레이션</li>
-                        </ul>
-                        <div style="font-weight:700;font-size:12px;color:#1565C0;margin-bottom:6px">🌐 대시보드 v1</div>
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 0 16px;padding:0">
-                            <li>tgpoke.com 웹 대시보드 오픈</li>
-                            <li>레트로 베이지 테마 + 타입 아이콘</li>
-                            <li>배틀 랭킹, 티어표, 상성표, 통계 페이지</li>
-                            <li>실시간 데이터 연동</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- 2026-03-03 -->
-                <div style="margin-bottom:20px">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-                        <span style="font-size:14px;font-weight:800;color:var(--red)">v1.2.0</span>
-                        <span style="font-size:11px;color:var(--muted)">2026.03.03</span>
-                        <span style="font-size:10px;font-weight:700;color:#fff;background:#FF9800;border-radius:4px;padding:1px 6px">FEATURE</span>
-                    </div>
-                    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 0 16px;padding:0">
-                            <li>야차 베팅배틀 시스템 추가 (BP 프리셋 100/200/500)</li>
-                            <li>상점 인라인 버튼 UI 개편</li>
-                            <li>자동 메시지 삭제 시스템</li>
-                            <li>교환 시스템 개선</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- 이전 -->
-                <div style="margin-bottom:20px">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-                        <span style="font-size:14px;font-weight:800;color:var(--red)">v1.0.0 ~ v1.1.0</span>
-                        <span style="font-size:11px;color:var(--muted)">2026.03 이전</span>
-                    </div>
-                    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
-                        <ul style="font-size:12px;line-height:1.8;margin:0 0 0 16px;padding:0">
-                            <li>포켓몬 수집 (Gen 1-2, 251종) + 이로치 시스템</li>
-                            <li>친밀도 시스템 (밥/놀기/진화)</li>
-                            <li>배틀 시스템 + 자동 매칭</li>
-                            <li>토너먼트 시스템 (매일 밤 10시)</li>
-                            <li>마스터볼 / 하이퍼볼 / 포켓볼 시스템</li>
-                            <li>교환 시스템</li>
-                            <li>아케이드 (30초 무한 스폰) + 일반방 (2시간 스폰)</li>
-                            <li>출석 보상 + 심야 보너스 (새벽 2~5시)</li>
-                        </ul>
-                    </div>
-                </div>
-
             </div>
         </div>
 
@@ -1474,7 +1441,7 @@ function updateQuotaBadge(remaining,bonus){
 }
 
 // --- Tab Navigation with URL routing ---
-const PAGE_PATHS={home:"/",channels:"/channels",patchnotes:"/patchnotes",battlerank:"/battle",tier:"/tier",typechart:"/types",guide:"/guide",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",admin:"/admin"};
+const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",tier:"/tier",typechart:"/types",guide:"/guide",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",admin:"/admin"};
 function switchGuide(id){document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));document.getElementById('guide-'+id).classList.add('active');document.querySelector('.guide-tab[data-guide="'+id+'"]').classList.add('active');if(id==='typechart'){const src=document.getElementById('typeChartGrid');const dst=document.getElementById('typeChartGuide');if(src&&dst&&src.innerHTML&&!src.innerHTML.includes('로딩')){dst.innerHTML=src.innerHTML}else{loadTypeChart().then(()=>{const s2=document.getElementById('typeChartGrid');if(s2)dst.innerHTML=s2.innerHTML})}}}
 const PATH_PAGES=Object.fromEntries(Object.entries(PAGE_PATHS).map(([k,v])=>[v,k]));
 let currentPage="home";
@@ -1548,6 +1515,7 @@ async function loadPage(page){
         else if(page==="stats") await loadStats();
         else if(page==="mypokemon"){if(_authUser)await loadMyPokemon()}
         else if(page==="simulator"){if(_authUser)await loadSimulator()}
+        else if(page==="board"){if(!_boardLoaded)boardLoadList()}
         else if(page==="admin"){if(_authUser&&_authUser.is_admin)await loadAdmin()}
     }catch(e){console.error("Load error:",e)}
     document.getElementById("lastUpdate").textContent="업데이트: "+new Date().toLocaleTimeString("ko-KR");
@@ -1648,7 +1616,7 @@ async function loadHome(){
     const users=await fetchJSON("/api/users");
     if(users&&users.length){
         let h=`<table><thead><tr><th>#</th><th>이름</th><th>도감</th></tr></thead><tbody>`;
-        users.slice(0,10).forEach((u,i)=>{h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${u.title?u.title_emoji+" ":""}${u.display_name}</td><td style="font-weight:700">${u.pokedex_count}/251</td></tr>`});
+        users.slice(0,10).forEach((u,i)=>{h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${u.title?u.title_emoji+" ":""}${u.display_name}</td><td style="font-weight:700">${u.pokedex_count}/386</td></tr>`});
         document.getElementById("usersTable").innerHTML=h+"</tbody></table>";
     }
 
@@ -1754,10 +1722,10 @@ async function loadBattleRank(){
     // Pokedex ranking with paging
     if(users&&users.length){
         renderPaged("fullUsersTable",users,10,function(slice,offset){
-            let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th><th class="hide-m">1세대</th><th class="hide-m">2세대</th><th>도감</th></tr></thead><tbody>`;
+            let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th><th class="hide-m">1세대</th><th class="hide-m">2세대</th><th class="hide-m">3세대</th><th>도감</th></tr></thead><tbody>`;
             slice.forEach((u,i)=>{
                 const idx=offset+i;
-                h+=`<tr><td>${idx<3?medals[idx]:idx+1}</td><td>${u.display_name}</td><td>${u.title?u.title_emoji+" "+u.title:"-"}</td><td class="hide-m">${u.gen1_count}/151</td><td class="hide-m">${u.gen2_count}/100</td><td style="font-weight:700">${u.pokedex_count}/251</td></tr>`;
+                h+=`<tr><td>${idx<3?medals[idx]:idx+1}</td><td>${u.display_name}</td><td>${u.title?u.title_emoji+" "+u.title:"-"}</td><td class="hide-m">${u.gen1_count}/151</td><td class="hide-m">${u.gen2_count}/100</td><td class="hide-m">${u.gen3_count||0}/135</td><td style="font-weight:700">${u.pokedex_count}/386</td></tr>`;
             });
             return h+"</tbody></table>";
         });
@@ -1986,7 +1954,7 @@ async function loadMyPokemon(){
     document.getElementById("mySummary").innerHTML=`
         <div class="card" style="padding:6px 10px"><div class="label">보유</div><div class="value" style="font-size:18px;color:var(--red)">${summary.total_pokemon}</div></div>
         <div class="card" style="padding:6px 10px"><div class="label">✨이로치</div><div class="value" style="font-size:18px;color:var(--gold)">${summary.shiny_count}</div></div>
-        <div class="card" style="padding:6px 10px"><div class="label">📖도감</div><div class="value" style="font-size:18px;color:var(--blue)">${summary.dex_count}/251</div></div>
+        <div class="card" style="padding:6px 10px"><div class="label">📖도감</div><div class="value" style="font-size:18px;color:var(--blue)">${summary.dex_count}/386</div></div>
         <div class="card" style="padding:6px 10px"><div class="label">⚔️전적</div><div class="value" style="font-size:15px;color:var(--green);white-space:nowrap">${summary.battle_wins}W ${summary.battle_losses}L</div></div>
         <div class="card" style="padding:6px 10px"><div class="label">BP</div><div class="value" style="font-size:18px;color:var(--purple)">${summary.battle_points}</div></div>
         <div class="card" style="padding:6px 10px"><div class="label">🔥연승</div><div class="value" style="font-size:18px">${summary.best_streak}</div></div>
@@ -2653,7 +2621,7 @@ function admCatSwitch(cat){
 
 // --- KPI Dashboard (Dark Neon) ---
 let _kpiCharts={};
-const _PAGE_LABELS={home:"홈",patchnotes:"패치노트",battlerank:"배틀&랭킹",tier:"티어",typechart:"상성표",stats:"통계",mypokemon:"내포켓몬",simulator:"AI어드바이저",admin:"관리자"};
+const _PAGE_LABELS={home:"홈",board:"게시판",battlerank:"배틀&랭킹",tier:"티어",typechart:"상성표",stats:"통계",mypokemon:"내포켓몬",simulator:"AI어드바이저",admin:"관리자"};
 const _NEON={cyan:"#00d4ff",green:"#00ff88",purple:"#a855f7",pink:"#ff006e",orange:"#ff8c00",yellow:"#fbbf24",blue:"#3b82f6",red:"#ef4444"};
 
 async function admKpiLoad(){
@@ -3101,6 +3069,282 @@ async function loadAdmin(){
     admCatSwitch("manage");
 }
 
+
+// ============ Board (Community) ============
+let _boardType = "notice";
+let _boardTag = "";
+let _boardPage = 1;
+let _boardLoaded = false;
+
+function boardSideNav(el) {
+    const board = el.dataset.board;
+    // Remove all active
+    document.querySelectorAll(".board-side-item,.board-side-sub").forEach(e => e.classList.remove("active"));
+    el.classList.add("active");
+
+    if (board === "legacy") {
+        document.getElementById("boardListView").style.display = "none";
+        document.getElementById("boardDetailView").style.display = "none";
+        document.getElementById("boardLegacyView").style.display = "";
+        document.getElementById("boardWriteBtn").style.display = "none";
+        return;
+    }
+
+    document.getElementById("boardListView").style.display = "";
+    document.getElementById("boardDetailView").style.display = "none";
+    document.getElementById("boardLegacyView").style.display = "none";
+
+    _boardType = board;
+    _boardTag = el.dataset.tag || "";
+    _boardPage = 1;
+
+    const titles = {notice: "📢 공지사항", community: "💬 유저게시판"};
+    document.getElementById("boardTitle").textContent = titles[board] || board;
+
+    // Show write button based on context
+    const wb = document.getElementById("boardWriteBtn");
+    if (board === "notice" && _authUser && _authUser.is_admin) {
+        wb.style.display = "";
+    } else if (board === "community" && _authUser) {
+        wb.style.display = "";
+    } else {
+        wb.style.display = "none";
+    }
+
+    boardLoadList();
+}
+
+async function boardLoadList() {
+    const params = new URLSearchParams({board_type: _boardType, page: _boardPage});
+    if (_boardTag) params.set("tag", _boardTag);
+    try {
+        const r = await fetch("/api/board/posts?" + params);
+        const d = await r.json();
+        const tbody = document.getElementById("boardTbody");
+        const empty = document.getElementById("boardEmpty");
+
+        if (!d.posts || d.posts.length === 0) {
+            tbody.innerHTML = "";
+            empty.style.display = "";
+            document.getElementById("boardPagination").innerHTML = "";
+            return;
+        }
+        empty.style.display = "none";
+
+        tbody.innerHTML = d.posts.map(p => {
+            const pin = p.is_pinned ? '<span style="color:#FF5722;margin-right:2px">📌</span>' : '';
+            const tagHtml = p.tag ? `<span class="board-tag board-tag-${p.tag}">${p.tag}</span>` : '';
+            const imgIcon = p.has_image ? ' 📷' : '';
+            const cmtCount = p.comment_count > 0 ? ` <span style="color:var(--blue);font-size:11px">(${p.comment_count})</span>` : '';
+            const titleText = _escHtml(p.title);
+            return `<tr onclick="boardOpenPost(${p.id})" style="${p.is_pinned ? 'background:rgba(88,166,255,.05)' : ''}">
+                <td style="padding:8px 6px;vertical-align:middle">${tagHtml}</td>
+                <td style="padding:8px 6px;vertical-align:middle">${pin}<span style="font-weight:${p.is_pinned?600:400}">${titleText}</span>${cmtCount}${imgIcon}</td>
+                <td style="padding:8px 6px;color:var(--muted);vertical-align:middle">${_escHtml(p.display_name)}</td>
+                <td style="padding:8px 6px;color:var(--muted);text-align:center;vertical-align:middle;white-space:nowrap">${p.time_ago}</td>
+                <td style="padding:8px 6px;color:var(--muted);text-align:center;vertical-align:middle">${p.view_count}</td>
+                <td style="padding:8px 6px;color:var(--muted);text-align:center;vertical-align:middle">${p.like_count > 0 ? '<span style="color:#f44336">'+p.like_count+'</span>' : '0'}</td>
+            </tr>`;
+        }).join("");
+
+        // Pagination
+        const pag = document.getElementById("boardPagination");
+        if (d.total_pages <= 1) { pag.innerHTML = ""; return; }
+        let html = "";
+        if (_boardPage > 1) html += `<button onclick="boardGoPage(${_boardPage-1})" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px">&lt;</button>`;
+        for (let i = 1; i <= d.total_pages; i++) {
+            const active = i === _boardPage ? 'background:#58a6ff;color:#fff;border-color:#58a6ff' : 'background:var(--card);color:var(--text);border-color:var(--border)';
+            html += `<button onclick="boardGoPage(${i})" style="${active};border:1px solid;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px">${i}</button>`;
+        }
+        if (_boardPage < d.total_pages) html += `<button onclick="boardGoPage(${_boardPage+1})" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px">&gt;</button>`;
+        pag.innerHTML = html;
+    } catch(e) { console.error("Board load error:", e); }
+    _boardLoaded = true;
+}
+
+function boardGoPage(p) { _boardPage = p; boardLoadList(); }
+
+async function boardOpenPost(id) {
+    document.getElementById("boardListView").style.display = "none";
+    document.getElementById("boardDetailView").style.display = "";
+    document.getElementById("boardLegacyView").style.display = "none";
+
+    try {
+        const r = await fetch("/api/board/posts/" + id);
+        const d = await r.json();
+        const p = d.post;
+        const isOwner = _authUser && _authUser.user_id === p.user_id;
+        const isAdmin = _authUser && _authUser.is_admin;
+
+        let html = `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px">`;
+        html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">`;
+        if (p.tag) html += `<span class="board-tag board-tag-${p.tag}">${_escHtml(p.tag)}</span>`;
+        html += `<h3 style="margin:0;font-size:16px;font-weight:700">${_escHtml(p.title)}</h3></div>`;
+        html += `<div style="font-size:11px;color:var(--muted);margin-bottom:16px">${_escHtml(p.display_name)} · ${p.time_ago} · 조회 ${p.view_count}</div>`;
+        html += `<div style="font-size:13px;line-height:1.8;white-space:pre-wrap;margin-bottom:16px">${_escHtml(p.content)}</div>`;
+        if (p.image_filename) {
+            html += `<div style="margin-bottom:16px"><img src="/uploads/board/${p.image_filename}" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open('/uploads/board/${p.image_filename}','_blank')"></div>`;
+        }
+        // Like + delete buttons
+        html += `<div style="display:flex;align-items:center;gap:8px">`;
+        html += `<button id="boardLikeBtn" onclick="boardToggleLike(${p.id})" style="padding:6px 14px;border-radius:6px;border:1px solid ${d.liked?'#f44336':'var(--border)'};background:${d.liked?'#f4433622':'transparent'};color:${d.liked?'#f44336':'var(--text)'};cursor:pointer;font-size:12px">👍 추천 <span id="boardLikeCount">${p.like_count}</span></button>`;
+        if (isOwner || isAdmin) html += `<button onclick="boardDeletePost(${p.id})" style="padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:12px">🗑️ 삭제</button>`;
+        if (isAdmin && p.board_type === 'notice') html += `<button onclick="boardTogglePin(${p.id})" style="padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:12px">${p.is_pinned?'📌 고정해제':'📌 고정'}</button>`;
+        html += `</div></div>`;
+
+        // Comments
+        html += `<div style="margin-top:16px"><h4 style="font-size:13px;margin-bottom:10px">💬 댓글 (${d.comments.length})</h4>`;
+        for (const c of d.comments) {
+            const cOwner = _authUser && (_authUser.user_id === c.user_id || _authUser.is_admin);
+            html += `<div style="padding:10px;border-bottom:1px solid var(--border)">`;
+            html += `<div style="font-size:11px;font-weight:600;color:var(--text)">${_escHtml(c.display_name)} <span style="color:var(--muted);font-weight:400">${c.time_ago}</span>`;
+            if (cOwner) html += ` <button onclick="boardDeleteComment(${c.id},${p.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px">삭제</button>`;
+            html += `</div>`;
+            html += `<div style="font-size:12px;margin-top:4px;line-height:1.6;white-space:pre-wrap">${_escHtml(c.content)}</div></div>`;
+        }
+        // Comment form
+        if (_authUser) {
+            html += `<div style="margin-top:10px;display:flex;gap:6px">`;
+            html += `<input id="boardCommentInput" type="text" maxlength="500" placeholder="댓글을 입력하세요" style="flex:1;padding:8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px">`;
+            html += `<button onclick="boardSubmitComment(${p.id})" style="padding:8px 14px;background:#58a6ff;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap">등록</button></div>`;
+        }
+        html += `</div>`;
+
+        document.getElementById("boardDetailContent").innerHTML = html;
+    } catch(e) { console.error("Post detail error:", e); }
+}
+
+function boardBackToList() {
+    document.getElementById("boardDetailView").style.display = "none";
+    document.getElementById("boardListView").style.display = "";
+    boardLoadList();
+}
+
+async function boardToggleLike(postId) {
+    if (!_authUser) return alert("로그인이 필요합니다");
+    try {
+        const r = await fetch(`/api/board/posts/${postId}/like`, {method:"POST"});
+        const d = await r.json();
+        document.getElementById("boardLikeCount").textContent = d.like_count;
+        const btn = document.getElementById("boardLikeBtn");
+        btn.style.borderColor = d.liked ? "#f44336" : "var(--border)";
+        btn.style.background = d.liked ? "#f4433622" : "transparent";
+        btn.style.color = d.liked ? "#f44336" : "var(--text)";
+    } catch(e) { console.error(e); }
+}
+
+async function boardDeletePost(id) {
+    if (!confirm("정말 삭제하시겠습니까?")) return;
+    try {
+        await fetch(`/api/board/posts/${id}`, {method:"DELETE"});
+        boardBackToList();
+    } catch(e) { console.error(e); }
+}
+
+async function boardTogglePin(id) {
+    try {
+        await fetch(`/api/board/posts/${id}/pin`, {method:"POST"});
+        boardOpenPost(id);
+    } catch(e) { console.error(e); }
+}
+
+async function boardSubmitComment(postId) {
+    const input = document.getElementById("boardCommentInput");
+    const content = input.value.trim();
+    if (!content) return;
+    try {
+        await fetch(`/api/board/posts/${postId}/comments`, {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({content})
+        });
+        boardOpenPost(postId);
+    } catch(e) { console.error(e); }
+}
+
+async function boardDeleteComment(commentId, postId) {
+    if (!confirm("댓글을 삭제하시겠습니까?")) return;
+    try {
+        await fetch(`/api/board/comments/${commentId}`, {method:"DELETE"});
+        boardOpenPost(postId);
+    } catch(e) { console.error(e); }
+}
+
+function boardShowWrite() {
+    const modal = document.getElementById("boardWriteModal");
+    modal.style.display = "flex";
+    const tagRow = document.getElementById("boardWriteTagRow");
+    if (_boardType === "notice") {
+        tagRow.style.display = "";
+        document.getElementById("boardWriteTitle").textContent = "공지 작성";
+        document.getElementById("boardWriteTitleInput").placeholder = "제목을 입력하세요";
+    } else {
+        tagRow.style.display = "none";
+        document.getElementById("boardWriteTitle").textContent = "글쓰기";
+        document.getElementById("boardWriteTitleInput").placeholder = "[공략] 제목을 입력하세요";
+    }
+    document.getElementById("boardWriteTitleInput").value = "";
+    document.getElementById("boardWriteContent").value = "";
+    document.getElementById("boardWriteImage").value = "";
+    document.getElementById("boardWriteImagePreview").innerHTML = "";
+}
+
+function boardCloseWrite() {
+    document.getElementById("boardWriteModal").style.display = "none";
+}
+
+async function boardSubmitPost() {
+    const title = document.getElementById("boardWriteTitleInput").value.trim();
+    const content = document.getElementById("boardWriteContent").value.trim();
+    if (!title || title.length < 2) return alert("제목은 2자 이상 입력하세요");
+    if (!content || content.length < 5) return alert("내용은 5자 이상 입력하세요");
+
+    const fd = new FormData();
+    fd.append("board_type", _boardType);
+    if (_boardType === "notice") fd.append("tag", document.getElementById("boardWriteTag").value);
+    fd.append("title", title);
+    fd.append("content", content);
+    const imgFile = document.getElementById("boardWriteImage").files[0];
+    if (imgFile) fd.append("image", imgFile);
+
+    const btn = document.getElementById("boardWriteSubmitBtn");
+    btn.disabled = true; btn.textContent = "등록 중...";
+    try {
+        const r = await fetch("/api/board/posts", {method:"POST", body: fd});
+        const d = await r.json();
+        if (d.ok) {
+            boardCloseWrite();
+            document.getElementById("boardDetailView").style.display = "none";
+            document.getElementById("boardLegacyView").style.display = "none";
+            document.getElementById("boardListView").style.display = "";
+            boardLoadList();
+        } else {
+            alert(d.error || "오류가 발생했습니다");
+        }
+    } catch(e) { alert("오류가 발생했습니다"); console.error(e); }
+    finally { btn.disabled = false; btn.textContent = "등록"; }
+}
+
+// Image preview
+document.addEventListener("DOMContentLoaded", () => {
+    const imgInput = document.getElementById("boardWriteImage");
+    if (imgInput) imgInput.addEventListener("change", function() {
+        const preview = document.getElementById("boardWriteImagePreview");
+        if (this.files[0]) {
+            const url = URL.createObjectURL(this.files[0]);
+            preview.innerHTML = `<img src="${url}" style="max-width:200px;border-radius:6px">`;
+        } else {
+            preview.innerHTML = "";
+        }
+    });
+});
+
+// Helper: escape HTML
+function _escHtml(s) {
+    if (!s) return "";
+    const d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+}
 
 // --- Init ---
 (async()=>{

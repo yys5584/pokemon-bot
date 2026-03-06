@@ -6,6 +6,18 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["dashboard/run_preview.py"],
       "port": 8090
+    },
+    {
+      "name": "md-preview",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["scripts/preview_md.py"],
+      "port": 8091
+    },
+    {
+      "name": "gen3-preview",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8787", "--directory", "docs"],
+      "port": 8787
     }
   ]
 }

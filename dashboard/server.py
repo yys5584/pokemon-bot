@@ -546,18 +546,25 @@ def _validate_team(team: list[dict]) -> bool:
 
 
 def _pick_team(candidates: list[dict], max_size: int = 6) -> list[dict]:
-    """Pick top candidates respecting team composition rules."""
+    """Pick top candidates respecting team composition rules.
+    Rules: max 1 ultra_legendary, max 1 legendary, no duplicate epic/leg/ultra species.
+    """
     team = []
     epic_species = set()
     has_legendary = False
+    has_ultra = False
     for p in candidates:
         if len(team) >= max_size:
             break
+        if p["rarity"] == "ultra_legendary":
+            if has_ultra:
+                continue
+            has_ultra = True
         if p["rarity"] == "legendary":
             if has_legendary:
                 continue
             has_legendary = True
-        if p["rarity"] == "epic":
+        if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
             if p["pokemon_id"] in epic_species:
                 continue
             epic_species.add(p["pokemon_id"])
@@ -629,6 +636,7 @@ async def _recommend_counter(pokemon: list[dict]) -> tuple[list[dict], str]:
     used_types = {}  # type -> count
     epic_species = set()
     has_legendary = False
+    has_ultra = False
     max_same_type = 2  # same type at most 2
 
     for p in sorted_p:
@@ -637,11 +645,15 @@ async def _recommend_counter(pokemon: list[dict]) -> tuple[list[dict], str]:
         ptype = p["pokemon_type"]
         if used_types.get(ptype, 0) >= max_same_type:
             continue
+        if p["rarity"] == "ultra_legendary":
+            if has_ultra:
+                continue
+            has_ultra = True
         if p["rarity"] == "legendary":
             if has_legendary:
                 continue
             has_legendary = True
-        if p["rarity"] == "epic":
+        if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
             if p["pokemon_id"] in epic_species:
                 continue
             epic_species.add(p["pokemon_id"])
@@ -655,9 +667,11 @@ async def _recommend_counter(pokemon: list[dict]) -> tuple[list[dict], str]:
                 break
             if p in team:
                 continue
+            if p["rarity"] == "ultra_legendary" and has_ultra:
+                continue
             if p["rarity"] == "legendary" and has_legendary:
                 continue
-            if p["rarity"] == "epic" and p["pokemon_id"] in epic_species:
+            if p["rarity"] in ("epic", "legendary", "ultra_legendary") and p["pokemon_id"] in epic_species:
                 continue
             team.append(p)
 
@@ -691,22 +705,27 @@ def _recommend_balance(pokemon: list[dict]) -> tuple[list[dict], str]:
     used_types = set()
     epic_species = set()
     has_legendary = False
+    has_ultra = False
 
     for p in sorted_p:
         if len(team) >= 6:
             break
+        if p["rarity"] == "ultra_legendary":
+            if has_ultra:
+                continue
+            has_ultra = True
         if p["rarity"] == "legendary":
             if has_legendary:
                 continue
             has_legendary = True
-        if p["rarity"] == "epic" and p["pokemon_id"] in epic_species:
+        if p["rarity"] in ("epic", "legendary", "ultra_legendary") and p["pokemon_id"] in epic_species:
             continue
         # Bonus for new type
         bonus = 20 if p["pokemon_type"] not in used_types else 0
         p["_balance"] += bonus
         team.append(p)
         used_types.add(p["pokemon_type"])
-        if p["rarity"] == "epic":
+        if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
             epic_species.add(p["pokemon_id"])
 
     # Re-sort by balance score
@@ -903,7 +922,7 @@ def _build_system_prompt(pokemon_data: list, meta: dict) -> str:
 TGPoke는 텔레그램 기반 포켓몬 수집·육성·배틀 시뮬레이터로, 원작과 비슷하지만 독자적인 전투 시스템을 사용합니다.
 
 ## 배틀 시스템 핵심
-- 팀은 최대 6마리. 전설(legendary) 최대 1마리, 에픽(epic) 같은 종 중복 불가
+- 팀은 최대 6마리. 초전설(ultra_legendary) 최대 1마리, 전설(legendary) 최대 1마리, 에픽/전설/초전설 같은 종 중복 불가
 - 6스탯: HP, ATK(공격), DEF(방어), SPA(특공), SPDEF(특방), SPD(속도)
 - 속도 높은 쪽이 먼저 공격 (턴제)
 - ATK ≥ SPA면 물리공격(vs DEF), SPA > ATK면 특수공격(vs SPDEF)
@@ -938,7 +957,7 @@ TGPoke는 텔레그램 기반 포켓몬 수집·육성·배틀 시뮬레이터�
 ## 기술 배율 (레어리티별)
 - 커먼 1진화: 1.2x / 커먼 최종: 1.2~1.3x
 - 레어: 1.3~1.4x / 에픽: 1.4~1.5x
-- 전설: 1.8x / 특별전설(뮤츠,루기아,호오우): 2.0x
+- 전설: 1.8x / 초전설(뮤츠,루기아,호오우,가이오가,그란돈,레쿠쟈,지라치,테오키스): 2.0x
 
 ## 18타입 상성표 (우리 게임 기준)
 유리(1.3x): 노말→없음, 불꽃→풀·얼음·벌레·강철, 물→불꽃·땅·바위, 풀→물·땅·바위, 전기→물·비행, 얼음→풀·땅·비행·드래곤, 격투→노말·얼음·바위·악·강철, 독→풀·페어리, 땅→불꽃·전기·독·바위·강철, 비행→풀·격투·벌레, 에스퍼→격투·독, 벌레→풀·에스퍼·악, 바위→불꽃·얼음·비행·벌레, 고스트→에스퍼·고스트, 드래곤→드래곤, 악→에스퍼·고스트, 강철→얼음·바위·페어리, 페어리→격투·드래곤·악
@@ -949,6 +968,7 @@ TGPoke는 텔레그램 기반 포켓몬 수집·육성·배틀 시뮬레이터�
 - 🔵레어: 포획률40%, 기본종족값60
 - 🟣에픽: 포획률15%, 기본종족값75
 - 🟡전설: 포획률3%, 기본종족값95
+- 🔴초전설: 포획률3%, 기본종족값95, 기술배율2.0x (뮤츠/루기아/호오우/가이오가/그란돈/레쿠쟈/지라치/테오키스)
 - ✨이로치: 1/64 확률, IV최소10, 친밀도 최대7
 
 ## 유저의 포켓몬 보유 현황
@@ -971,13 +991,22 @@ TGPoke는 텔레그램 기반 포켓몬 수집·육성·배틀 시뮬레이터�
 - **절대 금지: 보유 포켓몬 전체를 1번, 2번, 3번... 순서대로 분석하는 목록형 응답**
 
 ### 추천 우선순위 규칙 (매우 중요)
-- 팀 추천 시 기본 우선순위: **전설 > 에픽 > 레어 > 커먼**
-- 전설과 에픽을 최우선으로 추천하고, 레어/커먼은 일반적으로 전투력이 낮아 비추천
+- 팀 추천 시 기본 우선순위: **초전설 > 전설 > 에픽 > 레어 > 커먼**
+- 초전설(ultra_legendary)은 팀에 최대 1마리, 전설(legendary)도 최대 1마리
+- 초전설과 전설, 에픽을 최우선으로 추천하고, 레어/커먼은 일반적으로 전투력이 낮아 비추천
 - 레어/커먼을 추천하는 경우는 아래 특수 상황에만 한정:
   - 이로치 (친밀도 최대7, IV 최소10으로 스탯이 높을 수 있음)
   - 타입 상성상 반드시 필요한 카운터 (예: 드래곤 대비 페어리)
   - 유저가 전설/에픽이 부족해서 슬롯을 채워야 할 때
 - 유저가 커먼/레어 위주라면 "에픽/전설 포획을 우선 노리세요" + 현재 보유 중 최선 전략 안내
+
+### 메타 분석 규칙 (매우 중요)
+- **메타 데이터를 적극적으로 활용할 것**: 위의 "현재 배틀 메타" 섹션의 포켓몬 사용률과 승률 데이터를 추천에 반영
+- 랭커들이 많이 쓰는 포켓몬은 그만한 이유가 있음 → 유저에게도 적극 추천
+- 랭커 메타에 많은 타입에 대한 카운터를 함께 제안 (예: "요즘 에스퍼 메타라 악/고스트 추천")
+- 유저가 "메타", "트렌드", "요즘" 등을 물으면 랭커 사용률/승률 데이터를 구체적 수치로 인용
+- 메타 포켓몬 중 유저가 보유한 것이 있으면 "메타에서 활약 중인 OOO를 보유하고 계시네요!" 식으로 연결
+- 메타 카운터 전략: 상위 랭커 팀의 주력 타입을 분석하고, 이를 카운터하는 타입 조합 적극 제안
 
 ### 내용 규칙
 - 유저가 "~하지마", "~언급하지마"라고 한 항목은 무조건 제외
@@ -2531,6 +2560,470 @@ async def api_donation(request):
     return web.json_response({"current": current, "goal": DONATION_GOAL})
 
 
+# ============================================================
+# Board (Community) — 게시판
+# ============================================================
+
+async def _ensure_board_tables():
+    """Create board tables if not exists."""
+    pool = await queries.get_db()
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS board_posts (
+            id SERIAL PRIMARY KEY,
+            board_type TEXT NOT NULL DEFAULT 'community',
+            user_id BIGINT NOT NULL,
+            display_name TEXT NOT NULL DEFAULT '',
+            tag TEXT DEFAULT NULL,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            image_filename TEXT DEFAULT NULL,
+            view_count INTEGER NOT NULL DEFAULT 0,
+            like_count INTEGER NOT NULL DEFAULT 0,
+            comment_count INTEGER NOT NULL DEFAULT 0,
+            is_pinned INTEGER NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    await pool.execute(
+        "CREATE INDEX IF NOT EXISTS idx_board_posts_board "
+        "ON board_posts(board_type, created_at DESC)"
+    )
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS board_comments (
+            id SERIAL PRIMARY KEY,
+            post_id INTEGER NOT NULL REFERENCES board_posts(id),
+            user_id BIGINT NOT NULL,
+            display_name TEXT NOT NULL DEFAULT '',
+            content TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    await pool.execute(
+        "CREATE INDEX IF NOT EXISTS idx_board_comments_post "
+        "ON board_comments(post_id)"
+    )
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS board_likes (
+            user_id BIGINT NOT NULL,
+            post_id INTEGER NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (user_id, post_id)
+        )
+    """)
+
+
+BOARD_PAGE_SIZE = 20
+BOARD_UPLOAD_DIR = Path(__file__).parent.parent / "uploads" / "board"
+
+
+def _board_time_ago(dt) -> str:
+    """Convert datetime to Korean relative time string."""
+    import datetime as _dt
+    now = _dt.datetime.now(_dt.timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=_dt.timezone.utc)
+    diff = now - dt
+    secs = int(diff.total_seconds())
+    if secs < 60:
+        return "방금 전"
+    if secs < 3600:
+        return f"{secs // 60}분 전"
+    if secs < 86400:
+        return f"{secs // 3600}시간 전"
+    if secs < 604800:
+        return f"{secs // 86400}일 전"
+    return dt.strftime("%m.%d")
+
+
+async def api_board_posts(request):
+    """GET /api/board/posts — list posts."""
+    board_type = request.query.get("board_type", "notice")
+    tag = request.query.get("tag", "")
+    page = max(1, int(request.query.get("page", "1")))
+    offset = (page - 1) * BOARD_PAGE_SIZE
+
+    pool = await queries.get_db()
+
+    where = "WHERE is_active = 1 AND board_type = $1"
+    params: list = [board_type]
+    if tag:
+        where += " AND tag = $2"
+        params.append(tag)
+
+    total = await pool.fetchval(
+        f"SELECT COUNT(*) FROM board_posts {where}", *params
+    )
+
+    # pinned first, then newest
+    idx = len(params) + 1
+    rows = await pool.fetch(
+        f"SELECT id, board_type, tag, title, display_name, image_filename, "
+        f"view_count, like_count, comment_count, is_pinned, created_at "
+        f"FROM board_posts {where} "
+        f"ORDER BY is_pinned DESC, created_at DESC "
+        f"LIMIT ${idx} OFFSET ${idx + 1}",
+        *params, BOARD_PAGE_SIZE, offset,
+    )
+
+    posts = []
+    for r in rows:
+        posts.append({
+            "id": r["id"],
+            "board_type": r["board_type"],
+            "tag": r["tag"],
+            "title": r["title"],
+            "display_name": r["display_name"],
+            "has_image": bool(r["image_filename"]),
+            "view_count": r["view_count"],
+            "like_count": r["like_count"],
+            "comment_count": r["comment_count"],
+            "is_pinned": r["is_pinned"],
+            "time_ago": _board_time_ago(r["created_at"]),
+            "created_at": r["created_at"].isoformat(),
+        })
+
+    return web.json_response({
+        "total": total, "page": page,
+        "total_pages": math.ceil(total / BOARD_PAGE_SIZE) if total else 1,
+        "posts": posts,
+    })
+
+
+async def api_board_post_detail(request):
+    """GET /api/board/posts/{id} — post detail + comments."""
+    post_id = int(request.match_info["id"])
+    pool = await queries.get_db()
+
+    row = await pool.fetchrow(
+        "SELECT * FROM board_posts WHERE id = $1 AND is_active = 1", post_id
+    )
+    if not row:
+        return web.json_response({"error": "Not found"}, status=404)
+
+    # Increment view count
+    await pool.execute(
+        "UPDATE board_posts SET view_count = view_count + 1 WHERE id = $1", post_id
+    )
+
+    # Comments
+    comments_rows = await pool.fetch(
+        "SELECT id, user_id, display_name, content, created_at "
+        "FROM board_comments WHERE post_id = $1 AND is_active = 1 "
+        "ORDER BY created_at ASC", post_id
+    )
+    comments = [{
+        "id": c["id"], "user_id": c["user_id"],
+        "display_name": c["display_name"], "content": c["content"],
+        "time_ago": _board_time_ago(c["created_at"]),
+        "created_at": c["created_at"].isoformat(),
+    } for c in comments_rows]
+
+    # Check if current user liked
+    liked = False
+    sess = await _get_session(request)
+    if sess:
+        like_row = await pool.fetchval(
+            "SELECT 1 FROM board_likes WHERE user_id = $1 AND post_id = $2",
+            sess["user_id"], post_id,
+        )
+        liked = bool(like_row)
+
+    post = {
+        "id": row["id"], "board_type": row["board_type"],
+        "tag": row["tag"], "title": row["title"],
+        "user_id": row["user_id"], "display_name": row["display_name"],
+        "content": row["content"],
+        "image_filename": row["image_filename"],
+        "view_count": row["view_count"] + 1,
+        "like_count": row["like_count"],
+        "comment_count": row["comment_count"],
+        "is_pinned": row["is_pinned"],
+        "time_ago": _board_time_ago(row["created_at"]),
+        "created_at": row["created_at"].isoformat(),
+    }
+
+    return web.json_response({"post": post, "comments": comments, "liked": liked})
+
+
+async def api_board_post_create(request):
+    """POST /api/board/posts — create a post."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Login required"}, status=401)
+
+    # Parse multipart form
+    try:
+        reader = await request.multipart()
+    except Exception:
+        return web.json_response({"error": "Invalid form data"}, status=400)
+
+    board_type = "community"
+    tag = None
+    title = ""
+    content = ""
+    image_data = None
+    image_ext = ""
+
+    while True:
+        part = await reader.next()
+        if part is None:
+            break
+        if part.name == "board_type":
+            board_type = (await part.text()).strip()
+        elif part.name == "tag":
+            tag = (await part.text()).strip() or None
+        elif part.name == "title":
+            title = (await part.text()).strip()
+        elif part.name == "content":
+            content = (await part.text()).strip()
+        elif part.name == "image":
+            if part.filename:
+                image_ext = Path(part.filename).suffix.lower()
+                if image_ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+                    return web.json_response(
+                        {"error": "Image must be jpg/png/gif/webp"}, status=400
+                    )
+                image_data = await part.read(chunk_size=5 * 1024 * 1024 + 1)
+                if len(image_data) > 5 * 1024 * 1024:
+                    return web.json_response(
+                        {"error": "Image too large (max 5MB)"}, status=400
+                    )
+
+    # Validate board_type
+    if board_type not in ("notice", "community"):
+        return web.json_response({"error": "Invalid board_type"}, status=400)
+
+    # Notice: admin only
+    if board_type == "notice":
+        admin = await _admin_check(request)
+        if not admin:
+            return web.json_response({"error": "Admin only"}, status=403)
+
+    # Validate lengths
+    if len(title) < 2 or len(title) > 80:
+        return web.json_response({"error": "제목은 2~80자"}, status=400)
+    if len(content) < 5 or len(content) > 5000:
+        return web.json_response({"error": "내용은 5~5000자"}, status=400)
+
+    pool = await queries.get_db()
+
+    # Insert post
+    post_id = await pool.fetchval(
+        "INSERT INTO board_posts (board_type, user_id, display_name, tag, title, content) "
+        "VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+        board_type, sess["user_id"], sess["display_name"], tag, title, content,
+    )
+
+    # Save image if provided
+    image_filename = None
+    if image_data:
+        BOARD_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        ts = int(time.time())
+        image_filename = f"{post_id}_{ts}{image_ext}"
+        filepath = BOARD_UPLOAD_DIR / image_filename
+
+        # Try to resize with PIL, fallback to raw save
+        try:
+            from PIL import Image
+            import io
+            img = Image.open(io.BytesIO(image_data))
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            max_w = 1280
+            if img.width > max_w:
+                ratio = max_w / img.width
+                img = img.resize((max_w, int(img.height * ratio)), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            filepath = filepath.with_suffix(".jpg")
+            image_filename = filepath.name
+            with open(filepath, "wb") as f:
+                f.write(buf.getvalue())
+        except ImportError:
+            # No PIL — save raw
+            with open(filepath, "wb") as f:
+                f.write(image_data)
+
+        await pool.execute(
+            "UPDATE board_posts SET image_filename = $1 WHERE id = $2",
+            image_filename, post_id,
+        )
+
+    return web.json_response({"ok": True, "id": post_id})
+
+
+async def api_board_post_delete(request):
+    """DELETE /api/board/posts/{id}."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Login required"}, status=401)
+
+    post_id = int(request.match_info["id"])
+    pool = await queries.get_db()
+
+    row = await pool.fetchrow(
+        "SELECT user_id FROM board_posts WHERE id = $1 AND is_active = 1", post_id
+    )
+    if not row:
+        return web.json_response({"error": "Not found"}, status=404)
+
+    # Owner or admin
+    is_admin = sess["user_id"] in config.ADMIN_IDS
+    if row["user_id"] != sess["user_id"] and not is_admin:
+        return web.json_response({"error": "Permission denied"}, status=403)
+
+    await pool.execute(
+        "UPDATE board_posts SET is_active = 0 WHERE id = $1", post_id
+    )
+    return web.json_response({"ok": True})
+
+
+async def api_board_post_pin(request):
+    """POST /api/board/posts/{id}/pin — toggle pin (admin only)."""
+    admin = await _admin_check(request)
+    if not admin:
+        return web.json_response({"error": "Admin only"}, status=403)
+
+    post_id = int(request.match_info["id"])
+    pool = await queries.get_db()
+
+    current = await pool.fetchval(
+        "SELECT is_pinned FROM board_posts WHERE id = $1 AND is_active = 1", post_id
+    )
+    if current is None:
+        return web.json_response({"error": "Not found"}, status=404)
+
+    new_val = 0 if current else 1
+    await pool.execute(
+        "UPDATE board_posts SET is_pinned = $1 WHERE id = $2", new_val, post_id
+    )
+    return web.json_response({"ok": True, "is_pinned": new_val})
+
+
+async def api_board_post_like(request):
+    """POST /api/board/posts/{id}/like — toggle like."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Login required"}, status=401)
+
+    post_id = int(request.match_info["id"])
+    pool = await queries.get_db()
+
+    exists = await pool.fetchval(
+        "SELECT 1 FROM board_likes WHERE user_id = $1 AND post_id = $2",
+        sess["user_id"], post_id,
+    )
+
+    if exists:
+        await pool.execute(
+            "DELETE FROM board_likes WHERE user_id = $1 AND post_id = $2",
+            sess["user_id"], post_id,
+        )
+        await pool.execute(
+            "UPDATE board_posts SET like_count = GREATEST(0, like_count - 1) WHERE id = $1",
+            post_id,
+        )
+        liked = False
+    else:
+        await pool.execute(
+            "INSERT INTO board_likes (user_id, post_id) VALUES ($1, $2) "
+            "ON CONFLICT DO NOTHING",
+            sess["user_id"], post_id,
+        )
+        await pool.execute(
+            "UPDATE board_posts SET like_count = like_count + 1 WHERE id = $1",
+            post_id,
+        )
+        liked = True
+
+    new_count = await pool.fetchval(
+        "SELECT like_count FROM board_posts WHERE id = $1", post_id
+    )
+    return web.json_response({"ok": True, "liked": liked, "like_count": new_count or 0})
+
+
+async def api_board_comment_create(request):
+    """POST /api/board/posts/{id}/comments — add comment."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Login required"}, status=401)
+
+    post_id = int(request.match_info["id"])
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    content = (body.get("content") or "").strip()
+    if len(content) < 1 or len(content) > 500:
+        return web.json_response({"error": "댓글은 1~500자"}, status=400)
+
+    pool = await queries.get_db()
+
+    # Check post exists
+    post_exists = await pool.fetchval(
+        "SELECT 1 FROM board_posts WHERE id = $1 AND is_active = 1", post_id
+    )
+    if not post_exists:
+        return web.json_response({"error": "Post not found"}, status=404)
+
+    comment_id = await pool.fetchval(
+        "INSERT INTO board_comments (post_id, user_id, display_name, content) "
+        "VALUES ($1, $2, $3, $4) RETURNING id",
+        post_id, sess["user_id"], sess["display_name"], content,
+    )
+    await pool.execute(
+        "UPDATE board_posts SET comment_count = comment_count + 1 WHERE id = $1",
+        post_id,
+    )
+
+    return web.json_response({"ok": True, "id": comment_id})
+
+
+async def api_board_comment_delete(request):
+    """DELETE /api/board/comments/{id}."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Login required"}, status=401)
+
+    comment_id = int(request.match_info["id"])
+    pool = await queries.get_db()
+
+    row = await pool.fetchrow(
+        "SELECT user_id, post_id FROM board_comments "
+        "WHERE id = $1 AND is_active = 1", comment_id
+    )
+    if not row:
+        return web.json_response({"error": "Not found"}, status=404)
+
+    is_admin = sess["user_id"] in config.ADMIN_IDS
+    if row["user_id"] != sess["user_id"] and not is_admin:
+        return web.json_response({"error": "Permission denied"}, status=403)
+
+    await pool.execute(
+        "UPDATE board_comments SET is_active = 0 WHERE id = $1", comment_id
+    )
+    await pool.execute(
+        "UPDATE board_posts SET comment_count = GREATEST(0, comment_count - 1) "
+        "WHERE id = $1", row["post_id"],
+    )
+    return web.json_response({"ok": True})
+
+
+async def api_board_image(request):
+    """GET /uploads/board/{filename} — serve uploaded image."""
+    filename = request.match_info["filename"]
+    # Sanitize filename
+    if "/" in filename or "\\" in filename or ".." in filename:
+        return web.json_response({"error": "Invalid filename"}, status=400)
+    filepath = BOARD_UPLOAD_DIR / filename
+    if not filepath.exists():
+        return web.json_response({"error": "Not found"}, status=404)
+    return web.FileResponse(filepath)
+
+
 # --- Page Handler ---
 
 async def index(request):
@@ -2596,10 +3089,20 @@ def create_app() -> web.Application:
     app.router.add_get("/api/tournament/winners", api_tournament_winners)
     app.router.add_get("/api/dashboard-kpi", api_dashboard_kpi)
     app.router.add_get("/api/type-chart", api_type_chart)
+    # Board (Community)
+    app.router.add_get("/api/board/posts", api_board_posts)
+    app.router.add_get("/api/board/posts/{id}", api_board_post_detail)
+    app.router.add_post("/api/board/posts", api_board_post_create)
+    app.router.add_delete("/api/board/posts/{id}", api_board_post_delete)
+    app.router.add_post("/api/board/posts/{id}/pin", api_board_post_pin)
+    app.router.add_post("/api/board/posts/{id}/like", api_board_post_like)
+    app.router.add_post("/api/board/posts/{id}/comments", api_board_comment_create)
+    app.router.add_delete("/api/board/comments/{id}", api_board_comment_delete)
+    app.router.add_get("/uploads/board/{filename}", api_board_image)
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all: serve index.html for all non-API, non-static paths
-    SPA_PAGES = {"/channels", "/patchnotes", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/ai", "/admin"}
+    SPA_PAGES = {"/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/ai", "/admin"}
     for p in SPA_PAGES:
         app.router.add_get(p, index)
     return app
@@ -2707,6 +3210,7 @@ async def start_dashboard():
     await _ensure_session_table()
     await _ensure_llm_usage_table()
     await _ensure_analytics_table()
+    await _ensure_board_tables()
     port = int(os.getenv("DASHBOARD_PORT", "8080"))
     app = create_app()
     runner = web.AppRunner(app)

@@ -436,6 +436,236 @@ async def mock_admin_kpi(request):
     })
 
 
+# ============================================================
+# Mock Board Data
+# ============================================================
+import math as _math
+
+_mock_board_posts = {
+    "notice": [
+        {"id": 1, "board_type": "notice", "tag": "패치노트", "title": "v1.7.0 — 3세대 호연 포켓몬 135종 추가!", "user_id": 1832746512, "display_name": "관리자", "content": "3세대 포켓몬 135종(#252-386)이 추가되었습니다!\n\n■ 주요 변경사항\n• 호연 포켓몬 135종 추가 (나무지기~테오키스)\n• 배틀 시스템에 3세대 종족값/스킬 반영\n• 호연 칭호 4개 추가\n• 교환 진화: 빈티나→밀로틱, 진주몽→헌테일\n• 도감 TMI 135개 추가\n\n즐거운 수집 되세요!", "image_filename": None, "view_count": 245, "like_count": 18, "comment_count": 7, "is_pinned": 1, "created_at": "2026-03-07T10:00:00+09:00"},
+        {"id": 2, "board_type": "notice", "tag": "공지", "title": "서버 점검 안내 (3/6 02:00~04:00)", "user_id": 1832746512, "display_name": "관리자", "content": "안녕하세요, 서버 안정화를 위해 아래 시간에 점검이 진행됩니다.\n\n■ 점검 시간: 3월 6일(목) 02:00 ~ 04:00 (약 2시간)\n■ 점검 내용: DB 마이그레이션 및 성능 최적화\n\n점검 중에는 봇 이용이 불가합니다. 양해 부탁드립니다.", "image_filename": None, "view_count": 189, "like_count": 5, "comment_count": 2, "is_pinned": 1, "created_at": "2026-03-05T18:00:00+09:00"},
+        {"id": 3, "board_type": "notice", "tag": "패치노트", "title": "v1.6.0 — 대화형 튜토리얼 & AI 어드바이저", "user_id": 1832746512, "display_name": "관리자", "content": "v1.6.0 업데이트가 적용되었습니다.\n\n■ 주요 변경사항\n• 대화형 튜토리얼 시스템 추가\n• AI 어드바이저 (Gemini 기반) 도입\n• 배틀 밸런스 조정\n• 대시보드 UI 개선", "image_filename": None, "view_count": 167, "like_count": 12, "comment_count": 5, "is_pinned": 0, "created_at": "2026-03-01T14:00:00+09:00"},
+        {"id": 4, "board_type": "notice", "tag": "공지", "title": "커뮤니티 게시판 오픈!", "user_id": 1832746512, "display_name": "관리자", "content": "유저 게시판이 오픈되었습니다!\n\n자유롭게 공략, 질문, 팀 공유 등을 올려주세요.\n추천과 댓글 기능도 있습니다.\n\n건전한 커뮤니티 문화를 만들어주세요 :)", "image_filename": None, "view_count": 312, "like_count": 25, "comment_count": 8, "is_pinned": 0, "created_at": "2026-03-07T12:00:00+09:00"},
+    ],
+    "community": [
+        {"id": 100, "board_type": "community", "tag": None, "title": "[공략] 3세대 최강 팀 조합 추천", "user_id": 2000000001, "display_name": "트레이너A", "content": "3세대 업데이트 이후 테스트해본 최강 팀 조합입니다.\n\n1. 메타그로스 (강철/에스퍼) — 600족 답게 안정적\n2. 레쿠쟈 (드래곤/비행) — 초전설 원탑\n3. 가디안 (에스퍼/페어리) — 타입 커버리지 최고\n4. 밀로틱 (물) — 방어 특화\n5. 앱솔 (악) — 에스퍼 카운터\n6. 게을킹 (노말) — 종족값 깡패\n\n이 조합이면 대부분의 상대에게 유리합니다!", "image_filename": None, "view_count": 87, "like_count": 15, "comment_count": 4, "is_pinned": 0, "created_at": "2026-03-07T15:30:00+09:00"},
+        {"id": 101, "board_type": "community", "tag": None, "title": "[질문] 밀로틱 교환진화 같이 하실 분?", "user_id": 2000000002, "display_name": "포켓몬팬", "content": "빈티나 가지고 있는데 밀로틱으로 진화시키고 싶습니다.\n교환진화 같이 해주실 분 계신가요?\n\n빈티나 IV등급 A입니다!", "image_filename": None, "view_count": 45, "like_count": 3, "comment_count": 6, "is_pinned": 0, "created_at": "2026-03-07T14:00:00+09:00"},
+        {"id": 102, "board_type": "community", "tag": None, "title": "[팀공유] 이로치 앱솔 잡았습니다!", "user_id": 2000000003, "display_name": "초보트레이너", "content": "방금 이로치 앱솔 잡았어요!!\n너무 기쁩니다 ㅠㅠ\n\nIV는 B등급이지만 이로치니까 만족합니다.\n빨간색 앱솔 너무 멋있어요!", "image_filename": "sample.jpg", "view_count": 156, "like_count": 32, "comment_count": 12, "is_pinned": 0, "created_at": "2026-03-07T11:20:00+09:00"},
+        {"id": 103, "board_type": "community", "tag": None, "title": "[잡담] 레쿠쟈 포획률 1%는 너무한거 아닌가요", "user_id": 2000000004, "display_name": "배틀킹", "content": "레쿠쟈 10번 만났는데 한번도 못잡았습니다...\n마스터볼 쓰기엔 아깝고\n1%는 진짜 너무하지 않나요 ㅋㅋ\n\n혹시 잡으신 분 계신가요?", "image_filename": None, "view_count": 98, "like_count": 21, "comment_count": 15, "is_pinned": 0, "created_at": "2026-03-07T09:45:00+09:00"},
+        {"id": 104, "board_type": "community", "tag": None, "title": "[공략] 배틀 승률 올리는 팁", "user_id": 2000000001, "display_name": "트레이너A", "content": "배틀 승률 60% 넘기는 노하우 공유합니다.\n\n1. IV 시너지가 높은 포켓몬 위주로 편성\n2. 타입 커버리지를 최소 4개 이상 확보\n3. 초전설/전설은 1마리씩만 (밸런스)\n4. 친밀도 5 찍으면 스탯 +20% 효과가 큼\n\n자세한건 AI 어드바이저한테 물어보세요!", "image_filename": None, "view_count": 134, "like_count": 28, "comment_count": 9, "is_pinned": 0, "created_at": "2026-03-06T20:15:00+09:00"},
+        {"id": 105, "board_type": "community", "tag": None, "title": "[질문] 신규인데 뭐부터 해야하나요?", "user_id": 2000000005, "display_name": "뉴비", "content": "어제 시작했는데 뭐부터 해야할지 모르겠어요.\n포켓몬은 어떻게 잡나요?\n배틀은 언제부터 할 수 있나요?", "image_filename": None, "view_count": 67, "like_count": 5, "comment_count": 8, "is_pinned": 0, "created_at": "2026-03-06T16:00:00+09:00"},
+    ],
+}
+
+_mock_board_comments = {
+    100: [
+        {"id": 1, "user_id": 2000000002, "display_name": "포켓몬팬", "content": "메타그로스 진짜 사기에요 ㄷㄷ", "created_at": "2026-03-07T16:00:00+09:00"},
+        {"id": 2, "user_id": 2000000003, "display_name": "초보트레이너", "content": "저는 레쿠쟈가 없어서... 대체 포켓몬 추천해주실 수 있나요?", "created_at": "2026-03-07T16:30:00+09:00"},
+        {"id": 3, "user_id": 2000000001, "display_name": "트레이너A", "content": "레쿠쟈 없으면 망나뇽이나 한카리아스도 괜찮아요!", "created_at": "2026-03-07T17:00:00+09:00"},
+    ],
+    102: [
+        {"id": 4, "user_id": 2000000001, "display_name": "트레이너A", "content": "축하해요!! 이로치 앱솔 부럽다 ㅠ", "created_at": "2026-03-07T11:30:00+09:00"},
+        {"id": 5, "user_id": 2000000004, "display_name": "배틀킹", "content": "이로치 앱솔 디자인 진짜 미쳤죠", "created_at": "2026-03-07T12:00:00+09:00"},
+    ],
+}
+
+_mock_board_likes = set()  # set of (user_id, post_id)
+_mock_board_next_id = 200
+
+
+def _mock_time_ago(iso_str):
+    import datetime as _dt
+    dt = _dt.datetime.fromisoformat(iso_str)
+    now = _dt.datetime.now(_dt.timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=_dt.timezone.utc)
+    diff = now - dt
+    secs = int(diff.total_seconds())
+    if secs < 60: return "방금 전"
+    if secs < 3600: return f"{secs // 60}분 전"
+    if secs < 86400: return f"{secs // 3600}시간 전"
+    if secs < 604800: return f"{secs // 86400}일 전"
+    return dt.strftime("%m.%d")
+
+
+async def mock_board_posts(request):
+    board_type = request.query.get("board_type", "notice")
+    tag = request.query.get("tag", "")
+    page = max(1, int(request.query.get("page", "1")))
+
+    posts = _mock_board_posts.get(board_type, [])
+    if tag:
+        posts = [p for p in posts if p.get("tag") == tag]
+
+    total = len(posts)
+    per_page = 20
+    start = (page - 1) * per_page
+    page_posts = posts[start:start + per_page]
+
+    result = []
+    for p in page_posts:
+        result.append({
+            "id": p["id"], "board_type": p["board_type"], "tag": p.get("tag"),
+            "title": p["title"], "display_name": p["display_name"],
+            "has_image": bool(p.get("image_filename")),
+            "view_count": p["view_count"], "like_count": p["like_count"],
+            "comment_count": p["comment_count"], "is_pinned": p.get("is_pinned", 0),
+            "time_ago": _mock_time_ago(p["created_at"]),
+            "created_at": p["created_at"],
+        })
+
+    return web.json_response({
+        "total": total, "page": page,
+        "total_pages": _math.ceil(total / per_page) if total else 1,
+        "posts": result,
+    })
+
+
+async def mock_board_post_detail(request):
+    post_id = int(request.match_info["id"])
+    for bt in _mock_board_posts.values():
+        for p in bt:
+            if p["id"] == post_id:
+                comments = _mock_board_comments.get(post_id, [])
+                comment_list = [{
+                    "id": c["id"], "user_id": c["user_id"],
+                    "display_name": c["display_name"], "content": c["content"],
+                    "time_ago": _mock_time_ago(c["created_at"]),
+                    "created_at": c["created_at"],
+                } for c in comments]
+
+                uid = _mock_user["user_id"] if _mock_user else 0
+                liked = (uid, post_id) in _mock_board_likes
+
+                post = {**p, "time_ago": _mock_time_ago(p["created_at"])}
+                post["view_count"] += 1
+                return web.json_response({"post": post, "comments": comment_list, "liked": liked})
+    return web.json_response({"error": "Not found"}, status=404)
+
+
+async def mock_board_post_create(request):
+    global _mock_board_next_id
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+
+    reader = await request.multipart()
+    board_type = "community"
+    tag = None
+    title = ""
+    content = ""
+
+    while True:
+        part = await reader.next()
+        if part is None:
+            break
+        if part.name == "board_type":
+            board_type = (await part.text()).strip()
+        elif part.name == "tag":
+            tag = (await part.text()).strip() or None
+        elif part.name == "title":
+            title = (await part.text()).strip()
+        elif part.name == "content":
+            content = (await part.text()).strip()
+
+    import datetime as _dt
+    new_post = {
+        "id": _mock_board_next_id, "board_type": board_type, "tag": tag,
+        "title": title, "user_id": _mock_user["user_id"],
+        "display_name": _mock_user["display_name"], "content": content,
+        "image_filename": None, "view_count": 0, "like_count": 0,
+        "comment_count": 0, "is_pinned": 0,
+        "created_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+    }
+    _mock_board_posts.setdefault(board_type, []).insert(0, new_post)
+    _mock_board_next_id += 1
+    return web.json_response({"ok": True, "id": new_post["id"]})
+
+
+async def mock_board_post_delete(request):
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+    post_id = int(request.match_info["id"])
+    for bt in _mock_board_posts.values():
+        for i, p in enumerate(bt):
+            if p["id"] == post_id:
+                bt.pop(i)
+                return web.json_response({"ok": True})
+    return web.json_response({"error": "Not found"}, status=404)
+
+
+async def mock_board_post_pin(request):
+    post_id = int(request.match_info["id"])
+    for bt in _mock_board_posts.values():
+        for p in bt:
+            if p["id"] == post_id:
+                p["is_pinned"] = 0 if p.get("is_pinned") else 1
+                return web.json_response({"ok": True, "is_pinned": p["is_pinned"]})
+    return web.json_response({"error": "Not found"}, status=404)
+
+
+async def mock_board_post_like(request):
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+    post_id = int(request.match_info["id"])
+    uid = _mock_user["user_id"]
+    key = (uid, post_id)
+
+    for bt in _mock_board_posts.values():
+        for p in bt:
+            if p["id"] == post_id:
+                if key in _mock_board_likes:
+                    _mock_board_likes.discard(key)
+                    p["like_count"] = max(0, p["like_count"] - 1)
+                    return web.json_response({"ok": True, "liked": False, "like_count": p["like_count"]})
+                else:
+                    _mock_board_likes.add(key)
+                    p["like_count"] += 1
+                    return web.json_response({"ok": True, "liked": True, "like_count": p["like_count"]})
+    return web.json_response({"error": "Not found"}, status=404)
+
+
+async def mock_board_comment_create(request):
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+    post_id = int(request.match_info["id"])
+    body = await request.json()
+    content = body.get("content", "").strip()
+
+    import datetime as _dt
+    comment = {
+        "id": 1000 + len(_mock_board_comments.get(post_id, [])),
+        "user_id": _mock_user["user_id"],
+        "display_name": _mock_user["display_name"],
+        "content": content,
+        "created_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+    }
+    _mock_board_comments.setdefault(post_id, []).append(comment)
+
+    for bt in _mock_board_posts.values():
+        for p in bt:
+            if p["id"] == post_id:
+                p["comment_count"] += 1
+                break
+    return web.json_response({"ok": True, "id": comment["id"]})
+
+
+async def mock_board_comment_delete(request):
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+    comment_id = int(request.match_info["id"])
+    for post_id, comments in _mock_board_comments.items():
+        for i, c in enumerate(comments):
+            if c["id"] == comment_id:
+                comments.pop(i)
+                for bt in _mock_board_posts.values():
+                    for p in bt:
+                        if p["id"] == post_id:
+                            p["comment_count"] = max(0, p["comment_count"] - 1)
+                return web.json_response({"ok": True})
+    return web.json_response({"error": "Not found"}, status=404)
+
+
 def create_preview_app():
     app = web.Application()
     app.router.add_get("/", index)
@@ -483,10 +713,19 @@ def create_preview_app():
         "/api/tournament/winners", "/api/iv-ranking",
     ]:
         app.router.add_get(api_path, mock_json)
+    # Board (Community) routes
+    app.router.add_get("/api/board/posts", mock_board_posts)
+    app.router.add_get("/api/board/posts/{id}", mock_board_post_detail)
+    app.router.add_post("/api/board/posts", mock_board_post_create)
+    app.router.add_delete("/api/board/posts/{id}", mock_board_post_delete)
+    app.router.add_post("/api/board/posts/{id}/pin", mock_board_post_pin)
+    app.router.add_post("/api/board/posts/{id}/like", mock_board_post_like)
+    app.router.add_post("/api/board/posts/{id}/comments", mock_board_comment_create)
+    app.router.add_delete("/api/board/comments/{id}", mock_board_comment_delete)
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all
-    for p in ["/channels", "/patchnotes", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/ai", "/admin"]:
+    for p in ["/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/ai", "/admin"]:
         app.router.add_get(p, index)
     return app
 
