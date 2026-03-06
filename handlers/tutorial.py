@@ -383,7 +383,7 @@ async def tutorial_dm_catch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ㅊ — 포켓볼 (step 20 대기 중일 때만)
     if text == "ㅊ" and step == 20:
         pokeball = ball_emoji("pokeball")
-        await update.message.reply_text(f"{pokeball} 포켓볼을 던졌다!")
+        await update.message.reply_text(f"{pokeball} 포켓볼을 던졌다!", parse_mode="HTML")
         await asyncio.sleep(3)
         await _give_tutorial_pokemon(user_id, _EEVEE_ID)
         await context.bot.send_message(
@@ -399,7 +399,7 @@ async def tutorial_dm_catch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ㅎ — 하이퍼볼 (step 21 대기 중일 때만)
     elif text == "ㅎ" and step == 21:
         hyperball = ball_emoji("hyperball")
-        await update.message.reply_text(f"{hyperball} 하이퍼볼을 던졌다!")
+        await update.message.reply_text(f"{hyperball} 하이퍼볼을 던졌다!", parse_mode="HTML")
         await asyncio.sleep(3)
         await _give_tutorial_pokemon(user_id, _DRATINI_ID)
         await context.bot.send_message(
@@ -424,7 +424,7 @@ async def tutorial_dm_catch(update: Update, context: ContextTypes.DEFAULT_TYPE):
         emoji = poke["emoji"] if poke else "❓"
 
         masterball = ball_emoji("masterball")
-        await update.message.reply_text(f"{masterball} 마스터볼을 던졌다!")
+        await update.message.reply_text(f"{masterball} 마스터볼을 던졌다!", parse_mode="HTML")
         await asyncio.sleep(3)
         await _give_tutorial_pokemon(user_id, legendary_id)
         await context.bot.send_message(
