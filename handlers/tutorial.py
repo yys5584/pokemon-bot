@@ -1,6 +1,7 @@
-"""Tutorial onboarding system — DM-based step-by-step guide."""
+"""Tutorial onboarding system — DM-based step-by-step guide with interactive catches."""
 
 import logging
+import random
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import BadRequest
@@ -9,6 +10,41 @@ from telegram.ext import ContextTypes
 from database import queries
 
 logger = logging.getLogger(__name__)
+
+# ============================================================
+# Tutorial Pokemon IDs (pokemon_master.id)
+# ============================================================
+
+_EEVEE_ID = 133        # 이브이 (rare)
+_DRATINI_ID = 147      # 미뇽 (rare)
+_LEGENDARY_IDS = [      # 전설 (랜덤 1마리)
+    144,  # 프리저
+    145,  # 썬더
+    146,  # 파이어
+    150,  # 뮤츠
+    151,  # 뮤
+    243,  # 라이코
+    244,  # 앤테이
+    245,  # 스이쿤
+    249,  # 루기아
+    250,  # 칠색조
+]
+
+# Pokemon display info (name, emoji, rarity_label, rarity_color)
+_POKEMON_INFO = {
+    133: ("이브이", "🦊", "일반", "🟢"),
+    147: ("미뇽", "🐉", "희귀", "🔵"),
+    144: ("프리저", "❄️", "전설", "🟡"),
+    145: ("썬더", "⚡", "전설", "🟡"),
+    146: ("파이어", "🔥", "전설", "🟡"),
+    150: ("뮤츠", "🧬", "전설", "🟡"),
+    151: ("뮤", "🩷", "전설", "🟡"),
+    243: ("라이코", "⚡", "전설", "🟡"),
+    244: ("앤테이", "🔥", "전설", "🟡"),
+    245: ("스이쿤", "💧", "전설", "🟡"),
+    249: ("루기아", "🔮", "전설", "🟡"),
+    250: ("칠색조", "🔥", "전설", "🟡"),
+}
 
 # ============================================================
 # Tutorial step messages & buttons
@@ -28,21 +64,7 @@ TUTORIAL_MESSAGES = {
         "\n"
         "하나씩 알려드릴게요!"
     ),
-    2: (
-        "🌿 【포획 시스템】\n"
-        "━━━━━━━━━━━━━━━\n"
-        "\n"
-        "채팅방에 야생 포켓몬이 나타나면:\n"
-        "  ㅊ — 일반 포켓볼 (확률 포획)\n"
-        "  ㅎ — 하이퍼볼 (확률 1.5배)\n"
-        "  ㅁ — 마스터볼 (100% 포획!)\n"
-        "\n"
-        "💡 하루 20회까지 시도 가능\n"
-        "💡 포켓볼 충전 으로 +10회 추가 (1회/일)\n"
-        "💡 채팅방 활동이 많을수록 포켓몬이 자주 등장!\n"
-        "\n"
-        "✨ 이로치(색이 다른) 포켓몬은 매우 희귀해요!"
-    ),
+    # Step 2 is handled dynamically (interactive catch)
     3: (
         "🍚 【육성 시스템】\n"
         "━━━━━━━━━━━━━━━\n"
@@ -144,19 +166,16 @@ def _build_buttons(step: int) -> InlineKeyboardMarkup:
     buttons = []
 
     if step == 1:
-        # First step: start + skip
         buttons.append([
             InlineKeyboardButton("▶️ 튜토리얼 시작", callback_data="tut_next_2"),
             InlineKeyboardButton("⏭️ 스킵", callback_data="tut_skip"),
         ])
     elif step == 7:
-        # Last step: prev + complete
         buttons.append([
             InlineKeyboardButton("◀️ 이전", callback_data="tut_prev_6"),
             InlineKeyboardButton("🎓 완료!", callback_data="tut_done"),
         ])
     else:
-        # Middle steps: prev + next + skip
         buttons.append([
             InlineKeyboardButton("◀️ 이전", callback_data=f"tut_prev_{step - 1}"),
             InlineKeyboardButton("▶️ 다음", callback_data=f"tut_next_{step + 1}"),
@@ -175,13 +194,130 @@ def _build_step_message(step: int) -> str:
 
 
 # ============================================================
+# Step 2: Interactive catch sub-steps
+# ============================================================
+
+def _build_catch_step_a() -> tuple[str, InlineKeyboardMarkup]:
+    """Step 2a: Eevee appears — throw pokeball."""
+    progress = _progress_bar(2)
+    text = (
+        f"{progress}  포획 체험\n\n"
+        "🌿 【포획 체험】\n"
+        "━━━━━━━━━━━━━━━\n"
+        "\n"
+        "채팅방에서 포켓몬이 나타나면 ㅊ, ㅎ, ㅁ 으로 잡아요!\n"
+        "직접 체험해볼까요?\n"
+        "\n"
+        "━━━━━━━━━━━━━━━\n"
+        "\n"
+        "🟢 야생 이브이 🦊 가 나타났다!\n"
+        "등급: 🟢 일반 (Common)\n"
+        "\n"
+        "포켓볼(ㅊ)을 던져보세요!"
+    )
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("ㅊ 포켓볼 던지기!", callback_data="tut_catch_poke")],
+        [
+            InlineKeyboardButton("◀️ 이전", callback_data="tut_prev_1"),
+            InlineKeyboardButton("⏭️ 스킵", callback_data="tut_skip"),
+        ],
+    ])
+    return text, markup
+
+
+def _build_catch_step_b() -> tuple[str, InlineKeyboardMarkup]:
+    """Step 2b: Dratini appears — throw hyperball."""
+    progress = _progress_bar(2)
+    text = (
+        f"{progress}  포획 체험\n\n"
+        "✅ 이브이 🦊 포획 성공! 내 포켓몬에 추가되었어요.\n"
+        "\n"
+        "━━━━━━━━━━━━━━━\n"
+        "\n"
+        "🔵 야생 미뇽 🐉 이 나타났다!\n"
+        "등급: 🔵 희귀 (Rare)\n"
+        "\n"
+        "💡 하이퍼볼(ㅎ)은 포획 확률이 1.5배!\n"
+        "희귀한 포켓몬에게 사용해보세요."
+    )
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("ㅎ 하이퍼볼 던지기!", callback_data="tut_catch_hyper")],
+        [InlineKeyboardButton("⏭️ 스킵", callback_data="tut_skip")],
+    ])
+    return text, markup
+
+
+def _build_catch_step_c(legendary_id: int) -> tuple[str, InlineKeyboardMarkup]:
+    """Step 2c: Legendary appears — throw masterball."""
+    info = _POKEMON_INFO.get(legendary_id, ("???", "❓", "전설", "🟡"))
+    name, emoji, _, _ = info
+    progress = _progress_bar(2)
+    text = (
+        f"{progress}  포획 체험\n\n"
+        "✅ 미뇽 🐉 포획 성공!\n"
+        "\n"
+        "━━━━━━━━━━━━━━━\n"
+        "\n"
+        f"🟡 야생 {name} {emoji} 이(가) 나타났다!\n"
+        "등급: 🟡 전설 (Legendary)\n"
+        "\n"
+        "⚠️ 전설 포켓몬은 포획 확률이 매우 낮습니다!\n"
+        "일반 포켓볼로는 거의 잡을 수 없어요.\n"
+        "\n"
+        "💡 마스터볼(ㅁ)은 100% 포획!\n"
+        "전설 포켓몬에게 아끼지 말고 던지세요!"
+    )
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("ㅁ 마스터볼 던지기!", callback_data=f"tut_catch_master_{legendary_id}")],
+        [InlineKeyboardButton("⏭️ 스킵", callback_data="tut_skip")],
+    ])
+    return text, markup
+
+
+def _build_catch_complete(legendary_id: int) -> tuple[str, InlineKeyboardMarkup]:
+    """Step 2 complete: all 3 Pokemon caught."""
+    info = _POKEMON_INFO.get(legendary_id, ("???", "❓", "전설", "🟡"))
+    name, emoji, _, _ = info
+    progress = _progress_bar(2)
+    text = (
+        f"{progress}  포획 체험\n\n"
+        f"✅ {name} {emoji} 포획 성공!\n"
+        "\n"
+        "━━━━━━━━━━━━━━━\n"
+        "\n"
+        "🎉 3마리 모두 잡았어요! 실제로 내 포켓몬에 추가되었습니다.\n"
+        "\n"
+        "📝 정리:\n"
+        "  ㅊ 포켓볼 — 기본 포획\n"
+        "  ㅎ 하이퍼볼 — 확률 1.5배 (BP상점에서 구매)\n"
+        "  ㅁ 마스터볼 — 100% 포획 (매우 귀중!)\n"
+        "\n"
+        "💡 하루 20회 시도 가능 / 포켓볼 충전 +10회\n"
+        "💡 채팅방 활동이 많을수록 포켓몬이 자주 등장!\n"
+        "✨ 이로치(색이 다른) 포켓몬은 매우 희귀!"
+    )
+    markup = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("◀️ 이전", callback_data="tut_prev_1"),
+            InlineKeyboardButton("▶️ 다음: 육성", callback_data="tut_next_3"),
+            InlineKeyboardButton("⏭️ 스킵", callback_data="tut_skip"),
+        ],
+    ])
+    return text, markup
+
+
+# ============================================================
 # Send tutorial step (used from catch_handler trigger too)
 # ============================================================
 
 async def send_tutorial_step(context: ContextTypes.DEFAULT_TYPE, user_id: int, step: int):
     """Send a tutorial step message via DM."""
-    text = _build_step_message(step)
-    markup = _build_buttons(step)
+    if step == 2:
+        # Interactive catch — start with step 2a
+        text, markup = _build_catch_step_a()
+    else:
+        text = _build_step_message(step)
+        markup = _build_buttons(step)
     try:
         await context.bot.send_message(
             chat_id=user_id,
@@ -207,6 +343,18 @@ async def _give_graduation_rewards(user_id: int):
 
 
 # ============================================================
+# Give tutorial Pokemon to user
+# ============================================================
+
+async def _give_tutorial_pokemon(user_id: int, pokemon_id: int):
+    """Add a tutorial Pokemon to user's collection."""
+    try:
+        await queries.give_pokemon_to_user(user_id, pokemon_id, chat_id=None)
+    except Exception as e:
+        logger.error(f"Failed to give tutorial pokemon {pokemon_id} to {user_id}: {e}")
+
+
+# ============================================================
 # Callback handler
 # ============================================================
 
@@ -220,12 +368,16 @@ async def tutorial_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     data = query.data
 
-    # tut_next_N — go to step N (forward)
+    # tut_next_N — go to step N
     if data.startswith("tut_next_"):
         step = int(data.split("_")[2])
         await queries.update_tutorial_step(user_id, step)
-        text = _build_step_message(step)
-        markup = _build_buttons(step)
+        if step == 2:
+            # Start interactive catch
+            text, markup = _build_catch_step_a()
+        else:
+            text = _build_step_message(step)
+            markup = _build_buttons(step)
         try:
             await query.edit_message_text(text, reply_markup=markup)
         except BadRequest as e:
@@ -236,8 +388,44 @@ async def tutorial_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("tut_prev_"):
         step = int(data.split("_")[2])
         await queries.update_tutorial_step(user_id, step)
-        text = _build_step_message(step)
-        markup = _build_buttons(step)
+        if step == 2:
+            text, markup = _build_catch_step_a()
+        else:
+            text = _build_step_message(step)
+            markup = _build_buttons(step)
+        try:
+            await query.edit_message_text(text, reply_markup=markup)
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
+
+    # tut_catch_poke — catch Eevee with pokeball (step 2a → 2b)
+    elif data == "tut_catch_poke":
+        await _give_tutorial_pokemon(user_id, _EEVEE_ID)
+        text, markup = _build_catch_step_b()
+        try:
+            await query.edit_message_text(text, reply_markup=markup)
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
+
+    # tut_catch_hyper — catch Dratini with hyperball (step 2b → 2c)
+    elif data == "tut_catch_hyper":
+        await _give_tutorial_pokemon(user_id, _DRATINI_ID)
+        # Pick a random legendary for the masterball step
+        legendary_id = random.choice(_LEGENDARY_IDS)
+        text, markup = _build_catch_step_c(legendary_id)
+        try:
+            await query.edit_message_text(text, reply_markup=markup)
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
+
+    # tut_catch_master_{id} — catch legendary with masterball (step 2c → complete)
+    elif data.startswith("tut_catch_master_"):
+        legendary_id = int(data.split("_")[3])
+        await _give_tutorial_pokemon(user_id, legendary_id)
+        text, markup = _build_catch_complete(legendary_id)
         try:
             await query.edit_message_text(text, reply_markup=markup)
         except BadRequest as e:
