@@ -328,10 +328,10 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
             "🕘 등록 시간: 지금 ~ 21:50\n"
             "📋 참가 방법: ㄷ 입력\n"
             "⚔️ 배틀팀이 등록되어 있어야 참가 가능!\n\n"
-            "🏆 우승 보상\n"
-            f"  🥇 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP} BP + 챔피언 칭호 (밥+1회)\n"
-            f"  🥈 {config.TOURNAMENT_PRIZE_2ND_BP} BP\n"
-            f"  🏅 4강 {config.TOURNAMENT_PRIZE_4TH_BP} BP\n\n"
+            "🏆 보상\n"
+            f"  🥇 우승: 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치(전설) + 챔피언 칭호\n"
+            f"  🏅 4강: 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치(에픽)\n"
+            f"  🎟️ 참가: 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개\n\n"
             "스폰은 대회 종료 후 재개됩니다."
         ),
     )
@@ -357,9 +357,9 @@ async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
             "📋 아래 채널에서 ㄷ 입력으로 참가!\n"
             "👉 https://t.me/tg_poke\n\n"
             "⚔️ 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
-            "🏆 우승: 마스터볼 2개 + 200 BP + 챔피언 칭호 (밥+1회)\n"
-            "🥈 준우승: 100 BP\n"
-            "🏅 4강: 50 BP\n\n"
+            f"🏆 우승: 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치(전설) + 챔피언 칭호\n"
+            f"🏅 4강: 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치(에픽)\n"
+            f"🎟️ 참가: 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개\n\n"
             "최초 우승자에겐 특별 칭호 🏛️초대 챔피언!"
         )
 
@@ -1023,7 +1023,8 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                 # Tournament complete — give prizes
                 if winners:
                     winner_uid, winner_d = winners[0]
-                    await _award_prizes(context, chat_id, winner_uid, winner_d, bracket, semi_finalists)
+                    all_participants = set(_tournament_state["participants"].keys())
+                    await _award_prizes(context, chat_id, winner_uid, winner_d, bracket, semi_finalists, all_participants)
                 break
 
             # Show updated bracket after this round
@@ -1064,20 +1065,24 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     await _resume_spawns(context, chat_id)
 
 
-async def _award_prizes(context, chat_id, winner_id, winner_data, final_bracket, semi_finalists):
-    """Award prizes to top finishers."""
-    pool = await get_db()
+def _random_shiny_pokemon(rarity: str) -> tuple[int, str]:
+    """Pick a random pokemon of the given rarity. Returns (pokemon_id, name_ko)."""
+    from models.pokemon_data import ALL_POKEMON
+    candidates = [(p[0], p[1]) for p in ALL_POKEMON if p[4] == rarity]
+    return random.choice(candidates)
 
-    # 1st place
+
+async def _award_prizes(context, chat_id, winner_id, winner_data,
+                        final_bracket, semi_finalists, all_participants):
+    """Award prizes to top finishers + participation rewards."""
+
+    # ── 1st place: master balls + shiny legendary + title ──
     await queries.add_master_ball(winner_id, config.TOURNAMENT_PRIZE_1ST_MB)
-    await pool.execute(
-        "UPDATE users SET battle_points = battle_points + $1 WHERE user_id = $2",
-        config.TOURNAMENT_PRIZE_1ST_BP, winner_id,
-    )
-    # Track tournament wins for title
     await queries.increment_title_stat(winner_id, "tournament_wins")
+    shiny_1st_id, shiny_1st_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_1ST_SHINY)
+    await queries.give_pokemon_to_user(winner_id, shiny_1st_id, chat_id, is_shiny=True)
 
-    # 2nd place (loser of final)
+    # ── 2nd place (runner-up): same as semi-finalist rewards ──
     runner_up_id = None
     if final_bracket and final_bracket[0]:
         p1, p2 = final_bracket[0]
@@ -1085,47 +1090,60 @@ async def _award_prizes(context, chat_id, winner_id, winner_data, final_bracket,
             uid1, _ = p1
             uid2, _ = p2
             runner_up_id = uid2 if uid1 == winner_id else uid1
-            if runner_up_id:
-                await pool.execute(
-                    "UPDATE users SET battle_points = battle_points + $1 WHERE user_id = $2",
-                    config.TOURNAMENT_PRIZE_2ND_BP, runner_up_id,
-                )
 
-    # 4th place (semi-finalists who didn't reach finals)
+    # ── Semi-finalists (4강): master balls + shiny epic ──
     finalists = {winner_id}
     if runner_up_id:
         finalists.add(runner_up_id)
-    fourth_placers = semi_finalists - finalists
-    for uid in fourth_placers:
-        await pool.execute(
-            "UPDATE users SET battle_points = battle_points + $1 WHERE user_id = $2",
-            config.TOURNAMENT_PRIZE_4TH_BP, uid,
-        )
+    semi_all = semi_finalists | finalists  # 4강 진출자 전원 (우승자 포함)
+    semi_reward_targets = semi_all - {winner_id}  # 우승자는 별도 보상
+    shiny_semi_awards = {}  # uid -> pokemon name
+    for uid in semi_reward_targets:
+        await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_SEMI_MB)
+        s_id, s_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_SEMI_SHINY)
+        await queries.give_pokemon_to_user(uid, s_id, chat_id, is_shiny=True)
+        shiny_semi_awards[uid] = s_name
+
+    # ── Participation reward: master ball for everyone ──
+    already_rewarded = {winner_id} | semi_reward_targets
+    for uid in all_participants:
+        if uid in already_rewarded:
+            continue
+        await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_PARTICIPANT_MB)
 
     # Check & unlock titles for winner
     from utils.title_checker import check_and_unlock_titles
     new_titles = await check_and_unlock_titles(winner_id)
 
-    # Build prize message
+    # ── Build prize message ──
+    mb_emoji = ball_emoji('masterball')
     lines = [
         "\n🏆 토너먼트 결과",
         "━━━━━━━━━━━━━━━",
         f"🥇 {winner_data['name']}",
-        f"   {ball_emoji('masterball')} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP} BP + 🎖️ 챔피언 칭호 (밥+1회)",
+        f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치 {shiny_1st_name} + 🎖️ 챔피언 칭호",
     ]
 
     if runner_up_id:
         runner_up_user = await queries.get_user(runner_up_id)
         r_name = runner_up_user["display_name"] if runner_up_user else "???"
+        r_shiny = shiny_semi_awards.get(runner_up_id, "???")
         lines.append(f"🥈 {r_name}")
-        lines.append(f"   {config.TOURNAMENT_PRIZE_2ND_BP} BP")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치 {r_shiny}")
 
+    fourth_placers = semi_reward_targets - ({runner_up_id} if runner_up_id else set())
     if fourth_placers:
         for uid in fourth_placers:
             u = await queries.get_user(uid)
             u_name = u["display_name"] if u else "???"
+            u_shiny = shiny_semi_awards.get(uid, "???")
             lines.append(f"🏅 {u_name}")
-        lines.append(f"   각 {config.TOURNAMENT_PRIZE_4TH_BP} BP")
+            lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치 {u_shiny}")
+
+    participant_only = all_participants - already_rewarded
+    if participant_only:
+        lines.append(f"\n🎟️ 참가 보상 ({len(participant_only)}명)")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개씩 지급!")
 
     # Title unlocks
     if new_titles:
