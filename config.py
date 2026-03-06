@@ -125,7 +125,7 @@ MARKET_LISTING_EXPIRE_DAYS = 7     # 등록 만료 기간 (일)
 
 # --- Group Trade ---
 GROUP_TRADE_TIMEOUT = 300          # 5분 자동 만료 (초)
-GROUP_TRADE_BP_COST = 0            # 무료
+GROUP_TRADE_BP_COST = 100          # 그룹 교환 비용 (BP)
 
 # --- Title System ---
 TITLES = [

@@ -37,7 +37,8 @@ from handlers.battle import (
     yacha_response_callback, yacha_result_callback,
 )
 from handlers.dm_nurture import feed_handler, play_handler, evolve_handler, nurture_callback_handler
-from handlers.dm_trade import trade_handler, accept_handler, reject_handler
+# DM trade removed — replaced by group reply trade
+# from handlers.dm_trade import trade_handler, accept_handler, reject_handler
 from handlers.dm_market import (
     market_handler, market_register_handler, market_my_handler,
     market_cancel_handler, market_buy_handler, market_search_handler,
@@ -342,9 +343,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^진화(\s+.+)?$"), evolve_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^감정(\s+.+)?$"), appraisal_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^상성(\s+.+)?$"), type_chart_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^교환\s"), trade_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^수락"), accept_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^거절"), reject_handler))
+    # DM trade removed — replaced by group reply trade
 
     # Marketplace (DM) — 구체적 서브커맨드 먼저 등록
     app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*등록\s"), market_register_handler))

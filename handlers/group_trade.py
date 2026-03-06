@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
+from database import battle_queries as bq
 from services.evolution_service import try_trade_evolve
 from utils.battle_calc import iv_total
 from utils.helpers import update_title
@@ -129,6 +130,18 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await msg.reply_text("배틀 팀에 등록된 포켓몬은 교환할 수 없습니다.")
         return
 
+    # Check & deduct BP
+    cost = config.GROUP_TRADE_BP_COST
+    if cost > 0:
+        current_bp = await bq.get_bp(from_user.id)
+        if current_bp < cost:
+            await msg.reply_text(f"BP가 부족합니다! (필요: {cost:,} BP, 보유: {current_bp:,} BP)")
+            return
+        spent = await bq.spend_bp(from_user.id, cost)
+        if not spent:
+            await msg.reply_text("BP 차감에 실패했습니다.")
+            return
+
     # Create group trade
     trade_id = await queries.create_group_trade(
         from_user_id=from_user.id,
@@ -185,12 +198,18 @@ async def _expire_group_trade(context: ContextTypes.DEFAULT_TYPE):
 
     await queries.update_trade_status(trade_id, "cancelled")
 
+    # Refund BP
+    cost = config.GROUP_TRADE_BP_COST
+    if cost > 0:
+        await bq.add_bp(trade["from_user_id"], cost)
+
     try:
+        refund_msg = f"\n💰 {cost:,} BP 환불됨" if cost > 0 else ""
         await context.bot.edit_message_text(
             chat_id=chat_id,
             message_id=message_id,
             text=f"⏰ 교환 시간 초과\n\n"
-                 f"{trade['from_name']}님의 {trade['offer_emoji']} {trade['offer_name']} 교환 제안이 만료되었습니다.",
+                 f"{trade['from_name']}님의 {trade['offer_emoji']} {trade['offer_name']} 교환 제안이 만료되었습니다.{refund_msg}",
         )
     except Exception:
         pass
@@ -331,18 +350,24 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
 
         await queries.update_trade_status(trade_id, "rejected")
 
+        # Refund BP
+        cost = config.GROUP_TRADE_BP_COST
+        if cost > 0:
+            await bq.add_bp(trade["from_user_id"], cost)
+
         # Cancel expire job
         jobs = context.job_queue.get_jobs_by_name(f"gtrade_expire_{trade_id}")
         for job in jobs:
             job.schedule_removal()
 
         shiny_tag = "✨" if trade.get("offer_is_shiny") else ""
+        refund_msg = f"\n💰 {cost:,} BP 환불됨" if cost > 0 else ""
         await query.answer("교환을 거절했습니다.")
         try:
             await query.edit_message_text(
                 f"❌ 교환 거절\n\n"
                 f"{trade['to_name']}님이 {trade['from_name']}님의\n"
-                f"{trade['offer_emoji']} {trade['offer_name']}{shiny_tag} 교환을 거절했습니다."
+                f"{trade['offer_emoji']} {trade['offer_name']}{shiny_tag} 교환을 거절했습니다.{refund_msg}"
             )
         except Exception:
             pass
