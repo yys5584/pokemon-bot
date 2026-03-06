@@ -34,16 +34,16 @@ ADMIN_IDS = [
 RARITY_WEIGHTS = {
     "common": 50,
     "rare": 30,
-    "epic": 15,
-    "legendary": 5,
+    "epic": 45,       # 15 * 3 (에픽 3배 상시적용)
+    "legendary": 15,   # 5 * 3  (전설 3배 상시적용)
 }
 
-# Midnight bonus (2am-5am KST): rare+ doubled
+# Midnight bonus (2am-5am KST): rare+ 추가 부스트
 RARITY_WEIGHTS_MIDNIGHT = {
     "common": 30,
     "rare": 35,
-    "epic": 25,
-    "legendary": 10,
+    "epic": 55,       # 45 → 55 (심야 추가 부스트)
+    "legendary": 20,   # 15 → 20 (심야 추가 부스트)
 }
 
 RARITY_EMOJI = {
@@ -62,10 +62,10 @@ RARITY_LABEL = {
 
 # --- Catch Rates (by rarity, base) ---
 CATCH_RATES = {
-    "common": 0.70,
-    "rare": 0.40,
-    "epic": 0.15,
-    "legendary": 0.03,
+    "common": 1.00,     # 0.70 * 2 → 100% (커먼 확정)
+    "rare": 0.80,       # 0.40 * 2
+    "epic": 0.30,       # 0.15 * 2
+    "legendary": 0.06,  # 0.03 * 2
 }
 
 # --- Spawn System ---
