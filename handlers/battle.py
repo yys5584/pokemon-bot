@@ -2,6 +2,7 @@
 
 import logging
 import re
+import time
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import BadRequest
@@ -16,6 +17,26 @@ from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge, 
 logger = logging.getLogger(__name__)
 
 # 마스터볼 일일 구매: DB로 영구 추적 (bp_purchase_log 테이블)
+
+# ── 콜백 버튼 중복 클릭 방지 ──
+_callback_dedup: dict[str, float] = {}  # "msg_id:callback_data" -> timestamp
+
+
+def _is_duplicate_callback(query) -> bool:
+    """Return True if this exact callback was already handled (rapid double-click guard).
+    Single-threaded asyncio → no race condition on dict access."""
+    key = f"{query.message.message_id}:{query.data}"
+    now = time.monotonic()
+    # 60초 지난 항목 정리 (200개 넘으면)
+    if len(_callback_dedup) > 200:
+        cutoff = now - 60
+        stale = [k for k, v in _callback_dedup.items() if v < cutoff]
+        for k in stale:
+            del _callback_dedup[k]
+    if key in _callback_dedup:
+        return True
+    _callback_dedup[key] = now
+    return False
 
 PARTNER_PAGE_SIZE = 10
 TEAM_PAGE_SIZE = 10
@@ -1432,6 +1453,11 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     if not data.startswith("battle_"):
         return
 
+    # 중복 클릭 방지
+    if _is_duplicate_callback(query):
+        await query.answer()
+        return
+
     await query.answer()
 
     parts = data.split("_")
@@ -1571,6 +1597,11 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
     """Handle detail / skip / teabag buttons on battle results."""
     query = update.callback_query
     if not query or not query.data:
+        return
+
+    # 중복 클릭 방지 (티배깅·상세보기 연타 차단)
+    if _is_duplicate_callback(query):
+        await query.answer()
         return
 
     data = query.data
@@ -2287,6 +2318,11 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
     """Handle yacha result buttons (teabag only — detail/skip handled by battle_result_callback_handler)."""
     query = update.callback_query
     if not query or not query.data:
+        return
+
+    # 중복 클릭 방지
+    if _is_duplicate_callback(query):
+        await query.answer()
         return
 
     data = query.data  # yres_tbag_{w}_{l}
