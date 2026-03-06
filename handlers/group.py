@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 # Prevent duplicate catch from rapid ㅊㅊ (race condition guard)
 _catch_locks: set[tuple[int, int]] = set()  # (session_id, user_id)
 
+# Activity tracking cooldown: skip DB writes if recently tracked (per chat)
+_activity_cooldown: dict[int, float] = {}  # chat_id -> last_tracked_timestamp
+_ACTIVITY_COOLDOWN_SEC = 300  # 5분에 1번만 DB 기록
+
 
 async def close_message_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle ❌ button press — delete the bot message to reduce scroll clutter."""
@@ -38,11 +42,28 @@ async def close_message_callback(update: Update, context: ContextTypes.DEFAULT_T
 
 async def on_chat_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Track message activity for spawn eligibility. Runs for every group message.
-    Non-blocking: fires DB ops in background so message processing isn't delayed."""
+    Non-blocking: fires DB ops in background so message processing isn't delayed.
+    Uses 5-min cooldown per chat to reduce DB writes by ~90%."""
     if not update.effective_chat or not update.effective_message:
         return
 
+    import time as _time
     chat_id = update.effective_chat.id
+    now = _time.monotonic()
+
+    # 쿨다운 체크: 5분 이내에 이미 기록했으면 스킵
+    last = _activity_cooldown.get(chat_id, 0)
+    if now - last < _ACTIVITY_COOLDOWN_SEC:
+        return
+    _activity_cooldown[chat_id] = now
+
+    # 오래된 쿨다운 엔트리 정리 (100개 초과 시)
+    if len(_activity_cooldown) > 100:
+        cutoff = now - _ACTIVITY_COOLDOWN_SEC * 2
+        expired = [k for k, v in _activity_cooldown.items() if v < cutoff]
+        for k in expired:
+            del _activity_cooldown[k]
+
     chat_title = update.effective_chat.title
     hour_bucket = config.get_kst_now().strftime("%Y-%m-%d-%H")
 

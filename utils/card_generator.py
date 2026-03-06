@@ -62,7 +62,7 @@ def _make_gradient(width: int, height: int, top_color: tuple, bottom_color: tupl
     return img
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=48)
 def _load_sprite(pokemon_id: int) -> Image.Image | None:
     """Load and pre-scale a Pokemon sprite (cached)."""
     sprite_path = ASSETS_DIR / f"{pokemon_id}.png"
