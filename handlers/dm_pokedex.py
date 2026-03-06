@@ -934,14 +934,14 @@ async def _do_set_slot(p: dict, user_id: int, team_num: int, slot: int) -> str:
             replaced_name = t["name_ko"]
     slot_map[slot] = p["id"]
 
-    # Validate: legendary limit (exclude replaced pokemon)
-    if p["rarity"] == "legendary":
-        leg_count = sum(
+    # Validate: ultra_legendary limit (1 per team)
+    if p["rarity"] == "ultra_legendary":
+        ul_count = sum(
             1 for t in team
-            if t.get("rarity") == "legendary" and t["slot"] != slot
+            if t.get("rarity") == "ultra_legendary" and t["slot"] != slot
         )
-        if leg_count >= 1:
-            return "전설 포켓몬은 팀당 1마리만 가능합니다!"
+        if ul_count >= 1:
+            return "초전설 포켓몬은 팀당 1마리만 가능합니다!"
 
     # Validate: epic duplicate (exclude replaced pokemon)
     if p["rarity"] == "epic":

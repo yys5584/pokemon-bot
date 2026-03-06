@@ -220,9 +220,37 @@ _SWITCH_ULTRA = [
     "{trainer}: 최종 병기... {next}, 출동!!!",
 ]
 
+# ── Dramatic entrance effects (4강/결승 전용) ────────────────────
+_DRAMATIC_ENTRANCE = [
+    "💎 {next}의 메가스톤이 빛난다... 메가진화!! ...아 아직 패치 안 됐지 ㅋㅋ",
+    "💎 {trainer}의 키스톤이 반응한다! {next}, 메가진화!! ...는 아직 없음 ㅋ",
+    "🌀 유대의 힘이 깨어난다... {next}, 유대진화!! ...아직 구현 안 됨 ㅎ",
+    "🌀 {trainer}와 {next}의 마음이 하나로! 유대진화!! ...는 다음 패치에 ㅋㅋ",
+    "⚡ {next}의 Z파워가 해방된다! Z기술 발동!! ...은 나중에 ㅋ",
+    "⚡ {trainer}의 Z링이 빛난다! {next}, Z파워 전개!! ...는 아직이야 ㅋㅋ",
+    "🔮 {next}의 테라스탈이 빛난다... 테라스탈화!! ...가 뭔지도 모르겠지? ㅋ",
+    "🔮 결정의 빛이여! {next}, 테라스탈!! ...은 언젠가 ㅋㅋ",
+    "🌟 {next}의 숨겨진 힘이 각성한다!! ...언젠간 패치되겠지 ㅋ",
+    "🌟 관중이 함성을 지른다! {next}, 최후의 포켓몬!!",
+    "💫 {next}, 최종 형태로! ...는 아직이고 일단 싸워!! ㅋㅋ",
+    "💫 경기장의 공기가 바뀐다... {next}, 마지막 희망!",
+    "🔥 {next}의 오라가 폭발한다!! ...는 연출이고 진짜 싸워!! ㅋ",
+    "🔥 {trainer}의 각오가 {next}에게 전해진다!! 마지막 승부!!",
+    "❄️ 시간이 멈춘 듯한 긴장감... {next}, 최후의 출진!!",
+    "⭐ 다이맥스 에너지가 모인다! {next}, 거대화!! ...는 아직 ㅋㅋ",
+    "⭐ {trainer}의 다이맥스 밴드가 반응! ...밴드 없는데? ㅋㅋ {next} 출격!",
+    "🌈 {next}의 특성이 발동한다! ...뭔 특성이냐고? 기합이지!! ㅋ",
+    "💥 {trainer}의 비장의 수! {next}, 이게 마지막이다!!",
+    "🎭 반전의 한 수... {next}, 마지막 무대!!",
+]
 
-def _switch_line(trainer: str, dead: str, next_name: str, next_rarity: str = "") -> str:
-    """Pick a random switch-in line based on next pokemon's rarity."""
+
+def _switch_line(trainer: str, dead: str, next_name: str,
+                 next_rarity: str = "", dramatic: bool = False) -> str:
+    """Pick a random switch-in line based on next pokemon's rarity.
+
+    dramatic=True adds extra entrance effects (4강/결승).
+    """
     if next_rarity == "ultra_legendary":
         pool = _SWITCH_ULTRA
     elif next_rarity == "legendary":
@@ -231,7 +259,11 @@ def _switch_line(trainer: str, dead: str, next_name: str, next_rarity: str = "")
         pool = _SWITCH_EPIC
     else:
         pool = _SWITCH_NORMAL
-    return random.choice(pool).format(trainer=trainer, dead=dead, next=next_name)
+    line = random.choice(pool).format(trainer=trainer, dead=dead, next=next_name)
+    if dramatic:
+        effect = random.choice(_DRAMATIC_ENTRANCE).format(trainer=trainer, next=next_name)
+        line = f"{line}\n{effect}"
+    return line
 
 
 async def _safe_send(bot, chat_id, text, **kwargs):
@@ -605,6 +637,12 @@ async def _run_match(
                     lines.append(f"{SKULL} {m}{td['dead_name']} 쓰러짐!")
         return lines
 
+    # Pre-scan: find last switch-in index for each side (dramatic entrance)
+    _last_switch_idx = {"challenger": -1, "defender": -1}
+    for _i, _td in enumerate(result["turn_data"]):
+        if _td["type"] == "ko" and _td["next_name"]:
+            _last_switch_idx[_td["side"]] = _i
+
     if is_final:
         # ── Finals: each hit as separate message (3s delay) ──
         p1_name = p1_data['name']
@@ -619,7 +657,7 @@ async def _run_match(
         )
         await asyncio.sleep(3)
 
-        for td in result["turn_data"]:
+        for _i, td in enumerate(result["turn_data"]):
             if td["type"] == "matchup":
                 await _safe_send(context.bot, chat_id,
                     text=f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})!",
@@ -670,7 +708,8 @@ async def _run_match(
                 m = _mark(td["side"])
                 trainer = p1_name if td["side"] == "challenger" else p2_name
                 if td["next_name"]:
-                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''))
+                    is_last_poke = (_i == _last_switch_idx[td["side"]])
+                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=is_last_poke)
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n{switch}"
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
@@ -694,7 +733,7 @@ async def _run_match(
         )
         await asyncio.sleep(3)
 
-        for td in result["turn_data"]:
+        for _i, td in enumerate(result["turn_data"]):
             if td["type"] == "matchup":
                 await _safe_send(context.bot, chat_id,
                     text=f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})!",
@@ -741,7 +780,8 @@ async def _run_match(
                 m = _mark(td["side"])
                 trainer = p1_name if td["side"] == "challenger" else p2_name
                 if td["next_name"]:
-                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''))
+                    is_last_poke = (_i == _last_switch_idx[td["side"]])
+                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=is_last_poke)
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n{switch}"
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
