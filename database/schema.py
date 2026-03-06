@@ -477,3 +477,17 @@ async def create_tables():
             pass
     # Bot settings table
     await pool.execute(BOT_SETTINGS_TABLE)
+
+    # ── Performance indexes (idempotent) ──
+    perf_indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",
+        "CREATE INDEX IF NOT EXISTS idx_chatrooms_active ON chat_rooms(is_active)",
+        "CREATE INDEX IF NOT EXISTS idx_battle_defender ON battle_challenges(defender_id, status)",
+        "CREATE INDEX IF NOT EXISTS idx_trades_from ON trades(from_user_id, status)",
+        "CREATE INDEX IF NOT EXISTS idx_users_last_active ON users(last_active_at)",
+    ]
+    for idx_sql in perf_indexes:
+        try:
+            await pool.execute(idx_sql)
+        except Exception:
+            pass

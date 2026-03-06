@@ -44,17 +44,20 @@ RARITY_ACCENT = {
 
 @lru_cache(maxsize=8)
 def _make_gradient(width: int, height: int, top_color: tuple, bottom_color: tuple) -> Image.Image:
-    """Create a vertical gradient image (cached per rarity)."""
+    """Create a vertical gradient image (cached per rarity, row-based)."""
     img = Image.new("RGB", (width, height))
-    pixels = img.load()
+    # Build flat pixel list row by row (avoids per-pixel x loop)
+    pixels = []
     for y in range(height):
         ratio = y / height
-        r = int(top_color[0] + (bottom_color[0] - top_color[0]) * ratio)
-        g = int(top_color[1] + (bottom_color[1] - top_color[1]) * ratio)
-        b = int(top_color[2] + (bottom_color[2] - top_color[2]) * ratio)
-        for x in range(width):
-            pixels[x, y] = (r, g, b)
-    return img.copy()  # Return copy so original cache isn't mutated
+        color = (
+            int(top_color[0] + (bottom_color[0] - top_color[0]) * ratio),
+            int(top_color[1] + (bottom_color[1] - top_color[1]) * ratio),
+            int(top_color[2] + (bottom_color[2] - top_color[2]) * ratio),
+        )
+        pixels.extend([color] * width)
+    img.putdata(pixels)
+    return img
 
 
 @lru_cache(maxsize=256)
@@ -90,30 +93,39 @@ _RAINBOW = [
 ]
 
 
+def _rainbow_row_rgb(width: int) -> list[tuple]:
+    """Generate a single row of rainbow RGB tuples (cached-friendly)."""
+    n = len(_RAINBOW)
+    row = []
+    for x in range(width):
+        t = x / width * n
+        idx = int(t) % n
+        nxt = (idx + 1) % n
+        frac = t - int(t)
+        c1, c2 = _RAINBOW[idx], _RAINBOW[nxt]
+        row.append((
+            int(c1[0] + (c2[0] - c1[0]) * frac),
+            int(c1[1] + (c2[1] - c1[1]) * frac),
+            int(c1[2] + (c2[2] - c1[2]) * frac),
+        ))
+    return row
+
+
 def _draw_shiny_bottom_rainbow(card: Image.Image, band_height: int = 60) -> Image.Image:
     """Draw a horizontal rainbow gradient band at the bottom of the card."""
     w, h = card.size
+    row_rgb = _rainbow_row_rgb(w)
+
+    # Build RGBA band with alpha fade (row-based, avoids nested pixel loop)
+    pixels = []
+    for y_off in range(band_height):
+        alpha = int(180 * (y_off / band_height))
+        pixels.extend((*c, alpha) for c in row_rgb)
+
+    band_img = Image.new("RGBA", (w, band_height))
+    band_img.putdata(pixels)
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    pixels = layer.load()
-    colors = _RAINBOW
-
-    for x in range(w):
-        # Map x position across rainbow spectrum
-        t = x / w * len(colors)
-        idx = int(t) % len(colors)
-        nxt = (idx + 1) % len(colors)
-        frac = t - int(t)
-        c1, c2 = colors[idx], colors[nxt]
-        r = int(c1[0] + (c2[0] - c1[0]) * frac)
-        g = int(c1[1] + (c2[1] - c1[1]) * frac)
-        b = int(c1[2] + (c2[2] - c1[2]) * frac)
-
-        for y_off in range(band_height):
-            y = h - band_height + y_off
-            # Fade in from top of band, full at bottom
-            alpha = int(180 * (y_off / band_height))
-            pixels[x, y] = (r, g, b, alpha)
-
+    layer.paste(band_img, (0, h - band_height))
     return Image.alpha_composite(card, layer)
 
 
@@ -263,19 +275,13 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
 
     # 7. Shiny: thin rainbow accent line at bottom (replaces rarity line)
     if is_shiny:
+        line_h = 6
+        row_rgb = _rainbow_row_rgb(CARD_WIDTH)
+        line_pixels = [(*c, 240) for c in row_rgb] * line_h
+        line_img = Image.new("RGBA", (CARD_WIDTH, line_h))
+        line_img.putdata(line_pixels)
         rainbow_layer = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
-        rl_pixels = rainbow_layer.load()
-        for x in range(CARD_WIDTH):
-            t = x / CARD_WIDTH * len(_RAINBOW)
-            idx = int(t) % len(_RAINBOW)
-            nxt = (idx + 1) % len(_RAINBOW)
-            frac = t - int(t)
-            c1, c2 = _RAINBOW[idx], _RAINBOW[nxt]
-            rc = (int(c1[0] + (c2[0] - c1[0]) * frac),
-                  int(c1[1] + (c2[1] - c1[1]) * frac),
-                  int(c1[2] + (c2[2] - c1[2]) * frac))
-            for yy in range(CARD_HEIGHT - 6, CARD_HEIGHT):
-                rl_pixels[x, yy] = (*rc, 240)
+        rainbow_layer.paste(line_img, (0, CARD_HEIGHT - line_h))
         card = Image.alpha_composite(card, rainbow_layer)
 
     # Convert to bytes (JPEG: much smaller & faster than PNG)

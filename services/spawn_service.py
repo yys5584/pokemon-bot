@@ -3,6 +3,7 @@
 import asyncio
 import random
 import logging
+import time as _time
 from datetime import datetime, timedelta, time as dt_time
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -18,20 +19,31 @@ from utils.helpers import schedule_delete, close_button, rarity_badge, type_badg
 logger = logging.getLogger(__name__)
 
 # Track attempt messages for cleanup when spawn resolves
-# {session_id: [(chat_id, message_id), ...]}
-_attempt_messages: dict[int, list[tuple[int, int]]] = {}
+# {session_id: (timestamp, [(chat_id, message_id), ...])}
+_attempt_messages: dict[int, tuple[float, list[tuple[int, int]]]] = {}
 
 
 def track_attempt_message(session_id: int, chat_id: int, message_id: int):
     """Store an attempt message for later deletion."""
     if session_id not in _attempt_messages:
-        _attempt_messages[session_id] = []
-    _attempt_messages[session_id].append((chat_id, message_id))
+        _attempt_messages[session_id] = (_time.time(), [])
+    _attempt_messages[session_id][1].append((chat_id, message_id))
+
+
+def cleanup_old_attempt_messages():
+    """Remove _attempt_messages entries older than 1 hour to prevent memory leaks."""
+    cutoff = _time.time() - 3600
+    expired = [sid for sid, (ts, _) in _attempt_messages.items() if ts < cutoff]
+    for sid in expired:
+        _attempt_messages.pop(sid, None)
+    if expired:
+        logger.info(f"Cleaned up {len(expired)} stale attempt_message entries")
 
 
 async def _delete_attempt_messages(bot, session_id: int):
     """Delete all tracked attempt messages for a resolved spawn."""
-    messages = _attempt_messages.pop(session_id, [])
+    entry = _attempt_messages.pop(session_id, None)
+    messages = entry[1] if entry else []
     for cid, mid in messages:
         try:
             await bot.delete_message(chat_id=cid, message_id=mid)
@@ -150,6 +162,8 @@ async def schedule_spawns_for_chat(app, chat_id: int, member_count: int):
 
 async def schedule_all_chats(app):
     """Schedule spawns for all active chat rooms."""
+    # Clean up stale attempt messages from previous run
+    cleanup_old_attempt_messages()
     # Load arcade channels from DB into config
     config.ARCADE_CHAT_IDS = await queries.get_arcade_chat_ids()
     if config.ARCADE_CHAT_IDS:
@@ -346,6 +360,13 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         catch_boost = await get_catch_boost()
         catch_rate = min(1.0, base_rate * catch_boost)
 
+        # Pre-fetch catch counts for newbie boost (batch)
+        normal_user_ids = [
+            a["user_id"] for a in attempts
+            if not a.get("used_master_ball") and not a.get("used_hyper_ball")
+        ]
+        catch_counts = await queries.count_total_catches_bulk(normal_user_ids) if normal_user_ids else {}
+
         # Roll for each catcher
         results = []
         for attempt in attempts:
@@ -356,7 +377,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 roll = random.random()
                 success = roll < hyper_rate
             else:
-                total = await queries.count_total_catches(attempt["user_id"])
+                total = catch_counts.get(attempt["user_id"], 0)
                 if total < 2:
                     roll, success = 0.0, True
                 else:
@@ -398,28 +419,28 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         winner_id = winner["user_id"]
         winner_name = winner["display_name"]
 
-        # Refund master balls to losers
-        master_ball_losers = [
-            r for r in results
+        # Refund master balls to losers (batch)
+        master_refund_ids = [
+            r["user_id"] for r in results
             if r["used_master_ball"] and r["user_id"] != winner_id
         ]
-        for loser in master_ball_losers:
-            await queries.add_master_ball(loser["user_id"])
-            logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
-            try:
-                await context.bot.send_message(
-                    chat_id=loser["user_id"],
-                    text="🟣 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
-                )
-            except Exception:
-                pass
+        if master_refund_ids:
+            await queries.add_master_balls_bulk(master_refund_ids)
+            for loser in results:
+                if loser["used_master_ball"] and loser["user_id"] != winner_id:
+                    logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
+                    try:
+                        await context.bot.send_message(
+                            chat_id=loser["user_id"],
+                            text="🟣 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
+                        )
+                    except Exception:
+                        pass
 
-        # Give Pokemon
-        _inst_id, caught_ivs = await queries.give_pokemon_to_user(
-            winner_id, pokemon_id, chat_id, is_shiny=is_shiny,
+        # Give Pokemon + register pokedex + close session (transaction)
+        _inst_id, caught_ivs = await queries.catch_pokemon_transaction(
+            winner_id, pokemon_id, chat_id, is_shiny, session_id,
         )
-        await queries.register_pokedex(winner_id, pokemon_id, "catch")
-        await queries.close_spawn_session(session_id, caught_by=winner_id)
 
         # Update consecutive
         today = config.get_kst_today()
@@ -765,6 +786,13 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         catch_boost = await get_catch_boost()
         catch_rate = min(1.0, base_rate * catch_boost)
 
+        # Pre-fetch catch counts for newbie boost (batch)
+        normal_user_ids2 = [
+            a["user_id"] for a in attempts
+            if not a.get("used_master_ball") and not a.get("used_hyper_ball")
+        ]
+        catch_counts2 = await queries.count_total_catches_bulk(normal_user_ids2) if normal_user_ids2 else {}
+
         # Roll for each catcher (master ball > hyper ball > newbie > regular)
         results = []
         for attempt in attempts:
@@ -778,7 +806,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 success = roll < hyper_rate
             else:
                 # Newbie boost: first 2 catches are guaranteed
-                total = await queries.count_total_catches(attempt["user_id"])
+                total = catch_counts2.get(attempt["user_id"], 0)
                 if total < 2:
                     roll = 0.0  # Lower priority than master ball
                     success = True
@@ -821,28 +849,28 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         winner_id = winner["user_id"]
         winner_name = winner["display_name"]
 
-        # Refund master balls to losers who used one but didn't win
-        master_ball_losers = [
-            r for r in results
+        # Refund master balls to losers (batch)
+        master_refund_ids2 = [
+            r["user_id"] for r in results
             if r["used_master_ball"] and r["user_id"] != winner_id
         ]
-        for loser in master_ball_losers:
-            await queries.add_master_ball(loser["user_id"])
-            logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
-            try:
-                await context.bot.send_message(
-                    chat_id=loser["user_id"],
-                    text="🟣 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
-                )
-            except Exception:
-                pass
+        if master_refund_ids2:
+            await queries.add_master_balls_bulk(master_refund_ids2)
+            for loser in results:
+                if loser["used_master_ball"] and loser["user_id"] != winner_id:
+                    logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
+                    try:
+                        await context.bot.send_message(
+                            chat_id=loser["user_id"],
+                            text="🟣 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
+                        )
+                    except Exception:
+                        pass
 
-        # Give Pokemon (with IV generation)
-        _inst_id, caught_ivs = await queries.give_pokemon_to_user(
-            winner_id, pokemon_id, chat_id, is_shiny=is_shiny,
+        # Give Pokemon + register pokedex + close session (transaction)
+        _inst_id, caught_ivs = await queries.catch_pokemon_transaction(
+            winner_id, pokemon_id, chat_id, is_shiny, session_id,
         )
-        await queries.register_pokedex(winner_id, pokemon_id, "catch")
-        await queries.close_spawn_session(session_id, caught_by=winner_id)
 
         # Update consecutive catches
         today = config.get_kst_today()
@@ -1088,6 +1116,13 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             catch_boost = await get_catch_boost()
             effective_rate = min(1.0, catch_rate * catch_boost)
 
+            # Pre-fetch catch counts for newbie boost (batch)
+            normal_ids_r = [
+                a["user_id"] for a in attempts
+                if not a.get("used_master_ball") and not a.get("used_hyper_ball")
+            ]
+            cc_r = await queries.count_total_catches_bulk(normal_ids_r) if normal_ids_r else {}
+
             results = []
             for attempt in attempts:
                 if attempt.get("used_master_ball"):
@@ -1097,7 +1132,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                     roll = random.random()
                     success = roll < hyper_rate
                 else:
-                    total = await queries.count_total_catches(attempt["user_id"])
+                    total = cc_r.get(attempt["user_id"], 0)
                     if total < 2:
                         roll, success = 0.0, True
                     else:
@@ -1135,18 +1170,17 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             winner_id = winner["user_id"]
             winner_name = winner["display_name"]
 
-            # Refund master balls to losers
-            for loser in results:
-                if loser["used_master_ball"] and loser["user_id"] != winner_id:
-                    await queries.add_master_ball(loser["user_id"])
-                    refunded.append((loser["user_id"], "master"))
+            # Refund master balls to losers (batch)
+            mr_ids = [r["user_id"] for r in results
+                      if r["used_master_ball"] and r["user_id"] != winner_id]
+            if mr_ids:
+                await queries.add_master_balls_bulk(mr_ids)
+                refunded.extend((uid, "master") for uid in mr_ids)
 
-            # Give pokemon
-            _inst_id, caught_ivs = await queries.give_pokemon_to_user(
-                winner_id, pokemon_id, chat_id, is_shiny=is_shiny,
+            # Give pokemon (transaction)
+            _inst_id, caught_ivs = await queries.catch_pokemon_transaction(
+                winner_id, pokemon_id, chat_id, is_shiny, session_id,
             )
-            await queries.register_pokedex(winner_id, pokemon_id, "catch")
-            await queries.close_spawn_session(session_id, caught_by=winner_id)
 
             # Build message
             from utils.helpers import get_decorated_name

@@ -323,11 +323,13 @@ async def _load_pokemon_cache():
         return
     pool = await get_db()
     rows = await pool.fetch("SELECT * FROM pokemon_master ORDER BY id")
-    _pokemon_cache = {r["id"]: dict(r) for r in rows}
-    _pokemon_by_name = {r["name_ko"]: dict(r) for r in rows}
+    _pokemon_cache = {}
+    _pokemon_by_name = {}
     _pokemon_by_rarity = {}
     for r in rows:
         d = dict(r)
+        _pokemon_cache[d["id"]] = d
+        _pokemon_by_name[d["name_ko"]] = d
         _pokemon_by_rarity.setdefault(d["rarity"], []).append(d)
     logger.info(f"Pokemon cache loaded: {len(_pokemon_cache)} species")
 
@@ -796,7 +798,7 @@ async def cleanup_expired_sessions() -> list[tuple[int, str]]:
     Returns list of (user_id, ball_type) for refunded balls.
     """
     pool = await get_db()
-    # 미해결 세션에서 마볼/하이퍼볼 사용자 찾아서 환불
+    # 미해결 세션에서 마볼/하이퍼볼 사용자 찾아서 환불 (배치 처리)
     refunds = await pool.fetch(
         """SELECT ca.user_id, ca.used_master_ball, ca.used_hyper_ball
            FROM catch_attempts ca
@@ -807,19 +809,37 @@ async def cleanup_expired_sessions() -> list[tuple[int, str]]:
     refunded = []
     for r in refunds:
         if r["used_master_ball"]:
-            await pool.execute(
-                "UPDATE users SET master_balls = master_balls + 1 WHERE user_id = $1",
-                r["user_id"],
-            )
             refunded.append((r["user_id"], "master"))
         if r["used_hyper_ball"]:
-            await pool.execute(
-                "UPDATE users SET hyper_balls = hyper_balls + 1 WHERE user_id = $1",
-                r["user_id"],
-            )
             refunded.append((r["user_id"], "hyper"))
+
     if refunded:
+        # 배치 UPDATE: 마스터볼
+        await pool.execute("""
+            UPDATE users u SET master_balls = master_balls + sub.cnt
+            FROM (
+                SELECT ca.user_id, COUNT(*) as cnt
+                FROM catch_attempts ca
+                JOIN spawn_sessions ss ON ca.session_id = ss.id
+                WHERE ss.is_resolved = 0 AND ca.used_master_ball = 1
+                GROUP BY ca.user_id
+            ) sub
+            WHERE u.user_id = sub.user_id
+        """)
+        # 배치 UPDATE: 하이퍼볼
+        await pool.execute("""
+            UPDATE users u SET hyper_balls = hyper_balls + sub.cnt
+            FROM (
+                SELECT ca.user_id, COUNT(*) as cnt
+                FROM catch_attempts ca
+                JOIN spawn_sessions ss ON ca.session_id = ss.id
+                WHERE ss.is_resolved = 0 AND ca.used_hyper_ball = 1
+                GROUP BY ca.user_id
+            ) sub
+            WHERE u.user_id = sub.user_id
+        """)
         logger.info(f"Refunded {len(refunded)} balls from {len(refunds)} unresolved attempts")
+
     await pool.execute(
         """UPDATE spawn_sessions
            SET is_resolved = 1
@@ -1287,27 +1307,20 @@ async def cleanup_expired_events():
 # ============================================================
 
 async def get_total_stats() -> dict:
-    """Get overall bot statistics."""
+    """Get overall bot statistics (single query)."""
     pool = await get_db()
-    users = await pool.fetchrow("SELECT COUNT(*) as cnt FROM users")
-    chats = await pool.fetchrow("SELECT COUNT(*) as cnt FROM chat_rooms WHERE is_active = 1")
-    total_spawns = await pool.fetchrow("SELECT COUNT(*) as cnt FROM spawn_log")
-    total_catches = await pool.fetchrow(
-        "SELECT COUNT(*) as cnt FROM spawn_log WHERE caught_by_user_id IS NOT NULL"
-    )
-    total_trades = await pool.fetchrow(
-        "SELECT COUNT(*) as cnt FROM trades WHERE status = 'accepted'"
-    )
-    total_shiny = await pool.fetchrow(
-        "SELECT COUNT(*) as cnt FROM user_pokemon WHERE is_active = 1 AND is_shiny = 1"
-    )
-    return {
-        "total_users": users["cnt"] if users else 0,
-        "total_chats": chats["cnt"] if chats else 0,
-        "total_spawns": total_spawns["cnt"] if total_spawns else 0,
-        "total_catches": total_catches["cnt"] if total_catches else 0,
-        "total_trades": total_trades["cnt"] if total_trades else 0,
-        "total_shiny": total_shiny["cnt"] if total_shiny else 0,
+    row = await pool.fetchrow("""
+        SELECT
+            (SELECT COUNT(*) FROM users) AS total_users,
+            (SELECT COUNT(*) FROM chat_rooms WHERE is_active = 1) AS total_chats,
+            (SELECT COUNT(*) FROM spawn_log) AS total_spawns,
+            (SELECT COUNT(*) FROM spawn_log WHERE caught_by_user_id IS NOT NULL) AS total_catches,
+            (SELECT COUNT(*) FROM trades WHERE status = 'accepted') AS total_trades,
+            (SELECT COUNT(*) FROM user_pokemon WHERE is_active = 1 AND is_shiny = 1) AS total_shiny
+    """)
+    return dict(row) if row else {
+        "total_users": 0, "total_chats": 0, "total_spawns": 0,
+        "total_catches": 0, "total_trades": 0, "total_shiny": 0,
     }
 
 
@@ -1871,3 +1884,71 @@ async def get_active_chat_rooms_top(limit: int = 5) -> list[dict]:
         today, limit,
     )
     return [dict(r) for r in rows]
+
+
+# ============================================================
+# Bulk / Transaction Helpers (optimization)
+# ============================================================
+
+async def count_total_catches_bulk(user_ids: list[int]) -> dict[int, int]:
+    """Batch count total catches for multiple users at once."""
+    if not user_ids:
+        return {}
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT caught_by_user_id AS user_id, COUNT(*) AS cnt
+           FROM spawn_log
+           WHERE caught_by_user_id = ANY($1::bigint[])
+           GROUP BY caught_by_user_id""",
+        user_ids,
+    )
+    return {r["user_id"]: r["cnt"] for r in rows}
+
+
+async def add_master_balls_bulk(user_ids: list[int]):
+    """Refund 1 master ball to each user in the list (batch UPDATE)."""
+    if not user_ids:
+        return
+    pool = await get_db()
+    await pool.execute(
+        """UPDATE users SET master_balls = master_balls + 1
+           WHERE user_id = ANY($1::bigint[])""",
+        user_ids,
+    )
+
+
+async def catch_pokemon_transaction(
+    user_id: int,
+    pokemon_id: int,
+    chat_id: int | None,
+    is_shiny: bool,
+    session_id: int,
+) -> tuple[int, dict]:
+    """Give pokemon + register pokedex + close session in a single transaction."""
+    from utils.battle_calc import generate_ivs
+    ivs = generate_ivs(is_shiny=is_shiny)
+    pool = await get_db()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """INSERT INTO user_pokemon
+                       (user_id, pokemon_id, caught_in_chat_id, is_shiny,
+                        iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id""",
+                user_id, pokemon_id, chat_id, 1 if is_shiny else 0,
+                ivs["iv_hp"], ivs["iv_atk"], ivs["iv_def"],
+                ivs["iv_spa"], ivs["iv_spdef"], ivs["iv_spd"],
+            )
+            await conn.execute(
+                """INSERT INTO pokedex (user_id, pokemon_id, method)
+                   VALUES ($1, $2, 'catch')
+                   ON CONFLICT (user_id, pokemon_id) DO NOTHING""",
+                user_id, pokemon_id,
+            )
+            await conn.execute(
+                """UPDATE spawn_sessions
+                   SET is_resolved = 1, caught_by_user_id = $1
+                   WHERE id = $2""",
+                user_id, session_id,
+            )
+    return row["id"], ivs

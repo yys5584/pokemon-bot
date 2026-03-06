@@ -66,12 +66,12 @@ async def set_battle_team(user_id: int, instance_ids: list[int], team_number: in
         "DELETE FROM battle_teams WHERE user_id = $1 AND team_number = $2",
         user_id, team_number,
     )
-    for slot, inst_id in enumerate(instance_ids, 1):
-        await pool.execute(
-            """INSERT INTO battle_teams (user_id, slot, pokemon_instance_id, team_number)
-               VALUES ($1, $2, $3, $4)""",
-            user_id, slot, inst_id, team_number,
-        )
+    await pool.executemany(
+        """INSERT INTO battle_teams (user_id, slot, pokemon_instance_id, team_number)
+           VALUES ($1, $2, $3, $4)""",
+        [(user_id, slot, inst_id, team_number)
+         for slot, inst_id in enumerate(instance_ids, 1)],
+    )
 
 
 async def clear_battle_team(user_id: int, team_number: int | None = None):
