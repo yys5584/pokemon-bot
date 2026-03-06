@@ -119,6 +119,18 @@ TUTORIAL_MESSAGES = {
         "👉 \"도감\"을 입력해서 확인해보세요!"
     ),
     7: (
+        "🏠 【채팅방 셋팅】\n"
+        "━━━━━━━━━━━━━━━\n"
+        "\n"
+        "내 채팅방에도 봇을 추가할 수 있어요!\n"
+        "\n"
+        "1️⃣ 10명 이상인 채팅방에 봇을 초대\n"
+        "2️⃣ /start 입력으로 봇 활성화\n"
+        "3️⃣ \"강스\" 입력하면 즉시 포켓몬 출현!\n"
+        "\n"
+        "💡 채팅방 인원이 많을수록 포켓몬이 자주 나와요!"
+    ),
+    8: (
         "🎓 튜토리얼 완료! 축하합니다!\n"
         "\n"
         "🎁 졸업 보상:\n"
@@ -149,21 +161,22 @@ _STEP_TITLES = {
     4: "파트너",
     5: "배틀",
     6: "도감",
-    7: "졸업",
+    7: "채팅방",
+    8: "졸업",
 }
 
 
 def _progress_bar(step: int) -> str:
-    """Build a visual progress indicator like [1/7] ● ● ○ ○ ○ ○ ○."""
+    """Build a visual progress indicator like [1/8] ● ● ○ ○ ○ ○ ○ ○."""
     dots = []
-    for i in range(1, 8):
+    for i in range(1, 9):
         if i < step:
             dots.append("●")
         elif i == step:
             dots.append("◉")
         else:
             dots.append("○")
-    return f"[{step}/7] {' '.join(dots)}"
+    return f"[{step}/8] {' '.join(dots)}"
 
 
 def _build_buttons(step: int) -> InlineKeyboardMarkup:
@@ -175,9 +188,9 @@ def _build_buttons(step: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton("▶️ 튜토리얼 시작", callback_data="tut_next_2"),
             InlineKeyboardButton("⏭️ 스킵", callback_data="tut_skip"),
         ])
-    elif step == 7:
+    elif step == 8:
         buttons.append([
-            InlineKeyboardButton("◀️ 이전", callback_data="tut_prev_6"),
+            InlineKeyboardButton("◀️ 이전", callback_data="tut_prev_7"),
             InlineKeyboardButton("🎓 완료!", callback_data="tut_done"),
         ])
     else:
