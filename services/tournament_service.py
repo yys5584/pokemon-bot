@@ -221,35 +221,27 @@ _SWITCH_ULTRA = [
 ]
 
 # ── Dramatic entrance effects (4강/결승 전용) ────────────────────
-_DRAMATIC_ENTRANCE = [
-    "💎 {next}의 메가스톤이 빛난다... 메가진화!! ...아 아직 패치 안 됐지 ㅋㅋ",
-    "💎 {trainer}의 키스톤이 반응한다! {next}, 메가진화!! ...는 아직 없음 ㅋ",
-    "🌀 유대의 힘이 깨어난다... {next}, 유대진화!! ...아직 구현 안 됨 ㅎ",
-    "🌀 {trainer}와 {next}의 마음이 하나로! 유대진화!! ...는 다음 패치에 ㅋㅋ",
-    "⚡ {next}의 Z파워가 해방된다! Z기술 발동!! ...은 나중에 ㅋ",
-    "⚡ {trainer}의 Z링이 빛난다! {next}, Z파워 전개!! ...는 아직이야 ㅋㅋ",
-    "🔮 {next}의 테라스탈이 빛난다... 테라스탈화!! ...가 뭔지도 모르겠지? ㅋ",
-    "🔮 결정의 빛이여! {next}, 테라스탈!! ...은 언젠가 ㅋㅋ",
-    "🌟 {next}의 숨겨진 힘이 각성한다!! ...언젠간 패치되겠지 ㅋ",
-    "🌟 관중이 함성을 지른다! {next}, 최후의 포켓몬!!",
-    "💫 {next}, 최종 형태로! ...는 아직이고 일단 싸워!! ㅋㅋ",
-    "💫 경기장의 공기가 바뀐다... {next}, 마지막 희망!",
-    "🔥 {next}의 오라가 폭발한다!! ...는 연출이고 진짜 싸워!! ㅋ",
-    "🔥 {trainer}의 각오가 {next}에게 전해진다!! 마지막 승부!!",
-    "❄️ 시간이 멈춘 듯한 긴장감... {next}, 최후의 출진!!",
-    "⭐ 다이맥스 에너지가 모인다! {next}, 거대화!! ...는 아직 ㅋㅋ",
-    "⭐ {trainer}의 다이맥스 밴드가 반응! ...밴드 없는데? ㅋㅋ {next} 출격!",
-    "🌈 {next}의 특성이 발동한다! ...뭔 특성이냐고? 기합이지!! ㅋ",
-    "💥 {trainer}의 비장의 수! {next}, 이게 마지막이다!!",
-    "🎭 반전의 한 수... {next}, 마지막 무대!!",
+_DRAMATIC_SERIOUS = [
+    "🔥 {trainer}: {next}, 너로 정했다!! 마지막 승부야!!",
+    "🔥 {trainer}: 부탁해 {next}...! 우리의 전부를 보여주자!!",
+    "🌟 {trainer}: 승부는 아직 끝나지 않았어! 가자, {next}!!",
+    "💫 {trainer}: 포기하면 거기서 끝이야! {next}, 마지막 힘을 보여줘!!",
+    "❄️ {trainer}: 믿고 있어, {next}...! 우리가 함께 걸어온 길을 보여주자!!",
+    "💥 {trainer}: {next}, 이게 마지막이다!! 전력을 다해!!",
+    "🎭 {trainer}: 여기서 물러설 순 없어...! {next}, 최후의 무대야!!",
+]
+_DRAMATIC_JOKE = [
+    "💎 {next}의 메가스톤이 빛난다... 메가진화!! ...가 뭐였지..?",
+    "🌀 {next}와의 유대가 깨어난다... 유대진화!! ...가 뭐였더라..?",
+    "⚡ {next}의 Z파워가 해방된다! Z기술 발동!! ...이 뭔데..?",
 ]
 
 
 def _switch_line(trainer: str, dead: str, next_name: str,
-                 next_rarity: str = "", dramatic: bool = False) -> str:
+                 next_rarity: str = "", dramatic: str = "") -> str:
     """Pick a random switch-in line based on next pokemon's rarity.
 
-    dramatic=True adds extra entrance effects (4강/결승).
+    dramatic: "" (none), "serious" (8강), "full" (4강/결승, includes jokes).
     """
     if next_rarity == "ultra_legendary":
         pool = _SWITCH_ULTRA
@@ -261,7 +253,8 @@ def _switch_line(trainer: str, dead: str, next_name: str,
         pool = _SWITCH_NORMAL
     line = random.choice(pool).format(trainer=trainer, dead=dead, next=next_name)
     if dramatic:
-        effect = random.choice(_DRAMATIC_ENTRANCE).format(trainer=trainer, next=next_name)
+        d_pool = _DRAMATIC_SERIOUS + _DRAMATIC_JOKE if dramatic == "full" else _DRAMATIC_SERIOUS
+        effect = random.choice(d_pool).format(trainer=trainer, next=next_name)
         line = f"{line}\n{effect}"
     return line
 
@@ -573,30 +566,35 @@ async def _run_match(
     def _mark(side):
         return C if side == "challenger" else D
 
-    # Helper: build matchup sections from turn_data
+    # Helper: build matchup sections from turn_data (with global offsets)
     def _build_sections(turn_data):
-        sections, cur = [], []
-        for td in turn_data:
+        sections, cur, offsets, cur_off = [], [], [], 0
+        for i, td in enumerate(turn_data):
             if td["type"] == "matchup" and cur:
                 sections.append(cur)
+                offsets.append(cur_off)
                 cur = [td]
+                cur_off = i
             else:
+                if not cur:
+                    cur_off = i
                 cur.append(td)
         if cur:
             sections.append(cur)
-        return sections
+            offsets.append(cur_off)
+        return sections, offsets
 
-    # Helper: format a section into lines (for quarter/semi) — with HP bars
-    def _format_section(section):
+    # Helper: format a section into lines — with HP bars
+    # dramatic_mode: "" (none), "serious" (8강), "full" (4강/결승)
+    def _format_section(section, dramatic_mode="", offset=0):
         lines = []
-        # Get trainer name for KO messages
         c_trainer = p1_data['name']
         d_trainer = p2_data['name']
-        for td in section:
+        for j, td in enumerate(section):
+            global_idx = offset + j
             if td["type"] == "matchup":
                 lines.append(f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})")
             elif td["type"] == "turn":
-                # Determine who goes first
                 if td["first_is_challenger"]:
                     first_mark, second_mark = C, D
                     first_name, first_dmg, first_crit, first_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
@@ -631,8 +629,10 @@ async def _run_match(
                 m = _mark(td["side"])
                 trainer = c_trainer if td["side"] == "challenger" else d_trainer
                 if td["next_name"]:
+                    is_last = (global_idx == _last_switch_idx[td["side"]])
+                    dm = dramatic_mode if is_last else ""
                     lines.append(f"{SKULL} {m}{td['dead_name']} 쓰러짐!")
-                    lines.append(_switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', '')))
+                    lines.append(_switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=dm))
                 else:
                     lines.append(f"{SKULL} {m}{td['dead_name']} 쓰러짐!")
         return lines
@@ -708,8 +708,8 @@ async def _run_match(
                 m = _mark(td["side"])
                 trainer = p1_name if td["side"] == "challenger" else p2_name
                 if td["next_name"]:
-                    is_last_poke = (_i == _last_switch_idx[td["side"]])
-                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=is_last_poke)
+                    dm = "full" if (_i == _last_switch_idx[td["side"]]) else ""
+                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=dm)
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n{switch}"
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
@@ -780,8 +780,8 @@ async def _run_match(
                 m = _mark(td["side"])
                 trainer = p1_name if td["side"] == "challenger" else p2_name
                 if td["next_name"]:
-                    is_last_poke = (_i == _last_switch_idx[td["side"]])
-                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=is_last_poke)
+                    dm = "full" if (_i == _last_switch_idx[td["side"]]) else ""
+                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=dm)
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n{switch}"
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
@@ -803,8 +803,9 @@ async def _run_match(
         )
         await asyncio.sleep(3)
 
-        for section in _build_sections(result["turn_data"]):
-            lines = _format_section(section)
+        sections, offsets = _build_sections(result["turn_data"])
+        for section, off in zip(sections, offsets):
+            lines = _format_section(section, dramatic_mode="serious", offset=off)
             if lines:
                 await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
                 await asyncio.sleep(3)
