@@ -373,8 +373,8 @@ async def execute_battle(
     await bq.update_battle_stats_win(winner_id, bp_won)
     await bq.update_battle_stats_lose(loser_id, bp_lose)
 
-    # Mission: battle win
-    asyncio.create_task(_notify_battle_mission(context, winner_id))
+    # Mission: battle win (no context available — silent reward only)
+    asyncio.create_task(_silent_battle_mission(winner_id))
 
     # Record battle
     await bq.record_battle(
@@ -528,14 +528,10 @@ async def _check_battle_titles(user_id: int, stats: dict, perfect_win: bool):
                 logger.info(f"Battle title unlocked: {user_id} -> {title_id}")
 
 
-async def _notify_battle_mission(context, user_id: int):
-    """Fire-and-forget: check battle mission progress and DM user."""
+async def _silent_battle_mission(user_id: int):
+    """Fire-and-forget: check battle mission progress (reward auto-claimed, no DM)."""
     try:
         from services.mission_service import check_mission_progress
-        msg = await check_mission_progress(user_id, "battle")
-        if msg:
-            await context.bot.send_message(
-                chat_id=user_id, text=msg, parse_mode="HTML",
-            )
+        await check_mission_progress(user_id, "battle")
     except Exception:
         pass
