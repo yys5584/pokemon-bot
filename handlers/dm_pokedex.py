@@ -1,5 +1,6 @@
 """DM handlers for Pokedex and My Pokemon."""
 
+import asyncio
 import logging
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, ReplyKeyboardMarkup
@@ -740,8 +741,20 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             page = int(parts[4]) if len(parts) > 4 else 0
             idx = max(0, min(idx, len(pokemon_list) - 1))
             p = pokemon_list[idx]
-            result = await _do_feed(p, user_id)
+            result, fed = await _do_feed(p, user_id)
             await query.answer(result, show_alert=True)
+            if fed:
+                async def _feed_mission():
+                    try:
+                        from services.mission_service import check_mission_progress
+                        msg = await check_mission_progress(user_id, "feed")
+                        if msg:
+                            await query.get_bot().send_message(
+                                chat_id=user_id, text=msg, parse_mode="HTML",
+                            )
+                    except Exception:
+                        pass
+                asyncio.create_task(_feed_mission())
             # Refresh detail
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             idx = max(0, min(idx, len(pokemon_list) - 1))
@@ -753,8 +766,20 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             page = int(parts[4]) if len(parts) > 4 else 0
             idx = max(0, min(idx, len(pokemon_list) - 1))
             p = pokemon_list[idx]
-            result = await _do_play(p, user_id)
+            result, played = await _do_play(p, user_id)
             await query.answer(result, show_alert=True)
+            if played:
+                async def _play_mission():
+                    try:
+                        from services.mission_service import check_mission_progress
+                        msg = await check_mission_progress(user_id, "play")
+                        if msg:
+                            await query.get_bot().send_message(
+                                chat_id=user_id, text=msg, parse_mode="HTML",
+                            )
+                    except Exception:
+                        pass
+                asyncio.create_task(_play_mission())
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             idx = max(0, min(idx, len(pokemon_list) - 1))
             text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
@@ -827,38 +852,46 @@ def _format_appraisal(p: dict) -> str:
     return "\n".join(lines)
 
 
-async def _do_feed(p: dict, user_id: int) -> str:
-    """Execute feed action, return result message."""
-    if p["fed_today"] >= config.FEED_PER_DAY:
-        return f"오늘은 이미 밥을 {config.FEED_PER_DAY}번 줬습니다!"
+async def _do_feed(p: dict, user_id: int) -> tuple[str, bool]:
+    """Execute feed action, return (result message, success)."""
+    # 칭호 버프: 밥주기 추가 횟수
+    feed_limit = config.FEED_PER_DAY
+    user_data = await queries.get_user(user_id)
+    if user_data and user_data.get("title"):
+        buff = config.get_title_buff_by_name(user_data["title"])
+        if buff and buff.get("extra_feed"):
+            feed_limit += buff["extra_feed"]
+
+    if p["fed_today"] >= feed_limit:
+        return f"오늘은 이미 밥을 {feed_limit}번 줬습니다!", False
     max_f = config.get_max_friendship(p)
     if p["friendship"] >= max_f:
-        return f"{p['name_ko']} 친밀도 MAX!"
+        return f"{p['name_ko']} 친밀도 MAX!", False
     from services.event_service import get_friendship_boost
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_FEED * boost
     new_f = await queries.atomic_feed(p["id"], gain, max_f)
     if new_f is None:
-        return "오류가 발생했습니다."
-    remaining = config.FEED_PER_DAY - p["fed_today"] - 1
-    return f"{icon_emoji('ham')} {p['name_ko']}에게 밥! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
+        return "오류가 발생했습니다.", False
+    remaining = feed_limit - p["fed_today"] - 1
+    return f"🍖 {p['name_ko']}에게 밥! 친밀도 {new_f}/{max_f} (남은: {remaining}회)", True
 
 
-async def _do_play(p: dict, user_id: int) -> str:
-    """Execute play action, return result message."""
+async def _do_play(p: dict, user_id: int) -> tuple[str, bool]:
+    """Execute play action, return (result message, success)."""
     if p["played_today"] >= config.PLAY_PER_DAY:
-        return f"오늘은 이미 {config.PLAY_PER_DAY}번 놀아줬습니다!"
+        return f"오늘은 이미 {config.PLAY_PER_DAY}번 놀아줬습니다!", False
     max_f = config.get_max_friendship(p)
     if p["friendship"] >= max_f:
-        return f"{p['name_ko']} 친밀도 MAX!"
+        return f"{p['name_ko']} 친밀도 MAX!", False
     from services.event_service import get_friendship_boost
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_PLAY * boost
     new_f = await queries.atomic_play(p["id"], gain, max_f)
     if new_f is None:
-        return "오류가 발생했습니다."
+        return "오류가 발생했습니다.", False
     remaining = config.PLAY_PER_DAY - p["played_today"] - 1
-    return f"{icon_emoji('game')} {p['name_ko']}와 놀기! 친밀도 {new_f}/{max_f} (남은: {remaining}회)"
+    return f"🎾 {p['name_ko']}와 놀기! 친밀도 {new_f}/{max_f} (남은: {remaining}회)", True
 
 
 async def _do_evolve(p: dict, user_id: int) -> str:

@@ -432,7 +432,8 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                     try:
                         await context.bot.send_message(
                             chat_id=loser["user_id"],
-                            text="🟣 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
+                            text=f"{ball_emoji('masterball')} 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
+                            parse_mode="HTML",
                         )
                     except Exception:
                         pass
@@ -880,7 +881,8 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                     try:
                         await context.bot.send_message(
                             chat_id=loser["user_id"],
-                            text="🟣 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
+                            text=f"{ball_emoji('masterball')} 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
+                            parse_mode="HTML",
                         )
                     except Exception:
                         pass

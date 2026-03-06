@@ -604,8 +604,8 @@ async def catch_keep_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.answer("본인의 포켓몬만 조작할 수 있습니다.")
         return
 
-    # Remove buttons, append confirmation
-    new_text = query.message.text + "\n\n✅ 가방에 넣었습니다!"
+    # Remove buttons, append confirmation (text_html preserves <tg-emoji> tags)
+    new_text = (query.message.text_html or query.message.text) + "\n\n✅ 가방에 넣었습니다!"
     try:
         await query.message.edit_text(new_text, parse_mode="HTML")
     except Exception:
@@ -644,9 +644,9 @@ async def catch_release_callback(update: Update, context: ContextTypes.DEFAULT_T
     await queries.deactivate_pokemon(instance_id)
     await queries.add_hyper_ball(user_id, 1)
 
-    # Remove buttons, append release confirmation
+    # Remove buttons, append release confirmation (text_html preserves <tg-emoji> tags)
     be_hyper = ball_emoji("hyperball")
-    new_text = query.message.text + f"\n\n🔄 방생 완료! {be_hyper} 하이퍼볼 1개 획득!"
+    new_text = (query.message.text_html or query.message.text) + f"\n\n🔄 방생 완료! {be_hyper} 하이퍼볼 1개 획득!"
     try:
         await query.message.edit_text(new_text, parse_mode="HTML")
     except Exception:
