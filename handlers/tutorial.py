@@ -71,10 +71,12 @@ TUTORIAL_MESSAGES = {
         "\n"
         "잡은 포켓몬을 키워보세요! (DM에서 사용)\n"
         "\n"
-        "📦 내포켓몬 — 보유 목록 확인\n"
+        "📦 내포켓몬 — 보유 포켓몬과 다양한 상호작용!\n"
         "🍚 밥 [번호] — 밥 주기 (하루 3회)\n"
         "🎾 놀기 [번호] — 놀아주기 (하루 2회)\n"
+        "\n"
         "💕 친밀도가 MAX가 되면 진화할 수 있어요!\n"
+        "💪 친밀도 MAX 포켓몬은 배틀에서 20% 더 강해져요!\n"
         "\n"
         "👉 지금 \"내포켓몬\"을 입력해서 목록을 확인해보세요!"
     ),
@@ -83,6 +85,8 @@ TUTORIAL_MESSAGES = {
         "━━━━━━━━━━━━━━━\n"
         "\n"
         "파트너 포켓몬을 지정하면 상태창에 표시돼요!\n"
+        "💪 파트너 포켓몬은 배틀에서 5% 더 강해져요!\n"
+        "\n"
         "가장 좋아하는 포켓몬을 파트너로 골라보세요.\n"
         "\n"
         "👉 \"파트너\"를 입력해서 파트너를 골라보세요!"
@@ -96,7 +100,7 @@ TUTORIAL_MESSAGES = {
         "3️⃣ 상대가 \"배틀수락\"하면 자동 대전!\n"
         "\n"
         "💰 승리 시 BP(배틀포인트) 획득\n"
-        "🏪 BP상점에서 마스터볼/강스권 교환 가능\n"
+        "🏪 BP상점에서 마스터볼 등 다양한 상품을 구매할 수 있어요!\n"
         "\n"
         "🎲 야차 — BP/마스터볼을 걸고 베팅 배틀!\n"
         "\n"
@@ -107,8 +111,8 @@ TUTORIAL_MESSAGES = {
         "━━━━━━━━━━━━━━━\n"
         "\n"
         "📖 도감 — 수집한 포켓몬 확인 (1세대/2세대)\n"
+        "📦 내포켓몬 — 보유 포켓몬과 다양한 상호작용!\n"
         "🏷️ 칭호 — 조건 달성 시 칭호 해금!\n"
-        "📋 칭호목록 — 모든 칭호 & 해금 조건\n"
         "\n"
         "🎯 도감 완성률을 높이면 특별 칭호를 얻을 수 있어요!\n"
         "\n"
@@ -116,9 +120,6 @@ TUTORIAL_MESSAGES = {
     ),
     7: (
         "🎓 튜토리얼 완료! 축하합니다!\n"
-        "\n"
-        "📊 대시보드에서 실시간 통계를 확인하세요:\n"
-        "🌐 tgpoke.com\n"
         "\n"
         "🎁 졸업 보상:\n"
         "  🔮 마스터볼 x2\n"
@@ -131,6 +132,10 @@ TUTORIAL_MESSAGES = {
         "• 출석 — 매일 출석 보상\n"
         "• 날씨에 따라 특정 타입 포획률 UP!\n"
         "━━━━━━━━━━━━━━━\n"
+        "\n"
+        "🏠 공식방: https://t.me/tg_poke\n"
+        "🌿 30초마다 포켓몬이 출현해요!\n"
+        "🏆 매일 저녁 9시 대회 접수, 10시 포켓몬 마스터 대회!\n"
         "\n"
         "도움이 필요하면 언제든 \"도움말\"을 입력하세요!"
     ),
@@ -271,6 +276,9 @@ def _build_catch_step_c(legendary_id: int) -> tuple[str, InlineKeyboardMarkup]:
         "   일반 포켓볼이나 하이퍼볼로는 거의 잡을 수 없어요.\n"
         "\n"
         "💡 마스터볼(ㅁ)은 100% 포획!\n"
+        "   포켓몬을 잡을 때 굉장히 낮은 확률로 나오거나\n"
+        "   상점에서 BP로 구매할 수 있어요.\n"
+        "\n"
         "   하나 지급해 드릴테니 던져보세요!"
     )
     markup = InlineKeyboardMarkup([
@@ -437,16 +445,55 @@ async def tutorial_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if "not modified" not in str(e).lower():
                 raise
 
-    # tut_skip — skip tutorial completely
+    # tut_skip — skip tutorial
     elif data == "tut_skip":
-        await queries.update_tutorial_step(user_id, 99)
-        try:
-            await query.edit_message_text(
-                "⏭️ 튜토리얼을 건너뛰었습니다.\n"
-                "나중에 궁금한 게 있으면 \"도움말\"을 입력하세요!"
-            )
-        except BadRequest:
-            pass
+        restarted = await queries.get_tutorial_restarted(user_id)
+        if restarted:
+            # Already restarted once — no more restarts
+            await queries.update_tutorial_step(user_id, 99)
+            try:
+                await query.edit_message_text(
+                    "⏭️ 튜토리얼을 건너뛰었습니다.\n"
+                    "나중에 궁금한 게 있으면 \"도움말\"을 입력하세요!"
+                )
+            except BadRequest:
+                pass
+        else:
+            # First skip — offer restart option
+            await queries.update_tutorial_step(user_id, 98)
+            try:
+                await query.edit_message_text(
+                    "⏭️ 튜토리얼을 건너뛰었습니다.\n\n"
+                    "💡 나중에 다시 보고 싶다면 아래 버튼으로\n"
+                    "   튜토리얼을 재시작할 수 있어요! (1회 제한)\n\n"
+                    "궁금한 게 있으면 \"도움말\"을 입력하세요!",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🔄 튜토리얼 재시작", callback_data="tut_restart")],
+                    ]),
+                )
+            except BadRequest:
+                pass
+
+    # tut_restart — restart tutorial (one-time only)
+    elif data == "tut_restart":
+        restarted = await queries.get_tutorial_restarted(user_id)
+        if restarted:
+            try:
+                await query.edit_message_text(
+                    "⚠️ 튜토리얼 재시작은 1회만 가능합니다.\n"
+                    "궁금한 게 있으면 \"도움말\"을 입력하세요!"
+                )
+            except BadRequest:
+                pass
+        else:
+            await queries.restart_tutorial(user_id)
+            text = _build_step_message(1)
+            markup = _build_buttons(1)
+            try:
+                await query.edit_message_text(text, reply_markup=markup)
+            except BadRequest as e:
+                if "not modified" not in str(e).lower():
+                    raise
 
     # tut_done — complete tutorial with rewards
     elif data == "tut_done":
@@ -468,7 +515,10 @@ async def tutorial_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "• 날씨에 따라 특정 타입 포획률 UP!\n"
                 "━━━━━━━━━━━━━━━\n"
                 "\n"
-                "🌐 tgpoke.com 에서 실시간 통계를 확인하세요!\n"
+                "🏠 공식방: https://t.me/tg_poke\n"
+                "🌿 30초마다 포켓몬이 출현해요!\n"
+                "🏆 매일 저녁 9시 대회 접수, 10시 포켓몬 마스터 대회!\n"
+                "\n"
                 "도움이 필요하면 \"도움말\"을 입력하세요!"
             )
         except BadRequest:

@@ -93,12 +93,21 @@ async def update_user_title(user_id: int, title: str, title_emoji: str):
 # ============================================================
 
 async def get_tutorial_step(user_id: int) -> int:
-    """Get user's tutorial progress. 0=not started, 1-7=in progress, 99=done."""
+    """Get user's tutorial progress. 0=not started, 1-7=in progress, 98=skipped, 99=done."""
     pool = await get_db()
     row = await pool.fetchrow(
         "SELECT tutorial_step FROM users WHERE user_id = $1", user_id
     )
     return row["tutorial_step"] if row else 0
+
+
+async def get_tutorial_restarted(user_id: int) -> bool:
+    """Check if user has already restarted the tutorial once."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT tutorial_restarted FROM users WHERE user_id = $1", user_id
+    )
+    return row["tutorial_restarted"] if row else False
 
 
 async def update_tutorial_step(user_id: int, step: int):
@@ -107,6 +116,15 @@ async def update_tutorial_step(user_id: int, step: int):
     await pool.execute(
         "UPDATE users SET tutorial_step = $1 WHERE user_id = $2",
         step, user_id,
+    )
+
+
+async def restart_tutorial(user_id: int):
+    """Restart tutorial (one-time only). Sets step=1 and marks as restarted."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET tutorial_step = 1, tutorial_restarted = TRUE WHERE user_id = $1",
+        user_id,
     )
 
 
