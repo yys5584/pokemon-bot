@@ -612,7 +612,8 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🕹️ 아케이드 채널 ({status})\n\n"
             f"'아케이드 등록' — 아케이드 활성화\n"
             f"'아케이드 해제' — 아케이드 비활성화\n\n"
-            f"🎮 내 아케이드 티켓: {tickets}개"
+            f"🎮 내 아케이드 티켓: {tickets}개",
+            parse_mode="HTML",
         )
         return
 
