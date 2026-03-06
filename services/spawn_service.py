@@ -639,7 +639,12 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         pokemon = await pick_random_pokemon(rarity)
 
         # 4.5 Shiny determination (with event boost)
-        shiny_rate = config.SHINY_RATE_ARCADE if arcade else config.SHINY_RATE_NATURAL
+        if arcade:
+            shiny_rate = config.SHINY_RATE_ARCADE
+        elif force:
+            shiny_rate = config.SHINY_RATE_FORCE
+        else:
+            shiny_rate = config.SHINY_RATE_NATURAL
         shiny_mult = await get_shiny_boost()
         is_shiny = random.random() < min(1.0, shiny_rate * shiny_mult)
 
