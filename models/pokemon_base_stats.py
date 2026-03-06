@@ -275,6 +275,10 @@ POKEMON_BASE_STATS = {
     251: (100, 100, 100, 100, 100, 100, ["psychic", "grass"]),              # Celebi
 }
 
+# Merge Gen 3 base stats
+from models.pokemon_base_stats_gen3 import POKEMON_BASE_STATS_GEN3
+POKEMON_BASE_STATS.update(POKEMON_BASE_STATS_GEN3)
+
 
 def normalize(stat: int, min_stat: int = 5, max_stat: int = 255,
               out_min: int = 20, out_max: int = 180) -> int:

@@ -1,16 +1,16 @@
-"""Seed the pokemon_master table with 251 Gen1+Gen2 Pokemon."""
+"""Seed the pokemon_master table with 386 Gen1+Gen2+Gen3 Pokemon."""
 
 from database.connection import get_db
 from models.pokemon_data import ALL_POKEMON
 
 
 async def seed_pokemon_data():
-    """Insert all 251 Pokemon into pokemon_master if not already seeded."""
+    """Insert all 386 Pokemon into pokemon_master if not already seeded."""
     pool = await get_db()
 
     row = await pool.fetchrow("SELECT COUNT(*) as cnt FROM pokemon_master")
     count = row["cnt"] if row else 0
-    if count >= 251:
+    if count >= 386:
         return count
 
     for p in ALL_POKEMON:
@@ -31,7 +31,7 @@ async def seed_pokemon_data():
         "UPDATE pokemon_master SET evolves_to = 242 WHERE id = 113 AND evolves_to IS NULL"
     )
 
-    return 251
+    return 386
 
 
 async def seed_battle_data():

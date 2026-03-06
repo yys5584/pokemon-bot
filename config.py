@@ -148,7 +148,7 @@ GROUP_TRADE_BP_COST = 100          # 그룹 교환 비용 (BP)
 # --- Title System ---
 TITLES = [
     # (min_pokemon_count, title_text, emoji)
-    (251, "그랜드마스터", "💫"),
+    (386, "그랜드마스터", "💫"),
     (151, "챔피언", "👑"),
     (120, "포켓몬 마스터", "🏆"),
     (75, "포켓몬 트레이너", "⭐"),
@@ -178,8 +178,13 @@ UNLOCKABLE_TITLES = {
     "gen2_collector": ("성도 수집가",    "bellsprout",  "2세대 도감 45종 달성",   "pokedex_gen2", 45),
     "gen2_trainer":   ("성도 트레이너",  "eevee",      "2세대 도감 75종 달성",   "pokedex_gen2", 75),
     "gen2_master":    ("성도 마스터",    "victini",    "2세대 도감 100종 완성!", "pokedex_gen2", 100),
+    # 3세대 도감 기반 (호연)
+    "gen3_starter":   ("호연의 초보",    "squirtle",   "3세대 도감 15종 달성",   "pokedex_gen3", 15),
+    "gen3_collector": ("호연 수집가",    "abra",       "3세대 도감 45종 달성",   "pokedex_gen3", 45),
+    "gen3_trainer":   ("호연 트레이너",  "snorlax",    "3세대 도감 75종 달성",   "pokedex_gen3", 75),
+    "gen3_master":    ("호연 마스터",    "moltres",    "3세대 도감 135종 완성!", "pokedex_gen3", 135),
     # 전체 도감
-    "grand_master":   ("그랜드마스터",   "mew",        "전체 도감 251종 완성!",  "pokedex_all", 251),
+    "grand_master":   ("그랜드마스터",   "mew",        "전체 도감 386종 완성!",  "pokedex_all", 386),
     # 전설
     "legend_hunter":("레전드 헌터",    "dratini",    "전설 포켓몬 3마리 포획",   "legendary", 3),
     # 활동 기반
@@ -223,6 +228,9 @@ TRADE_EVOLUTION_MAP = {
     117: 230,  # 시드라 -> 킹드라
     123: 212,  # 스라크 -> 핫삼
     137: 233,  # 폴리곤 -> 폴리곤2
+    # Gen 3
+    349: 350,  # 빈티나 -> 밀로틱
+    366: 367,  # 진주몽 -> 헌테일
 }
 
 # --- Eevee Evolution ---

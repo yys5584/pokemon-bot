@@ -542,3 +542,7 @@ ALL_POKEMON = [
     # --- Mythical ---
     (251, "세레비", "Celebi", "🌿", "legendary", 0.03, None, None, "none"),
 ]
+
+# Merge Gen 3 data
+from models.pokemon_data_gen3 import ALL_POKEMON_GEN3
+ALL_POKEMON = ALL_POKEMON + ALL_POKEMON_GEN3

@@ -644,6 +644,16 @@ async def count_pokedex_gen2(user_id: int) -> int:
     return row["cnt"] if row else 0
 
 
+async def count_pokedex_gen3(user_id: int) -> int:
+    """Count Gen 3 pokedex entries (pokemon_id 252~386)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT COUNT(*) as cnt FROM pokedex WHERE user_id = $1 AND pokemon_id >= 252 AND pokemon_id <= 386",
+        user_id,
+    )
+    return row["cnt"] if row else 0
+
+
 async def count_legendary_caught(user_id: int) -> int:
     pool = await get_db()
     row = await pool.fetchrow(
@@ -1694,13 +1704,14 @@ async def get_recent_spawns_global(limit: int = 50) -> list[dict]:
 
 
 async def get_user_rankings(limit: int = 20) -> list[dict]:
-    """Get user rankings by pokedex count for dashboard (gen1, gen2, total)."""
+    """Get user rankings by pokedex count for dashboard (gen1, gen2, gen3, total)."""
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT u.user_id, u.display_name, u.username,
                   u.title, u.title_emoji, u.last_active_at,
                   COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id <= 151) as gen1_count,
                   COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id >= 152 AND p.pokemon_id <= 251) as gen2_count,
+                  COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id >= 252 AND p.pokemon_id <= 386) as gen3_count,
                   COUNT(p.pokemon_id) as pokedex_count
            FROM users u
            LEFT JOIN pokedex p ON u.user_id = p.user_id

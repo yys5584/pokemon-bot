@@ -33,7 +33,8 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
         SELECT
             (SELECT COUNT(DISTINCT pokemon_id) FROM pokedex WHERE user_id = $1) AS pokedex_all,
             (SELECT COUNT(DISTINCT pokemon_id) FROM pokedex WHERE user_id = $1 AND pokemon_id <= 151) AS pokedex_gen1,
-            (SELECT COUNT(DISTINCT pokemon_id) FROM pokedex WHERE user_id = $1 AND pokemon_id > 151) AS pokedex_gen2,
+            (SELECT COUNT(DISTINCT pokemon_id) FROM pokedex WHERE user_id = $1 AND pokemon_id BETWEEN 152 AND 251) AS pokedex_gen2,
+            (SELECT COUNT(DISTINCT pokemon_id) FROM pokedex WHERE user_id = $1 AND pokemon_id BETWEEN 252 AND 386) AS pokedex_gen3,
             (SELECT COUNT(*) FROM pokedex p JOIN pokemon_master pm ON p.pokemon_id = pm.id
                 WHERE p.user_id = $1 AND pm.rarity IN ('legendary', 'ultra_legendary')) AS legendary_count,
             (SELECT COUNT(*) FROM user_pokemon WHERE user_id = $1) AS total_catches,
@@ -78,6 +79,8 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
             unlocked = counts["pokedex_gen1"] >= threshold
         elif check_type == "pokedex_gen2":
             unlocked = counts["pokedex_gen2"] >= threshold
+        elif check_type == "pokedex_gen3":
+            unlocked = counts["pokedex_gen3"] >= threshold
         elif check_type == "pokedex_all":
             unlocked = counts["pokedex_all"] >= threshold
         elif check_type == "legendary":
