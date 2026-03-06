@@ -491,6 +491,7 @@ async def tutorial_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             chat_id=user_id,
             text=f"{masterball} 마스터볼 1개 구매 완료! (튜토리얼 무료)",
+            parse_mode="HTML",
         )
         # 다음: 전설 카드 (step 23)
         # 전설 포켓몬 랜덤 선정 + 저장
