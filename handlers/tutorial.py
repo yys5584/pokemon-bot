@@ -462,47 +462,16 @@ async def tutorial_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     data = query.data
 
-    # tut_skip — skip tutorial
+    # tut_skip — skip tutorial (1회 한정, 재시작 불가)
     if data == "tut_skip":
-        restarted = await queries.get_tutorial_restarted(user_id)
-        if restarted:
-            await queries.update_tutorial_step(user_id, 99)
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=(
-                    "⏭️ 튜토리얼을 건너뛰었습니다.\n"
-                    "나중에 궁금한 게 있으면 \"도움말\"을 입력하세요!"
-                ),
-            )
-        else:
-            await queries.update_tutorial_step(user_id, 98)
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=(
-                    "⏭️ 튜토리얼을 건너뛰었습니다.\n\n"
-                    "💡 나중에 다시 보고 싶다면 아래 버튼으로\n"
-                    "   튜토리얼을 재시작할 수 있어요! (1회 제한)\n\n"
-                    "궁금한 게 있으면 \"도움말\"을 입력하세요!"
-                ),
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔄 튜토리얼 재시작", callback_data="tut_restart")],
-                ]),
-            )
-
-    # tut_restart — restart tutorial (one-time only)
-    elif data == "tut_restart":
-        restarted = await queries.get_tutorial_restarted(user_id)
-        if restarted:
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=(
-                    "⚠️ 튜토리얼 재시작은 1회만 가능합니다.\n"
-                    "궁금한 게 있으면 \"도움말\"을 입력하세요!"
-                ),
-            )
-        else:
-            await queries.restart_tutorial(user_id)
-            await _send_step(context, user_id, 1)
+        await queries.update_tutorial_step(user_id, 99)
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                "⏭️ 튜토리얼을 건너뛰었습니다.\n"
+                "궁금한 게 있으면 \"도움말\"을 입력하세요!"
+            ),
+        )
 
     # tut_buy_masterball — 마스터볼 구매 (튜토리얼 무료)
     elif data == "tut_buy_masterball":
