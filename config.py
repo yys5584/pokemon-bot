@@ -322,7 +322,7 @@ IV_STAT_COUNT = 6          # 6스탯: HP, ATK, DEF, SPA, SPDEF, SPD
 
 # IV grade thresholds (total of 6 stats, max=186)
 IV_GRADE_THRESHOLDS = [
-    (136, "S", ""),   # ~73%+ (top ~3%, 약 33회 포획에 1마리)
+    (160, "S", ""),   # ~86%+ (top ~0.3%)
     (120, "A", ""),   # ~65%+ (top ~12%)
     (93,  "B", ""),   # ~50%+
     (62,  "C", ""),   # ~33%+
