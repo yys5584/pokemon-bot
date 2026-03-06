@@ -1,5 +1,6 @@
 """DM-only marketplace handler: browse, register, buy, cancel, search."""
 
+import asyncio
 import logging
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -388,6 +389,10 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         except Exception:
             pass
 
+        # Mission: trade (buyer)
+        if success:
+            asyncio.create_task(_check_trade_mission_market(user_id))
+
         # Send DM notification to seller
         if success and info:
             try:
@@ -505,3 +510,14 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     # ── No-op (page indicator) ──
     if data == "mkt_noop":
         return
+
+
+async def _check_trade_mission_market(user_id: int):
+    """Fire-and-forget: check trade mission progress after marketplace purchase."""
+    try:
+        from services.mission_service import check_mission_progress
+        msg = await check_mission_progress(user_id, "trade")
+        # For DM market, user is already in DM so no need to send separate message
+        # The reward message will show when they next check 미션
+    except Exception:
+        pass

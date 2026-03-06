@@ -1,5 +1,6 @@
 """DM handlers for nurturing: 밥, 놀기, 진화."""
 
+import asyncio
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -13,6 +14,17 @@ from utils.parse import parse_number, parse_name_arg, parse_select_index
 from utils.battle_calc import iv_total
 
 logger = logging.getLogger(__name__)
+
+
+async def _check_and_notify_mission(update: Update, mission_key: str):
+    """Fire-and-forget: check mission progress and reply on completion."""
+    try:
+        from services.mission_service import check_mission_progress
+        msg = await check_mission_progress(update.effective_user.id, mission_key)
+        if msg:
+            await update.message.reply_text(msg, parse_mode="HTML")
+    except Exception:
+        pass
 
 
 def _iv_grade_tag(p: dict) -> str:
@@ -131,6 +143,9 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if new_friendship is None:
         return
 
+    # Mission: feed
+    asyncio.create_task(_check_and_notify_mission(update, "feed"))
+
     remaining = feed_limit - pokemon["fed_today"] - 1
     hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
@@ -187,6 +202,9 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_friendship = await queries.atomic_play(pokemon["id"], gain, max_f)
     if new_friendship is None:
         return
+
+    # Mission: play
+    asyncio.create_task(_check_and_notify_mission(update, "play"))
 
     remaining = config.PLAY_PER_DAY - pokemon["played_today"] - 1
     hearts = hearts_display(new_friendship, max_f)
@@ -289,6 +307,9 @@ async def _do_feed(query, user_id, pokemon):
     if new_friendship is None:
         return
 
+    # Mission: feed (callback path)
+    asyncio.create_task(_check_and_notify_mission(update, "feed"))
+
     remaining = feed_limit - pokemon["fed_today"] - 1
     hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
@@ -330,6 +351,9 @@ async def _do_play(query, user_id, pokemon):
     new_friendship = await queries.atomic_play(pokemon["id"], gain, max_f)
     if new_friendship is None:
         return
+
+    # Mission: play (callback path)
+    asyncio.create_task(_check_and_notify_mission(update, "play"))
 
     remaining = config.PLAY_PER_DAY - pokemon["played_today"] - 1
     hearts = hearts_display(new_friendship, max_f)

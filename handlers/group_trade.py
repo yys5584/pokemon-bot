@@ -3,6 +3,7 @@
 Usage: Reply to someone's message with '교환 [포켓몬이름]' to offer a trade.
 """
 
+import asyncio
 import logging
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -291,6 +292,10 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
         await update_title(user_id)
         await update_title(trade["from_user_id"])
 
+        # Mission: trade (both parties)
+        asyncio.create_task(_check_trade_mission(context, user_id))
+        asyncio.create_task(_check_trade_mission(context, trade["from_user_id"]))
+
         # Cancel expire job
         jobs = context.job_queue.get_jobs_by_name(f"gtrade_expire_{trade_id}")
         for job in jobs:
@@ -372,3 +377,16 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
         except Exception:
             pass
         return
+
+
+async def _check_trade_mission(context, user_id: int):
+    """Fire-and-forget: check trade mission progress and DM user."""
+    try:
+        from services.mission_service import check_mission_progress
+        msg = await check_mission_progress(user_id, "trade")
+        if msg:
+            await context.bot.send_message(
+                chat_id=user_id, text=msg, parse_mode="HTML",
+            )
+    except Exception:
+        pass

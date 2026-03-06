@@ -877,6 +877,9 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             winner_id, pokemon_id, chat_id, is_shiny, session_id,
         )
 
+        # Mission: catch
+        asyncio.create_task(_notify_mission(context, winner_id, "catch"))
+
         # Update consecutive catches
         today = config.get_kst_today()
         await queries.increment_consecutive(winner_id, today)
@@ -1226,3 +1229,16 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
     if refunded:
         logger.info(f"[startup resolve] Refunded {len(refunded)} balls")
     return refunded
+
+
+async def _notify_mission(context, user_id: int, mission_key: str):
+    """Fire-and-forget: check mission progress and DM user on completion."""
+    try:
+        from services.mission_service import check_mission_progress
+        msg = await check_mission_progress(user_id, mission_key)
+        if msg:
+            await context.bot.send_message(
+                chat_id=user_id, text=msg, parse_mode="HTML",
+            )
+    except Exception:
+        pass

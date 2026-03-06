@@ -123,6 +123,19 @@ MARKET_PAGE_SIZE = 5               # 페이지당 목록 수
 MARKET_MAX_ACTIVE_LISTINGS = 10    # 유저당 최대 동시 등록 수
 MARKET_LISTING_EXPIRE_DAYS = 7     # 등록 만료 기간 (일)
 
+# --- Daily Missions ---
+MISSION_POOL = {
+    "catch":  {"label": "포켓몬 포획", "icon": "gotcha",   "target": 3},
+    "feed":   {"label": "밥주기",     "icon": "ham",      "target": 3},
+    "play":   {"label": "놀아주기",   "icon": "game",     "target": 2},
+    "battle": {"label": "배틀 승리",  "icon": "battle",   "target": 1},
+    "trade":  {"label": "교환 완료",  "icon": "exchange",  "target": 1},
+}
+MISSION_COUNT = 4                 # 하루 미션 수 (풀에서 랜덤 선택)
+MISSION_REWARD_BP = 50            # 개별 미션 보상 BP
+MISSION_REWARD_HYPER = 1          # 개별 미션 보상 하이퍼볼
+MISSION_ALLCLEAR_MASTER = 1       # 전체 완료 보상 마스터볼
+
 # --- Group Trade ---
 GROUP_TRADE_TIMEOUT = 300          # 5분 자동 만료 (초)
 GROUP_TRADE_BP_COST = 100          # 그룹 교환 비용 (BP)

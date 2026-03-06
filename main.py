@@ -45,6 +45,7 @@ from handlers.dm_market import (
     market_callback_handler,
 )
 from handlers.group_trade import group_trade_handler, group_trade_callback_handler
+from handlers.dm_mission import mission_handler
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
@@ -247,6 +248,7 @@ async def midnight_reset(context):
         queries.cleanup_expired_listings(),
         queries.reset_daily_spawn_counts(),
         queries.cleanup_old_activity(days=7),
+        queries.cleanup_old_missions(days=7),
         _grant_title_buffs(),
     )
 
@@ -352,6 +354,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*검색\s"), market_search_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*내꺼"), market_my_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소"), market_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?미션$"), mission_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?칭호목록$"), title_list_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?칭호$"), title_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?상태창$"), status_handler))

@@ -1,5 +1,6 @@
 """Battle engine: automatic PvP battle resolution."""
 
+import asyncio
 import random
 import logging
 
@@ -372,6 +373,9 @@ async def execute_battle(
     await bq.update_battle_stats_win(winner_id, bp_won)
     await bq.update_battle_stats_lose(loser_id, bp_lose)
 
+    # Mission: battle win
+    asyncio.create_task(_notify_battle_mission(context, winner_id))
+
     # Record battle
     await bq.record_battle(
         challenge_id=challenge_id,
@@ -522,3 +526,16 @@ async def _check_battle_titles(user_id: int, stats: dict, perfect_win: bool):
             if not already:
                 await queries.unlock_title(user_id, title_id)
                 logger.info(f"Battle title unlocked: {user_id} -> {title_id}")
+
+
+async def _notify_battle_mission(context, user_id: int):
+    """Fire-and-forget: check battle mission progress and DM user."""
+    try:
+        from services.mission_service import check_mission_progress
+        msg = await check_mission_progress(user_id, "battle")
+        if msg:
+            await context.bot.send_message(
+                chat_id=user_id, text=msg, parse_mode="HTML",
+            )
+    except Exception:
+        pass
