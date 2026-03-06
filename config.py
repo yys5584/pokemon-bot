@@ -396,7 +396,7 @@ ARCADE_PASS_DAILY_LIMIT = 3          # 일일 구매 제한
 # --- Shiny System ---
 SHINY_RATE_NATURAL = 0.10            # 자연 스폰 이로치 확률 10%
 SHINY_RATE_FORCE = 0.02              # 강제스폰 이로치 확률 2%
-SHINY_RATE_ARCADE = 0.005            # 아케이드 이로치 확률 0.5%
+SHINY_RATE_ARCADE = 0.01             # 아케이드 이로치 확률 1%
 
 # --- Battle Titles ---
 # title_id: (name, emoji, description, check_type, threshold)
