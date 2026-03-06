@@ -137,27 +137,47 @@ def calc_battle_stats(
     }
 
 
-def get_type_multiplier(attacker_type: str, defender_type: str) -> float:
-    """Return damage multiplier based on type matchup.
-
-    Checks immunity (0x), super effective (2.0x), not very effective (0.5x).
-    Matches real Pokemon games.
-    """
-    # Immunity check (완전 무효, 본가 동일)
-    immunities = config.TYPE_IMMUNITY.get(attacker_type, [])
-    if defender_type in immunities:
+def _single_type_mult(atk_type: str, def_type: str) -> float:
+    """Return damage multiplier for a single attacker type vs single defender type."""
+    # Immunity (0x)
+    if def_type in config.TYPE_IMMUNITY.get(atk_type, []):
         return 0.0
-
-    # Super effective
-    advantages = config.TYPE_ADVANTAGE.get(attacker_type, [])
-    if defender_type in advantages:
-        return config.BATTLE_TYPE_ADVANTAGE_MULT  # 2.0x
-
-    # Not very effective (defender's type is strong against attacker's type)
-    defender_advantages = config.TYPE_ADVANTAGE.get(defender_type, [])
-    if attacker_type in defender_advantages:
-        return config.BATTLE_TYPE_DISADVANTAGE_MULT  # 0.5x
+    # Super effective (2x)
+    if def_type in config.TYPE_ADVANTAGE.get(atk_type, []):
+        return config.BATTLE_TYPE_ADVANTAGE_MULT  # 2.0
+    # Not very effective (0.5x)
+    if atk_type in config.TYPE_ADVANTAGE.get(def_type, []):
+        return config.BATTLE_TYPE_DISADVANTAGE_MULT  # 0.5
     return 1.0
+
+
+def get_type_multiplier(attacker_type, defender_type) -> float:
+    """Return damage multiplier based on type matchup (이중 속성 지원).
+
+    attacker_type: str or list[str] — 공격자의 속성
+    defender_type: str or list[str] — 수비자의 속성
+
+    공격자: 이중 속성이면 더 유리한 속성으로 자동 공격
+    수비자: 이중 속성이면 배수를 곱함 (본가 동일)
+    예) [페어리,에스퍼] vs [악,불]
+        페어리→악 2.0 × 페어리→불 0.5 = 1.0
+        에스퍼→악 0.0 × ... = 0.0
+        → max(1.0, 0.0) = 1.0 (페어리로 공격)
+    예) [불] vs [풀,강철] → 2.0 × 2.0 = 4.0
+    """
+    # 속성 리스트로 통일
+    atk_types = [attacker_type] if isinstance(attacker_type, str) else attacker_type
+    def_types = [defender_type] if isinstance(defender_type, str) else defender_type
+
+    # 공격자의 각 속성으로 시도 → 가장 유리한 배수 선택
+    best = 0.0
+    for at in atk_types:
+        mult = 1.0
+        for dt in def_types:
+            mult *= _single_type_mult(at, dt)
+        if mult > best:
+            best = mult
+    return best
 
 
 def _iv_tag(val: int, base: int) -> str:
