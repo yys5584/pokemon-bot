@@ -133,22 +133,23 @@ def calc_battle_stats(
 def get_type_multiplier(attacker_type: str, defender_type: str) -> float:
     """Return damage multiplier based on type matchup.
 
-    Checks immunity (0.3x), super effective (1.3x), not very effective (0.7x).
+    Checks immunity (0x), super effective (2.0x), not very effective (0.5x).
+    Matches real Pokemon games.
     """
-    # Immunity check (softened to 0.3x instead of 0x for gameplay balance)
+    # Immunity check (완전 무효, 본가 동일)
     immunities = config.TYPE_IMMUNITY.get(attacker_type, [])
     if defender_type in immunities:
-        return 0.3
+        return 0.0
 
     # Super effective
     advantages = config.TYPE_ADVANTAGE.get(attacker_type, [])
     if defender_type in advantages:
-        return config.BATTLE_TYPE_ADVANTAGE_MULT  # 1.3x
+        return config.BATTLE_TYPE_ADVANTAGE_MULT  # 2.0x
 
     # Not very effective (defender's type is strong against attacker's type)
     defender_advantages = config.TYPE_ADVANTAGE.get(defender_type, [])
     if attacker_type in defender_advantages:
-        return config.BATTLE_TYPE_DISADVANTAGE_MULT  # 0.7x
+        return config.BATTLE_TYPE_DISADVANTAGE_MULT  # 0.5x
     return 1.0
 
 

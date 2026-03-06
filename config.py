@@ -373,7 +373,7 @@ TYPE_ADVANTAGE = {
     "fairy":    ["fighting", "dragon", "dark"],
 }
 
-# 타입 면역: key 타입 공격이 value 리스트 타입에 무효 (0x → 0.3x로 완화)
+# 타입 면역: key 타입 공격이 value 리스트 타입에 무효 (0x, 본가 동일)
 TYPE_IMMUNITY = {
     "normal":   ["ghost"],
     "fighting": ["ghost"],
@@ -394,8 +394,8 @@ BATTLE_TEAM_MIN = 1                 # 최소 팀원
 BATTLE_TEAM_MAX = 6                 # 최대 팀원
 BATTLE_CRIT_RATE = 0.10             # 크리티컬 확률 10%
 BATTLE_CRIT_MULT = 1.5              # 크리티컬 배수
-BATTLE_TYPE_ADVANTAGE_MULT = 1.3    # 타입 유리
-BATTLE_TYPE_DISADVANTAGE_MULT = 0.7 # 타입 불리
+BATTLE_TYPE_ADVANTAGE_MULT = 2.0    # 타입 유리 (본가 동일)
+BATTLE_TYPE_DISADVANTAGE_MULT = 0.5 # 타입 불리 (본가 동일)
 BATTLE_PARTNER_ATK_BONUS = 0.05     # 파트너 ATK 보너스 5%
 BATTLE_SKILL_RATE = 0.30             # 고유기술 발동 확률 30%
 

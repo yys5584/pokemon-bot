@@ -140,3 +140,36 @@ async def migrate_assign_ivs():
         )
 
     return len(batch_args)
+
+
+async def migrate_rarity_v2():
+    """Migrate rarity based on base stat totals (종족값).
+
+    Rules: <400=common, 400-499=rare, >=500=epic, legendary=unchanged.
+    Also updates catch_rate to match new rarity.
+    Runs once — checks if Arcanine (ID 59) is already epic.
+    """
+    pool = await get_db()
+
+    # Check if already migrated (Arcanine should be epic, was rare)
+    row = await pool.fetchrow(
+        "SELECT rarity FROM pokemon_master WHERE id = 59"
+    )
+    if row and row["rarity"] == "epic":
+        return False  # Already migrated
+
+    # Build rarity+catch_rate from ALL_POKEMON (source of truth)
+    batch_args = []
+    for p in ALL_POKEMON:
+        pid, rarity, catch_rate = p[0], p[4], p[5]
+        batch_args.append((rarity, catch_rate, pid))
+
+    if batch_args:
+        await pool.executemany(
+            """UPDATE pokemon_master
+               SET rarity = $1, catch_rate = $2
+               WHERE id = $3""",
+            batch_args,
+        )
+
+    return len(batch_args)
