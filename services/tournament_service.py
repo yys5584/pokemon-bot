@@ -127,26 +127,110 @@ def _render_bracket(bracket, round_results=None) -> str:
     return "<pre>" + "\n".join(lines) + "</pre>"
 
 
-# ── Switch-in lines (randomly picked) ─────────────────────────
+# ── Switch-in lines (randomly picked, tiered) ─────────────────
 _SWITCH_NORMAL = [
     "{trainer}: {dead} 돌아와! 가라, {next}!",
     "{trainer}: {dead} 수고했어! {next}, 네 차례야!",
     "{trainer}: {dead} 돌아와! 부탁해, {next}!",
     "{trainer}: {dead} 잘 싸웠어! {next}, 출발!",
     "{trainer}: {dead} 고생했어! 가자, {next}!",
+    "{trainer}: {next}, 출동!",
+    "{trainer}: 좋아, {next} 네가 해줘!",
+    "{trainer}: {dead} 충분해! {next}, 나가!",
+    "{trainer}: 교대! {next}, 준비됐지?",
+    "{trainer}: {next}, 힘내자!",
+    "{trainer}: {dead} 물러나! {next}, 가!",
+    "{trainer}: 다음은 {next}, 네 차례야!",
+    "{trainer}: {next}, 믿고 있어!",
+    "{trainer}: {dead} 쉬어! 나가, {next}!",
+    "{trainer}: 자, {next}! 보여줘!",
+    "{trainer}: {dead} 돌아와! {next}, 파이팅!",
+    "{trainer}: 가자 {next}, 할 수 있어!",
+    "{trainer}: {next}, 부탁할게!",
+    "{trainer}: 좋아 {next}, 네 차례다!",
+    "{trainer}: {dead} 수고! {next}, 출격!",
 ]
+
+_SWITCH_EPIC = [
+    "{trainer}: {next}, 실력을 보여줘!",
+    "{trainer}: 여기서부터 본게임이다... 가라, {next}!",
+    "{trainer}: {next}, 네 힘을 믿는다!",
+    "{trainer}: 에이스 투입! {next}, 출격!",
+    "{trainer}: {dead} 고생했어... {next}, 각오해라!",
+    "{trainer}: {next}! 전력으로 간다!",
+    "{trainer}: 여기서 밀릴 수 없어... {next}!",
+    "{trainer}: 자, {next}! 흐름을 바꿔줘!",
+    "{trainer}: {next}, 네가 아니면 안 돼!",
+    "{trainer}: 주력이다! 나와라, {next}!",
+    "{trainer}: 분위기 반전! {next}, 간다!",
+    "{trainer}: {next}, 승부를 걸어줘!",
+    "{trainer}: 지금이야! 나와, {next}!",
+    "{trainer}: 핵심 전력 투입... {next}!",
+    "{trainer}: {next}, 제대로 보여주자!",
+    "{trainer}: 여기서 끝낸다! {next}, 출동!",
+    "{trainer}: 숨겨둔 패다... 가라, {next}!",
+    "{trainer}: {next}, 진짜 실력을 보여줄 때야!",
+    "{trainer}: 이제 본격적으로 간다! {next}!",
+    "{trainer}: {dead} 수고했어... {next}, 짓밟아줘!",
+]
+
 _SWITCH_LEGENDARY = [
     "{trainer}: ...{next}, 네 힘을 보여줘!",
     "{trainer}: 최후의 카드다... 가라, {next}!",
     "{trainer}: 전설의 힘이여... {next}, 출격!",
     "{trainer}: 승부를 결정지어라, {next}!",
     "{trainer}: 이건 양보할 수 없다... {next}, 간다!",
+    "{trainer}: 전설의 이름에 걸고... {next}!",
+    "{trainer}: 모든 걸 걸겠다... 나와라, {next}!",
+    "{trainer}: {next}... 부디, 이 싸움을 끝내줘!",
+    "{trainer}: 각오해라... {next}, 출진!",
+    "{trainer}: 전설이 깨어난다... {next}!",
+    "{trainer}: 이것이 나의 최강... {next}, 간다!",
+    "{trainer}: {next}! 네 전설의 힘으로!",
+    "{trainer}: 운명을 바꿔라... {next}!",
+    "{trainer}: 여기서 물러설 순 없다... {next}!",
+    "{trainer}: 이 순간을 위해... 나와라, {next}!",
+    "{trainer}: 마지막 승부다... {next}, 부탁한다!",
+    "{trainer}: 전설이여, 응답하라... {next}!",
+    "{trainer}: {next}... 승리를 가져와줘!",
+    "{trainer}: 최강의 한 수... {next}, 출격!",
+    "{trainer}: 이 배틀, {next}에게 맡기겠다!",
+]
+
+_SWITCH_ULTRA = [
+    "{trainer}: ...오라가 폭발한다... {next}!!",
+    "{trainer}: 초월의 힘이여... 각성하라, {next}!",
+    "{trainer}: 세계 최강... 나와라, {next}!!!",
+    "{trainer}: 모든 것을 초월하라... {next}!",
+    "{trainer}: 신의 영역... {next}, 강림!",
+    "{trainer}: 이것이 최후의 패... {next}!!!",
+    "{trainer}: 차원이 다른 힘... {next}, 출진!",
+    "{trainer}: 압도적인 힘을 보여줘... {next}!",
+    "{trainer}: 초전설의 위엄... {next}, 간다!",
+    "{trainer}: 승부는 여기서 끝이다... {next}!!!",
+    "{trainer}: 경외하라... {next}, 강림!!",
+    "{trainer}: 이 세계의 정점... 나타나라, {next}!",
+    "{trainer}: {next}... 모든 걸 끝장내줘!",
+    "{trainer}: 최강 중의 최강... {next}, 출격!",
+    "{trainer}: 절대적인 힘이여... {next}!!",
+    "{trainer}: 전장이 떨린다... 나와라, {next}!",
+    "{trainer}: 한계를 넘어서라... {next}!",
+    "{trainer}: 이것이 초전설... {next}, 각성!!",
+    "{trainer}: 누구도 막을 수 없다... {next}!!!",
+    "{trainer}: 최종 병기... {next}, 출동!!!",
 ]
 
 
 def _switch_line(trainer: str, dead: str, next_name: str, next_rarity: str = "") -> str:
-    """Pick a random switch-in line. Legendary gets dramatic lines."""
-    pool = _SWITCH_LEGENDARY if next_rarity in ("ultra_legendary", "legendary", "epic") else _SWITCH_NORMAL
+    """Pick a random switch-in line based on next pokemon's rarity."""
+    if next_rarity == "ultra_legendary":
+        pool = _SWITCH_ULTRA
+    elif next_rarity == "legendary":
+        pool = _SWITCH_LEGENDARY
+    elif next_rarity == "epic":
+        pool = _SWITCH_EPIC
+    else:
+        pool = _SWITCH_NORMAL
     return random.choice(pool).format(trainer=trainer, dead=dead, next=next_name)
 
 
