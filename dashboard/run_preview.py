@@ -470,7 +470,7 @@ def create_preview_app():
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all
-    for p in ["/channels", "/patchnotes", "/battle", "/tier", "/types", "/stats", "/mypokemon", "/ai", "/admin"]:
+    for p in ["/channels", "/patchnotes", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/ai", "/admin"]:
         app.router.add_get(p, index)
     return app
 
