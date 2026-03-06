@@ -418,6 +418,7 @@ async def execute_battle(
     ]
 
     # Compact matchup-by-matchup summary from turn_data
+    detail_lines = []
     cur_c_name, cur_d_name = "", ""
     cur_c_idx, cur_d_idx = 0, 0
     matchup_winner = ""
@@ -455,15 +456,13 @@ async def execute_battle(
             last_was_ko = False
         elif td["type"] == "ko":
             if not last_was_ko:
-                lines.append(_matchup_line())
+                detail_lines.append(_matchup_line())
             last_was_ko = True
 
     # Final matchup (timeout or last KO was the battle-ender)
     if not last_was_ko and matchup_winner:
-        lines.append(_matchup_line())
+        detail_lines.append(_matchup_line())
 
-    lines.append("")
-    lines.append("━━━━━━━━━━━━━━━")
     lines.append(f"🏆 {winner_name} 승리! (남은 {winner_remaining}마리)")
 
     footer = []
@@ -478,6 +477,12 @@ async def execute_battle(
         f"{final_stats['battle_losses']}패"
     )
     lines.append(" | ".join(footer))
+
+    # Expandable detail block
+    if detail_lines:
+        detail_text = "\n".join(detail_lines)
+        lines.append("")
+        lines.append(f"<blockquote expandable>📋 상세 전투 기록\n{detail_text}</blockquote>")
 
     # Check and unlock battle titles
     await _check_battle_titles(winner_id, final_stats, result["perfect_win"])
