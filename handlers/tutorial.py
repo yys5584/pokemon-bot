@@ -88,17 +88,21 @@ async def _send_step(context, user_id: int, step: int):
     bot = context.bot
 
     if step == 1:
+        game = icon_emoji("game")
+        ham = icon_emoji("ham")
+        battle = icon_emoji("battle")
+        pokedex = icon_emoji("pokedex")
         await bot.send_message(
             chat_id=user_id,
             text=(
-                "🎮 <b>포켓몬 봇에 오신 걸 환영합니다!</b>\n"
+                f"{game} <b>포켓몬 봇에 오신 걸 환영합니다!</b>\n"
                 "\n"
                 "방금 첫 포획을 시도하셨네요!\n"
                 "이 봇에는 포획 외에도 다양한 시스템이 있어요:\n"
                 "\n"
-                "🍚 육성 — 밥/놀기로 친밀도 올리기\n"
-                "⚔️ 배틀 — 팀을 짜서 다른 트레이너와 대전\n"
-                "📖 도감 — 포켓몬 수집 & 칭호 해금\n"
+                f"{ham} 육성 — 밥/놀기로 친밀도 올리기\n"
+                f"{battle} 배틀 — 팀을 짜서 다른 트레이너와 대전\n"
+                f"{pokedex} 도감 — 포켓몬 수집 & 칭호 해금\n"
                 "\n"
                 "하나씩 알려드릴게요!"
             ),
@@ -112,14 +116,16 @@ async def _send_step(context, user_id: int, step: int):
 
     elif step == 20:
         # Step 2a: 포켓볼 설명 + 이브이 카드
+        pokeball = ball_emoji("pokeball")
+        gotcha = icon_emoji("gotcha")
         await bot.send_message(
             chat_id=user_id,
             text=(
-                "🌿 <b>【포획 체험】</b>\n"
+                f"{gotcha} <b>【포획 체험】</b>\n"
                 "━━━━━━━━━━━━━━━\n"
                 "\n"
                 "채팅방에서 포켓몬이 나타나면\n"
-                "<b>ㅊ</b> 을 입력하면 포켓볼이 나갑니다!\n"
+                f"<b>ㅊ</b> 을 입력하면 {pokeball} 포켓볼이 나갑니다!\n"
                 "\n"
                 "💡 하루 20회까지 시도 가능\n"
                 "💡 봇이 있는 채팅방에서 \"포켓볼 충전\"을 입력하면\n"
@@ -193,6 +199,7 @@ async def _send_step(context, user_id: int, step: int):
         pokeball = ball_emoji("pokeball")
         hyperball = ball_emoji("hyperball")
         masterball = ball_emoji("masterball")
+        crystal = icon_emoji("crystal")
         await bot.send_message(
             chat_id=user_id,
             text=(
@@ -202,23 +209,27 @@ async def _send_step(context, user_id: int, step: int):
                 f"  {hyperball} <b>ㅎ</b> 하이퍼볼 — 포획률 3배 (BP상점에서 구매)\n"
                 f"  {masterball} <b>ㅁ</b> 마스터볼 — 100% 포획 (매우 귀중!)\n\n"
                 "💡 채팅방 활동이 많을수록 포켓몬이 자주 등장!\n"
-                "✨ 이로치(색이 다른) 포켓몬은 매우 희귀해요!\n\n"
+                f"{crystal} 이로치(색이 다른) 포켓몬은 매우 희귀해요!\n\n"
                 "👉 <b>\"튜토\"</b>를 입력해서 다음 단계로!"
             ),
             parse_mode="HTML",
         )
 
     elif step == 3:
+        ham = icon_emoji("ham")
+        container = icon_emoji("container")
+        game = icon_emoji("game")
+        love = icon_emoji("pokemon-love")
         await bot.send_message(
             chat_id=user_id,
             text=(
-                "🍚 <b>【육성 시스템】</b>\n"
+                f"{ham} <b>【육성 시스템】</b>\n"
                 "━━━━━━━━━━━━━━━\n\n"
                 "잡은 포켓몬을 키워보세요! (DM에서 사용)\n\n"
-                "📦 내포켓몬 — 보유 포켓몬과 다양한 상호작용!\n"
-                "🍚 밥 [번호] — 밥 주기 (하루 3회)\n"
-                "🎾 놀기 [번호] — 놀아주기 (하루 2회)\n\n"
-                "💕 친밀도가 MAX가 되면 진화할 수 있어요!\n"
+                f"{container} 내포켓몬 — 보유 포켓몬과 다양한 상호작용!\n"
+                f"{ham} 밥 [번호] — 밥 주기 (하루 3회)\n"
+                f"{game} 놀기 [번호] — 놀아주기 (하루 2회)\n\n"
+                f"{love} 친밀도가 MAX가 되면 진화할 수 있어요!\n"
                 "💪 친밀도 MAX 포켓몬은 배틀에서 20% 더 강해져요!\n\n"
                 "👉 지금 <b>\"내포켓몬\"</b>을 입력해서 목록을 확인해보세요!\n"
                 "   확인 후 <b>\"튜토\"</b>로 다음 단계!"
@@ -227,14 +238,16 @@ async def _send_step(context, user_id: int, step: int):
         )
 
     elif step == 4:
+        favorite = icon_emoji("favorite")
+        eevee = icon_emoji("eevee")
         await bot.send_message(
             chat_id=user_id,
             text=(
-                "🤝 <b>【파트너 시스템】</b>\n"
+                f"{favorite} <b>【파트너 시스템】</b>\n"
                 "━━━━━━━━━━━━━━━\n\n"
-                "파트너 포켓몬을 지정하면 상태창에 표시돼요!\n"
+                f"파트너 포켓몬을 지정하면 상태창에 표시돼요!\n"
                 "💪 파트너 포켓몬은 배틀에서 5% 더 강해져요!\n\n"
-                "가장 좋아하는 포켓몬을 파트너로 골라보세요.\n\n"
+                f"{eevee} 가장 좋아하는 포켓몬을 파트너로 골라보세요.\n\n"
                 "👉 <b>\"파트너\"</b>를 입력해서 파트너를 골라보세요!\n"
                 "   확인 후 <b>\"튜토\"</b>로 다음 단계!"
             ),
@@ -242,16 +255,18 @@ async def _send_step(context, user_id: int, step: int):
         )
 
     elif step == 5:
+        battle = icon_emoji("battle")
+        masterball = ball_emoji("masterball")
         await bot.send_message(
             chat_id=user_id,
             text=(
-                "⚔️ <b>【배틀 시스템】</b>\n"
+                f"{battle} <b>【배틀 시스템】</b>\n"
                 "━━━━━━━━━━━━━━━\n\n"
                 "1️⃣ 팀등록 — 최대 6마리로 배틀 팀 구성\n"
                 "2️⃣ 채팅방에서 상대에게 답장 + \"배틀\" → 도전!\n"
                 "3️⃣ 상대가 \"배틀수락\"하면 자동 대전!\n\n"
                 "💰 승리 시 BP(배틀포인트) 획득\n"
-                "🏪 BP상점에서 마스터볼 등 다양한 상품을 구매할 수 있어요!\n\n"
+                f"🏪 BP상점에서 {masterball} 마스터볼 등 다양한 상품을 구매할 수 있어요!\n\n"
                 "🎲 야차 — BP/마스터볼을 걸고 베팅 배틀!\n\n"
                 "👉 <b>\"팀등록\"</b>으로 첫 팀을 만들어보세요!\n"
                 "   확인 후 <b>\"튜토\"</b>로 다음 단계!"
@@ -260,15 +275,19 @@ async def _send_step(context, user_id: int, step: int):
         )
 
     elif step == 6:
+        pokedex = icon_emoji("pokedex")
+        container = icon_emoji("container")
+        bookmark = icon_emoji("bookmark")
+        gotcha = icon_emoji("gotcha")
         await bot.send_message(
             chat_id=user_id,
             text=(
-                "📖 <b>【도감 & 칭호】</b>\n"
+                f"{pokedex} <b>【도감 & 칭호】</b>\n"
                 "━━━━━━━━━━━━━━━\n\n"
-                "📖 도감 — 수집한 포켓몬 확인 (1세대/2세대)\n"
-                "📦 내포켓몬 — 보유 포켓몬과 다양한 상호작용!\n"
-                "🏷️ 칭호 — 조건 달성 시 칭호 해금!\n\n"
-                "🎯 도감 완성률을 높이면 특별 칭호를 얻을 수 있어요!\n\n"
+                f"{pokedex} 도감 — 수집한 포켓몬 확인 (1세대/2세대)\n"
+                f"{container} 내포켓몬 — 보유 포켓몬과 다양한 상호작용!\n"
+                f"{bookmark} 칭호 — 조건 달성 시 칭호 해금!\n\n"
+                f"{gotcha} 도감 완성률을 높이면 특별 칭호를 얻을 수 있어요!\n\n"
                 "👉 <b>\"도감\"</b>을 입력해서 확인해보세요!\n"
                 "   확인 후 <b>\"튜토\"</b>로 다음 단계!"
             ),
@@ -276,15 +295,17 @@ async def _send_step(context, user_id: int, step: int):
         )
 
     elif step == 7:
+        computer = icon_emoji("computer")
+        pikachu = icon_emoji("pikachu")
         await bot.send_message(
             chat_id=user_id,
             text=(
-                "🏠 <b>【채팅방 셋팅】</b>\n"
+                f"{computer} <b>【채팅방 셋팅】</b>\n"
                 "━━━━━━━━━━━━━━━\n\n"
                 "내 채팅방에도 봇을 추가할 수 있어요!\n\n"
                 "1️⃣ 10명 이상인 채팅방에 봇을 초대\n"
                 "2️⃣ /start 입력으로 봇 활성화\n"
-                "3️⃣ \"강스\" 입력하면 즉시 포켓몬 출현!\n\n"
+                f"3️⃣ \"강스\" 입력하면 즉시 {pikachu} 포켓몬 출현!\n\n"
                 "💡 채팅방 인원이 많을수록 포켓몬이 자주 나와요!\n\n"
                 "👉 <b>\"튜토\"</b>를 입력해서 다음 단계로!"
             ),
@@ -297,23 +318,28 @@ async def _send_step(context, user_id: int, step: int):
         await queries.unlock_title(user_id, "tutorial_grad")
         await queries.update_tutorial_step(user_id, 99)
         pikachu = icon_emoji("pikachu")
+        masterball = ball_emoji("masterball")
+        bookmark = icon_emoji("bookmark")
+        crystal = icon_emoji("crystal")
+        battle = icon_emoji("battle")
+        windy = icon_emoji("windy")
         await bot.send_message(
             chat_id=user_id,
             text=(
                 "🎓 <b>튜토리얼 완료! 축하합니다!</b>\n\n"
                 "🎁 졸업 보상이 지급되었습니다:\n"
-                "  🔮 마스터볼 x2\n"
+                f"  {masterball} 마스터볼 x2\n"
                 "  💰 BP +200\n"
-                f"  🏷️ 칭호 「{pikachu} 내 꿈은 피카츄!」 해금!\n\n"
+                f"  {bookmark} 칭호 「{pikachu} 내 꿈은 피카츄!」 해금!\n\n"
                 "━━━━━━━━━━━━━━━\n"
                 "📌 유용한 꿀팁:\n"
-                "• 감정 [이름] — 개체값(IV) 확인\n"
-                "• 상성 [타입] — 배틀 타입 상성표\n"
-                "• 출석 — 매일 출석 보상\n"
-                "• 날씨에 따라 특정 타입 포획률 UP!\n"
+                f"• 감정 [이름] — 개체값(IV) 확인\n"
+                f"• {battle} 상성 [타입] — 배틀 타입 상성표\n"
+                f"• 출석 — 매일 출석 보상\n"
+                f"• {windy} 날씨에 따라 특정 타입 포획률 UP!\n"
                 "━━━━━━━━━━━━━━━\n\n"
                 "🏠 공식방: https://t.me/tg_poke\n"
-                "🌿 30초마다 포켓몬이 출현해요!\n"
+                f"{crystal} 30초마다 포켓몬이 출현해요!\n"
                 "🏆 매일 저녁 9시 대회 접수, 10시 포켓몬 마스터 대회!\n\n"
                 "도움이 필요하면 언제든 \"도움말\"을 입력하세요!"
             ),
