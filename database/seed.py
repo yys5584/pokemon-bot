@@ -173,3 +173,24 @@ async def migrate_rarity_v2():
         )
 
     return len(batch_args)
+
+
+async def migrate_ultra_legendary():
+    """Promote BST680 pokemon (Mewtwo, Lugia, Ho-Oh) to ultra_legendary.
+
+    user_pokemon reads rarity via JOIN to pokemon_master, so only
+    pokemon_master needs updating.
+    """
+    pool = await get_db()
+
+    # Check if already migrated
+    row = await pool.fetchrow(
+        "SELECT rarity FROM pokemon_master WHERE id = 150"
+    )
+    if row and row["rarity"] == "ultra_legendary":
+        return False  # Already migrated
+
+    await pool.execute(
+        "UPDATE pokemon_master SET rarity = 'ultra_legendary' WHERE id IN (150, 249, 250)"
+    )
+    return 3

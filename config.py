@@ -34,16 +34,18 @@ ADMIN_IDS = [
 RARITY_WEIGHTS = {
     "common": 50,
     "rare": 30,
-    "epic": 45,       # 15 * 3 (에픽 3배 상시적용)
-    "legendary": 15,   # 5 * 3  (전설 3배 상시적용)
+    "epic": 45,              # 15 * 3 (에픽 3배 상시적용)
+    "legendary": 15,          # 5 * 3  (전설 3배 상시적용)
+    "ultra_legendary": 3,     # 초전설 (극히 희귀)
 }
 
 # Midnight bonus (2am-5am KST): rare+ 추가 부스트
 RARITY_WEIGHTS_MIDNIGHT = {
     "common": 30,
     "rare": 35,
-    "epic": 55,       # 45 → 55 (심야 추가 부스트)
-    "legendary": 20,   # 15 → 20 (심야 추가 부스트)
+    "epic": 55,              # 45 → 55 (심야 추가 부스트)
+    "legendary": 20,          # 15 → 20 (심야 추가 부스트)
+    "ultra_legendary": 5,     # 3 → 5 (심야 추가 부스트)
 }
 
 RARITY_EMOJI = {
@@ -51,6 +53,7 @@ RARITY_EMOJI = {
     "rare": "🔵",
     "epic": "🟣",
     "legendary": "🟡",
+    "ultra_legendary": "🔴",
 }
 
 RARITY_LABEL = {
@@ -58,14 +61,16 @@ RARITY_LABEL = {
     "rare": "희귀",
     "epic": "에픽",
     "legendary": "전설",
+    "ultra_legendary": "초전설",
 }
 
 # --- Catch Rates (by rarity, base) ---
 CATCH_RATES = {
-    "common": 1.00,     # 0.70 * 2 → 100% (커먼 확정)
-    "rare": 0.80,       # 0.40 * 2
-    "epic": 0.30,       # 0.15 * 2
-    "legendary": 0.06,  # 0.03 * 2
+    "common": 1.00,          # 0.70 * 2 → 100% (커먼 확정)
+    "rare": 0.80,            # 0.40 * 2
+    "epic": 0.30,            # 0.15 * 2
+    "legendary": 0.06,       # 0.03 * 2
+    "ultra_legendary": 0.06, # 초전설 (전설과 동일)
 }
 
 # --- Spawn System ---
@@ -245,6 +250,12 @@ EVENT_TEMPLATES = {
         "target": None,
         "description": "🎯 포획률 2배! 모든 포켓몬 포획 확률 2배",
     },
+    "초전설출현": {
+        "event_type": "rarity_boost",
+        "multiplier": 5.0,
+        "target": "ultra_legendary",
+        "description": "🔴 초전설 출현! 초전설 포켓몬 출현률 5배",
+    },
     "전설출현": {
         "event_type": "rarity_boost",
         "multiplier": 5.0,
@@ -320,6 +331,7 @@ def get_iv_grade(total: int) -> tuple[str, str]:
 # --- Battle Stats ---
 RARITY_BASE_STAT = {
     "common": 65, "rare": 85, "epic": 110, "legendary": 150,
+    "ultra_legendary": 180,
 }
 
 STAT_SPREADS = {
@@ -544,6 +556,7 @@ YACHA_TEABAG_MESSAGES = [
 
 # --- Custom Emoji IDs (Rarity Badges) ---
 RARITY_CUSTOM_EMOJI = {
+    "ultra_legendary": "6143244830462975904",  # 빨간색 (초전설)
     "legendary": "6141080849845591919",
     "epic": "6141022159117492116",
     "rare": "6140797725601438152",

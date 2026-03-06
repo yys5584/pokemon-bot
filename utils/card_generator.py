@@ -27,18 +27,20 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont:
 
 # Rarity → gradient colors (top, bottom)
 RARITY_COLORS = {
-    "common":    ((34, 49, 34),   (20, 30, 20)),
-    "rare":      ((20, 40, 80),   (10, 20, 50)),
-    "epic":      ((55, 20, 80),   (30, 10, 50)),
-    "legendary": ((80, 65, 10),   (50, 35, 5)),
+    "common":         ((34, 49, 34),   (20, 30, 20)),
+    "rare":           ((20, 40, 80),   (10, 20, 50)),
+    "epic":           ((55, 20, 80),   (30, 10, 50)),
+    "legendary":      ((80, 65, 10),   (50, 35, 5)),
+    "ultra_legendary": ((100, 15, 15), (60, 5, 5)),
 }
 
 # Rarity → accent color for border/glow
 RARITY_ACCENT = {
-    "common":    (82, 183, 136),
-    "rare":      (72, 149, 239),
-    "epic":      (177, 133, 219),
-    "legendary": (255, 214, 10),
+    "common":         (82, 183, 136),
+    "rare":           (72, 149, 239),
+    "epic":           (177, 133, 219),
+    "legendary":      (255, 214, 10),
+    "ultra_legendary": (255, 50, 50),
 }
 
 

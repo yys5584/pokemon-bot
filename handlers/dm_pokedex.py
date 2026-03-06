@@ -253,7 +253,7 @@ def _apply_filters(pokemon_list: list, filt: dict) -> list:
     if sort_mode == "iv":
         filtered.sort(key=lambda p: _iv_sum(p), reverse=True)
     elif sort_mode == "rarity":
-        rarity_order = {"legendary": 0, "epic": 1, "rare": 2, "common": 3}
+        rarity_order = {"ultra_legendary": 0, "legendary": 1, "epic": 2, "rare": 3, "common": 4}
         filtered.sort(key=lambda p: (rarity_order.get(p.get("rarity", "common"), 4), -_iv_sum(p)))
 
     return filtered

@@ -135,7 +135,7 @@ _SWITCH_LEGENDARY = [
 
 def _switch_line(trainer: str, dead: str, next_name: str, next_rarity: str = "") -> str:
     """Pick a random switch-in line. Legendary gets dramatic lines."""
-    pool = _SWITCH_LEGENDARY if next_rarity in ("legendary", "epic") else _SWITCH_NORMAL
+    pool = _SWITCH_LEGENDARY if next_rarity in ("ultra_legendary", "legendary", "epic") else _SWITCH_NORMAL
     return random.choice(pool).format(trainer=trainer, dead=dead, next=next_name)
 
 

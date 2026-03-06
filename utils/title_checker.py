@@ -35,18 +35,18 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
             (SELECT COUNT(DISTINCT pokemon_id) FROM pokedex WHERE user_id = $1 AND pokemon_id <= 151) AS pokedex_gen1,
             (SELECT COUNT(DISTINCT pokemon_id) FROM pokedex WHERE user_id = $1 AND pokemon_id > 151) AS pokedex_gen2,
             (SELECT COUNT(*) FROM pokedex p JOIN pokemon_master pm ON p.pokemon_id = pm.id
-                WHERE p.user_id = $1 AND pm.rarity = 'legendary') AS legendary_count,
+                WHERE p.user_id = $1 AND pm.rarity IN ('legendary', 'ultra_legendary')) AS legendary_count,
             (SELECT COUNT(*) FROM user_pokemon WHERE user_id = $1) AS total_catches,
             (SELECT master_balls FROM users WHERE user_id = $1) AS master_balls,
             (SELECT COUNT(*) FROM trades WHERE (from_user_id = $1 OR to_user_id = $1) AND status = 'accepted') AS trade_count,
             (SELECT COUNT(*) FROM user_pokemon up JOIN pokemon_master pm ON up.pokemon_id = pm.id
                 WHERE up.user_id = $1 AND pm.rarity = 'common') AS common_catches,
             (SELECT COUNT(*) FROM user_pokemon up JOIN pokemon_master pm ON up.pokemon_id = pm.id
-                WHERE up.user_id = $1 AND pm.rarity IN ('epic', 'legendary')) AS rare_catches,
+                WHERE up.user_id = $1 AND pm.rarity IN ('epic', 'legendary', 'ultra_legendary')) AS rare_catches,
             (SELECT COUNT(*) FROM user_pokemon
                 WHERE user_id = $1 AND is_shiny = 1 AND is_active = 1) AS shiny_catches,
             (SELECT COUNT(*) FROM user_pokemon up JOIN pokemon_master pm ON up.pokemon_id = pm.id
-                WHERE up.user_id = $1 AND up.is_shiny = 1 AND pm.rarity = 'legendary' AND up.is_active = 1) AS shiny_legendary
+                WHERE up.user_id = $1 AND up.is_shiny = 1 AND pm.rarity IN ('legendary', 'ultra_legendary') AND up.is_active = 1) AS shiny_legendary
     """, user_id)
 
     # 4. Get battle stats once (if any battle titles remain)

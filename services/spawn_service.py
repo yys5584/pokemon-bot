@@ -925,7 +925,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
             msg = f"{be_hyper} 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
-        elif rarity in ("epic", "legendary") and is_first:
+        elif rarity in ("epic", "legendary", "ultra_legendary") and is_first:
             msg = f"🌟 {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획! (이 방 최초){iv_tag}"
         else:
             msg = f"딸깍! {be_pokeball} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"

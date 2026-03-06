@@ -1853,7 +1853,7 @@ def _iv_grade(total: int) -> str:
     if total >= 47: return "C"
     return "D"
 
-_RARITY_LABEL = {"common": "일반", "rare": "희귀", "epic": "에픽", "legendary": "전설"}
+_RARITY_LABEL = {"common": "일반", "rare": "희귀", "epic": "에픽", "legendary": "전설", "ultra_legendary": "초전설"}
 
 
 async def api_admin_db_overview(request):

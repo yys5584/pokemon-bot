@@ -309,7 +309,7 @@ ALL_POKEMON = [
     (149, "망나뇽", "Dragonite", "🐉", "epic", 0.10, 148, None, "none"),
 
     # --- Mewtwo ---
-    (150, "뮤츠", "Mewtwo", "🧬", "legendary", 0.03, None, None, "none"),
+    (150, "뮤츠", "Mewtwo", "🧬", "ultra_legendary", 0.03, None, None, "none"),
 
     # --- Mew ---
     (151, "뮤", "Mew", "🩷", "legendary", 0.03, None, None, "none"),
@@ -536,8 +536,8 @@ ALL_POKEMON = [
     (248, "마기라스", "Tyranitar", "🪨", "epic", 0.05, 247, None, "none"),
 
     # --- Tower Legends ---
-    (249, "루기아", "Lugia", "🔮", "legendary", 0.03, None, None, "none"),
-    (250, "칠색조", "Ho-Oh", "🔥", "legendary", 0.03, None, None, "none"),
+    (249, "루기아", "Lugia", "🔮", "ultra_legendary", 0.03, None, None, "none"),
+    (250, "칠색조", "Ho-Oh", "🔥", "ultra_legendary", 0.03, None, None, "none"),
 
     # --- Mythical ---
     (251, "세레비", "Celebi", "🌿", "legendary", 0.03, None, None, "none"),

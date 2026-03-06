@@ -65,7 +65,7 @@ async def mock_json(request):
         })
     if path == "/api/battle/tiers":
         return web.json_response([
-            {"id": 150, "name": "뮤츠", "emoji": "🔮", "rarity": "legendary",
+            {"id": 150, "name": "뮤츠", "emoji": "🔮", "rarity": "ultra_legendary",
              "type1": "psychic", "type2": None, "stat_ko": "공격",
              "power": 95.2, "skill_name": "사이코키네시스",
              "skill_power": 1.8, "hp": 318, "atk": 110, "def_": 90,
@@ -75,12 +75,12 @@ async def mock_json(request):
              "power": 88.7, "skill_name": "알폭탄",
              "skill_power": 1.3, "hp": 548, "atk": 23, "def_": 23,
              "spa": 65, "spdef": 85, "spd": 52},
-            {"id": 250, "name": "칠색조", "emoji": "🔥", "rarity": "legendary",
+            {"id": 250, "name": "칠색조", "emoji": "🔥", "rarity": "ultra_legendary",
              "type1": "fire", "type2": "flying", "stat_ko": "공격",
              "power": 85.4, "skill_name": "성스러운불꽃",
              "skill_power": 2.0, "hp": 306, "atk": 120, "def_": 88,
              "spa": 104, "spdef": 138, "spd": 88},
-            {"id": 249, "name": "루기아", "emoji": "🌊", "rarity": "legendary",
+            {"id": 249, "name": "루기아", "emoji": "🌊", "rarity": "ultra_legendary",
              "type1": "psychic", "type2": "flying", "stat_ko": "방어",
              "power": 82.1, "skill_name": "에어로블라스트",
              "skill_power": 1.7, "hp": 318, "atk": 90, "def_": 130,
@@ -165,7 +165,7 @@ async def mock_my_pokemon(request):
          "real_stats":{"hp":312,"atk":98,"def":81,"spa":126,"spdef":87,"spd":108},
          "power":743,"real_power":812,"iv_bonus":69,"iv_total":133,"iv_grade":"B",
          "synergy_score":85,"synergy_label":"우수","synergy_emoji":"🔥"},
-        {"id":2,"pokemon_id":150,"name_ko":"뮤츠","emoji":"🔮","rarity":"legendary","pokemon_type":"psychic","type2":None,
+        {"id":2,"pokemon_id":150,"name_ko":"뮤츠","emoji":"🔮","rarity":"ultra_legendary","pokemon_type":"psychic","type2":None,
          "stat_type":"offensive","friendship":5,"is_shiny":False,"is_favorite":False,"evo_stage":3,
          "ivs":{"hp":20,"atk":18,"def":10,"spa":31,"spdef":15,"spd":28},
          "stats":{"hp":318,"atk":110,"def":90,"spa":154,"spdef":90,"spd":130},

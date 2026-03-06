@@ -10,7 +10,7 @@ TABLES = [
         name_ko TEXT NOT NULL,
         name_en TEXT NOT NULL,
         emoji TEXT NOT NULL DEFAULT '❓',
-        rarity TEXT NOT NULL CHECK(rarity IN ('common','rare','epic','legendary')),
+        rarity TEXT NOT NULL CHECK(rarity IN ('common','rare','epic','legendary','ultra_legendary')),
         catch_rate DOUBLE PRECISION NOT NULL DEFAULT 0.5,
         evolves_from INTEGER,
         evolves_to INTEGER,
@@ -439,6 +439,15 @@ PATCH_OPTOUT_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN patch_optout BOOLEAN NOT NULL DEFAULT FALSE",
 ]
 
+ULTRA_LEGENDARY_MIGRATIONS = [
+    # CHECK 제약 업데이트 (ultra_legendary 추가)
+    "ALTER TABLE pokemon_master DROP CONSTRAINT IF EXISTS pokemon_master_rarity_check",
+    "ALTER TABLE pokemon_master ADD CONSTRAINT pokemon_master_rarity_check "
+    "CHECK(rarity IN ('common','rare','epic','legendary','ultra_legendary'))",
+    # BST 680 3종을 ultra_legendary로 승격
+    "UPDATE pokemon_master SET rarity = 'ultra_legendary' WHERE id IN (150, 249, 250)",
+]
+
 
 async def create_tables():
     """Create all tables."""
@@ -550,6 +559,13 @@ async def create_tables():
 
     # Group trade migrations
     for mig in GROUP_TRADE_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+
+    # Ultra-legendary rarity migration
+    for mig in ULTRA_LEGENDARY_MIGRATIONS:
         try:
             await pool.execute(mig)
         except Exception:

@@ -12,7 +12,7 @@ Power formula (rarity + BST):
   - epic BST<500: 1.4
   - epic BST≥500: 1.5
   - legendary BST<680: 1.8
-  - legendary BST≥680: 2.0
+  - ultra_legendary BST≥680: 2.0
 
 스킬은 배틀 중 일정 확률로 발동되며, 발동 시 데미지에 power 배율이 곱해진다.
 미등록 포켓몬은 fallback으로 ("몸통박치기", 1.2)를 사용한다.

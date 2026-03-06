@@ -18,7 +18,7 @@ from telegram.ext import (
 
 from database.connection import get_db, close_db
 from database.schema import create_tables
-from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types, migrate_assign_ivs, migrate_rarity_v2
+from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types, migrate_assign_ivs, migrate_rarity_v2, migrate_ultra_legendary
 from database import queries
 
 from handlers.start import start_handler, help_handler
@@ -97,11 +97,12 @@ async def post_init(application: Application):
     logger.info(f"[{time.monotonic()-t0:.1f}s] DB + schema + seed done")
 
     # Phase 2: 배틀데이터 시드 + 마이그레이션 (병렬)
-    migrated, iv_assigned, _, rarity_migrated = await asyncio.gather(
+    migrated, iv_assigned, _, rarity_migrated, ultra_migrated = await asyncio.gather(
         migrate_18_types(),
         migrate_assign_ivs(),
         seed_battle_data(),
         migrate_rarity_v2(),
+        migrate_ultra_legendary(),
     )
     if migrated:
         logger.info(f"18-type migration applied: {migrated} pokemon updated.")
@@ -109,6 +110,8 @@ async def post_init(application: Application):
         logger.info(f"IV migration: {iv_assigned} pokemon received random IVs.")
     if rarity_migrated:
         logger.info(f"Rarity v2 migration: {rarity_migrated} pokemon rarity updated (종족값 기반).")
+    if ultra_migrated:
+        logger.info(f"Ultra-legendary migration: {ultra_migrated} pokemon promoted to ultra_legendary.")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready. 251 Pokemon seeded.")
 
     # Phase 3: 독립 작업 병렬 (cleanup + missed_reset + dashboard)

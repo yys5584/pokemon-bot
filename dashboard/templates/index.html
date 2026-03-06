@@ -35,6 +35,7 @@
         .poke-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:8px}
         .poke-card{background:linear-gradient(135deg,#E8DECE,#DED2C0);border:1px solid #B8A888;border-radius:8px;padding:8px 10px;transition:all .2s;position:relative}
         .poke-card:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.12)}
+        .poke-card.ultra_legendary{border-color:#C62828;border-width:2px;background:linear-gradient(135deg,#FFCDD2,#EF9A9A)}
         .poke-card.legendary{border-color:#C5A33A;border-width:1.5px;background:linear-gradient(135deg,#F2DD94,#EBCF78)}
         .poke-card.epic{border-color:#9B59B6;border-width:1.5px;background:linear-gradient(135deg,#D8B4EE,#C69EE2)}
         .poke-card.rare{border-color:#5B9BD5;border-width:1.5px;background:linear-gradient(135deg,#ABCFE8,#93BDD8)}
@@ -175,7 +176,7 @@
         .badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
         .badge-active{background:#d4edda;color:#155724}.badge-inactive{background:#f8d7da;color:#721c24}
         .badge-common{background:#d4edda;color:#155724}.badge-rare{background:#cce5ff;color:#004085}
-        .badge-epic{background:#e8d5f5;color:#4a1a7a}.badge-legendary{background:#fff3cd;color:#856404}
+        .badge-epic{background:#e8d5f5;color:#4a1a7a}.badge-ultra_legendary{background:#ffcdd2;color:#b71c1c}.badge-legendary{background:#fff3cd;color:#856404}
 
         /* Tier badges */
         .tier{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;min-width:32px;text-align:center}
@@ -197,6 +198,7 @@
 
         /* Rarity dot */
         .rarity-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:middle}
+        .rdot-ultra_legendary{background:#C62828}
         .rdot-legendary{background:#F9A825}
         .rdot-epic{background:#7B1FA2}
         .rdot-rare{background:#1565C0}
@@ -1080,6 +1082,7 @@
                 <div class="poke-filters" id="pokeFilters">
                     <button class="poke-filter active" data-filter="all">전체</button>
                     <button class="poke-filter" data-filter="shiny">✨ 이로치</button>
+                    <button class="poke-filter" data-filter="ultra_legendary">초전설</button>
                     <button class="poke-filter" data-filter="legendary">전설</button>
                     <button class="poke-filter" data-filter="epic">에픽</button>
                     <select class="poke-select" id="pokeTypeFilter">
@@ -1341,7 +1344,7 @@ async function fetchJSON(u){
     _cache[u]={d,t:Date.now()};
     return d;
 }
-function rarityBadge(r){const l={common:"일반",rare:"희귀",epic:"에픽",legendary:"전설"};return`<span class="badge badge-${r}">${l[r]||r}</span>`}
+function rarityBadge(r){const l={common:"일반",rare:"희귀",epic:"에픽",legendary:"전설",ultra_legendary:"초전설"};return`<span class="badge badge-${r}">${l[r]||r}</span>`}
 function tierBadge(t){const c={"S+":"sp","S":"s","A+":"ap","A":"a","B+":"bp","B":"b","C+":"cp","C":"c","D+":"dp","D":"d"};return`<span class="tier tier-${c[t]||'d'}">${t}</span>`}
 function formatTime(t){if(!t)return"-";var d=new Date(t);d=new Date(d.getTime()+9*60*60*1000);return d.toISOString().replace("T"," ").substring(0,16)}
 function shortNum(n){if(n>=1e6)return(n/1e6).toFixed(1).replace(/\.0$/,'')+'M';if(n>=1e4)return Math.round(n/1e3)+'k';if(n>=1e3)return(n/1e3).toFixed(1).replace(/\.0$/,'')+'k';return String(n)}
@@ -1844,7 +1847,7 @@ async function loadTier(){
     const chart=tc?tc.chart:null;
     const names=tc?tc.type_names:{};
 
-    const rarityLabel={"legendary":"전설","epic":"에픽","rare":"희귀","common":"일반"};
+    const rarityLabel={"ultra_legendary":"초전설","legendary":"전설","epic":"에픽","rare":"희귀","common":"일반"};
     let mx={hp:1,atk:1,def:1,spa:1,spdef:1,spd:1};
     for(const p of tiers){mx.hp=Math.max(mx.hp,p.hp);mx.atk=Math.max(mx.atk,p.atk);mx.def=Math.max(mx.def,p.def_);mx.spa=Math.max(mx.spa,p.spa||0);mx.spdef=Math.max(mx.spdef,p.spdef||0);mx.spd=Math.max(mx.spd,p.spd)}
 
@@ -1856,6 +1859,7 @@ async function loadTier(){
         </div>
         <div style="margin-bottom:6px">
             <b style="color:var(--text)">등급</b>
+            <span class="badge badge-ultra_legendary" style="font-size:9px">초전설</span>
             <span class="badge badge-legendary" style="font-size:9px">전설</span>
             <span class="badge badge-epic" style="font-size:9px">에픽</span>
             <span class="badge badge-rare" style="font-size:9px">희귀</span>
@@ -2019,6 +2023,7 @@ function filterAndSortPokemon(){
     let list=[..._myPokemon];
     // Filter
     if(_pokeFilter==="shiny") list=list.filter(p=>p.is_shiny);
+    else if(_pokeFilter==="ultra_legendary") list=list.filter(p=>p.rarity==="ultra_legendary");
     else if(_pokeFilter==="legendary") list=list.filter(p=>p.rarity==="legendary");
     else if(_pokeFilter==="epic") list=list.filter(p=>p.rarity==="epic");
     if(_pokeTypeFilter) list=list.filter(p=>p.pokemon_type===_pokeTypeFilter||p.type2===_pokeTypeFilter);
@@ -2801,8 +2806,8 @@ function admDbTab(tab){
     else if(tab==="optout")admDbOptout();
 }
 
-const _rarBg={common:"#C8E6C9",rare:"#BBDEFB",epic:"#E1BEE7",legendary:"#FFF9C4"};
-const _rarFg={common:"#1B5E20",rare:"#0D47A1",epic:"#4A148C",legendary:"#F57F17"};
+const _rarBg={common:"#C8E6C9",rare:"#BBDEFB",epic:"#E1BEE7",legendary:"#FFF9C4",ultra_legendary:"#FFCDD2"};
+const _rarFg={common:"#1B5E20",rare:"#0D47A1",epic:"#4A148C",legendary:"#F57F17",ultra_legendary:"#B71C1C"};
 const _ivBg={S:"#FFCDD2",A:"#FFE0B2",B:"#BBDEFB",C:"#C8E6C9",D:"#E0E0E0"};
 const _ivFg={S:"#B71C1C",A:"#BF360C",B:"#0D47A1",C:"#1B5E20",D:"#424242"};
 function rarBadge(r,l){return `<span style="padding:1px 8px;border-radius:4px;font-size:10px;font-weight:700;background:${_rarBg[r]||"#eee"};color:${_rarFg[r]||"#333"}">${escHtml(l)}</span>`}
@@ -2873,6 +2878,7 @@ async function admDbShiny(page){
             <option value="common"${s.rarity==="common"?" selected":""}>일반</option>
             <option value="rare"${s.rarity==="rare"?" selected":""}>희귀</option>
             <option value="epic"${s.rarity==="epic"?" selected":""}>에픽</option>
+            <option value="ultra_legendary"${s.rarity==="ultra_legendary"?" selected":""}>초전설</option>
             <option value="legendary"${s.rarity==="legendary"?" selected":""}>전설</option>
         </select>
     </div>`;
@@ -2923,6 +2929,7 @@ async function admDbSpawns(page){
             <option value="common"${s.rarity==="common"?" selected":""}>일반</option>
             <option value="rare"${s.rarity==="rare"?" selected":""}>희귀</option>
             <option value="epic"${s.rarity==="epic"?" selected":""}>에픽</option>
+            <option value="ultra_legendary"${s.rarity==="ultra_legendary"?" selected":""}>초전설</option>
             <option value="legendary"${s.rarity==="legendary"?" selected":""}>전설</option>
         </select>
         <select onchange="_admDbState.spawns.shiny=this.value;_admDbState.spawns.page=1;admDbSpawns()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--card)">
@@ -2971,6 +2978,7 @@ async function admDbUserPoke(){
             <option value="common"${s.rarity==="common"?" selected":""}>일반</option>
             <option value="rare"${s.rarity==="rare"?" selected":""}>희귀</option>
             <option value="epic"${s.rarity==="epic"?" selected":""}>에픽</option>
+            <option value="ultra_legendary"${s.rarity==="ultra_legendary"?" selected":""}>초전설</option>
             <option value="legendary"${s.rarity==="legendary"?" selected":""}>전설</option>
         </select>
         <select onchange="_admDbState.userpoke.shiny=this.value;admDbUserPokeLoad()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--card)">
@@ -3005,6 +3013,7 @@ async function admDbUserPokeLoad(){
         <div style="margin-top:4px;font-size:11px;color:var(--muted)">
             총 ${sm.total}마리 | ✨ ${sm.shiny}마리`;
     const br=sm.by_rarity;
+    if(br.ultra_legendary)h+=` | 🔴초전설 ${br.ultra_legendary.count}`;
     if(br.legendary)h+=` | 🟡전설 ${br.legendary.count}`;
     if(br.epic)h+=` | 🟣에픽 ${br.epic.count}`;
     if(br.rare)h+=` | 🔵희귀 ${br.rare.count}`;

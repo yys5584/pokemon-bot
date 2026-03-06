@@ -566,19 +566,19 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
             await update.message.reply_text(f"번호 {n}이(가) 범위 밖입니다. (1~{len(pokemon_list)})")
             return
 
-    # 전설 포켓몬 1마리 제한 + DM 안내
-    legendary_count = sum(1 for n in nums if pokemon_list[n - 1].get("rarity") == "legendary")
-    if legendary_count > 1:
-        legend_names = [
+    # 초전설 포켓몬 1마리 제한
+    ultra_count = sum(1 for n in nums if pokemon_list[n - 1].get("rarity") == "ultra_legendary")
+    if ultra_count > 1:
+        ultra_names = [
             pokemon_list[n-1]['name_ko']
-            for n in nums if pokemon_list[n-1].get("rarity") == "legendary"
+            for n in nums if pokemon_list[n-1].get("rarity") == "ultra_legendary"
         ]
         await context.bot.send_message(
             chat_id=user_id,
             text=(
-                f"⚠️ 전설 포켓몬은 팀에 1마리만 넣을 수 있습니다!\n\n"
-                f"선택한 전설: {', '.join(legend_names)}\n"
-                f"전설 포켓몬 중 1마리만 남기고 다시 등록해주세요."
+                f"⚠️ 초전설 포켓몬은 팀에 1마리만 넣을 수 있습니다!\n\n"
+                f"선택한 초전설: {', '.join(ultra_names)}\n"
+                f"초전설 포켓몬 중 1마리만 남기고 다시 등록해주세요."
             ),
         )
         return
@@ -742,16 +742,16 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             if current[other_slot] is None:
                 del current[other_slot]
 
-        # Validate legendary limit (draft-based, exclude target slot)
-        if pokemon.get("rarity") == "legendary":
-            leg_count = 0
+        # Validate ultra_legendary limit (draft-based, exclude target slot)
+        if pokemon.get("rarity") == "ultra_legendary":
+            ul_count = 0
             for s, iid in current.items():
                 if s != slot and iid is not None and iid != inst_id:
                     p_info = await queries.get_user_pokemon_by_id(iid)
-                    if p_info and p_info.get("rarity") == "legendary":
-                        leg_count += 1
-            if leg_count >= 1:
-                await query.answer("⚠️ 전설 포켓몬은 1마리만!", show_alert=True)
+                    if p_info and p_info.get("rarity") == "ultra_legendary":
+                        ul_count += 1
+            if ul_count >= 1:
+                await query.answer("⚠️ 초전설 포켓몬은 1마리만!", show_alert=True)
                 return
 
         # Validate epic duplicate (draft-based, exclude target slot)

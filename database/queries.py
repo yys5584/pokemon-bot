@@ -409,6 +409,7 @@ async def get_user_pokemon_list(user_id: int) -> list[dict]:
                CASE WHEN bt.slot IS NOT NULL THEN 0 ELSE 1 END,
                bt.team_number NULLS LAST, bt.slot NULLS LAST,
                CASE pm.rarity
+                   WHEN 'ultra_legendary' THEN 0
                    WHEN 'legendary' THEN 1
                    WHEN 'epic' THEN 2
                    WHEN 'rare' THEN 3
@@ -638,7 +639,7 @@ async def count_legendary_caught(user_id: int) -> int:
     row = await pool.fetchrow(
         """SELECT COUNT(*) as cnt FROM pokedex p
            JOIN pokemon_master pm ON p.pokemon_id = pm.id
-           WHERE p.user_id = $1 AND pm.rarity = 'legendary'""",
+           WHERE p.user_id = $1 AND pm.rarity IN ('legendary', 'ultra_legendary')""",
         user_id,
     )
     return row["cnt"] if row else 0
@@ -1844,7 +1845,7 @@ async def count_shiny_legendary(user_id: int) -> int:
     row = await pool.fetchrow(
         """SELECT COUNT(*) as cnt FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
-           WHERE up.user_id = $1 AND up.is_shiny = 1 AND pm.rarity = 'legendary' AND up.is_active = 1""",
+           WHERE up.user_id = $1 AND up.is_shiny = 1 AND pm.rarity IN ('legendary', 'ultra_legendary') AND up.is_active = 1""",
         user_id,
     )
     return row["cnt"] if row else 0
@@ -1855,7 +1856,7 @@ async def count_rare_epic_legendary(user_id: int) -> int:
     row = await pool.fetchrow(
         """SELECT COUNT(*) as cnt FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
-           WHERE up.user_id = $1 AND pm.rarity IN ('epic', 'legendary') AND up.is_active = 1""",
+           WHERE up.user_id = $1 AND pm.rarity IN ('epic', 'legendary', 'ultra_legendary') AND up.is_active = 1""",
         user_id,
     )
     return row["cnt"] if row else 0
@@ -1882,13 +1883,14 @@ async def get_rare_pokemon_holders(limit: int = 20) -> list[dict]:
         """SELECT u.display_name, u.title, u.title_emoji,
                   SUM(CASE WHEN pm.rarity = 'epic' THEN 1 ELSE 0 END) as epic_count,
                   SUM(CASE WHEN pm.rarity = 'legendary' THEN 1 ELSE 0 END) as legendary_count,
+                  SUM(CASE WHEN pm.rarity = 'ultra_legendary' THEN 1 ELSE 0 END) as ultra_legendary_count,
                   COUNT(*) as total
            FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
            JOIN users u ON up.user_id = u.user_id
-           WHERE pm.rarity IN ('epic', 'legendary') AND up.is_active = 1
+           WHERE pm.rarity IN ('epic', 'legendary', 'ultra_legendary') AND up.is_active = 1
            GROUP BY up.user_id, u.display_name, u.title, u.title_emoji
-           ORDER BY legendary_count DESC, epic_count DESC
+           ORDER BY ultra_legendary_count DESC, legendary_count DESC, epic_count DESC
            LIMIT $1""",
         limit,
     )
