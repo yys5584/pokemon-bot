@@ -198,22 +198,26 @@ def _build_step_message(step: int) -> str:
 # ============================================================
 
 def _build_catch_step_a() -> tuple[str, InlineKeyboardMarkup]:
-    """Step 2a: Eevee appears — throw pokeball."""
+    """Step 2a: Explain pokeball + Eevee appears."""
     progress = _progress_bar(2)
     text = (
         f"{progress}  포획 체험\n\n"
         "🌿 【포획 체험】\n"
         "━━━━━━━━━━━━━━━\n"
         "\n"
-        "채팅방에서 포켓몬이 나타나면 ㅊ, ㅎ, ㅁ 으로 잡아요!\n"
-        "직접 체험해볼까요?\n"
+        "채팅방에서 포켓몬이 나타나면\n"
+        "ㅊ 을 입력하면 포켓볼이 나갑니다!\n"
+        "\n"
+        "💡 하루 20회까지 시도 가능\n"
+        "💡 봇이 있는 채팅방에서 \"포켓볼 충전\"을 입력하면\n"
+        "   10회를 추가 충전할 수 있어요! (1일 1회)\n"
         "\n"
         "━━━━━━━━━━━━━━━\n"
         "\n"
         "🟢 야생 이브이 🦊 가 나타났다!\n"
         "등급: 🟢 일반 (Common)\n"
         "\n"
-        "포켓볼(ㅊ)을 던져보세요!"
+        "포켓볼을 던져보세요!"
     )
     markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("ㅊ 포켓볼 던지기!", callback_data="tut_catch_poke")],
@@ -226,7 +230,7 @@ def _build_catch_step_a() -> tuple[str, InlineKeyboardMarkup]:
 
 
 def _build_catch_step_b() -> tuple[str, InlineKeyboardMarkup]:
-    """Step 2b: Dratini appears — throw hyperball."""
+    """Step 2b: Explain hyperball + Dratini appears."""
     progress = _progress_bar(2)
     text = (
         f"{progress}  포획 체험\n\n"
@@ -237,8 +241,10 @@ def _build_catch_step_b() -> tuple[str, InlineKeyboardMarkup]:
         "🔵 야생 미뇽 🐉 이 나타났다!\n"
         "등급: 🔵 희귀 (Rare)\n"
         "\n"
-        "💡 하이퍼볼(ㅎ)은 포획 확률이 1.5배!\n"
-        "희귀한 포켓몬에게 사용해보세요."
+        "⚠️ 희귀 등급은 일반보다 포획률이 낮아요!\n"
+        "\n"
+        "💡 하이퍼볼(ㅎ)은 포켓볼보다 포획률이 3배 높아요.\n"
+        "   하나 지급해 드릴테니 던져볼까요?"
     )
     markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("ㅎ 하이퍼볼 던지기!", callback_data="tut_catch_hyper")],
@@ -248,24 +254,24 @@ def _build_catch_step_b() -> tuple[str, InlineKeyboardMarkup]:
 
 
 def _build_catch_step_c(legendary_id: int) -> tuple[str, InlineKeyboardMarkup]:
-    """Step 2c: Legendary appears — throw masterball."""
+    """Step 2c: Explain masterball + Legendary appears."""
     info = _POKEMON_INFO.get(legendary_id, ("???", "❓", "전설", "🟡"))
     name, emoji, _, _ = info
     progress = _progress_bar(2)
     text = (
         f"{progress}  포획 체험\n\n"
-        "✅ 미뇽 🐉 포획 성공!\n"
+        "✅ 미뇽 🐉 포획 성공! 내 포켓몬에 추가되었어요.\n"
         "\n"
         "━━━━━━━━━━━━━━━\n"
         "\n"
         f"🟡 야생 {name} {emoji} 이(가) 나타났다!\n"
         "등급: 🟡 전설 (Legendary)\n"
         "\n"
-        "⚠️ 전설 포켓몬은 포획 확률이 매우 낮습니다!\n"
-        "일반 포켓볼로는 거의 잡을 수 없어요.\n"
+        "⚠️ 전설 포켓몬은 포획 확률이 매우 낮아요!\n"
+        "   일반 포켓볼이나 하이퍼볼로는 거의 잡을 수 없어요.\n"
         "\n"
         "💡 마스터볼(ㅁ)은 100% 포획!\n"
-        "전설 포켓몬에게 아끼지 말고 던지세요!"
+        "   하나 지급해 드릴테니 던져보세요!"
     )
     markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("ㅁ 마스터볼 던지기!", callback_data=f"tut_catch_master_{legendary_id}")],
@@ -281,20 +287,19 @@ def _build_catch_complete(legendary_id: int) -> tuple[str, InlineKeyboardMarkup]
     progress = _progress_bar(2)
     text = (
         f"{progress}  포획 체험\n\n"
-        f"✅ {name} {emoji} 포획 성공!\n"
+        f"✅ {name} {emoji} 포획 성공! 내 포켓몬에 추가되었어요.\n"
         "\n"
         "━━━━━━━━━━━━━━━\n"
         "\n"
-        "🎉 3마리 모두 잡았어요! 실제로 내 포켓몬에 추가되었습니다.\n"
+        "🎉 3마리 모두 잡았어요!\n"
         "\n"
-        "📝 정리:\n"
+        "📝 포획 정리:\n"
         "  ㅊ 포켓볼 — 기본 포획\n"
-        "  ㅎ 하이퍼볼 — 확률 1.5배 (BP상점에서 구매)\n"
+        "  ㅎ 하이퍼볼 — 포획률 3배 (BP상점에서 구매)\n"
         "  ㅁ 마스터볼 — 100% 포획 (매우 귀중!)\n"
         "\n"
-        "💡 하루 20회 시도 가능 / 포켓볼 충전 +10회\n"
         "💡 채팅방 활동이 많을수록 포켓몬이 자주 등장!\n"
-        "✨ 이로치(색이 다른) 포켓몬은 매우 희귀!"
+        "✨ 이로치(색이 다른) 포켓몬은 매우 희귀해요!"
     )
     markup = InlineKeyboardMarkup([
         [
