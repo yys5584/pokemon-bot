@@ -319,7 +319,7 @@ def get_iv_grade(total: int) -> tuple[str, str]:
 
 # --- Battle Stats ---
 RARITY_BASE_STAT = {
-    "common": 45, "rare": 60, "epic": 75, "legendary": 95,
+    "common": 65, "rare": 85, "epic": 110, "legendary": 150,
 }
 
 STAT_SPREADS = {

@@ -24,20 +24,25 @@ def _build_evo_stage_map() -> dict[int, int]:
 EVO_STAGE_MAP: dict[int, int] = _build_evo_stage_map()
 
 
+def normalize_stat_hp(raw: int) -> int:
+    """Real game Lv50 HP formula: base + 60 (simplified, IV0/EV0)."""
+    return raw + 60
+
+
 def normalize_stat(raw: int) -> int:
-    """Normalize raw base stat (5~255) → game range (20~180)."""
-    return round(20 + (raw - 5) / (255 - 5) * (180 - 20))
+    """Real game Lv50 other stat formula: base + 5 (simplified, IV0/EV0)."""
+    return raw + 5
 
 
 def get_normalized_base_stats(pokemon_id: int) -> dict | None:
-    """Get normalized base stats for a pokemon. Returns None if not found."""
+    """Get Lv50 base stats for a pokemon. Returns None if not found."""
     from models.pokemon_base_stats import POKEMON_BASE_STATS
     entry = POKEMON_BASE_STATS.get(pokemon_id)
     if entry is None:
         return None
     hp, atk, def_, spa, spdef, spd = entry[:6]
     return {
-        "base_hp": normalize_stat(hp),
+        "base_hp": normalize_stat_hp(hp),
         "base_atk": normalize_stat(atk),
         "base_def": normalize_stat(def_),
         "base_spa": normalize_stat(spa),
@@ -106,9 +111,9 @@ def calc_battle_stats(
     evo_mult = config.EVOLUTION_STAGE_MULT.get(evo_stage, 1.0)
 
     if base_hp is not None:
-        # Phase 2: individual base stats
+        # Phase 2: individual base stats (Lv50 formula, no HP×3)
         return {
-            "hp":    int(base_hp * 3 * bonus * evo_mult * _iv_mult(iv_hp)),
+            "hp":    int(base_hp * bonus * evo_mult * _iv_mult(iv_hp)),
             "atk":   int(base_atk * bonus * evo_mult * _iv_mult(iv_atk)),
             "def":   int(base_def * bonus * evo_mult * _iv_mult(iv_def)),
             "spa":   int(base_spa * bonus * evo_mult * _iv_mult(iv_spa)),
@@ -116,12 +121,12 @@ def calc_battle_stats(
             "spd":   int(base_spd * bonus * evo_mult * _iv_mult(iv_spd)),
         }
 
-    # Phase 1: rarity-based base stats + spread
-    base = config.RARITY_BASE_STAT.get(rarity, 45)
+    # Phase 1: rarity-based base stats + spread (legacy)
+    base = config.RARITY_BASE_STAT.get(rarity, 65)
     spread = config.STAT_SPREADS.get(stat_type, config.STAT_SPREADS["balanced"])
 
     return {
-        "hp":    int(base * 3 * spread["hp"] * bonus * evo_mult * _iv_mult(iv_hp)),
+        "hp":    int(base * spread["hp"] * bonus * evo_mult * _iv_mult(iv_hp)),
         "atk":   int(base * spread["atk"] * bonus * evo_mult * _iv_mult(iv_atk)),
         "def":   int(base * spread["def"] * bonus * evo_mult * _iv_mult(iv_def)),
         "spa":   int(base * spread["spa"] * bonus * evo_mult * _iv_mult(iv_spa)),
