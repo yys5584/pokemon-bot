@@ -31,6 +31,17 @@ def _rpad(s: str, target: int) -> str:
     return s + ' ' * max(0, target - _dw(s))
 
 
+def _trunc(s: str, max_dw: int = 10) -> str:
+    """Truncate string to max display width, adding … if needed."""
+    w = 0
+    for i, c in enumerate(s):
+        cw = 2 if unicodedata.east_asian_width(c) in ('W', 'F') else 1
+        if w + cw > max_dw - 1:  # leave room for …
+            return s[:i] + "…"
+        w += cw
+    return s
+
+
 def _render_bracket(bracket, round_results=None) -> str:
     """Render tournament bracket as ASCII tree in <pre> block.
 
@@ -43,8 +54,8 @@ def _render_bracket(bracket, round_results=None) -> str:
 
     players = []
     for p1, p2 in bracket:
-        players.append(p1[1]['name'] if p1 else "부전승")
-        players.append(p2[1]['name'] if p2 else "부전승")
+        players.append(_trunc(p1[1]['name']) if p1 else "부전승")
+        players.append(_trunc(p2[1]['name']) if p2 else "부전승")
 
     if len(players) < 2:
         return ""
@@ -65,7 +76,7 @@ def _render_bracket(bracket, round_results=None) -> str:
         if rnd in round_results and idx < len(round_results[rnd]):
             w = round_results[rnd][idx]
             if w:
-                winner = w
+                winner = _trunc(w)
 
         if n == 2:
             a = _rpad(names[0], nw)
