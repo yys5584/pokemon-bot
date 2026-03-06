@@ -77,6 +77,16 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Ensure user is registered
         await queries.ensure_user(user_id, display_name, username)
 
+        # Tutorial trigger: send DM on first ㅊ
+        try:
+            tut_step = await queries.get_tutorial_step(user_id)
+            if tut_step == 0:
+                await queries.update_tutorial_step(user_id, 1)
+                from handlers.tutorial import send_tutorial_step
+                asyncio.create_task(send_tutorial_step(context, user_id, 1))
+        except Exception:
+            pass  # Don't block catch on tutorial errors
+
         # Update login streak for title tracking
         await queries.update_login_streak(user_id)
 

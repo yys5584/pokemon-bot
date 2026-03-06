@@ -383,6 +383,10 @@ TEAM_SLOT_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN active_team INTEGER NOT NULL DEFAULT 1",
 ]
 
+TUTORIAL_MIGRATIONS = [
+    "ALTER TABLE users ADD COLUMN tutorial_step INTEGER NOT NULL DEFAULT 0",
+]
+
 
 async def create_tables():
     """Create all tables."""
@@ -459,6 +463,12 @@ async def create_tables():
             pass
     # Shiny boost event type migration
     for mig in SHINY_BOOST_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+    # Tutorial migration
+    for mig in TUTORIAL_MIGRATIONS:
         try:
             await pool.execute(mig)
         except Exception:

@@ -38,6 +38,7 @@ from handlers.battle import (
 )
 from handlers.dm_nurture import feed_handler, play_handler, evolve_handler, nurture_callback_handler
 from handlers.dm_trade import trade_handler, accept_handler, reject_handler
+from handlers.tutorial import tutorial_callback
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
     pokeball_reset_handler,
@@ -449,6 +450,9 @@ def main():
 
     # Nurture (feed/play/evolve) duplicate selection callbacks
     app.add_handler(CallbackQueryHandler(nurture_callback_handler, pattern=r"^nurt_"))
+
+    # Tutorial onboarding callbacks
+    app.add_handler(CallbackQueryHandler(tutorial_callback, pattern=r"^tut_"))
 
     # Yacha (betting battle) callbacks
     app.add_handler(CallbackQueryHandler(yacha_type_callback, pattern=r"^yc_"))

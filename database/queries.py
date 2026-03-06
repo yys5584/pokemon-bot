@@ -88,6 +88,28 @@ async def update_user_title(user_id: int, title: str, title_emoji: str):
 # Master Balls
 # ============================================================
 
+# ============================================================
+# Tutorial
+# ============================================================
+
+async def get_tutorial_step(user_id: int) -> int:
+    """Get user's tutorial progress. 0=not started, 1-7=in progress, 99=done."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT tutorial_step FROM users WHERE user_id = $1", user_id
+    )
+    return row["tutorial_step"] if row else 0
+
+
+async def update_tutorial_step(user_id: int, step: int):
+    """Update user's tutorial progress."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET tutorial_step = $1 WHERE user_id = $2",
+        step, user_id,
+    )
+
+
 async def get_master_balls(user_id: int) -> int:
     pool = await get_db()
     row = await pool.fetchrow(
