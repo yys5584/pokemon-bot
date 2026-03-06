@@ -106,14 +106,8 @@ async def _send_step(context, user_id: int, step: int):
         )
         await bot.send_message(
             chat_id=user_id,
-            text=(
-                "💡 시작하려면 <b>\"튜토\"</b>를 입력하세요!\n"
-                "⏭️ 건너뛰려면 아래 버튼을 누르세요."
-            ),
+            text="💡 시작하려면 <b>\"튜토\"</b>를 입력하세요!",
             parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("⏭️ 스킵", callback_data="tut_skip")],
-            ]),
         )
 
     elif step == 20:
@@ -462,19 +456,8 @@ async def tutorial_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     data = query.data
 
-    # tut_skip — skip tutorial (1회 한정, 재시작 불가)
-    if data == "tut_skip":
-        await queries.update_tutorial_step(user_id, 99)
-        await context.bot.send_message(
-            chat_id=user_id,
-            text=(
-                "⏭️ 튜토리얼을 건너뛰었습니다.\n"
-                "궁금한 게 있으면 \"도움말\"을 입력하세요!"
-            ),
-        )
-
     # tut_buy_masterball — 마스터볼 구매 (튜토리얼 무료)
-    elif data == "tut_buy_masterball":
+    if data == "tut_buy_masterball":
         step = await queries.get_tutorial_step(user_id)
         if step != 22:
             return  # 이미 지나간 단계
