@@ -322,11 +322,11 @@ IV_STAT_COUNT = 6          # 6스탯: HP, ATK, DEF, SPA, SPDEF, SPD
 
 # IV grade thresholds (total of 6 stats, max=186)
 IV_GRADE_THRESHOLDS = [
-    (168, "S", ""),   # ~90%+ (top ~3%)
-    (140, "A", ""),   # ~75%+
+    (136, "S", ""),   # ~73%+ (top ~3%, 약 33회 포획에 1마리)
+    (120, "A", ""),   # ~65%+ (top ~12%)
     (93,  "B", ""),   # ~50%+
-    (47,  "C", ""),   # ~25%+
-    (0,   "D", ""),   # bottom
+    (62,  "C", ""),   # ~33%+
+    (0,   "D", ""),   # bottom ~8%
 ]
 
 def get_iv_grade(total: int) -> tuple[str, str]:
