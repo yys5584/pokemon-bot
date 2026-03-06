@@ -115,9 +115,15 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
     if is_partner:
         stats["atk"] = int(stats["atk"] * 1.05)
 
-    # Skill data
+    # Skill data — 이중 속성 포켓몬은 [("name",pow), ("name",pow)] 리스트
     pid = pokemon.get("pokemon_id") or pokemon.get("id")
-    skill = POKEMON_SKILLS.get(pid, ("몸통박치기", 1.2))
+    raw_skill = POKEMON_SKILLS.get(pid, ("몸통박치기", 1.2))
+    if isinstance(raw_skill, list):
+        # 이중 속성: skills[0]=type1 스킬, skills[1]=type2 스킬
+        skills = raw_skill
+    else:
+        # 단일 속성: 동일 스킬 하나
+        skills = [raw_skill]
 
     # IV grade
     iv_sum = _iv_total(
@@ -139,17 +145,18 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
         "stats": stats,
         "current_hp": stats["hp"],
         "instance_id": pokemon.get("pokemon_instance_id") or pokemon.get("instance_id"),
-        "skill_name": skill[0],
-        "skill_power": skill[1],
+        "skills": skills,           # [("name",pow)] or [("name",pow),("name",pow)]
+        "skill_name": skills[0][0], # fallback: 1차 속성 스킬명 (표시용)
+        "skill_power": skills[0][1],
         "pokemon_id": pid,
         "tb": tb,
         "iv_grade": iv_grade,
     }
 
 
-def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str]:
+def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str, str]:
     """Calculate damage from attacker to defender.
-    Returns (damage, effect_text).
+    Returns (damage, effect_text, crit_mark).
     """
     # Physical vs Special: use whichever offensive stat is higher
     atk_phys = attacker["stats"]["atk"]
@@ -164,15 +171,25 @@ def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str]:
     # Base damage
     base = max(1, attack - defense * 0.4)
 
-    # Type advantage
-    type_mult = get_type_multiplier(attacker["type"], defender["type"])
+    # Type advantage — 이중 속성 중 유리한 타입 자동 선택
+    type_mult, best_type_idx = get_type_multiplier(attacker["type"], defender["type"])
+
+    # 선택된 타입에 맞는 스킬 사용
+    skills = attacker.get("skills", [])
+    if skills and best_type_idx < len(skills):
+        chosen_skill = skills[best_type_idx]
+    elif skills:
+        chosen_skill = skills[0]
+    else:
+        chosen_skill = ("몸통박치기", 1.2)
+    skill_name, skill_power = chosen_skill
 
     # Critical hit (10%)
     crit = 1.5 if random.random() < config.BATTLE_CRIT_RATE else 1.0
 
     # Skill activation (30%)
     skill_activated = random.random() < config.BATTLE_SKILL_RATE
-    skill_mult = attacker.get("skill_power", 1.0) if skill_activated else 1.0
+    skill_mult = skill_power if skill_activated else 1.0
 
     # Random variance (±10%)
     variance = random.uniform(0.9, 1.1)
@@ -183,7 +200,7 @@ def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str]:
     # Build effect text
     effects = []
     if skill_activated:
-        effects.append(f"「{attacker.get('skill_name', '몸통박치기')}」")
+        effects.append(f"「{skill_name}」")
 
     crit_mark = "*" if crit > 1.0 else ""
     effect_text = f" {' '.join(effects)}" if effects else ""

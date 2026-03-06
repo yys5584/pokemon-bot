@@ -151,19 +151,15 @@ def _single_type_mult(atk_type: str, def_type: str) -> float:
     return 1.0
 
 
-def get_type_multiplier(attacker_type, defender_type) -> float:
-    """Return damage multiplier based on type matchup (이중 속성 지원).
+def get_type_multiplier(attacker_type, defender_type):
+    """Return (damage_multiplier, best_atk_type_index) based on type matchup.
 
     attacker_type: str or list[str] — 공격자의 속성
     defender_type: str or list[str] — 수비자의 속성
 
     공격자: 이중 속성이면 더 유리한 속성으로 자동 공격
     수비자: 이중 속성이면 배수를 곱함 (본가 동일)
-    예) [페어리,에스퍼] vs [악,불]
-        페어리→악 2.0 × 페어리→불 0.5 = 1.0
-        에스퍼→악 0.0 × ... = 0.0
-        → max(1.0, 0.0) = 1.0 (페어리로 공격)
-    예) [불] vs [풀,강철] → 2.0 × 2.0 = 4.0
+    반환: (배수, 사용된 공격 속성 인덱스)
     """
     # 속성 리스트로 통일
     atk_types = [attacker_type] if isinstance(attacker_type, str) else attacker_type
@@ -171,13 +167,15 @@ def get_type_multiplier(attacker_type, defender_type) -> float:
 
     # 공격자의 각 속성으로 시도 → 가장 유리한 배수 선택
     best = 0.0
-    for at in atk_types:
+    best_idx = 0
+    for i, at in enumerate(atk_types):
         mult = 1.0
         for dt in def_types:
             mult *= _single_type_mult(at, dt)
         if mult > best:
             best = mult
-    return best
+            best_idx = i
+    return best, best_idx
 
 
 def _iv_tag(val: int, base: int) -> str:

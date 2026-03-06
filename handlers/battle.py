@@ -1774,11 +1774,12 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             evo_stage=3 if base else EVO_STAGE_MAP.get(r["id"], 3),
             **(base or {}),
         )
-        skill = POKEMON_SKILLS.get(r["id"], ("몸통박치기", 1.2))
+        from models.pokemon_skills import get_max_skill_power
+        _skill_pow = get_max_skill_power(r["id"])
 
         best_atk = max(stats["atk"], stats["spa"])
         eff_def = (stats["def"] + stats["spdef"]) / 2
-        eff_atk = best_atk * (1 + config.BATTLE_SKILL_RATE * skill[1])
+        eff_atk = best_atk * (1 + config.BATTLE_SKILL_RATE * _skill_pow)
         eff_tank = stats["hp"] * (1 + eff_def * 0.003)
         power = round(eff_atk * eff_tank / 1000, 1)
 

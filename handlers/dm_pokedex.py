@@ -1747,11 +1747,12 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             type_name = "/".join(config.TYPE_NAME_KO.get(t, t) for t in pbs[-1])
         else:
             type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
-        skill = POKEMON_SKILLS.get(partner["pokemon_id"], ("몸통박치기", 1.2))
+        from models.pokemon_skills import get_skill_display
+        _skill_disp = get_skill_display(partner["pokemon_id"])
         lines.append(f"{icon_emoji('pokemon-love')} 파트너: {tb} {partner['name_ko']}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}")
         lines.append(f"   {icon_emoji('favorite')} 친밀도: {hearts_display(partner['friendship'])}")
         lines.append(f"   {icon_emoji('stationery')} {format_stats_line(stats, base)}")
-        lines.append(f"   {icon_emoji('skill')} 기술: {skill[0]}")
+        lines.append(f"   {icon_emoji('skill')} 기술: {_skill_disp}")
     else:
         lines.append(f"{icon_emoji('pokemon-love')} 파트너: 미지정 ('파트너' 명령어로 설정)")
 
@@ -1774,9 +1775,10 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tbase = calc_battle_stats(t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo)
             total_power += calc_power(stats)
             total_base_power += calc_power(tbase)
-            skill = POKEMON_SKILLS.get(t["pokemon_id"], ("몸통박치기", 1.2))
+            from models.pokemon_skills import get_skill_display
+            _skill_disp = get_skill_display(t["pokemon_id"])
             ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
-            lines.append(f"  {i}. {ttb} {t['name_ko']}  {icon_emoji('skill')}{skill[0]}  {icon_emoji('bolt')}{format_power(stats, tbase)}")
+            lines.append(f"  {i}. {ttb} {t['name_ko']}  {icon_emoji('skill')}{_skill_disp}  {icon_emoji('bolt')}{format_power(stats, tbase)}")
         iv_diff = total_power - total_base_power
         total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
         lines.append(f"  {icon_emoji('bolt')} 팀 전투력: {total_tag}")
