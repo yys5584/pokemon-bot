@@ -38,7 +38,7 @@ from handlers.battle import (
 )
 from handlers.dm_nurture import feed_handler, play_handler, evolve_handler, nurture_callback_handler
 from handlers.dm_trade import trade_handler, accept_handler, reject_handler
-from handlers.tutorial import tutorial_callback
+from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
     pokeball_reset_handler,
@@ -320,6 +320,10 @@ def main():
     app.add_handler(CommandHandler("start", start_handler))
     app.add_handler(CommandHandler("help", help_handler))
     app.add_handler(CommandHandler("pokedex", pokedex_handler, filters=dm))
+
+    # Tutorial DM handlers (MUST be before other DM handlers)
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^튜토$"), tutorial_dm_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^[ㅊㅎㅁ]$"), tutorial_dm_catch))
 
     # Korean commands via MessageHandler + Regex (DM only)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^도움말$"), help_handler))

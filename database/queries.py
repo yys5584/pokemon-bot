@@ -123,8 +123,26 @@ async def restart_tutorial(user_id: int):
     """Restart tutorial (one-time only). Sets step=1 and marks as restarted."""
     pool = await get_db()
     await pool.execute(
-        "UPDATE users SET tutorial_step = 1, tutorial_restarted = TRUE WHERE user_id = $1",
+        "UPDATE users SET tutorial_step = 1, tutorial_restarted = TRUE, tutorial_legendary_id = NULL WHERE user_id = $1",
         user_id,
+    )
+
+
+async def get_tutorial_legendary(user_id: int) -> int | None:
+    """Get the legendary pokemon ID assigned to this user's tutorial."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT tutorial_legendary_id FROM users WHERE user_id = $1", user_id
+    )
+    return row["tutorial_legendary_id"] if row else None
+
+
+async def set_tutorial_legendary(user_id: int, pokemon_id: int):
+    """Set the legendary pokemon ID for this user's tutorial."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET tutorial_legendary_id = $1 WHERE user_id = $2",
+        pokemon_id, user_id,
     )
 
 

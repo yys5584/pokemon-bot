@@ -176,6 +176,8 @@ UNLOCKABLE_TITLES = {
     "battle_streak10": ("무적의 전사",   "psyduck",    "10연승 달성",       "battle_streak", 10),
     "battle_sweep":    ("완벽한 승리",   "victini",    "무피해 완승",       "battle_sweep", 1),
     "partner_set":     ("나의 파트너",   "pikachu",    "파트너 포켓몬 지정", "partner_set", 1),
+    # 튜토리얼
+    "tutorial_grad":   ("내 꿈은 피카츄!", "pikachu",  "튜토리얼 완료",     "tutorial_complete", 1),
 }
 
 # --- Trade Evolution Pokemon IDs ---
