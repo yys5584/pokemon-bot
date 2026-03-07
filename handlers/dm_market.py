@@ -45,7 +45,33 @@ def _listing_line(ml: dict) -> str:
     return f"#{ml['id']} {ml['emoji']} {ml['pokemon_name']}{shiny}{iv} — {ml['price_bp']:,} BP"
 
 
-def _build_listing_page(listings: list[dict], total: int, page: int, page_size: int, search_name: str | None = None) -> tuple[str, InlineKeyboardMarkup]:
+RARITY_LABELS = {
+    "": "전체",
+    "common": "커먼",
+    "rare": "레어",
+    "epic": "에픽",
+    "legendary": "전설",
+    "ultra_legendary": "초전설",
+}
+
+IV_LABELS = {"": "전체", "S": "S", "A": "A", "B": "B"}
+
+
+def _filter_label(rarity: str, iv_grade: str) -> str:
+    """Build active filter display text."""
+    parts = []
+    if rarity:
+        parts.append(RARITY_LABELS.get(rarity, rarity))
+    if iv_grade:
+        parts.append(f"IV {iv_grade}등급{'+' if iv_grade != 'D' else ''}")
+    return " / ".join(parts) if parts else ""
+
+
+def _build_listing_page(
+    listings: list[dict], total: int, page: int, page_size: int,
+    search_name: str | None = None,
+    rarity: str = "", iv_grade: str = "",
+) -> tuple[str, InlineKeyboardMarkup]:
     """Build listing display text + inline keyboard."""
     total_pages = max(1, (total + page_size - 1) // page_size)
 
@@ -55,15 +81,21 @@ def _build_listing_page(listings: list[dict], total: int, page: int, page_size: 
         "\n📌 거래소 검색 [이름]"
     )
 
-    if not listings:
-        text = "🏪 거래소\n\n등록된 매물이 없습니다." + _help
-        if search_name:
-            text = f"🏪 거래소 검색: '{search_name}'\n\n검색 결과가 없습니다."
-        return text, InlineKeyboardMarkup([])
+    filter_text = _filter_label(rarity, iv_grade)
+    filter_suffix = f" [{filter_text}]" if filter_text else ""
 
-    header = f"🏪 거래소 ({total}개 등록중)"
+    if not listings:
+        text = f"🏪 거래소{filter_suffix}\n\n등록된 매물이 없습니다." + _help
+        if search_name:
+            text = f"🏪 거래소 검색: '{search_name}'{filter_suffix}\n\n검색 결과가 없습니다."
+        # Still show filter buttons even when empty
+        buttons = []
+        buttons.append(_build_filter_row(rarity, iv_grade))
+        return text, InlineKeyboardMarkup(buttons)
+
+    header = f"🏪 거래소 ({total}개){filter_suffix}"
     if search_name:
-        header = f"🔍 '{search_name}' 검색 결과 ({total}건)"
+        header = f"🔍 '{search_name}' 검색 ({total}건){filter_suffix}"
 
     lines = [header, ""]
     for ml in listings:
@@ -71,14 +103,17 @@ def _build_listing_page(listings: list[dict], total: int, page: int, page_size: 
         lines.append(f"  판매자: {ml.get('seller_name', '???')}")
 
     lines.append(f"\n({page+1}/{total_pages} 페이지)")
-    if page == 0 and not search_name:
+    if page == 0 and not search_name and not rarity and not iv_grade:
         lines.append("\n📌 거래소 등록 [이름] [가격]")
         lines.append("📌 거래소 내꺼 → 취소 버튼")
         lines.append("📌 거래소 검색 [이름]")
     text = "\n".join(lines)
 
-    # Buttons: buy buttons for each listing
+    # Filter row at top
     buttons = []
+    buttons.append(_build_filter_row(rarity, iv_grade))
+
+    # Buy buttons
     for ml in listings:
         shiny = "✨" if ml.get("is_shiny") else ""
         label = f"#{ml['id']} {ml['pokemon_name']}{shiny} {ml['price_bp']:,}BP 구매"
@@ -86,7 +121,10 @@ def _build_listing_page(listings: list[dict], total: int, page: int, page_size: 
 
     # Pagination row
     nav = []
-    prefix = f"mkt_s_{search_name}_" if search_name else "mkt_page_"
+    fkey = f"r{rarity}_iv{iv_grade}"
+    prefix = f"mkt_fp_{fkey}_" if (rarity or iv_grade) else "mkt_page_"
+    if search_name:
+        prefix = f"mkt_s_{search_name}_"
     if page > 0:
         nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"{prefix}{page-1}"))
     nav.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="mkt_noop"))
@@ -96,6 +134,19 @@ def _build_listing_page(listings: list[dict], total: int, page: int, page_size: 
         buttons.append(nav)
 
     return text, InlineKeyboardMarkup(buttons)
+
+
+def _build_filter_row(active_rarity: str = "", active_iv: str = "") -> list[InlineKeyboardButton]:
+    """Build a row of filter buttons."""
+    rarity_label = RARITY_LABELS.get(active_rarity, "등급") if active_rarity else "등급"
+    iv_label = f"IV: {active_iv}" if active_iv else "IV"
+    reset = []
+    if active_rarity or active_iv:
+        reset = [InlineKeyboardButton("초기화", callback_data="mkt_fr")]
+    return [
+        InlineKeyboardButton(f"📋 {rarity_label}", callback_data=f"mkt_fmenu_r_{active_iv}"),
+        InlineKeyboardButton(f"📊 {iv_label}", callback_data=f"mkt_fmenu_iv_{active_rarity}"),
+    ] + reset
 
 
 # ── Text Command Handlers ────────────────────────────────
@@ -312,6 +363,90 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     await query.answer()
     user_id = query.from_user.id
     data = query.data or ""
+
+    # ── Filter menu: show rarity options ──
+    if data.startswith("mkt_fmenu_r_"):
+        # mkt_fmenu_r_{current_iv}
+        current_iv = data[len("mkt_fmenu_r_"):]
+        buttons = []
+        for rkey, rlabel in RARITY_LABELS.items():
+            cb = f"mkt_f_r{rkey}_iv{current_iv}"
+            buttons.append([InlineKeyboardButton(rlabel, callback_data=cb)])
+        try:
+            await query.edit_message_text("📋 등급 필터 선택:", reply_markup=InlineKeyboardMarkup(buttons))
+        except Exception:
+            pass
+        return
+
+    # ── Filter menu: show IV options ──
+    if data.startswith("mkt_fmenu_iv_"):
+        current_rarity = data[len("mkt_fmenu_iv_"):]
+        buttons = []
+        for ivkey, ivlabel in IV_LABELS.items():
+            display = "전체" if not ivkey else f"{ivlabel}등급 이상"
+            cb = f"mkt_f_r{current_rarity}_iv{ivkey}"
+            buttons.append([InlineKeyboardButton(display, callback_data=cb)])
+        try:
+            await query.edit_message_text("📊 개체값 필터 선택:", reply_markup=InlineKeyboardMarkup(buttons))
+        except Exception:
+            pass
+        return
+
+    # ── Apply filter: mkt_f_r{rarity}_iv{grade} ──
+    if data.startswith("mkt_f_r"):
+        # Parse: mkt_f_r{rarity}_iv{grade}
+        rest = data[len("mkt_f_r"):]
+        if "_iv" in rest:
+            rarity_val, iv_val = rest.split("_iv", 1)
+        else:
+            rarity_val, iv_val = rest, ""
+        listings, total = await queries.get_active_listings(
+            page=0, page_size=config.MARKET_PAGE_SIZE,
+            rarity=rarity_val or None, iv_grade=iv_val or None,
+        )
+        text, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE, rarity=rarity_val, iv_grade=iv_val)
+        try:
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            pass
+        return
+
+    # ── Filter reset ──
+    if data == "mkt_fr":
+        listings, total = await queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
+        text, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE)
+        try:
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            pass
+        return
+
+    # ── Filtered pagination: mkt_fp_r{rarity}_iv{grade}_{page} ──
+    if data.startswith("mkt_fp_"):
+        rest = data[len("mkt_fp_"):]
+        # rest = r{rarity}_iv{grade}_{page}
+        last_underscore = rest.rfind("_")
+        fkey = rest[:last_underscore]
+        try:
+            page = int(rest[last_underscore + 1:])
+        except ValueError:
+            return
+        # Parse fkey: r{rarity}_iv{grade}
+        if "_iv" in fkey:
+            rarity_val = fkey.split("_iv")[0][1:]  # strip leading 'r'
+            iv_val = fkey.split("_iv")[1]
+        else:
+            rarity_val, iv_val = "", ""
+        listings, total = await queries.get_active_listings(
+            page=page, page_size=config.MARKET_PAGE_SIZE,
+            rarity=rarity_val or None, iv_grade=iv_val or None,
+        )
+        text, markup = _build_listing_page(listings, total, page, config.MARKET_PAGE_SIZE, rarity=rarity_val, iv_grade=iv_val)
+        try:
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            pass
+        return
 
     # ── Pagination ──
     if data.startswith("mkt_page_"):

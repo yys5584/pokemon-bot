@@ -1333,17 +1333,51 @@ async def create_market_listing(
     return row["id"]
 
 
-async def get_active_listings(page: int = 0, page_size: int = 5) -> tuple[list[dict], int]:
-    """Get paginated active listings (newest first). Returns (listings, total_count)."""
+async def get_active_listings(
+    page: int = 0, page_size: int = 5,
+    rarity: str | None = None, iv_grade: str | None = None,
+) -> tuple[list[dict], int]:
+    """Get paginated active listings (newest first). Returns (listings, total_count).
+
+    Filters:
+      rarity: 'common','rare','epic','legendary','ultra_legendary'
+      iv_grade: 'S' (168+), 'A' (140+), 'B' (93+), 'C' (47+), 'D' (<47)
+    """
     pool = await get_db()
+
+    # Build WHERE clauses and params dynamically
+    where = ["ml.status = 'active'", "ml.created_at > NOW() - INTERVAL '7 days'"]
+    params = []
+    idx = 1
+
+    if rarity:
+        params.append(rarity)
+        where.append(f"pm.rarity = ${idx}")
+        idx += 1
+
+    # IV grade filter: "X이상" — show X grade and above
+    iv_thresholds = {"S": 168, "A": 140, "B": 93, "C": 47}
+    if iv_grade and iv_grade in iv_thresholds:
+        min_iv = iv_thresholds[iv_grade]
+        where.append(f"(COALESCE(up.iv_hp,0)+COALESCE(up.iv_atk,0)+COALESCE(up.iv_def,0)+COALESCE(up.iv_spa,0)+COALESCE(up.iv_spdef,0)+COALESCE(up.iv_spd,0)) >= ${idx}")
+        params.append(min_iv)
+        idx += 1
+
+    where_sql = " AND ".join(where)
+
     count_row = await pool.fetchrow(
-        """SELECT COUNT(*) AS cnt FROM market_listings
-           WHERE status = 'active'
-           AND created_at > NOW() - INTERVAL '7 days'"""
+        f"""SELECT COUNT(*) AS cnt FROM market_listings ml
+           JOIN pokemon_master pm ON ml.pokemon_id = pm.id
+           JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
+           WHERE {where_sql}""",
+        *params,
     )
     total = count_row["cnt"]
+
+    params.append(page_size)
+    params.append(page * page_size)
     rows = await pool.fetch(
-        """SELECT ml.*, u.display_name AS seller_name,
+        f"""SELECT ml.*, u.display_name AS seller_name,
                   pm.emoji, pm.rarity,
                   up.iv_hp, up.iv_atk, up.iv_def,
                   up.iv_spa, up.iv_spdef, up.iv_spd,
@@ -1352,11 +1386,10 @@ async def get_active_listings(page: int = 0, page_size: int = 5) -> tuple[list[d
            JOIN users u ON ml.seller_id = u.user_id
            JOIN pokemon_master pm ON ml.pokemon_id = pm.id
            JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
-           WHERE ml.status = 'active'
-           AND ml.created_at > NOW() - INTERVAL '7 days'
+           WHERE {where_sql}
            ORDER BY ml.created_at DESC
-           LIMIT $1 OFFSET $2""",
-        page_size, page * page_size,
+           LIMIT ${idx} OFFSET ${idx + 1}""",
+        *params,
     )
     return [dict(r) for r in rows], total
 
@@ -2222,7 +2255,7 @@ async def get_economy_health() -> dict:
 
 
 async def get_active_chat_rooms_top(limit: int = 5) -> list[dict]:
-    """오늘 스폰이 가장 많은 활성 채팅방 TOP N."""
+    """오늘 포획이 가장 많은 활성 채팅방 TOP N."""
     pool = await get_db()
     today = _cfg.get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
     rows = await pool.fetch(
@@ -2231,9 +2264,10 @@ async def get_active_chat_rooms_top(limit: int = 5) -> list[dict]:
                   COUNT(sl.caught_by_user_id) as today_catches
            FROM chat_rooms cr
            LEFT JOIN spawn_log sl ON cr.chat_id = sl.chat_id AND sl.spawned_at >= $1
-           WHERE cr.is_active = 1 AND cr.member_count >= 10 AND cr.chat_title IS NOT NULL
+           WHERE cr.is_active = 1 AND cr.chat_title IS NOT NULL
            GROUP BY cr.chat_id, cr.chat_title, cr.member_count
-           ORDER BY today_spawns DESC
+           HAVING COUNT(sl.caught_by_user_id) > 0
+           ORDER BY today_catches DESC
            LIMIT $2""",
         today, limit,
     )

@@ -419,8 +419,7 @@ async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
             f"{_bt} 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
             f"{icon_emoji('crown')} 우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {_se}이로치(전설) + 챔피언 칭호\n"
             f"{icon_emoji('champion')} 4강: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {_se}이로치(에픽)\n"
-            f"{icon_emoji('gotcha')} 참가: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개\n\n"
-            f"최초 우승자에겐 특별 칭호 {icon_emoji('champion_first')}초대 챔피언!"
+            f"{icon_emoji('gotcha')} 참가: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개"
         )
 
         sent = 0
@@ -748,31 +747,34 @@ async def _run_match(
                     first_pid, first_rarity, first_shiny = td.get("d_pokemon_id"), td.get("d_rarity", "common"), td.get("d_shiny", False)
                     second_pid, second_rarity, second_shiny = td.get("c_pokemon_id"), td.get("c_rarity", "common"), td.get("c_shiny", False)
 
-                # First attack — card image + caption
+                # First attack — card image only for skills
                 crit_label = " 크리티컬!" if first_crit else ""
                 skill_label = f" {first_eff}!" if first_eff else " 공격!"
                 bar = _hp_bar(first_target_hp, first_target_max)
                 caption1 = f"{td['turn_num']}턴 ─ {first_name}{skill_label}{crit_label}\n  → {first_target_name} {bar} {first_target_hp}/{first_target_max} (-{first_dmg})"
-                loop = asyncio.get_event_loop()
-                if first_pid:
+                if first_eff and first_pid:
+                    loop = asyncio.get_event_loop()
                     card_buf = await loop.run_in_executor(None, generate_card, first_pid, first_name, first_rarity, "", first_shiny)
                     await _safe_send_photo(context.bot, chat_id, photo=card_buf, caption=caption1, parse_mode="HTML")
+                    await asyncio.sleep(5)
                 else:
                     await _safe_send(context.bot, chat_id, text=caption1, parse_mode="HTML")
-                await asyncio.sleep(5)
+                    await asyncio.sleep(3)
 
-                # Counter attack — card image + caption
+                # Counter attack — card image only for skills
                 if second_dmg > 0:
                     crit2_label = " 크리티컬!" if second_crit else ""
                     skill2_label = f" {second_eff}!" if second_eff else " 반격!"
                     bar2 = _hp_bar(second_target_hp, second_target_max)
                     caption2 = f"{second_name}{skill2_label}{crit2_label}\n  → {second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})"
-                    if second_pid:
+                    if second_eff and second_pid:
+                        loop = asyncio.get_event_loop()
                         card_buf2 = await loop.run_in_executor(None, generate_card, second_pid, second_name, second_rarity, "", second_shiny)
                         await _safe_send_photo(context.bot, chat_id, photo=card_buf2, caption=caption2, parse_mode="HTML")
+                        await asyncio.sleep(5)
                     else:
                         await _safe_send(context.bot, chat_id, text=caption2, parse_mode="HTML")
-                    await asyncio.sleep(5)
+                        await asyncio.sleep(3)
 
             elif td["type"] == "ko":
                 m = _mark(td["side"])
