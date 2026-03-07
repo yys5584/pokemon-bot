@@ -239,10 +239,10 @@
         @media(min-width:769px){.stat-bar-wrap{display:inline-block;width:60px;height:8px;background:var(--border);border-radius:4px;overflow:hidden;vertical-align:middle;margin-left:4px}}
         .stat-bar-fill{display:block;height:100%;border-radius:4px}
 
-        /* Type tooltip */
-        .type-tip{position:relative;cursor:pointer;display:inline-block}
-        .type-tip .type-tip-content{display:none;position:absolute;left:50%;transform:translateX(-50%);top:100%;margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 10px;z-index:50;white-space:nowrap;font-size:11px;box-shadow:0 4px 12px rgba(0,0,0,.15);line-height:1.6}
-        .type-tip:hover .type-tip-content{display:block}
+        /* Type tooltip (AI advisor) */
+        .tc-type-tip{position:relative;cursor:pointer;display:inline-block}
+        .tc-type-tip .type-tip-content{display:none;position:absolute;left:50%;transform:translateX(-50%);top:100%;margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 10px;z-index:50;white-space:nowrap;font-size:11px;box-shadow:0 4px 12px rgba(0,0,0,.15);line-height:1.6}
+        .tc-type-tip:hover .type-tip-content{display:block}
 
         /* Team tooltip (CSS only) */
         .team-tip{position:relative;cursor:default}
@@ -1871,7 +1871,7 @@ function typeTip(type,chart,names){
     if(weak.length) tip+=`<span style="color:#e63946">공격 약함:</span> ${weak.join(', ')}<br>`;
     if(weakTo.length) tip+=`<span style="color:#e63946">약점:</span> ${weakTo.join(', ')}<br>`;
     if(resistTo.length) tip+=`<span style="color:#52b788">내성:</span> ${resistTo.join(', ')}`;
-    return`<span class="type-tip"><img class="tc-icon-sm" src="/static/types/${type}.png?v=2" alt="${type}"><span class="type-tip-content">${tip}</span></span>`;
+    return`<span class="tc-type-tip"><img class="tc-icon-sm" src="/static/types/${type}.png?v=2" alt="${type}"><span class="type-tip-content">${tip}</span></span>`;
 }
 
 // --- POKEMON TIER ---
