@@ -50,7 +50,7 @@ from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_d
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
     pokeball_reset_handler,
-    event_start_handler, event_list_handler, event_end_handler,
+    event_start_handler, event_list_handler, event_end_handler, event_dm_callback,
     stats_handler, channel_list_handler, grant_masterball_handler,
     arcade_handler, force_tournament_reg_handler, force_tournament_run_handler,
 )
@@ -510,6 +510,9 @@ def main():
     app.add_handler(CallbackQueryHandler(yacha_amount_callback, pattern=r"^ya_"))
     app.add_handler(CallbackQueryHandler(yacha_response_callback, pattern=r"^yacha_"))
     app.add_handler(CallbackQueryHandler(yacha_result_callback, pattern=r"^yres_"))
+
+    # Event DM broadcast callback
+    app.add_handler(CallbackQueryHandler(event_dm_callback, pattern=r"^evt_dm_"))
 
     # Activity tracker — runs for every group text message (handler group -1)
     app.add_handler(

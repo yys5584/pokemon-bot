@@ -3378,7 +3378,7 @@ async function boardOpenPost(id) {
         if (p.tag) html += `<span class="board-tag board-tag-${p.tag}">${_escHtml(p.tag)}</span>`;
         html += `<h3 style="margin:0;font-size:16px;font-weight:700">${_escHtml(p.title)}</h3></div>`;
         html += `<div style="font-size:11px;color:var(--muted);margin-bottom:16px">${_escHtml(p.display_name)} · ${p.time_ago} · 조회 ${p.view_count}</div>`;
-        html += `<div style="font-size:13px;line-height:1.8;white-space:pre-wrap;margin-bottom:16px">${_escHtml(p.content)}</div>`;
+        html += `<div style="font-size:13px;line-height:1.8;white-space:pre-wrap;margin-bottom:16px">${p.board_type==='notice'?p.content:_escHtml(p.content)}</div>`;
         if (p.image_filename) {
             html += `<div style="margin-bottom:16px"><img src="/uploads/board/${p.image_filename}" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open('/uploads/board/${p.image_filename}','_blank')"></div>`;
         }
