@@ -127,6 +127,8 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
             unlocked = stats.get("tournament_wins", 0) >= threshold
         elif check_type == "tutorial_complete":
             pass  # 튜토리얼 졸업 시 tutorial.py에서 직접 해금
+        elif check_type == "journey_graduate":
+            pass  # 뉴비 여정 졸업 시 journey_service.py에서 직접 해금
         elif check_type == "tournament_first":
             # Only unlockable if no one else has this title yet (world-first)
             if stats.get("tournament_wins", 0) >= threshold:

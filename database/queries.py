@@ -36,12 +36,12 @@ async def _retry(fn):
 # ============================================================
 
 async def ensure_user(user_id: int, display_name: str, username: str | None = None):
-    """Register or update a user. New users get welcome bonus (6 master balls + 500 BP + 10 AI tokens)."""
+    """Register or update a user. New users get welcome bonus (500 BP + 10 AI tokens). No master balls (earned via journey)."""
     async def _do():
         pool = await get_db()
         await pool.execute(
             """INSERT INTO users (user_id, username, display_name, master_balls, battle_points, llm_bonus_quota)
-               VALUES ($1, $2, $3, 6, 500, 10)
+               VALUES ($1, $2, $3, 0, 500, 10)
                ON CONFLICT(user_id) DO UPDATE SET
                    username = EXCLUDED.username,
                    display_name = EXCLUDED.display_name,
@@ -2237,6 +2237,39 @@ async def add_master_balls_bulk(user_ids: list[int]):
         """UPDATE users SET master_balls = master_balls + 1
            WHERE user_id = ANY($1::bigint[])""",
         user_ids,
+    )
+
+
+# ============================================================
+# Journey System
+# ============================================================
+
+async def add_battle_points(user_id: int, amount: int):
+    """Add battle points to a user."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET battle_points = battle_points + $1 WHERE user_id = $2",
+        amount, user_id,
+    )
+
+
+async def update_journey_step(user_id: int, step: int):
+    """Update journey step for a user."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET journey_step = $1 WHERE user_id = $2",
+        step, user_id,
+    )
+
+
+async def update_journey_tip_date(user_id: int, date_str: str):
+    """Update journey last tip date (YYYY-MM-DD)."""
+    from datetime import date as dt_date
+    pool = await get_db()
+    d = dt_date.fromisoformat(date_str)
+    await pool.execute(
+        "UPDATE users SET journey_last_tip_date = $1, journey_step = journey_step + 1 WHERE user_id = $2",
+        d, user_id,
     )
 
 

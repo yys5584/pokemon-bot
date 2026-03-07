@@ -439,6 +439,16 @@ PATCH_OPTOUT_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN patch_optout BOOLEAN NOT NULL DEFAULT FALSE",
 ]
 
+JOURNEY_MIGRATIONS = [
+    "ALTER TABLE users ADD COLUMN journey_step SMALLINT NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN journey_last_tip_date DATE DEFAULT NULL",
+]
+
+# 3진화 최종형 + 게을킹: legendary → epic 하향
+RARITY_FIX_MIGRATIONS = [
+    "UPDATE pokemon_master SET rarity = 'epic', catch_rate = 0.15 WHERE id IN (289, 373, 376) AND rarity = 'legendary'",
+]
+
 ULTRA_LEGENDARY_MIGRATIONS = [
     # CHECK 제약 업데이트 (ultra_legendary 추가)
     "ALTER TABLE pokemon_master DROP CONSTRAINT IF EXISTS pokemon_master_rarity_check",
@@ -566,6 +576,20 @@ async def create_tables():
 
     # Ultra-legendary rarity migration
     for mig in ULTRA_LEGENDARY_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+
+    # Journey system migrations
+    for mig in JOURNEY_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+
+    # Rarity fix: 3-stage evolution final forms → epic
+    for mig in RARITY_FIX_MIGRATIONS:
         try:
             await pool.execute(mig)
         except Exception:

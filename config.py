@@ -212,6 +212,8 @@ UNLOCKABLE_TITLES = {
     "partner_set":     ("나의 파트너",   "pikachu",    "파트너 포켓몬 지정", "partner_set", 1),
     # 튜토리얼
     "tutorial_grad":   ("내 꿈은 피카츄!", "pikachu",  "튜토리얼 완료",     "tutorial_complete", 1),
+    # 뉴비 여정 졸업
+    "newbie_graduate": ("신예 트레이너",   "star2",    "뉴비 여정 졸업",    "journey_graduate", 1),
 }
 
 # --- Trade Evolution Pokemon IDs ---

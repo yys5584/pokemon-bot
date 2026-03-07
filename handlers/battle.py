@@ -412,9 +412,11 @@ async def _build_slot_pokemon_list(user_id: int, slot: int, draft: dict,
     for p in page_items:
         iv_tag = _iv_grade_tag(p)
         shiny = "✨" if p.get("is_shiny") else ""
+        rl = config.RARITY_LABEL.get(p.get("rarity", ""), "")
+        rl_tag = f"({rl})" if rl else ""
         in_slot = inst_to_slot.get(p["id"])
         slot_mark = f"[⚔{in_slot}]" if in_slot else ""
-        label = f"{p['name_ko']}{shiny}{iv_tag} {slot_mark}"
+        label = f"{p['name_ko']}{shiny}{rl_tag}{iv_tag} {slot_mark}"
         # callback: tpick_{uid}_{slot}_{instance_id}_{page}_{tn}
         row.append(InlineKeyboardButton(
             label, callback_data=f"tpick_{user_id}_{slot}_{p['id']}_{page}_{team_num}",
@@ -513,12 +515,13 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tb = type_badge(p["pokemon_id"], p["pokemon_type"])
         partner_mark = " 🤝" if p["pokemon_instance_id"] == partner_instance else ""
         rb = rarity_badge(p["rarity"])
+        rl = config.RARITY_LABEL.get(p["rarity"], "")
         iv_sum = iv_total(p.get("iv_hp"), p.get("iv_atk"), p.get("iv_def"),
                           p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
         iv_grade, _ = config.get_iv_grade(iv_sum)
         iv_tag = f"[{iv_grade}: {iv_sum}] " if iv_sum > 0 else ""
         lines.append(
-            f"{slot_emojis[i]} {rb}{tb} {p['name_ko']}{partner_mark}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
+            f"{slot_emojis[i]} {rb}{tb} {p['name_ko']} ({rl}){partner_mark}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
             f"    {iv_tag}{format_stats_line(stats, base)}"
         )
     iv_diff = total_power - total_base_power

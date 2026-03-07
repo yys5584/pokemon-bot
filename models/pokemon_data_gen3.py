@@ -54,7 +54,7 @@ ALL_POKEMON_GEN3 = [
 
     (287, "게을로", "Slakoth", "⭐", "common", 0.80, None, 288, "friendship"),  # Slakoth
     (288, "발바로", "Vigoroth", "⭐", "rare", 0.50, 287, 289, "friendship"),  # Vigoroth
-    (289, "게을킹", "Slaking", "⭐", "legendary", 0.05, 288, None, "none"),  # Slaking
+    (289, "게을킹", "Slaking", "⭐", "epic", 0.15, 288, None, "none"),  # Slaking (에픽 하향)
 
     (290, "토중몬", "Nincada", "🐛", "common", 0.80, None, 291, "friendship"),  # Nincada
     (291, "아이스크", "Ninjask", "🐛", "rare", 0.50, 290, None, "none"),  # Ninjask
@@ -189,11 +189,11 @@ ALL_POKEMON_GEN3 = [
 
     (371, "아공이", "Bagon", "🐉", "common", 0.80, None, 372, "friendship"),  # Bagon
     (372, "쉘곤", "Shelgon", "🐉", "rare", 0.50, 371, 373, "friendship"),  # Shelgon
-    (373, "보만다", "Salamence", "🐉", "legendary", 0.05, 372, None, "none"),  # Salamence
+    (373, "보만다", "Salamence", "🐉", "epic", 0.15, 372, None, "none"),  # Salamence (3진화 → 에픽)
 
     (374, "메탕", "Beldum", "⚙️", "common", 0.80, None, 375, "friendship"),  # Beldum
     (375, "메탕구", "Metang", "⚙️", "rare", 0.50, 374, 376, "friendship"),  # Metang
-    (376, "메타그로스", "Metagross", "⚙️", "legendary", 0.05, 375, None, "none"),  # Metagross
+    (376, "메타그로스", "Metagross", "⚙️", "epic", 0.15, 375, None, "none"),  # Metagross (3진화 → 에픽)
 
     (377, "레지락", "Regirock", "🗿", "legendary", 0.05, None, None, "none"),  # Regirock
 

@@ -501,11 +501,20 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             await queries.add_master_ball(winner_id)
             msg += f"\n\n{ball_emoji('masterball')} 마스터볼을 획득했다!"
 
+        # Journey system check
+        from services.journey_service import check_journey
+        journey_msg = await check_journey(winner_id)
+        if journey_msg:
+            msg += f"\n\n{journey_msg}"
+
         from utils.helpers import close_button
         await context.bot.send_message(
             chat_id=chat_id, text=msg, parse_mode="HTML",
             reply_markup=close_button(),
         )
+
+        # Mission: catch
+        asyncio.create_task(_notify_mission(context, winner_id, "catch"))
 
         # DM notification
         try:
@@ -967,6 +976,12 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await queries.add_master_ball(winner_id)
             msg += f"\n\n{ball_emoji('masterball')} 마스터볼을 획득했다!"
 
+        # Journey system check
+        from services.journey_service import check_journey
+        journey_msg = await check_journey(winner_id)
+        if journey_msg:
+            msg += f"\n\n{journey_msg}"
+
         catch_msg = await context.bot.send_message(
             chat_id=chat_id, text=msg, parse_mode="HTML",
             reply_markup=close_button(),
@@ -1241,6 +1256,12 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             shiny_label = f"{shiny_emoji()}이로치 " if is_shiny else ""
             msg = f"🔄 서버 복구 — {be} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
 
+            # Journey system check
+            from services.journey_service import check_journey
+            journey_msg = await check_journey(winner_id)
+            if journey_msg:
+                msg += f"\n\n{journey_msg}"
+
             await bot.send_message(
                 chat_id=chat_id, text=msg, parse_mode="HTML",
             )
@@ -1248,6 +1269,16 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                 chat_id, pokemon_id, pokemon_name, sess["emoji"],
                 rarity, winner_id, winner_name, participants,
             )
+
+            # Mission: catch (startup resolve - no context, use bot directly)
+            try:
+                from services.mission_service import check_mission_progress
+                mission_msg = await check_mission_progress(winner_id, "catch")
+                if mission_msg:
+                    await bot.send_message(chat_id=winner_id, text=mission_msg, parse_mode="HTML")
+            except Exception:
+                pass
+
             logger.info(f"[startup resolve] {winner_name} caught {pokemon_name} in {chat_id}")
 
         except Exception as e:

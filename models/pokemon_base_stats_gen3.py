@@ -41,7 +41,7 @@ POKEMON_BASE_STATS_GEN3 = {
     286: (60, 130, 80, 60, 60, 70, ["grass", "fighting"]),              # Breloom (BST 460)
     287: (60, 60, 60, 35, 35, 30, ["normal"]),                          # Slakoth (BST 280)
     288: (80, 80, 80, 55, 55, 90, ["normal"]),                          # Vigoroth (BST 440)
-    289: (150, 160, 100, 95, 65, 100, ["normal"]),                      # Slaking (BST 670)
+    289: (120, 130, 80, 75, 55, 80, ["normal"]),                        # Slaking (BST 540, 에픽 하향)
     290: (31, 45, 90, 30, 30, 40, ["bug", "ground"]),                   # Nincada (BST 266)
     291: (61, 90, 45, 50, 50, 160, ["bug", "flying"]),                  # Ninjask (BST 456)
     292: (1, 90, 45, 30, 30, 40, ["bug", "ghost"]),                     # Shedinja (BST 236)
