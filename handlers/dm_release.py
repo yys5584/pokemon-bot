@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 RARITY_ORDER = ["common", "rare", "epic", "legendary", "ultra_legendary"]
 IV_GRADES = ["D", "C", "B", "A", "S"]
+GEN_RANGES = {"gen1": (1, 151), "gen2": (152, 251), "gen3": (252, 386)}
+GEN_LABELS = {"gen1": "1세대", "gen2": "2세대", "gen3": "3세대"}
 
 
 def _get_filter(context) -> dict:
@@ -20,6 +22,7 @@ def _get_filter(context) -> dict:
         context.user_data[key] = {
             "rarities": set(),     # selected rarities (empty = none selected)
             "iv_grades": set(),    # selected IV grades
+            "gens": set(),         # selected generations (empty = all)
             "keep_one": True,      # keep 1 per species for pokedex
         }
     return context.user_data[key]
@@ -37,12 +40,23 @@ def _build_panel(user_id: int, filt: dict) -> tuple[str, InlineKeyboardMarkup]:
     # Show current selection summary
     sel_r = [config.RARITY_LABEL.get(r, r) for r in RARITY_ORDER if r in filt["rarities"]]
     sel_iv = sorted(filt["iv_grades"], key=lambda g: IV_GRADES.index(g))
+    sel_gen = [GEN_LABELS[g] for g in ("gen1", "gen2", "gen3") if g in filt["gens"]]
     if sel_r:
         text += f"\n선택된 희귀도: {', '.join(sel_r)}"
     if sel_iv:
         text += f"\n선택된 IV등급: {', '.join(sel_iv)}"
+    if sel_gen:
+        text += f"\n선택된 세대: {', '.join(sel_gen)}"
     if not sel_r and not sel_iv:
-        text += "\n<i>최소 1개의 필터를 선택하세요</i>"
+        text += "\n<i>최소 희귀도 또는 IV등급 1개를 선택하세요</i>"
+
+    # Generation buttons
+    gen_row = []
+    for g in ("gen1", "gen2", "gen3"):
+        label = GEN_LABELS[g]
+        if g in filt["gens"]:
+            label = f"✓ {label}"
+        gen_row.append(InlineKeyboardButton(label, callback_data=f"rel_gen_{user_id}_{g}"))
 
     # Rarity buttons
     rarity_row = []
@@ -71,6 +85,7 @@ def _build_panel(user_id: int, filt: dict) -> tuple[str, InlineKeyboardMarkup]:
     ]
 
     kb = InlineKeyboardMarkup([
+        gen_row,           # 1세대, 2세대, 3세대
         rarity_row[:3],    # common, rare, epic
         rarity_row[3:],    # legendary, ultra_legendary
         iv_row,            # D, C, B, A, S
@@ -99,6 +114,13 @@ async def _get_candidates(user_id: int, filt: dict) -> list[dict]:
         # Skip team members
         if p.get("slot") is not None:
             continue
+
+        # Apply generation filter (if any selected)
+        if filt["gens"]:
+            pid = p["pokemon_id"]
+            gen_match = any(lo <= pid <= hi for g, (lo, hi) in GEN_RANGES.items() if g in filt["gens"])
+            if not gen_match:
+                continue
 
         # Apply rarity filter (if any selected)
         if filt["rarities"] and p.get("rarity") not in filt["rarities"]:
@@ -156,6 +178,7 @@ async def release_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["release_filter"] = {
         "rarities": set(),
         "iv_grades": set(),
+        "gens": set(),
         "keep_one": True,
     }
     filt = _get_filter(context)
@@ -188,7 +211,22 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     filt = _get_filter(context)
 
-    if action == "r":
+    if action == "gen":
+        # Toggle generation
+        gen = parts[3] if len(parts) > 3 else ""
+        if gen in GEN_RANGES:
+            if gen in filt["gens"]:
+                filt["gens"].discard(gen)
+            else:
+                filt["gens"].add(gen)
+        await query.answer()
+        text, kb = _build_panel(user_id, filt)
+        try:
+            await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+        except Exception:
+            pass
+
+    elif action == "r":
         # Toggle rarity
         rarity = parts[3] if len(parts) > 3 else ""
         if rarity in RARITY_ORDER:
@@ -244,6 +282,8 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Build filter summary
         parts_text = []
+        if filt["gens"]:
+            parts_text.append(", ".join(GEN_LABELS[g] for g in ("gen1", "gen2", "gen3") if g in filt["gens"]))
         if filt["rarities"]:
             parts_text.append(", ".join(config.RARITY_LABEL.get(r, r) for r in RARITY_ORDER if r in filt["rarities"]))
         if filt["iv_grades"]:

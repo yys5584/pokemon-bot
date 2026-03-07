@@ -1687,9 +1687,18 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
 
         await query.answer()
 
-        # Remove all buttons, keep battle details text visible
+        # Remove only the teabag button, keep detail/skip
         try:
-            await query.edit_message_reply_markup(reply_markup=None)
+            old_kb = query.message.reply_markup
+            if old_kb:
+                new_rows = []
+                for row in old_kb.inline_keyboard:
+                    new_btns = [b for b in row if not (b.callback_data and b.callback_data.startswith("btbag"))]
+                    if new_btns:
+                        new_rows.append(new_btns)
+                await query.edit_message_reply_markup(
+                    reply_markup=InlineKeyboardMarkup(new_rows) if new_rows else None
+                )
         except Exception:
             pass
 
@@ -2345,9 +2354,18 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
         await query.answer()
 
-        # Remove all buttons, keep battle details text visible
+        # Remove only the teabag button, keep detail/skip
         try:
-            await query.edit_message_reply_markup(reply_markup=None)
+            old_kb = query.message.reply_markup
+            if old_kb:
+                new_rows = []
+                for row in old_kb.inline_keyboard:
+                    new_btns = [b for b in row if not (b.callback_data and b.callback_data.startswith("btbag"))]
+                    if new_btns:
+                        new_rows.append(new_btns)
+                await query.edit_message_reply_markup(
+                    reply_markup=InlineKeyboardMarkup(new_rows) if new_rows else None
+                )
         except Exception:
             pass
 
