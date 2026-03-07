@@ -113,7 +113,8 @@
         .poke-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px 8px;margin-top:4px;font-size:11px}
         .poke-stat{display:flex;justify-content:space-between;align-items:center}
         .poke-stat-name{color:#6B5940;font-size:10px;min-width:24px;font-weight:500}
-        .poke-stat-val{font-weight:700;font-size:11px;color:#3A2A18;min-width:22px;text-align:right}
+        .poke-stat-right{min-width:56px;text-align:right;white-space:nowrap;flex-shrink:0}
+        .poke-stat-val{font-weight:700;font-size:11px;color:#3A2A18}
         .poke-stat-iv{color:#1B5E20;font-size:10px;font-weight:600;margin-left:1px}
         .poke-stat-bar{flex:1;height:4px;background:#EEEEEE;border-radius:2px;margin:0 4px;min-width:20px}
         .poke-stat-fill{height:100%;border-radius:2px}
@@ -2196,7 +2197,7 @@ function renderPokemonCard(p){
         statsHtml+=`<div class="poke-stat">
             <span class="poke-stat-name">${STAT_NAMES[k]}</span>
             <div class="poke-stat-bar"><div class="poke-stat-fill" style="width:${pct}%;background:${STAT_COLORS[k]}"></div></div>
-            <span class="poke-stat-val">${rv}</span>${diffStr}
+            <span class="poke-stat-right"><span class="poke-stat-val">${rv}</span>${diffStr}</span>
         </div>`;
     }
 
