@@ -153,6 +153,17 @@ async def post_init(application: Application):
         asyncio.create_task(start_registration(application))
         logger.info("Auto-started tournament registration (flag file)")
 
+    # Recover tournament registration if restarted during reg window (21:00~22:00 KST)
+    from zoneinfo import ZoneInfo
+    now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
+    reg_hour = config.TOURNAMENT_REG_HOUR      # 21
+    start_hour = config.TOURNAMENT_START_HOUR   # 22
+    if now_kst.hour == reg_hour and not os.path.exists("/tmp/auto_tournament_reg"):
+        from services.tournament_service import start_registration, _tournament_state
+        if not _tournament_state["registering"] and not _tournament_state["running"]:
+            logger.info(f"Recovering tournament registration (restarted at {now_kst.strftime('%H:%M')} KST)")
+            asyncio.create_task(start_registration(application))
+
     # Notify recently active users about restart
     # asyncio.create_task(_notify_restart(application.bot))  # DM 알림 비활성화
 
