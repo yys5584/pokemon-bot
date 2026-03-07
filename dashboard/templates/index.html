@@ -2335,8 +2335,10 @@ function renderPokemonCard(p){
         fusionClick=` onclick="fusionSelectCard(_myPokemon.find(x=>x.id===${p.id}))" style="cursor:pointer"`;
     }
 
+    const teamBadge=p.team_num?`<span style="position:absolute;top:4px;left:4px;background:${p.team_num===1?'#1565C0':'#6A1B9A'};color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;z-index:2;letter-spacing:.5px">팀${p.team_num}</span>`:"";
+
     return`<div class="poke-card${rarCls?' '+rarCls:''}${fusionCls}"${fusionClick}>
-        ${fusionBadge}
+        ${fusionBadge}${teamBadge}
         <div class="poke-header">
             <div>
                 <div class="poke-name">${t1}${t2} ${p.name_ko} ${shinyMark}</div>

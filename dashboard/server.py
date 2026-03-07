@@ -468,6 +468,8 @@ async def _build_pokemon_data(rows) -> list[dict]:
             "synergy_score": synergy_score,
             "synergy_label": synergy_label,
             "synergy_emoji": synergy_emoji,
+            "team_num": r.get("team_num"),
+            "team_slot": r.get("team_slot"),
         })
 
     return result
@@ -484,9 +486,11 @@ async def api_my_pokemon(request):
         SELECT up.id, up.pokemon_id, up.friendship, up.is_shiny, up.is_favorite,
                up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd,
                pm.name_ko, pm.emoji, pm.rarity, pm.pokemon_type, pm.stat_type,
-               pm.evolves_to
+               pm.evolves_to,
+               bt.team_number AS team_num, bt.slot AS team_slot
         FROM user_pokemon up
         JOIN pokemon_master pm ON up.pokemon_id = pm.id
+        LEFT JOIN battle_teams bt ON bt.pokemon_instance_id = up.id
         WHERE up.user_id = $1 AND up.is_active = 1
         ORDER BY up.id DESC
     """, sess["user_id"])

@@ -577,7 +577,8 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                         iv_tag = f" [{grade}]"
                 rb = rarity_badge(p.get("rarity", ""))
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-                lines.append(f"{item_num}. {rb}{tb}{shiny}{fav} {p['name_ko']}{iv_tag}  {hearts}{evo_mark}")
+                team_tag = f" 🎯{p['team_num']}" if p.get("team_num") else ""
+                lines.append(f"{item_num}. {rb}{tb}{shiny}{fav} {p['name_ko']}{iv_tag}  {hearts}{evo_mark}{team_tag}")
             else:  # group
                 _, pid, indices, first, count = item
                 rb = rarity_badge(first.get("rarity", ""))
