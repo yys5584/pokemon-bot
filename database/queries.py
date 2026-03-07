@@ -1703,11 +1703,14 @@ async def get_total_stats() -> dict:
             (SELECT COUNT(*) FROM spawn_log) AS total_spawns,
             (SELECT COUNT(*) FROM spawn_log WHERE caught_by_user_id IS NOT NULL) AS total_catches,
             (SELECT COUNT(*) FROM trades WHERE status = 'accepted') AS total_trades,
-            (SELECT COUNT(*) FROM user_pokemon WHERE is_active = 1 AND is_shiny = 1) AS total_shiny
+            (SELECT COUNT(*) FROM user_pokemon WHERE is_active = 1 AND is_shiny = 1) AS total_shiny,
+            (SELECT COUNT(*) FROM market_listings WHERE status = 'sold') AS market_trades,
+            (SELECT COALESCE(SUM(price_bp), 0) FROM market_listings WHERE status = 'sold') AS market_volume_bp
     """)
     return dict(row) if row else {
         "total_users": 0, "total_chats": 0, "total_spawns": 0,
         "total_catches": 0, "total_trades": 0, "total_shiny": 0,
+        "market_trades": 0, "market_volume_bp": 0,
     }
 
 

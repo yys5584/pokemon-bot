@@ -235,7 +235,7 @@ def start_temp_arcade(app, chat_id: int, duration_seconds: int, interval: int | 
         execute_spawn,
         interval=spawn_interval,
         first=10,
-        data={"chat_id": chat_id, "force": True},
+        data={"chat_id": chat_id, "force": True, "interval": spawn_interval},
         name=job_name,
     )
 
@@ -684,11 +684,14 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Weather indicator
         weather_tag = get_weather_display()
 
-        # Force spawn = 30s, arcade = shorter window, normal = full window
-        if force:
-            window = 30
+        # Catch window: arcade uses interval-based, force spawn = 30s, normal = 60s
+        spawn_interval = context.job.data.get("interval")
+        if arcade and spawn_interval:
+            window = max(spawn_interval - 10, config.ARCADE_SPAWN_WINDOW)
         elif arcade:
             window = config.ARCADE_SPAWN_WINDOW
+        elif force:
+            window = 30
         else:
             window = config.SPAWN_WINDOW_SECONDS
 
