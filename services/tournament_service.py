@@ -306,6 +306,39 @@ _tournament_state = {
 }
 
 
+async def _clear_registrations_db():
+    """Clear tournament registrations from DB."""
+    try:
+        pool = await get_db()
+        await pool.execute("DELETE FROM tournament_registrations")
+    except Exception as e:
+        logger.warning(f"Failed to clear tournament_registrations: {e}")
+
+
+async def _save_registration_db(user_id: int, display_name: str):
+    """Save a single registration to DB."""
+    try:
+        pool = await get_db()
+        await pool.execute(
+            "INSERT INTO tournament_registrations (user_id, display_name) "
+            "VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING",
+            user_id, display_name,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to save registration to DB: {e}")
+
+
+async def _load_registrations_db() -> dict:
+    """Load registrations from DB. Returns {user_id: {'name': str, 'team': None}}."""
+    try:
+        pool = await get_db()
+        rows = await pool.fetch("SELECT user_id, display_name FROM tournament_registrations")
+        return {r["user_id"]: {"name": r["display_name"], "team": None} for r in rows}
+    except Exception as e:
+        logger.warning(f"Failed to load registrations from DB: {e}")
+        return {}
+
+
 def _reset_state():
     _tournament_state["registering"] = False
     _tournament_state["running"] = False
@@ -332,6 +365,7 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
         return
 
     _reset_state()
+    await _clear_registrations_db()
     chat_id = next(iter(config.ARCADE_CHAT_IDS))
     _tournament_state["registering"] = True
     _tournament_state["chat_id"] = chat_id
@@ -425,6 +459,7 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
         "name": display_name,
         "team": None,  # will be snapshotted at 21:50
     }
+    await _save_registration_db(user_id, display_name)
 
     count = len(_tournament_state["participants"])
     return True, (
@@ -894,6 +929,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
             ),
         )
         _reset_state()
+        await _clear_registrations_db()
         await _resume_spawns(context, chat_id)
         return
 
@@ -1107,6 +1143,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
 
     # Cleanup
     _reset_state()
+    await _clear_registrations_db()
     await _resume_spawns(context, chat_id)
 
 

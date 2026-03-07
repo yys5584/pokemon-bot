@@ -157,12 +157,22 @@ async def post_init(application: Application):
     from zoneinfo import ZoneInfo
     now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
     reg_hour = config.TOURNAMENT_REG_HOUR      # 21
-    start_hour = config.TOURNAMENT_START_HOUR   # 22
     if now_kst.hour == reg_hour and not os.path.exists("/tmp/auto_tournament_reg"):
-        from services.tournament_service import start_registration, _tournament_state
+        from services.tournament_service import (
+            _tournament_state, _load_registrations_db,
+        )
         if not _tournament_state["registering"] and not _tournament_state["running"]:
-            logger.info(f"Recovering tournament registration (restarted at {now_kst.strftime('%H:%M')} KST)")
-            asyncio.create_task(start_registration(application))
+            # Restore state without re-broadcasting
+            chat_id = next(iter(config.ARCADE_CHAT_IDS))
+            _tournament_state["registering"] = True
+            _tournament_state["chat_id"] = chat_id
+            # Load previously registered participants from DB
+            saved = await _load_registrations_db()
+            _tournament_state["participants"] = saved
+            logger.info(
+                f"Recovered tournament registration (restarted at {now_kst.strftime('%H:%M')} KST, "
+                f"{len(saved)} participants restored)"
+            )
 
     # Notify recently active users about restart
     # asyncio.create_task(_notify_restart(application.bot))  # DM 알림 비활성화

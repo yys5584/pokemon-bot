@@ -449,6 +449,14 @@ RARITY_FIX_MIGRATIONS = [
     "UPDATE pokemon_master SET rarity = 'epic', catch_rate = 0.15 WHERE id IN (289, 373, 376) AND rarity = 'legendary'",
 ]
 
+TOURNAMENT_REG_TABLE = """
+CREATE TABLE IF NOT EXISTS tournament_registrations (
+    user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+    display_name TEXT NOT NULL,
+    registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+"""
+
 ULTRA_LEGENDARY_MIGRATIONS = [
     # CHECK 제약 업데이트 (ultra_legendary 추가)
     "ALTER TABLE pokemon_master DROP CONSTRAINT IF EXISTS pokemon_master_rarity_check",
@@ -594,6 +602,12 @@ async def create_tables():
             await pool.execute(mig)
         except Exception:
             pass
+
+    # Tournament registrations table
+    try:
+        await pool.execute(TOURNAMENT_REG_TABLE)
+    except Exception:
+        pass
 
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
