@@ -2179,7 +2179,8 @@ function filterAndSortPokemon(){
 }
 
 function renderPokemonCard(p){
-    const stars="★".repeat(p.friendship)+"☆".repeat(Math.max(0,(p.is_shiny?7:5)-p.friendship));
+    const starsFilled="★".repeat(p.friendship), starsEmpty="☆".repeat(Math.max(0,(p.is_shiny?7:5)-p.friendship));
+    const stars=p.is_shiny?`<span style="color:#E91E63">${starsFilled}</span><span style="color:#F8BBD0">${starsEmpty}</span>`:starsFilled+starsEmpty;
     const ivCls="iv-"+p.iv_grade.toLowerCase();
     const shinyMark=p.is_shiny?'<span style="color:var(--gold);font-size:11px">✨</span>':"";
     const t1=`<span class="type-hover"><img class="poke-type-icon" src="/static/types/${p.pokemon_type}.png?v=2" alt="${p.pokemon_type}"><span class="type-tip">${typeTooltipHtml(p.pokemon_type)}</span></span>`;
