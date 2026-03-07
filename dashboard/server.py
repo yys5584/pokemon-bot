@@ -1939,6 +1939,35 @@ async def api_admin_grant_credit(request):
     return web.json_response({"ok": True, "new_credits": new_quota, "dm_sent": dm_ok})
 
 
+async def api_admin_grant_bp(request):
+    """Admin: grant BP + send DM."""
+    sess = await _admin_check(request)
+    if not sess:
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    try:
+        target = int(body.get("user_id", 0))
+        amount = int(body.get("amount", 0))
+    except (ValueError, TypeError):
+        return web.json_response({"error": "Invalid parameters"}, status=400)
+    if target <= 0 or amount <= 0 or amount > 100000:
+        return web.json_response({"error": "user_id must be positive, amount 1-100000"}, status=400)
+    pool = await queries.get_db()
+    new_bp = await pool.fetchval(
+        "UPDATE users SET battle_points = battle_points + $2 "
+        "WHERE user_id = $1 RETURNING battle_points",
+        target, amount,
+    )
+    if new_bp is None:
+        return web.json_response({"error": "User not found"}, status=404)
+    dm_ok = await _admin_send_dm(target, f"⚔️ 관리자가 BP {amount}를 지급했습니다! (잔여: {new_bp})")
+    logger.info(f"ADMIN_GRANT_BP: admin={sess['user_id']} target={target} amount={amount} new={new_bp} dm={dm_ok}")
+    return web.json_response({"ok": True, "new_bp": new_bp, "dm_sent": dm_ok})
+
+
 async def api_admin_grant_masterball(request):
     """Admin: grant master balls + send DM."""
     sess = await _admin_check(request)
@@ -3227,6 +3256,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/admin/users", api_admin_users)
     app.router.add_get("/api/admin/orders", api_admin_orders)
     app.router.add_post("/api/admin/grant-credit", api_admin_grant_credit)
+    app.router.add_post("/api/admin/grant-bp", api_admin_grant_bp)
     app.router.add_post("/api/admin/grant-masterball", api_admin_grant_masterball)
     app.router.add_post("/api/admin/fulfill-order", api_admin_fulfill_order)
     app.router.add_post("/api/admin/send-dm", api_admin_send_dm)

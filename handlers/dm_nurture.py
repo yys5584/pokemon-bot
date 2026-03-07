@@ -123,13 +123,17 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if buff and buff.get("extra_feed"):
             feed_limit += buff["extra_feed"]
 
+    max_f = config.get_max_friendship(pokemon)
+
     if pokemon["fed_today"] >= feed_limit:
-        await update.message.reply_text(
-            f"오늘은 이미 {pokemon['name_ko']}에게 밥을 {feed_limit}번 줬습니다!"
-        )
+        msg = f"오늘은 이미 {pokemon['name_ko']}에게 밥을 {feed_limit}번 줬습니다!"
+        if pokemon["friendship"] < max_f:
+            msg += f"\n\n📊 현재 친밀도: {pokemon['friendship']}/{max_f}"
+            msg += f"\n⏰ 내일 다시 밥/놀기로 친밀도를 올릴 수 있습니다."
+            msg += f"\n💡 하루 최대: 밥 {feed_limit}회 + 놀기 {config.PLAY_PER_DAY}회"
+        await update.message.reply_text(msg)
         return
 
-    max_f = config.get_max_friendship(pokemon)
     if pokemon["friendship"] >= max_f:
         await update.message.reply_text(
             f"{pokemon['name_ko']}의 친밀도가 이미 MAX입니다!\n"
@@ -183,13 +187,23 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if pokemon is None:
         return
 
+    max_f = config.get_max_friendship(pokemon)
+
     if pokemon["played_today"] >= config.PLAY_PER_DAY:
-        await update.message.reply_text(
-            f"오늘은 이미 {pokemon['name_ko']}와(과) {config.PLAY_PER_DAY}번 놀았습니다!"
-        )
+        msg = f"오늘은 이미 {pokemon['name_ko']}와(과) {config.PLAY_PER_DAY}번 놀았습니다!"
+        if pokemon["friendship"] < max_f:
+            feed_limit = config.FEED_PER_DAY
+            user_data = await queries.get_user(user_id)
+            if user_data and user_data.get("title"):
+                buff = config.get_title_buff_by_name(user_data["title"])
+                if buff and buff.get("extra_feed"):
+                    feed_limit += buff["extra_feed"]
+            msg += f"\n\n📊 현재 친밀도: {pokemon['friendship']}/{max_f}"
+            msg += f"\n⏰ 내일 다시 밥/놀기로 친밀도를 올릴 수 있습니다."
+            msg += f"\n💡 하루 최대: 밥 {feed_limit}회 + 놀기 {config.PLAY_PER_DAY}회"
+        await update.message.reply_text(msg)
         return
 
-    max_f = config.get_max_friendship(pokemon)
     if pokemon["friendship"] >= max_f:
         await update.message.reply_text(
             f"{pokemon['name_ko']}의 친밀도가 이미 MAX입니다!\n"
@@ -287,13 +301,17 @@ async def _do_feed(query, user_id, pokemon):
         if buff and buff.get("extra_feed"):
             feed_limit += buff["extra_feed"]
 
+    max_f = config.get_max_friendship(pokemon)
+
     if pokemon["fed_today"] >= feed_limit:
-        await query.edit_message_text(
-            f"오늘은 이미 {pokemon['name_ko']}에게 밥을 {feed_limit}번 줬습니다!"
-        )
+        msg = f"오늘은 이미 {pokemon['name_ko']}에게 밥을 {feed_limit}번 줬습니다!"
+        if pokemon["friendship"] < max_f:
+            msg += f"\n\n📊 현재 친밀도: {pokemon['friendship']}/{max_f}"
+            msg += f"\n⏰ 내일 다시 밥/놀기로 친밀도를 올릴 수 있습니다."
+            msg += f"\n💡 하루 최대: 밥 {feed_limit}회 + 놀기 {config.PLAY_PER_DAY}회"
+        await query.edit_message_text(msg)
         return
 
-    max_f = config.get_max_friendship(pokemon)
     if pokemon["friendship"] >= max_f:
         await query.edit_message_text(
             f"{pokemon['name_ko']}의 친밀도가 이미 MAX입니다!\n"
@@ -340,13 +358,23 @@ async def _do_feed(query, user_id, pokemon):
 
 async def _do_play(query, user_id, pokemon):
     """Execute play logic from callback."""
+    max_f = config.get_max_friendship(pokemon)
+
     if pokemon["played_today"] >= config.PLAY_PER_DAY:
-        await query.edit_message_text(
-            f"오늘은 이미 {pokemon['name_ko']}와(과) {config.PLAY_PER_DAY}번 놀았습니다!"
-        )
+        msg = f"오늘은 이미 {pokemon['name_ko']}와(과) {config.PLAY_PER_DAY}번 놀았습니다!"
+        if pokemon["friendship"] < max_f:
+            feed_limit = config.FEED_PER_DAY
+            user_data = await queries.get_user(user_id)
+            if user_data and user_data.get("title"):
+                buff = config.get_title_buff_by_name(user_data["title"])
+                if buff and buff.get("extra_feed"):
+                    feed_limit += buff["extra_feed"]
+            msg += f"\n\n📊 현재 친밀도: {pokemon['friendship']}/{max_f}"
+            msg += f"\n⏰ 내일 다시 밥/놀기로 친밀도를 올릴 수 있습니다."
+            msg += f"\n💡 하루 최대: 밥 {feed_limit}회 + 놀기 {config.PLAY_PER_DAY}회"
+        await query.edit_message_text(msg)
         return
 
-    max_f = config.get_max_friendship(pokemon)
     if pokemon["friendship"] >= max_f:
         await query.edit_message_text(
             f"{pokemon['name_ko']}의 친밀도가 이미 MAX입니다!\n"

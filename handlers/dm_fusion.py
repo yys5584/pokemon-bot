@@ -5,12 +5,21 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from services.fusion_service import get_fusable_species, get_fusable_copies, execute_fusion
+from utils.helpers import rarity_badge
 import config
 
 logger = logging.getLogger(__name__)
 
 SPECIES_PAGE_SIZE = 8
-COPIES_PAGE_SIZE = 6
+
+RARITY_FILTERS = [
+    ("all", "전체"),
+    ("common", "일반"),
+    ("rare", "희귀"),
+    ("epic", "에픽"),
+    ("legendary", "전설"),
+    ("ultra_legendary", "초전설"),
+]
 
 
 def _get_state(context) -> dict:
@@ -21,31 +30,59 @@ def _get_state(context) -> dict:
             "pokemon_id": None,
             "sel_a": None,
             "sel_b": None,
+            "rarity_filter": "all",
         }
-    return context.user_data[key]
+    # Migration for old state without rarity_filter
+    state = context.user_data[key]
+    if "rarity_filter" not in state:
+        state["rarity_filter"] = "all"
+    return state
 
 
 def _iv_total(p: dict) -> int:
     return sum(p.get(f"iv_{s}", 0) or 0 for s in ("hp", "atk", "def", "spa", "spdef", "spd"))
 
 
-def _build_species_panel(user_id: int, species: list[dict], page: int) -> tuple[str, InlineKeyboardMarkup]:
-    """Build species selection panel with pagination."""
-    total = len(species)
+def _filter_species(species: list[dict], rarity_filter: str) -> list[dict]:
+    if rarity_filter == "all":
+        return species
+    return [s for s in species if s["rarity"] == rarity_filter]
+
+
+def _build_species_panel(user_id: int, species: list[dict], page: int, rarity_filter: str) -> tuple[str, InlineKeyboardMarkup]:
+    """Build species selection panel with rarity filter and pagination."""
+    filtered = _filter_species(species, rarity_filter)
+    total = len(filtered)
     max_page = max(0, (total - 1) // SPECIES_PAGE_SIZE)
     page = min(page, max_page)
     start = page * SPECIES_PAGE_SIZE
-    page_items = species[start:start + SPECIES_PAGE_SIZE]
+    page_items = filtered[start:start + SPECIES_PAGE_SIZE]
 
     text = "🔀 <b>포켓몬 합성</b>\n\n"
     text += "같은 종류의 포켓몬 2마리를 합성하면\n새로운 개체값의 포켓몬 1마리가 탄생합니다!\n\n"
-    text += f"합성 가능한 종류: <b>{total}종</b>\n"
-    text += "합성할 포켓몬을 선택하세요:\n"
+    text += "⚠️ 팀/파트너/거래소/즐겨찾기 포켓몬은 제외됩니다.\n\n"
+
+    # Current filter label
+    filter_label = next((label for key, label in RARITY_FILTERS if key == rarity_filter), "전체")
+    text += f"필터: <b>{filter_label}</b> | 합성 가능: <b>{total}종</b>\n"
+
+    if total == 0:
+        text += "\n해당 등급에 합성 가능한 포켓몬이 없습니다."
 
     rows = []
+
+    # Rarity filter buttons
+    filter_row = []
+    for key, label in RARITY_FILTERS:
+        prefix = "▪" if key == rarity_filter else ""
+        filter_row.append(InlineKeyboardButton(f"{prefix}{label}", callback_data=f"fus_rf_{user_id}_{key}"))
+    # Split into 2 rows of 3
+    rows.append(filter_row[:3])
+    rows.append(filter_row[3:])
+
     for s in page_items:
-        emoji = config.RARITY_EMOJI.get(s["rarity"], "")
-        label = f"{emoji} {s['name_ko']} ({s['count']}마리)"
+        btn_emoji = config.RARITY_EMOJI.get(s["rarity"], "")
+        label = f"{btn_emoji} {s['name_ko']} ({s['count']}마리)"
         rows.append([InlineKeyboardButton(label, callback_data=f"fus_sp_{user_id}_{s['pokemon_id']}")])
 
     # Pagination
@@ -68,7 +105,7 @@ def _build_copies_panel(user_id: int, copies: list[dict], sel_a: int | None, sel
         return "합성 가능한 개체가 없습니다.", InlineKeyboardMarkup([])
 
     name = copies[0].get("name_ko", "???")
-    emoji = config.RARITY_EMOJI.get(copies[0].get("rarity", ""), "")
+    emoji = rarity_badge(copies[0].get("rarity", ""))
     text = f"🔀 <b>{emoji} {name} 합성</b>\n\n"
     text += "합성할 2마리를 선택하세요:\n\n"
 
@@ -128,17 +165,20 @@ async def fusion_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "pokemon_id": None,
         "sel_a": None,
         "sel_b": None,
+        "rarity_filter": "all",
     }
 
     species = await get_fusable_species(user_id)
     if not species:
         await update.message.reply_text(
-            "🔀 합성 가능한 포켓몬이 없습니다.\n같은 종류의 포켓몬을 2마리 이상 보유해야 합니다.",
+            "🔀 합성 가능한 포켓몬이 없습니다.\n\n"
+            "같은 종류의 포켓몬을 2마리 이상 보유해야 합니다.\n"
+            "⚠️ 팀/파트너/거래소/즐겨찾기 포켓몬은 제외됩니다.",
             parse_mode="HTML",
         )
         return
 
-    text, kb = _build_species_panel(user_id, species, 0)
+    text, kb = _build_species_panel(user_id, species, 0, "all")
     await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
 
 
@@ -149,9 +189,6 @@ async def fusion_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     data = query.data
-    # fus_sp_{uid}_{pokemon_id}, fus_pg_{uid}_{page},
-    # fus_sel_{uid}_{instance_id}, fus_confirm_{uid},
-    # fus_cancel_{uid}, fus_back_{uid}
     parts = data.split("_")
     action = parts[1]
 
@@ -167,7 +204,28 @@ async def fusion_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     state = _get_state(context)
 
-    if action == "sp":
+    if action == "rf":
+        # Rarity filter changed
+        try:
+            rarity = parts[3]
+            # Handle ultra_legendary (has extra underscore)
+            if len(parts) > 4:
+                rarity = "_".join(parts[3:])
+        except IndexError:
+            await query.answer()
+            return
+
+        state["rarity_filter"] = rarity
+        state["page"] = 0
+        species = await get_fusable_species(user_id)
+        await query.answer()
+        text, kb = _build_species_panel(user_id, species, 0, rarity)
+        try:
+            await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+        except Exception:
+            pass
+
+    elif action == "sp":
         # Species selected
         try:
             pokemon_id = int(parts[3])
@@ -202,7 +260,7 @@ async def fusion_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state["page"] = page
         species = await get_fusable_species(user_id)
         await query.answer()
-        text, kb = _build_species_panel(user_id, species, page)
+        text, kb = _build_species_panel(user_id, species, page, state.get("rarity_filter", "all"))
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
         except Exception:
@@ -254,7 +312,7 @@ async def fusion_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if result:
             total = _iv_total(result)
             grade, _ = config.get_iv_grade(total)
-            emoji = config.RARITY_EMOJI.get(result.get("rarity", ""), "")
+            emoji = rarity_badge(result.get("rarity", ""))
             name = result.get("name_ko", "???")
             shiny = " ⭐이로치" if result.get("is_shiny") else ""
 
@@ -284,7 +342,7 @@ async def fusion_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
             return
-        text, kb = _build_species_panel(user_id, species, state.get("page", 0))
+        text, kb = _build_species_panel(user_id, species, state.get("page", 0), state.get("rarity_filter", "all"))
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
         except Exception:

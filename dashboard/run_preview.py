@@ -820,6 +820,7 @@ def create_preview_app():
     app.router.add_get("/api/admin/users", mock_admin_users)
     app.router.add_get("/api/admin/orders", mock_admin_orders)
     app.router.add_post("/api/admin/grant-credit", mock_admin_action)
+    app.router.add_post("/api/admin/grant-bp", mock_admin_action)
     app.router.add_post("/api/admin/grant-masterball", mock_admin_action)
     app.router.add_post("/api/admin/fulfill-order", mock_admin_action)
     app.router.add_post("/api/admin/send-dm", mock_admin_action)

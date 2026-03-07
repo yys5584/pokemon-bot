@@ -1383,7 +1383,7 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     if not c_team:
         await update.message.reply_text(
             f"{icon_emoji('battle')} 배틀 팀이 없습니다!\n"
-            "DM에서 '팀등록 [번호들]'로 먼저 팀을 등록하세요.",
+            "DM에서 '팀등록'으로 먼저 팀을 등록하세요.",
             parse_mode="HTML",
         )
         return
@@ -1524,7 +1524,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             try:
                 await query.edit_message_text(
                     f"{icon_emoji('battle')} 수비자의 배틀 팀이 없습니다!\n"
-                    "DM에서 '팀등록 [번호들]'로 먼저 팀을 등록하세요.",
+                    "DM에서 '팀등록'으로 먼저 팀을 등록하세요.",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -1919,7 +1919,7 @@ async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not c_team:
         await update.message.reply_text(
             "🎰 배틀 팀이 없습니다!\n"
-            "DM에서 '팀등록 [번호들]'로 먼저 팀을 등록하세요."
+            "DM에서 '팀등록'으로 먼저 팀을 등록하세요."
         )
         return
 
