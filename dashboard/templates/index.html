@@ -316,7 +316,9 @@
         .tc th,.tc td{width:42px;min-width:42px;height:28px;text-align:center;padding:2px;border:1px solid var(--border)}
         .tc th{font-size:10px;color:var(--muted);font-weight:600;background:var(--card);vertical-align:middle}
         .tc .tc-corner{background:transparent;border:none}
-        .tc .tc-row-hdr{font-size:10px;text-align:right;padding-right:4px;white-space:nowrap;background:var(--card);color:var(--muted);font-weight:600}
+        .tc .tc-row-hdr{font-size:10px;padding:2px 4px;white-space:nowrap;background:var(--card);color:var(--muted);font-weight:600;min-width:72px;width:72px}
+        .tc .tc-row-hdr .tc-rh{display:flex;align-items:center;gap:3px;justify-content:flex-end}
+        .tc .tc-row-hdr .tc-icon-sm{width:16px;height:16px;flex-shrink:0}
         .tc .tc-se{background:#d4edda;color:#155724;font-weight:700}
         .tc .tc-nve{background:#f8d7da;color:#721c24;font-weight:700}
         .tc .tc-imm{background:#e2e3e5;color:#383d41;font-weight:700}
@@ -754,6 +756,26 @@
                 <div class="guide-section" id="guide-typechart">
                     <div class="guide-card">
                         <h3>🔥 타입 상성표 (18타입)</h3>
+
+                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(255,107,107,.08),rgba(78,205,196,.08));border:1px solid rgba(255,107,107,.2);border-radius:10px;padding:16px;margin-bottom:16px">
+                            <h4 style="margin-top:0">🎮 초보자 필수 상성 5가지</h4>
+                            <p style="font-size:12px;color:var(--muted);margin-bottom:10px">이것만 알면 배틀 절반은 이긴다!</p>
+                            <table class="guide-table" style="font-size:13px">
+                                <tr><th>가위바위보</th><th>쉽게 외우기</th></tr>
+                                <tr><td>💧물 → 🔥불 → 🌿풀 → 💧물</td><td>기본 중의 기본! 물로 불 끄고, 불로 풀 태우고, 풀로 물 흡수</td></tr>
+                                <tr><td>⚡전기 → 💧물, 🕊비행</td><td>물에 감전! 하늘에 번개!</td></tr>
+                                <tr><td>🪨바위 → 🔥불, 🕊비행, 🧊얼음</td><td>돌로 다 때려잡기 (리자몽 카운터!)</td></tr>
+                                <tr><td>👻고스트 ↔ 👻고스트</td><td>유령은 유령끼리! 서로 효과 좋음</td></tr>
+                                <tr><td>🧚페어리 → 🐉드래곤</td><td>전설 드래곤 잡는 유일한 답</td></tr>
+                            </table>
+                            <div style="margin-top:10px;padding:10px;background:rgba(0,0,0,.05);border-radius:8px;font-size:12px">
+                                <b>💡 실전 팁</b><br>
+                                • 리자몽(불/비행) 만나면 → <b>물</b>이나 <b>바위</b> 타입 꺼내기<br>
+                                • 갸라도스(물/비행) 만나면 → <b>전기</b> 타입이면 <b style="color:#e74c3c">4배!</b><br>
+                                • 팀 짤 때 타입 최소 4가지 이상 섞기 (한 타입에 몰빵 금지!)
+                            </div>
+                        </div>
+
                         <p style="color:var(--muted);font-size:12px;margin-bottom:12px">세로축 = 공격 타입, 가로축 = 방어 타입. 빈칸은 1x (보통 데미지).</p>
                         <div id="typeChartGuide"><div class="loading">로딩 중...</div></div>
                         <div style="margin-top:8px;font-size:11px;color:var(--muted)">
@@ -796,21 +818,26 @@
                         </div>
 
                         <div class="guide-block">
-                            <h4>🔥 타입 상성</h4>
+                            <h4>🔥 이중 속성 상성</h4>
+                            <p>방어 포켓몬의 <b>두 타입 모두</b>에 상성이 적용됩니다!</p>
                             <table class="guide-table">
                                 <tr><th>상황</th><th>배율</th><th>예시</th></tr>
+                                <tr><td style="color:#e74c3c;font-weight:700">이중 효과!</td><td><b style="color:#e74c3c">4.0x</b></td><td>🌿풀 → 💧물+🪨바위 (둘 다 약점)</td></tr>
                                 <tr><td style="color:#52b788">효과 좋음</td><td><b>2.0x</b></td><td>🔥불꽃 → 🌿풀</td></tr>
+                                <tr><td>보통</td><td>1.0x</td><td>약점·저항이 상쇄</td></tr>
                                 <tr><td style="color:#e63946">효과 별로</td><td><b>0.5x</b></td><td>🌿풀 → 🔥불꽃</td></tr>
-                                <tr><td style="color:#555">면역</td><td><b>0x (무효)</b></td><td>⚪노말 → 👻고스트</td></tr>
+                                <tr><td style="color:#3498db">이중 저항</td><td><b style="color:#3498db">0.25x</b></td><td>⚪노말 → 🪨바위+⚙️강철 (둘 다 저항)</td></tr>
+                                <tr><td style="color:#555">면역</td><td><b>0x</b></td><td>⚪노말 → 👻고스트 (타입 무효)</td></tr>
                             </table>
                             <p style="font-size:11px;color:var(--muted);margin-top:6px">💡 상성표 서브탭에서 전체 18타입 상성표 확인 가능!</p>
                         </div>
 
                         <div class="guide-block">
-                            <h4>✨ 크리티컬 & 고유기술</h4>
+                            <h4>✨ 크리티컬 & 이중 속성 스킬</h4>
                             <ul class="guide-list">
                                 <li><b>크리티컬:</b> 10% 확률로 <b>1.5배</b> 데미지</li>
-                                <li><b>고유기술:</b> 30% 확률로 발동, 포켓몬마다 고유 스킬 보유</li>
+                                <li><b>이중 속성 스킬:</b> 포켓몬의 두 타입을 반영한 고유기술 (30% 발동)</li>
+                                <li>예: 리자몽(불꽃/비행) → 불꽃 속성 스킬 사용</li>
                                 <li>최소 데미지는 항상 1 이상 보장</li>
                             </ul>
                         </div>
@@ -984,7 +1011,9 @@
                             <p>BP로 포켓몬을 사고파는 마켓! DM에서 <code>거래소</code> 입력.</p>
                             <table class="guide-table">
                                 <tr><th>명령어</th><th>설명</th></tr>
+                                <tr><td><code>거래소</code></td><td>매물 목록 보기</td></tr>
                                 <tr><td><code>거래소 등록 피카츄 500</code></td><td>500 BP에 등록 (수수료 5%)</td></tr>
+                                <tr><td><code>거래소 내꺼</code></td><td>내 매물 확인 & 취소</td></tr>
                                 <tr><td><code>거래소 검색 리자몽</code></td><td>매물 검색</td></tr>
                                 <tr><td><code>거래소 구매 42</code></td><td>42번 매물 구매</td></tr>
                             </table>
@@ -1947,7 +1976,7 @@ async function loadTypeChart(){
     for(const t of types) h+=`<th title="${names[t]}">${typeIcon(t)}</th>`;
     h+='</tr></thead><tbody>';
     for(const atkType of types){
-        h+=`<tr><td class="tc-row-hdr">${typeIcon(atkType,"tc-icon-sm")} ${names[atkType]||atkType}</td>`;
+        h+=`<tr><td class="tc-row-hdr"><span class="tc-rh">${typeIcon(atkType,"tc-icon-sm")}<span>${names[atkType]||atkType}</span></span></td>`;
         for(const defType of types){
             const v=chart[atkType][defType];
             let cls="tc-neu",txt="";

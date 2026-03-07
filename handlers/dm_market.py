@@ -49,8 +49,14 @@ def _build_listing_page(listings: list[dict], total: int, page: int, page_size: 
     """Build listing display text + inline keyboard."""
     total_pages = max(1, (total + page_size - 1) // page_size)
 
+    _help = (
+        "\n\n📌 거래소 등록 [이름] [가격]"
+        "\n📌 거래소 내꺼 → 취소 버튼"
+        "\n📌 거래소 검색 [이름]"
+    )
+
     if not listings:
-        text = "🏪 거래소\n\n등록된 매물이 없습니다."
+        text = "🏪 거래소\n\n등록된 매물이 없습니다." + _help
         if search_name:
             text = f"🏪 거래소 검색: '{search_name}'\n\n검색 결과가 없습니다."
         return text, InlineKeyboardMarkup([])
@@ -65,6 +71,10 @@ def _build_listing_page(listings: list[dict], total: int, page: int, page_size: 
         lines.append(f"  판매자: {ml.get('seller_name', '???')}")
 
     lines.append(f"\n({page+1}/{total_pages} 페이지)")
+    if page == 0 and not search_name:
+        lines.append("\n📌 거래소 등록 [이름] [가격]")
+        lines.append("📌 거래소 내꺼 → 취소 버튼")
+        lines.append("📌 거래소 검색 [이름]")
     text = "\n".join(lines)
 
     # Buttons: buy buttons for each listing
