@@ -1338,6 +1338,22 @@ async def api_my_fusion(request):
             "iv_grade": grade,
             "friendship": result.get("friendship", 0),
         }
+
+        # Send DM notification with custom emoji
+        rarity = result.get("rarity", "")
+        eid = config.RARITY_CUSTOM_EMOJI.get(rarity, "")
+        fallback = config.RARITY_EMOJI.get(rarity, "⚪")
+        badge = f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji>' if eid else fallback
+        name = result.get("name_ko", "???")
+        shiny = " ⭐이로치" if result.get("is_shiny") else ""
+        dm_text = (
+            f"🔀 <b>합성 완료!</b> (대시보드)\n\n"
+            f"{badge} <b>{name}</b>{shiny}\n"
+            f"등급: [{grade}] (IV합계: {iv_t})\n\n"
+            f"HP: {result.get('iv_hp', 0)}  ATK: {result.get('iv_atk', 0)}  DEF: {result.get('iv_def', 0)}\n"
+            f"SpA: {result.get('iv_spa', 0)}  SpD: {result.get('iv_spdef', 0)}  SPD: {result.get('iv_spd', 0)}"
+        )
+        await _admin_send_dm(sess["user_id"], dm_text)
     else:
         res_data = None
 

@@ -142,6 +142,7 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
         "emoji": pokemon["emoji"],
         "type": dual_types,
         "rarity": pokemon["rarity"],
+        "is_shiny": bool(pokemon.get("is_shiny")),
         "stats": stats,
         "current_hp": stats["hp"],
         "instance_id": pokemon.get("pokemon_instance_id") or pokemon.get("instance_id"),
@@ -245,6 +246,9 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
         "c_total": c_total, "d_total": d_total,
         "c_hp": c_mon["current_hp"], "d_hp": d_mon["current_hp"],
         "c_max_hp": c_mon["stats"]["hp"], "d_max_hp": d_mon["stats"]["hp"],
+        "c_pokemon_id": c_mon["pokemon_id"], "d_pokemon_id": d_mon["pokemon_id"],
+        "c_rarity": c_mon["rarity"], "d_rarity": d_mon["rarity"],
+        "c_shiny": c_mon.get("is_shiny", False), "d_shiny": d_mon.get("is_shiny", False),
     })
 
     while c_idx < len(challenger_team) and d_idx < len(defender_team):
@@ -303,6 +307,9 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             "c_idx": c_idx, "d_idx": d_idx,
             "c_total": c_total, "d_total": d_total,
             "first_is_challenger": first_is_challenger,
+            "c_pokemon_id": c_mon["pokemon_id"], "d_pokemon_id": d_mon["pokemon_id"],
+            "c_rarity": c_mon["rarity"], "d_rarity": d_mon["rarity"],
+            "c_shiny": c_mon.get("is_shiny", False), "d_shiny": d_mon.get("is_shiny", False),
         })
 
         # KO check - challenger's pokemon

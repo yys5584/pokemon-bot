@@ -16,6 +16,7 @@ from database import queries
 from database import battle_queries as bq
 from database.connection import get_db
 from services.battle_service import _prepare_combatant, _resolve_battle, _hp_bar
+from utils.card_generator import generate_card
 
 # ── Bracket Tree Renderer ──────────────────────────────────────
 import unicodedata
@@ -270,6 +271,28 @@ async def _safe_send(bot, chat_id, text, **kwargs):
             await asyncio.sleep(wait)
     # last attempt without catch
     return await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+
+
+async def _safe_send_photo(bot, chat_id, photo, caption="", **kwargs):
+    """send_photo with RetryAfter auto-retry. Falls back to text on failure."""
+    for attempt in range(3):
+        try:
+            return await bot.send_photo(chat_id=chat_id, photo=photo, caption=caption, **kwargs)
+        except RetryAfter as e:
+            wait = e.retry_after + 1
+            logger.warning(f"Flood control (photo), waiting {wait}s (attempt {attempt+1})")
+            await asyncio.sleep(wait)
+        except Exception as e:
+            logger.warning(f"send_photo failed (attempt {attempt+1}): {e}")
+            # Fallback to text message on photo failure
+            return await _safe_send(bot, chat_id, caption, **kwargs)
+    # last attempt — fallback to text if photo still fails
+    try:
+        return await bot.send_photo(chat_id=chat_id, photo=photo, caption=caption, **kwargs)
+    except Exception:
+        return await _safe_send(bot, chat_id, caption, **kwargs)
+
+
 from utils.helpers import icon_emoji, ball_emoji, rarity_badge, shiny_emoji
 
 logger = logging.getLogger(__name__)
@@ -677,6 +700,8 @@ async def _run_match(
                     second_target_hp, second_target_max = td["c_hp"], td["c_max_hp"]
                     first_target_name, second_target_name = td["d_name"], td["c_name"]
                     first_target_mark, second_target_mark = D, C
+                    first_pid, first_rarity, first_shiny = td.get("c_pokemon_id"), td.get("c_rarity", "common"), td.get("c_shiny", False)
+                    second_pid, second_rarity, second_shiny = td.get("d_pokemon_id"), td.get("d_rarity", "common"), td.get("d_shiny", False)
                 else:
                     first_mark, second_mark = D, C
                     first_name, first_dmg, first_crit, first_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
@@ -685,27 +710,34 @@ async def _run_match(
                     second_target_hp, second_target_max = td["d_hp"], td["d_max_hp"]
                     first_target_name, second_target_name = td["c_name"], td["d_name"]
                     first_target_mark, second_target_mark = C, D
+                    first_pid, first_rarity, first_shiny = td.get("d_pokemon_id"), td.get("d_rarity", "common"), td.get("d_shiny", False)
+                    second_pid, second_rarity, second_shiny = td.get("c_pokemon_id"), td.get("c_rarity", "common"), td.get("c_shiny", False)
 
-                # First attack — separate message
+                # First attack — card image + caption
                 crit_label = " 크리티컬!" if first_crit else ""
                 skill_label = f" {first_eff}!" if first_eff else " 공격!"
                 bar = _hp_bar(first_target_hp, first_target_max)
-                await _safe_send(context.bot, chat_id,
-                    text=f"{td['turn_num']}턴 ─ {first_mark}{first_name}{skill_label}{crit_label}\n  {first_target_mark}{first_target_name} {bar} {first_target_hp}/{first_target_max} (-{first_dmg})",
-                    parse_mode="HTML",
-                )
-                await asyncio.sleep(3)
+                caption1 = f"{td['turn_num']}턴 ─ {first_name}{skill_label}{crit_label}\n  → {first_target_name} {bar} {first_target_hp}/{first_target_max} (-{first_dmg})"
+                loop = asyncio.get_event_loop()
+                if first_pid:
+                    card_buf = await loop.run_in_executor(None, generate_card, first_pid, first_name, first_rarity, "", first_shiny)
+                    await _safe_send_photo(context.bot, chat_id, photo=card_buf, caption=caption1, parse_mode="HTML")
+                else:
+                    await _safe_send(context.bot, chat_id, text=caption1, parse_mode="HTML")
+                await asyncio.sleep(5)
 
-                # Counter attack — separate message
+                # Counter attack — card image + caption
                 if second_dmg > 0:
                     crit2_label = " 크리티컬!" if second_crit else ""
                     skill2_label = f" {second_eff}!" if second_eff else " 반격!"
                     bar2 = _hp_bar(second_target_hp, second_target_max)
-                    await _safe_send(context.bot, chat_id,
-                        text=f"{second_mark}{second_name}{skill2_label}{crit2_label}\n  {second_target_mark}{second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})",
-                        parse_mode="HTML",
-                    )
-                    await asyncio.sleep(3)
+                    caption2 = f"{second_name}{skill2_label}{crit2_label}\n  → {second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})"
+                    if second_pid:
+                        card_buf2 = await loop.run_in_executor(None, generate_card, second_pid, second_name, second_rarity, "", second_shiny)
+                        await _safe_send_photo(context.bot, chat_id, photo=card_buf2, caption=caption2, parse_mode="HTML")
+                    else:
+                        await _safe_send(context.bot, chat_id, text=caption2, parse_mode="HTML")
+                    await asyncio.sleep(5)
 
             elif td["type"] == "ko":
                 m = _mark(td["side"])
