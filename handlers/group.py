@@ -66,12 +66,15 @@ async def on_chat_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
             del _activity_cooldown[k]
 
     chat_title = update.effective_chat.title
+    chat_username = getattr(update.effective_chat, "username", None)
+    invite_link = f"https://t.me/{chat_username}" if chat_username else None
     hour_bucket = config.get_kst_now().strftime("%Y-%m-%d-%H")
 
     async def _bg_track():
         try:
             await queries.increment_activity(chat_id, hour_bucket)
-            await queries.ensure_chat_room(chat_id, title=chat_title)
+            await queries.ensure_chat_room(chat_id, title=chat_title,
+                                           invite_link=invite_link)
         except Exception as e:
             logger.error(f"Activity tracking failed: {e}")
 

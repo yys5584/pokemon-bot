@@ -711,18 +711,20 @@ async def is_first_catch_in_chat(chat_id: int, pokemon_id: int) -> bool:
 # Chat Rooms
 # ============================================================
 
-async def ensure_chat_room(chat_id: int, title: str | None = None, member_count: int = 0):
+async def ensure_chat_room(chat_id: int, title: str | None = None,
+                           member_count: int = 0, invite_link: str | None = None):
     pool = await get_db()
     await pool.execute(
-        """INSERT INTO chat_rooms (chat_id, chat_title, member_count)
-           VALUES ($1, $2, $3)
+        """INSERT INTO chat_rooms (chat_id, chat_title, member_count, invite_link)
+           VALUES ($1, $2, $3, $4)
            ON CONFLICT(chat_id) DO UPDATE SET
                chat_title = COALESCE(EXCLUDED.chat_title, chat_rooms.chat_title),
                member_count = CASE
                    WHEN EXCLUDED.member_count > 0 THEN EXCLUDED.member_count
                    ELSE chat_rooms.member_count
-               END""",
-        chat_id, title, member_count,
+               END,
+               invite_link = COALESCE(EXCLUDED.invite_link, chat_rooms.invite_link)""",
+        chat_id, title, member_count, invite_link,
     )
 
 
@@ -2255,17 +2257,18 @@ async def get_economy_health() -> dict:
 
 
 async def get_active_chat_rooms_top(limit: int = 5) -> list[dict]:
-    """오늘 포획이 가장 많은 활성 채팅방 TOP N."""
+    """오늘 포획이 가장 많은 활성 채팅방 TOP N (평균 참여자 포함)."""
     pool = await get_db()
     today = _cfg.get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
     rows = await pool.fetch(
-        """SELECT cr.chat_id, cr.chat_title, cr.member_count,
+        """SELECT cr.chat_id, cr.chat_title, cr.member_count, cr.invite_link,
                   COUNT(sl.id) as today_spawns,
-                  COUNT(sl.caught_by_user_id) as today_catches
+                  COUNT(sl.caught_by_user_id) as today_catches,
+                  ROUND(AVG(sl.participants)::numeric, 1) as avg_participants
            FROM chat_rooms cr
            LEFT JOIN spawn_log sl ON cr.chat_id = sl.chat_id AND sl.spawned_at >= $1
            WHERE cr.is_active = 1 AND cr.chat_title IS NOT NULL
-           GROUP BY cr.chat_id, cr.chat_title, cr.member_count
+           GROUP BY cr.chat_id, cr.chat_title, cr.member_count, cr.invite_link
            HAVING COUNT(sl.caught_by_user_id) > 0
            ORDER BY today_catches DESC
            LIMIT $2""",

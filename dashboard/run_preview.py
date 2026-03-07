@@ -117,7 +117,10 @@ async def mock_json(request):
                 "hyper_balls_circulation": 3450, "hyper_balls_avg": 8.1, "hyper_balls_used_total": 2876,
                 "bp_circulation": 205682, "bp_avg": 478.3, "bp_spent_total": 89500,
             },
-            "top_channels": [],
+            "top_channels": [
+                {"chat_id": -100123, "chat_title": "TG_포켓", "member_count": 50, "today_spawns": 120, "today_catches": 95, "avg_participants": 2.7, "invite_link": "https://t.me/tgpoke_test"},
+                {"chat_id": -100456, "chat_title": "포켓몬 사랑방", "member_count": 30, "today_spawns": 80, "today_catches": 60, "avg_participants": 1.8, "invite_link": None},
+            ],
         })
     if path == "/api/fun-kpis":
         return web.json_response({

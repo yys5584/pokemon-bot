@@ -1787,14 +1787,15 @@ async function loadChannelTop5(){
         let h="";
         top5.forEach((r,i)=>{
             const num=i<3?medals[i]:`<span style="color:var(--muted)">${i+1}</span>`;
-            const rate=r.today_spawns>0?Math.round(r.today_catches/r.today_spawns*100):0;
+            const avgP=r.avg_participants||0;
+            const nameHtml=r.invite_link?`<a href="${r.invite_link}" target="_blank" style="color:var(--text);text-decoration:none;border-bottom:1px dashed var(--muted)">${r.chat_title||"(없음)"}</a>`:(r.chat_title||"(없음)");
             h+=`<div class="ch-rank">
                 <div class="ch-num">${num}</div>
                 <div class="ch-info">
-                    <div class="ch-name">${r.chat_title||"(없음)"}</div>
-                    <div class="ch-meta">오늘 스폰 ${r.today_spawns}회 · 포획 ${r.today_catches}회 (${rate}%) · ${r.member_count}명</div>
+                    <div class="ch-name">${nameHtml}</div>
+                    <div class="ch-meta">스폰 ${r.today_spawns}회 · 포획 ${r.today_catches}회 · 평균 ${avgP}명 참여</div>
                 </div>
-                <div class="ch-stat"><div class="big">${r.today_catches}</div><div style="font-size:10px;color:var(--muted)">포획</div></div>
+                <div class="ch-stat"><div class="big">${avgP}</div><div style="font-size:10px;color:var(--muted)">평균참여</div></div>
             </div>`;
         });
         document.getElementById("topChannels").innerHTML=h;
@@ -2039,6 +2040,7 @@ async function loadTypeChart(){
 
 // --- STATS ---
 async function loadStats(){
+    loadChannelTop5();
     const[kpi,pkstats]=await Promise.all([fetchJSON("/api/fun-kpis"),fetchJSON("/api/pokemon/stats")]);
     if(kpi){
         document.getElementById("escapeMasters").innerHTML=simpleTable(["#","이름","실패"],kpi.escape_masters.map((e,i)=>[i+1,e.display_name,e.catch_fail_count+"회"]));
