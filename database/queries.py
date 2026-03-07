@@ -1343,7 +1343,7 @@ async def get_active_listings(
 
     Filters:
       rarity: 'common','rare','epic','legendary','ultra_legendary'
-      iv_grade: 'S' (168+), 'A' (140+), 'B' (93+), 'C' (47+), 'D' (<47)
+      iv_grade: 'S'/'A'/'B'/'C' — uses config.IV_GRADE_THRESHOLDS
     """
     pool = await get_db()
 
@@ -1357,8 +1357,8 @@ async def get_active_listings(
         where.append(f"pm.rarity = ${idx}")
         idx += 1
 
-    # IV grade filter: "X이상" — show X grade and above
-    iv_thresholds = {"S": 168, "A": 140, "B": 93, "C": 47}
+    # IV grade filter: "X이상" — show X grade and above (using config thresholds)
+    iv_thresholds = {g: t for g, t, _ in _cfg.IV_GRADE_THRESHOLDS if g != "D"}
     if iv_grade and iv_grade in iv_thresholds:
         min_iv = iv_thresholds[iv_grade]
         where.append(f"(COALESCE(up.iv_hp,0)+COALESCE(up.iv_atk,0)+COALESCE(up.iv_def,0)+COALESCE(up.iv_spa,0)+COALESCE(up.iv_spdef,0)+COALESCE(up.iv_spd,0)) >= ${idx}")

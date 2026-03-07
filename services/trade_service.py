@@ -1,5 +1,6 @@
 """Trade service: trade creation, acceptance, and trade evolution."""
 
+import asyncio
 import logging
 import config
 from database import queries
@@ -14,40 +15,38 @@ async def create_trade_offer(
     from_user_id: int, to_user_id: int,
     pokemon_name: str, instance_id: int | None = None
 ) -> tuple[bool, str, int | None]:
-    """Create a trade offer. Returns (success, message, trade_id).
+    """Create a trade offer. Returns (success, message, trade_id)."""
 
-    If instance_id is given, use that specific Pokemon instance.
-    Otherwise fall back to finding by name (first match).
-    """
-
-    # Check BP
     cost = config.TRADE_BP_COST
-    current_bp = await bq.get_bp(from_user_id)
-    if current_bp < cost:
-        return False, f"BP가 부족합니다! (필요: {cost} BP, 보유: {current_bp} BP)", None
 
-    # Find the Pokemon
+    # Phase 1: BP check + pokemon lookup + target user in parallel
     if instance_id:
-        pokemon = await queries.get_user_pokemon_by_id(instance_id)
+        bp_task = bq.get_bp(from_user_id)
+        poke_task = queries.get_user_pokemon_by_id(instance_id)
+        target_task = queries.get_user(to_user_id)
+        current_bp, pokemon, target = await asyncio.gather(bp_task, poke_task, target_task)
         if not pokemon or pokemon["user_id"] != from_user_id:
             return False, f"'{pokemon_name}'을(를) 보유하고 있지 않습니다.", None
     else:
-        pokemon = await queries.find_user_pokemon_by_name(from_user_id, pokemon_name)
+        bp_task = bq.get_bp(from_user_id)
+        poke_task = queries.find_user_pokemon_by_name(from_user_id, pokemon_name)
+        target_task = queries.get_user(to_user_id)
+        current_bp, pokemon, target = await asyncio.gather(bp_task, poke_task, target_task)
         if not pokemon:
             return False, f"'{pokemon_name}'을(를) 보유하고 있지 않습니다.", None
 
-    # Check target user exists
-    target = await queries.get_user(to_user_id)
+    if current_bp < cost:
+        return False, f"BP가 부족합니다! (필요: {cost} BP, 보유: {current_bp} BP)", None
     if not target:
         return False, "상대 트레이너를 찾을 수 없습니다.\n상대방이 먼저 /start 를 해야 합니다.", None
 
-    # Check existing pending trade
-    existing = await queries.get_pending_trade_between(from_user_id, to_user_id)
+    # Phase 2: pending trade check + lock check in parallel
+    existing, (locked, lock_reason) = await asyncio.gather(
+        queries.get_pending_trade_between(from_user_id, to_user_id),
+        queries.is_pokemon_locked(pokemon["id"]),
+    )
     if existing:
         return False, "이미 해당 트레이너에게 보낸 교환 요청이 있습니다.", None
-
-    # Check if this Pokemon is locked (pending trade or market listing)
-    locked, lock_reason = await queries.is_pokemon_locked(pokemon["id"])
     if locked:
         return False, lock_reason, None
 
@@ -56,14 +55,14 @@ async def create_trade_offer(
     if not spent:
         return False, f"BP 차감에 실패했습니다. (필요: {cost} BP)", None
 
-    # Create trade
-    trade_id = await queries.create_trade(
-        from_user_id, to_user_id, pokemon["id"]
+    # Create trade + get remaining BP in parallel
+    trade_id, remaining_bp = await asyncio.gather(
+        queries.create_trade(from_user_id, to_user_id, pokemon["id"]),
+        bq.get_bp(from_user_id),
     )
 
     is_shiny = bool(pokemon.get("is_shiny", 0))
     shiny_tag = " ★이로치" if is_shiny else ""
-    remaining_bp = await bq.get_bp(from_user_id)
     return True, (
         f"📤 교환 요청을 보냈습니다!\n\n"
         f"제안: {pokemon['emoji']} {pokemon['name_ko']}{shiny_tag}\n"
@@ -89,7 +88,7 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
     offer_pokemon_id = trade["offer_pokemon_id"]
     from_user_id = trade["from_user_id"]
 
-    # Verify the Pokemon is still active (not already traded away)
+    # Verify the Pokemon is still active
     offer_pokemon = await queries.get_user_pokemon_by_id(offer_instance_id)
     if not offer_pokemon or offer_pokemon["user_id"] != from_user_id:
         await queries.update_trade_status(trade_id, "cancelled")
@@ -112,18 +111,16 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
         user_id, offer_pokemon_id, is_shiny=is_shiny, ivs=original_ivs
     )
 
-    # Register in receiver's pokedex
-    await queries.register_pokedex(user_id, offer_pokemon_id, "trade")
+    # Phase: pokedex + trade evolve + trade status + title updates in parallel
+    reg_task = queries.register_pokedex(user_id, offer_pokemon_id, "trade")
+    evo_task = try_trade_evolve(user_id, new_instance_id, offer_pokemon_id)
+    status_task = queries.update_trade_status(trade_id, "accepted")
+    title1_task = update_title(user_id)
+    title2_task = update_title(from_user_id)
 
-    # Check for trade evolution
-    evo_msg = await try_trade_evolve(user_id, new_instance_id, offer_pokemon_id)
-
-    # Update trade status
-    await queries.update_trade_status(trade_id, "accepted")
-
-    # Update titles
-    await update_title(user_id)
-    await update_title(from_user_id)
+    _, evo_msg, _, _, _ = await asyncio.gather(
+        reg_task, evo_task, status_task, title1_task, title2_task,
+    )
 
     shiny_tag = " ★이로치" if is_shiny else ""
     tb = type_badge(trade["offer_pokemon_id"]) if trade.get("offer_pokemon_id") else ""

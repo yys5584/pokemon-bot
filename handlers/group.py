@@ -99,27 +99,30 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
 
     try:
-        # Ensure user is registered
-        await queries.ensure_user(user_id, display_name, username)
+        # Phase 1: ensure_user + get_active_spawn in parallel
+        _, session = await asyncio.gather(
+            queries.ensure_user(user_id, display_name, username),
+            queries.get_active_spawn(chat_id),
+        )
 
-        # Tutorial trigger: send DM on first ㅊ
-        try:
-            tut_step = await queries.get_tutorial_step(user_id)
-            if tut_step == 0:
-                await queries.update_tutorial_step(user_id, 1)
-                from handlers.tutorial import send_tutorial_step
-                asyncio.create_task(send_tutorial_step(context, user_id, 1))
-        except Exception:
-            pass  # Don't block catch on tutorial errors
-
-        # Update login streak for title tracking
-        await queries.update_login_streak(user_id)
-
-        # Check for active spawn
-        session = await queries.get_active_spawn(chat_id)
         if session is None:
-            logger.debug(f"ㅊ by {user_id} in {chat_id}: no active spawn")
             return  # No active spawn, silently ignore
+
+        # Tutorial + login streak: fire-and-forget (non-blocking)
+        async def _bg_tutorial_streak():
+            try:
+                tut_step = await queries.get_tutorial_step(user_id)
+                if tut_step == 0:
+                    await queries.update_tutorial_step(user_id, 1)
+                    from handlers.tutorial import send_tutorial_step
+                    asyncio.create_task(send_tutorial_step(context, user_id, 1))
+            except Exception:
+                pass
+            try:
+                await queries.update_login_streak(user_id)
+            except Exception:
+                pass
+        asyncio.create_task(_bg_tutorial_streak())
 
         # Race condition guard: prevent duplicate from rapid ㅊㅊ
         lock_key = (session["id"], user_id)
@@ -127,26 +130,24 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         _catch_locks.add(lock_key)
         try:
-            # Check if already attempted this session
-            already = await queries.has_attempted_session(session["id"], user_id)
+            # Phase 2: has_attempted + can_attempt + get_user in parallel
+            already, (allowed, reason), user = await asyncio.gather(
+                queries.has_attempted_session(session["id"], user_id),
+                can_attempt_catch(user_id),
+                queries.get_user(user_id),
+            )
+
             if already:
-                logger.debug(f"ㅊ by {user_id}: already attempted session {session['id']}")
                 return  # Silently ignore duplicate
 
-            # Check catch limits
-            allowed, reason = await can_attempt_catch(user_id)
             if not allowed:
-                logger.info(f"ㅊ by {user_id}: blocked - {reason}")
                 resp = await update.message.reply_text(reason)
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
-            # Record attempt
+            # Phase 3: record attempt (sequential — must happen before message)
             await record_attempt(session["id"], user_id)
-            logger.info(f"ㅊ by {user_id}: attempt recorded for session {session['id']}")
 
-            # Show decorated name with title (HTML bold for titled users)
-            user = await queries.get_user(user_id)
             decorated = get_decorated_name(
                 display_name,
                 user.get("title", "") if user else "",
@@ -186,10 +187,11 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
 
     try:
-        await queries.ensure_user(user_id, display_name, username)
-
-        # Check for active spawn
-        session = await queries.get_active_spawn(chat_id)
+        # Phase 1: ensure_user + get_active_spawn in parallel
+        _, session = await asyncio.gather(
+            queries.ensure_user(user_id, display_name, username),
+            queries.get_active_spawn(chat_id),
+        )
         if session is None:
             return
 
@@ -199,22 +201,18 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
         _catch_locks.add(lock_key)
         try:
-            # Double-check session is not already resolved
+            # Phase 2: resolved check + already attempted + master ball count in parallel
             from database.connection import get_db
             pool = await get_db()
-            row = await pool.fetchrow(
-                "SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]
+            row, already, balls = await asyncio.gather(
+                pool.fetchrow("SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]),
+                queries.has_attempted_session(session["id"], user_id),
+                queries.get_master_balls(user_id),
             )
             if not row or row["is_resolved"] == 1:
                 return
-
-            # Check if already attempted
-            already = await queries.has_attempted_session(session["id"], user_id)
             if already:
                 return
-
-            # Check if user has master balls
-            balls = await queries.get_master_balls(user_id)
             if balls < 1:
                 resp = await update.message.reply_text(f"{ball_emoji('masterball')} 마스터볼이 없습니다!", parse_mode="HTML")
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
@@ -225,10 +223,11 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             if remaining is None:
                 return
 
-            # Record attempt with master ball flag
-            await queries.record_catch_attempt(session["id"], user_id, used_master_ball=True)
-
-            user = await queries.get_user(user_id)
+            # Phase 3: record attempt + get_user in parallel
+            _, user = await asyncio.gather(
+                queries.record_catch_attempt(session["id"], user_id, used_master_ball=True),
+                queries.get_user(user_id),
+            )
             decorated = get_decorated_name(
                 display_name,
                 user.get("title", "") if user else "",
@@ -264,10 +263,11 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     try:
-        await queries.ensure_user(user_id, display_name, username)
-
-        # Check for active spawn
-        session = await queries.get_active_spawn(chat_id)
+        # Phase 1: ensure_user + get_active_spawn in parallel
+        _, session = await asyncio.gather(
+            queries.ensure_user(user_id, display_name, username),
+            queries.get_active_spawn(chat_id),
+        )
         if session is None:
             return
 
@@ -277,16 +277,15 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             return
         _catch_locks.add(lock_key)
         try:
+            # Phase 2: resolved check + already attempted in parallel
             from database.connection import get_db
             pool = await get_db()
-            row = await pool.fetchrow(
-                "SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]
+            row, already = await asyncio.gather(
+                pool.fetchrow("SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]),
+                queries.has_attempted_session(session["id"], user_id),
             )
             if not row or row["is_resolved"] == 1:
                 return
-
-            # Check if already attempted
-            already = await queries.has_attempted_session(session["id"], user_id)
             if already:
                 return
 
@@ -300,10 +299,12 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 )
                 return
 
-            # Record attempt (does NOT increment catch limit)
-            await queries.record_catch_attempt(session["id"], user_id, used_hyper_ball=True)
-
-            user = await queries.get_user(user_id)
+            # Phase 3: record attempt + get_user + get remaining in parallel
+            _, user, remaining = await asyncio.gather(
+                queries.record_catch_attempt(session["id"], user_id, used_hyper_ball=True),
+                queries.get_user(user_id),
+                queries.get_hyper_balls(user_id),
+            )
             decorated = get_decorated_name(
                 display_name,
                 user.get("title", "") if user else "",
@@ -311,7 +312,6 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 username,
                 html=True,
             )
-            remaining = await queries.get_hyper_balls(user_id)
             hyper_msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"{ball_emoji('hyperball')} {decorated} 하이퍼볼을 던졌다! (남은: {remaining}개)",

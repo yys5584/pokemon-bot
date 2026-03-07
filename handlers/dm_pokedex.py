@@ -218,12 +218,15 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Reset filter on fresh command
     filt = _get_dex_filter(context)
 
-    # Get data
-    pokedex = await queries.get_user_pokedex(user_id)
+    # Get data — all three queries in parallel
+    import asyncio
+    pokedex, user, all_pokemon = await asyncio.gather(
+        queries.get_user_pokedex(user_id),
+        queries.get_user(user_id),
+        queries.get_all_pokemon(),
+    )
     caught_ids = {p["pokemon_id"]: p for p in pokedex}
-    user = await queries.get_user(user_id)
     title_part = f" {user['title_emoji']} {user['title']}" if user and user["title"] else ""
-    all_pokemon = await queries.get_all_pokemon()
 
     text_msg, markup = _build_dex_view(user_id, display_name, title_part,
                                         all_pokemon, caught_ids, page, filt)
@@ -329,13 +332,16 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 filt["type"] = None if filt.get("type") == t else t
 
-    # Build and show
-    pokedex = await queries.get_user_pokedex(user_id)
+    # Build and show — all three queries in parallel
+    import asyncio
+    pokedex, user, all_pokemon = await asyncio.gather(
+        queries.get_user_pokedex(user_id),
+        queries.get_user(user_id),
+        queries.get_all_pokemon(),
+    )
     caught_ids = {p["pokemon_id"]: p for p in pokedex}
-    user = await queries.get_user(user_id)
     display_name = user["display_name"] if user else "트레이너"
     title_part = f" {user['title_emoji']} {user['title']}" if user and user["title"] else ""
-    all_pokemon = await queries.get_all_pokemon()
 
     text_msg, markup = _build_dex_view(user_id, display_name, title_part,
                                         all_pokemon, caught_ids, page, filt)

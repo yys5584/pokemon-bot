@@ -2079,11 +2079,8 @@ async def api_admin_send_dm(request):
 
 def _iv_grade(total: int) -> str:
     """IV total → grade letter."""
-    if total >= 160: return "S"
-    if total >= 120: return "A"
-    if total >= 93: return "B"
-    if total >= 62: return "C"
-    return "D"
+    grade, _ = config.get_iv_grade(total)
+    return grade
 
 _RARITY_LABEL = {"common": "일반", "rare": "희귀", "epic": "에픽", "legendary": "전설", "ultra_legendary": "초전설"}
 

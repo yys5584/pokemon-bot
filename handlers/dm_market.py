@@ -17,15 +17,8 @@ logger = logging.getLogger(__name__)
 # ── Helpers ──────────────────────────────────────────────
 
 def _iv_grade(total: int) -> str:
-    if total >= 168:
-        return "S"
-    if total >= 140:
-        return "A"
-    if total >= 93:
-        return "B"
-    if total >= 47:
-        return "C"
-    return "D"
+    grade, _ = config.get_iv_grade(total)
+    return grade
 
 
 def _iv_tag(p: dict) -> str:
