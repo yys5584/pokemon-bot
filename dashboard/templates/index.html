@@ -93,6 +93,10 @@
         .poke-card.shiny::before{content:'';position:absolute;top:-50%;width:25%;height:200%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);transform:rotate(25deg);animation:holoSweep 5s ease-in-out infinite;pointer-events:none;z-index:1}
         .poke-card.shiny::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,100,100,.08),rgba(255,200,60,.10),rgba(80,255,150,.08),rgba(60,180,255,.10),rgba(160,80,255,.08),rgba(255,80,180,.10),rgba(255,100,100,.08));background-size:200% 200%;animation:holoShimmer 3s ease-in-out infinite reverse;border-radius:7px;pointer-events:none}
         .poke-card.shiny:hover{box-shadow:0 3px 10px rgba(0,0,0,.12),0 0 14px rgba(180,140,255,.22),0 0 8px rgba(255,160,200,.15)}
+        .poke-card.fusion-sel-a{outline:3px solid #2E7D32;outline-offset:-1px}
+        .poke-card.fusion-sel-b{outline:3px solid #1565C0;outline-offset:-1px}
+        .fusion-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000}
+        .fusion-modal{background:var(--card);border-radius:16px;padding:20px 24px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2)}
         .poke-header{display:flex;align-items:center;gap:6px;margin-bottom:4px}
         .poke-emoji{font-size:20px}
         .poke-name{font-weight:700;font-size:13px;color:var(--text)}
@@ -1152,6 +1156,7 @@
                     <select class="poke-select" id="pokeTypeFilter">
                         <option value="">타입 전체</option>
                     </select>
+                    <button class="poke-fusion-btn" id="fusionModeBtn" style="padding:4px 12px;border-radius:16px;font-size:12px;font-weight:600;background:#E8F5E9;border:1px solid #A5D6A7;color:#2E7D32;cursor:pointer" onclick="toggleFusionMode()">🔀 합성</button>
                     <select class="poke-select" id="pokeSortBy">
                         <option value="real_power">실전투력순</option>
                         <option value="iv_total">IV 총합순</option>
@@ -2109,6 +2114,122 @@ const SYNERGY_TYPE_TIP={
     speedy:"속도형: 속도 IV가 가장 중요, 공격·특공도 영향"
 };
 
+// --- FUSION MODE ---
+let _fusionMode=false;
+let _fusionSelA=null;  // {id, pokemon_id, name_ko, ...}
+let _fusionSelB=null;
+
+function toggleFusionMode(){
+    _fusionMode=!_fusionMode;
+    _fusionSelA=null;_fusionSelB=null;
+    const btn=document.getElementById("fusionModeBtn");
+    if(_fusionMode){
+        btn.style.background="#C8E6C9";btn.style.borderColor="#66BB6A";btn.classList.add("active");
+        btn.textContent="🔀 합성모드 ON";
+    } else {
+        btn.style.background="#E8F5E9";btn.style.borderColor="#A5D6A7";btn.classList.remove("active");
+        btn.textContent="🔀 합성";
+    }
+    _pgState._pokePg=0;
+    renderMyPokemon();
+}
+
+function fusionSelectCard(p){
+    if(!_fusionMode) return;
+    // Only same species for second pick
+    if(_fusionSelA && _fusionSelA.id===p.id){_fusionSelA=null;renderMyPokemon();return}
+    if(_fusionSelB && _fusionSelB.id===p.id){_fusionSelB=null;renderMyPokemon();return}
+    if(!_fusionSelA){_fusionSelA=p;}
+    else if(!_fusionSelB){
+        if(p.pokemon_id!==_fusionSelA.pokemon_id){alert("같은 종류의 포켓몬만 합성할 수 있습니다!");return}
+        _fusionSelB=p;
+        showFusionConfirm();
+    } else {
+        // Reset second pick
+        if(p.pokemon_id!==_fusionSelA.pokemon_id){alert("같은 종류의 포켓몬만 합성할 수 있습니다!");return}
+        _fusionSelB=p;
+        showFusionConfirm();
+    }
+    renderMyPokemon();
+}
+
+function showFusionConfirm(){
+    if(!_fusionSelA||!_fusionSelB) return;
+    const a=_fusionSelA,b=_fusionSelB;
+    const ivA=a.iv_total,ivB=b.iv_total;
+    const shinyNote=(a.is_shiny||b.is_shiny)?"<br>⭐ 이로치 포켓몬이 포함되어 결과도 이로치!":"";
+    const html=`<div class="fusion-modal-overlay" id="fusionModal" onclick="if(event.target===this)closeFusionModal()">
+        <div class="fusion-modal">
+            <h3 style="margin:0 0 12px;font-size:16px;color:var(--text)">🔀 합성 확인</h3>
+            <div style="display:flex;gap:12px;justify-content:center;align-items:center;margin-bottom:12px">
+                <div style="text-align:center;padding:8px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+                    <div style="font-size:13px;font-weight:700">${a.name_ko}${a.is_shiny?'⭐':''}</div>
+                    <div style="font-size:11px;color:var(--muted)">[${a.iv_grade}] IV:${ivA}</div>
+                    <div style="font-size:10px;color:var(--dim)">#${a.id}</div>
+                </div>
+                <span style="font-size:20px">+</span>
+                <div style="text-align:center;padding:8px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+                    <div style="font-size:13px;font-weight:700">${b.name_ko}${b.is_shiny?'⭐':''}</div>
+                    <div style="font-size:11px;color:var(--muted)">[${b.iv_grade}] IV:${ivB}</div>
+                    <div style="font-size:10px;color:var(--dim)">#${b.id}</div>
+                </div>
+            </div>
+            <div style="text-align:center;font-size:20px;margin:8px 0">⬇️</div>
+            <div style="text-align:center;font-size:13px;color:var(--text);margin-bottom:8px">
+                <b>${a.name_ko}</b> (랜덤 IV)${shinyNote}
+            </div>
+            <div style="color:#D32F2F;font-size:11px;text-align:center;margin-bottom:12px">⚠️ 합성한 포켓몬은 되돌릴 수 없습니다!</div>
+            <div style="display:flex;gap:8px;justify-content:center">
+                <button onclick="executeFusion()" style="padding:8px 20px;background:#2E7D32;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">✅ 합성하기</button>
+                <button onclick="closeFusionModal()" style="padding:8px 20px;background:#757575;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">취소</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.insertAdjacentHTML("beforeend",html);
+}
+
+function closeFusionModal(){
+    const m=document.getElementById("fusionModal");
+    if(m) m.remove();
+}
+
+async function executeFusion(){
+    if(!_fusionSelA||!_fusionSelB) return;
+    const btn=document.querySelector("#fusionModal button");
+    if(btn){btn.disabled=true;btn.textContent="합성 중...";}
+    try{
+        const res=await fetch("/api/my/fusion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instance_id_a:_fusionSelA.id,instance_id_b:_fusionSelB.id})});
+        const data=await res.json();
+        closeFusionModal();
+        if(data.error){alert("합성 실패: "+data.error);return}
+        // Show result
+        const r=data.result;
+        if(r){
+            const resultHtml=`<div class="fusion-modal-overlay" id="fusionResultModal" onclick="if(event.target===this)closeFusionResult()">
+                <div class="fusion-modal" style="text-align:center">
+                    <h3 style="margin:0 0 12px;font-size:16px;color:#2E7D32">🎉 합성 성공!</h3>
+                    <div style="font-size:18px;font-weight:700;margin-bottom:4px">${r.name_ko}${r.is_shiny?'⭐':''}</div>
+                    <div style="font-size:14px;margin-bottom:8px;color:var(--text)">[${r.iv_grade}] IV합계: ${r.iv_total}</div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;font-size:12px;margin-bottom:12px;text-align:center">
+                        <div>HP: <b>${r.iv_hp}</b></div><div>공격: <b>${r.iv_atk}</b></div><div>방어: <b>${r.iv_def}</b></div>
+                        <div>특공: <b>${r.iv_spa}</b></div><div>특방: <b>${r.iv_spdef}</b></div><div>속도: <b>${r.iv_spd}</b></div>
+                    </div>
+                    <button onclick="closeFusionResult()" style="padding:8px 24px;background:var(--green);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">확인</button>
+                </div>
+            </div>`;
+            document.body.insertAdjacentHTML("beforeend",resultHtml);
+        }
+        // Refresh pokemon list
+        _fusionSelA=null;_fusionSelB=null;
+        await loadMyPokemon();
+    }catch(e){closeFusionModal();alert("오류: "+e.message)}
+}
+
+function closeFusionResult(){
+    const m=document.getElementById("fusionResultModal");
+    if(m) m.remove();
+}
+
 async function loadMyPokemon(){
     const[pokemon,summary]=await Promise.all([
         fetch("/api/my/pokemon").then(r=>r.json()),
@@ -2159,6 +2280,18 @@ async function loadMyPokemon(){
 
 function filterAndSortPokemon(){
     let list=[..._myPokemon];
+    // Fusion mode: show only species with 2+ copies (or filtered to same species if one selected)
+    if(_fusionMode){
+        if(_fusionSelA){
+            // Show only same species
+            list=list.filter(p=>p.pokemon_id===_fusionSelA.pokemon_id);
+        } else {
+            // Show only species with 2+ copies
+            const counts={};
+            list.forEach(p=>{counts[p.pokemon_id]=(counts[p.pokemon_id]||0)+1});
+            list=list.filter(p=>counts[p.pokemon_id]>=2);
+        }
+    }
     // Filter
     if(_pokeFilter==="shiny") list=list.filter(p=>p.is_shiny);
     else if(_pokeFilter==="ultra_legendary") list=list.filter(p=>p.rarity==="ultra_legendary");
@@ -2207,7 +2340,18 @@ function renderPokemonCard(p){
     const synTipScore=p.synergy_score>=90?"IV가 특성에 완벽히 부합합니다!":p.synergy_score>=70?"IV가 특성에 잘 맞습니다":p.synergy_score>=50?"IV가 특성에 보통 수준입니다":"IV가 특성과 다소 맞지 않습니다";
     const rarCls=p.is_shiny?"shiny":p.rarity!=="common"?p.rarity:"";
 
-    return`<div class="poke-card${rarCls?' '+rarCls:''}">
+    // Fusion mode: highlight selected cards, add click handler
+    let fusionCls="",fusionBadge="",fusionClick="";
+    if(_fusionMode){
+        const isSelA=_fusionSelA&&_fusionSelA.id===p.id;
+        const isSelB=_fusionSelB&&_fusionSelB.id===p.id;
+        if(isSelA) {fusionCls=" fusion-sel-a";fusionBadge='<span style="position:absolute;top:4px;right:4px;background:#2E7D32;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;z-index:2">①</span>';}
+        else if(isSelB) {fusionCls=" fusion-sel-b";fusionBadge='<span style="position:absolute;top:4px;right:4px;background:#1565C0;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;z-index:2">②</span>';}
+        fusionClick=` onclick="fusionSelectCard(_myPokemon.find(x=>x.id===${p.id}))" style="cursor:pointer"`;
+    }
+
+    return`<div class="poke-card${rarCls?' '+rarCls:''}${fusionCls}"${fusionClick}>
+        ${fusionBadge}
         <div class="poke-header">
             <div>
                 <div class="poke-name">${t1}${t2} ${p.name_ko} ${shinyMark}</div>
@@ -2230,14 +2374,24 @@ function renderMyPokemon(){
     const list=filterAndSortPokemon();
     const grid=document.getElementById("pokeGrid");
     const navEl=document.getElementById("pokeGridNav");
-    if(!list.length){grid.innerHTML='<div class="sim-empty">조건에 맞는 푸키몬이 없습니다.</div>';navEl.innerHTML='';return}
+    if(!list.length){
+        grid.innerHTML=_fusionMode?'<div class="sim-empty">합성 가능한 포켓몬이 없습니다.<br><span style="font-size:11px;color:var(--muted)">같은 종류 2마리 이상 보유해야 합니다.</span></div>':'<div class="sim-empty">조건에 맞는 푸키몬이 없습니다.</div>';
+        navEl.innerHTML='';return}
     const perPage=12;
     if(!_pgState._pokePg) _pgState._pokePg=0;
     const total=Math.ceil(list.length/perPage);
     _pgState._pokePg=Math.min(_pgState._pokePg,total-1);
     const pg=_pgState._pokePg;
     const slice=list.slice(pg*perPage,pg*perPage+perPage);
-    grid.innerHTML=slice.map(renderPokemonCard).join("");
+    let fusionInfo="";
+    if(_fusionMode){
+        const selInfo=_fusionSelA?`선택: <b>${_fusionSelA.name_ko}</b> — 같은 종류의 두 번째 포켓몬을 선택하세요`:"같은 종류 2마리를 선택하세요";
+        fusionInfo=`<div style="padding:8px 12px;margin-bottom:8px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;font-size:12px;color:#2E7D32;display:flex;align-items:center;gap:8px">
+            <span style="font-size:16px">🔀</span><span>${selInfo}</span>
+            ${_fusionSelA?'<button onclick="_fusionSelA=null;_fusionSelB=null;_pgState._pokePg=0;renderMyPokemon()" style="margin-left:auto;padding:2px 8px;border:1px solid #A5D6A7;background:#fff;border-radius:4px;font-size:11px;cursor:pointer">선택 초기화</button>':''}
+        </div>`;
+    }
+    grid.innerHTML=fusionInfo+slice.map(renderPokemonCard).join("");
     let nav=`<div class="poke-pg"><span style="color:var(--muted);font-size:11px">${list.length}마리</span>`;
     if(total>1){
         nav+=`<button class="poke-pg-btn" onclick="_pgState._pokePg=0;renderMyPokemon()"${pg===0?' disabled':''}>&laquo;</button>`;

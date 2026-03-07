@@ -1294,6 +1294,52 @@ async def api_my_quota(request):
     return web.json_response({"remaining": remaining, "bonus_remaining": bonus})
 
 
+async def api_my_fusion(request):
+    """POST /api/my/fusion — fuse two same-species Pokemon."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+
+    try:
+        body = await request.json()
+        id_a = int(body["instance_id_a"])
+        id_b = int(body["instance_id_b"])
+    except (KeyError, ValueError, TypeError):
+        return web.json_response({"error": "instance_id_a, instance_id_b 필요"}, status=400)
+
+    from services.fusion_service import execute_fusion
+    success, msg, result = await execute_fusion(sess["user_id"], id_a, id_b)
+
+    if not success:
+        return web.json_response({"error": msg}, status=400)
+
+    # Build result data matching api_my_pokemon format
+    if result:
+        iv_t = sum(result.get(f"iv_{s}", 0) or 0 for s in ("hp", "atk", "def", "spa", "spdef", "spd"))
+        grade, _ = config.get_iv_grade(iv_t)
+        res_data = {
+            "id": result["id"],
+            "pokemon_id": result["pokemon_id"],
+            "name_ko": result.get("name_ko", ""),
+            "emoji": result.get("emoji", ""),
+            "rarity": result.get("rarity", ""),
+            "is_shiny": bool(result.get("is_shiny")),
+            "iv_hp": result.get("iv_hp", 0),
+            "iv_atk": result.get("iv_atk", 0),
+            "iv_def": result.get("iv_def", 0),
+            "iv_spa": result.get("iv_spa", 0),
+            "iv_spdef": result.get("iv_spdef", 0),
+            "iv_spd": result.get("iv_spd", 0),
+            "iv_total": iv_t,
+            "iv_grade": grade,
+            "friendship": result.get("friendship", 0),
+        }
+    else:
+        res_data = None
+
+    return web.json_response({"success": True, "message": msg, "result": res_data})
+
+
 async def api_my_chat(request):
     """AI chat endpoint — Gemini Flash with battle context."""
     sess = await _get_session(request)
@@ -3172,6 +3218,7 @@ def create_app() -> web.Application:
     app.router.add_post("/api/my/team-recommend", api_my_team_recommend)
     app.router.add_post("/api/my/chat", api_my_chat)
     app.router.add_get("/api/my/quota", api_my_quota)
+    app.router.add_post("/api/my/fusion", api_my_fusion)
     # Donation, Payment & Admin
     app.router.add_get("/api/donation", api_donation)
     app.router.add_post("/api/payment/create", api_payment_create)

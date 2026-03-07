@@ -207,6 +207,20 @@ async def mock_my_pokemon(request):
          "real_stats":{"hp":290,"atk":139,"def":128,"spa":102,"spdef":93,"spd":78},
          "power":720,"real_power":830,"iv_bonus":110,"iv_total":128,"iv_grade":"B",
          "synergy_score":82,"synergy_label":"우수","synergy_emoji":"🔥"},
+        {"id":8,"pokemon_id":25,"name_ko":"피카츄","emoji":"⚡","rarity":"common","pokemon_type":"electric","type2":None,
+         "stat_type":"speedy","friendship":1,"is_shiny":False,"is_favorite":False,"evo_stage":2,
+         "ivs":{"hp":5,"atk":8,"def":3,"spa":12,"spdef":2,"spd":15},
+         "stats":{"hp":120,"atk":45,"def":32,"spa":42,"spdef":40,"spd":78},
+         "real_stats":{"hp":113,"atk":40,"def":29,"spa":40,"spdef":36,"spd":82},
+         "power":357,"real_power":340,"iv_bonus":-17,"iv_total":45,"iv_grade":"D",
+         "synergy_score":55,"synergy_label":"보통","synergy_emoji":"⚡"},
+        {"id":9,"pokemon_id":25,"name_ko":"피카츄","emoji":"⚡","rarity":"common","pokemon_type":"electric","type2":None,
+         "stat_type":"speedy","friendship":2,"is_shiny":False,"is_favorite":False,"evo_stage":2,
+         "ivs":{"hp":18,"atk":22,"def":14,"spa":25,"spdef":10,"spd":28},
+         "stats":{"hp":120,"atk":45,"def":32,"spa":42,"spdef":40,"spd":78},
+         "real_stats":{"hp":130,"atk":55,"def":36,"spa":52,"spdef":42,"spd":92},
+         "power":357,"real_power":407,"iv_bonus":50,"iv_total":117,"iv_grade":"B",
+         "synergy_score":82,"synergy_label":"우수","synergy_emoji":"🔥"},
     ]
     return web.json_response(mock_pokemon)
 
@@ -305,6 +319,33 @@ async def mock_team_recommend(request):
         "analysis": f"{labels.get(mode,mode)} 모드로 추천합니다. 총 전투력 {sum(p['real_power'] for p in pk[:6])}. 드래곤 + 에스퍼 위주 구성으로 페어리 타입에 주의하세요.",
         "warnings": ["팀이 페어리 타입에 취약합니다."],
         "mode": mode
+    })
+
+
+async def mock_fusion(request):
+    """Mock fusion for preview."""
+    import random
+    body = await request.json()
+    id_a = body.get("instance_id_a")
+    id_b = body.get("instance_id_b")
+    if not id_a or not id_b or id_a == id_b:
+        return web.json_response({"error": "같은 개체를 선택할 수 없습니다."}, status=400)
+    # Generate random IVs for mock result
+    ivs = {s: random.randint(0, 31) for s in ("hp", "atk", "def", "spa", "spdef", "spd")}
+    iv_t = sum(ivs.values())
+    grades = [(160, "S"), (120, "A"), (93, "B"), (62, "C"), (0, "D")]
+    grade = next(g for t, g in grades if iv_t >= t)
+    return web.json_response({
+        "success": True,
+        "message": "합성 성공!",
+        "result": {
+            "id": random.randint(9000, 9999),
+            "pokemon_id": 25, "name_ko": "피카츄", "emoji": "⚡",
+            "rarity": "rare", "is_shiny": False,
+            "iv_hp": ivs["hp"], "iv_atk": ivs["atk"], "iv_def": ivs["def"],
+            "iv_spa": ivs["spa"], "iv_spdef": ivs["spdef"], "iv_spd": ivs["spd"],
+            "iv_total": iv_t, "iv_grade": grade, "friendship": 0,
+        }
     })
 
 
@@ -771,6 +812,7 @@ def create_preview_app():
     app.router.add_get("/api/my/summary", mock_my_summary)
     app.router.add_post("/api/my/team-recommend", mock_team_recommend)
     app.router.add_post("/api/my/chat", mock_chat)
+    app.router.add_post("/api/my/fusion", mock_fusion)
     app.router.add_get("/api/my/quota", lambda r: web.json_response({"remaining": max(0, 20 - _mock_chat_count), "bonus_remaining": 45}))
     app.router.add_get("/api/donation", lambda r: web.json_response({"current": 75, "goal": 200}))
     app.router.add_post("/api/payment/create", lambda r: web.json_response({"ok": True, "invoice_url": "https://nowpayments.io/payment/?iid=mock_preview", "invoice_id": "mock_123"}))
