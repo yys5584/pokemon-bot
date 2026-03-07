@@ -209,7 +209,18 @@ async def calculate_title(user_id: int) -> tuple[str, str]:
 
 
 async def update_title(user_id: int):
-    """Recalculate and update user's title."""
+    """Recalculate and update user's title.
+    Skip if user has manually equipped an unlockable title."""
+    user = await queries.get_user(user_id)
+    if user:
+        current = user.get("title", "")
+        if current:
+            # Check if current title matches any unlocked title from user_titles
+            unlocked = await queries.get_user_titles(user_id)
+            unlocked_ids = {r["title_id"] for r in unlocked}
+            for tid, (name, *_) in UNLOCKABLE_TITLES.items():
+                if name == current and tid in unlocked_ids:
+                    return  # User manually equipped this title, don't overwrite
     title, emoji = await calculate_title(user_id)
     await queries.update_user_title(user_id, title, emoji)
 
