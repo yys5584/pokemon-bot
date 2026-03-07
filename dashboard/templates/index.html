@@ -45,10 +45,9 @@
         .dex-cell .dex-id{color:var(--muted);font-size:10px;min-width:26px}
         .dex-cell .dex-type{width:14px;height:14px;vertical-align:middle}
         .dex-cell .dex-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .dex-cell{position:relative;cursor:default;z-index:1}
+        .dex-cell{position:relative;cursor:pointer;z-index:1}
         .dex-cell:hover{z-index:30}
-        .dex-tip{display:none;position:fixed;background:#fff;color:var(--text);padding:12px 14px;border-radius:12px;font-size:11px;white-space:normal;z-index:100;font-weight:400;line-height:1.5;width:300px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.15);pointer-events:none}
-        .dex-tip .dt-copy{pointer-events:auto}
+        .dex-tip{display:none;position:fixed;background:#fff;color:var(--text);padding:12px 14px;border-radius:12px;font-size:11px;white-space:normal;z-index:100;font-weight:400;line-height:1.5;width:300px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.15);pointer-events:auto}
         .dex-tip .dt-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:5px 14px;margin:8px 0;padding:8px 10px;background:#FAFAFA;border-radius:8px}
         .dex-tip .dt-stat{display:flex;align-items:center;gap:4px;font-size:10px}
         .dex-tip .dt-stat-name{color:var(--muted);min-width:22px;font-weight:500}
@@ -2351,55 +2350,53 @@ function renderPokedex(){
     nav+='</div>';
     navEl.innerHTML=nav;
 
-    // Position dex tooltips: JS controls both display and position
+    // Dex tooltips: click to show, click outside/same cell to close
     let _activeDexTip=null;
     let _activeDexCell=null;
     const dexGrid=document.getElementById("dexGrid");
-    function posDexTip(tip,mx,my){
-        const tw=310,gap=12;
-        let lx=mx+gap,ly=my+gap;
-        if(lx+tw>window.innerWidth-8)lx=mx-tw-gap;
+    function posDexTip(tip,cell){
+        const cr=cell.getBoundingClientRect();
+        const tw=310,gap=8;
+        // Position below the cell, centered horizontally
+        let lx=cr.left+cr.width/2-tw/2;
+        let ly=cr.bottom+gap;
+        // Clamp horizontal
+        if(lx+tw>window.innerWidth-8)lx=window.innerWidth-tw-8;
         if(lx<8)lx=8;
         tip.style.left=lx+"px";
         tip.style.top=ly+"px";
         requestAnimationFrame(()=>{
             const tr=tip.getBoundingClientRect();
-            if(tr.bottom>window.innerHeight-8)tip.style.top=(my-tr.height-gap)+"px";
+            // If overflows bottom, show above the cell
+            if(tr.bottom>window.innerHeight-8){
+                tip.style.top=(cr.top-tr.height-gap)+"px";
+            }
         });
     }
-    dexGrid.addEventListener("mouseover",function(e){
+    function closeDexTip(){
+        if(_activeDexTip){_activeDexTip.classList.remove("visible");_activeDexTip=null;_activeDexCell=null;}
+    }
+    dexGrid.addEventListener("click",function(e){
+        // Don't close if clicking copy button inside tooltip
+        if(e.target.closest(".dt-copy"))return;
         const cell=e.target.closest(".dex-cell");
-        if(!cell){if(_activeDexTip){_activeDexTip.classList.remove("visible");_activeDexTip=null;_activeDexCell=null;}return;}
-        if(cell===_activeDexCell)return;
+        if(!cell){closeDexTip();return;}
+        // Toggle: click same cell closes it
+        if(cell===_activeDexCell){closeDexTip();return;}
         const tip=cell.querySelector(".dex-tip");
-        if(!tip)return;
-        if(_activeDexTip)_activeDexTip.classList.remove("visible");
-        posDexTip(tip,e.clientX,e.clientY);
+        if(!tip){closeDexTip();return;}
+        closeDexTip();
+        posDexTip(tip,cell);
         tip.classList.add("visible");
         _activeDexTip=tip;
         _activeDexCell=cell;
     });
-    dexGrid.addEventListener("mousemove",function(e){
-        if(!_activeDexTip)return;
-        const cell=e.target.closest(".dex-cell");
-        if(!cell||cell!==_activeDexCell){
-            if(cell&&cell!==_activeDexCell){
-                const tip=cell.querySelector(".dex-tip");
-                if(tip){
-                    _activeDexTip.classList.remove("visible");
-                    posDexTip(tip,e.clientX,e.clientY);
-                    tip.classList.add("visible");
-                    _activeDexTip=tip;
-                    _activeDexCell=cell;
-                }
-            }
-            return;
-        }
-        posDexTip(_activeDexTip,e.clientX,e.clientY);
+    // Click outside dex grid closes tooltip
+    document.addEventListener("click",function(e){
+        if(_activeDexTip&&!e.target.closest("#dexGrid")){closeDexTip();}
     });
-    dexGrid.addEventListener("mouseleave",function(){
-        if(_activeDexTip){_activeDexTip.classList.remove("visible");_activeDexTip=null;_activeDexCell=null;}
-    });
+    // Close on scroll (fixed tooltip would detach from cell)
+    window.addEventListener("scroll",function(){closeDexTip();},true);
 }
 
 // --- AI CHAT ADVISOR (session-based) ---
