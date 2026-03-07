@@ -1824,7 +1824,7 @@ async function loadChannelTop5(){
                     <div class="ch-name">${r.chat_title||"(없음)"}</div>
                     <div class="ch-meta">오늘 스폰 ${r.today_spawns}회 · 포획 ${r.today_catches}회 (${rate}%) · ${r.member_count}명</div>
                 </div>
-                <div class="ch-stat"><div class="big">${r.today_spawns}</div><div style="font-size:10px;color:var(--muted)">스폰</div></div>
+                <div class="ch-stat"><div class="big">${r.today_catches}</div><div style="font-size:10px;color:var(--muted)">포획</div></div>
             </div>`;
         });
         document.getElementById("topChannels").innerHTML=h;
@@ -2212,7 +2212,9 @@ async function executeFusion(){
     if(btn){btn.disabled=true;btn.textContent="합성 중...";}
     try{
         const res=await fetch("/api/my/fusion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instance_id_a:_fusionSelA.id,instance_id_b:_fusionSelB.id})});
-        const data=await res.json();
+        const text=await res.text();
+        let data;
+        try{data=JSON.parse(text)}catch(pe){closeFusionModal();alert("서버 응답 오류: "+text.substring(0,200));return}
         closeFusionModal();
         if(data.error){alert("합성 실패: "+data.error);return}
         // Show result

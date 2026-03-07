@@ -1308,7 +1308,11 @@ async def api_my_fusion(request):
         return web.json_response({"error": "instance_id_a, instance_id_b 필요"}, status=400)
 
     from services.fusion_service import execute_fusion
-    success, msg, result = await execute_fusion(sess["user_id"], id_a, id_b)
+    try:
+        success, msg, result = await execute_fusion(sess["user_id"], id_a, id_b)
+    except Exception as e:
+        logger.exception("Fusion error: user=%s a=%s b=%s", sess["user_id"], id_a, id_b)
+        return web.json_response({"error": f"서버 오류: {e}"}, status=500)
 
     if not success:
         return web.json_response({"error": msg}, status=400)
