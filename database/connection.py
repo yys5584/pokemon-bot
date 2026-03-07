@@ -46,8 +46,8 @@ async def _create_pool() -> asyncpg.Pool:
         try:
             pool = await asyncpg.create_pool(
                 dsn=dsn,
-                min_size=3,
-                max_size=10,
+                min_size=int(os.getenv("DB_POOL_MIN", "2")),
+                max_size=int(os.getenv("DB_POOL_MAX", "7")),
                 ssl=_make_ssl(),
                 statement_cache_size=0,  # Supabase uses PgBouncer (no prepared statements)
                 command_timeout=30,

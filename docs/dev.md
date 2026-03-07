@@ -31,10 +31,15 @@
 - numpy 등 무거운 라이브러리 설치 시 메모리 부족 가능
 - 새 패키지 추가 전 `pip install` 테스트 필수
 
-### 서비스 관리
+### 서비스 관리 (봇/대시보드 분리 운영)
 - 봇: `sudo systemctl restart pokemon-bot`
-- 대시보드: 봇과 같은 프로세스 (별도 재시작 불필요)
+- 대시보드: `sudo systemctl restart pokemon-dashboard`
 - Cloudflare Tunnel: `cloudflared.service`
+- 봇과 대시보드는 **별도 프로세스**로 독립 재시작 가능
+- HTML 변경: 재시작 불필요 (FileResponse)
+- 대시보드 Python 변경: `restart pokemon-dashboard`만 (봇 영향 없음)
+- 봇 Python 변경: `restart pokemon-bot`만 (대시보드 영향 없음)
+- DB 풀 사이즈: `DB_POOL_MIN`, `DB_POOL_MAX` 환경변수로 조절 (기본 2/7)
 
 ---
 

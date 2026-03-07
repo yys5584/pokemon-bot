@@ -530,6 +530,89 @@ async def api_my_summary(request):
         return web.json_response({"error": "서버 재시작 중입니다"}, status=503)
 
 
+async def api_my_pokedex(request):
+    """Return user's pokedex: all 386 pokemon with caught status."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+
+    try:
+        pool = await queries.get_db()
+        uid = sess["user_id"]
+
+        # All pokemon master data
+        all_pm = await pool.fetch("""
+            SELECT id, name_ko, name_en, emoji, rarity, pokemon_type, catch_rate,
+                   evolves_from, evolves_to, evolution_method
+            FROM pokemon_master ORDER BY id
+        """)
+
+        # User's caught pokemon
+        caught_rows = await pool.fetch("""
+            SELECT pokemon_id, method, first_caught_at
+            FROM pokedex WHERE user_id = $1
+        """, uid)
+        caught_map = {r["pokemon_id"]: {"method": r["method"]} for r in caught_rows}
+
+        # Get type2 info from base stats + evo stage
+        from models.pokemon_base_stats import POKEMON_BASE_STATS
+        from utils.battle_calc import EVO_STAGE_MAP
+
+        # Build a lookup for evo chains
+        pm_map = {r["id"]: r for r in all_pm}
+        result = []
+        for pm in all_pm:
+            pid = pm["id"]
+            pbs = POKEMON_BASE_STATS.get(pid)
+            types = pbs[-1] if pbs else [pm["pokemon_type"]]
+            type2 = types[1] if len(types) > 1 else None
+            caught = caught_map.get(pid)
+
+            # Build evolution chain
+            evo_chain = []
+            # Walk backwards to find base
+            base_id = pid
+            while pm_map.get(base_id, {}).get("evolves_from"):
+                base_id = pm_map[base_id]["evolves_from"]
+                if base_id == pid:
+                    break  # Prevent infinite loop
+            # Walk forwards from base
+            cur = base_id
+            while cur:
+                p = pm_map.get(cur)
+                if not p:
+                    break
+                evo_chain.append(p["name_ko"])
+                cur = p["evolves_to"]
+                if cur == base_id:
+                    break
+
+            evo_stage = EVO_STAGE_MAP.get(pid, 3)
+            stage_labels = {1: "기본", 2: "1진화", 3: "최종"}
+            stage = stage_labels.get(evo_stage, "최종")
+            if evo_stage == 3 and not pm.get("evolves_from"):
+                stage = "단일"
+
+            result.append({
+                "id": pid,
+                "name_ko": pm["name_ko"],
+                "name_en": pm["name_en"],
+                "emoji": pm["emoji"],
+                "rarity": pm["rarity"],
+                "type1": pm["pokemon_type"],
+                "type2": type2,
+                "catch_rate": float(pm["catch_rate"]),
+                "caught": caught is not None,
+                "method": caught["method"] if caught else None,
+                "evo_chain": " → ".join(evo_chain) if len(evo_chain) > 1 else None,
+                "stage": stage,
+            })
+
+        return pg_json_response(result)
+    except InterfaceError:
+        return web.json_response({"error": "서버 재시작 중입니다"}, status=503)
+
+
 # ============================================================
 # Team Recommendation API
 # ============================================================
@@ -3047,6 +3130,7 @@ def create_app() -> web.Application:
     app.router.add_post("/api/auth/logout", api_auth_logout)
     # My data (authenticated)
     app.router.add_get("/api/my/pokemon", api_my_pokemon)
+    app.router.add_get("/api/my/pokedex", api_my_pokedex)
     app.router.add_get("/api/my/summary", api_my_summary)
     app.router.add_post("/api/my/team-recommend", api_my_team_recommend)
     app.router.add_post("/api/my/chat", api_my_chat)
@@ -3103,7 +3187,7 @@ def create_app() -> web.Application:
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all: serve index.html for all non-API, non-static paths
-    SPA_PAGES = {"/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/ai", "/admin"}
+    SPA_PAGES = {"/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin"}
     for p in SPA_PAGES:
         app.router.add_get(p, index)
     return app

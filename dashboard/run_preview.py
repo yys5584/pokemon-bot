@@ -200,12 +200,75 @@ async def mock_my_pokemon(request):
          "real_stats":{"hp":283,"atk":137,"def":96,"spa":111,"spdef":99,"spd":87},
          "power":761,"real_power":813,"iv_bonus":52,"iv_total":110,"iv_grade":"B",
          "synergy_score":75,"synergy_label":"우수","synergy_emoji":"🔥"},
+        {"id":7,"pokemon_id":376,"name_ko":"메타그로스","emoji":"⚙️","rarity":"epic","pokemon_type":"steel","type2":"psychic",
+         "stat_type":"offensive","friendship":4,"is_shiny":False,"is_favorite":True,"evo_stage":3,
+         "ivs":{"hp":22,"atk":29,"def":20,"spa":18,"spdef":15,"spd":24},
+         "stats":{"hp":270,"atk":123,"def":116,"spa":93,"spdef":86,"spd":67},
+         "real_stats":{"hp":290,"atk":139,"def":128,"spa":102,"spdef":93,"spd":78},
+         "power":720,"real_power":830,"iv_bonus":110,"iv_total":128,"iv_grade":"B",
+         "synergy_score":82,"synergy_label":"우수","synergy_emoji":"🔥"},
     ]
     return web.json_response(mock_pokemon)
 
+async def mock_my_pokedex(request):
+    """Mock pokedex data: all 386 pokemon with some caught."""
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+    import random
+    random.seed(42)  # Deterministic for preview
+    rarities = {1:"common",25:"common",6:"epic",131:"rare",149:"epic",150:"ultra_legendary",
+                248:"epic",376:"epic",151:"legendary",243:"legendary",244:"legendary",245:"legendary",
+                249:"ultra_legendary",250:"ultra_legendary",251:"legendary",
+                373:"epic",384:"ultra_legendary",385:"ultra_legendary",386:"ultra_legendary"}
+    types_map = {1:"grass",4:"fire",7:"water",25:"electric",6:"fire",131:"water",149:"dragon",
+                 150:"psychic",248:"rock",376:"steel",151:"psychic",373:"dragon",384:"dragon",
+                 385:"steel",386:"psychic"}
+    type2_map = {6:"flying",131:"ice",149:"flying",248:"dark",376:"psychic",373:"flying",384:"flying"}
+    methods = ["spawn","evolve","trade"]
+    caught_ids = set(random.sample(range(1, 387), 180))  # ~180 caught
+    # Always include our notable pokemon
+    caught_ids |= {6, 25, 131, 149, 150, 248, 376}
+    result = []
+    names_ko = {1:"이상해씨",2:"이상해풀",3:"이상해꽃",4:"파이리",5:"리자드",6:"리자몽",
+                7:"꼬부기",8:"어니부기",9:"거북왕",10:"캐터피",25:"피카츄",131:"라프라스",
+                149:"망나뇽",150:"뮤츠",151:"뮤",248:"마기라스",373:"보만다",376:"메타그로스",
+                384:"레쿠쟈",385:"지라치",386:"데옥시스"}
+    names_en = {1:"Bulbasaur",4:"Charmander",6:"Charizard",7:"Squirtle",25:"Pikachu",
+                131:"Lapras",149:"Dragonite",150:"Mewtwo",151:"Mew",248:"Tyranitar",
+                373:"Salamence",376:"Metagross",384:"Rayquaza"}
+    evo_chains = {1:"이상해씨 → 이상해풀 → 이상해꽃",2:"이상해씨 → 이상해풀 → 이상해꽃",3:"이상해씨 → 이상해풀 → 이상해꽃",
+                  4:"파이리 → 리자드 → 리자몽",5:"파이리 → 리자드 → 리자몽",6:"파이리 → 리자드 → 리자몽",
+                  7:"꼬부기 → 어니부기 → 거북왕",8:"꼬부기 → 어니부기 → 거북왕",9:"꼬부기 → 어니부기 → 거북왕",
+                  25:"피카츄 → 라이츄"}
+    evo_stages = {1:"기본",2:"1진화",3:"최종",4:"기본",5:"1진화",6:"최종",7:"기본",8:"1진화",9:"최종",
+                  25:"기본",131:"단일",149:"최종",150:"단일",151:"단일",248:"최종",376:"최종"}
+    for pid in range(1, 387):
+        gen_types = ["normal","fire","water","grass","electric","ice","fighting","poison",
+                     "ground","flying","psychic","bug","rock","ghost","dragon","dark","steel","fairy"]
+        rarity = rarities.get(pid, random.choice(["common","common","common","rare","rare","epic"]))
+        t1 = types_map.get(pid, random.choice(gen_types))
+        t2 = type2_map.get(pid, None) if pid in type2_map else (random.choice(gen_types) if random.random() < 0.3 else None)
+        caught = pid in caught_ids
+        cr = {"common":0.5,"rare":0.3,"epic":0.15,"legendary":0.05,"ultra_legendary":0.03}.get(rarity, 0.3)
+        result.append({
+            "id": pid,
+            "name_ko": names_ko.get(pid, f"푸키몬{pid}"),
+            "name_en": names_en.get(pid, f"Pokemon{pid}"),
+            "emoji": "🔵",
+            "rarity": rarity,
+            "type1": t1,
+            "type2": t2,
+            "catch_rate": cr,
+            "caught": caught,
+            "method": random.choice(methods) if caught else None,
+            "evo_chain": evo_chains.get(pid),
+            "stage": evo_stages.get(pid, "최종"),
+        })
+    return web.json_response(result)
+
 async def mock_my_summary(request):
     return web.json_response({
-        "total_pokemon":6,"shiny_count":2,"dex_count":45,
+        "total_pokemon":7,"shiny_count":2,"dex_count":45,
         "battle_points":1250,"battle_wins":35,"battle_losses":12,"best_streak":8
     })
 
@@ -679,6 +742,7 @@ def create_preview_app():
     app.router.add_post("/api/auth/logout", mock_auth_logout)
     # My data routes (mock)
     app.router.add_get("/api/my/pokemon", mock_my_pokemon)
+    app.router.add_get("/api/my/pokedex", mock_my_pokedex)
     app.router.add_get("/api/my/summary", mock_my_summary)
     app.router.add_post("/api/my/team-recommend", mock_team_recommend)
     app.router.add_post("/api/my/chat", mock_chat)
@@ -725,7 +789,7 @@ def create_preview_app():
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all
-    for p in ["/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/ai", "/admin"]:
+    for p in ["/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin"]:
         app.router.add_get(p, index)
     return app
 

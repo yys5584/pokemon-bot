@@ -59,7 +59,8 @@ from services.spawn_service import schedule_all_chats
 from services.weather_service import update_weather, get_current_weather, WEATHER_BOOSTS
 from services.tournament_service import start_registration, start_tournament, snapshot_teams
 from handlers.tournament import tournament_join_handler
-from dashboard.server import start_dashboard
+# Dashboard now runs as separate process (pokemon-dashboard.service)
+# from dashboard.server import start_dashboard
 
 load_dotenv()
 
@@ -114,13 +115,12 @@ async def post_init(application: Application):
         logger.info(f"Ultra-legendary migration: {ultra_migrated} pokemon promoted to ultra_legendary.")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready. 251 Pokemon seeded.")
 
-    # Phase 3: 독립 작업 병렬 (cleanup + missed_reset + dashboard)
+    # Phase 3: 독립 작업 병렬 (cleanup + missed_reset)
     from services.spawn_service import resolve_unresolved_sessions
     refunded_balls, *_ = await asyncio.gather(
         resolve_unresolved_sessions(application.bot),
         queries.cleanup_expired_events(),
         _check_missed_reset(),
-        start_dashboard(),
     )
     # 환불된 마볼/하이퍼볼 DM 알림
     if refunded_balls:
@@ -134,7 +134,7 @@ async def post_init(application: Application):
             except Exception:
                 pass
         logger.info(f"Sent {len(refunded_balls)} ball refund DMs")
-    logger.info(f"[{time.monotonic()-t0:.1f}s] Cleanup + dashboard done")
+    logger.info(f"[{time.monotonic()-t0:.1f}s] Cleanup done")
 
     # Weather는 느릴 수 있으므로 백그라운드로 (시작 차단 안 함)
     weather_city = os.getenv("WEATHER_CITY", "Seoul")

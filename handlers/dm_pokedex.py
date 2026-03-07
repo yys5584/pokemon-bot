@@ -15,9 +15,178 @@ from utils.battle_calc import iv_total
 
 logger = logging.getLogger(__name__)
 
-POKEDEX_PAGE_SIZE = 10
+POKEDEX_PAGE_SIZE = 15
 MYPOKE_PAGE_SIZE = 10
 ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "pokemon")
+
+# ── Pokedex (도감) filter helpers ──
+
+def _get_dex_filter(context) -> dict:
+    """Get or init pokedex filter state."""
+    filt = context.user_data.setdefault("dex_filter", {
+        "gen": None,        # None=전체, 1/2/3
+        "status": "all",    # all / caught / uncaught
+        "rarity": None,     # None=전체, "legendary" etc
+        "type": None,       # None=전체, "fire" etc
+    })
+    for key in ("gen", "status", "rarity", "type"):
+        if key not in filt:
+            filt[key] = None if key != "status" else "all"
+    return filt
+
+
+def _apply_dex_filters(all_pokemon: list, caught_ids: dict, filt: dict) -> list:
+    """Apply filters to the full pokemon list (all_pokemon is list of pokemon_master dicts)."""
+    filtered = list(all_pokemon)
+
+    # Generation filter
+    gen = filt.get("gen")
+    if gen == 1:
+        filtered = [p for p in filtered if 1 <= p["id"] <= 151]
+    elif gen == 2:
+        filtered = [p for p in filtered if 152 <= p["id"] <= 251]
+    elif gen == 3:
+        filtered = [p for p in filtered if 252 <= p["id"] <= 386]
+
+    # Caught status filter
+    status = filt.get("status", "all")
+    if status == "caught":
+        filtered = [p for p in filtered if p["id"] in caught_ids]
+    elif status == "uncaught":
+        filtered = [p for p in filtered if p["id"] not in caught_ids]
+
+    # Rarity filter
+    rarity = filt.get("rarity")
+    if rarity:
+        filtered = [p for p in filtered if p["rarity"] == rarity]
+
+    # Type filter
+    type_f = filt.get("type")
+    if type_f:
+        from models.pokemon_base_stats import POKEMON_BASE_STATS
+        result = []
+        for p in filtered:
+            pbs = POKEMON_BASE_STATS.get(p["id"])
+            types = pbs[-1] if pbs else [p.get("pokemon_type", "")]
+            if type_f in types:
+                result.append(p)
+        filtered = result
+
+    return filtered
+
+
+def _build_dex_view(user_id: int, display_name: str, title_part: str,
+                    all_pokemon: list, caught_ids: dict, page: int,
+                    filt: dict) -> tuple[str, InlineKeyboardMarkup | None]:
+    """Build the pokedex display text and inline keyboard."""
+    original_total = len(caught_ids)
+
+    # Apply filters
+    has_filter = filt.get("gen") or filt.get("status", "all") != "all" or filt.get("rarity") or filt.get("type")
+    if has_filter:
+        filtered = _apply_dex_filters(all_pokemon, caught_ids, filt)
+    else:
+        filtered = all_pokemon
+
+    caught_in_filtered = sum(1 for p in filtered if p["id"] in caught_ids)
+    total_filtered = len(filtered)
+
+    # Paginate
+    total_pages = max(1, (total_filtered + POKEDEX_PAGE_SIZE - 1) // POKEDEX_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * POKEDEX_PAGE_SIZE
+    end = min(start + POKEDEX_PAGE_SIZE, total_filtered)
+    page_pokemon = filtered[start:end]
+
+    # Header
+    filter_tags = []
+    if filt.get("gen"):
+        filter_tags.append(f"{filt['gen']}세대")
+    if filt.get("status") == "caught":
+        filter_tags.append("✓보유")
+    elif filt.get("status") == "uncaught":
+        filter_tags.append("✗미보유")
+    if filt.get("rarity"):
+        rl = config.RARITY_LABEL.get(filt["rarity"], filt["rarity"])
+        filter_tags.append(rl)
+    if filt.get("type"):
+        tn = config.TYPE_NAME_KO.get(filt["type"], filt["type"])
+        filter_tags.append(tn)
+    filter_str = f"  {'·'.join(filter_tags)}" if filter_tags else ""
+
+    if has_filter:
+        count_str = f"{caught_in_filtered}/{total_filtered}"
+    else:
+        count_str = f"{original_total}/386"
+
+    gen1 = sum(1 for pid in caught_ids if pid <= 151)
+    gen2 = sum(1 for pid in caught_ids if 152 <= pid <= 251)
+    gen3 = sum(1 for pid in caught_ids if 252 <= pid <= 386)
+
+    lines = [f"🏅 {escape_html(display_name)}의 도감 ({count_str}){title_part}"]
+    if not has_filter:
+        lines.append(f"1세대: {gen1}/151 | 2세대: {gen2}/100 | 3세대: {gen3}/135")
+    lines.append("")
+
+    for pm in page_pokemon:
+        pid = pm["id"]
+        if pid in caught_ids:
+            entry = caught_ids[pid]
+            evo_mark = " ★진화" if entry["method"] == "evolve" else ""
+            trade_mark = " 🔄교환" if entry["method"] == "trade" else ""
+            rb = rarity_badge(pm["rarity"])
+            tb = type_badge(pid)
+            lines.append(f"{pid:03d} {rb}{tb} {pm['name_ko']}{evo_mark}{trade_mark}")
+        else:
+            lines.append(f"{pid:03d} ・ ???")
+
+    pct = caught_in_filtered / total_filtered * 100 if total_filtered > 0 else 0
+    lines.append(f"\n수집률: {pct:.1f}%  ({page + 1}/{total_pages})")
+
+    # ── Build inline keyboard ──
+    kbd = []
+
+    # Row 1: Generation filter
+    gen_on = filt.get("gen")
+    kbd.append([
+        InlineKeyboardButton(f"{'✓' if gen_on == 1 else ''}1세대", callback_data=f"dex_gen_{user_id}_1"),
+        InlineKeyboardButton(f"{'✓' if gen_on == 2 else ''}2세대", callback_data=f"dex_gen_{user_id}_2"),
+        InlineKeyboardButton(f"{'✓' if gen_on == 3 else ''}3세대", callback_data=f"dex_gen_{user_id}_3"),
+    ])
+
+    # Row 2: Status + Rarity
+    st = filt.get("status", "all")
+    rarity_on = filt.get("rarity")
+    kbd.append([
+        InlineKeyboardButton(f"{'✓' if st == 'caught' else ''}✓보유", callback_data=f"dex_st_{user_id}_caught"),
+        InlineKeyboardButton(f"{'✓' if st == 'uncaught' else ''}✗미보유", callback_data=f"dex_st_{user_id}_uncaught"),
+        InlineKeyboardButton(f"{'✓' if rarity_on else ''}💎등급", callback_data=f"dex_rm_{user_id}"),
+    ])
+
+    # Row 3: Type filter
+    type_on = filt.get("type")
+    if type_on:
+        tn = config.TYPE_NAME_KO.get(type_on, type_on)
+        kbd.append([
+            InlineKeyboardButton(f"✓{tn} 해제", callback_data=f"dex_tf_{user_id}_x"),
+            InlineKeyboardButton("🔄 타입변경", callback_data=f"dex_tm_{user_id}"),
+        ])
+    else:
+        kbd.append([
+            InlineKeyboardButton("🏷 타입필터", callback_data=f"dex_tm_{user_id}"),
+        ])
+
+    # Row 4: Pagination
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"dex_p_{user_id}_{page - 1}"))
+    if end < total_filtered:
+        nav_row.append(InlineKeyboardButton("다음 ▶", callback_data=f"dex_p_{user_id}_{page + 1}"))
+    if nav_row:
+        kbd.append(nav_row)
+
+    markup = InlineKeyboardMarkup(kbd) if kbd else None
+    return "\n".join(lines), markup
 
 
 async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -36,19 +205,9 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = parse_args(text)
 
     if args and not args[0].isdigit():
-        # Pokemon name search: "도감 파이리"
         name_query = " ".join(args)
         await _show_pokemon_detail(update, user_id, name_query)
         return
-
-    # Get user's pokedex entries
-    pokedex = await queries.get_user_pokedex(user_id)
-    caught_ids = {p["pokemon_id"]: p for p in pokedex}
-    total = len(caught_ids)
-
-    # Get user info for title
-    user = await queries.get_user(user_id)
-    title_part = f" {user['title_emoji']} {user['title']}" if user and user["title"] else ""
 
     # Page handling
     page = 0
@@ -56,122 +215,135 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if num is not None:
         page = num - 1
 
-    # Build Pokedex display
+    # Reset filter on fresh command
+    filt = _get_dex_filter(context)
+
+    # Get data
+    pokedex = await queries.get_user_pokedex(user_id)
+    caught_ids = {p["pokemon_id"]: p for p in pokedex}
+    user = await queries.get_user(user_id)
+    title_part = f" {user['title_emoji']} {user['title']}" if user and user["title"] else ""
     all_pokemon = await queries.get_all_pokemon()
-    start = page * POKEDEX_PAGE_SIZE
-    end = start + POKEDEX_PAGE_SIZE
-    page_pokemon = all_pokemon[start:end]
-    total_pages = (len(all_pokemon) + POKEDEX_PAGE_SIZE - 1) // POKEDEX_PAGE_SIZE
 
-    gen1 = sum(1 for pid in caught_ids if pid <= 151)
-    gen2 = sum(1 for pid in caught_ids if 152 <= pid <= 251)
-    gen3 = sum(1 for pid in caught_ids if 252 <= pid <= 386)
-    lines = [f"🏅 {escape_html(display_name)}의 도감 ({total}/386){title_part}"]
-    lines.append(f"1세대: {gen1}/151 | 2세대: {gen2}/100 | 3세대: {gen3}/135\n")
+    text_msg, markup = _build_dex_view(user_id, display_name, title_part,
+                                        all_pokemon, caught_ids, page, filt)
 
-    for pm in page_pokemon:
-        pid = pm["id"]
-        if pid in caught_ids:
-            entry = caught_ids[pid]
-            evo_mark = " ★진화" if entry["method"] == "evolve" else ""
-            trade_mark = " 🔄교환" if entry["method"] == "trade" else ""
-            rb = rarity_badge(pm["rarity"])
-            tb = type_badge(pid)
-            lines.append(
-                f"{pid:03d} {rb}{tb} {pm['name_ko']}{evo_mark}{trade_mark}"
-            )
-        else:
-            lines.append(f"{pid:03d} ・ ???")
-
-    lines.append(f"\n수집률: {total / 386 * 100:.1f}%  ({page + 1}/{total_pages})")
-
-    # Pagination buttons
-    buttons = []
-    if page > 0:
-        buttons.append(
-            InlineKeyboardButton("◀ 이전", callback_data=f"dex_{page}")
-        )
-    if end < len(all_pokemon):
-        buttons.append(
-            InlineKeyboardButton("다음 ▶", callback_data=f"dex_{page + 2}")
-        )
-
-    markup = InlineKeyboardMarkup([buttons]) if buttons else None
-
-    await update.message.reply_text(
-        "\n".join(lines),
-        reply_markup=markup,
-        parse_mode="HTML",
-    )
+    await update.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
 
 
 async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle Pokedex pagination callback."""
+    """Handle Pokedex callbacks: pagination + filters."""
     query = update.callback_query
     if not query or not query.data.startswith("dex_"):
         return
 
     await query.answer()
 
-    user_id = query.from_user.id
-    page = int(query.data.split("_")[1]) - 1
+    data = query.data
+    parts = data.split("_")
 
+    # Legacy format: dex_{page_number} — handle gracefully
+    if len(parts) == 2 and parts[1].isdigit():
+        # Old callback, treat as page navigation
+        user_id = query.from_user.id
+        page = int(parts[1]) - 1
+        filt = _get_dex_filter(context)
+    else:
+        action = parts[1]
+        user_id = int(parts[2])
+
+        if query.from_user.id != user_id:
+            return
+
+        filt = _get_dex_filter(context)
+        page = 0  # Reset to first page on filter change
+
+        if action == "p":
+            # Pagination: dex_p_{user_id}_{page}
+            page = int(parts[3])
+
+        elif action == "gen":
+            # Generation toggle: dex_gen_{user_id}_{1/2/3}
+            gen_num = int(parts[3])
+            filt["gen"] = None if filt.get("gen") == gen_num else gen_num
+
+        elif action == "st":
+            # Status toggle: dex_st_{user_id}_{caught/uncaught}
+            new_st = parts[3]
+            filt["status"] = "all" if filt.get("status") == new_st else new_st
+
+        elif action == "rm":
+            # Rarity menu: dex_rm_{user_id} — show rarity options
+            rarity_btns = [
+                [InlineKeyboardButton("초전설", callback_data=f"dex_rf_{user_id}_ultra_legendary"),
+                 InlineKeyboardButton("전설", callback_data=f"dex_rf_{user_id}_legendary")],
+                [InlineKeyboardButton("에픽", callback_data=f"dex_rf_{user_id}_epic"),
+                 InlineKeyboardButton("레어", callback_data=f"dex_rf_{user_id}_rare")],
+                [InlineKeyboardButton("일반", callback_data=f"dex_rf_{user_id}_common")],
+                [InlineKeyboardButton("✕ 등급 해제", callback_data=f"dex_rf_{user_id}_x")],
+                [InlineKeyboardButton("◀ 돌아가기", callback_data=f"dex_p_{user_id}_0")],
+            ]
+            try:
+                await query.edit_message_text("💎 등급 필터 선택", reply_markup=InlineKeyboardMarkup(rarity_btns))
+            except Exception:
+                pass
+            return
+
+        elif action == "rf":
+            # Rarity filter set: dex_rf_{user_id}_{rarity}
+            r = parts[3]
+            if r == "x":
+                filt["rarity"] = None
+            else:
+                filt["rarity"] = None if filt.get("rarity") == r else r
+
+        elif action == "tm":
+            # Type menu: dex_tm_{user_id}
+            type_keys = ["fire", "water", "grass", "electric", "ice", "fighting",
+                         "poison", "ground", "flying", "psychic", "bug", "rock",
+                         "ghost", "dragon", "dark", "steel", "fairy", "normal"]
+            btns = []
+            row = []
+            for tk in type_keys:
+                tn = config.TYPE_NAME_KO.get(tk, tk)
+                emoji = config.TYPE_EMOJI.get(tk, "")
+                row.append(InlineKeyboardButton(f"{emoji}{tn}", callback_data=f"dex_tf_{user_id}_{tk}"))
+                if len(row) == 3:
+                    btns.append(row)
+                    row = []
+            if row:
+                btns.append(row)
+            btns.append([InlineKeyboardButton("✕ 타입 해제", callback_data=f"dex_tf_{user_id}_x")])
+            btns.append([InlineKeyboardButton("◀ 돌아가기", callback_data=f"dex_p_{user_id}_0")])
+            try:
+                await query.edit_message_text("🏷 타입 필터 선택", reply_markup=InlineKeyboardMarkup(btns))
+            except Exception:
+                pass
+            return
+
+        elif action == "tf":
+            # Type filter set: dex_tf_{user_id}_{type}
+            t = parts[3]
+            if t == "x":
+                filt["type"] = None
+            else:
+                filt["type"] = None if filt.get("type") == t else t
+
+    # Build and show
     pokedex = await queries.get_user_pokedex(user_id)
     caught_ids = {p["pokemon_id"]: p for p in pokedex}
-    total = len(caught_ids)
-
     user = await queries.get_user(user_id)
     display_name = user["display_name"] if user else "트레이너"
     title_part = f" {user['title_emoji']} {user['title']}" if user and user["title"] else ""
-
     all_pokemon = await queries.get_all_pokemon()
-    start = page * POKEDEX_PAGE_SIZE
-    end = start + POKEDEX_PAGE_SIZE
-    page_pokemon = all_pokemon[start:end]
-    total_pages = (len(all_pokemon) + POKEDEX_PAGE_SIZE - 1) // POKEDEX_PAGE_SIZE
 
-    gen1 = sum(1 for pid in caught_ids if pid <= 151)
-    gen2 = sum(1 for pid in caught_ids if 152 <= pid <= 251)
-    gen3 = sum(1 for pid in caught_ids if 252 <= pid <= 386)
-    lines = [f"🏅 {escape_html(display_name)}의 도감 ({total}/386){title_part}"]
-    lines.append(f"1세대: {gen1}/151 | 2세대: {gen2}/100 | 3세대: {gen3}/135\n")
-
-    for pm in page_pokemon:
-        pid = pm["id"]
-        if pid in caught_ids:
-            entry = caught_ids[pid]
-            evo_mark = " ★진화" if entry["method"] == "evolve" else ""
-            trade_mark = " 🔄교환" if entry["method"] == "trade" else ""
-            rb = rarity_badge(pm["rarity"])
-            tb = type_badge(pid)
-            lines.append(
-                f"{pid:03d} {rb}{tb} {pm['name_ko']}{evo_mark}{trade_mark}"
-            )
-        else:
-            lines.append(f"{pid:03d} ・ ???")
-
-    lines.append(f"\n수집률: {total / 386 * 100:.1f}%  ({page + 1}/{total_pages})")
-
-    buttons = []
-    if page > 0:
-        buttons.append(
-            InlineKeyboardButton("◀ 이전", callback_data=f"dex_{page}")
-        )
-    if end < len(all_pokemon):
-        buttons.append(
-            InlineKeyboardButton("다음 ▶", callback_data=f"dex_{page + 2}")
-        )
-
-    markup = InlineKeyboardMarkup([buttons]) if buttons else None
+    text_msg, markup = _build_dex_view(user_id, display_name, title_part,
+                                        all_pokemon, caught_ids, page, filt)
 
     try:
-        await query.edit_message_text(
-            "\n".join(lines),
-            reply_markup=markup,
-            parse_mode="HTML",
-        )
+        await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
     except Exception:
-        pass  # Message might not have changed
+        pass
 
 
 async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -216,11 +388,16 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 def _get_filter(context) -> dict:
     """Get current filter state from user_data."""
-    return context.user_data.setdefault("mypoke_filter", {
+    filt = context.user_data.setdefault("mypoke_filter", {
         "sort": "default",  # default / iv / rarity
         "fav": False,       # 즐겨찾기만 보기
         "type": None,       # None = 전체, "fire" = 특정 타입
+        "gen": None,        # None = 전체, 1/2/3 = 세대 필터
     })
+    # Ensure gen key exists for old sessions
+    if "gen" not in filt:
+        filt["gen"] = None
+    return filt
 
 
 def _iv_sum(p: dict) -> int:
@@ -234,6 +411,15 @@ def _iv_sum(p: dict) -> int:
 def _apply_filters(pokemon_list: list, filt: dict) -> list:
     """Apply filter and sort to pokemon list."""
     filtered = list(pokemon_list)
+
+    # Generation filter
+    gen = filt.get("gen")
+    if gen == 1:
+        filtered = [p for p in filtered if 1 <= p["pokemon_id"] <= 151]
+    elif gen == 2:
+        filtered = [p for p in filtered if 152 <= p["pokemon_id"] <= 251]
+    elif gen == 3:
+        filtered = [p for p in filtered if 252 <= p["pokemon_id"] <= 386]
 
     # Type filter
     if filt.get("type"):
@@ -272,8 +458,8 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
 
     # Apply filters if provided
     if filt is None:
-        filt = {"sort": "default", "fav": False, "type": None}
-    has_filter = filt.get("sort") != "default" or filt.get("fav") or filt.get("type")
+        filt = {"sort": "default", "fav": False, "type": None, "gen": None}
+    has_filter = filt.get("sort") != "default" or filt.get("fav") or filt.get("type") or filt.get("gen")
 
     if has_filter:
         filtered = _apply_filters(pokemon_list, filt)
@@ -320,6 +506,8 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
 
     # Header
     filter_tags = []
+    if filt.get("gen"):
+        filter_tags.append(f"{filt['gen']}세대")
     if filt.get("sort") == "iv":
         filter_tags.append("IV순")
     elif filt.get("sort") == "rarity":
@@ -413,6 +601,24 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
         ),
     ]
     select_buttons.append(filter_row)
+
+    # Generation filter row
+    gen_on = filt.get("gen")
+    gen_row = [
+        InlineKeyboardButton(
+            f"{'✓' if gen_on == 1 else ''}1세대",
+            callback_data=f"mypoke_gen_{user_id}_1",
+        ),
+        InlineKeyboardButton(
+            f"{'✓' if gen_on == 2 else ''}2세대",
+            callback_data=f"mypoke_gen_{user_id}_2",
+        ),
+        InlineKeyboardButton(
+            f"{'✓' if gen_on == 3 else ''}3세대",
+            callback_data=f"mypoke_gen_{user_id}_3",
+        ),
+    ]
+    select_buttons.append(gen_row)
 
     # Type filter row
     if type_on:
@@ -655,6 +861,16 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 filt["sort"] = "default"  # toggle off
             else:
                 filt["sort"] = mode
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "gen":
+            # mypoke_gen_{user_id}_{gen_num} — toggle generation filter
+            gen_num = int(parts[3])
+            if filt.get("gen") == gen_num:
+                filt["gen"] = None  # toggle off
+            else:
+                filt["gen"] = gen_num
             text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 

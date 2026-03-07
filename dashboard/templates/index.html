@@ -33,13 +33,33 @@
         .poke-filter.active{background:var(--red);color:#fff;border-color:var(--red);font-weight:600}
         .poke-select{padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12px;cursor:pointer}
         .poke-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:8px}
+        .dex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px}
+        .dex-cell{padding:4px 6px;border-radius:6px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:4px;border:1px solid var(--border);background:var(--card);transition:all .15s}
+        .dex-cell.caught{background:#E8F5E9;border-color:#A5D6A7}
+        .dex-cell.uncaught{background:#FAFAFA;border-color:#E0E0E0;color:#9E9E9E}
+        .dex-cell.ultra_legendary.caught{background:linear-gradient(135deg,#FFCDD2,#EF9A9A);border-color:#E57373}
+        .dex-cell.legendary.caught{background:linear-gradient(135deg,#FFF9C4,#FFF176);border-color:#FFD54F}
+        .dex-cell.epic.caught{background:linear-gradient(135deg,#E1BEE7,#CE93D8);border-color:#BA68C8}
+        .dex-cell .dex-id{color:var(--muted);font-size:10px;min-width:26px}
+        .dex-cell .dex-type{width:14px;height:14px;vertical-align:middle}
+        .dex-cell .dex-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .dex-cell{position:relative;cursor:default}
+        .dex-tip{display:none;position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 10px;border-radius:6px;font-size:10px;white-space:normal;z-index:20;font-weight:400;line-height:1.6;min-width:200px;max-width:280px;text-align:left;box-shadow:0 3px 10px rgba(0,0,0,.3)}
+        .dex-tip::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:#333}
+        .dex-cell:hover .dex-tip{display:block}
         .poke-card{background:linear-gradient(135deg,#E8DECE,#DED2C0);border:1px solid #B8A888;border-radius:8px;padding:8px 10px;transition:all .2s;position:relative}
         .poke-card:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.12)}
-        .poke-card.ultra_legendary{border-color:#C62828;border-width:2px;background:linear-gradient(135deg,#FFCDD2,#EF9A9A)}
+        .poke-card.ultra_legendary{background:linear-gradient(135deg,#FFCDD2,#EF9A9A)}
         .poke-card.legendary{border-color:#C5A33A;border-width:1.5px;background:linear-gradient(135deg,#F2DD94,#EBCF78)}
         .poke-card.epic{border-color:#9B59B6;border-width:1.5px;background:linear-gradient(135deg,#D8B4EE,#C69EE2)}
         .poke-card.rare{border-color:#5B9BD5;border-width:1.5px;background:linear-gradient(135deg,#ABCFE8,#93BDD8)}
-        .poke-card.shiny{border-color:#CD5C5C;border-width:1.5px;background:linear-gradient(135deg,#F0B0B0,#E49898)}
+        @keyframes holoShimmer{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+        @keyframes holoBorder{0%,100%{border-color:rgba(255,130,130,.35)}14%{border-color:rgba(255,200,100,.35)}28%{border-color:rgba(180,255,130,.35)}42%{border-color:rgba(100,220,255,.35)}57%{border-color:rgba(150,130,255,.4)}71%{border-color:rgba(255,130,220,.35)}85%{border-color:rgba(255,180,130,.35)}}
+        @keyframes holoSweep{0%,100%{left:-60%;opacity:0}10%{opacity:1}50%{left:160%;opacity:1}60%,100%{opacity:0}}
+        .poke-card.shiny{border-width:2px;border-style:solid;background:linear-gradient(135deg,#EDE0D0,#F2D0C8,#DCE8C8,#C8DCF0,#DCD0EC,#F0D8C8,#EDE0D0);background-size:300% 300%;animation:holoBorder 5s linear infinite,holoShimmer 4s ease-in-out infinite;position:relative;overflow:hidden}
+        .poke-card.shiny::before{content:'';position:absolute;top:-50%;width:25%;height:200%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);transform:rotate(25deg);animation:holoSweep 5s ease-in-out infinite;pointer-events:none;z-index:1}
+        .poke-card.shiny::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,100,100,.08),rgba(255,200,60,.10),rgba(80,255,150,.08),rgba(60,180,255,.10),rgba(160,80,255,.08),rgba(255,80,180,.10),rgba(255,100,100,.08));background-size:200% 200%;animation:holoShimmer 3s ease-in-out infinite reverse;border-radius:7px;pointer-events:none}
+        .poke-card.shiny:hover{box-shadow:0 3px 10px rgba(0,0,0,.12),0 0 14px rgba(180,140,255,.22),0 0 8px rgba(255,160,200,.15)}
         .poke-header{display:flex;align-items:center;gap:6px;margin-bottom:4px}
         .poke-emoji{font-size:20px}
         .poke-name{font-weight:700;font-size:13px;color:var(--text)}
@@ -53,6 +73,10 @@
         .synergy-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#333}
         .synergy-badge:hover .synergy-tip{display:block}
         .poke-type-icon{width:16px;height:16px;border-radius:3px;vertical-align:middle}
+        .type-hover{position:relative;display:inline-block;cursor:help}
+        .type-tip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 10px;border-radius:6px;font-size:10px;white-space:normal;z-index:20;font-weight:400;line-height:1.6;min-width:180px;max-width:260px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+        .type-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#333}
+        .type-hover:hover .type-tip{display:block}
         .poke-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px 8px;margin-top:4px;font-size:11px}
         .poke-stat{display:flex;justify-content:space-between;align-items:center}
         .poke-stat-name{color:#6B5940;font-size:10px;min-width:24px;font-weight:500}
@@ -468,6 +492,7 @@
         <div class="nav-tab" data-page="guide">📖 가이드</div>
         <div class="nav-tab" data-page="stats">통계</div>
         <div class="nav-tab" data-page="mypokemon"><img src="/static/icons/container.png" style="width:16px;height:16px;vertical-align:middle;margin-right:2px"> 내 푸키몬</div>
+        <div class="nav-tab" data-page="pokedex">📖 도감</div>
         <div class="nav-tab" data-page="simulator"><img src="/static/icons/computer.png" style="width:16px;height:16px;vertical-align:middle;margin-right:2px"> AI 어드바이저 <span style="font-size:9px;font-weight:700;color:#fff;background:#1976D2;border-radius:4px;padding:1px 4px;vertical-align:middle">BETA</span></div>
         <div class="nav-tab" data-page="admin" id="adminTab" style="display:none">🔧 관리</div>
     </div>
@@ -1052,6 +1077,12 @@
                     <button class="poke-filter" data-filter="ultra_legendary">초전설</button>
                     <button class="poke-filter" data-filter="legendary">전설</button>
                     <button class="poke-filter" data-filter="epic">에픽</button>
+                    <select class="poke-select" id="pokeGenFilter">
+                        <option value="">세대 전체</option>
+                        <option value="gen1">1세대</option>
+                        <option value="gen2">2세대</option>
+                        <option value="gen3">3세대</option>
+                    </select>
                     <select class="poke-select" id="pokeTypeFilter">
                         <option value="">타입 전체</option>
                     </select>
@@ -1066,6 +1097,40 @@
                 </div>
                 <div class="poke-grid" id="pokeGrid"><div class="loading">로딩 중...</div></div>
                 <div id="pokeGridNav"></div>
+            </div>
+        </div>
+
+        <!-- POKEDEX -->
+        <div class="page" id="page-pokedex">
+            <div class="section">
+                <h2>📖 도감</h2>
+                <div id="dexSummary" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+                <div class="poke-filters" id="dexFilters">
+                    <select class="poke-select" id="dexGenFilter">
+                        <option value="">세대 전체</option>
+                        <option value="gen1">1세대</option>
+                        <option value="gen2">2세대</option>
+                        <option value="gen3">3세대</option>
+                    </select>
+                    <select class="poke-select" id="dexStatusFilter">
+                        <option value="">전체</option>
+                        <option value="caught">✓ 보유</option>
+                        <option value="uncaught">✗ 미보유</option>
+                    </select>
+                    <select class="poke-select" id="dexRarityFilter">
+                        <option value="">등급 전체</option>
+                        <option value="ultra_legendary">초전설</option>
+                        <option value="legendary">전설</option>
+                        <option value="epic">에픽</option>
+                        <option value="rare">레어</option>
+                        <option value="common">일반</option>
+                    </select>
+                    <select class="poke-select" id="dexTypeFilter">
+                        <option value="">타입 전체</option>
+                    </select>
+                </div>
+                <div id="dexGrid" class="dex-grid"><div class="loading">로딩 중...</div></div>
+                <div id="dexGridNav"></div>
             </div>
         </div>
 
@@ -1454,7 +1519,7 @@ function navigateTo(page,pushState=true){
     // Admin page: admin-only
     if(page==="admin"&&(!_authUser||!_authUser.is_admin)){return}
     // Auth-required pages
-    if((page==="mypokemon"||page==="simulator")&&!_authUser){
+    if((page==="mypokemon"||page==="pokedex"||page==="simulator")&&!_authUser){
         document.querySelectorAll(".nav-tab").forEach(t=>t.classList.remove("active"));
         document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
         tab.classList.add("active");
@@ -1514,6 +1579,7 @@ async function loadPage(page){
         else if(page==="typechart") await loadTypeChart();
         else if(page==="stats") await loadStats();
         else if(page==="mypokemon"){if(_authUser)await loadMyPokemon()}
+        else if(page==="pokedex"){if(_authUser)await loadPokedex()}
         else if(page==="simulator"){if(_authUser)await loadSimulator()}
         else if(page==="board"){if(!_boardLoaded)boardLoadList()}
         else if(page==="admin"){if(_authUser&&_authUser.is_admin)await loadAdmin()}
@@ -1927,9 +1993,23 @@ let _myPokemon=[];
 let _pokeFilter="all";
 let _pokeSort="real_power";
 let _pokeTypeFilter="";
+let _pokeGenFilter="";
 
 const TYPE_NAMES={normal:"노말",fire:"불꽃",water:"물",grass:"풀",electric:"전기",ice:"얼음",fighting:"격투",poison:"독",ground:"땅",flying:"비행",psychic:"에스퍼",bug:"벌레",rock:"바위",ghost:"고스트",dragon:"드래곤",dark:"악",steel:"강철",fairy:"페어리"};
 const TYPE_EMOJI_MAP={normal:"⚪",fire:"🔥",water:"💧",grass:"🌿",electric:"⚡",ice:"❄️",fighting:"👊",poison:"☠️",ground:"🌍",flying:"🕊️",psychic:"🔮",bug:"🐛",rock:"🪨",ghost:"👻",dragon:"🐉",dark:"🌑",steel:"⚙️",fairy:"🧚"};
+// Type matchup data for hover tooltips
+const TYPE_ADVANTAGE={normal:[],fire:["grass","ice","bug","steel"],water:["fire","ground","rock"],grass:["water","ground","rock"],electric:["water","flying"],ice:["grass","ground","flying","dragon"],fighting:["normal","ice","rock","dark","steel"],poison:["grass","fairy"],ground:["fire","electric","poison","rock","steel"],flying:["grass","fighting","bug"],psychic:["fighting","poison"],bug:["grass","psychic","dark"],rock:["fire","ice","flying","bug"],ghost:["psychic","ghost"],dragon:["dragon"],dark:["psychic","ghost"],steel:["ice","rock","fairy"],fairy:["fighting","dragon","dark"]};
+const TYPE_WEAK_TO={normal:["fighting"],fire:["water","ground","rock"],water:["electric","grass"],grass:["fire","ice","poison","flying","bug"],electric:["ground"],ice:["fire","fighting","rock","steel"],fighting:["flying","psychic","fairy"],poison:["ground","psychic"],ground:["water","grass","ice"],flying:["electric","ice","rock"],psychic:["bug","ghost","dark"],bug:["fire","flying","rock"],rock:["water","grass","fighting","ground","steel"],ghost:["ghost","dark"],dragon:["ice","dragon","fairy"],dark:["fighting","bug","fairy"],steel:["fire","fighting","ground"],fairy:["poison","steel"]};
+const TYPE_IMMUNITY={normal:["ghost"],fighting:["ghost"],poison:["steel"],ground:["flying"],electric:["ground"],psychic:["dark"],ghost:["normal"],dragon:["fairy"]};
+function typeTooltipHtml(t){
+    const n=TYPE_NAMES[t]||t;
+    const adv=(TYPE_ADVANTAGE[t]||[]).map(x=>TYPE_NAMES[x]).join(", ")||"없음";
+    const weak=(TYPE_WEAK_TO[t]||[]).map(x=>TYPE_NAMES[x]).join(", ")||"없음";
+    const imm=(TYPE_IMMUNITY[t]||[]).map(x=>TYPE_NAMES[x]).join(", ");
+    let html=`<b>${n}</b> 타입<br>⚔️ 강점: ${adv}<br>🛡️ 약점: ${weak}`;
+    if(imm) html+=`<br>🚫 면역: ${imm}`;
+    return html;
+}
 const STAT_COLORS={hp:"var(--green)",atk:"var(--red)",def:"var(--blue)",spa:"var(--purple)",spdef:"#0277BD",spd:"var(--gold)"};
 const STAT_NAMES={hp:"HP",atk:"공격",def:"방어",spa:"특공",spdef:"특방",spd:"속도"};
 const STAT_TYPE_KO={offensive:"공격형",defensive:"방어형",balanced:"균형형",speedy:"속도형"};
@@ -1981,6 +2061,7 @@ async function loadMyPokemon(){
             renderMyPokemon();
         };
     });
+    document.getElementById("pokeGenFilter").onchange=function(){_pokeGenFilter=this.value;_pgState._pokePg=0;renderMyPokemon()};
     document.getElementById("pokeTypeFilter").onchange=function(){_pokeTypeFilter=this.value;_pgState._pokePg=0;renderMyPokemon()};
     document.getElementById("pokeSortBy").onchange=function(){_pokeSort=this.value;_pgState._pokePg=0;renderMyPokemon()};
 
@@ -1994,6 +2075,9 @@ function filterAndSortPokemon(){
     else if(_pokeFilter==="ultra_legendary") list=list.filter(p=>p.rarity==="ultra_legendary");
     else if(_pokeFilter==="legendary") list=list.filter(p=>p.rarity==="legendary");
     else if(_pokeFilter==="epic") list=list.filter(p=>p.rarity==="epic");
+    if(_pokeGenFilter==="gen1") list=list.filter(p=>p.pokemon_id>=1&&p.pokemon_id<=151);
+    else if(_pokeGenFilter==="gen2") list=list.filter(p=>p.pokemon_id>=152&&p.pokemon_id<=251);
+    else if(_pokeGenFilter==="gen3") list=list.filter(p=>p.pokemon_id>=252&&p.pokemon_id<=386);
     if(_pokeTypeFilter) list=list.filter(p=>p.pokemon_type===_pokeTypeFilter||p.type2===_pokeTypeFilter);
     // Sort
     if(_pokeSort==="real_power") list.sort((a,b)=>b.real_power-a.real_power);
@@ -2009,8 +2093,8 @@ function renderPokemonCard(p){
     const stars="★".repeat(p.friendship)+"☆".repeat(Math.max(0,(p.is_shiny?7:5)-p.friendship));
     const ivCls="iv-"+p.iv_grade.toLowerCase();
     const shinyMark=p.is_shiny?'<span style="color:var(--gold);font-size:11px">✨</span>':"";
-    const t1=`<img class="poke-type-icon" src="/static/types/${p.pokemon_type}.png?v=2" alt="${p.pokemon_type}">`;
-    const t2=p.type2?` <img class="poke-type-icon" src="/static/types/${p.type2}.png?v=2" alt="${p.type2}">`:"";
+    const t1=`<span class="type-hover"><img class="poke-type-icon" src="/static/types/${p.pokemon_type}.png?v=2" alt="${p.pokemon_type}"><span class="type-tip">${typeTooltipHtml(p.pokemon_type)}</span></span>`;
+    const t2=p.type2?` <span class="type-hover"><img class="poke-type-icon" src="/static/types/${p.type2}.png?v=2" alt="${p.type2}"><span class="type-tip">${typeTooltipHtml(p.type2)}</span></span>`:"";
     const statKeys=["hp","atk","def","spa","spdef","spd"];
     const maxStat=Math.max(...statKeys.map(k=>p.real_stats[k]));
 
@@ -2076,6 +2160,119 @@ function renderMyPokemon(){
         }
         nav+=`<button class="poke-pg-btn" onclick="_pgState._pokePg=Math.min(${total-1},_pgState._pokePg+1);renderMyPokemon()"${pg>=total-1?' disabled':''}>&rsaquo;</button>`;
         nav+=`<button class="poke-pg-btn" onclick="_pgState._pokePg=${total-1};renderMyPokemon()"${pg>=total-1?' disabled':''}>&raquo;</button>`;
+    }
+    nav+='</div>';
+    navEl.innerHTML=nav;
+}
+
+// --- POKEDEX PAGE ---
+let _dexData=[];
+let _dexGenFilter="";
+let _dexStatusFilter="";
+let _dexRarityFilter="";
+let _dexTypeFilter="";
+const RARITY_LABELS={ultra_legendary:"초전설",legendary:"전설",epic:"에픽",rare:"레어",common:"일반"};
+const RARITY_ORDER={ultra_legendary:0,legendary:1,epic:2,rare:3,common:4};
+
+async function loadPokedex(){
+    const data=await fetch("/api/my/pokedex").then(r=>r.json());
+    if(data.error){document.getElementById("dexGrid").innerHTML='<div class="sim-empty">로그인이 필요합니다.</div>';return}
+    _dexData=data;
+
+    // Summary
+    const total=data.length;
+    const caught=data.filter(p=>p.caught).length;
+    const gen1c=data.filter(p=>p.id<=151&&p.caught).length;
+    const gen2c=data.filter(p=>p.id>=152&&p.id<=251&&p.caught).length;
+    const gen3c=data.filter(p=>p.id>=252&&p.caught).length;
+    document.getElementById("dexSummary").innerHTML=`
+        <div class="card" style="padding:4px 8px"><div class="label">전체</div><div class="value" style="font-size:16px;color:var(--red)">${caught}/${total}</div></div>
+        <div class="card" style="padding:4px 8px"><div class="label">1세대</div><div class="value" style="font-size:16px;color:var(--blue)">${gen1c}/151</div></div>
+        <div class="card" style="padding:4px 8px"><div class="label">2세대</div><div class="value" style="font-size:16px;color:var(--green)">${gen2c}/100</div></div>
+        <div class="card" style="padding:4px 8px"><div class="label">3세대</div><div class="value" style="font-size:16px;color:var(--purple)">${gen3c}/135</div></div>
+        <div class="card" style="padding:4px 8px"><div class="label">수집률</div><div class="value" style="font-size:16px;color:var(--gold)">${(caught/total*100).toFixed(1)}%</div></div>
+    `;
+
+    // Populate type filter
+    const tf=document.getElementById("dexTypeFilter");
+    if(tf.options.length<=1){
+        const types=new Set();
+        data.forEach(p=>{types.add(p.type1);if(p.type2)types.add(p.type2)});
+        [...types].sort().forEach(t=>{
+            const opt=document.createElement("option");
+            opt.value=t;opt.textContent=(TYPE_EMOJI_MAP[t]||"")+" "+(TYPE_NAMES[t]||t);
+            tf.appendChild(opt);
+        });
+    }
+
+    // Event listeners
+    document.getElementById("dexGenFilter").onchange=function(){_dexGenFilter=this.value;_pgState._dexPg=0;renderPokedex()};
+    document.getElementById("dexStatusFilter").onchange=function(){_dexStatusFilter=this.value;_pgState._dexPg=0;renderPokedex()};
+    document.getElementById("dexRarityFilter").onchange=function(){_dexRarityFilter=this.value;_pgState._dexPg=0;renderPokedex()};
+    document.getElementById("dexTypeFilter").onchange=function(){_dexTypeFilter=this.value;_pgState._dexPg=0;renderPokedex()};
+
+    renderPokedex();
+}
+
+function filterPokedex(){
+    let list=[..._dexData];
+    if(_dexGenFilter==="gen1") list=list.filter(p=>p.id>=1&&p.id<=151);
+    else if(_dexGenFilter==="gen2") list=list.filter(p=>p.id>=152&&p.id<=251);
+    else if(_dexGenFilter==="gen3") list=list.filter(p=>p.id>=252&&p.id<=386);
+    if(_dexStatusFilter==="caught") list=list.filter(p=>p.caught);
+    else if(_dexStatusFilter==="uncaught") list=list.filter(p=>!p.caught);
+    if(_dexRarityFilter) list=list.filter(p=>p.rarity===_dexRarityFilter);
+    if(_dexTypeFilter) list=list.filter(p=>p.type1===_dexTypeFilter||p.type2===_dexTypeFilter);
+    return list;
+}
+
+function renderPokedex(){
+    const list=filterPokedex();
+    const grid=document.getElementById("dexGrid");
+    const navEl=document.getElementById("dexGridNav");
+    if(!list.length){grid.innerHTML='<div class="sim-empty">조건에 맞는 푸키몬이 없습니다.</div>';navEl.innerHTML='';return}
+    const perPage=48;
+    if(!_pgState._dexPg) _pgState._dexPg=0;
+    const total=Math.ceil(list.length/perPage);
+    _pgState._dexPg=Math.min(_pgState._dexPg,total-1);
+    const pg=_pgState._dexPg;
+    const slice=list.slice(pg*perPage,pg*perPage+perPage);
+
+    const caughtInList=list.filter(p=>p.caught).length;
+    grid.innerHTML=slice.map(p=>{
+        const cls=p.caught?`caught ${p.rarity}`:"uncaught";
+        const t1=`<img class="dex-type" src="/static/types/${p.type1}.png?v=2" alt="${p.type1}">`;
+        const t2=p.type2?`<img class="dex-type" src="/static/types/${p.type2}.png?v=2">`:"";
+        const name=p.caught?p.name_ko:"???";
+        const method=p.method==="evolve"?" ★":p.method==="trade"?" 🔄":"";
+        // Tooltip content
+        let tip="";
+        if(p.caught){
+            const rl=RARITY_LABELS[p.rarity]||p.rarity;
+            const tn1=TYPE_NAMES[p.type1]||p.type1;
+            const tn2=p.type2?(` / ${TYPE_NAMES[p.type2]}`):"";
+            tip=`<b>No.${String(p.id).padStart(3,'0')} ${p.name_ko}</b> (${p.name_en||""})`;
+            tip+=`<br>등급: ${rl} · 타입: ${tn1}${tn2}`;
+            tip+=`<br>포획률: ${Math.round(p.catch_rate*100)}%`;
+            if(p.evo_chain) tip+=`<br>진화: ${p.evo_chain} (${p.stage})`;
+            tip+=`<br>상태: ✓ 보유 중`;
+        }else{
+            tip=`<b>No.${String(p.id).padStart(3,'0')} ???</b><br>미보유`;
+        }
+        return`<div class="dex-cell ${cls}"><span class="dex-id">${String(p.id).padStart(3,'0')}</span>${t1}${t2}<span class="dex-name">${name}${method}</span><span class="dex-tip">${tip}</span></div>`;
+    }).join("");
+
+    let nav=`<div class="poke-pg"><span style="color:var(--muted);font-size:11px">${caughtInList}/${list.length}</span>`;
+    if(total>1){
+        nav+=`<button class="poke-pg-btn" onclick="_pgState._dexPg=0;renderPokedex()"${pg===0?' disabled':''}>&laquo;</button>`;
+        nav+=`<button class="poke-pg-btn" onclick="_pgState._dexPg=Math.max(0,_pgState._dexPg-1);renderPokedex()"${pg===0?' disabled':''}>&lsaquo;</button>`;
+        let start=Math.max(0,pg-2),end=Math.min(total-1,pg+2);
+        if(end-start<4){if(start===0)end=Math.min(total-1,4);else start=Math.max(0,end-4)}
+        for(let i=start;i<=end;i++){
+            nav+=`<button class="poke-pg-btn${i===pg?' active':''}" onclick="_pgState._dexPg=${i};renderPokedex()">${i+1}</button>`;
+        }
+        nav+=`<button class="poke-pg-btn" onclick="_pgState._dexPg=Math.min(${total-1},_pgState._dexPg+1);renderPokedex()"${pg>=total-1?' disabled':''}>&rsaquo;</button>`;
+        nav+=`<button class="poke-pg-btn" onclick="_pgState._dexPg=${total-1};renderPokedex()"${pg>=total-1?' disabled':''}>&raquo;</button>`;
     }
     nav+='</div>';
     navEl.innerHTML=nav;
