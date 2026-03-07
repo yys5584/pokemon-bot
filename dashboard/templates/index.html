@@ -47,17 +47,39 @@
         .dex-cell .dex-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .dex-cell{position:relative;cursor:pointer;z-index:1}
         .dex-cell:hover{z-index:30}
-        .dex-tip{display:none;position:fixed;background:#fff;color:var(--text);padding:12px 14px;border-radius:12px;font-size:11px;white-space:normal;z-index:100;font-weight:400;line-height:1.5;width:300px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.15);pointer-events:auto}
-        .dex-tip .dt-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:5px 14px;margin:8px 0;padding:8px 10px;background:#FAFAFA;border-radius:8px}
-        .dex-tip .dt-stat{display:flex;align-items:center;gap:4px;font-size:10px}
-        .dex-tip .dt-stat-name{color:var(--muted);min-width:22px;font-weight:500}
-        .dex-tip .dt-stat-bar{flex:1;height:6px;background:#E8E8E8;border-radius:3px;overflow:hidden}
-        .dex-tip .dt-stat-fill{height:100%;border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1)}
-        .dex-tip .dt-stat-val{font-weight:700;min-width:24px;text-align:right}
-        .dex-tip .dt-section{margin-top:6px;padding-top:6px;border-top:1px solid #F0F0F0;line-height:1.7}
-        .dex-tip .dt-copy{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;background:#F0F0F0;color:var(--muted);font-size:10px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);font-weight:500}
-        .dex-tip .dt-copy:hover{background:var(--red);color:#fff;transform:translateY(-1px)}
-        .dex-tip.visible{display:block}
+        .dex-tip{display:none}/* legacy, unused */
+        /* Dex detail modal */
+        .dex-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:dexFadeIn .2s}
+        .dex-modal-overlay.visible{display:flex}
+        @keyframes dexFadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes dexSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        .dex-modal{background:#fff;border-radius:20px;max-width:480px;width:92%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:dexSlideUp .25s cubic-bezier(.4,0,.2,1);position:relative}
+        .dex-modal-header{display:flex;align-items:center;gap:16px;padding:24px 24px 0}
+        .dex-modal-sprite{width:120px;height:120px;border-radius:16px;background:#F8F8F8;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .dex-modal-sprite img{width:96px;height:96px;image-rendering:pixelated}
+        .dex-modal-sprite.uncaught{filter:brightness(0) opacity(.15)}
+        .dex-modal-info{flex:1;min-width:0}
+        .dex-modal-name{font-size:20px;font-weight:800;color:var(--text)}
+        .dex-modal-sub{font-size:12px;color:var(--muted);margin-top:2px}
+        .dex-modal-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+        .dex-modal-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border:none;background:#F0F0F0;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--muted)}
+        .dex-modal-close:hover{background:var(--red);color:#fff}
+        .dex-modal-body{padding:16px 24px 24px}
+        .dex-modal-tmi{background:#FFF8E1;border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.7;color:#5D4037;margin-bottom:16px}
+        .dex-modal-tmi::before{content:"💡 ";font-size:13px}
+        .dex-modal-section{margin-bottom:16px}
+        .dex-modal-section-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+        .dm-stats{display:flex;flex-direction:column;gap:6px}
+        .dm-stat{display:flex;align-items:center;gap:8px}
+        .dm-stat-name{font-size:11px;color:var(--muted);min-width:28px;font-weight:600}
+        .dm-stat-bar{flex:1;height:8px;background:#F0F0F0;border-radius:4px;overflow:hidden}
+        .dm-stat-fill{height:100%;border-radius:4px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+        .dm-stat-val{font-size:12px;font-weight:700;min-width:28px;text-align:right}
+        .dm-evo{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;font-weight:500}
+        .dm-evo-current{background:var(--red);color:#fff;padding:2px 8px;border-radius:6px;font-weight:700}
+        .dm-evo-arrow{color:var(--muted);font-size:11px}
+        .dm-counter{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;line-height:1.7}
+        .dm-counter-label{font-weight:600;color:var(--muted)}
         .poke-card{background:var(--card);border:none;border-radius:12px;padding:10px 12px;transition:all .25s cubic-bezier(.4,0,.2,1);position:relative;box-shadow:var(--shadow)}
         .poke-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
         .poke-card.ultra_legendary{background:linear-gradient(135deg,#FFF0F0,#FFCDD2)}
@@ -91,7 +113,7 @@
         .poke-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px 8px;margin-top:4px;font-size:11px}
         .poke-stat{display:flex;justify-content:space-between;align-items:center}
         .poke-stat-name{color:#6B5940;font-size:10px;min-width:24px;font-weight:500}
-        .poke-stat-val{font-weight:700;font-size:11px;color:#3A2A18}
+        .poke-stat-val{font-weight:700;font-size:11px;color:#3A2A18;min-width:22px;text-align:right}
         .poke-stat-iv{color:#1B5E20;font-size:10px;font-weight:600;margin-left:1px}
         .poke-stat-bar{flex:1;height:4px;background:#EEEEEE;border-radius:2px;margin:0 4px;min-width:20px}
         .poke-stat-fill{height:100%;border-radius:2px}
@@ -1406,6 +1428,22 @@
         </div>
     </div>
 
+<!-- Dex Detail Modal -->
+<div class="dex-modal-overlay" id="dexModal">
+    <div class="dex-modal" id="dexModalContent">
+        <button class="dex-modal-close" id="dexModalClose">&times;</button>
+        <div class="dex-modal-header">
+            <div class="dex-modal-sprite" id="dexModalSprite"></div>
+            <div class="dex-modal-info">
+                <div class="dex-modal-name" id="dexModalName"></div>
+                <div class="dex-modal-sub" id="dexModalSub"></div>
+                <div class="dex-modal-badges" id="dexModalBadges"></div>
+            </div>
+        </div>
+        <div class="dex-modal-body" id="dexModalBody"></div>
+    </div>
+</div>
+
 <script>
 const API="";
 let _cache={};
@@ -2146,7 +2184,7 @@ function renderPokemonCard(p){
     const t1=`<span class="type-hover"><img class="poke-type-icon" src="/static/types/${p.pokemon_type}.png?v=2" alt="${p.pokemon_type}"><span class="type-tip">${typeTooltipHtml(p.pokemon_type)}</span></span>`;
     const t2=p.type2?` <span class="type-hover"><img class="poke-type-icon" src="/static/types/${p.type2}.png?v=2" alt="${p.type2}"><span class="type-tip">${typeTooltipHtml(p.type2)}</span></span>`:"";
     const statKeys=["hp","atk","def","spa","spdef","spd"];
-    const maxStat=Math.max(...statKeys.map(k=>p.real_stats[k]));
+    const maxStat=Math.max(250,Math.max(...statKeys.map(k=>p.real_stats[k])));
 
     let statsHtml="";
     for(const k of statKeys){
@@ -2295,44 +2333,7 @@ function renderPokedex(){
         const t2=p.type2?`<img class="dex-type" src="/static/types/${p.type2}.png?v=2">`:"";
         const name=p.caught?p.name_ko:"???";
         const method=p.method==="evolve"?" ★":p.method==="trade"?" 🔄":"";
-        // Tooltip content (rich)
-        let tip="";
-        if(p.caught){
-            const rl=RARITY_LABELS[p.rarity]||p.rarity;
-            const tn1=TYPE_NAMES[p.type1]||p.type1;
-            const tn2=p.type2?(` / ${TYPE_NAMES[p.type2]}`):"";
-            tip=`<b>No.${String(p.id).padStart(3,'0')} ${p.name_ko}</b> <span style="color:var(--muted)">${p.name_en||""}</span>`;
-            tip+=`<br><span style="font-size:10px">등급: <b>${rl}</b> · 타입: <b>${tn1}${tn2}</b> · 포획률: ${Math.round(p.catch_rate*100)}%</span>`;
-            if(p.evo_chain) tip+=`<br><span style="font-size:10px;color:var(--muted)">진화: ${p.evo_chain} (${p.stage})</span>`;
-            // Base stats
-            if(p.stats){
-                const sc={"hp":"var(--green)","atk":"var(--red)","def":"var(--blue)","spa":"var(--purple)","spdef":"#0277BD","spd":"var(--gold)"};
-                const sn={"hp":"HP","atk":"공","def":"방","spa":"특공","spdef":"특방","spd":"속"};
-                tip+=`<div class="dt-stats">`;
-                for(const k of ["hp","atk","def","spa","spdef","spd"]){
-                    const v=p.stats[k];const pct=Math.min(v/180*100,100);
-                    tip+=`<div class="dt-stat"><span class="dt-stat-name">${sn[k]}</span><div class="dt-stat-bar"><div class="dt-stat-fill" style="width:${pct}%;background:${sc[k]}"></div></div><span class="dt-stat-val">${v}</span></div>`;
-                }
-                tip+=`</div>`;
-            }
-            // Type effectiveness (counter info)
-            const allTypes=[p.type1];if(p.type2)allTypes.push(p.type2);
-            const adv=new Set(),weakTo=new Set();
-            allTypes.forEach(t=>{
-                (TYPE_ADVANTAGE[t]||[]).forEach(x=>adv.add(TYPE_NAMES[x]));
-                (TYPE_WEAK_TO[t]||[]).forEach(x=>weakTo.add(TYPE_NAMES[x]));
-            });
-            tip+=`<div class="dt-section">`;
-            if(adv.size) tip+=`<span style="color:#2E7D32;font-weight:600">⚔️ 카운터:</span> <span style="font-size:10px">${[...adv].join(', ')}</span><br>`;
-            if(weakTo.size) tip+=`<span style="color:#C62828;font-weight:600">🛡️ 약점:</span> <span style="font-size:10px">${[...weakTo].join(', ')}</span>`;
-            tip+=`</div>`;
-            // Copy button
-            const copyText=`${p.name_ko}(${p.name_en||""}) #${p.id} ${tn1}${tn2} ${rl} HP:${p.stats?.hp||"?"} ATK:${p.stats?.atk||"?"} DEF:${p.stats?.def||"?"} SPA:${p.stats?.spa||"?"} SPDEF:${p.stats?.spdef||"?"} SPD:${p.stats?.spd||"?"}`;
-            tip+=`<span class="dt-copy" onclick="event.stopPropagation();navigator.clipboard.writeText('${copyText.replace(/'/g,"\\'")}');this.textContent='✓ 복사됨';setTimeout(()=>this.textContent='📋 복사',1000)">📋 복사</span>`;
-        }else{
-            tip=`<b>No.${String(p.id).padStart(3,'0')} ???</b><br><span style="color:var(--muted)">미보유</span>`;
-        }
-        return`<div class="dex-cell ${cls}"><span class="dex-id">${String(p.id).padStart(3,'0')}</span>${t1}${t2}<span class="dex-name">${name}${method}</span><span class="dex-tip">${tip}</span></div>`;
+        return`<div class="dex-cell ${cls}" data-pid="${p.id}"><span class="dex-id">${String(p.id).padStart(3,'0')}</span>${t1}${t2}<span class="dex-name">${name}${method}</span></div>`;
     }).join("");
 
     let nav=`<div class="poke-pg"><span style="color:var(--muted);font-size:11px">${caughtInList}/${list.length}</span>`;
@@ -2350,54 +2351,94 @@ function renderPokedex(){
     nav+='</div>';
     navEl.innerHTML=nav;
 
-    // Dex tooltips: click to show, click outside/same cell to close
-    let _activeDexTip=null;
-    let _activeDexCell=null;
-    const dexGrid=document.getElementById("dexGrid");
-    function posDexTip(tip,cell){
-        const cr=cell.getBoundingClientRect();
-        const tw=310,gap=8;
-        // Position below the cell, centered horizontally
-        let lx=cr.left+cr.width/2-tw/2;
-        let ly=cr.bottom+gap;
-        // Clamp horizontal
-        if(lx+tw>window.innerWidth-8)lx=window.innerWidth-tw-8;
-        if(lx<8)lx=8;
-        tip.style.left=lx+"px";
-        tip.style.top=ly+"px";
-        requestAnimationFrame(()=>{
-            const tr=tip.getBoundingClientRect();
-            // If overflows bottom, show above the cell
-            if(tr.bottom>window.innerHeight-8){
-                tip.style.top=(cr.top-tr.height-gap)+"px";
-            }
-        });
-    }
-    function closeDexTip(){
-        if(_activeDexTip){_activeDexTip.classList.remove("visible");_activeDexTip=null;_activeDexCell=null;}
-    }
-    dexGrid.addEventListener("click",function(e){
-        // Don't close if clicking copy button inside tooltip
-        if(e.target.closest(".dt-copy"))return;
-        const cell=e.target.closest(".dex-cell");
-        if(!cell){closeDexTip();return;}
-        // Toggle: click same cell closes it
-        if(cell===_activeDexCell){closeDexTip();return;}
-        const tip=cell.querySelector(".dex-tip");
-        if(!tip){closeDexTip();return;}
-        closeDexTip();
-        posDexTip(tip,cell);
-        tip.classList.add("visible");
-        _activeDexTip=tip;
-        _activeDexCell=cell;
-    });
-    // Click outside dex grid closes tooltip
-    document.addEventListener("click",function(e){
-        if(_activeDexTip&&!e.target.closest("#dexGrid")){closeDexTip();}
-    });
-    // Close on scroll (fixed tooltip would detach from cell)
-    window.addEventListener("scroll",function(){closeDexTip();},true);
 }
+
+// Dex modal (outside renderPokedex to avoid duplicate listeners)
+const _rarityColors={ultra_legendary:"#E53935",legendary:"#F9A825",epic:"#7B1FA2",rare:"#1565C0",common:"#43A047"};
+function _openDexModal(pid){
+    const p=_dexData.find(d=>d.id===pid);
+    if(!p)return;
+    const sn={hp:"HP",atk:"공격",def:"방어",spa:"특공",spdef:"특방",spd:"속도"};
+    const sc={hp:"var(--green)",atk:"var(--red)",def:"var(--blue)",spa:"var(--purple)",spdef:"#0277BD",spd:"var(--gold)"};
+    const rl=RARITY_LABELS[p.rarity]||p.rarity;
+    const rc=_rarityColors[p.rarity]||"#999";
+    const dexModal=document.getElementById("dexModal");
+
+    // Sprite
+    const spriteEl=document.getElementById("dexModalSprite");
+    spriteEl.className="dex-modal-sprite"+(p.caught?"":" uncaught");
+    spriteEl.innerHTML=`<img src="/sprites/${p.id}.png" alt="${p.name_ko}" onerror="this.style.display='none'">`;
+
+    // Name
+    document.getElementById("dexModalName").textContent=`No.${String(p.id).padStart(3,'0')} ${p.caught?p.name_ko:"???"}`;
+    document.getElementById("dexModalSub").textContent=p.caught?`${p.name_en||""} · ${p.stage||""}`:"미발견 포켓몬";
+
+    // Badges
+    let badges="";
+    badges+=`<span style="background:${rc};color:#fff;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">${rl}</span>`;
+    if(p.caught){
+        const t1n=TYPE_NAMES[p.type1]||p.type1;
+        badges+=`<span style="display:inline-flex;align-items:center;gap:3px;background:#F0F0F0;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600"><img src="/static/types/${p.type1}.png?v=2" style="width:14px;height:14px">${t1n}</span>`;
+        if(p.type2){
+            const t2n=TYPE_NAMES[p.type2]||p.type2;
+            badges+=`<span style="display:inline-flex;align-items:center;gap:3px;background:#F0F0F0;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600"><img src="/static/types/${p.type2}.png?v=2" style="width:14px;height:14px">${t2n}</span>`;
+        }
+        badges+=`<span style="background:#F0F0F0;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">포획률 ${Math.round(p.catch_rate*100)}%</span>`;
+    }
+    document.getElementById("dexModalBadges").innerHTML=badges;
+
+    // Body
+    let body="";
+    if(p.caught){
+        if(p.tmi)body+=`<div class="dex-modal-tmi">${p.tmi}</div>`;
+        if(p.stats){
+            body+=`<div class="dex-modal-section"><div class="dex-modal-section-title">기본 스텟</div><div class="dm-stats">`;
+            for(const k of ["hp","atk","def","spa","spdef","spd"]){
+                const v=p.stats[k]||0;
+                const pct=Math.min(v/180*100,100);
+                body+=`<div class="dm-stat"><span class="dm-stat-name">${sn[k]}</span><div class="dm-stat-bar"><div class="dm-stat-fill" style="width:${pct}%;background:${sc[k]}"></div></div><span class="dm-stat-val">${v}</span></div>`;
+            }
+            body+=`</div></div>`;
+        }
+        if(p.evo_chain){
+            body+=`<div class="dex-modal-section"><div class="dex-modal-section-title">진화</div><div class="dm-evo">`;
+            p.evo_chain.split(" → ").forEach((name,i)=>{
+                if(i>0)body+=`<span class="dm-evo-arrow">→</span>`;
+                body+=name===p.name_ko?`<span class="dm-evo-current">${name}</span>`:`<span>${name}</span>`;
+            });
+            body+=`</div></div>`;
+        }
+        if(p.type1){
+            const allTypes=[p.type1];if(p.type2)allTypes.push(p.type2);
+            const adv=new Set(),weakTo=new Set();
+            allTypes.forEach(t=>{(TYPE_ADVANTAGE[t]||[]).forEach(x=>adv.add(x));(TYPE_WEAK_TO[t]||[]).forEach(x=>weakTo.add(x));});
+            if(adv.size||weakTo.size){
+                body+=`<div class="dex-modal-section"><div class="dex-modal-section-title">상성</div><div class="dm-counter">`;
+                if(adv.size)body+=`<div style="width:100%"><span class="dm-counter-label">⚔️ 카운터:</span> ${[...adv].map(t=>`<span style="display:inline-flex;align-items:center;gap:2px"><img src="/static/types/${t}.png?v=2" style="width:13px;height:13px">${TYPE_NAMES[t]||t}</span>`).join(", ")}</div>`;
+                if(weakTo.size)body+=`<div style="width:100%"><span class="dm-counter-label">🛡️ 약점:</span> ${[...weakTo].map(t=>`<span style="display:inline-flex;align-items:center;gap:2px"><img src="/static/types/${t}.png?v=2" style="width:13px;height:13px">${TYPE_NAMES[t]||t}</span>`).join(", ")}</div>`;
+                body+=`</div></div>`;
+            }
+        }
+    }else{
+        body+=`<div style="text-align:center;padding:32px 0;color:var(--muted)"><div style="font-size:48px;margin-bottom:12px">❓</div><div style="font-size:14px">아직 발견하지 못한 포켓몬입니다</div><div style="font-size:12px;margin-top:4px">포켓몬을 포획하면 상세 정보가 공개됩니다!</div></div>`;
+    }
+    document.getElementById("dexModalBody").innerHTML=body;
+    dexModal.classList.add("visible");
+}
+(function _initDexModal(){
+    const dexModal=document.getElementById("dexModal");
+    if(!dexModal)return;
+    document.getElementById("dexModalClose").addEventListener("click",function(e){e.stopPropagation();dexModal.classList.remove("visible");});
+    dexModal.addEventListener("click",function(e){if(e.target===dexModal){e.stopPropagation();dexModal.classList.remove("visible");}});
+    document.addEventListener("keydown",function(e){if(e.key==="Escape")dexModal.classList.remove("visible");});
+    // Use document-level delegation to survive innerHTML replacements
+    document.addEventListener("click",function(e){
+        const cell=e.target.closest(".dex-cell[data-pid]");
+        if(!cell)return;
+        const pid=parseInt(cell.dataset.pid);
+        if(pid)_openDexModal(pid);
+    });
+})();
 
 // --- AI CHAT ADVISOR (session-based) ---
 let _chatHistory=[];

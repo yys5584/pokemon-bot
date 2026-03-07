@@ -1005,7 +1005,7 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{ball_emoji('masterball')} 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
         f"{icon_emoji('bolt')} 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
         f"{ball_emoji('pokeball')} 포켓볼 충전 리셋 — {pb_label}",
-        f"🔵 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
+        f"{ball_emoji('hyperball')} 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
         f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
     ]
 
@@ -1135,10 +1135,11 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bp = await bq.get_bp(user_id)
         hyper_balls = await queries.get_hyper_balls(user_id)
         await update.message.reply_text(
-            f"🔵 하이퍼볼 {qty}개 구매 완료! ({cost} BP)\n"
+            f"{ball_emoji('hyperball')} 하이퍼볼 {qty}개 구매 완료! ({cost} BP)\n"
             f"{icon_emoji('coin')} 남은 BP: {bp}\n"
             f"📦 보유 하이퍼볼: {hyper_balls}개\n\n"
-            "채팅방에서 'ㅎ'으로 사용하세요!"
+            "채팅방에서 'ㅎ'으로 사용하세요!",
+            parse_mode="HTML",
         )
 
     elif item in ("아케이드", "이용권", "아케이드이용권", "아케이드티켓", "티켓"):

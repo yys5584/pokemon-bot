@@ -263,6 +263,12 @@ async def mock_my_pokedex(request):
             25: {"hp":50,"atk":67,"def":47,"spa":58,"spdef":58,"spd":108},
         }
         stats = known_stats.get(pid, bs)
+        mock_tmis = {
+            1: "사실 피카츄보다 먼저 디자인된 포켓몬 1호. 도감 번호 001은 우연이 아님.",
+            6: "리자몽은 드래곤이 아니라 불/비행 타입. 메가진화X로 드래곤 타입을 얻을 수 있다.",
+            25: "포켓몬의 마스코트. 원래 뚱뚱했는데 애니메이션 이후 날씬해졌다.",
+            150: "인간이 만든 인공 포켓몬. 뮤의 유전자를 조작해서 탄생했다.",
+        }
         result.append({
             "id": pid,
             "name_ko": names_ko.get(pid, f"푸키몬{pid}"),
@@ -277,6 +283,7 @@ async def mock_my_pokedex(request):
             "evo_chain": evo_chains.get(pid),
             "stage": evo_stages.get(pid, "최종"),
             "stats": stats,
+            "tmi": mock_tmis.get(pid, f"푸키몬{pid}의 알려지지 않은 이야기가 여기에 표시됩니다."),
         })
     return web.json_response(result)
 
@@ -750,6 +757,10 @@ def create_preview_app():
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():
         app.router.add_static("/static", static_dir, show_index=False)
+    # Pokemon sprites
+    sprite_dir = Path(__file__).resolve().parent.parent / "assets" / "pokemon"
+    if sprite_dir.exists():
+        app.router.add_static("/sprites", sprite_dir, show_index=False)
     # Auth routes (mock)
     app.router.add_post("/api/auth/telegram", mock_auth_telegram)
     app.router.add_get("/api/auth/me", mock_auth_me)

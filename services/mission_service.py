@@ -6,6 +6,7 @@ import random
 import config
 from database import queries
 from database import battle_queries as bq
+from utils.helpers import ball_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ async def check_mission_progress(user_id: int, mission_key: str) -> str | None:
     label = config.MISSION_POOL.get(mission_key, {}).get("label", mission_key)
     msg = (
         f"🎯 미션 완료! {label}\n"
-        f"🔵 하이퍼볼 {config.MISSION_REWARD_HYPER}개 + {config.MISSION_REWARD_BP} BP 획득!"
+        f"{ball_emoji('hyperball')} 하이퍼볼 {config.MISSION_REWARD_HYPER}개 + {config.MISSION_REWARD_BP} BP 획득!"
     )
 
     # ── 전체 완료 체크 ──
@@ -58,7 +59,7 @@ async def check_mission_progress(user_id: int, mission_key: str) -> str | None:
             await queries.add_master_ball(user_id, config.MISSION_ALLCLEAR_MASTER)
             msg += (
                 f"\n\n🌟 일일 미션 올클리어!\n"
-                f"🟣 마스터볼 {config.MISSION_ALLCLEAR_MASTER}개 획득!"
+                f"{ball_emoji('masterball')} 마스터볼 {config.MISSION_ALLCLEAR_MASTER}개 획득!"
             )
 
     return msg

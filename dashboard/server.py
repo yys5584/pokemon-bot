@@ -554,9 +554,10 @@ async def api_my_pokedex(request):
         """, uid)
         caught_map = {r["pokemon_id"]: {"method": r["method"]} for r in caught_rows}
 
-        # Get type2 info from base stats + evo stage
+        # Get type2 info from base stats + evo stage + TMI
         from models.pokemon_base_stats import POKEMON_BASE_STATS
         from utils.battle_calc import EVO_STAGE_MAP
+        from handlers.dm_pokedex import POKEMON_TMI
 
         # Build a lookup for evo chains
         pm_map = {r["id"]: r for r in all_pm}
@@ -614,6 +615,7 @@ async def api_my_pokedex(request):
                 "evo_chain": " → ".join(evo_chain) if len(evo_chain) > 1 else None,
                 "stage": stage,
                 "stats": bs,
+                "tmi": POKEMON_TMI.get(pid, ""),
             })
 
         return pg_json_response(result)
@@ -3155,6 +3157,10 @@ def create_app() -> web.Application:
     static_dir = TEMPLATE_DIR.parent / "static"
     if static_dir.exists():
         app.router.add_static("/static", static_dir, show_index=False)
+    # Pokemon sprites
+    sprite_dir = Path(__file__).resolve().parent.parent / "assets" / "pokemon"
+    if sprite_dir.exists():
+        app.router.add_static("/sprites", sprite_dir, show_index=False)
     # Auth
     app.router.add_post("/api/auth/telegram", api_auth_telegram)
     app.router.add_get("/api/auth/me", api_auth_me)
