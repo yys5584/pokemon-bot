@@ -111,12 +111,12 @@
         .type-tip::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-bottom-color:#fff}
         .type-hover:hover .type-tip{display:block}
         .poke-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px 8px;margin-top:4px;font-size:11px}
-        .poke-stat{display:flex;justify-content:space-between;align-items:center}
-        .poke-stat-name{color:#6B5940;font-size:10px;min-width:24px;font-weight:500}
-        .poke-stat-right{min-width:56px;text-align:right;white-space:nowrap;flex-shrink:0}
+        .poke-stat{display:flex;align-items:center;overflow:hidden}
+        .poke-stat-name{color:#6B5940;font-size:10px;min-width:20px;font-weight:500;flex-shrink:0}
+        .poke-stat-right{text-align:right;white-space:nowrap;flex-shrink:0}
         .poke-stat-val{font-weight:700;font-size:11px;color:#3A2A18}
         .poke-stat-iv{color:#1B5E20;font-size:10px;font-weight:600;margin-left:1px}
-        .poke-stat-bar{flex:1;height:4px;background:#EEEEEE;border-radius:2px;margin:0 4px;min-width:20px}
+        .poke-stat-bar{flex:1;height:4px;background:#EEEEEE;border-radius:2px;margin:0 3px;min-width:8px}
         .poke-stat-fill{height:100%;border-radius:2px}
         .poke-power{display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:1px solid rgba(0,0,0,.12)}
         .poke-power-label{color:var(--muted);font-size:10px}
