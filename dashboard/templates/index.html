@@ -4,55 +4,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TGPoke 대시보드</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
     <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        :root{--bg:#EDE4D3;--card:#F8F2E4;--border:#C4B395;--hover:#E8DCC8;--text:#4A3728;--muted:#907A5F;--dim:#B8A88A;--red:#C62828;--green:#2E7D32;--blue:#1565C0;--purple:#7B1FA2;--gold:#F9A825;--orange:#E65100}
-        body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px}
+        :root{--bg:#F5F5F5;--card:#FFFFFF;--border:#EEEEEE;--hover:#FAFAFA;--text:#212121;--muted:#757575;--dim:#BDBDBD;--red:#E53935;--green:#2E7D32;--blue:#1565C0;--purple:#7B1FA2;--gold:#F9A825;--orange:#E65100;--accent:#FFCB05;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-hover:0 8px 24px rgba(0,0,0,.1)}
+        body{font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;-webkit-font-smoothing:antialiased}
 
         /* Header */
-        .header{background:linear-gradient(135deg,#8B0000,#A52A2A);padding:12px 20px;border-bottom:2px solid var(--red);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-        .header h1{font-size:18px;color:#FFF3E0}
-        .header h1 span{color:#FFD54F}
+        .header{background:#E53935;padding:10px 20px;border-bottom:none;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+        .header h1{font-size:20px;font-weight:800;color:#fff;letter-spacing:.5px}
+        .header h1 span{color:#FFCB05}
         .header-right{display:flex;align-items:center;gap:8px}
-        .connect-btn{background:linear-gradient(135deg,#0088cc,#0077b5);color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;transition:all .2s}
-        .connect-btn:hover{background:linear-gradient(135deg,#006daa,#005f8f);transform:translateY(-1px)}
+        .connect-btn{background:#FFCB05;color:#212121;border:none;padding:8px 20px;border-radius:24px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;transition:all .25s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 6px rgba(255,203,5,.3)}
+        .connect-btn:hover{background:#FFD54F;transform:translateY(-2px);box-shadow:0 6px 16px rgba(255,203,5,.4)}
         .connect-btn svg{width:16px;height:16px;fill:#fff}
         .user-info{display:flex;align-items:center;gap:8px;color:#FFF3E0;font-size:12px}
-        .user-avatar{width:28px;height:28px;border-radius:50%;border:2px solid #FFD54F}
-        .user-name{font-weight:600;color:#FFD54F}
-        .logout-btn{background:rgba(255,255,255,.15);color:#FFCCBC;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px}
-        .logout-btn:hover{background:rgba(255,255,255,.25)}
-        .last-update{color:#FFCCBC;font-size:11px}
+        .user-avatar{width:28px;height:28px;border-radius:50%;border:2px solid #fff}
+        .user-name{font-size:13px;font-weight:700;color:#fff}
+        .logout-btn{background:rgba(255,255,255,.2);color:#fff;border:none;padding:4px 12px;border-radius:12px;cursor:pointer;font-size:11px}
+        .logout-btn:hover{background:rgba(255,255,255,.35)}
+        .last-update{color:rgba(255,255,255,.7);font-size:11px}
 
         /* My Pokemon Page */
         .poke-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
-        .poke-filter{padding:5px 14px;border:1px solid var(--border);border-radius:16px;background:var(--card);color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s}
-        .poke-filter:hover{color:var(--text);border-color:var(--text)}
-        .poke-filter.active{background:var(--red);color:#fff;border-color:var(--red);font-weight:600}
+        .poke-filter{padding:6px 16px;border:none;border-radius:20px;background:#F0F0F0;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1)}
+        .poke-filter:hover{color:var(--text);background:#E8E8E8}
+        .poke-filter.active{background:var(--red);color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(229,57,53,.25)}
         .poke-select{padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12px;cursor:pointer}
         .poke-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:8px}
         .dex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px}
-        .dex-cell{padding:4px 6px;border-radius:6px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:4px;border:1px solid var(--border);background:var(--card);transition:all .15s}
-        .dex-cell.caught{background:#E8F5E9;border-color:#A5D6A7}
-        .dex-cell.uncaught{background:#FAFAFA;border-color:#E0E0E0;color:#9E9E9E}
-        .dex-cell.ultra_legendary.caught{background:linear-gradient(135deg,#FFCDD2,#EF9A9A);border-color:#E57373}
-        .dex-cell.legendary.caught{background:linear-gradient(135deg,#FFF9C4,#FFF176);border-color:#FFD54F}
-        .dex-cell.epic.caught{background:linear-gradient(135deg,#E1BEE7,#CE93D8);border-color:#BA68C8}
+        .dex-cell{padding:4px 6px;border-radius:8px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:4px;border:none;background:var(--card);transition:all .2s cubic-bezier(.4,0,.2,1);box-shadow:0 1px 2px rgba(0,0,0,.04)}
+        .dex-cell:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.08)}
+        .dex-cell.caught{background:#E8F5E9}
+        .dex-cell.uncaught{background:#FAFAFA;color:#9E9E9E}
+        .dex-cell.ultra_legendary.caught{background:linear-gradient(135deg,#FFCDD2,#EF9A9A)}
+        .dex-cell.legendary.caught{background:linear-gradient(135deg,#FFF9C4,#FFF176)}
+        .dex-cell.epic.caught{background:linear-gradient(135deg,#E1BEE7,#CE93D8)}
         .dex-cell .dex-id{color:var(--muted);font-size:10px;min-width:26px}
         .dex-cell .dex-type{width:14px;height:14px;vertical-align:middle}
         .dex-cell .dex-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .dex-cell{position:relative;cursor:default}
-        .dex-tip{display:none;position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 10px;border-radius:6px;font-size:10px;white-space:normal;z-index:20;font-weight:400;line-height:1.6;min-width:200px;max-width:280px;text-align:left;box-shadow:0 3px 10px rgba(0,0,0,.3)}
-        .dex-tip::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:#333}
-        .dex-cell:hover .dex-tip{display:block}
-        .poke-card{background:linear-gradient(135deg,#E8DECE,#DED2C0);border:1px solid #B8A888;border-radius:8px;padding:8px 10px;transition:all .2s;position:relative}
-        .poke-card:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.12)}
-        .poke-card.ultra_legendary{background:linear-gradient(135deg,#FFCDD2,#EF9A9A)}
-        .poke-card.legendary{border-color:#C5A33A;border-width:1.5px;background:linear-gradient(135deg,#F2DD94,#EBCF78)}
-        .poke-card.epic{border-color:#9B59B6;border-width:1.5px;background:linear-gradient(135deg,#D8B4EE,#C69EE2)}
-        .poke-card.rare{border-color:#5B9BD5;border-width:1.5px;background:linear-gradient(135deg,#ABCFE8,#93BDD8)}
+        .dex-cell{position:relative;cursor:default;z-index:1}
+        .dex-cell:hover{z-index:30}
+        .dex-tip{display:none;position:fixed;background:#fff;color:var(--text);padding:12px 14px;border-radius:12px;font-size:11px;white-space:normal;z-index:100;font-weight:400;line-height:1.5;width:300px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.15);pointer-events:none}
+        .dex-tip .dt-copy{pointer-events:auto}
+        .dex-tip .dt-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:5px 14px;margin:8px 0;padding:8px 10px;background:#FAFAFA;border-radius:8px}
+        .dex-tip .dt-stat{display:flex;align-items:center;gap:4px;font-size:10px}
+        .dex-tip .dt-stat-name{color:var(--muted);min-width:22px;font-weight:500}
+        .dex-tip .dt-stat-bar{flex:1;height:6px;background:#E8E8E8;border-radius:3px;overflow:hidden}
+        .dex-tip .dt-stat-fill{height:100%;border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+        .dex-tip .dt-stat-val{font-weight:700;min-width:24px;text-align:right}
+        .dex-tip .dt-section{margin-top:6px;padding-top:6px;border-top:1px solid #F0F0F0;line-height:1.7}
+        .dex-tip .dt-copy{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;background:#F0F0F0;color:var(--muted);font-size:10px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);font-weight:500}
+        .dex-tip .dt-copy:hover{background:var(--red);color:#fff;transform:translateY(-1px)}
+        .dex-tip.visible{display:block}
+        .poke-card{background:var(--card);border:none;border-radius:12px;padding:10px 12px;transition:all .25s cubic-bezier(.4,0,.2,1);position:relative;box-shadow:var(--shadow)}
+        .poke-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
+        .poke-card.ultra_legendary{background:linear-gradient(135deg,#FFF0F0,#FFCDD2)}
+        .poke-card.legendary{background:linear-gradient(135deg,#FFFDE7,#FFF9C4)}
+        .poke-card.epic{background:linear-gradient(135deg,#F3E5F5,#EDE7F6)}
+        .poke-card.rare{background:linear-gradient(135deg,#E3F2FD,#E8EAF6)}
         @keyframes holoShimmer{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
         @keyframes holoBorder{0%,100%{border-color:rgba(255,130,130,.35)}14%{border-color:rgba(255,200,100,.35)}28%{border-color:rgba(180,255,130,.35)}42%{border-color:rgba(100,220,255,.35)}57%{border-color:rgba(150,130,255,.4)}71%{border-color:rgba(255,130,220,.35)}85%{border-color:rgba(255,180,130,.35)}}
         @keyframes holoSweep{0%,100%{left:-60%;opacity:0}10%{opacity:1}50%{left:160%;opacity:1}60%,100%{opacity:0}}
@@ -67,31 +79,31 @@
         .poke-stars{color:var(--gold);font-size:11px;letter-spacing:-1px}
         .poke-iv-badge{padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700}
         .iv-s{background:#FFCDD2;color:#B71C1C}.iv-a{background:#FFE0B2;color:#BF360C}.iv-b{background:#BBDEFB;color:#0D47A1}.iv-c{background:#C8E6C9;color:#1B5E20}.iv-d{background:#E0E0E0;color:#424242}
-        .synergy-badge{padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;position:relative;cursor:help}
-        .synergy-perfect{background:#EDE7F6;color:#4A148C;border:1px solid #CE93D8}.synergy-great{background:#E8F5E9;color:#1B5E20;border:1px solid #81C784}.synergy-normal{background:#E3F2FD;color:#0D47A1;border:1px solid #90CAF9}.synergy-poor{background:#EFEBE9;color:#4E342E;border:1px solid #BCAAA4}
-        .synergy-tip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 10px;border-radius:6px;font-size:10px;white-space:normal;z-index:10;font-weight:400;line-height:1.5;min-width:200px;max-width:260px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,.2)}
-        .synergy-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#333}
+        .synergy-badge{padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;position:relative;cursor:help;border:none}
+        .synergy-perfect{background:#EDE7F6;color:#6A1B9A}.synergy-great{background:#E8F5E9;color:#2E7D32}.synergy-normal{background:#E3F2FD;color:#1565C0}.synergy-poor{background:#F5F5F5;color:#757575}
+        .synergy-tip{display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#fff;color:var(--text);padding:10px 12px;border-radius:10px;font-size:11px;white-space:normal;z-index:10;font-weight:400;line-height:1.6;min-width:210px;max-width:270px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+        .synergy-tip::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-bottom-color:#fff}
         .synergy-badge:hover .synergy-tip{display:block}
         .poke-type-icon{width:16px;height:16px;border-radius:3px;vertical-align:middle}
         .type-hover{position:relative;display:inline-block;cursor:help}
-        .type-tip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 10px;border-radius:6px;font-size:10px;white-space:normal;z-index:20;font-weight:400;line-height:1.6;min-width:180px;max-width:260px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-        .type-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#333}
+        .type-tip{display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#fff;color:var(--text);padding:10px 12px;border-radius:10px;font-size:11px;white-space:normal;z-index:20;font-weight:400;line-height:1.6;min-width:180px;max-width:260px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+        .type-tip::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-bottom-color:#fff}
         .type-hover:hover .type-tip{display:block}
         .poke-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px 8px;margin-top:4px;font-size:11px}
         .poke-stat{display:flex;justify-content:space-between;align-items:center}
         .poke-stat-name{color:#6B5940;font-size:10px;min-width:24px;font-weight:500}
         .poke-stat-val{font-weight:700;font-size:11px;color:#3A2A18}
         .poke-stat-iv{color:#1B5E20;font-size:10px;font-weight:600;margin-left:1px}
-        .poke-stat-bar{flex:1;height:3px;background:rgba(0,0,0,.15);border-radius:2px;margin:0 4px;min-width:20px}
+        .poke-stat-bar{flex:1;height:4px;background:#EEEEEE;border-radius:2px;margin:0 4px;min-width:20px}
         .poke-stat-fill{height:100%;border-radius:2px}
         .poke-power{display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:1px solid rgba(0,0,0,.12)}
         .poke-power-label{color:var(--muted);font-size:10px}
         .poke-power-val{font-size:14px;font-weight:700;color:var(--red)}
         .poke-power-diff{font-size:10px;color:var(--green);margin-left:3px}
         .poke-pg{display:flex;justify-content:center;align-items:center;gap:4px;margin-top:8px;flex-wrap:wrap}
-        .poke-pg-btn{min-width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:11px;cursor:pointer;transition:all .2s;font-weight:600}
-        .poke-pg-btn:hover:not(:disabled):not(.active){background:var(--hover);border-color:var(--text)}
-        .poke-pg-btn.active{background:var(--red);color:#fff;border-color:var(--red)}
+        .poke-pg-btn{min-width:28px;height:28px;border:none;border-radius:8px;background:#F0F0F0;color:var(--text);font-size:11px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);font-weight:600}
+        .poke-pg-btn:hover:not(:disabled):not(.active){background:#E0E0E0}
+        .poke-pg-btn.active{background:var(--red);color:#fff;box-shadow:0 2px 8px rgba(229,57,53,.25)}
         .poke-pg-btn:disabled{opacity:.3;cursor:default}
         .auth-wall{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center}
         .auth-wall-icon{font-size:48px;margin-bottom:12px;opacity:.7}
@@ -103,14 +115,14 @@
         .poke-summary .card{text-align:center;margin:0}
 
         /* AI Chat Simulator */
-        .chat-container{display:flex;flex-direction:column;height:calc(100vh - 160px);min-height:400px;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+        .chat-container{display:flex;flex-direction:column;height:calc(100vh - 160px);min-height:400px;background:var(--card);border:none;border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
         .chat-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
         .chat-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.6;animation:chatIn .3s ease}
         @keyframes chatIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        .chat-msg.ai{align-self:flex-start;background:#f0ebe0;color:var(--text);border-bottom-left-radius:4px}
-        .chat-msg.user{align-self:flex-end;background:linear-gradient(135deg,#8B0000,#A52A2A);color:#FFF3E0;border-bottom-right-radius:4px}
+        .chat-msg.ai{align-self:flex-start;background:#F5F5F5;color:var(--text);border-bottom-left-radius:4px}
+        .chat-msg.user{align-self:flex-end;background:var(--red);color:#fff;border-bottom-right-radius:4px}
         .chat-msg.ai .chat-sender{font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px}
-        .chat-msg.user .chat-sender{font-size:11px;font-weight:600;color:#FFD54F;margin-bottom:4px}
+        .chat-msg.user .chat-sender{font-size:11px;font-weight:600;color:rgba(255,255,255,.8);margin-bottom:4px}
         .chat-msg.ai .chat-team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin:8px 0}
         .chat-msg.ai .chat-warning{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:5px 8px;font-size:11px;color:#856404;margin-top:6px}
         .chat-msg.ai .chat-meta{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0;font-size:11px;color:var(--muted)}
@@ -120,38 +132,38 @@
         .chat-typing span:nth-child(2){animation-delay:.2s}
         .chat-typing span:nth-child(3){animation-delay:.4s}
         @keyframes typing{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
-        .chat-quick{display:flex;gap:6px;padding:8px 14px;flex-wrap:wrap;border-top:1px solid var(--border);background:var(--bg)}
-        .chat-quick-btn{padding:6px 12px;border:1px solid var(--border);border-radius:16px;background:var(--card);color:var(--text);font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap}
-        .chat-quick-btn:hover{border-color:var(--red);color:var(--red);background:#fff5f5}
-        .chat-quick-btn.ai-btn{border-color:#7B1FA2;color:#7B1FA2;background:#F3E5F5}
-        .chat-quick-btn.ai-btn:hover{background:#E1BEE7;border-color:#6A1B9A;color:#6A1B9A}
-        .chat-input-area{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);background:var(--card)}
-        .chat-input{flex:1;border:1px solid var(--border);border-radius:20px;padding:8px 16px;font-size:13px;background:var(--bg);color:var(--text);outline:none;transition:border-color .2s;font-family:inherit}
-        .chat-input:focus{border-color:var(--red)}
+        .chat-quick{display:flex;gap:6px;padding:8px 14px;flex-wrap:wrap;border-top:none;background:var(--bg)}
+        .chat-quick-btn{padding:6px 12px;border:none;border-radius:16px;background:#F0F0F0;color:var(--text);font-size:11px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);white-space:nowrap}
+        .chat-quick-btn:hover{color:var(--red);background:#FFE8E8}
+        .chat-quick-btn.ai-btn{color:#7B1FA2;background:#F3E5F5}
+        .chat-quick-btn.ai-btn:hover{background:#E1BEE7;color:#6A1B9A}
+        .chat-input-area{display:flex;gap:8px;padding:10px 14px;border-top:none;background:var(--card)}
+        .chat-input{flex:1;border:none;border-radius:20px;padding:8px 16px;font-size:13px;background:#F0F0F0;color:var(--text);outline:none;transition:all .2s;font-family:inherit}
+        .chat-input:focus{background:#E8E8E8;box-shadow:0 0 0 2px rgba(229,57,53,.15)}
         .chat-input::placeholder{color:var(--dim)}
-        .chat-send{width:36px;height:36px;border:none;border-radius:50%;background:linear-gradient(135deg,#8B0000,#A52A2A);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:16px}
-        .chat-send:hover{transform:scale(1.05);box-shadow:0 2px 8px rgba(139,0,0,.3)}
+        .chat-send{width:36px;height:36px;border:none;border-radius:50%;background:var(--red);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:16px}
+        .chat-send:hover{background:#C62828;box-shadow:0 2px 8px rgba(229,57,53,.3)}
         .chat-send:disabled{opacity:.5;cursor:not-allowed;transform:none}
-        .sess-tab{padding:4px 10px;border:1px solid var(--border);border-radius:14px;font-size:11px;cursor:pointer;background:var(--card);color:var(--muted);white-space:nowrap;transition:all .2s;max-width:120px;overflow:hidden;text-overflow:ellipsis}
-        .sess-tab.active{background:var(--red);color:#fff;border-color:var(--red);font-weight:700}
-        .sess-tab:hover:not(.active){border-color:var(--red);color:var(--red)}
-        .sess-tab-new{padding:4px 8px;border:1px dashed var(--border);border-radius:14px;font-size:13px;cursor:pointer;background:transparent;color:var(--muted);transition:all .2s}
+        .sess-tab{padding:4px 10px;border:none;border-radius:14px;font-size:11px;cursor:pointer;background:#F0F0F0;color:var(--muted);white-space:nowrap;transition:all .2s cubic-bezier(.4,0,.2,1);max-width:120px;overflow:hidden;text-overflow:ellipsis}
+        .sess-tab.active{background:var(--red);color:#fff;font-weight:700;box-shadow:0 2px 6px rgba(229,57,53,.25)}
+        .sess-tab:hover:not(.active){background:#E0E0E0;color:var(--text)}
+        .sess-tab-new{padding:4px 8px;border:1px dashed #D0D0D0;border-radius:14px;font-size:13px;cursor:pointer;background:transparent;color:var(--muted);transition:all .2s}
         .sess-tab-new:hover{border-color:var(--red);color:var(--red)}
         .sess-tab-del{font-size:10px;margin-left:2px;color:inherit;opacity:.6;cursor:pointer}
         .sess-tab-del:hover{opacity:1}
 
         /* Tab Navigation */
-        .nav{display:flex;gap:0;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+        .nav{display:flex;gap:0;background:#fff;border-bottom:none;overflow-x:auto;scrollbar-width:none;padding:0 12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
         .nav::-webkit-scrollbar{display:none}
-        .nav-tab{padding:10px 18px;cursor:pointer;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s}
-        .nav-tab:hover{color:var(--text);background:var(--hover)}
-        .nav-tab.active{color:var(--red);border-bottom-color:var(--red);font-weight:600}
+        .nav-tab{padding:12px 20px;cursor:pointer;font-size:14px;font-weight:500;color:#9E9E9E;border-bottom:3px solid transparent;white-space:nowrap;transition:all .2s cubic-bezier(.4,0,.2,1)}
+        .nav-tab:hover{color:#212121}
+        .nav-tab.active{color:#212121;font-weight:700;border-bottom-color:#E53935}
 
         /* Rank Filters */
         .rank-filters{display:flex;gap:6px;margin-bottom:8px}
-        .rank-filter{padding:4px 12px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s}
-        .rank-filter:hover{color:var(--text);border-color:var(--text)}
-        .rank-filter.active{background:var(--red);color:#fff;border-color:var(--red);font-weight:600}
+        .rank-filter{padding:5px 14px;border:none;border-radius:20px;background:#F0F0F0;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1)}
+        .rank-filter:hover{color:var(--text);background:#E8E8E8}
+        .rank-filter.active{background:var(--red);color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(229,57,53,.25)}
 
         /* Container */
         .container{max-width:1400px;margin:0 auto;padding:12px 14px}
@@ -159,8 +171,8 @@
 
         /* Cards */
         .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px}
-        .card{background:var(--card);border-radius:8px;padding:10px 12px;border:1px solid var(--border);transition:transform .15s}
-        .card:hover{transform:translateY(-2px)}
+        .card{background:var(--card);border-radius:12px;padding:12px 14px;border:none;transition:all .25s cubic-bezier(.4,0,.2,1);box-shadow:var(--shadow)}
+        .card:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
         .card .label{color:var(--muted);font-size:11px;margin-bottom:2px}
         .card .value{font-size:22px;font-weight:700;color:var(--text)}
         .card .sub{color:var(--dim);font-size:11px}
@@ -171,7 +183,7 @@
         .card.hl-gold{border-color:var(--gold)}.card.hl-gold .value{color:var(--gold)}
 
         /* Donation Progress */
-        .donate-bar-wrap{background:var(--card);border-radius:8px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border)}
+        .donate-bar-wrap{background:var(--card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:none;box-shadow:var(--shadow)}
         .donate-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
         .donate-title{font-size:13px;font-weight:700;color:var(--text)}
         .donate-amount{font-size:18px;font-weight:800;color:var(--primary)}
@@ -185,16 +197,16 @@
         @keyframes donateGlow{0%{box-shadow:0 0 4px rgba(244,167,71,.4)}100%{box-shadow:0 0 12px rgba(244,167,71,.8)}}
 
         /* Sections */
-        .section{background:var(--card);border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid var(--border)}
-        .section h2{font-size:14px;margin-bottom:8px;color:var(--text);display:flex;align-items:center;gap:6px}
+        .section{background:var(--card);border-radius:12px;padding:14px;margin-bottom:10px;border:none;box-shadow:var(--shadow)}
+        .section h2{font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);display:flex;align-items:center;gap:6px}
         .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
         .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
 
         /* Tables */
         table{width:100%;border-collapse:collapse}
-        th{text-align:left;padding:4px 5px;border-bottom:1px solid var(--border);color:var(--muted);font-size:11px;text-transform:uppercase}
-        td{padding:4px 5px;border-bottom:1px solid var(--border);font-size:13px}
-        tr:hover td{background:var(--hover)}
+        th{text-align:left;padding:6px 8px;border-bottom:2px solid #F0F0F0;color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase}
+        td{padding:5px 8px;border-bottom:1px solid #F5F5F5;font-size:13px}
+        tr:hover td{background:#FAFAFA;transition:background .15s}
 
         /* Badges */
         .badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
@@ -263,20 +275,21 @@
         .log-catch{color:var(--green);font-weight:600}.log-escape{color:var(--red)}
 
         /* Events */
-        .event-card{background:var(--hover);border-radius:6px;padding:6px 10px;margin-bottom:4px;border-left:3px solid var(--red)}
+        .event-card{background:var(--card);border-radius:10px;padding:8px 12px;margin-bottom:4px;border:none;border-left:4px solid var(--red);box-shadow:var(--shadow)}
         .event-card .event-name{font-weight:600;color:var(--text);font-size:13px}
         .event-card .event-end{color:var(--muted);font-size:11px}
 
         /* Fun cards */
-        .fun-card{background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border);text-align:center}
+        .fun-card{background:var(--card);border-radius:10px;padding:10px;border:none;text-align:center;box-shadow:var(--shadow);transition:all .25s cubic-bezier(.4,0,.2,1)}
+        .fun-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
         .fun-card .fun-emoji{font-size:22px}
         .fun-card .fun-title{color:var(--muted);font-size:10px;margin:2px 0}
         .fun-card .fun-value{font-size:16px;font-weight:700;color:var(--text)}
         .fun-card .fun-name{color:var(--gold);font-size:11px}
         .tw-badge{font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.08);color:var(--gold);cursor:help}
 
-        /* Battle & Ranking 2-col layout */
-        .grid-rank{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px}
+        /* Battle & Ranking layout */
+        .grid-rank{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:10px}
 
         /* Tier collapsible */
         .tier-group-hdr{display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;user-select:none;border-bottom:1px solid var(--border)}
@@ -298,7 +311,7 @@
         .ch-stat .big{font-size:16px;font-weight:700;color:var(--green)}
 
         /* Footer */
-        .footer{text-align:center;color:var(--dim);font-size:11px;padding:16px;border-top:1px solid var(--border);margin-top:20px}
+        .footer{text-align:center;color:var(--dim);font-size:11px;padding:16px;border-top:none;margin-top:20px}
 
         /* Loading */
         .loading{text-align:center;padding:20px;color:var(--dim)}
@@ -306,7 +319,8 @@
 
         /* Responsive */
         @media(max-width:900px){
-            .grid-2,.grid-3{grid-template-columns:1fr 1fr}
+            .grid-2{grid-template-columns:1fr}
+            .grid-3{grid-template-columns:1fr 1fr}
             .grid-rank{grid-template-columns:1fr}
             .cards{grid-template-columns:repeat(3,1fr)}
         }
@@ -445,8 +459,8 @@
             #page-admin #admKpiCards{grid-template-columns:repeat(2,1fr)!important}
         }
         /* Guide page */
-        .guide-tab{padding:8px 16px;border:1px solid var(--border);border-radius:20px;background:var(--card);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
-        .guide-tab:hover{background:var(--hover);color:var(--text)}
+        .guide-tab{padding:8px 18px;border:1px solid var(--border);border-radius:20px;background:var(--card);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+        .guide-tab:hover{background:var(--hover);color:var(--text);border-color:#999}
         .guide-tab.active{background:var(--red);color:#fff;border-color:var(--red)}
         .guide-section{display:none}
         .guide-section.active{display:block}
@@ -969,12 +983,12 @@
                             <h4>❤️ 친밀도 효과</h4>
                             <p>친밀도 단계당 <b>전 능력치 +4%</b> (최대 5단계 = +20%)</p>
                             <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
-                                <span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#2d2d2d">♡♡♡♡♡ +0%</span>
-                                <span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#2d2d2d">❤♡♡♡♡ +4%</span>
-                                <span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#2d2d2d">❤❤♡♡♡ +8%</span>
-                                <span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#2d2d2d">❤❤❤♡♡ +12%</span>
-                                <span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#2d2d2d">❤❤❤❤♡ +16%</span>
-                                <span style="padding:3px 8px;border-radius:4px;font-size:11px;background:#1a472a;color:#52b788">❤❤❤❤❤ +20%</span>
+                                <span style="padding:3px 8px;border-radius:6px;font-size:11px;background:#F5F5F5;color:#9E9E9E">♡♡♡♡♡ +0%</span>
+                                <span style="padding:3px 8px;border-radius:6px;font-size:11px;background:#FFEBEE;color:#C62828">❤♡♡♡♡ +4%</span>
+                                <span style="padding:3px 8px;border-radius:6px;font-size:11px;background:#FFCDD2;color:#B71C1C">❤❤♡♡♡ +8%</span>
+                                <span style="padding:3px 8px;border-radius:6px;font-size:11px;background:#EF9A9A;color:#B71C1C">❤❤❤♡♡ +12%</span>
+                                <span style="padding:3px 8px;border-radius:6px;font-size:11px;background:#E57373;color:#fff">❤❤❤❤♡ +16%</span>
+                                <span style="padding:3px 8px;border-radius:6px;font-size:11px;background:#E53935;color:#fff;font-weight:600">❤❤❤❤❤ +20%</span>
                             </div>
                         </div>
 
@@ -1664,22 +1678,29 @@ async function loadHome(){
         document.getElementById("eventsList").innerHTML=events.map(e=>`<div class="event-card"><div class="event-name">${e.description||e.name}</div><div class="event-end">종료: ${formatTime(e.end_time)}</div></div>`).join("");
     }else{eSec.style.display="none"}
 
-    // DAU & Retention (compact)
+    // DAU & Retention (vertical bars)
     const dauEl=document.getElementById("dauSection");
     if(dkpi){
         const ret=dkpi.retention;
-        const hist=(dkpi.dau_history||[]).slice(-5);
+        const hist=(dkpi.dau_history||[]).slice(-7);
         const maxDau=Math.max(...hist.map(h=>h.dau),1);
         let bars=hist.map(h=>{
             const pct=Math.round(h.dau/maxDau*100);
             const day=h.day.substring(5);
-            return`<div style="display:flex;align-items:center;gap:4px;margin:2px 0"><span style="color:var(--muted);font-size:10px;min-width:36px">${day}</span><div style="background:var(--red);height:12px;border-radius:2px;min-width:2px;width:${pct}%"></div><span style="font-size:10px;font-weight:600">${h.dau}</span></div>`;
+            return`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+                <span style="font-size:10px;font-weight:600;color:var(--text)">${h.dau}</span>
+                <div style="width:100%;max-width:32px;height:80px;background:#F0F0F0;border-radius:6px;display:flex;align-items:flex-end;overflow:hidden">
+                    <div style="width:100%;height:${Math.max(pct,4)}%;background:var(--red);border-radius:6px;transition:height .6s cubic-bezier(.4,0,.2,1)"></div>
+                </div>
+                <span style="color:var(--muted);font-size:10px">${day}</span>
+            </div>`;
         }).join("");
         dauEl.innerHTML=`
-            <div style="display:flex;gap:14px;margin-bottom:6px">
+            <div style="display:flex;gap:14px;margin-bottom:10px">
                 <div><span style="color:var(--muted);font-size:10px">리텐션</span><div style="font-size:16px;font-weight:700;color:var(--green)">${ret.rate}%</div><div style="font-size:10px;color:var(--muted)">${ret.retained}/${ret.total_new}명</div></div>
                 <div><span style="color:var(--muted);font-size:10px">오늘 DAU</span><div style="font-size:16px;font-weight:700;color:var(--blue)">${dkpi.dau}</div></div>
-            </div>${bars}`;
+            </div>
+            <div style="display:flex;gap:4px;align-items:flex-end">${bars}</div>`;
     }else{dauEl.innerHTML='<p class="empty-msg">데이터 없음</p>'}
 
     // Economy health (6 cards: 마볼/하볼/BP × 유통/소비)
@@ -2036,8 +2057,8 @@ function typeTooltipHtml(t){
     const adv=(TYPE_ADVANTAGE[t]||[]).map(x=>TYPE_NAMES[x]).join(", ")||"없음";
     const weak=(TYPE_WEAK_TO[t]||[]).map(x=>TYPE_NAMES[x]).join(", ")||"없음";
     const imm=(TYPE_IMMUNITY[t]||[]).map(x=>TYPE_NAMES[x]).join(", ");
-    let html=`<b>${n}</b> 타입<br>⚔️ 강점: ${adv}<br>🛡️ 약점: ${weak}`;
-    if(imm) html+=`<br>🚫 면역: ${imm}`;
+    let html=`<b>${n}</b> 타입<br><span style="color:#2E7D32">⚔️ 강점:</span> ${adv}<br><span style="color:#C62828">🛡️ 약점:</span> ${weak}`;
+    if(imm) html+=`<br><span style="color:#757575">🚫 면역:</span> ${imm}`;
     return html;
 }
 const STAT_COLORS={hp:"var(--green)",atk:"var(--red)",def:"var(--blue)",spa:"var(--purple)",spdef:"#0277BD",spd:"var(--gold)"};
@@ -2275,19 +2296,42 @@ function renderPokedex(){
         const t2=p.type2?`<img class="dex-type" src="/static/types/${p.type2}.png?v=2">`:"";
         const name=p.caught?p.name_ko:"???";
         const method=p.method==="evolve"?" ★":p.method==="trade"?" 🔄":"";
-        // Tooltip content
+        // Tooltip content (rich)
         let tip="";
         if(p.caught){
             const rl=RARITY_LABELS[p.rarity]||p.rarity;
             const tn1=TYPE_NAMES[p.type1]||p.type1;
             const tn2=p.type2?(` / ${TYPE_NAMES[p.type2]}`):"";
-            tip=`<b>No.${String(p.id).padStart(3,'0')} ${p.name_ko}</b> (${p.name_en||""})`;
-            tip+=`<br>등급: ${rl} · 타입: ${tn1}${tn2}`;
-            tip+=`<br>포획률: ${Math.round(p.catch_rate*100)}%`;
-            if(p.evo_chain) tip+=`<br>진화: ${p.evo_chain} (${p.stage})`;
-            tip+=`<br>상태: ✓ 보유 중`;
+            tip=`<b>No.${String(p.id).padStart(3,'0')} ${p.name_ko}</b> <span style="color:var(--muted)">${p.name_en||""}</span>`;
+            tip+=`<br><span style="font-size:10px">등급: <b>${rl}</b> · 타입: <b>${tn1}${tn2}</b> · 포획률: ${Math.round(p.catch_rate*100)}%</span>`;
+            if(p.evo_chain) tip+=`<br><span style="font-size:10px;color:var(--muted)">진화: ${p.evo_chain} (${p.stage})</span>`;
+            // Base stats
+            if(p.stats){
+                const sc={"hp":"var(--green)","atk":"var(--red)","def":"var(--blue)","spa":"var(--purple)","spdef":"#0277BD","spd":"var(--gold)"};
+                const sn={"hp":"HP","atk":"공","def":"방","spa":"특공","spdef":"특방","spd":"속"};
+                tip+=`<div class="dt-stats">`;
+                for(const k of ["hp","atk","def","spa","spdef","spd"]){
+                    const v=p.stats[k];const pct=Math.min(v/180*100,100);
+                    tip+=`<div class="dt-stat"><span class="dt-stat-name">${sn[k]}</span><div class="dt-stat-bar"><div class="dt-stat-fill" style="width:${pct}%;background:${sc[k]}"></div></div><span class="dt-stat-val">${v}</span></div>`;
+                }
+                tip+=`</div>`;
+            }
+            // Type effectiveness (counter info)
+            const allTypes=[p.type1];if(p.type2)allTypes.push(p.type2);
+            const adv=new Set(),weakTo=new Set();
+            allTypes.forEach(t=>{
+                (TYPE_ADVANTAGE[t]||[]).forEach(x=>adv.add(TYPE_NAMES[x]));
+                (TYPE_WEAK_TO[t]||[]).forEach(x=>weakTo.add(TYPE_NAMES[x]));
+            });
+            tip+=`<div class="dt-section">`;
+            if(adv.size) tip+=`<span style="color:#2E7D32;font-weight:600">⚔️ 카운터:</span> <span style="font-size:10px">${[...adv].join(', ')}</span><br>`;
+            if(weakTo.size) tip+=`<span style="color:#C62828;font-weight:600">🛡️ 약점:</span> <span style="font-size:10px">${[...weakTo].join(', ')}</span>`;
+            tip+=`</div>`;
+            // Copy button
+            const copyText=`${p.name_ko}(${p.name_en||""}) #${p.id} ${tn1}${tn2} ${rl} HP:${p.stats?.hp||"?"} ATK:${p.stats?.atk||"?"} DEF:${p.stats?.def||"?"} SPA:${p.stats?.spa||"?"} SPDEF:${p.stats?.spdef||"?"} SPD:${p.stats?.spd||"?"}`;
+            tip+=`<span class="dt-copy" onclick="event.stopPropagation();navigator.clipboard.writeText('${copyText.replace(/'/g,"\\'")}');this.textContent='✓ 복사됨';setTimeout(()=>this.textContent='📋 복사',1000)">📋 복사</span>`;
         }else{
-            tip=`<b>No.${String(p.id).padStart(3,'0')} ???</b><br>미보유`;
+            tip=`<b>No.${String(p.id).padStart(3,'0')} ???</b><br><span style="color:var(--muted)">미보유</span>`;
         }
         return`<div class="dex-cell ${cls}"><span class="dex-id">${String(p.id).padStart(3,'0')}</span>${t1}${t2}<span class="dex-name">${name}${method}</span><span class="dex-tip">${tip}</span></div>`;
     }).join("");
@@ -2306,6 +2350,56 @@ function renderPokedex(){
     }
     nav+='</div>';
     navEl.innerHTML=nav;
+
+    // Position dex tooltips: JS controls both display and position
+    let _activeDexTip=null;
+    let _activeDexCell=null;
+    const dexGrid=document.getElementById("dexGrid");
+    function posDexTip(tip,mx,my){
+        const tw=310,gap=12;
+        let lx=mx+gap,ly=my+gap;
+        if(lx+tw>window.innerWidth-8)lx=mx-tw-gap;
+        if(lx<8)lx=8;
+        tip.style.left=lx+"px";
+        tip.style.top=ly+"px";
+        requestAnimationFrame(()=>{
+            const tr=tip.getBoundingClientRect();
+            if(tr.bottom>window.innerHeight-8)tip.style.top=(my-tr.height-gap)+"px";
+        });
+    }
+    dexGrid.addEventListener("mouseover",function(e){
+        const cell=e.target.closest(".dex-cell");
+        if(!cell){if(_activeDexTip){_activeDexTip.classList.remove("visible");_activeDexTip=null;_activeDexCell=null;}return;}
+        if(cell===_activeDexCell)return;
+        const tip=cell.querySelector(".dex-tip");
+        if(!tip)return;
+        if(_activeDexTip)_activeDexTip.classList.remove("visible");
+        posDexTip(tip,e.clientX,e.clientY);
+        tip.classList.add("visible");
+        _activeDexTip=tip;
+        _activeDexCell=cell;
+    });
+    dexGrid.addEventListener("mousemove",function(e){
+        if(!_activeDexTip)return;
+        const cell=e.target.closest(".dex-cell");
+        if(!cell||cell!==_activeDexCell){
+            if(cell&&cell!==_activeDexCell){
+                const tip=cell.querySelector(".dex-tip");
+                if(tip){
+                    _activeDexTip.classList.remove("visible");
+                    posDexTip(tip,e.clientX,e.clientY);
+                    tip.classList.add("visible");
+                    _activeDexTip=tip;
+                    _activeDexCell=cell;
+                }
+            }
+            return;
+        }
+        posDexTip(_activeDexTip,e.clientX,e.clientY);
+    });
+    dexGrid.addEventListener("mouseleave",function(){
+        if(_activeDexTip){_activeDexTip.classList.remove("visible");_activeDexTip=null;_activeDexCell=null;}
+    });
 }
 
 // --- AI CHAT ADVISOR (session-based) ---

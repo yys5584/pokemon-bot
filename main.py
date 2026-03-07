@@ -46,6 +46,7 @@ from handlers.dm_market import (
 )
 from handlers.group_trade import group_trade_handler, group_trade_callback_handler
 from handlers.dm_mission import mission_handler
+from handlers.dm_release import release_handler, release_callback
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
@@ -375,6 +376,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*검색\s"), market_search_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*내꺼"), market_my_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소"), market_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^방생$"), release_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?미션$"), mission_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?칭호목록$"), title_list_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?칭호$"), title_handler))
@@ -470,10 +472,13 @@ def main():
     app.add_handler(CallbackQueryHandler(catch_release_callback, pattern=r"^catch_release_\d+$"))
 
     # Pokedex pagination callback
-    app.add_handler(CallbackQueryHandler(pokedex_callback, pattern=r"^dex_\d+$"))
+    app.add_handler(CallbackQueryHandler(pokedex_callback, pattern=r"^dex_"))
 
     # My Pokemon pagination callback
     app.add_handler(CallbackQueryHandler(my_pokemon_callback, pattern=r"^mypoke_"))
+
+    # Release (방생) callback
+    app.add_handler(CallbackQueryHandler(release_callback, pattern=r"^rel_"))
 
     # Title selection callback
     app.add_handler(CallbackQueryHandler(title_callback, pattern=r"^title_"))

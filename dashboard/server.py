@@ -593,6 +593,13 @@ async def api_my_pokedex(request):
             if evo_stage == 3 and not pm.get("evolves_from"):
                 stage = "단일"
 
+            # Base stats (normalized to 20~180)
+            bs = None
+            if pbs:
+                def norm(s): return round(20 + (s - 5) / (255 - 5) * (180 - 20))
+                bs = {"hp": norm(pbs[0]), "atk": norm(pbs[1]), "def": norm(pbs[2]),
+                      "spa": norm(pbs[3]), "spdef": norm(pbs[4]), "spd": norm(pbs[5])}
+
             result.append({
                 "id": pid,
                 "name_ko": pm["name_ko"],
@@ -606,6 +613,7 @@ async def api_my_pokedex(request):
                 "method": caught["method"] if caught else None,
                 "evo_chain": " → ".join(evo_chain) if len(evo_chain) > 1 else None,
                 "stage": stage,
+                "stats": bs,
             })
 
         return pg_json_response(result)

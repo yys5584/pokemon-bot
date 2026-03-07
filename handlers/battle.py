@@ -25,7 +25,7 @@ _callback_dedup: dict[str, float] = {}  # "msg_id:callback_data" -> timestamp
 def _is_duplicate_callback(query) -> bool:
     """Return True if this exact callback was already handled (rapid double-click guard).
     Single-threaded asyncio → no race condition on dict access."""
-    key = f"{query.message.message_id}:{query.data}"
+    key = f"{query.message.message_id}:{query.data}:{query.from_user.id}"
     now = time.monotonic()
     # 60초 지난 항목 정리 (200개 넘으면)
     if len(_callback_dedup) > 200:
@@ -1686,12 +1686,9 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
 
         await query.answer()
 
-        # Replace with skip-only button after teabag
+        # Remove all buttons, keep battle details text visible
         try:
-            skip_only = InlineKeyboardMarkup([[
-                InlineKeyboardButton("⏭ 스킵", callback_data=f"bskip_{winner_id}_{loser_id}")
-            ]])
-            await query.edit_message_reply_markup(reply_markup=skip_only)
+            await query.edit_message_reply_markup(reply_markup=None)
         except Exception:
             pass
 
@@ -2347,12 +2344,9 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
         await query.answer()
 
-        # Replace with skip-only button after teabag
+        # Remove all buttons, keep battle details text visible
         try:
-            skip_only = InlineKeyboardMarkup([[
-                InlineKeyboardButton("⏭ 스킵", callback_data=f"bskip_{winner_id}_{loser_id}")
-            ]])
-            await query.edit_message_reply_markup(reply_markup=skip_only)
+            await query.edit_message_reply_markup(reply_markup=None)
         except Exception:
             pass
 

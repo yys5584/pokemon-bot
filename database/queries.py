@@ -548,6 +548,37 @@ async def deactivate_pokemon(instance_id: int):
     )
 
 
+async def bulk_deactivate_pokemon(instance_ids: list[int]) -> int:
+    """Mark multiple Pokemon as inactive (bulk release). Returns count."""
+    if not instance_ids:
+        return 0
+    pool = await get_db()
+    result = await pool.execute(
+        "UPDATE user_pokemon SET is_active = 0 WHERE id = ANY($1) AND is_active = 1",
+        instance_ids,
+    )
+    # result like "UPDATE 23"
+    return int(result.split()[-1]) if result else 0
+
+
+async def get_protected_pokemon_ids(user_id: int) -> set[int]:
+    """Get instance IDs that cannot be released (team, partner, market, trade)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """
+        SELECT pokemon_instance_id AS pid FROM battle_teams WHERE user_id = $1
+        UNION
+        SELECT partner_pokemon_id FROM users WHERE user_id = $1 AND partner_pokemon_id IS NOT NULL
+        UNION
+        SELECT pokemon_instance_id FROM market_listings WHERE seller_id = $1 AND status = 'active'
+        UNION
+        SELECT offer_pokemon_instance_id FROM trades WHERE from_user_id = $1 AND status = 'pending'
+        """,
+        user_id,
+    )
+    return {r["pid"] for r in rows if r["pid"] is not None}
+
+
 async def reset_daily_nurture():
     """Reset daily feed/play counts for all Pokemon. Called at midnight."""
     pool = await get_db()

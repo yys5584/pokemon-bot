@@ -250,6 +250,19 @@ async def mock_my_pokedex(request):
         t2 = type2_map.get(pid, None) if pid in type2_map else (random.choice(gen_types) if random.random() < 0.3 else None)
         caught = pid in caught_ids
         cr = {"common":0.5,"rare":0.3,"epic":0.15,"legendary":0.05,"ultra_legendary":0.03}.get(rarity, 0.3)
+        # Mock base stats
+        bs = {"hp": random.randint(40, 160), "atk": random.randint(30, 170),
+              "def": random.randint(30, 160), "spa": random.randint(30, 170),
+              "spdef": random.randint(30, 160), "spd": random.randint(30, 160)}
+        # Known pokemon get realistic stats
+        known_stats = {
+            150: {"hp":146,"atk":162,"def":108,"spa":180,"spdef":108,"spd":148},
+            131: {"hp":148,"atk":101,"def":96,"spa":101,"spdef":114,"spd":69},
+            149: {"hp":109,"atk":170,"def":114,"spa":120,"spdef":120,"spd":96},
+            6: {"hp":92,"atk":100,"def":92,"spa":145,"spdef":101,"spd":120},
+            25: {"hp":50,"atk":67,"def":47,"spa":58,"spdef":58,"spd":108},
+        }
+        stats = known_stats.get(pid, bs)
         result.append({
             "id": pid,
             "name_ko": names_ko.get(pid, f"푸키몬{pid}"),
@@ -263,6 +276,7 @@ async def mock_my_pokedex(request):
             "method": random.choice(methods) if caught else None,
             "evo_chain": evo_chains.get(pid),
             "stage": evo_stages.get(pid, "최종"),
+            "stats": stats,
         })
     return web.json_response(result)
 
