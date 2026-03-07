@@ -691,82 +691,63 @@ def _recommend_synergy(pokemon: list[dict]) -> tuple[list[dict], str]:
 
 
 async def _recommend_counter(pokemon: list[dict]) -> tuple[list[dict], str]:
-    """Mode 3: Counter top ranker teams."""
-    ranking = await bq.get_battle_ranking(5)
+    """Mode 3: Counter top ranker teams — considers dual types, power threshold."""
+    ranking = await bq.get_battle_ranking(10)
     pool = await queries.get_db()
 
-    # Collect enemy types from top ranker teams
+    # Collect enemy dual types from top ranker teams
+    from collections import Counter
     enemy_types = []
     for r in ranking:
         team_rows = await pool.fetch("""
-            SELECT pm.pokemon_type FROM battle_teams bt
+            SELECT pm.pokemon_type, pm.id as pokemon_id FROM battle_teams bt
             JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
             JOIN pokemon_master pm ON up.pokemon_id = pm.id
             WHERE bt.user_id = $1
         """, r["user_id"])
         for t in team_rows:
             enemy_types.append(t["pokemon_type"])
+            # Also count dual types from base stats
+            bs = POKEMON_BASE_STATS.get(t["pokemon_id"])
+            if bs and len(bs[6]) > 1:
+                enemy_types.append(bs[6][1])
 
     if not enemy_types:
         return _recommend_power(pokemon)
 
-    # Find counter types
-    from collections import Counter
     type_freq = Counter(enemy_types)
+
+    # Counter score per type: how many enemy types does this type beat?
     counter_scores = {}
     for ptype in config.TYPE_ADVANTAGE:
         score = sum(type_freq.get(weak, 0) for weak in config.TYPE_ADVANTAGE.get(ptype, []))
         counter_scores[ptype] = score
 
-    # Score each pokemon by counter effectiveness
+    # Power threshold: only consider top 60% of user's Pokemon by power
+    if len(pokemon) > 6:
+        power_sorted = sorted(pokemon, key=lambda x: x["real_power"], reverse=True)
+        min_power = power_sorted[int(len(power_sorted) * 0.6)]["real_power"]
+    else:
+        min_power = 0
+
+    # Score: power-first with counter bonus multiplier
+    # counter_bonus = normalized counter score (0~1), gives up to 50% power boost
+    max_counter = max(counter_scores.values()) if counter_scores else 1
     for p in pokemon:
-        p["_counter"] = counter_scores.get(p["pokemon_type"], 0) * 100 + p["real_power"]
+        # Use both types for counter calculation
+        types = [p["pokemon_type"]]
+        if p.get("type2"):
+            types.append(p["type2"])
+        best_counter = max(counter_scores.get(t, 0) for t in types)
+        counter_bonus = (best_counter / max_counter) * 0.5 if max_counter > 0 else 0
+        # Power gate: heavily penalize weak Pokemon
+        power_mult = 1.0 if p["real_power"] >= min_power else 0.3
+        p["_counter"] = p["real_power"] * (1 + counter_bonus) * power_mult
 
     sorted_p = sorted(pokemon, key=lambda x: x["_counter"], reverse=True)
 
-    # Greedy pick with TYPE DIVERSITY — prevent mono-type teams
-    team = []
-    used_types = {}  # type -> count
-    epic_species = set()
-    has_legendary = False
-    has_ultra = False
-    max_same_type = 2  # same type at most 2
-
-    for p in sorted_p:
-        if len(team) >= 6:
-            break
-        ptype = p["pokemon_type"]
-        if used_types.get(ptype, 0) >= max_same_type:
-            continue
-        if p["rarity"] == "ultra_legendary":
-            if has_ultra:
-                continue
-            has_ultra = True
-        if p["rarity"] == "legendary":
-            if has_legendary:
-                continue
-            has_legendary = True
-        if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
-            if p["pokemon_id"] in epic_species:
-                continue
-            epic_species.add(p["pokemon_id"])
-        team.append(p)
-        used_types[ptype] = used_types.get(ptype, 0) + 1
-
-    # If not enough, fill remaining without type restriction
-    if len(team) < 6:
-        for p in sorted_p:
-            if len(team) >= 6:
-                break
-            if p in team:
-                continue
-            if p["rarity"] == "ultra_legendary" and has_ultra:
-                continue
-            if p["rarity"] == "legendary" and has_legendary:
-                continue
-            if p["rarity"] in ("epic", "legendary", "ultra_legendary") and p["pokemon_id"] in epic_species:
-                continue
-            team.append(p)
+    # Greedy pick with type diversity + rarity rules
+    team = _pick_team(sorted_p)
 
     # Cleanup temp field
     for p in pokemon:
@@ -774,11 +755,16 @@ async def _recommend_counter(pokemon: list[dict]) -> tuple[list[dict], str]:
 
     top_enemy = type_freq.most_common(3)
     enemy_str = ", ".join(f"{config.TYPE_NAME_KO.get(t, t)}({c})" for t, c in top_enemy)
-    team_types = set(p["pokemon_type"] for p in team)
+    team_types = set()
+    for p in team:
+        team_types.add(p["pokemon_type"])
+        if p.get("type2"):
+            team_types.add(p["type2"])
     type_names = ", ".join(config.TYPE_NAME_KO.get(t, t) for t in team_types)
     analysis = (
         f"상위 랭커 팀에 {enemy_str} 타입이 많습니다.\n"
-        f"다양한 카운터 타입({type_names})으로 구성해 상성 약점을 최소화했습니다."
+        f"카운터 상성 + 높은 전투력 기준으로 팀을 구성했습니다.\n"
+        f"팀 타입: {type_names}"
     )
 
     return team, analysis

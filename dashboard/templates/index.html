@@ -1215,63 +1215,33 @@
             <!-- Quota display -->
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;padding:4px 8px;background:var(--card);border:1px solid var(--border);border-radius:8px">
                 <span id="simQuotaLabel" style="font-size:11px;font-weight:700;color:var(--text)">🎫 잔여 -- 크레딧</span>
-                <span style="font-size:10px;color:var(--dim)">빠른분석 1크레딧 · AI분석 2크레딧 차감</span>
+                <span style="font-size:10px;color:var(--dim)">분석 1회당 1크레딧 차감</span>
             </div>
-            <!-- Quick Buttons: Basic (algorithm, 1 token) -->
-            <div style="margin-bottom:6px">
+            <!-- Quick Analysis Buttons -->
+            <div style="margin-bottom:10px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
                     <span style="font-size:11px;font-weight:700;color:var(--green)">⚡ 빠른 분석</span>
-                    <span style="font-size:10px;color:var(--muted)">· 1회 차감</span>
+                    <span style="font-size:10px;color:var(--muted)">· 1크레딧</span>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
-                    <button class="chat-quick-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 최강 팀 추천해줘')">
+                    <button class="chat-quick-btn" style="flex:1;padding:8px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 최강 팀 추천해줘')">
                         <span style="font-size:14px">💪</span><span style="font-weight:700;font-size:11px">전투력</span>
                     </button>
-                    <button class="chat-quick-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('IV 시너지 좋은 팀 짜줘')">
+                    <button class="chat-quick-btn" style="flex:1;padding:8px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('IV 시너지 좋은 팀 짜줘')">
                         <span style="font-size:14px">🎯</span><span style="font-weight:700;font-size:11px">시너지</span>
                     </button>
-                    <button class="chat-quick-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('랭커 카운터 팀 추천해줘')">
+                    <button class="chat-quick-btn" style="flex:1;padding:8px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('랭커 카운터 팀 추천해줘')">
                         <span style="font-size:14px">🛡️</span><span style="font-weight:700;font-size:11px">카운터</span>
                     </button>
-                    <button class="chat-quick-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('밸런스 좋은 팀 추천')">
+                    <button class="chat-quick-btn" style="flex:1;padding:8px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('밸런스 좋은 팀 추천')">
                         <span style="font-size:14px">⚖️</span><span style="font-weight:700;font-size:11px">밸런스</span>
                     </button>
                 </div>
             </div>
-            <!-- Quick Buttons: AI (LLM) -->
-            <div style="margin-bottom:8px">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-                    <span style="font-size:11px;font-weight:700;color:var(--purple)">🤖 AI 분석</span>
-                    <span style="font-size:9px;color:var(--dim);margin-left:auto">Gemini 2.5 Flash</span>
-                </div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap">
-                    <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('요즘 승률 높은 포켓몬이 뭐야?')">
-                        <span style="font-size:14px">📊</span><span style="font-weight:700;font-size:11px">메타</span><span style="font-size:9px;color:var(--muted)">2cr</span>
-                    </button>
-                    <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 포켓몬 중 키울 만한 거 추천해줘')">
-                        <span style="font-size:14px">🌱</span><span style="font-weight:700;font-size:11px">육성</span><span style="font-size:9px;color:var(--muted)">3cr</span>
-                    </button>
-                    <button class="chat-quick-btn ai-btn" style="flex:1;padding:6px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 팀 약점 분석해줘')">
-                        <span style="font-size:14px">🔍</span><span style="font-weight:700;font-size:11px">약점</span><span style="font-size:9px;color:var(--muted)">3cr</span>
-                    </button>
-                </div>
-            </div>
-            <!-- Chat Sessions -->
-            <div id="chatSessionBar" style="display:flex;align-items:center;gap:4px;margin-bottom:6px;overflow-x:auto;padding-bottom:2px">
-                <!-- session tabs rendered by JS -->
-            </div>
-            <!-- Chat Area -->
-            <div class="chat-container" style="height:calc(100vh - 230px);min-height:380px;max-height:680px">
-                <div class="chat-messages" id="chatMessages">
-                    <div class="chat-msg ai">
-                        <div class="chat-sender">🤖 배틀 어드바이저</div>
-                        포켓몬 배틀 전략 AI입니다. 위 버튼을 누르거나 자유롭게 질문하세요!<br>
-                        <span style="font-size:11px;color:var(--muted)">예: "내 마기라스 어때?", "페어리 카운터 추천", "팀 약점 분석"</span>
-                    </div>
-                </div>
-                <div class="chat-input-area">
-                    <input class="chat-input" id="chatInput" placeholder="질문을 입력하세요..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}">
-                    <button class="chat-send" id="chatSendBtn" onclick="sendChat()">➤</button>
+            <!-- Quick Analysis Result Area -->
+            <div id="quickResultArea" style="min-height:200px">
+                <div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px">
+                    위 버튼을 눌러 팀 분석을 시작하세요!
                 </div>
             </div>
             <!-- Donation Section -->
@@ -2734,30 +2704,21 @@ async function sendQuick(text){
     if(_chatBusy) return;
     if(!_authUser){telegramConnect();return}
     const mode=_MODE_MAP[text];
-    if(mode){
-        // 4 mode buttons → algorithm API (1 token) with min 5s display
-        addChatMsg('user', text.replace(/</g,'&lt;'));
-        _chatBusy=true;
-        document.getElementById("chatSendBtn").disabled=true;
-        showTyping();
-        try{
-            const t0=Date.now();
-            const r=await fetch("/api/my/team-recommend",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode})});
-            const d=await r.json();
-            const elapsed=Date.now()-t0;
-            if(elapsed<3000) await new Promise(ok=>setTimeout(ok,3000-elapsed));
-            hideTyping();
-            if(d.error){addChatMsg('ai','오류: '+d.error)}
-            else{addChatMsg('ai',formatAiResponse(d))}
-            if(d.remaining!=null)updateQuotaBadge(d.remaining,d.bonus_remaining||0);
-        }catch(e){hideTyping();addChatMsg('ai','서버 연결 실패')}
-        _chatBusy=false;
-        document.getElementById("chatSendBtn").disabled=false;
-    } else {
-        // Free text → LLM chat
-        document.getElementById("chatInput").value=text;
-        sendChat();
-    }
+    if(!mode) return;
+    const area=document.getElementById("quickResultArea");
+    area.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px">⏳ 분석 중...</div>';
+    _chatBusy=true;
+    // Highlight active button
+    document.querySelectorAll('.chat-quick-btn').forEach(b=>{b.style.opacity=b.textContent.includes(text.includes('최강')?'전투력':text.includes('시너지')?'시너지':text.includes('카운터')?'카운터':'밸런스')?'1':'0.5'});
+    try{
+        const r=await fetch("/api/my/team-recommend",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode})});
+        const d=await r.json();
+        if(d.error){area.innerHTML=`<div style="text-align:center;padding:20px;color:var(--red)">오류: ${d.error}</div>`}
+        else{area.innerHTML=formatAiResponse(d)}
+        if(d.remaining!=null)updateQuotaBadge(d.remaining,d.bonus_remaining||0);
+    }catch(e){area.innerHTML='<div style="text-align:center;padding:20px;color:var(--red)">서버 연결 실패</div>'}
+    _chatBusy=false;
+    document.querySelectorAll('.chat-quick-btn').forEach(b=>{b.style.opacity='1'});
 }
 
 function addChatMsg(role, html){
