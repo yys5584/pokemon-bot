@@ -15,6 +15,7 @@ from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
 from services.tournament_service import is_tournament_active
 from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete, ball_emoji, shiny_emoji, icon_emoji
+from models.pokemon_data import ALL_POKEMON
 
 logger = logging.getLogger(__name__)
 
@@ -521,7 +522,7 @@ async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 html=True,
             )
             lines.append(
-                f"{medal} {decorated} — {r['caught_count']}/251"
+                f"{medal} {decorated} — {r['caught_count']}/{len(ALL_POKEMON)}"
             )
 
         await update.message.reply_text("\n".join(lines), parse_mode="HTML")
