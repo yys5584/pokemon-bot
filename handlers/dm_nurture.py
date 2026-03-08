@@ -131,6 +131,8 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg += f"\n\n📊 현재 친밀도: {pokemon['friendship']}/{max_f}"
             msg += f"\n⏰ 내일 다시 밥/놀기로 친밀도를 올릴 수 있습니다."
             msg += f"\n💡 하루 최대: 밥 {feed_limit}회 + 놀기 {config.PLAY_PER_DAY}회"
+            if pokemon["friendship"] == 0:
+                msg += f"\n\n🔄 진화해도 밥/놀기 횟수는 초기화되지 않아요!"
         await update.message.reply_text(msg)
         return
 
@@ -201,6 +203,8 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg += f"\n\n📊 현재 친밀도: {pokemon['friendship']}/{max_f}"
             msg += f"\n⏰ 내일 다시 밥/놀기로 친밀도를 올릴 수 있습니다."
             msg += f"\n💡 하루 최대: 밥 {feed_limit}회 + 놀기 {config.PLAY_PER_DAY}회"
+            if pokemon["friendship"] == 0:
+                msg += f"\n\n🔄 진화해도 밥/놀기 횟수는 초기화되지 않아요!"
         await update.message.reply_text(msg)
         return
 
@@ -309,6 +313,8 @@ async def _do_feed(query, user_id, pokemon):
             msg += f"\n\n📊 현재 친밀도: {pokemon['friendship']}/{max_f}"
             msg += f"\n⏰ 내일 다시 밥/놀기로 친밀도를 올릴 수 있습니다."
             msg += f"\n💡 하루 최대: 밥 {feed_limit}회 + 놀기 {config.PLAY_PER_DAY}회"
+            if pokemon["friendship"] == 0:
+                msg += f"\n\n🔄 진화해도 밥/놀기 횟수는 초기화되지 않아요!"
         await query.edit_message_text(msg)
         return
 
@@ -372,6 +378,8 @@ async def _do_play(query, user_id, pokemon):
             msg += f"\n\n📊 현재 친밀도: {pokemon['friendship']}/{max_f}"
             msg += f"\n⏰ 내일 다시 밥/놀기로 친밀도를 올릴 수 있습니다."
             msg += f"\n💡 하루 최대: 밥 {feed_limit}회 + 놀기 {config.PLAY_PER_DAY}회"
+            if pokemon["friendship"] == 0:
+                msg += f"\n\n🔄 진화해도 밥/놀기 횟수는 초기화되지 않아요!"
         await query.edit_message_text(msg)
         return
 

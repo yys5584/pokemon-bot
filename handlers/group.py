@@ -352,7 +352,11 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check cap (max 100 bonus)
     bonus = await queries.get_bonus_catches(user_id, today)
     if bonus >= 100:
-        await update.message.reply_text(f"{ball_emoji('pokeball')} 오늘 포켓볼 충전 한도를 모두 사용했어요! (최대 100회)", parse_mode="HTML")
+        await update.message.reply_text(
+            f"{ball_emoji('pokeball')} 오늘 포켓볼 충전 한도를 모두 사용했어요! (최대 100회)\n"
+            f"💡 DM 상점에서 <b>포켓볼 초기화</b>를 구매하면 다시 충전할 수 있어요!",
+            parse_mode="HTML",
+        )
         return
 
     # Grant +10 bonus catches
