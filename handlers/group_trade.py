@@ -289,6 +289,28 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
         asyncio.create_task(_check_trade_mission(context, user_id))
         asyncio.create_task(_check_trade_mission(context, trade["from_user_id"]))
 
+        # CXP: +1 for trade (group trade)
+        trade_chat_id = query.message.chat_id
+        async def _trade_cxp():
+            try:
+                new_level = await queries.add_chat_cxp(trade_chat_id, config.CXP_PER_TRADE, "trade", user_id)
+                if new_level:
+                    info = config.get_chat_level_info(
+                        (await queries.get_chat_level(trade_chat_id))["cxp"]
+                    )
+                    bonus_txt = f"+{info['spawn_bonus']} 스폰" if info["spawn_bonus"] else ""
+                    shiny_txt = f"+{info['shiny_boost_pct']:.1f}% 이로치" if info["shiny_boost_pct"] else ""
+                    parts = [p for p in [bonus_txt, shiny_txt] if p]
+                    perks = f" ({', '.join(parts)})" if parts else ""
+                    await context.bot.send_message(
+                        chat_id=trade_chat_id,
+                        text=f"🎊 채팅방 레벨 UP! Lv.{new_level}{perks}",
+                        parse_mode="HTML",
+                    )
+            except Exception:
+                pass
+        asyncio.create_task(_trade_cxp())
+
         # Cancel expire job
         jobs = context.job_queue.get_jobs_by_name(f"gtrade_expire_{trade_id}")
         for job in jobs:

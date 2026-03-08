@@ -445,6 +445,61 @@ SHINY_RATE_NATURAL = 0.10            # 자연 스폰 이로치 확률 10%
 SHINY_RATE_FORCE = 0.02              # 강제스폰 이로치 확률 2%
 SHINY_RATE_ARCADE = 0.01             # 아케이드 이로치 확률 1%
 
+# ─── 채팅방 레벨 시스템 ─────────────────────────────────
+# (level, required_cxp, spawn_bonus, shiny_boost_pct, rarity_boosts, special)
+CHAT_LEVEL_TABLE = [
+    (1,  0,     0, 0.0, {},                                    None),
+    (2,  100,   1, 0.2, {},                                    None),
+    (3,  300,   1, 0.4, {"epic": 1.10},                        None),
+    (4,  600,   2, 0.6, {"epic": 1.10, "legendary": 1.05},     "daily_shiny"),
+    (5,  1000,  2, 0.8, {"epic": 1.10, "legendary": 1.05},     "hall_of_fame"),
+    (6,  1500,  3, 1.0, {"epic": 1.15, "legendary": 1.05},     None),
+    (7,  2000,  3, 1.2, {"epic": 1.15, "legendary": 1.10},     None),
+    (8,  3000,  3, 1.4, {"epic": 1.15, "legendary": 1.10},     "auto_arcade"),
+    (9,  5000,  4, 1.7, {"epic": 1.20, "legendary": 1.10},     None),
+    (10, 8000,  4, 2.0, {"epic": 1.20, "legendary": 1.15},     "leaderboard"),
+]
+
+CXP_PER_CATCH = 1
+CXP_PER_BATTLE = 2
+CXP_PER_TRADE = 1
+CXP_PER_FORCE_SPAWN = 1
+CXP_DAILY_CAP = 50
+AUTO_ARCADE_DURATION = 3600          # Lv.8 자동 아케이드 (1시간, 초)
+
+
+def get_chat_level_info(cxp: int) -> dict:
+    """CXP로 현재 레벨 + 혜택 조회."""
+    result = CHAT_LEVEL_TABLE[0]
+    for row in CHAT_LEVEL_TABLE:
+        if cxp >= row[1]:
+            result = row
+        else:
+            break
+    level, _req, spawn_bonus, shiny_pct, rarity_boosts, _special = result
+
+    # 다음 레벨까지 필요 CXP
+    next_cxp = None
+    for row in CHAT_LEVEL_TABLE:
+        if row[1] > cxp:
+            next_cxp = row[1]
+            break
+
+    # 이 레벨 이하 모든 special 혜택 수집
+    specials = set()
+    for row in CHAT_LEVEL_TABLE:
+        if row[0] <= level and row[5]:
+            specials.add(row[5])
+
+    return {
+        "level": level,
+        "spawn_bonus": spawn_bonus,
+        "shiny_boost_pct": shiny_pct,
+        "rarity_boosts": rarity_boosts,
+        "specials": specials,
+        "next_cxp": next_cxp,
+    }
+
 # --- Battle Titles ---
 # title_id: (name, emoji, description, check_type, threshold)
 BATTLE_TITLES = {

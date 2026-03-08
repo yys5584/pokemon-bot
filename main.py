@@ -22,7 +22,7 @@ from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types,
 from database import queries
 
 from handlers.start import start_handler, help_handler
-from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, ranking_handler, log_handler, dashboard_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback
+from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, status_handler, appraisal_handler, type_chart_handler
 from handlers.battle import (
     partner_handler, partner_callback_handler,
@@ -279,6 +279,7 @@ async def midnight_reset(context):
         queries.reset_daily_spawn_counts(),
         queries.cleanup_old_activity(days=7),
         queries.cleanup_old_missions(days=7),
+        queries.reset_daily_cxp(),
         _grant_title_buffs(),
     )
 
@@ -292,7 +293,24 @@ async def midnight_reset(context):
     # Reschedule spawns for all chats
     await schedule_all_chats(context.application)
 
+    # Activate auto arcade for Lv.8+ chats
+    await _activate_auto_arcades(context.application)
+
     logger.info("Scheduled reset complete.")
+
+
+async def _activate_auto_arcades(app):
+    """Lv.8+ 채팅방에 일일 자동 아케이드 (1시간) 가동."""
+    try:
+        lv8_chats = await queries.get_lv8_plus_chats()
+        if not lv8_chats:
+            return
+        from services.spawn_service import start_temp_arcade
+        for cid in lv8_chats:
+            start_temp_arcade(app, cid, config.AUTO_ARCADE_DURATION)
+        logger.info(f"Auto arcade activated for {len(lv8_chats)} Lv.8+ chats")
+    except Exception as e:
+        logger.error(f"Auto arcade activation failed: {e}")
 
 
 # --- 3-hourly catch recharge job ---
@@ -445,6 +463,7 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^로그$"), log_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^날씨$"), weather_handler))
     app.add_handler(MessageHandler((group | dm) & filters.Regex(r"^대시보드$"), dashboard_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^방정보$"), room_info_handler))
 
     # Battle system (Group)
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀$"), battle_challenge_handler))

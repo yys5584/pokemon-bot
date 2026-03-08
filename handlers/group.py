@@ -586,6 +586,69 @@ async def dashboard_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def room_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '방정보' command — show chat room level & CXP status."""
+    if not update.effective_chat or not update.message:
+        return
+    if is_tournament_active(update.effective_chat.id):
+        return
+
+    chat_id = update.effective_chat.id
+    try:
+        row = await queries.get_chat_level(chat_id)
+        if not row:
+            await update.message.reply_text("아직 채팅방 정보가 없습니다.")
+            return
+
+        info = config.get_chat_level_info(row["cxp"])
+        level = info["level"]
+        cxp = row["cxp"]
+        cxp_today = row["cxp_today"]
+        next_cxp = info["next_cxp"]
+
+        # Progress bar
+        if next_cxp:
+            prev_req = config.CHAT_LEVEL_TABLE[level - 1][1]  # current level req
+            progress = cxp - prev_req
+            total = next_cxp - prev_req
+            pct = min(100, int(progress / total * 100)) if total > 0 else 100
+            filled = pct // 10
+            bar = "█" * filled + "░" * (10 - filled)
+            progress_text = f"{bar} {cxp}/{next_cxp} CXP ({pct}%)"
+        else:
+            progress_text = f"MAX — {cxp} CXP"
+
+        # Benefits list
+        benefits = []
+        if info["spawn_bonus"]:
+            benefits.append(f"📦 일일 보너스 스폰 +{info['spawn_bonus']}")
+        if info["shiny_boost_pct"]:
+            benefits.append(f"✨ 이로치 확률 +{info['shiny_boost_pct']:.1f}%")
+        if info["rarity_boosts"]:
+            rb = ", ".join(f"{k} ×{v:.2f}" for k, v in info["rarity_boosts"].items())
+            benefits.append(f"💎 레어리티 부스트: {rb}")
+        if "daily_shiny" in info["specials"]:
+            benefits.append("🌟 일일 이로치 스폰 보장")
+        if "auto_arcade" in info["specials"]:
+            benefits.append("🎰 일일 자동 아케이드 (1시간)")
+
+        benefits_text = "\n".join(benefits) if benefits else "없음"
+
+        text = (
+            f"🏠 <b>채팅방 정보</b>\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"📊 레벨: <b>Lv.{level}</b>\n"
+            f"{progress_text}\n"
+            f"📈 오늘 획득: {cxp_today}/{config.CXP_DAILY_CAP} CXP\n\n"
+            f"🎁 <b>활성 혜택</b>\n{benefits_text}"
+        )
+        await update.message.reply_text(text, parse_mode="HTML")
+
+    except Exception as e:
+        logger.error(f"Room info handler error: {e}")
+        await update.message.reply_text("방 정보를 불러올 수 없습니다.")
+
+
 # --- Catch DM: Keep / Release callbacks ---
 
 async def catch_keep_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):

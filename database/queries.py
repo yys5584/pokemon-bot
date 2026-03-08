@@ -587,6 +587,72 @@ async def reset_daily_nurture():
     )
 
 
+# ─── 채팅방 레벨 CXP ─────────────────────────────────
+
+async def add_chat_cxp(chat_id: int, amount: int, action: str, user_id: int = None):
+    """CXP 적립 (일일 상한 체크). 레벨업 시 new_level 반환, 아니면 None."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT cxp, chat_level, cxp_today FROM chat_rooms WHERE chat_id = $1",
+        chat_id,
+    )
+    if not row or row["cxp_today"] >= _cfg.CXP_DAILY_CAP:
+        return None
+
+    actual = min(amount, _cfg.CXP_DAILY_CAP - row["cxp_today"])
+    new_cxp = row["cxp"] + actual
+
+    info = _cfg.get_chat_level_info(new_cxp)
+    new_level = info["level"]
+    leveled_up = new_level > row["chat_level"]
+
+    await pool.execute(
+        """UPDATE chat_rooms
+           SET cxp = $1, chat_level = $2, cxp_today = cxp_today + $3
+           WHERE chat_id = $4""",
+        new_cxp, new_level, actual, chat_id,
+    )
+
+    # CXP 로그 (비동기, 실패해도 무시)
+    try:
+        await pool.execute(
+            """INSERT INTO chat_cxp_log (chat_id, action, user_id, amount)
+               VALUES ($1, $2, $3, $4)""",
+            chat_id, action, user_id, actual,
+        )
+    except Exception:
+        pass
+
+    return new_level if leveled_up else None
+
+
+async def get_chat_level(chat_id: int) -> dict:
+    """채팅방 레벨 정보 조회."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT cxp, chat_level, cxp_today FROM chat_rooms WHERE chat_id = $1",
+        chat_id,
+    )
+    if not row:
+        return {"cxp": 0, "chat_level": 1, "cxp_today": 0}
+    return dict(row)
+
+
+async def reset_daily_cxp():
+    """자정에 cxp_today 리셋."""
+    pool = await get_db()
+    await pool.execute("UPDATE chat_rooms SET cxp_today = 0")
+
+
+async def get_lv8_plus_chats():
+    """Lv.8 이상 활성 채팅방 목록."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        "SELECT chat_id FROM chat_rooms WHERE chat_level >= 8 AND is_active = 1"
+    )
+    return [r["chat_id"] for r in rows]
+
+
 async def find_user_pokemon_by_name(user_id: int, name: str) -> dict | None:
     """Find a user's active Pokemon by Korean name."""
     pool = await get_db()

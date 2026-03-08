@@ -18,6 +18,34 @@ from utils.helpers import schedule_delete, close_button, rarity_badge, type_badg
 
 logger = logging.getLogger(__name__)
 
+
+async def _add_cxp_bg(context, chat_id: int, amount: int, action: str, user_id: int | None = None):
+    """Background: award CXP to a chat room and announce level-ups."""
+    try:
+        new_level = await queries.add_chat_cxp(chat_id, amount, action, user_id)
+        if new_level:
+            info = config.get_chat_level_info(0)  # just for display
+            # Re-fetch actual info for the new level
+            row = await queries.get_chat_level(chat_id)
+            info = config.get_chat_level_info(row["cxp"])
+            bonus_txt = f"+{info['spawn_bonus']} 스폰" if info["spawn_bonus"] else ""
+            shiny_txt = f"+{info['shiny_boost_pct']:.1f}% 이로치" if info["shiny_boost_pct"] else ""
+            parts = [p for p in [bonus_txt, shiny_txt] if p]
+            perks = f" ({', '.join(parts)})" if parts else ""
+            special = ""
+            if "daily_shiny" in info["specials"]:
+                special = "\n✨ 일일 이로치 스폰 해금!"
+            if "auto_arcade" in info["specials"]:
+                special = "\n🎰 일일 자동 아케이드 해금!"
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"🎊 채팅방 레벨 UP! Lv.{new_level}{perks}{special}",
+                parse_mode="HTML",
+            )
+    except Exception as e:
+        logger.error(f"CXP add failed for chat {chat_id}: {e}")
+
+
 # Track attempt messages for cleanup when spawn resolves
 # {session_id: (timestamp, [(chat_id, message_id), ...])}
 _attempt_messages: dict[int, tuple[float, list[tuple[int, int]]]] = {}
@@ -65,10 +93,15 @@ def calculate_daily_spawns(member_count: int) -> int:
     return 2 + (member_count - 10) // 500
 
 
-async def roll_rarity(midnight_bonus: bool = False) -> str:
-    """Roll a rarity tier based on weights, with event boosts applied."""
+async def roll_rarity(midnight_bonus: bool = False, rarity_boosts: dict | None = None) -> str:
+    """Roll a rarity tier based on weights, with event + chat level boosts applied."""
     base_weights = config.RARITY_WEIGHTS_MIDNIGHT if midnight_bonus else config.RARITY_WEIGHTS
     weights_map = await get_rarity_weights(base_weights)
+    # Apply chat level rarity boosts (e.g. {"epic": 1.15, "legendary": 1.10})
+    if rarity_boosts:
+        for r, mult in rarity_boosts.items():
+            if r in weights_map:
+                weights_map[r] *= mult
     rarities = list(weights_map.keys())
     weights = list(weights_map.values())
     return random.choices(rarities, weights=weights, k=1)[0]
@@ -121,6 +154,17 @@ async def schedule_spawns_for_chat(app, chat_id: int, member_count: int):
     event_mult = await get_spawn_boost()
     num_spawns = min(config.SPAWN_MAX_DAILY, max(1, int(base_spawns * chat_mult * event_mult)))
 
+    # Chat level bonus spawns
+    level_info = None
+    try:
+        level_row = await queries.get_chat_level(chat_id)
+        if level_row:
+            level_info = config.get_chat_level_info(level_row["cxp"])
+            if level_info["spawn_bonus"] > 0:
+                num_spawns = min(config.SPAWN_MAX_DAILY, num_spawns + level_info["spawn_bonus"])
+    except Exception as e:
+        logger.error(f"Chat level lookup failed for {chat_id}: {e}")
+
     await queries.update_chat_spawn_info(chat_id, num_spawns)
 
     now = datetime.now()
@@ -144,19 +188,27 @@ async def schedule_spawns_for_chat(app, chat_id: int, member_count: int):
 
     spawn_times.sort()
 
-    for st in spawn_times:
+    # Determine which spawn index should be force_shiny (Lv.4+ daily shiny)
+    force_shiny_idx = -1
+    if level_info and "daily_shiny" in level_info.get("specials", []):
+        force_shiny_idx = random.randrange(len(spawn_times)) if spawn_times else -1
+
+    for i, st in enumerate(spawn_times):
         delay = (st - now).total_seconds()
         if delay > 0:
+            job_data = {"chat_id": chat_id}
+            if i == force_shiny_idx:
+                job_data["force_shiny"] = True
             app.job_queue.run_once(
                 execute_spawn,
                 when=delay,
-                data={"chat_id": chat_id},
+                data=job_data,
                 name=f"spawn_{chat_id}_{st.strftime('%H%M%S')}",
             )
 
     logger.info(
         f"Scheduled {len(spawn_times)} spawns for chat {chat_id} "
-        f"(members: {member_count})"
+        f"(members: {member_count}, level_bonus: {level_info['spawn_bonus'] if level_info else 0})"
     )
 
 
@@ -516,6 +568,9 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         # Mission: catch
         asyncio.create_task(_notify_mission(context, winner_id, "catch"))
 
+        # CXP: +1 for catch
+        asyncio.create_task(_add_cxp_bg(context, chat_id, config.CXP_PER_CATCH, "catch", winner_id))
+
         # DM notification
         try:
             from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, EVO_STAGE_MAP, get_normalized_base_stats
@@ -601,6 +656,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
     """Execute a single spawn event. Called by JobQueue."""
     chat_id = context.job.data["chat_id"]
     force = context.job.data.get("force", False)
+    force_shiny = context.job.data.get("force_shiny", False)
     # Arcade = permanent OR temp arcade (job name starts with arcade_)
     job_name = getattr(context.job, "name", None) or ""
     arcade = chat_id in config.ARCADE_CHAT_IDS or job_name.startswith(f"arcade_{chat_id}")
@@ -654,22 +710,43 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                     logger.debug(f"Spawn cooldown for {chat_id}: {elapsed:.0f}s since last spawn")
                     return
 
-        # 3. Roll rarity with midnight bonus + event boosts
+        # 3. Roll rarity with midnight bonus + event boosts + chat level boosts
         midnight = is_midnight_bonus()
-        rarity = await roll_rarity(midnight_bonus=midnight)
+        _level_rarity_boosts = None
+        try:
+            _lr = await queries.get_chat_level(chat_id)
+            if _lr:
+                _li = config.get_chat_level_info(_lr["cxp"])
+                if _li["rarity_boosts"]:
+                    _level_rarity_boosts = _li["rarity_boosts"]
+        except Exception:
+            pass
+        rarity = await roll_rarity(midnight_bonus=midnight, rarity_boosts=_level_rarity_boosts)
 
         # 4. Pick random Pokemon
         pokemon = await pick_random_pokemon(rarity)
 
-        # 4.5 Shiny determination (with event boost)
-        if arcade:
-            shiny_rate = config.SHINY_RATE_ARCADE
-        elif force:
-            shiny_rate = config.SHINY_RATE_FORCE
+        # 4.5 Shiny determination (with event boost + chat level boost)
+        if force_shiny:
+            is_shiny = True
         else:
-            shiny_rate = config.SHINY_RATE_NATURAL
-        shiny_mult = await get_shiny_boost()
-        is_shiny = random.random() < min(1.0, shiny_rate * shiny_mult)
+            if arcade:
+                shiny_rate = config.SHINY_RATE_ARCADE
+            elif force:
+                shiny_rate = config.SHINY_RATE_FORCE
+            else:
+                shiny_rate = config.SHINY_RATE_NATURAL
+            shiny_mult = await get_shiny_boost()
+            # Apply chat level shiny boost
+            level_shiny_add = 0.0
+            try:
+                _lrow = await queries.get_chat_level(chat_id)
+                if _lrow:
+                    _linfo = config.get_chat_level_info(_lrow["cxp"])
+                    level_shiny_add = _linfo["shiny_boost_pct"] / 100.0  # e.g. 0.2% → 0.002
+            except Exception:
+                pass
+            is_shiny = random.random() < min(1.0, shiny_rate * shiny_mult + level_shiny_add)
 
         # 5. Generate card image FIRST (before creating session)
         shiny_text = f" {shiny_emoji()}이로치" if is_shiny else ""
@@ -906,6 +983,9 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         # Mission: catch
         asyncio.create_task(_notify_mission(context, winner_id, "catch"))
+
+        # CXP: +1 for catch
+        asyncio.create_task(_add_cxp_bg(context, chat_id, config.CXP_PER_CATCH, "catch", winner_id))
 
         # Update consecutive catches
         today = config.get_kst_today()

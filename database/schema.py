@@ -449,6 +449,23 @@ RARITY_FIX_MIGRATIONS = [
     "UPDATE pokemon_master SET rarity = 'epic', catch_rate = 0.15 WHERE id IN (289, 373, 376) AND rarity = 'legendary'",
 ]
 
+CHAT_LEVEL_MIGRATIONS = [
+    "ALTER TABLE chat_rooms ADD COLUMN cxp INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE chat_rooms ADD COLUMN chat_level INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE chat_rooms ADD COLUMN cxp_today INTEGER NOT NULL DEFAULT 0",
+]
+
+CHAT_CXP_LOG_TABLE = """
+CREATE TABLE IF NOT EXISTS chat_cxp_log (
+    id SERIAL PRIMARY KEY,
+    chat_id BIGINT NOT NULL,
+    action TEXT NOT NULL,
+    user_id BIGINT,
+    amount INTEGER NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+)
+"""
+
 TOURNAMENT_REG_TABLE = """
 CREATE TABLE IF NOT EXISTS tournament_registrations (
     user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
@@ -606,6 +623,21 @@ async def create_tables():
     # Tournament registrations table
     try:
         await pool.execute(TOURNAMENT_REG_TABLE)
+    except Exception:
+        pass
+
+    # Chat level system migrations
+    for mig in CHAT_LEVEL_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+    try:
+        await pool.execute(CHAT_CXP_LOG_TABLE)
+    except Exception:
+        pass
+    try:
+        await pool.execute("CREATE INDEX IF NOT EXISTS idx_cxp_log_chat ON chat_cxp_log(chat_id, created_at)")
     except Exception:
         pass
 

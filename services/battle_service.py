@@ -6,6 +6,7 @@ import logging
 
 import config
 from database import battle_queries as bq
+from database import queries
 from utils.battle_calc import calc_battle_stats, calc_power, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
 from utils.helpers import type_badge, icon_emoji, rarity_badge
 from models.pokemon_skills import POKEMON_SKILLS
@@ -482,6 +483,33 @@ async def execute_battle(
 
     # Mission: battle win
     asyncio.create_task(_notify_battle_mission(winner_id, bot))
+
+    # CXP: +2 for battle (only real battles, not yacha)
+    if not skip_bp and chat_id and bot:
+        async def _battle_cxp():
+            try:
+                new_level = await queries.add_chat_cxp(chat_id, config.CXP_PER_BATTLE, "battle", winner_id)
+                if new_level:
+                    info = config.get_chat_level_info(
+                        (await queries.get_chat_level(chat_id))["cxp"]
+                    )
+                    bonus_txt = f"+{info['spawn_bonus']} 스폰" if info["spawn_bonus"] else ""
+                    shiny_txt = f"+{info['shiny_boost_pct']:.1f}% 이로치" if info["shiny_boost_pct"] else ""
+                    parts = [p for p in [bonus_txt, shiny_txt] if p]
+                    perks = f" ({', '.join(parts)})" if parts else ""
+                    special = ""
+                    if "daily_shiny" in info["specials"]:
+                        special = "\n✨ 일일 이로치 스폰 해금!"
+                    if "auto_arcade" in info["specials"]:
+                        special = "\n🎰 일일 자동 아케이드 해금!"
+                    await bot.send_message(
+                        chat_id=chat_id,
+                        text=f"🎊 채팅방 레벨 UP! Lv.{new_level}{perks}{special}",
+                        parse_mode="HTML",
+                    )
+            except Exception as e:
+                logger.error(f"Battle CXP failed: {e}")
+        asyncio.create_task(_battle_cxp())
 
     # Record battle
     await bq.record_battle(
