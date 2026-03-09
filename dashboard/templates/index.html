@@ -80,8 +80,8 @@
         .dm-evo-arrow{color:var(--muted);font-size:11px}
         .dm-counter{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;line-height:1.7}
         .dm-counter-label{font-weight:600;color:var(--muted)}
-        .poke-card{background:var(--card);border:none;border-radius:12px;padding:10px 12px;transition:all .25s cubic-bezier(.4,0,.2,1);position:relative;box-shadow:var(--shadow)}
-        .poke-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
+        .poke-card{background:var(--card);border:none;border-radius:12px;padding:10px 12px;transition:all .25s cubic-bezier(.4,0,.2,1);position:relative;box-shadow:var(--shadow);z-index:1}
+        .poke-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover);z-index:50}
         .poke-card.ultra_legendary{background:linear-gradient(135deg,#FFF0F0,#FFCDD2)}
         .poke-card.legendary{background:linear-gradient(135deg,#FFFDE7,#FFF9C4)}
         .poke-card.epic{background:linear-gradient(135deg,#F3E5F5,#EDE7F6)}
