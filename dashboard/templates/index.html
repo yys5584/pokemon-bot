@@ -512,6 +512,19 @@
         .board-tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;margin-right:4px;white-space:nowrap}
         .board-tag-공지{background:#FF572233;color:#FF5722}
         .board-tag-패치노트{background:#2196F333;color:#2196F3}
+        /* Board mobile */
+        @media(max-width:600px){
+            #page-board > div{flex-direction:column!important;gap:0!important}
+            #boardSidebar{width:100%!important;display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}
+            #boardSidebar > div[style*="border-top"]{display:none}
+            #boardSidebar > div[style*="font-size:11px"]{display:none}
+            .board-side-item,.board-side-sub{padding:6px 10px!important;font-size:11px!important;margin-bottom:0!important}
+            .board-side-sub{padding-left:10px!important}
+            #boardWriteBtn{width:auto!important;padding:6px 12px!important;font-size:11px!important;margin-bottom:0!important}
+            #boardTable .hide-m{display:none}
+            #boardTable{font-size:11px}
+            #boardTable th,#boardTable td{padding:6px 4px!important}
+        }
     </style>
 </head>
 <body>
@@ -592,12 +605,12 @@
                         <table id="boardTable" style="width:100%;border-collapse:collapse;font-size:12px">
                             <thead>
                                 <tr style="border-bottom:1px solid var(--border)">
-                                    <th style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600;width:60px">태그</th>
+                                    <th class="hide-m" style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600;width:60px">태그</th>
                                     <th style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600">제목</th>
-                                    <th style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600;width:80px">작성자</th>
+                                    <th class="hide-m" style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600;width:80px">작성자</th>
                                     <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:60px">날짜</th>
-                                    <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:40px">조회</th>
-                                    <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:40px">추천</th>
+                                    <th class="hide-m" style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:40px">조회</th>
+                                    <th class="hide-m" style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:40px">추천</th>
                                 </tr>
                             </thead>
                             <tbody id="boardTbody"></tbody>
@@ -3644,12 +3657,12 @@ async function boardLoadList() {
             const cmtCount = p.comment_count > 0 ? ` <span style="color:var(--blue);font-size:11px">(${p.comment_count})</span>` : '';
             const titleText = _escHtml(p.title);
             return `<tr onclick="boardOpenPost(${p.id})" style="${p.is_pinned ? 'background:rgba(88,166,255,.05)' : ''}">
-                <td style="padding:8px 6px;vertical-align:middle">${tagHtml}</td>
+                <td class="hide-m" style="padding:8px 6px;vertical-align:middle">${tagHtml}</td>
                 <td style="padding:8px 6px;vertical-align:middle">${pin}<span style="font-weight:${p.is_pinned?600:400}">${titleText}</span>${cmtCount}${imgIcon}</td>
-                <td style="padding:8px 6px;color:var(--muted);vertical-align:middle">${_escHtml(p.display_name)}</td>
+                <td class="hide-m" style="padding:8px 6px;color:var(--muted);vertical-align:middle">${_escHtml(p.display_name)}</td>
                 <td style="padding:8px 6px;color:var(--muted);text-align:center;vertical-align:middle;white-space:nowrap">${p.time_ago}</td>
-                <td style="padding:8px 6px;color:var(--muted);text-align:center;vertical-align:middle">${p.view_count}</td>
-                <td style="padding:8px 6px;color:var(--muted);text-align:center;vertical-align:middle">${p.like_count > 0 ? '<span style="color:#f44336">'+p.like_count+'</span>' : '0'}</td>
+                <td class="hide-m" style="padding:8px 6px;color:var(--muted);text-align:center;vertical-align:middle">${p.view_count}</td>
+                <td class="hide-m" style="padding:8px 6px;color:var(--muted);text-align:center;vertical-align:middle">${p.like_count > 0 ? '<span style="color:#f44336">'+p.like_count+'</span>' : '0'}</td>
             </tr>`;
         }).join("");
 
@@ -3687,7 +3700,7 @@ async function boardOpenPost(id) {
         if (p.tag) html += `<span class="board-tag board-tag-${p.tag}">${_escHtml(p.tag)}</span>`;
         html += `<h3 style="margin:0;font-size:16px;font-weight:700">${_escHtml(p.title)}</h3></div>`;
         html += `<div style="font-size:11px;color:var(--muted);margin-bottom:16px">${_escHtml(p.display_name)} · ${p.time_ago} · 조회 ${p.view_count}</div>`;
-        html += `<div style="font-size:13px;line-height:1.8;white-space:pre-wrap;margin-bottom:16px">${p.board_type==='notice'?p.content:_escHtml(p.content)}</div>`;
+        html += `<div style="font-size:13px;line-height:1.8;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;margin-bottom:16px">${p.board_type==='notice'?p.content:_escHtml(p.content)}</div>`;
         if (p.image_filename) {
             html += `<div style="margin-bottom:16px"><img src="/uploads/board/${p.image_filename}" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open('/uploads/board/${p.image_filename}','_blank')"></div>`;
         }
