@@ -93,6 +93,7 @@
         .poke-card.shiny::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,transparent 40%,rgba(255,255,255,.18) 50%,transparent 60%);background-size:300% 100%;animation:holoSweepBg 5s ease-in-out infinite;pointer-events:none;z-index:1}
         @keyframes holoSweepBg{0%,100%{background-position:150% 0}50%{background-position:-50% 0}}
         .poke-card.shiny::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,100,100,.08),rgba(255,200,60,.10),rgba(80,255,150,.08),rgba(60,180,255,.10),rgba(160,80,255,.08),rgba(255,80,180,.10),rgba(255,100,100,.08));background-size:200% 200%;animation:holoShimmer 3s ease-in-out infinite reverse;border-radius:inherit;pointer-events:none}
+        .poke-card.shiny>*{position:relative;z-index:2}
         .poke-card.shiny:hover{box-shadow:0 3px 10px rgba(0,0,0,.12),0 0 14px rgba(180,140,255,.22),0 0 8px rgba(255,160,200,.15)}
         .poke-card.fusion-sel-a{outline:3px solid #2E7D32;outline-offset:-1px}
         .poke-card.fusion-sel-b{outline:3px solid #1565C0;outline-offset:-1px}
