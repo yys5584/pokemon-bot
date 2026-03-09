@@ -399,10 +399,16 @@ def _get_filter(context) -> dict:
         "fav": False,       # 즐겨찾기만 보기
         "type": None,       # None = 전체, "fire" = 특정 타입
         "gen": None,        # None = 전체, 1/2/3 = 세대 필터
+        "shiny": False,     # 이로치만 보기
+        "gen_open": False,  # 세대 서브필터 열림 상태
     })
-    # Ensure gen key exists for old sessions
+    # Ensure keys exist for old sessions
     if "gen" not in filt:
         filt["gen"] = None
+    if "shiny" not in filt:
+        filt["shiny"] = False
+    if "gen_open" not in filt:
+        filt["gen_open"] = False
     return filt
 
 
@@ -439,6 +445,10 @@ def _apply_filters(pokemon_list: list, filt: dict) -> list:
                 result.append(p)
         filtered = result
 
+    # Shiny filter
+    if filt.get("shiny"):
+        filtered = [p for p in filtered if p.get("is_shiny")]
+
     # Favorite filter
     if filt.get("fav"):
         filtered = [p for p in filtered if p.get("is_favorite")]
@@ -464,8 +474,8 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
 
     # Apply filters if provided
     if filt is None:
-        filt = {"sort": "default", "fav": False, "type": None, "gen": None}
-    has_filter = filt.get("sort") != "default" or filt.get("fav") or filt.get("type") or filt.get("gen")
+        filt = {"sort": "default", "fav": False, "type": None, "gen": None, "shiny": False}
+    has_filter = filt.get("sort") != "default" or filt.get("fav") or filt.get("type") or filt.get("gen") or filt.get("shiny")
 
     if has_filter:
         filtered = _apply_filters(pokemon_list, filt)
@@ -520,6 +530,8 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
         filter_tags.append("희귀도순")
     if filt.get("fav"):
         filter_tags.append("⭐즐찾")
+    if filt.get("shiny"):
+        filter_tags.append("✨이로치")
     if filt.get("type"):
         type_name = config.TYPE_NAME_KO.get(filt["type"], filt["type"])
         filter_tags.append(type_name)
@@ -609,35 +621,45 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     ]
     select_buttons.append(filter_row)
 
-    # Generation filter row
+    # Compact filter row 2: Type + Generation + Shiny
     gen_on = filt.get("gen")
-    gen_row = [
-        InlineKeyboardButton(
-            f"{'✓' if gen_on == 1 else ''}1세대",
-            callback_data=f"mypoke_gen_{user_id}_1",
-        ),
-        InlineKeyboardButton(
-            f"{'✓' if gen_on == 2 else ''}2세대",
-            callback_data=f"mypoke_gen_{user_id}_2",
-        ),
-        InlineKeyboardButton(
-            f"{'✓' if gen_on == 3 else ''}3세대",
-            callback_data=f"mypoke_gen_{user_id}_3",
-        ),
-    ]
-    select_buttons.append(gen_row)
+    shiny_on = filt.get("shiny", False)
+    gen_label = f"✓{gen_on}세대" if gen_on else "📅세대"
 
-    # Type filter row
     if type_on:
         type_name = config.TYPE_NAME_KO.get(type_on, type_on)
-        select_buttons.append([
-            InlineKeyboardButton(f"✓{type_name} 해제", callback_data=f"mypoke_tf_{user_id}_x"),
-            InlineKeyboardButton("🔄 타입변경", callback_data=f"mypoke_tmore_{user_id}"),
-        ])
+        type_btn = InlineKeyboardButton(f"✓{type_name}", callback_data=f"mypoke_tmore_{user_id}")
     else:
-        select_buttons.append([
-            InlineKeyboardButton("🏷 타입필터", callback_data=f"mypoke_tmore_{user_id}"),
-        ])
+        type_btn = InlineKeyboardButton("🏷타입", callback_data=f"mypoke_tmore_{user_id}")
+
+    filter_row2 = [
+        type_btn,
+        InlineKeyboardButton(gen_label, callback_data=f"mypoke_genm_{user_id}"),
+        InlineKeyboardButton(
+            f"{'✓' if shiny_on else ''}✨이로치",
+            callback_data=f"mypoke_shiny_{user_id}",
+        ),
+    ]
+    select_buttons.append(filter_row2)
+
+    # Generation sub-filter row (expanded when gen_open is True)
+    if filt.get("gen_open"):
+        gen_sub_row = [
+            InlineKeyboardButton(
+                f"{'✓' if gen_on == 1 else ''}1세대",
+                callback_data=f"mypoke_gen_{user_id}_1",
+            ),
+            InlineKeyboardButton(
+                f"{'✓' if gen_on == 2 else ''}2세대",
+                callback_data=f"mypoke_gen_{user_id}_2",
+            ),
+            InlineKeyboardButton(
+                f"{'✓' if gen_on == 3 else ''}3세대",
+                callback_data=f"mypoke_gen_{user_id}_3",
+            ),
+            InlineKeyboardButton("← 닫기", callback_data=f"mypoke_genc_{user_id}"),
+        ]
+        select_buttons.append(gen_sub_row)
 
     # Pokemon selection buttons
     row = []
@@ -878,6 +900,24 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 filt["gen"] = None  # toggle off
             else:
                 filt["gen"] = gen_num
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "genm":
+            # mypoke_genm_{user_id} — open generation sub-filter
+            filt["gen_open"] = True
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "genc":
+            # mypoke_genc_{user_id} — close generation sub-filter
+            filt["gen_open"] = False
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "shiny":
+            # mypoke_shiny_{user_id} — toggle shiny filter
+            filt["shiny"] = not filt.get("shiny", False)
             text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 

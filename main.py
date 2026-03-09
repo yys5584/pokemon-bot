@@ -34,6 +34,7 @@ from handlers.battle import (
     tier_handler,
     ranked_challenge_handler, ranked_callback_handler,
     season_info_handler, ranked_ranking_handler, arena_register_handler,
+    auto_ranked_handler,
     yacha_handler, yacha_type_callback, yacha_amount_callback,
     yacha_response_callback, yacha_result_callback,
 )
@@ -404,7 +405,7 @@ async def ranked_weekly_reset_job(context):
             logger.error("Failed to create new ranked season")
             return
 
-        # 새 시즌 공지 (아레나들에)
+        # 새 시즌 공지 (DM 방식: season_records 보유 유저에게)
         rule_info = config.WEEKLY_RULES.get(new_season["weekly_rule"], {})
 
         # 지난 시즌 TOP 3
@@ -418,33 +419,30 @@ async def ranked_weekly_reset_job(context):
                 top3_lines.append(f"  {medals[i]} {name} ({td} {r['rp']} RP)")
 
         announce = [
-            f"🏟️ 시즌 배틀 시즌 {new_season['season_id']} 시작!\n",
+            f"🏟️ 시즌 {new_season['season_id']} 시작!",
             f"🔒 시즌 법칙: {rule_info.get('name', new_season['weekly_rule'])}",
             f"   └ {rule_info.get('desc', '')}",
         ]
-
-        arena_ids = new_season.get("arena_chat_ids") or []
-        arena_names = []
-        for aid in arena_ids:
-            try:
-                chat = await context.bot.get_chat(aid)
-                arena_names.append(chat.title or str(aid))
-            except Exception:
-                arena_names.append(str(aid))
-        announce.append(f"📍 아레나: {', '.join(arena_names)}")
 
         if top3_lines:
             announce.append(f"\n🏆 지난 시즌 TOP 3")
             announce.extend(top3_lines)
 
-        announce.append("\n💡 상대에게 답장 + '랭전'으로 도전!")
+        announce.append("\n💡 DM에서 '랭전'으로 자동 매칭 대전!")
 
         text = "\n".join(announce)
-        for aid in arena_ids:
-            try:
-                await context.bot.send_message(chat_id=aid, text=text, parse_mode="HTML")
-            except Exception:
-                pass
+
+        # 시즌 기록 있는 유저에게 DM 알림
+        if prev_season:
+            all_records = await rq.get_all_season_records(prev_season["season_id"])
+            for rec in all_records:
+                try:
+                    await context.bot.send_message(
+                        chat_id=rec["user_id"], text=text, parse_mode="HTML",
+                    )
+                except Exception:
+                    pass
+                await asyncio.sleep(0.05)
 
         logger.info(f"New ranked season started: {new_season['season_id']}")
     except Exception as e:
@@ -597,10 +595,11 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀수락$"), battle_accept_text_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀거절$"), battle_decline_text_handler))
 
-    # Ranked battle & Yacha (Betting Battle)
-    app.add_handler(MessageHandler(group & filters.Regex(r"^랭전$"), ranked_challenge_handler))
+    # DM auto-ranked battle
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏟️\s*)?랭전$"), auto_ranked_handler))
+
+    # Yacha (Betting Battle) — group only
     app.add_handler(MessageHandler(group & filters.Regex(r"^야차$"), yacha_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^아레나등록$"), arena_register_handler))
 
     # Admin group commands
     app.add_handler(MessageHandler(group & filters.Regex(r"^스폰배율"), spawn_rate_handler))

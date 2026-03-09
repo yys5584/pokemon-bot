@@ -2489,24 +2489,13 @@ async def season_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     season_id = season["season_id"]
     rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
 
-    # 아레나 목록
-    arena_ids = season.get("arena_chat_ids") or []
-    arena_names = []
-    for aid in arena_ids:
-        try:
-            chat = await context.bot.get_chat(aid)
-            arena_names.append(chat.title or str(aid))
-        except Exception:
-            arena_names.append(str(aid))
-
-    arena_txt = ", ".join(arena_names) if arena_names else "미지정"
-
     lines = [
         f"🏟️ <b>시즌 {season_id}</b>",
         f"📅 기간: {season.get('starts_at', '?'):%m/%d} ~ {season.get('ends_at', '?'):%m/%d}",
         f"🔒 시즌 법칙: {rule_info.get('name', season['weekly_rule'])}",
         f"   └ {rule_info.get('desc', '')}",
-        f"📍 아레나: {arena_txt}",
+        "",
+        f"💡 DM에서 '랭전'으로 자동 매칭 대전!",
         "",
     ]
 
@@ -2524,7 +2513,7 @@ async def season_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             f"📈 피크: {rs.tier_display(rec['peak_tier'])} {rec['peak_rp']} RP",
         ])
     else:
-        lines.append("아직 이번 시즌 랭크전 기록이 없습니다.\n아레나에서 '랭전'으로 도전하세요!")
+        lines.append("아직 이번 시즌 랭크전 기록이 없습니다.\nDM에서 '랭전'으로 도전하세요!")
 
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
@@ -2586,6 +2575,273 @@ async def arena_register_handler(update: Update, context: ContextTypes.DEFAULT_T
     from database import ranked_queries as rq
     await rq.register_arena(chat_id, chat_name, user_id)
     await update.message.reply_text(f"✅ '{chat_name}'이(가) 아레나 후보로 등록되었습니다!\n매주 월요일 시즌 아레나 선정에 포함됩니다.")
+
+
+# ============================================================
+# DM Auto-Ranked Battle (랭전 — DM 자동매칭)
+# ============================================================
+
+
+async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '랭전' command (DM). Auto-match ranked battle."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    display_name = update.effective_user.first_name or "트레이너"
+    await queries.ensure_user(user_id, display_name, update.effective_user.username)
+
+    from services import ranked_service as rs
+    from database import ranked_queries as rq
+
+    # 시즌 확인/생성
+    season = await rs.ensure_current_season()
+    if not season:
+        await update.message.reply_text("🏟️ 현재 활성 시즌이 없습니다.")
+        return
+
+    season_id = season["season_id"]
+    rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
+
+    # 팀 존재 확인
+    my_team = await bq.get_battle_team(user_id)
+    if not my_team:
+        await update.message.reply_text(
+            f"{icon_emoji('battle')} 배틀팀이 없습니다!\n'팀등록'으로 먼저 팀을 등록하세요.",
+            parse_mode="HTML",
+        )
+        return
+
+    # 팀 법칙 검증
+    ok, err = await rs.validate_team_for_ranked(user_id, season)
+    if not ok:
+        await update.message.reply_text(f"❌ 팀이 시즌 법칙에 맞지 않습니다.\n{err}")
+        return
+
+    # COST 검증
+    total_cost = 0
+    ultra_count = 0
+    for p in my_team:
+        cost = config.RANKED_COST.get(p["rarity"], 1)
+        total_cost += cost
+        if p["rarity"] == "ultra_legendary":
+            ultra_count += 1
+    if total_cost > config.RANKED_COST_LIMIT:
+        await update.message.reply_text(
+            f"❌ 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n"
+            f"팀을 수정해주세요."
+        )
+        return
+    if ultra_count > config.RANKED_ULTRA_MAX:
+        await update.message.reply_text(
+            f"❌ 초전설은 팀당 {config.RANKED_ULTRA_MAX}마리까지만 편성 가능합니다."
+        )
+        return
+
+    # 일일 상한 체크
+    today_str = str(config.get_kst_now().date())
+    today_count = await rq.get_ranked_battles_today(user_id, today_str)
+    if today_count >= config.RANKED_DAILY_CAP:
+        await update.message.reply_text(f"오늘 랭크전 {config.RANKED_DAILY_CAP}회를 모두 소진했습니다.")
+        return
+
+    # 전체 쿨다운 체크
+    from datetime import datetime, timedelta, timezone
+    last_any = await bq.get_last_battle_time_any(user_id)
+    if last_any:
+        last_time = datetime.fromisoformat(last_any) if isinstance(last_any, str) else last_any
+        if hasattr(last_time, 'tzinfo') and last_time.tzinfo is None:
+            last_time = last_time.replace(tzinfo=timezone.utc)
+        cooldown = timedelta(seconds=config.RANKED_COOLDOWN_GLOBAL)
+        if datetime.now(timezone.utc) - last_time < cooldown:
+            remaining = cooldown - (datetime.now(timezone.utc) - last_time)
+            secs = int(remaining.total_seconds())
+            await update.message.reply_text(f"⏳ 쿨다운 중입니다. ({secs}초 남음)")
+            return
+
+    # 방어 패배 리셋 (유저가 직접 랭전을 걸었으므로)
+    await rq.reset_defense_losses(user_id, season_id)
+
+    # 매칭 메시지
+    matching_msg = await update.message.reply_text("🔍 상대를 찾는 중...")
+
+    # 상대 찾기
+    opponent_id = await rs.find_ranked_opponent(user_id, season_id)
+    if not opponent_id:
+        try:
+            await matching_msg.edit_text("😢 조건에 맞는 상대를 찾지 못했습니다.\n잠시 후 다시 시도해주세요!")
+        except Exception:
+            pass
+        return
+
+    # 상대 팀 로드
+    opp_team = await bq.get_battle_team(opponent_id)
+    if not opp_team:
+        try:
+            await matching_msg.edit_text("😢 상대의 팀 데이터를 불러올 수 없습니다.\n잠시 후 다시 시도해주세요!")
+        except Exception:
+            pass
+        return
+
+    # 상대 이름 조회
+    opp_user = await queries.get_user(opponent_id)
+    opp_name = opp_user["display_name"] if opp_user else "???"
+
+    # 매칭 성공 메시지
+    try:
+        await matching_msg.edit_text(
+            f"🏟️ 매칭 완료!\n"
+            f"🔒 시즌 법칙: {rule_info.get('name', season['weekly_rule'])}\n"
+            f"상대: {escape_html(opp_name)}\n\n"
+            f"⚔️ 배틀 시작!",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+
+    # 배틀 실행!
+    from services.battle_service import execute_battle
+    result = await execute_battle(
+        challenger_id=user_id,
+        defender_id=opponent_id,
+        challenger_team=my_team,
+        defender_team=opp_team,
+        challenge_id=None,
+        chat_id=user_id,  # DM이므로 chat_id = user_id
+        bot=context.bot,
+        battle_type="ranked",
+    )
+
+    # 결과 처리
+    ranked_info = result.get("ranked_info")
+    winner_id = result["winner_id"]
+    loser_id = result["loser_id"]
+    cache_key = result["cache_key"]
+
+    # 방어 패배 카운트: 상대(방어자)가 졌으면 +1
+    if loser_id == opponent_id:
+        await rq.increment_defense_losses(opponent_id, season_id)
+    else:
+        # 도전자(나)가 졌어도 상대의 defense_losses는 안 건드림
+        # 내가 졌으면 상대 방어 패배 리셋 (상대가 이겼으니)
+        pass
+
+    # RP 정보 조합
+    rp_lines = []
+    if ranked_info:
+        w_tier_disp = rs.tier_display(ranked_info["winner_tier_after"])
+        l_tier_disp = rs.tier_display(ranked_info["loser_tier_after"])
+
+        # 승자/패자가 누군지에 따라 표시
+        if winner_id == user_id:
+            my_rp_line = (
+                f"📈 RP +{ranked_info['winner_rp_gain']} "
+                f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']} {w_tier_disp})"
+            )
+            opp_rp_line = (
+                f"📉 상대: RP -{ranked_info['loser_rp_loss']} "
+                f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']} {l_tier_disp})"
+            )
+        else:
+            my_rp_line = (
+                f"📉 RP -{ranked_info['loser_rp_loss']} "
+                f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']} {l_tier_disp})"
+            )
+            opp_rp_line = (
+                f"📈 상대: RP +{ranked_info['winner_rp_gain']} "
+                f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']} {w_tier_disp})"
+            )
+
+        rp_lines.append(my_rp_line)
+        rp_lines.append(opp_rp_line)
+
+        # 윈트레이딩 감지
+        pair_decay = ranked_info.get("pair_decay", 1.0)
+        if pair_decay < 1.0 and pair_decay > 0:
+            rp_lines.append(f"⚠️ 같은 상대 반복 — RP {int(pair_decay*100)}%")
+        elif pair_decay == 0:
+            rp_lines.append("🚫 같은 상대 한도 초과 — RP 미적용")
+
+        # 티어 변동
+        if ranked_info["winner_tier_before"] != ranked_info["winner_tier_after"]:
+            new_t = rs.tier_display(ranked_info["winner_tier_after"])
+            if winner_id == user_id:
+                rp_lines.append(f"🎉 승급! → {new_t}")
+            else:
+                rp_lines.append(f"🎉 상대 승급! → {new_t}")
+        if ranked_info["loser_tier_before"] != ranked_info["loser_tier_after"]:
+            old_t = rs.tier_display(ranked_info["loser_tier_before"])
+            new_lt = rs.tier_display(ranked_info["loser_tier_after"])
+            if loser_id == user_id:
+                rp_lines.append(f"⬇️ 강등 → {new_lt}")
+            else:
+                rp_lines.append(f"⬇️ 상대 강등 → {new_lt}")
+
+    # 도전자에게 결과 DM
+    rule_txt = f"🔒 시즌 법칙: {rule_info.get('name', season['weekly_rule'])}"
+    winner_name = result["winner_name"]
+    is_win = winner_id == user_id
+
+    display = result["display_text"].replace(
+        f"{icon_emoji('battle')} 배틀 결과!",
+        f"🏟️ 랭크전 결과!\n{rule_txt}"
+    )
+    if rp_lines:
+        display += "\n" + "\n".join(rp_lines)
+
+    battle_buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "📋 상세보기",
+                callback_data=f"bdetail_{cache_key}_{winner_id}_{loser_id}",
+            ),
+        ]
+    ])
+
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=display,
+            parse_mode="HTML",
+            reply_markup=battle_buttons,
+        )
+    except Exception as e:
+        logger.error(f"Ranked DM result send failed: {e}")
+
+    # 상대에게 알림 DM
+    try:
+        if is_win:
+            opp_result = "패배"
+            opp_icon = "📉"
+            opp_rp_txt = (
+                f"RP -{ranked_info['loser_rp_loss']} "
+                f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']} "
+                f"{rs.tier_display(ranked_info['loser_tier_after'])})"
+            ) if ranked_info else ""
+        else:
+            opp_result = "승리"
+            opp_icon = "📈"
+            opp_rp_txt = (
+                f"RP +{ranked_info['winner_rp_gain']} "
+                f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']} "
+                f"{rs.tier_display(ranked_info['winner_tier_after'])})"
+            ) if ranked_info else ""
+
+        await context.bot.send_message(
+            chat_id=opponent_id,
+            text=(
+                f"🏟️ {escape_html(display_name)}님이 랭크전에서 도전했습니다!\n"
+                f"결과: {opp_result} {opp_icon} {opp_rp_txt}"
+            ),
+            parse_mode="HTML",
+        )
+    except Exception as e:
+        logger.debug(f"Ranked opponent DM failed (may have blocked bot): {e}")
+
+    # 랭크 칭호 체크
+    if ranked_info:
+        await _check_ranked_titles(winner_id, ranked_info, is_winner=True)
+        await _check_ranked_titles(loser_id, ranked_info, is_winner=False)
 
 
 # ============================================================

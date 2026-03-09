@@ -533,8 +533,10 @@ TOURNAMENT_REG_HOUR = 21        # 등록 시작 시각 (21시 KST)
 TOURNAMENT_START_HOUR = 22      # 대회 시작 시각 (22시 KST)
 TOURNAMENT_MIN_PLAYERS = 4      # 최소 참가자
 TOURNAMENT_PRIZE_1ST_MB = 5     # 우승 마스터볼
-TOURNAMENT_PRIZE_1ST_SHINY = "legendary"  # 우승 이로치 레어리티
-TOURNAMENT_PRIZE_SEMI_MB = 3    # 4강 마스터볼
+TOURNAMENT_PRIZE_1ST_SHINY = "ultra_legendary"  # 우승 이로치 레어리티
+TOURNAMENT_PRIZE_2ND_MB = 3     # 준우승 마스터볼
+TOURNAMENT_PRIZE_2ND_SHINY = "legendary"        # 준우승 이로치 레어리티
+TOURNAMENT_PRIZE_SEMI_MB = 2    # 4강 마스터볼
 TOURNAMENT_PRIZE_SEMI_SHINY = "epic"      # 4강 이로치 레어리티
 TOURNAMENT_PRIZE_QUARTER_MB = 2     # 8강 탈락 마스터볼
 TOURNAMENT_PRIZE_R16_MB = 1         # 16강 탈락 마스터볼
@@ -621,7 +623,7 @@ RANKED_COST = {
     "legendary": 6,
     "ultra_legendary": 6,
 }
-RANKED_COST_LIMIT = 24          # 6마리 팀 총 코스트 상한
+RANKED_COST_LIMIT = 18          # 6마리 팀 총 코스트 상한
 RANKED_TEAM_SIZE = 6            # 팀 필수 인원
 RANKED_ULTRA_MAX = 1            # 초전설 최대 편성 수
 

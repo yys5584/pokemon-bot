@@ -60,20 +60,8 @@ async def ensure_current_season() -> dict:
 
 
 async def _select_arenas() -> list[int]:
-    """아레나 후보에서 1~2곳 랜덤 선정 (기본 아레나 포함)."""
-    candidates = await rq.get_arena_candidates()
-    # 기본 아레나는 항상 포함
-    import os
-    base_arena = int(os.getenv("BASE_ARENA_CHAT_ID", "0"))
-    arena_ids = [base_arena] if base_arena else []
-
-    # 후보 중 기본 아레나 제외, 1~2곳 추가
-    others = [c["chat_id"] for c in candidates if c["chat_id"] != base_arena]
-    if others:
-        pick_count = min(2, len(others))
-        arena_ids.extend(random.sample(others, pick_count))
-
-    return arena_ids
+    """아레나 후보에서 1~2곳 랜덤 선정 — DM 자동매칭 전환으로 빈 배열 반환."""
+    return []
 
 
 def pick_random_excluding(pool: list[str], exclude: list[str]) -> str:
@@ -82,6 +70,61 @@ def pick_random_excluding(pool: list[str], exclude: list[str]) -> str:
     if not available:
         available = pool  # 모두 제외되면 전체에서 선택
     return random.choice(available)
+
+
+# ─── DM Auto-Matching ────────────────────────────────────
+
+DEFENSE_SHIELD_LIMIT = 5  # 연속 방어 패배 5회 → 보호
+
+async def find_ranked_opponent(user_id: int, season_id: str) -> int | None:
+    """비슷한 티어의 상대를 DB에서 찾아 user_id 반환. 없으면 None."""
+    from database import battle_queries as bq
+
+    # 유저의 시즌 기록 조회
+    rec = await rq.get_season_record(user_id, season_id)
+    if rec:
+        current_tier = rec["tier"]
+    else:
+        current_tier = "bronze"
+
+    # 인접 티어 산출 (현재 ± 1)
+    tier_idx = config.get_tier_index(current_tier)
+    # challenger 제외한 실질 티어 (0~5)
+    max_idx = len(config.RANKED_TIERS) - 2  # challenger 제외
+    adjacent = set()
+    for delta in (-1, 0, 1):
+        idx = max(0, min(max_idx, tier_idx + delta))
+        adjacent.add(config.RANKED_TIERS[idx][0])
+    # challenger도 master 근처이므로 포함
+    if "master" in adjacent:
+        adjacent.add("challenger")
+
+    tier_keys = list(adjacent)
+
+    # 최근 3경기 상대 제외
+    recent_opps = await rq.get_recent_opponents(user_id, season_id, limit=3)
+    exclude_ids = [user_id] + recent_opps
+
+    # 1차: season_records에서 인접 티어 + 쉴드 미적용 유저 검색
+    candidates = await rq.find_matchable_users(
+        season_id, tier_keys, exclude_ids,
+        defense_shield_limit=DEFENSE_SHIELD_LIMIT, limit=10,
+    )
+
+    # 후보 중 유효한 배틀팀 보유자 찾기
+    for c in candidates:
+        team = await bq.get_battle_team(c["user_id"])
+        if team and len(team) >= 1:
+            return c["user_id"]
+
+    # 2차 폴백 (프리시즌 등 season_records가 비어있을 때)
+    fallback_ids = await rq.find_any_matchable_users(exclude_ids, limit=10)
+    for fid in fallback_ids:
+        team = await bq.get_battle_team(fid)
+        if team and len(team) >= 1:
+            return fid
+
+    return None
 
 
 # ─── RP Calculation ──────────────────────────────────────
@@ -344,9 +387,8 @@ async def soft_reset_new_season(prev_season_id: str) -> dict:
 
     recent = await rq.get_recent_rules(2)
     rule = pick_random_excluding(list(config.WEEKLY_RULES.keys()), recent)
-    arena_ids = await _select_arenas()
 
-    new_season = await rq.get_or_create_season(new_sid, rule, starts, ends, arena_ids)
+    new_season = await rq.get_or_create_season(new_sid, rule, starts, ends, [])
 
     # 소프트 리셋: 이전 RP의 40%로 새 시즌 기록 생성
     for rec in prev_records:

@@ -154,88 +154,84 @@ _SWITCH_NORMAL = [
 
 _SWITCH_EPIC = [
     "{trainer}: {next}, 실력을 보여줘!",
-    "{trainer}: 여기서부터 본게임이다... 가라, {next}!",
+    "{trainer}: 여기서부터 본게임이다, 가라 {next}!",
     "{trainer}: {next}, 네 힘을 믿는다!",
     "{trainer}: 에이스 투입! {next}, 출격!",
-    "{trainer}: {dead} 고생했어... {next}, 각오해라!",
+    "{trainer}: {dead} 고생했어, {next} 각오해라!",
     "{trainer}: {next}! 전력으로 간다!",
-    "{trainer}: 여기서 밀릴 수 없어... {next}!",
+    "{trainer}: 여기서 밀릴 수 없어, {next}!",
     "{trainer}: 자, {next}! 흐름을 바꿔줘!",
     "{trainer}: {next}, 네가 아니면 안 돼!",
     "{trainer}: 주력이다! 나와라, {next}!",
     "{trainer}: 분위기 반전! {next}, 간다!",
     "{trainer}: {next}, 승부를 걸어줘!",
     "{trainer}: 지금이야! 나와, {next}!",
-    "{trainer}: 핵심 전력 투입... {next}!",
+    "{trainer}: 핵심 전력 투입, {next}!",
     "{trainer}: {next}, 제대로 보여주자!",
     "{trainer}: 여기서 끝낸다! {next}, 출동!",
-    "{trainer}: 숨겨둔 패다... 가라, {next}!",
+    "{trainer}: 숨겨둔 패다, 가라 {next}!",
     "{trainer}: {next}, 진짜 실력을 보여줄 때야!",
     "{trainer}: 이제 본격적으로 간다! {next}!",
-    "{trainer}: {dead} 수고했어... {next}, 짓밟아줘!",
+    "{trainer}: {dead} 수고했어, {next} 짓밟아줘!",
 ]
 
 _SWITCH_LEGENDARY = [
-    "{trainer}: ...{next}, 네 힘을 보여줘!",
-    "{trainer}: 최후의 카드다... 가라, {next}!",
-    "{trainer}: 전설의 힘이여... {next}, 출격!",
-    "{trainer}: 승부를 결정지어라, {next}!",
-    "{trainer}: 이건 양보할 수 없다... {next}, 간다!",
-    "{trainer}: 전설의 이름에 걸고... {next}!",
-    "{trainer}: 모든 걸 걸겠다... 나와라, {next}!",
-    "{trainer}: {next}... 부디, 이 싸움을 끝내줘!",
-    "{trainer}: 각오해라... {next}, 출진!",
-    "{trainer}: 전설이 깨어난다... {next}!",
-    "{trainer}: 이것이 나의 최강... {next}, 간다!",
-    "{trainer}: {next}! 네 전설의 힘으로!",
-    "{trainer}: 운명을 바꿔라... {next}!",
-    "{trainer}: 여기서 물러설 순 없다... {next}!",
-    "{trainer}: 이 순간을 위해... 나와라, {next}!",
-    "{trainer}: 마지막 승부다... {next}, 부탁한다!",
-    "{trainer}: 전설이여, 응답하라... {next}!",
-    "{trainer}: {next}... 승리를 가져와줘!",
-    "{trainer}: 최강의 한 수... {next}, 출격!",
-    "{trainer}: 이 배틀, {next}에게 맡기겠다!",
+    "{trainer}: 가라, {next}! 여기서 끝내자!",
+    "{trainer}: 마지막 카드다, {next}!",
+    "{trainer}: {next}, 네가 나올 차례야!",
+    "{trainer}: {dead} 고생했어. {next}, 정리해줘!",
+    "{trainer}: 여기서 밀리면 안 돼, {next} 간다!",
+    "{trainer}: {next}! 이거 하나만 부탁한다!",
+    "{trainer}: 이제 진짜다, 나와 {next}!",
+    "{trainer}: {next}, 확실하게 끝장내자!",
+    "{trainer}: 비장의 한 수, {next} 가!",
+    "{trainer}: {next}, 뒤집어줘!",
+    "{trainer}: 아끼고 있었다, {next} 지금이야!",
+    "{trainer}: {next}, 네가 아니면 답이 없어!",
+    "{trainer}: 여기까지 왔잖아, {next} 부탁해!",
+    "{trainer}: {next}, 끝을 보자!",
+    "{trainer}: 나와라 {next}, 밀어붙여!",
+    "{trainer}: 이쯤에서 끝내지, {next} 가자!",
+    "{trainer}: 한방이면 충분해, {next}!",
+    "{trainer}: {next}, 보여줄 게 있잖아!",
+    "{trainer}: 숨겨둔 패다, {next} 출격!",
+    "{trainer}: {next}, 지금 안 나오면 언제 나와!",
 ]
 
 _SWITCH_ULTRA = [
-    "{trainer}: ...오라가 폭발한다... {next}!!",
-    "{trainer}: 초월의 힘이여... 각성하라, {next}!",
-    "{trainer}: 세계 최강... 나와라, {next}!!!",
-    "{trainer}: 모든 것을 초월하라... {next}!",
-    "{trainer}: 신의 영역... {next}, 강림!",
-    "{trainer}: 이것이 최후의 패... {next}!!!",
-    "{trainer}: 차원이 다른 힘... {next}, 출진!",
-    "{trainer}: 압도적인 힘을 보여줘... {next}!",
-    "{trainer}: 초전설의 위엄... {next}, 간다!",
-    "{trainer}: 승부는 여기서 끝이다... {next}!!!",
-    "{trainer}: 경외하라... {next}, 강림!!",
-    "{trainer}: 이 세계의 정점... 나타나라, {next}!",
-    "{trainer}: {next}... 모든 걸 끝장내줘!",
-    "{trainer}: 최강 중의 최강... {next}, 출격!",
-    "{trainer}: 절대적인 힘이여... {next}!!",
-    "{trainer}: 전장이 떨린다... 나와라, {next}!",
-    "{trainer}: 한계를 넘어서라... {next}!",
-    "{trainer}: 이것이 초전설... {next}, 각성!!",
-    "{trainer}: 누구도 막을 수 없다... {next}!!!",
-    "{trainer}: 최종 병기... {next}, 출동!!!",
+    "{trainer}: {next}, 끝장내자.",
+    "{trainer}: {next}. 더 말할 것도 없지.",
+    "{trainer}: 나와라 {next}, 쓸어버려.",
+    "{trainer}: {next}, 네가 나오면 끝이야.",
+    "{trainer}: 마지막이다, {next} 가.",
+    "{trainer}: {next}. 밟아줘.",
+    "{trainer}: {next}, 정리하고 와.",
+    "{trainer}: 다 필요없고, {next} 간다.",
+    "{trainer}: {next}. 조용히 끝내자.",
+    "{trainer}: 이제 됐어, {next} 나와.",
+    "{trainer}: {next}, 마무리 부탁해.",
+    "{trainer}: {next}, 깔끔하게.",
+    "{trainer}: 최종병기 {next}, 투입.",
+    "{trainer}: {next}. 아직 안 끝났거든.",
+    "{trainer}: {next}, 한 방이면 돼.",
+    "{trainer}: {next}, 네가 나서면 끝이잖아.",
+    "{trainer}: {next}. 이번엔 확실하게.",
+    "{trainer}: 오래 기다렸지? {next}, 가.",
+    "{trainer}: {next}, 이제 네 시간이야.",
+    "{trainer}: {next} 나간다.",
 ]
 
 # ── Dramatic entrance effects (4강/결승 전용) ────────────────────
 _DRAMATIC_SERIOUS = [
-    "🔥 {trainer}: {next}, 너로 정했다!! 마지막 승부야!!",
-    "🔥 {trainer}: 부탁해 {next}...! 우리의 전부를 보여주자!!",
-    "🌟 {trainer}: 승부는 아직 끝나지 않았어! 가자, {next}!!",
-    "💫 {trainer}: 포기하면 거기서 끝이야! {next}, 마지막 힘을 보여줘!!",
-    "❄️ {trainer}: 믿고 있어, {next}...! 우리가 함께 걸어온 길을 보여주자!!",
-    "💥 {trainer}: {next}, 이게 마지막이다!! 전력을 다해!!",
-    "🎭 {trainer}: 여기서 물러설 순 없어...! {next}, 최후의 무대야!!",
+    "🔥 {trainer}: {next}, 여기서 지면 끝이야! 가자!",
+    "🔥 {trainer}: 여기까지 왔는데 질 수 없지! {next}!",
+    "🌟 {trainer}: 아직 안 끝났어! {next}, 뒤집어!",
+    "💫 {trainer}: 마지막 한 방, {next} 부탁해!",
+    "💥 {trainer}: {next}, 이 경기 네가 끝내줘!",
+    "🔥 {trainer}: 지금 아니면 언제! {next}!",
+    "💥 {trainer}: 우승까지 한 발, {next} 간다!",
 ]
-_DRAMATIC_JOKE = [
-    "💎 {next}의 메가스톤이 빛난다... 메가진화!! ...가 뭐였지..?",
-    "🌀 {next}와의 유대가 깨어난다... 유대진화!! ...가 뭐였더라..?",
-    "⚡ {next}의 Z파워가 해방된다! Z기술 발동!! ...이 뭔데..?",
-]
+_DRAMATIC_JOKE = []
 
 
 def _switch_line(trainer: str, dead: str, next_name: str,
@@ -386,7 +382,8 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
             "📋 참가 방법: ㄷ 입력\n"
             "⚔️ 배틀팀이 등록되어 있어야 참가 가능!\n\n"
             "🏆 보상\n"
-            f"  🥇 우승: 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치(전설) + 챔피언 칭호\n"
+            f"  🥇 우승: 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치(초전설) + 챔피언 칭호\n"
+            f"  🥈 준우승: 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + ✨이로치(전설)\n"
             f"  🏅 4강: 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치(에픽)\n"
             f"  🎟️ 참가: 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개\n\n"
             "스폰은 대회 종료 후 재개됩니다."
@@ -417,7 +414,8 @@ async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
             f"{icon_emoji('bookmark')} 아래 채널에서 ㄷ 입력으로 참가!\n"
             "👉 https://t.me/tg_poke\n\n"
             f"{_bt} 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
-            f"{icon_emoji('crown')} 우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {_se}이로치(전설) + 챔피언 칭호\n"
+            f"{icon_emoji('crown')} 우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {_se}이로치(초전설) + 챔피언 칭호\n"
+            f"🥈 준우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {_se}이로치(전설)\n"
             f"{icon_emoji('champion')} 4강: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {_se}이로치(에픽)\n"
             f"{icon_emoji('gotcha')} 참가: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개"
         )
@@ -1008,7 +1006,8 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
             is_semi = (len(bracket) == 2)
             is_quarter = (len(bracket) <= 4 and not is_semi and not is_final)
 
-            round_name = "결승" if is_final else f"{'준결승' if is_semi else f'{current_round}라운드'}"
+            round_size = len(bracket) * 2  # 16, 8, 4, 2
+            round_name = "결승" if is_final else ("준결승" if is_semi else f"{round_size}강")
 
             if not is_final:
                 # Show bracket for this round
@@ -1084,8 +1083,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
 
             round_results[current_round] = round_winner_names
 
-            # Track eliminated players by round size
-            round_size = len(bracket) * 2  # 16, 8, 4, 2
+            # Track eliminated players by round size (round_size already set above)
             winner_ids_set = {w[0] for w in winners}
             for p1, p2 in bracket:
                 if p1 is not None and p1[0] not in winner_ids_set:
@@ -1186,12 +1184,27 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             uid2, _ = p2
             runner_up_id = uid2 if uid1 == winner_id else uid1
 
+    # ── 2nd place (runner-up): master balls + shiny legendary ──
+    shiny_2nd_name = ""
+    shiny_2nd_ivs = {}
+    if runner_up_id:
+        try:
+            await queries.add_master_ball(runner_up_id, config.TOURNAMENT_PRIZE_2ND_MB)
+        except Exception:
+            logger.error(f"Failed to give master balls to runner-up {runner_up_id}")
+        s2_id, s2_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_2ND_SHINY)
+        try:
+            _, shiny_2nd_ivs = await queries.give_pokemon_to_user(runner_up_id, s2_id, chat_id, is_shiny=True)
+        except Exception:
+            logger.error(f"Failed to give shiny pokemon to runner-up {runner_up_id}")
+        shiny_2nd_name = s2_name
+
     # ── Semi-finalists (4강): master balls + shiny epic ──
     finalists = {winner_id}
     if runner_up_id:
         finalists.add(runner_up_id)
     semi_all = semi_finalists | finalists
-    semi_reward_targets = semi_all - {winner_id}
+    semi_reward_targets = semi_all - finalists  # 4강 중 우승/준우승 제외
     shiny_semi_awards = {}  # uid -> (pokemon_name, ivs)
     for uid in semi_reward_targets:
         try:
@@ -1265,11 +1278,10 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     if runner_up_id:
         runner_up_user = await queries.get_user(runner_up_id)
         r_name = runner_up_user["display_name"] if runner_up_user else "???"
-        r_shiny_name = shiny_semi_awards.get(runner_up_id, ("???", {}))[0]
         lines.append(f"🥈 {r_name}")
-        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치 {r_shiny_name}")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + ✨이로치 {shiny_2nd_name}")
 
-    fourth_placers = semi_reward_targets - ({runner_up_id} if runner_up_id else set())
+    fourth_placers = semi_reward_targets
     if fourth_placers:
         for uid in fourth_placers:
             u = await queries.get_user(uid)
@@ -1327,11 +1339,23 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     except Exception:
         logger.warning(f"Failed to DM winner {winner_id}")
 
-    # Semi-finalist DMs (including runner-up)
-    for uid, (s_name, s_ivs) in shiny_semi_awards.items():
-        place = "준우승" if uid == runner_up_id else "4강"
+    # Runner-up DM
+    if runner_up_id:
         dm_text = (
-            f"🏅 토너먼트 {place}을 축하합니다!\n"
+            "🥈 토너먼트 준우승을 축하합니다!\n"
+            "━━━━━━━━━━━━━━━\n\n"
+            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 지급!\n\n"
+            f"{_iv_detail(shiny_2nd_name, config.TOURNAMENT_PRIZE_2ND_SHINY, shiny_2nd_ivs)}"
+        )
+        try:
+            await context.bot.send_message(chat_id=runner_up_id, text=dm_text, parse_mode="HTML")
+        except Exception:
+            logger.warning(f"Failed to DM runner-up {runner_up_id}")
+
+    # Semi-finalist DMs (4강)
+    for uid, (s_name, s_ivs) in shiny_semi_awards.items():
+        dm_text = (
+            "🏅 토너먼트 4강을 축하합니다!\n"
             "━━━━━━━━━━━━━━━\n\n"
             f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 지급!\n\n"
             f"{_iv_detail(s_name, config.TOURNAMENT_PRIZE_SEMI_SHINY, s_ivs)}"
@@ -1379,6 +1403,66 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
         except Exception:
             logger.warning(f"Failed to DM participant {uid}")
+
+    # ── Post tournament result to homepage notice board ──
+    try:
+        from datetime import datetime
+        now = datetime.now()
+        today = f"{now.month}/{now.day}"
+        notice_title = f"{today} 토너먼트 결과"
+
+        # Build notice content (HTML for dashboard)
+        w_name = winner_data['name']
+        notice_lines = [
+            f"🥇 우승: <b>{w_name}</b>",
+            f"   마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치 {shiny_1st_name}",
+        ]
+        if runner_up_id:
+            r_user = await queries.get_user(runner_up_id)
+            r_name = r_user["display_name"] if r_user else "???"
+            notice_lines.append(f"🥈 준우승: <b>{r_name}</b>")
+            notice_lines.append(f"   마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + ✨이로치 {shiny_2nd_name}")
+        for uid in fourth_placers:
+            u = await queries.get_user(uid)
+            u_name = u["display_name"] if u else "???"
+            u_shiny = shiny_semi_awards.get(uid, ("???", {}))[0]
+            notice_lines.append(f"🏅 4강: <b>{u_name}</b>")
+            notice_lines.append(f"   마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치 {u_shiny}")
+
+        if quarter_losers:
+            q_names = []
+            for uid in quarter_losers:
+                u = await queries.get_user(uid)
+                q_names.append(u["display_name"] if u else "???")
+            notice_lines.append(f"\n⚔️ 8강: {', '.join(q_names)}")
+
+        if r16_losers:
+            r16_names = []
+            for uid in r16_losers:
+                u = await queries.get_user(uid)
+                r16_names.append(u["display_name"] if u else "???")
+            notice_lines.append(f"🎯 16강: {', '.join(r16_names)}")
+
+        if participant_only:
+            p_names = []
+            for uid in participant_only:
+                u = await queries.get_user(uid)
+                p_names.append(u["display_name"] if u else "???")
+            notice_lines.append(f"🎟️ 참가: {', '.join(p_names)}")
+
+        notice_lines.append(f"\n참가자 {len(all_participants)}명, 수고하셨습니다!")
+        notice_content = "\n".join(notice_lines)
+
+        from database.connection import get_db
+        pool = await get_db()
+        await pool.execute(
+            "INSERT INTO board_posts (board_type, user_id, display_name, title, content) "
+            "VALUES ($1, $2, $3, $4, $5)",
+            "notice", 1723681348, "TG포켓", notice_title, notice_content,
+        )
+        logger.info(f"Tournament result posted to notice board: {notice_title}")
+    except Exception:
+        logger.error("Failed to post tournament result to notice board", exc_info=True)
 
 
 async def _resume_spawns(context, chat_id: int):

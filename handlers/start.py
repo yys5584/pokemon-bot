@@ -23,7 +23,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type == "private":
         menu_keyboard = ReplyKeyboardMarkup(
             [
-                ["📋 상태창", "📦 내포켓몬"],
+                ["🏟️ 랭전", "📋 상태창", "📦 내포켓몬"],
                 ["⚔️ 팀", "✏️ 팀편집"],
                 ["🛒 거래소", "🏪 상점"],
                 ["🤝 파트너", "💪 친밀도강화"],
@@ -98,7 +98,7 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  배틀 — 상대에게 답장하며 배틀 도전 (채팅방)\n"
         "  배틀수락 / 배틀거절 — 도전 응답 (채팅방)\n"
         "  야차 — BP/마스터볼 베팅 대결 (채팅방)\n"
-        "  랭전 — 랭크전 (준비 중)\n"
+        "  랭전 — 랭크 자동매칭 대전 (DM)\n"
         "  배틀전적 — 승패/연승/BP 확인\n"
         "  배틀랭킹 — 배틀 BP 랭킹 (채팅방)\n"
         "  BP — BP 잔액 확인\n"

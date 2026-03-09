@@ -84,6 +84,12 @@ async def execute_fusion(
     if pa["pokemon_id"] != pb["pokemon_id"]:
         return False, "같은 종류의 포켓몬만 합성할 수 있습니다.", None
 
+    # 이로치 합성 제한: 이로치는 이로치끼리만
+    a_shiny = bool(pa.get("is_shiny"))
+    b_shiny = bool(pb.get("is_shiny"))
+    if a_shiny != b_shiny:
+        return False, "⭐ 이로치는 이로치끼리만 합성할 수 있습니다!", None
+
     # Phase 2: protection + lock checks in parallel
     protected, (locked_a, reason_a), (locked_b, reason_b) = await asyncio.gather(
         queries.get_protected_pokemon_ids(user_id),
@@ -99,7 +105,7 @@ async def execute_fusion(
     if locked_b:
         return False, reason_b, None
 
-    is_shiny = bool(pa.get("is_shiny")) or bool(pb.get("is_shiny"))
+    is_shiny = a_shiny  # 이로치끼리만 합성 가능하므로 둘 다 같은 상태
 
     # Phase 3: deactivate both in parallel
     await asyncio.gather(

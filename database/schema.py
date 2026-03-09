@@ -549,6 +549,8 @@ RANKED_TABLES = [
 RANKED_MIGRATIONS = [
     "ALTER TABLE battle_challenges ADD COLUMN battle_type TEXT NOT NULL DEFAULT 'normal'",
     "ALTER TABLE battle_records ADD COLUMN battle_type TEXT NOT NULL DEFAULT 'normal'",
+    # Defense shield: 연속 방어 패배 카운트 (5회 → 자동 보호)
+    "ALTER TABLE season_records ADD COLUMN defense_losses INTEGER NOT NULL DEFAULT 0",
 ]
 
 ULTRA_LEGENDARY_MIGRATIONS = [

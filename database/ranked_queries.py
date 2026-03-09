@@ -220,6 +220,85 @@ async def get_last_ranked_vs(user_id: int, opponent_id: int) -> object:
     return row["created_at"] if row else None
 
 
+# ─── Defense Shield ──────────────────────────────────────
+
+async def increment_defense_losses(user_id: int, season_id: str):
+    """방어 패배 횟수 +1."""
+    pool = await get_db()
+    await pool.execute(
+        """UPDATE season_records SET defense_losses = defense_losses + 1
+           WHERE user_id = $1 AND season_id = $2""",
+        user_id, season_id)
+
+
+async def reset_defense_losses(user_id: int, season_id: str):
+    """유저가 랭전 시작 시 방어 패배 카운트 리셋."""
+    pool = await get_db()
+    await pool.execute(
+        """UPDATE season_records SET defense_losses = 0
+           WHERE user_id = $1 AND season_id = $2""",
+        user_id, season_id)
+
+
+async def get_defense_losses(user_id: int, season_id: str) -> int:
+    """방어 연속 패배 횟수 조회."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT defense_losses FROM season_records WHERE user_id = $1 AND season_id = $2",
+        user_id, season_id)
+    return row["defense_losses"] if row else 0
+
+
+# ─── Recent Opponents ───────────────────────────────────
+
+async def get_recent_opponents(user_id: int, season_id: str, limit: int = 3) -> list[int]:
+    """최근 N경기 상대 유저 ID 목록 (중복 제거 X, 순서 유지)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT CASE WHEN br.winner_id = $1 THEN br.loser_id ELSE br.winner_id END AS opp
+           FROM ranked_battle_log rbl
+           JOIN battle_records br ON rbl.battle_record_id = br.id
+           WHERE (br.winner_id = $1 OR br.loser_id = $1) AND rbl.season_id = $2
+           ORDER BY rbl.id DESC LIMIT $3""",
+        user_id, season_id, limit)
+    return [r["opp"] for r in rows]
+
+
+# ─── Matchmaking ────────────────────────────────────────
+
+async def find_matchable_users(season_id: str, tier_keys: list[str],
+                                exclude_ids: list[int],
+                                defense_shield_limit: int = 5,
+                                limit: int = 10) -> list[dict]:
+    """매칭 가능한 유저 목록 (인접 티어, 보호쉴드 제외, 최근 상대 제외)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT sr.user_id, sr.rp, sr.tier
+           FROM season_records sr
+           WHERE sr.season_id = $1
+             AND sr.tier = ANY($2)
+             AND sr.user_id != ALL($3)
+             AND sr.defense_losses < $4
+           ORDER BY RANDOM()
+           LIMIT $5""",
+        season_id, tier_keys, exclude_ids, defense_shield_limit, limit)
+    return [dict(r) for r in rows]
+
+
+async def find_any_matchable_users(exclude_ids: list[int],
+                                    limit: int = 10) -> list[int]:
+    """프리시즌 폴백: season_records가 비어있을 때, 유효 팀 보유 유저 직접 조회."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT DISTINCT bt.user_id
+           FROM battle_teams bt
+           WHERE bt.user_id != ALL($1)
+           ORDER BY RANDOM()
+           LIMIT $2""",
+        exclude_ids, limit)
+    return [r["user_id"] for r in rows]
+
+
 # ─── Arena ───────────────────────────────────────────────
 
 async def register_arena(chat_id: int, chat_name: str, registered_by: int):
