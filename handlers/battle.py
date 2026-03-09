@@ -404,6 +404,16 @@ def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, In
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 
+_FILTER_MAP = {
+    "all": ("전체", None, "전체"),
+    "ul": ("🟧초전설", "ultra_legendary", "🟧초전"),
+    "leg": ("🟨전설", "legendary", "🟨전설"),
+    "epc": ("🟪에픽", "epic", "🟪에픽"),
+    "rar": ("🟦레어", "rare", "🟦레어"),
+    "com": ("⬜일반", "common", "⬜일반"),
+}
+
+
 async def _build_slot_pokemon_list(user_id: int, slot: int, draft: dict,
                                    page: int, team_num: int) -> tuple[str, InlineKeyboardMarkup]:
     """Build pokemon list for placing into a specific slot.
@@ -412,10 +422,16 @@ async def _build_slot_pokemon_list(user_id: int, slot: int, draft: dict,
     current = draft["current"]
     names = draft["names"]
     slot_plain = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+    active_filter = draft.get("filter", "all")
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
         return "보유한 포켓몬이 없습니다.", InlineKeyboardMarkup([])
+
+    # Apply rarity filter
+    _, filter_rarity, _ = _FILTER_MAP.get(active_filter, ("전체", None, "전체"))
+    if filter_rarity:
+        pokemon_list = [p for p in pokemon_list if p.get("rarity") == filter_rarity]
 
     # Build reverse map: inst_id → slot
     inst_to_slot = {}
@@ -431,13 +447,25 @@ async def _build_slot_pokemon_list(user_id: int, slot: int, draft: dict,
     page_items = pokemon_list[start:end]
 
     # Header
+    filter_label, _, _ = _FILTER_MAP.get(active_filter, ("전체", None, "전체"))
     inst_id = current.get(slot)
     if inst_id:
-        lines = [f"{slot_plain[slot-1]} {names.get(inst_id, '???')} → 교체/제거  [{page+1}/{total_pages}]\n"]
+        lines = [f"{slot_plain[slot-1]} {names.get(inst_id, '???')} → 교체/제거  [{page+1}/{total_pages}]"]
     else:
-        lines = [f"{slot_plain[slot-1]} 빈 슬롯 ← 배치  [{page+1}/{total_pages}]\n"]
+        lines = [f"{slot_plain[slot-1]} 빈 슬롯 ← 배치  [{page+1}/{total_pages}]"]
+    lines.append(f"필터: {filter_label} ({total}마리)\n")
 
     buttons = []
+
+    # Filter buttons row
+    filter_row = []
+    for code, (label, _, short) in _FILTER_MAP.items():
+        mark = "✓" if code == active_filter else ""
+        filter_row.append(InlineKeyboardButton(
+            f"{mark}{short}",
+            callback_data=f"tf_{user_id}_{slot}_{code}_{team_num}",
+        ))
+    buttons.append(filter_row)
 
     # Remove button if slot is occupied
     if inst_id:
@@ -979,6 +1007,27 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 raise
         except Exception:
             logger.exception("tp edit_message_text failed")
+
+    # tf_{uid}_{slot}_{filter}_{tn} — rarity filter change
+    elif data.startswith("tf_"):
+        owner_id = int(parts[1])
+        slot = int(parts[2])
+        filter_code = parts[3]
+        tn = int(parts[4])
+        if not _check_owner(owner_id):
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        draft = await _get_draft(owner_id, tn)
+        draft["filter"] = filter_code
+        text_msg, markup = await _build_slot_pokemon_list(owner_id, slot, draft, 0, tn)
+        try:
+            await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
+        except Exception:
+            logger.exception("tf edit_message_text failed")
 
     # tcl_{uid}_{tn} — back to slot main view
     elif data.startswith("tcl_"):
