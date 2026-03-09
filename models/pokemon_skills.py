@@ -116,7 +116,7 @@ POKEMON_SKILLS = {
 
     # --- Venonat line (bug/poison) ---
     48: [("벌레의저항", 1.2), ("독가루", 1.2)],         # 콘팡 (common 1단)
-    49: [("시그널빔", 1.4), ("사이코키네시스", 1.4)],   # 도나리 (rare) bug/poison
+    49: [("시그널빔", 1.4), ("오물폭탄", 1.4)],         # 도나리 (rare) bug/poison
 
     # --- Diglett line ---
     50: ("구멍파기", 1.2),       # 디그다 (common 1단) ground
@@ -233,7 +233,7 @@ POKEMON_SKILLS = {
     107: ("메가펀치", 1.4),      # 홍수몬 (rare) fighting
 
     # --- Lickitung ---
-    108: ("핥기", 1.3),          # 내루미 (rare) normal
+    108: ("하이퍼빔", 1.3),      # 내루미 (rare) normal
 
     # --- Koffing line ---
     109: ("오물공격", 1.2),      # 또가스 (common 1단) poison
@@ -254,7 +254,7 @@ POKEMON_SKILLS = {
 
     # --- Horsea line ---
     116: ("물대포", 1.2),        # 쏘드라 (common 1단) water
-    117: ("용의파동", 1.3),      # 시드라 (common 최종) water
+    117: ("하이드로펌프", 1.3),  # 시드라 (common 최종) water
 
     # --- Goldeen line ---
     118: ("뿔찌르기", 1.2),      # 콘치 (common 1단) water
@@ -352,7 +352,7 @@ POKEMON_SKILLS = {
 
     # --- Totodile line ---
     158: ("물대포", 1.2),        # 리아코 (common) water
-    159: ("물어뜯기", 1.3),      # 엘리게이 (common) water
+    159: ("아쿠아테일", 1.3),    # 엘리게이 (common) water
     160: ("하이드로펌프", 1.5),  # 장크로다일 (epic 최종) water
 
     # --- Sentret line ---
@@ -466,7 +466,7 @@ POKEMON_SKILLS = {
     208: [("아이언테일", 1.5), ("지진", 1.5)],          # 강철톤 (epic)
 
     # --- Snubbull line ---
-    209: ("물어뜯기", 1.2),      # 블루 (common 1단) fairy
+    209: ("마법빛나", 1.2),      # 블루 (common 1단) fairy
     210: ("매지컬샤인", 1.4),    # 그랑블루 (rare 최종) fairy
 
     # --- Qwilfish (water/poison) ---
@@ -486,7 +486,7 @@ POKEMON_SKILLS = {
 
     # --- Teddiursa line ---
     216: ("베어가르기", 1.2),    # 깜지곰 (common 1단) normal
-    217: ("크로스촙", 1.5),      # 링곰 (epic) normal
+    217: ("기가임팩트", 1.5),    # 링곰 (epic) normal
 
     # --- Slugma line ---
     218: ("불꽃세례", 1.2),      # 마그마그 (common 1단) fire
@@ -553,7 +553,7 @@ POKEMON_SKILLS = {
     245: ("오로라빔", 1.8),      # 스이쿤 (legendary) water
 
     # --- Larvitar line (rock/ground) ---
-    246: [("물어뜯기", 1.2), ("진흙뿌리기", 1.2)],      # 애버라스 (common)
+    246: [("암석봉인", 1.2), ("진흙뿌리기", 1.2)],      # 애버라스 (common)
     247: [("스톤에지", 1.3), ("지진", 1.3)],            # 데기라스 (rare 2단)
     248: [("스톤에지", 1.5), ("깨물어부수기", 1.5)],    # 마기라스 (epic 최종) rock/dark
 
@@ -719,7 +719,7 @@ POKEMON_SKILLS = {
     327: ("정신차리기", 1.3),     # 얼루기 (common BST≥350) normal
 
     # --- Trapinch line ---
-    328: ("물어뜯기", 1.2),       # 톱치 (common) ground
+    328: ("대지의힘", 1.2),       # 톱치 (common) ground
     329: [("대지의힘", 1.2), ("용의숨결", 1.2)],        # 비브라바 (common) ground/dragon
     330: [("지진", 1.5), ("드래곤클로", 1.5)],          # 플라이곤 (epic BST≥500) ground/dragon
 
@@ -771,7 +771,7 @@ POKEMON_SKILLS = {
     351: ("날씨공", 1.3),         # 캐스퐁 (rare) normal
 
     # --- Kecleon ---
-    352: ("섀도클로", 1.3),       # 켈리몬 (rare) normal
+    352: ("몸통박치기", 1.3),     # 켈리몬 (rare) normal
 
     # --- Shuppet line ---
     353: ("섀도볼", 1.2),         # 어둠대신 (common) ghost
@@ -804,14 +804,14 @@ POKEMON_SKILLS = {
 
     # --- Clamperl line ---
     366: ("조개의무기", 1.2),     # 진주몽 (common) water
-    367: ("깨물어부수기", 1.4),   # 헌테일 (rare BST≥450) water
-    368: ("사이코키네시스", 1.4), # 분홍장이 (rare BST≥450) water
+    367: ("아쿠아테일", 1.4),     # 헌테일 (rare BST≥450) water
+    368: ("하이드로펌프", 1.4),   # 분홍장이 (rare BST≥450) water
 
     # --- Relicanth (water/rock) ---
     369: [("아쿠아테일", 1.4), ("머리깨기", 1.4)],      # 시라칸 (rare BST≥450)
 
     # --- Luvdisc ---
-    370: ("달콤한키스", 1.2),     # 사랑동이 (common) water
+    370: ("물대포", 1.2),         # 사랑동이 (common) water
 
     # --- Bagon line (pseudo-legendary) ---
     371: ("용의숨결", 1.2),       # 아공이 (common) dragon
@@ -819,7 +819,7 @@ POKEMON_SKILLS = {
     373: [("유성군", 1.8), ("폭풍", 1.8)],              # 보만다 (legendary) dragon/flying
 
     # --- Beldum line (pseudo-legendary) (steel/psychic) ---
-    374: [("박치기", 1.2), ("염동력", 1.2)],            # 메탕 (common)
+    374: [("코멧펀치", 1.2), ("염동력", 1.2)],          # 메탕 (common)
     375: [("메탈클로", 1.3), ("사이코키네시스", 1.3)],  # 메탕구 (rare)
     376: [("코메트펀치", 1.8), ("사이코키네시스", 1.8)],# 메타그로스 (legendary)
 
