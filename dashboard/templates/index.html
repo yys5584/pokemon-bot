@@ -541,19 +541,24 @@
             #boardTable th,#boardTable td{padding:6px 4px!important}
         }
         /* Marketplace */
-        .mkt-card{position:relative;padding:12px;border-radius:12px;background:var(--card-bg);border:1px solid var(--border);transition:transform .15s,box-shadow .15s}
+        .mkt-card{position:relative;padding:14px;border-radius:12px;background:var(--card-bg);border:1px solid var(--border);transition:transform .15s,box-shadow .15s}
         .mkt-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
-        .mkt-card.shiny{border-color:#FFD700;box-shadow:0 0 8px rgba(255,215,0,.15)}
-        .mkt-card .mkt-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
-        .mkt-card .mkt-name{font-size:15px;font-weight:700}
-        .mkt-card .mkt-rarity{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;color:#fff}
-        .mkt-rar-common{background:#78909C}.mkt-rar-rare{background:#1E88E5}.mkt-rar-epic{background:#8E24AA}.mkt-rar-legendary{background:#F9A825;color:#333}.mkt-rar-ultra_legendary{background:#E53935}
-        .mkt-card .mkt-iv{font-size:11px;font-weight:600;padding:1px 5px;border-radius:3px;margin-left:4px}
+        .mkt-card.ultra_legendary{background:linear-gradient(135deg,#FFF0F0,#FFCDD2);border-color:#FFCDD2}
+        .mkt-card.legendary{background:linear-gradient(135deg,#FFFDE7,#FFF9C4);border-color:#FFF9C4}
+        .mkt-card.epic{background:linear-gradient(135deg,#F3E5F5,#EDE7F6);border-color:#EDE7F6}
+        .mkt-card.rare{background:linear-gradient(135deg,#E3F2FD,#E8EAF6);border-color:#E8EAF6}
+        .mkt-card.shiny{border-width:2px;border-style:solid;background:linear-gradient(135deg,#EDE0D0,#F2D0C8,#DCE8C8,#C8DCF0,#DCD0EC,#F0D8C8,#EDE0D0);background-size:300% 300%;animation:holoShimmer 4s ease-in-out infinite;overflow:hidden}
+        .mkt-card.shiny::before{content:'';position:absolute;top:-50%;width:25%;height:200%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);transform:rotate(25deg);animation:holoSweep 5s ease-in-out infinite;pointer-events:none;z-index:1}
+        .mkt-card .mkt-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+        .mkt-card .mkt-name{font-size:15px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .mkt-card .mkt-time{font-size:10px;color:#999;white-space:nowrap;margin-left:6px}
+        .mkt-card .mkt-iv{font-size:11px;font-weight:600;padding:1px 5px;border-radius:3px}
         .mkt-iv-S{background:#FFD700;color:#333}.mkt-iv-A{background:#4CAF50;color:#fff}.mkt-iv-B{background:#2196F3;color:#fff}.mkt-iv-C{background:#78909C;color:#fff}.mkt-iv-D{background:#555;color:#aaa}
-        .mkt-card .mkt-price{font-size:18px;font-weight:800;color:var(--accent);margin:8px 0 4px}
-        .mkt-card .mkt-seller{font-size:11px;color:var(--dim)}
-        .mkt-card .mkt-time{font-size:10px;color:var(--dim);position:absolute;top:8px;right:10px}
+        .mkt-card .mkt-price{font-size:18px;font-weight:800;color:var(--accent);margin:6px 0 6px}
+        .mkt-card .mkt-seller{font-size:11px;color:#888}
         .mkt-card .mkt-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0}
+        .mkt-card .mkt-types{display:flex;gap:3px;align-items:center}
+        .mkt-card .mkt-types img{width:16px;height:16px}
         .mkt-btn{padding:6px 16px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
         .mkt-btn-buy{background:var(--accent);color:#fff}.mkt-btn-buy:hover{filter:brightness(1.1)}
         .mkt-btn-cancel{background:#e57373;color:#fff}.mkt-btn-cancel:hover{background:#ef5350}
@@ -563,6 +568,17 @@
         .mkt-sell-card:hover,.mkt-sell-card.selected{border-color:var(--accent)}
         .mkt-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center}
         .mkt-modal{background:var(--card-bg);border-radius:16px;padding:24px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+        /* Detail view */
+        .mkt-grid-detail{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+        .mkt-detail .mkt-name{font-size:17px}
+        .mkt-detail .mkt-price{font-size:20px}
+        .mkt-detail .mkt-iv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 10px;font-size:11px;margin:6px 0}
+        .mkt-detail .mkt-iv-grid span{display:flex;justify-content:space-between}
+        .mkt-detail .mkt-iv-grid .iv-label{color:#888}
+        .mkt-detail .mkt-iv-grid .iv-val{font-weight:700}
+        .mkt-view-toggle{display:flex;gap:4px;margin-left:auto}
+        .mkt-view-btn{padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;font-size:12px;cursor:pointer;color:var(--dim)}
+        .mkt-view-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
     </style>
 </head>
 <body>
@@ -855,6 +871,10 @@
                         <option value="price_desc">가격 높은순</option>
                         <option value="rarity">등급순</option>
                     </select>
+                    <div class="mkt-view-toggle">
+                        <button class="mkt-view-btn active" id="mktViewCompact" onclick="setMktView('compact')" title="간단히 보기">🔲</button>
+                        <button class="mkt-view-btn" id="mktViewDetail" onclick="setMktView('detail')" title="상세 보기">📋</button>
+                    </div>
                 </div>
                 <div class="poke-grid" id="marketGrid"><div class="loading">로딩 중...</div></div>
                 <div id="marketPaging" style="text-align:center;margin:12px 0"></div>
@@ -4230,6 +4250,7 @@ function mktSearchDebounce(){
 
 async function marketFetchListings(){
     const grid=document.getElementById("marketGrid");
+    grid.className=_mktViewMode==="detail"?"mkt-grid-detail":"poke-grid";
     grid.innerHTML='<div class="loading">로딩 중...</div>';
     const params=new URLSearchParams();
     params.set("page",_mktPage);
@@ -4259,13 +4280,28 @@ async function marketFetchListings(){
     }
 }
 
+let _mktViewMode='compact';
+function setMktView(mode){
+    _mktViewMode=mode;
+    document.getElementById("mktViewCompact").classList.toggle("active",mode==="compact");
+    document.getElementById("mktViewDetail").classList.toggle("active",mode==="detail");
+    const grid=document.getElementById("marketGrid");
+    grid.className=mode==="detail"?"mkt-grid-detail":"poke-grid";
+    // Re-render with current data
+    const cards=grid.querySelectorAll(".mkt-card");
+    if(cards.length||grid.querySelector(".sim-empty")) marketFetchListings();
+}
+
 function renderMarketCard(l){
-    const shinyClass=l.is_shiny?"shiny":"";
+    const rarCls=l.is_shiny?"shiny":l.rarity||"";
     const shinyTag=l.is_shiny?' <span style="color:#FFD700">✨</span>':"";
-    const rarKo=MKT_RARITY_KO[l.rarity]||l.rarity;
     const ivBadge=l.iv_grade?`<span class="mkt-iv mkt-iv-${l.iv_grade}">${l.iv_grade}</span>`:"";
-    const ivText=l.iv_total!=null?`<span style="font-size:11px;color:var(--dim)">IV ${l.iv_total}</span>`:"";
-    const type2=l.type2?`/${l.type2}`:"";
+    const ivText=l.iv_total!=null?`IV ${l.iv_total}`:"";
+    // Type icons
+    let typeHtml=`<span class="mkt-types">`;
+    if(l.pokemon_type) typeHtml+=`<img src="/static/types/${l.pokemon_type}.png?v=2" title="${TYPE_NAMES[l.pokemon_type]||l.pokemon_type}">`;
+    if(l.type2) typeHtml+=`<img src="/static/types/${l.type2}.png?v=2" title="${TYPE_NAMES[l.type2]||l.type2}">`;
+    typeHtml+=`</span>`;
     const sellerIsMe=_authUser&&l.seller_id===_authUser.user_id;
     let btn;
     if(sellerIsMe){
@@ -4275,15 +4311,44 @@ function renderMarketCard(l){
     } else {
         btn=`<button class="mkt-btn mkt-btn-buy" onclick="marketBuy(${l.id},'${escHtml(l.pokemon_name)}',${l.price_bp})">구매</button>`;
     }
-    return `<div class="mkt-card ${shinyClass}">
-        <span class="mkt-time">${l.time_remaining||""}</span>
+    if(_mktViewMode==="detail"){
+        // Detail view: IV breakdown + larger card
+        let ivGrid="";
+        if(l.iv_hp!=null){
+            ivGrid=`<div class="mkt-iv-grid">
+                <span><span class="iv-label">HP</span><span class="iv-val" style="color:var(--green)">${l.iv_hp}</span></span>
+                <span><span class="iv-label">공격</span><span class="iv-val" style="color:var(--red)">${l.iv_atk}</span></span>
+                <span><span class="iv-label">방어</span><span class="iv-val" style="color:var(--blue)">${l.iv_def}</span></span>
+                <span><span class="iv-label">특공</span><span class="iv-val" style="color:#9C27B0">${l.iv_spa}</span></span>
+                <span><span class="iv-label">특방</span><span class="iv-val" style="color:#1565C0">${l.iv_spdef}</span></span>
+                <span><span class="iv-label">속도</span><span class="iv-val" style="color:var(--gold)">${l.iv_spd}</span></span>
+            </div>`;
+        }
+        return `<div class="mkt-card mkt-detail ${rarCls}">
+            <div class="mkt-top">
+                <span class="mkt-name">${l.emoji||""} ${escHtml(l.pokemon_name)}${shinyTag}</span>
+                <span class="mkt-time">${l.time_remaining||""}</span>
+            </div>
+            <div class="mkt-meta">
+                ${typeHtml} ${ivBadge} <span style="font-size:11px;color:#888">${ivText}</span>
+                <span style="font-size:10px;color:#aaa;margin-left:auto">친밀도 ${l.friendship!=null?l.friendship:"-"}</span>
+            </div>
+            ${ivGrid}
+            <div class="mkt-price">💰 ${(l.price_bp||0).toLocaleString()} BP</div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <span class="mkt-seller">판매: ${escHtml(l.seller_name)}</span>
+                ${btn}
+            </div>
+        </div>`;
+    }
+    // Compact view
+    return `<div class="mkt-card ${rarCls}">
         <div class="mkt-top">
             <span class="mkt-name">${l.emoji||""} ${escHtml(l.pokemon_name)}${shinyTag}</span>
-            <span class="mkt-rarity mkt-rar-${l.rarity}">${rarKo}</span>
+            <span class="mkt-time">${l.time_remaining||""}</span>
         </div>
         <div class="mkt-meta">
-            <span style="font-size:11px;color:var(--dim)">${l.pokemon_type||""}${type2}</span>
-            ${ivBadge} ${ivText}
+            ${typeHtml} ${ivBadge} <span style="font-size:11px;color:#888">${ivText}</span>
         </div>
         <div class="mkt-price">💰 ${(l.price_bp||0).toLocaleString()} BP</div>
         <div style="display:flex;justify-content:space-between;align-items:center">
