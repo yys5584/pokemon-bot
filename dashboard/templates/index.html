@@ -543,12 +543,13 @@
             #boardTable th,#boardTable td{padding:6px 4px!important}
         }
         /* Marketplace */
-        .mkt-card{position:relative;padding:14px;border-radius:12px;background:var(--card-bg);border:1px solid var(--border);transition:transform .15s,box-shadow .15s}
+        .mkt-card{position:relative;padding:14px;border-radius:12px;background:var(--card-bg);border:1px solid #d0d0d0;transition:transform .15s,box-shadow .15s}
         .mkt-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
         .mkt-card.ultra_legendary{background:linear-gradient(135deg,#FFF0F0,#FFCDD2);border-color:#FFCDD2}
         .mkt-card.legendary{background:linear-gradient(135deg,#FFFDE7,#FFF9C4);border-color:#FFF9C4}
         .mkt-card.epic{background:linear-gradient(135deg,#F3E5F5,#EDE7F6);border-color:#EDE7F6}
         .mkt-card.rare{background:linear-gradient(135deg,#E3F2FD,#E8EAF6);border-color:#E8EAF6}
+        .mkt-card.common,.mkt-card:not(.ultra_legendary):not(.legendary):not(.epic):not(.rare):not(.shiny){background:linear-gradient(135deg,#FAFAFA,#F5F5F5);border-color:#BDBDBD}
         .mkt-card.shiny{border-width:2px;border-style:solid;background:linear-gradient(135deg,#EDE0D0,#F2D0C8,#DCE8C8,#C8DCF0,#DCD0EC,#F0D8C8,#EDE0D0);background-size:300% 300%;animation:holoShimmer 4s ease-in-out infinite;overflow:hidden}
         .mkt-card.shiny::before{content:'';position:absolute;top:-50%;width:25%;height:200%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);transform:rotate(25deg);animation:holoSweep 5s ease-in-out infinite;pointer-events:none;z-index:1}
         .mkt-card .mkt-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
@@ -1455,6 +1456,16 @@
         <!-- MY POKEMON -->
         <div class="page" id="page-mypokemon">
             <div class="poke-summary" id="mySummary"><div class="loading">로딩 중...</div></div>
+            <!-- Team display -->
+            <div class="section" id="myTeamSection" style="display:none">
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+                    <h2 style="margin:0">⚔️ 나의 팀</h2>
+                    <button class="poke-filter active" id="teamViewBtn1" onclick="switchTeamView(1)" style="font-size:12px;padding:4px 12px">팀1</button>
+                    <button class="poke-filter" id="teamViewBtn2" onclick="switchTeamView(2)" style="font-size:12px;padding:4px 12px">팀2</button>
+                </div>
+                <div class="poke-grid" id="myTeamGrid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"></div>
+                <div id="myTeamEmpty" style="display:none;text-align:center;padding:16px;color:var(--dim);font-size:13px">해당 팀에 등록된 푸키몬이 없습니다. 텔레그램에서 <b>/팀설정</b> 명령으로 팀을 편성하세요.</div>
+            </div>
             <div class="section">
                 <h2>📦 내 푸키몬</h2>
                 <div class="poke-filters" id="pokeFilters">
@@ -2405,13 +2416,22 @@ function _renderTierPage(){
     const evoLabel={1:"1진화",2:"2진화",3:"최종"};
     const tf=window._tierTypeFilter, rf=window._tierRarityFilter;
 
+    // Cost map for tier display
+    const TIER_COST={"common":1,"rare":2,"epic":4,"legendary":5,"ultra_legendary":6};
+
     // Info box
     let h=`<div style="margin-bottom:14px;font-size:12px;color:var(--muted);line-height:2;background:var(--card);padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.06)">
-        <div style="margin-bottom:6px">
+        <div style="margin-bottom:4px">
             <b style="color:var(--text)">⚡ 전투력</b> = max(공격,특공) × 스킬배율 × 내구력(HP×방어)
             &nbsp;|&nbsp; 상위 2개 스탯 <b>굵게</b> 표시
             &nbsp;|&nbsp; 타입 아이콘 호버 시 상성 확인
             &nbsp;|&nbsp; 컬럼 클릭 시 정렬
+        </div>
+        <div style="margin-bottom:4px">
+            <b style="color:var(--text)">💎 팀 코스트</b>: 6마리 합계 <b>18</b> 이하 — 일반(1) · 레어(2) · 에픽(4) · 전설(5) · 초전설(6)
+        </div>
+        <div>
+            <b style="color:var(--text)">💡 꿀팁</b>: 이 티어표를 ChatGPT에 캡쳐해서 팀 편성 추천을 받아보세요! 타입 상성과 코스트를 고려한 최적 조합을 알려줍니다.
         </div>
     </div>`;
 
@@ -2472,7 +2492,7 @@ function _renderTierPage(){
         h+=`<tr>
             <td><b>${p.name}</b>${evoTag}</td>
             <td>${t1}${t2}</td>
-            <td><span class="badge badge-${p.rarity}" style="font-size:9px">${rarityLabel[p.rarity]||p.rarity}</span></td>
+            <td><span class="badge badge-${p.rarity}" style="font-size:9px" title="코스트: ${TIER_COST[p.rarity]||'?'}">${rarityLabel[p.rarity]||p.rarity}</span> <span style="font-size:9px;color:#999">${TIER_COST[p.rarity]||''}</span></td>
             <td class="hide-m" style="color:var(--orange)" title="${p.skill_name}">${p.skill_power}x</td>
             <td style="color:var(--green);${sw('hp',tops)}">${p.hp}${sbar(p.hp,mx.hp,'var(--green)')}</td>
             <td style="color:var(--red);${sw('atk',tops)}">${p.atk}${sbar(p.atk,mx.atk,'var(--red)')}</td>
@@ -2727,6 +2747,15 @@ async function loadMyPokemon(){
 
     _myPokemon=pokemon;
 
+    // Team section
+    const hasTeam=pokemon.some(p=>p.team_num);
+    const teamSec=document.getElementById("myTeamSection");
+    if(hasTeam){
+        teamSec.style.display="";
+        window._teamViewNum=window._teamViewNum||1;
+        renderTeamView(window._teamViewNum);
+    } else { teamSec.style.display="none"; }
+
     // Summary cards
     const wr=summary.battle_wins+summary.battle_losses>0?Math.round(summary.battle_wins/(summary.battle_wins+summary.battle_losses)*100):0;
     document.getElementById("mySummary").innerHTML=`
@@ -2897,6 +2926,29 @@ function renderMyPokemon(){
     }
     nav+='</div>';
     navEl.innerHTML=nav;
+}
+
+// --- Team View ---
+function switchTeamView(num){
+    window._teamViewNum=num;
+    document.getElementById("teamViewBtn1").classList.toggle("active",num===1);
+    document.getElementById("teamViewBtn2").classList.toggle("active",num===2);
+    renderTeamView(num);
+}
+function renderTeamView(num){
+    const grid=document.getElementById("myTeamGrid");
+    const empty=document.getElementById("myTeamEmpty");
+    const team=_myPokemon.filter(p=>p.team_num===num).sort((a,b)=>(a.team_slot||0)-(b.team_slot||0));
+    if(!team.length){grid.innerHTML="";empty.style.display="block";return}
+    empty.style.display="none";
+    // Calculate total cost
+    const COST_MAP={common:1,rare:2,epic:4,legendary:5,ultra_legendary:6};
+    const totalCost=team.reduce((s,p)=>s+(COST_MAP[p.rarity]||1),0);
+    const costHtml=`<div style="margin-bottom:8px;font-size:12px;color:var(--dim);display:flex;gap:12px;align-items:center">
+        <span>팀${num} · ${team.length}마리</span>
+        <span style="font-weight:600;color:${totalCost>18?'var(--red)':'var(--text)'}">코스트 ${totalCost}/18</span>
+    </div>`;
+    grid.innerHTML=costHtml+team.map(renderPokemonCard).join("");
 }
 
 // --- POKEDEX PAGE ---
