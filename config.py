@@ -431,6 +431,7 @@ BATTLE_TYPE_ADVANTAGE_MULT = 2.0    # 타입 유리 (본가 동일)
 BATTLE_TYPE_DISADVANTAGE_MULT = 0.5 # 타입 불리 (본가 동일)
 BATTLE_PARTNER_ATK_BONUS = 0.05     # 파트너 ATK 보너스 5%
 BATTLE_SKILL_RATE = 0.30             # 고유기술 발동 확률 30%
+BATTLE_BASE_POWER = 130              # 기본 기술위력 (본가 스타일 데미지 공식)
 
 # --- BP (Battle Points) ---
 BP_WIN_BASE = 20                    # 승리 기본 BP

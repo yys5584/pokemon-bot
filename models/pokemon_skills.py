@@ -527,7 +527,7 @@ POKEMON_SKILLS = {
     233: ("트라이어택", 1.5),    # 폴리곤2 (epic) normal
 
     # --- Stantler ---
-    234: ("사이코키네시스", 1.4),# 노라키 (rare) normal
+    234: ("박치기", 1.4),          # 노라키 (rare) normal
 
     # --- Smeargle ---
     235: ("스케치", 1.2),        # 루브도 (common) normal

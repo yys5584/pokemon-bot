@@ -171,8 +171,8 @@ def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str, str, float]:
         attack = atk_phys
         defense = defender["stats"]["def"]
 
-    # Base damage
-    base = max(1, attack - defense * 0.4)
+    # Base damage — 본가(Gen V+) 스타일 공식: ratio-based (A/D)
+    base = max(1, int((22 * config.BATTLE_BASE_POWER * attack / defense) / 50 + 2))
 
     # Type advantage — 이중 속성 중 유리한 타입 자동 선택
     type_mult, best_type_idx = get_type_multiplier(attacker["type"], defender["type"])
