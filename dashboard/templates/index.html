@@ -566,8 +566,9 @@
         .mkt-btn-cancel{background:#e57373;color:#fff}.mkt-btn-cancel:hover{background:#ef5350}
         .mkt-btn-sell{background:#66BB6A;color:#fff}.mkt-btn-sell:hover{background:#4CAF50}
         .mkt-btn:disabled{opacity:.5;cursor:not-allowed}
-        .mkt-sell-card{cursor:pointer;padding:10px;border-radius:10px;background:var(--card-bg);border:2px solid transparent;transition:border-color .15s}
-        .mkt-sell-card:hover,.mkt-sell-card.selected{border-color:var(--accent)}
+        .mkt-card.mkt-sellable{cursor:pointer;border:2px solid transparent}
+        .mkt-card.mkt-sellable:hover{border-color:var(--accent)}
+        .mkt-card.mkt-sellable.selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(231,76,60,.15)}
         .mkt-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center}
         .mkt-modal{background:var(--card-bg);border-radius:16px;padding:24px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3)}
         /* Detail view */
@@ -4460,23 +4461,30 @@ async function loadMarketSell(){
         if(!data||data.error){grid.innerHTML='<div class="sim-empty">로그인이 필요합니다.</div>';return}
         if(data.length===0){grid.innerHTML='<div class="sim-empty">판매 가능한 포켓몬이 없습니다.</div>';return}
         grid.innerHTML=data.map(p=>{
-            const shiny=p.is_shiny?'<span style="color:#FFD700">✨</span>':"";
+            const rarCls=p.is_shiny?"shiny":p.rarity||"";
+            const shinyTag=p.is_shiny?' <span style="color:#FFD700">✨</span>':"";
             const ivBadge=p.iv_grade?`<span class="mkt-iv mkt-iv-${p.iv_grade}">${p.iv_grade}</span>`:"";
+            const ivText=p.iv_total!=null?`IV ${p.iv_total}`:"";
+            let typeHtml=`<span class="mkt-types">`;
+            if(p.pokemon_type) typeHtml+=`<img src="/static/types/${p.pokemon_type}.png?v=2" title="${TYPE_NAMES[p.pokemon_type]||p.pokemon_type}">`;
+            if(p.type2) typeHtml+=`<img src="/static/types/${p.type2}.png?v=2" title="${TYPE_NAMES[p.type2]||p.type2}">`;
+            typeHtml+=`</span>`;
             const rarKo=MKT_RARITY_KO[p.rarity]||p.rarity;
-            return `<div class="mkt-sell-card" data-id="${p.id}" data-name="${escHtml(p.name_ko)}" data-emoji="${p.emoji||""}" data-rarity="${p.rarity}" onclick="mktSelectSellPokemon(this,${p.id},'${escHtml(p.name_ko)}','${p.emoji||""}','${rarKo}','${p.iv_grade||""}',${p.iv_total||0},${p.is_shiny?1:0})">
-                <div style="font-size:15px;font-weight:700">${p.emoji||""} ${escHtml(p.name_ko)} ${shiny}</div>
-                <div style="display:flex;gap:4px;align-items:center;margin-top:4px">
-                    <span class="mkt-rarity mkt-rar-${p.rarity}" style="font-size:9px">${rarKo}</span>
-                    ${ivBadge}
-                    <span style="font-size:11px;color:var(--dim)">IV ${p.iv_total||"?"}</span>
+            return `<div class="mkt-card mkt-sellable ${rarCls}" data-id="${p.id}" data-name="${escHtml(p.name_ko)}" data-emoji="${p.emoji||""}" data-rarity="${p.rarity}" onclick="mktSelectSellPokemon(this,${p.id},'${escHtml(p.name_ko)}','${p.emoji||""}','${rarKo}','${p.iv_grade||""}',${p.iv_total||0},${p.is_shiny?1:0})">
+                <div class="mkt-top">
+                    <span class="mkt-name">${p.emoji||""} ${escHtml(p.name_ko)}${shinyTag}</span>
                 </div>
+                <div class="mkt-meta">
+                    ${typeHtml} ${ivBadge} <span style="font-size:11px;color:#888">${ivText}</span>
+                </div>
+                <div style="font-size:11px;color:#888;margin-top:4px">친밀도 ${p.friendship!=null?p.friendship:"-"}</div>
             </div>`;
         }).join("");
     }catch(e){grid.innerHTML='<div class="sim-empty">오류가 발생했습니다.</div>'}
 }
 
 function mktSelectSellPokemon(el,id,name,emoji,rarKo,ivGrade,ivTotal,isShiny){
-    document.querySelectorAll(".mkt-sell-card").forEach(c=>c.classList.remove("selected"));
+    document.querySelectorAll(".mkt-card.mkt-sellable").forEach(c=>c.classList.remove("selected"));
     el.classList.add("selected");
     _mktSellSelected={id,name,emoji,isShiny};
     const shiny=isShiny?'<span style="color:#FFD700">✨</span>':"";
@@ -4540,18 +4548,26 @@ async function loadMarketMyListings(){
             return;
         }
         grid.innerHTML=data.map(l=>{
-            const shiny=l.is_shiny?'<span style="color:#FFD700">✨</span>':"";
-            const rarKo=MKT_RARITY_KO[l.rarity]||l.rarity;
+            const rarCls=l.is_shiny?"shiny":l.rarity||"";
+            const shinyTag=l.is_shiny?' <span style="color:#FFD700">✨</span>':"";
             const ivBadge=l.iv_grade?`<span class="mkt-iv mkt-iv-${l.iv_grade}">${l.iv_grade}</span>`:"";
-            return `<div class="mkt-card">
-                <span class="mkt-time">${l.time_remaining||""}</span>
+            const ivText=l.iv_total!=null?`IV ${l.iv_total}`:"";
+            let typeHtml=`<span class="mkt-types">`;
+            if(l.pokemon_type) typeHtml+=`<img src="/static/types/${l.pokemon_type}.png?v=2" title="${TYPE_NAMES[l.pokemon_type]||l.pokemon_type}">`;
+            if(l.type2) typeHtml+=`<img src="/static/types/${l.type2}.png?v=2" title="${TYPE_NAMES[l.type2]||l.type2}">`;
+            typeHtml+=`</span>`;
+            return `<div class="mkt-card ${rarCls}">
                 <div class="mkt-top">
-                    <span class="mkt-name">${l.emoji||""} ${escHtml(l.pokemon_name)} ${shiny}</span>
-                    <span class="mkt-rarity mkt-rar-${l.rarity}">${rarKo}</span>
+                    <span class="mkt-name">${l.emoji||""} ${escHtml(l.pokemon_name)}${shinyTag}</span>
+                    <span class="mkt-time">${l.time_remaining||""}</span>
                 </div>
-                <div class="mkt-meta">${ivBadge} <span style="font-size:11px;color:var(--dim)">IV ${l.iv_total||"?"}</span></div>
+                <div class="mkt-meta">
+                    ${typeHtml} ${ivBadge} <span style="font-size:11px;color:#888">${ivText}</span>
+                </div>
                 <div class="mkt-price">💰 ${(l.price_bp||0).toLocaleString()} BP</div>
-                <button class="mkt-btn mkt-btn-cancel" onclick="marketCancel(${l.id})">등록 취소</button>
+                <div style="display:flex;justify-content:flex-end;align-items:center">
+                    <button class="mkt-btn mkt-btn-cancel" onclick="marketCancel(${l.id})">등록 취소</button>
+                </div>
             </div>`;
         }).join("");
     }catch(e){grid.innerHTML='<div class="sim-empty">오류가 발생했습니다.</div>'}
