@@ -579,6 +579,12 @@
         .mkt-detail .mkt-iv-grid span{display:flex;justify-content:space-between}
         .mkt-detail .mkt-iv-grid .iv-label{color:#888}
         .mkt-detail .mkt-iv-grid .iv-val{font-weight:700}
+        /* Compact view */
+        .mkt-compact{padding:10px 12px}
+        .mkt-compact .mkt-name{font-size:13px}
+        .mkt-compact .mkt-price{font-size:15px;font-weight:800}
+        .mkt-compact .mkt-meta{margin:2px 0}
+        .mkt-compact .mkt-btn{padding:4px 12px;font-size:12px}
         .mkt-view-toggle{display:flex;gap:4px;margin-left:auto}
         .mkt-view-btn{padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;font-size:12px;cursor:pointer;color:var(--dim)}
         .mkt-view-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -4361,18 +4367,15 @@ function renderMarketCard(l){
             </div>
         </div>`;
     }
-    // Compact view
-    return `<div class="mkt-card ${rarCls}">
+    // Compact view — minimal: name + IV badge + price + button in tight layout
+    return `<div class="mkt-card mkt-compact ${rarCls}">
         <div class="mkt-top">
             <span class="mkt-name">${l.emoji||""} ${escHtml(l.pokemon_name)}${shinyTag}</span>
             <span class="mkt-time">${l.time_remaining||""}</span>
         </div>
-        <div class="mkt-meta">
-            ${typeHtml} ${ivBadge} <span style="font-size:11px;color:#888">${ivText}</span>
-        </div>
-        <div class="mkt-price">💰 ${(l.price_bp||0).toLocaleString()} BP</div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-            <span class="mkt-seller">판매: ${escHtml(l.seller_name)}</span>
+        <div class="mkt-meta">${typeHtml} ${ivBadge} <span style="font-size:11px;color:#888">${ivText}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+            <span class="mkt-price" style="margin:0">💰 ${(l.price_bp||0).toLocaleString()} BP</span>
             ${btn}
         </div>
     </div>`;
