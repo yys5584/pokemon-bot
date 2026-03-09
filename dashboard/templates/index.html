@@ -804,6 +804,8 @@
                     <button class="guide-tab" data-guide="nurture" onclick="switchGuide('nurture')">💕 육성</button>
                     <button class="guide-tab" data-guide="trade" onclick="switchGuide('trade')">🔄 거래 & 교환</button>
                     <button class="guide-tab" data-guide="mission" onclick="switchGuide('mission')">📋 일일 미션</button>
+                    <button class="guide-tab" data-guide="cxp" onclick="switchGuide('cxp')">🏠 채팅방 레벨</button>
+                    <button class="guide-tab" data-guide="upcoming" onclick="switchGuide('upcoming')">🚀 업데이트 예정</button>
                 </div>
 
                 <!-- ===== 상성표 ===== -->
@@ -1072,6 +1074,7 @@
                                 <tr><td><code>거래소 내꺼</code></td><td>내 매물 확인 & 취소</td></tr>
                                 <tr><td><code>거래소 검색 리자몽</code></td><td>매물 검색</td></tr>
                                 <tr><td><code>거래소 구매 42</code></td><td>42번 매물 구매</td></tr>
+                                <tr><td><code>거래소 취소 42</code></td><td>42번 매물 등록 취소</td></tr>
                             </table>
                             <ul class="guide-list">
                                 <li>최소 등록가: 100 BP</li>
@@ -1128,6 +1131,66 @@
                                 <tr><td>🌟 전체 완료 (올클리어)</td><td>🟣 마스터볼 1개</td></tr>
                             </table>
                             <p style="font-size:11px;color:var(--muted);margin-top:6px">미션 완료 시 보상은 자동 지급됩니다. 매일 자정(KST) 초기화.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== 채팅방 레벨 (CXP) ===== -->
+                <div class="guide-section" id="guide-cxp">
+                    <div class="guide-card">
+                        <h3>🏠 채팅방 레벨 시스템 (CXP)</h3>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">채팅방이 활발할수록 레벨이 올라가고, 모든 멤버가 혜택을 받아요!</p>
+
+                        <div class="guide-block">
+                            <h4>📈 CXP 획득 방법</h4>
+                            <p>채팅방에서 활동하면 자동으로 CXP(채팅방 경험치)가 쌓입니다.</p>
+                            <table class="guide-table">
+                                <tr><th>활동</th><th>CXP</th></tr>
+                                <tr><td>🎯 포켓몬 포획</td><td>+1</td></tr>
+                                <tr><td>⚔️ 배틀 참여</td><td>+2</td></tr>
+                                <tr><td>🔄 교환 완료</td><td>+1</td></tr>
+                                <tr><td>🎮 강제소환 사용</td><td>+1</td></tr>
+                            </table>
+                            <p style="font-size:11px;color:var(--muted);margin-top:6px">일일 CXP 획득 한도: 50 CXP (매일 자정 초기화)</p>
+                        </div>
+
+                        <div class="guide-block">
+                            <h4>⭐ 레벨별 혜택</h4>
+                            <table class="guide-table">
+                                <tr><th>Lv</th><th>필요 CXP</th><th>추가 스폰</th><th>이로치 부스트</th><th>등급 부스트</th><th>특수 혜택</th></tr>
+                                <tr><td>1</td><td>0</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+                                <tr><td>2</td><td>100</td><td>+1</td><td>+0.2%</td><td>-</td><td>-</td></tr>
+                                <tr><td>3</td><td>300</td><td>+1</td><td>+0.4%</td><td>에픽 ×1.1</td><td>-</td></tr>
+                                <tr><td>4</td><td>600</td><td>+2</td><td>+0.6%</td><td>에픽 ×1.1, 전설 ×1.05</td><td>🌟 일일 이로치 보너스</td></tr>
+                                <tr><td>5</td><td>1000</td><td>+2</td><td>+0.8%</td><td>에픽 ×1.1, 전설 ×1.05</td><td>🏆 명예의 전당</td></tr>
+                                <tr><td>6</td><td>1500</td><td>+3</td><td>+1.0%</td><td>에픽 ×1.15, 전설 ×1.05</td><td>-</td></tr>
+                                <tr><td>7</td><td>2000</td><td>+3</td><td>+1.2%</td><td>에픽 ×1.15, 전설 ×1.1</td><td>-</td></tr>
+                                <tr><td>8</td><td>3000</td><td>+3</td><td>+1.4%</td><td>에픽 ×1.15, 전설 ×1.1</td><td>🎰 자동 아케이드 (1시간/일)</td></tr>
+                                <tr><td>9</td><td>5000</td><td>+4</td><td>+1.7%</td><td>에픽 ×1.2, 전설 ×1.1</td><td>-</td></tr>
+                                <tr><td>10</td><td>8000</td><td>+4</td><td>+2.0%</td><td>에픽 ×1.2, 전설 ×1.15</td><td>📊 리더보드</td></tr>
+                            </table>
+                        </div>
+
+                        <div class="guide-block">
+                            <h4>💬 확인 방법</h4>
+                            <p>채팅방에서 <code>방정보</code> 입력 시 현재 레벨, CXP, 혜택을 확인할 수 있습니다.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== 업데이트 예정 ===== -->
+                <div class="guide-section" id="guide-upcoming">
+                    <div class="guide-card">
+                        <h3>🚀 업데이트 예정</h3>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">앞으로 추가될 기능을 미리 만나보세요!</p>
+
+                        <div class="guide-block">
+                            <h4>🌐 채널 네트워크 & 크로스 프로모션 <span style="background:#FF6B35;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;margin-left:8px">COMING SOON</span></h4>
+                            <ul class="guide-list">
+                                <li><b>채팅방 목록</b> — 활성화된 채팅방을 한눈에 확인하고 새로운 방을 발견하세요</li>
+                                <li><b>크로스 프로모션</b> — Lv.3 이상 채팅방은 다른 방에 자동 홍보 메시지가 노출됩니다</li>
+                                <li><b>새 채팅방 보너스</b> — 처음 방문한 채팅방에서 첫 포획 시 보너스 BP 지급!</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
