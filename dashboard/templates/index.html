@@ -2025,7 +2025,27 @@ document.querySelectorAll(".nav-tab").forEach(tab=>{
 
 // Handle browser back/forward
 window.addEventListener("popstate",(e)=>{
-    const page=e.state?.page||PATH_PAGES[location.pathname]||"home";
+    const st=e.state;
+    // Board deep-link: post detail
+    if(st&&st.page==="board"&&st.postId){
+        navigateTo("board",false);
+        boardOpenPost(st.postId,false);
+        return;
+    }
+    // Board deep-link: sub-tab (notice/community)
+    if(st&&st.page==="board"&&st.board){
+        navigateTo("board",false);
+        const el=document.querySelector(`.board-side-item[data-board="${st.board}"],.board-side-sub[data-board="${st.board}"]`);
+        if(el) boardSideNav(el,false);
+        return;
+    }
+    // Fallback: parse from pathname for board sub-paths
+    const path=location.pathname;
+    const postMatch=path.match(/^\/board\/post\/(\d+)$/);
+    if(postMatch){navigateTo("board",false);boardOpenPost(parseInt(postMatch[1]),false);return}
+    const boardMatch=path.match(/^\/board\/(notice|community)$/);
+    if(boardMatch){navigateTo("board",false);const el=document.querySelector(`.board-side-item[data-board="${boardMatch[1]}"],.board-side-sub[data-board="${boardMatch[1]}"]`);if(el)boardSideNav(el,false);return}
+    const page=st?.page||PATH_PAGES[path]||"home";
     navigateTo(page,false);
 });
 
@@ -4732,7 +4752,7 @@ let _boardTag = "";
 let _boardPage = 1;
 let _boardLoaded = false;
 
-function boardSideNav(el) {
+function boardSideNav(el, pushState=true) {
     const board = el.dataset.board;
     // Remove all active
     document.querySelectorAll(".board-side-item,.board-side-sub").forEach(e => e.classList.remove("active"));
@@ -4766,6 +4786,9 @@ function boardSideNav(el) {
     } else {
         wb.style.display = "none";
     }
+
+    // Update URL for board sub-tab
+    if (pushState) history.pushState({page:"board",board}, "", "/board/"+board);
 
     boardLoadList();
 }
@@ -4820,10 +4843,13 @@ async function boardLoadList() {
 
 function boardGoPage(p) { _boardPage = p; boardLoadList(); }
 
-async function boardOpenPost(id) {
+async function boardOpenPost(id, pushState=true) {
     document.getElementById("boardListView").style.display = "none";
     document.getElementById("boardDetailView").style.display = "";
     document.getElementById("boardLegacyView").style.display = "none";
+
+    // Update URL for post detail
+    if (pushState) history.pushState({page:"board",postId:id,board:_boardType}, "", "/board/post/"+id);
 
     try {
         const r = await fetch("/api/board/posts/" + id);
@@ -4873,6 +4899,8 @@ async function boardOpenPost(id) {
 function boardBackToList() {
     document.getElementById("boardDetailView").style.display = "none";
     document.getElementById("boardListView").style.display = "";
+    // Restore URL to board sub-tab
+    history.pushState({page:"board",board:_boardType}, "", "/board/"+_boardType);
     boardLoadList();
 }
 
@@ -5005,9 +5033,27 @@ function _escHtml(s) {
 // --- Init ---
 (async()=>{
     await checkAuth();
-    const initPage=PATH_PAGES[location.pathname]||"home";
-    if(initPage!=="home"){navigateTo(initPage,false)}
-    else{loadPage("home")}
+    const path=location.pathname;
+    // Board deep-link: post detail (/board/post/123)
+    const postMatch=path.match(/^\/board\/post\/(\d+)$/);
+    if(postMatch){
+        navigateTo("board",false);
+        history.replaceState({page:"board",postId:parseInt(postMatch[1]),board:_boardType},"",path);
+        boardOpenPost(parseInt(postMatch[1]),false);
+    }
+    // Board deep-link: sub-tab (/board/notice, /board/community)
+    else if(/^\/board\/(notice|community)$/.test(path)){
+        const sub=path.split("/")[2];
+        navigateTo("board",false);
+        history.replaceState({page:"board",board:sub},"",path);
+        const el=document.querySelector(`.board-side-item[data-board="${sub}"],.board-side-sub[data-board="${sub}"]`);
+        if(el) boardSideNav(el,false);
+    }
+    else{
+        const initPage=PATH_PAGES[path]||"home";
+        if(initPage!=="home"){navigateTo(initPage,false)}
+        else{loadPage("home")}
+    }
     setInterval(()=>{loaded[currentPage]=false;loadPage(currentPage)},60000);
 })();
 </script>

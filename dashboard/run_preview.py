@@ -1068,6 +1068,9 @@ def create_preview_app():
     # SPA catch-all
     for p in ["/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin", "/market"]:
         app.router.add_get(p, index)
+    # Board deep-link sub-routes
+    app.router.add_get("/board/post/{id}", index)
+    app.router.add_get("/board/{sub}", index)
     return app
 
 

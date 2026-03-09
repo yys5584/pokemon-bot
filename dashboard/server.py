@@ -3913,6 +3913,9 @@ def create_app() -> web.Application:
     SPA_PAGES = {"/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin", "/market"}
     for p in SPA_PAGES:
         app.router.add_get(p, index)
+    # Board deep-link sub-routes
+    app.router.add_get("/board/post/{id}", index)
+    app.router.add_get("/board/{sub}", index)
     return app
 
 
