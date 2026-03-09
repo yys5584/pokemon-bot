@@ -600,7 +600,7 @@ def main():
     # Ranked battle & Yacha (Betting Battle)
     app.add_handler(MessageHandler(group & filters.Regex(r"^랭전$"), ranked_challenge_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^야차$"), yacha_handler))
-    app.add_handler(CommandHandler("아레나등록", arena_register_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^아레나등록$"), arena_register_handler))
 
     # Admin group commands
     app.add_handler(MessageHandler(group & filters.Regex(r"^스폰배율"), spawn_rate_handler))
