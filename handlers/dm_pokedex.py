@@ -531,7 +531,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     if page == 0 and team_pokemon and not has_filter:
         teams = {}
         for p in team_pokemon:
-            tn = p.get("team_num", 1)
+            tn = p.get("team_num") or 1
             if tn not in teams:
                 teams[tn] = []
             teams[tn].append(p)
@@ -700,7 +700,7 @@ def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: i
             grade, _ = config.get_iv_grade(total)
             iv_tag = f" [{grade}]"
 
-        team_mark = f" ⚔{p.get('team_num','')}" if p.get("team_slot") is not None else ""
+        team_mark = f" ⚔{p.get('team_num') or 1}" if p.get("team_slot") is not None else ""
         lines.append(f"#{num}  {first['name_ko']}{shiny}  {hearts}{iv_tag}{team_mark}")
 
         label = f"#{num}{shiny[:1]}{iv_tag}"
@@ -790,7 +790,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
     # Team info
     team_info = ""
     if p.get("team_slot") is not None:
-        team_info = f"\n{icon_emoji('battle')} 팀{p.get('team_num', 1)} — {p['team_slot']}번 슬롯"
+        team_info = f"\n{icon_emoji('battle')} 팀{p.get('team_num') or 1} — {p['team_slot']}번 슬롯"
     lines.append(team_info)
 
     # Action buttons

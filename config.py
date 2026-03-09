@@ -143,7 +143,7 @@ MISSION_ALLCLEAR_MASTER = 1       # 전체 완료 보상 마스터볼
 
 # --- Group Trade ---
 GROUP_TRADE_TIMEOUT = 300          # 5분 자동 만료 (초)
-GROUP_TRADE_BP_COST = 100          # 그룹 교환 비용 (BP)
+GROUP_TRADE_BP_COST = 50           # 그룹 교환 비용 (BP)
 
 # --- Title System ---
 TITLES = [
@@ -342,6 +342,16 @@ def get_iv_grade(total: int) -> tuple[str, str]:
 RARITY_BASE_STAT = {
     "common": 65, "rare": 85, "epic": 110, "legendary": 150,
     "ultra_legendary": 180,
+}
+
+# Phase 2 (실제 베이스스탯) 레어리티 보정 배율
+# 커먼/레어의 원작 베이스스탯이 낮아 격차가 너무 큼 → 보정
+RARITY_BATTLE_MULT = {
+    "common": 1.15,          # +15% 보정
+    "rare": 1.05,            # +5% 보정
+    "epic": 1.0,
+    "legendary": 1.0,
+    "ultra_legendary": 1.0,   # 보정 없음 (이미 최강 — 코스트 구조로 필수 편성 유도)
 }
 
 STAT_SPREADS = {
@@ -554,6 +564,180 @@ def get_title_buff_by_name(title_name: str) -> dict | None:
 
 # 버프가 있는 칭호 이름 목록 (DB 쿼리용)
 BUFF_TITLE_NAMES = [UNLOCKABLE_TITLES[tid][0] for tid in TITLE_BUFFS]
+
+# ─── 랭크전 (시즌 배틀) ─────────────────────────────────
+
+# --- Ranked Tiers ---
+RANKED_TIERS = [
+    # (tier_key, name, icon, min_rp)
+    ("bronze",   "브론즈",     "🥉", 0),
+    ("silver",   "실버",       "🥈", 300),
+    ("gold",     "골드",       "🏅", 600),
+    ("platinum", "플래티넘",   "💎", 1000),
+    ("diamond",  "다이아",     "💠", 1500),
+    ("master",   "마스터",     "👑", 2000),
+    # 챌린저: RP 기반이 아니라 마스터 Top 10 중 자동 부여
+    ("challenger", "챌린저",   "⚔️", 99999),
+]
+# 챌린저 티어는 RP 임계값이 아닌 마스터 Top 10에게 동적 부여
+CHALLENGER_TOP_N = 10
+
+SEASON_DURATION_WEEKS = 2  # 시즌 기간 (주)
+
+def get_tier(rp: int) -> tuple:
+    """RP로 현재 티어 (key, name, icon) 반환. 챌린저는 별도 로직."""
+    result = RANKED_TIERS[0]
+    for t in RANKED_TIERS:
+        if t[0] == "challenger":
+            break  # 챌린저는 RP 기반이 아님
+        if rp >= t[3]:
+            result = t
+        else:
+            break
+    return result[0], result[1], result[2]
+
+def get_tier_index(tier_key: str) -> int:
+    """티어 키로 인덱스 반환 (bronze=0 ... challenger=6)."""
+    for i, t in enumerate(RANKED_TIERS):
+        if t[0] == tier_key:
+            return i
+    return 0
+
+# --- RP (Rank Points) ---
+RP_WIN_BASE = 30                # 승리 기본 RP
+RP_LOSE_BASE = 20               # 패배 기본 차감
+RP_LOSE_PROTECTED = 15          # 브론즈/실버 보호 차감
+RP_TIER_DIFF_MAX = 10           # 티어차 보정 최대 ±10
+RP_TIER_DIFF_PER = 5            # 티어 1단계당 보정
+RP_STREAK_PER = 2               # 연승 1회당 RP
+RP_STREAK_MAX = 10              # 연승 보너스 최대
+RP_SOFT_RESET_MULT = 0.4        # 시즌 소프트 리셋 배율 (2주 시즌)
+
+# --- Ranked Cost System (팀 편성 코스트) ---
+RANKED_COST = {
+    "common": 1,
+    "rare": 2,
+    "epic": 4,
+    "legendary": 6,
+    "ultra_legendary": 6,
+}
+RANKED_COST_LIMIT = 24          # 6마리 팀 총 코스트 상한
+RANKED_TEAM_SIZE = 6            # 팀 필수 인원
+RANKED_ULTRA_MAX = 1            # 초전설 최대 편성 수
+
+# --- Ranked Cooldowns ---
+RANKED_COOLDOWN_SAME = 1800     # 같은 상대 30분
+RANKED_COOLDOWN_GLOBAL = 120    # 전체 랭크전 2분
+RANKED_DAILY_CAP = 20           # 일일 랭크전 상한
+RANKED_ARENA_CXP_BONUS = 5     # 아레나 채팅방 CXP 보너스
+
+# --- Win-trading / Abuse Prevention ---
+RANKED_SAME_PAIR_DAILY_MAX = 5  # 같은 상대 일일 최대 대전 횟수
+RANKED_SAME_PAIR_RP_DECAY = [1.0, 1.0, 0.5, 0.25, 0.0]  # 1~5회차 RP 배율
+RANKED_TIER_GAP_PENALTY = 3     # 티어 3단계 이상 차이 시 상위자 RP 감소
+RANKED_TIER_GAP_RP_MIN = 5      # 티어 갭 패널티 시 최소 RP 획득
+RANKED_NEWBIE_PROTECTION = 10   # 첫 N전 RP 손실 50% 감소
+
+# --- Weekly Rules (시즌 법칙, 시즌 내내 고정) ---
+# 2주 시즌마다 1개 법칙 적용. 타입 벤 + 에픽 제한 포함.
+WEEKLY_RULES = {
+    # --- 자유 ---
+    "open": {
+        "name": "제한 없음",
+        "icon": "🏆",
+        "desc": "풀 오픈 (최강전)",
+        "error": "",
+    },
+    # --- 등급 제한 ---
+    "no_ultra": {
+        "name": "초전설 금지",
+        "icon": "🚫",
+        "desc": "초전설 포켓몬 사용 불가",
+        "error": "이번 시즌은 초전설 포켓몬을 사용할 수 없습니다!",
+    },
+    "no_legendary": {
+        "name": "전설 금지",
+        "icon": "🚫",
+        "desc": "전설+초전설 포켓몬 사용 불가",
+        "error": "이번 시즌은 전설/초전설 포켓몬을 사용할 수 없습니다!",
+    },
+    "epic_below": {
+        "name": "에픽 이하 전용",
+        "icon": "🎯",
+        "desc": "에픽 등급까지만 사용 가능",
+        "error": "이번 시즌은 에픽 이하 포켓몬만 사용 가능합니다!",
+    },
+    "no_final_evo": {
+        "name": "최종진화 금지",
+        "icon": "👶",
+        "desc": "최종진화 포켓몬 사용 불가",
+        "error": "이번 시즌은 최종진화 포켓몬을 사용할 수 없습니다!",
+    },
+    # --- 타입 금지 (메타 변동) ---
+    "no_normal": {
+        "name": "노말타입 금지",
+        "icon": "🚫",
+        "desc": "노말 타입 포켓몬 사용 불가 (잠만보, 럭키, 해피너스, 캥카 등)",
+        "error": "이번 시즌은 노말 타입 포켓몬을 사용할 수 없습니다!",
+    },
+    "no_dragon": {
+        "name": "드래곤타입 금지",
+        "icon": "🐉",
+        "desc": "드래곤 타입 포켓몬 사용 불가 (망나뇽, 보만다, 한카리아스 등)",
+        "error": "이번 시즌은 드래곤 타입 포켓몬을 사용할 수 없습니다!",
+    },
+    "no_psychic": {
+        "name": "에스퍼타입 금지",
+        "icon": "🔮",
+        "desc": "에스퍼 타입 포켓몬 사용 불가 (뮤츠, 뮤, 메타그로스 등)",
+        "error": "이번 시즌은 에스퍼 타입 포켓몬을 사용할 수 없습니다!",
+    },
+    # --- 에픽 제한 (코스트 밸런스) ---
+    "epic_max_2": {
+        "name": "에픽 2마리 제한",
+        "icon": "🔸",
+        "desc": "에픽 등급 최대 2마리까지만 편성",
+        "error": "이번 시즌은 에픽 등급 포켓몬을 2마리까지만 편성할 수 있습니다!",
+    },
+    "epic_water_ice": {
+        "name": "에픽 물/얼음만",
+        "icon": "🧊",
+        "desc": "에픽은 물/얼음 타입만 사용 가능 (마기라스, 망나뇽 등 불가)",
+        "error": "이번 시즌은 에픽 등급 포켓몬 중 물/얼음 타입만 사용 가능합니다!",
+    },
+    "epic_fire_fight": {
+        "name": "에픽 불꽃/격투만",
+        "icon": "👊",
+        "desc": "에픽은 불꽃/격투 타입만 사용 가능 (윈디, 괴력몬 등)",
+        "error": "이번 시즌은 에픽 등급 포켓몬 중 불꽃/격투 타입만 사용 가능합니다!",
+    },
+}
+
+# --- Ranked Rewards (주간 보상) ---
+RANKED_REWARDS = {
+    "challenger": {"masterball": 5, "bp": 800},
+    "master":     {"masterball": 3, "bp": 500},
+    "diamond":    {"masterball": 2, "bp": 300},
+    "platinum":   {"masterball": 1, "bp": 200},
+    "gold":       {"masterball": 0, "bp": 300},
+    "silver":     {"masterball": 0, "bp": 150},
+    "bronze":     {"masterball": 0, "bp": 50},
+}
+
+# --- Ranked Titles ---
+RANKED_TITLES = {
+    "ranked_first":    ("첫 랭크전",     "squirtle",   "랭크전 1회 참여",    "ranked_total", 1),
+    "ranked_silver":   ("실버 도달",     "wartortle",  "실버 티어 달성",     "ranked_tier", "silver"),
+    "ranked_gold":     ("골드 도달",     "charmander", "골드 티어 달성",     "ranked_tier", "gold"),
+    "ranked_platinum": ("플래티넘 도달", "charmeleon", "플래티넘 티어 달성", "ranked_tier", "platinum"),
+    "ranked_diamond":  ("다이아 도달",   "charizard",  "다이아 티어 달성",   "ranked_tier", "diamond"),
+    "ranked_master":   ("랭크 마스터",   "crown",      "마스터 티어 달성",   "ranked_tier", "master"),
+    "ranked_challenger": ("챌린저",      "crown",      "챌린저 티어 달성",   "ranked_tier", "challenger"),
+    "ranked_champion": ("시즌 챔피언",   "champion",   "시즌 1위 달성",      "ranked_rank", 1),
+    "ranked_streak5":  ("랭크 5연승",    "moltres",    "랭크전 5연승",       "ranked_streak", 5),
+    "ranked_streak10": ("랭크 10연승",   "moltres",    "랭크전 10연승",      "ranked_streak", 10),
+}
+UNLOCKABLE_TITLES.update(RANKED_TITLES)
 
 # --- Shiny (이로치) Titles ---
 SHINY_TITLES = {

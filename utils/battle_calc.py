@@ -112,15 +112,18 @@ def calc_battle_stats(
 
     hp_mult = getattr(config, 'BATTLE_HP_MULTIPLIER', 1)
 
+    # 레어리티 보정 (커먼/레어 격차 축소)
+    rarity_mult = config.RARITY_BATTLE_MULT.get(rarity, 1.0)
+
     if base_hp is not None:
-        # Phase 2: individual base stats (Lv50 formula)
+        # Phase 2: individual base stats (Lv50 formula) + rarity 보정
         return {
-            "hp":    int(base_hp * bonus * evo_mult * _iv_mult(iv_hp) * hp_mult),
-            "atk":   int(base_atk * bonus * evo_mult * _iv_mult(iv_atk)),
-            "def":   int(base_def * bonus * evo_mult * _iv_mult(iv_def)),
-            "spa":   int(base_spa * bonus * evo_mult * _iv_mult(iv_spa)),
-            "spdef": int(base_spdef * bonus * evo_mult * _iv_mult(iv_spdef)),
-            "spd":   int(base_spd * bonus * evo_mult * _iv_mult(iv_spd)),
+            "hp":    int(base_hp * bonus * evo_mult * _iv_mult(iv_hp) * rarity_mult * hp_mult),
+            "atk":   int(base_atk * bonus * evo_mult * _iv_mult(iv_atk) * rarity_mult),
+            "def":   int(base_def * bonus * evo_mult * _iv_mult(iv_def) * rarity_mult),
+            "spa":   int(base_spa * bonus * evo_mult * _iv_mult(iv_spa) * rarity_mult),
+            "spdef": int(base_spdef * bonus * evo_mult * _iv_mult(iv_spdef) * rarity_mult),
+            "spd":   int(base_spd * bonus * evo_mult * _iv_mult(iv_spd) * rarity_mult),
         }
 
     # Phase 1: rarity-based base stats + spread (legacy)
