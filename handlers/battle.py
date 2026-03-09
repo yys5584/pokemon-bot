@@ -424,7 +424,11 @@ async def _build_slot_pokemon_list(user_id: int, slot: int, draft: dict,
     slot_plain = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
     active_filter = draft.get("filter", "all")
 
-    pokemon_list = await queries.get_user_pokemon_list(user_id)
+    # Cache pokemon list in draft to avoid repeated DB queries
+    pokemon_list = draft.get("pokemon_cache")
+    if pokemon_list is None:
+        pokemon_list = await queries.get_user_pokemon_list(user_id)
+        draft["pokemon_cache"] = pokemon_list
     if not pokemon_list:
         return "보유한 포켓몬이 없습니다.", InlineKeyboardMarkup([])
 
