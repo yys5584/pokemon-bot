@@ -141,8 +141,16 @@ def _build_copies_panel(user_id: int, copies: list[dict], sel_a: int | None, sel
             text += f"② {_pokemon_summary(pb)}\n"
 
     if sel_a and sel_b:
-        shiny = any(p.get("is_shiny") for p in copies if p["id"] in (sel_a, sel_b))
-        text += f"\n→ 결과: 랜덤 IV{' ⭐이로치' if shiny else ''}\n"
+        selected = [p for p in copies if p["id"] in (sel_a, sel_b)]
+        shiny_count = sum(1 for p in selected if p.get("is_shiny"))
+        any_shiny = shiny_count > 0
+        both_shiny = shiny_count == 2
+        if both_shiny:
+            text += "\n→ 결과: ⭐이로치 + 최소 A등급(IV 120+) 보장!\n"
+        elif any_shiny:
+            text += "\n→ 결과: ⭐이로치 유지 + 랜덤 IV\n"
+        else:
+            text += "\n→ 결과: 랜덤 IV\n"
         text += "\n⚠️ <b>합성한 포켓몬은 되돌릴 수 없습니다!</b>"
 
     return text, InlineKeyboardMarkup(rows)

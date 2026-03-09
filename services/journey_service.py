@@ -57,10 +57,11 @@ GUIDE_TIPS = [
     "💡 채팅방에서 출석 을 매일 치면 하이퍼볼을 받을 수 있어요!",
     "💡 DM에서 파트너 피카츄 로 파트너를 설정하면 배틀에서 공격력 +5%!",
     "💡 DM에서 진화 피카츄 로 친밀도 MAX인 포켓몬을 진화시킬 수 있어요!",
+    "💡 합성 팁: ⭐이로치 + 일반 합성 → 이로치 유지! ⭐+⭐ 합성 → 최소 A등급 보장!",
     "💡 tgpoke.com 대시보드에서 내 포켓몬을 한눈에 볼 수 있어요!",
 ]
 
-JOURNEY_COMPLETE_STEP = 13  # step >= 13 means fully done
+JOURNEY_COMPLETE_STEP = 14  # step >= 14 means fully done (6 milestones + 8 tips)
 
 
 async def check_journey(user_id: int) -> str | None:

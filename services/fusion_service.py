@@ -84,11 +84,11 @@ async def execute_fusion(
     if pa["pokemon_id"] != pb["pokemon_id"]:
         return False, "같은 종류의 포켓몬만 합성할 수 있습니다.", None
 
-    # 이로치 합성 제한: 이로치는 이로치끼리만
+    # 이로치 판정: 하나라도 이로치면 결과도 이로치
     a_shiny = bool(pa.get("is_shiny"))
     b_shiny = bool(pb.get("is_shiny"))
-    if a_shiny != b_shiny:
-        return False, "⭐ 이로치는 이로치끼리만 합성할 수 있습니다!", None
+    both_shiny = a_shiny and b_shiny
+    any_shiny = a_shiny or b_shiny
 
     # Phase 2: protection + lock checks in parallel
     protected, (locked_a, reason_a), (locked_b, reason_b) = await asyncio.gather(
@@ -105,7 +105,7 @@ async def execute_fusion(
     if locked_b:
         return False, reason_b, None
 
-    is_shiny = a_shiny  # 이로치끼리만 합성 가능하므로 둘 다 같은 상태
+    is_shiny = any_shiny  # 하나라도 이로치면 결과도 이로치
 
     # Phase 3: deactivate both in parallel
     await asyncio.gather(
@@ -115,15 +115,37 @@ async def execute_fusion(
 
     # Create new Pokemon with random IVs
     pokemon_id = pa["pokemon_id"]
+
+    # 이로치+이로치 합성 시 최소 IV A등급(120+) 보장
+    forced_ivs = None
+    if both_shiny:
+        from utils.battle_calc import generate_ivs
+        MIN_IV_TOTAL = 120  # A등급 최소
+        for _ in range(200):  # 최대 200번 재시도
+            candidate = generate_ivs(is_shiny=True)
+            total = sum(candidate.values())
+            if total >= MIN_IV_TOTAL:
+                forced_ivs = candidate
+                break
+        if forced_ivs is None:
+            # 극히 드물지만 200번 안에 못 맞추면 강제 보정
+            forced_ivs = generate_ivs(is_shiny=True)
+            while sum(forced_ivs.values()) < MIN_IV_TOTAL:
+                lowest_key = min(forced_ivs, key=forced_ivs.get)
+                forced_ivs[lowest_key] = min(31, forced_ivs[lowest_key] + 1)
+
     new_id, new_ivs = await queries.give_pokemon_to_user(
         user_id, pokemon_id, chat_id=None, is_shiny=is_shiny,
+        ivs=forced_ivs,
     )
 
     result = await queries.get_user_pokemon_by_id(new_id)
 
+    fusion_type = "shiny+shiny" if both_shiny else ("shiny+normal" if any_shiny else "normal")
     logger.info(
-        "Fusion: user=%s species=%s (%s+%s)->%s shiny=%s",
+        "Fusion: user=%s species=%s (%s+%s)->%s shiny=%s type=%s iv_total=%s",
         user_id, pokemon_id, instance_id_a, instance_id_b, new_id, is_shiny,
+        fusion_type, sum(new_ivs.values()),
     )
 
     return True, "합성 성공!", result
