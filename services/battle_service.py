@@ -526,7 +526,6 @@ async def execute_battle(
     )
 
     # Get display names — challenger always LEFT, defender always RIGHT
-    from database import queries
     c_user = await queries.get_user(challenger_id)
     d_user = await queries.get_user(defender_id)
     c_name = c_user["display_name"] if c_user else "???"
