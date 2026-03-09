@@ -91,6 +91,7 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  진화 [이름] — 진화 (친밀도 MAX 시)\n"
         "  감정 [이름] — 포켓몬 개체값 확인\n\n"
         "⚔️ 【배틀】 — DM에서 팀 구성, 채팅방에서 대전\n"
+        "  💰 COST: 일반1/레어2/에픽4/전설5/초전설6 (합계18이하)\n"
         "  파트너 — 파트너 포켓몬 지정\n"
         "  팀등록 — 배틀 팀 등록 (최대 6마리)\n"
         "  팀 — 내 배틀 팀 확인\n"

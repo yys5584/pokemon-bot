@@ -340,7 +340,8 @@ def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, In
             rarity = rarities.get(inst_id, "")
             total_cost += config.RANKED_COST.get(rarity, 0)
 
-    header = f"{icon_emoji('battle')} 배틀 팀 {team_num} 편집  ({filled}/{TEAM_MAX})  💰 {total_cost}/{config.RANKED_COST_LIMIT}"
+    cost_warn = " ⚠️초과!" if total_cost > config.RANKED_COST_LIMIT else ""
+    header = f"{icon_emoji('battle')} 배틀 팀 {team_num} 편집  ({filled}/{TEAM_MAX})  💰 {total_cost}/{config.RANKED_COST_LIMIT}{cost_warn}"
     if swap_mode:
         if swap_first is not None:
             first_name = names.get(current.get(swap_first), "(빈)")
@@ -574,6 +575,16 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
     lines.append(f"\n{icon_emoji('bolt')} 팀 전투력: {total_tag}")
     lines.append(f"💰 팀 코스트: {total_cost}/{config.RANKED_COST_LIMIT}")
+
+    if total_cost > config.RANKED_COST_LIMIT:
+        lines.append(
+            f"\n⚠️ <b>코스트 초과!</b> ({total_cost}/{config.RANKED_COST_LIMIT})\n"
+            "랭크전/토너먼트 참가가 불가합니다.\n"
+            "💡 '팀편집'으로 팀을 수정해주세요!\n"
+            "\n📋 등급별 코스트:\n"
+            "  ⬜일반 1 / 🟦레어 2 / 🟪에픽 4\n"
+            "  🟨전설 5 / 🟧초전설 6"
+        )
 
     if team_num != active_num:
         lines.append(f"\n💡 '팀선택 {team_num}'으로 이 팀을 배틀에 사용할 수 있습니다.")
@@ -2629,7 +2640,11 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if total_cost > config.RANKED_COST_LIMIT:
         await update.message.reply_text(
             f"❌ 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n"
-            f"팀을 수정해주세요."
+            f"'팀편집'으로 팀을 수정해주세요.\n\n"
+            f"📋 등급별 코스트:\n"
+            f"  ⬜일반 1 / 🟦레어 2 / 🟪에픽 4\n"
+            f"  🟨전설 5 / 🟧초전설 6\n"
+            f"  6마리 합계 {config.RANKED_COST_LIMIT} 이하"
         )
         return
     if ultra_count > config.RANKED_ULTRA_MAX:

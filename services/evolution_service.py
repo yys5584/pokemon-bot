@@ -19,6 +19,14 @@ async def try_evolve(user_id: int, instance_id: int) -> tuple[bool, str]:
     if pokemon["user_id"] != user_id:
         return False, "해당 포켓몬을 찾을 수 없습니다."
 
+    # 배틀팀에 있는 포켓몬은 진화 불가 (진화 시 코스트 변동 방지)
+    protected = await queries.get_protected_pokemon_ids(user_id)
+    if instance_id in protected:
+        return False, (
+            "⚔️ 배틀팀/파트너/거래소에 등록된 포켓몬은 진화할 수 없습니다!\n"
+            "팀에서 빼거나 등록을 해제한 후 다시 시도하세요."
+        )
+
     pokemon_id = pokemon["pokemon_id"]
     master = await queries.get_pokemon(pokemon_id)
 
