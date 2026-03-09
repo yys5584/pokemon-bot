@@ -1,12 +1,13 @@
-"""DM handlers for trading: 교환, 수락, 거절."""
+"""DM handlers for trading: 교환, 수락, 거절, 교환진화 선택."""
 
 import logging
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import config
 from database import queries
 from services.trade_service import create_trade_offer, accept_trade
+from services.evolution_service import try_trade_evolve
 from utils.parse import parse_args
 from utils.helpers import type_badge, hearts_display, shiny_emoji, icon_emoji
 from utils.battle_calc import iv_total
@@ -191,6 +192,31 @@ async def accept_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message)
 
     if success and trade_info:
+        # Send trade evolution choice DM to receiver
+        if trade_info.get("pending_evo"):
+            try:
+                evo = trade_info["pending_evo"]
+                source = await queries.get_pokemon(evo["source_id"])
+                target = await queries.get_pokemon(evo["target_id"])
+                if source and target:
+                    evo_text = (
+                        f"✨ 교환 진화 가능!\n\n"
+                        f"{source['emoji']} {source['name_ko']}을(를)\n"
+                        f"{target['emoji']} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
+                        f"진화하시겠습니까?"
+                    )
+                    evo_buttons = [[
+                        InlineKeyboardButton("✨ 진화시키기", callback_data=f"tevo_yes_{evo['instance_id']}"),
+                        InlineKeyboardButton("❌ 그대로 유지", callback_data=f"tevo_no_{evo['instance_id']}"),
+                    ]]
+                    await context.bot.send_message(
+                        chat_id=user_id, text=evo_text,
+                        reply_markup=InlineKeyboardMarkup(evo_buttons),
+                    )
+            except Exception:
+                pass
+
+        # Notify sender
         try:
             receiver = await queries.get_user(user_id)
             receiver_name = receiver["display_name"] if receiver else "트레이너"
@@ -270,3 +296,43 @@ async def reject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         logger.warning(f"Could not DM trade rejection to sender: {e}")
+
+
+async def trade_evo_choice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle tevo_yes_{instance_id} / tevo_no_{instance_id} callbacks for trade evolution choice."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+    await query.answer()
+
+    data = query.data
+    user_id = query.from_user.id
+
+    if data.startswith("tevo_yes_"):
+        try:
+            instance_id = int(data.split("_")[2])
+        except (ValueError, IndexError):
+            return
+        pokemon = await queries.get_user_pokemon_by_id(instance_id)
+        if not pokemon or pokemon["user_id"] != user_id:
+            try:
+                await query.edit_message_text("해당 포켓몬을 찾을 수 없습니다.")
+            except Exception:
+                pass
+            return
+        evo_msg = await try_trade_evolve(user_id, instance_id, pokemon["pokemon_id"])
+        try:
+            if evo_msg:
+                await query.edit_message_text(f"🎉 진화 완료!{evo_msg}")
+            else:
+                await query.edit_message_text("진화할 수 없는 포켓몬입니다.")
+        except Exception:
+            pass
+        return
+
+    if data.startswith("tevo_no_"):
+        try:
+            await query.edit_message_text("포켓몬을 그대로 유지합니다. 🐾")
+        except Exception:
+            pass
+        return

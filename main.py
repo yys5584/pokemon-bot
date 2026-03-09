@@ -41,6 +41,7 @@ from handlers.battle import (
 from handlers.dm_nurture import feed_handler, play_handler, evolve_handler, nurture_callback_handler, nurture_menu_handler
 # DM trade removed — replaced by group reply trade
 # from handlers.dm_trade import trade_handler, accept_handler, reject_handler
+from handlers.dm_trade import trade_evo_choice_handler
 from handlers.dm_market import (
     market_handler, market_register_handler, market_my_handler,
     market_cancel_handler, market_buy_handler, market_search_handler,
@@ -681,6 +682,9 @@ def main():
 
     # Marketplace callbacks
     app.add_handler(CallbackQueryHandler(market_callback_handler, pattern=r"^mkt_"))
+
+    # Trade evolution choice callbacks
+    app.add_handler(CallbackQueryHandler(trade_evo_choice_handler, pattern=r"^tevo_"))
 
     # Group trade callbacks
     app.add_handler(CallbackQueryHandler(group_trade_callback_handler, pattern=r"^gtrade_"))

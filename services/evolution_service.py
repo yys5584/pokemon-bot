@@ -71,6 +71,18 @@ async def try_evolve(user_id: int, instance_id: int) -> tuple[bool, str]:
     )
 
 
+def build_trade_evo_info(pokemon_id: int, instance_id: int) -> dict | None:
+    """Check if pokemon is eligible for trade evolution. Returns info dict or None.
+    Synchronous — no DB calls."""
+    if pokemon_id not in config.TRADE_EVOLUTION_MAP:
+        return None
+    return {
+        "instance_id": instance_id,
+        "source_id": pokemon_id,
+        "target_id": config.TRADE_EVOLUTION_MAP[pokemon_id],
+    }
+
+
 async def try_trade_evolve(user_id: int, instance_id: int, pokemon_id: int) -> str | None:
     """Check and perform trade evolution after a trade.
     Returns evolution message or None."""

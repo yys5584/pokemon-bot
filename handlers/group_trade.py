@@ -12,7 +12,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from database import battle_queries as bq
-from services.evolution_service import try_trade_evolve
+from services.evolution_service import build_trade_evo_info
 from utils.battle_calc import iv_total
 from utils.helpers import update_title
 
@@ -276,8 +276,8 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
         # Register in pokedex
         await queries.register_pokedex(user_id, trade["offer_pokemon_id"], "trade")
 
-        # Check trade evolution
-        evo_msg = await try_trade_evolve(user_id, new_instance_id, trade["offer_pokemon_id"])
+        # Check trade evolution eligibility (don't auto-evolve)
+        pending_evo = build_trade_evo_info(trade["offer_pokemon_id"], new_instance_id)
 
         # Update trade status
         await queries.update_trade_status(trade_id, "accepted")
@@ -323,8 +323,6 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
             f"{trade['from_name']}님의 {trade['offer_emoji']} {trade['offer_name']}{shiny_tag}\n"
             f"→ {trade['to_name']}님에게 전달되었습니다!"
         )
-        if evo_msg:
-            result_text += evo_msg
 
         await query.answer("교환 성사!")
         try:
@@ -345,11 +343,32 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
             pass
         try:
             recv_msg = f"{_ex} 그룹 교환 완료!\n{trade['offer_emoji']} {trade['offer_name']}{shiny_tag}을(를) 받았습니다!"
-            if evo_msg:
-                recv_msg += evo_msg
             await context.bot.send_message(chat_id=user_id, text=recv_msg, parse_mode="HTML")
         except Exception:
             pass
+
+        # Send trade evolution choice DM to receiver
+        if pending_evo:
+            try:
+                source = await queries.get_pokemon(pending_evo["source_id"])
+                target = await queries.get_pokemon(pending_evo["target_id"])
+                if source and target:
+                    evo_text = (
+                        f"✨ 교환 진화 가능!\n\n"
+                        f"{source['emoji']} {source['name_ko']}을(를)\n"
+                        f"{target['emoji']} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
+                        f"진화하시겠습니까?"
+                    )
+                    evo_buttons = [[
+                        InlineKeyboardButton("✨ 진화시키기", callback_data=f"tevo_yes_{pending_evo['instance_id']}"),
+                        InlineKeyboardButton("❌ 그대로 유지", callback_data=f"tevo_no_{pending_evo['instance_id']}"),
+                    ]]
+                    await context.bot.send_message(
+                        chat_id=user_id, text=evo_text,
+                        reply_markup=InlineKeyboardMarkup(evo_buttons),
+                    )
+            except Exception:
+                pass
         return
 
     if data.startswith("gtrade_reject_"):

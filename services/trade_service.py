@@ -5,7 +5,7 @@ import logging
 import config
 from database import queries
 from database import battle_queries as bq
-from services.evolution_service import try_trade_evolve
+from services.evolution_service import build_trade_evo_info
 from utils.helpers import update_title, type_badge, icon_emoji
 
 logger = logging.getLogger(__name__)
@@ -111,16 +111,16 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
         user_id, offer_pokemon_id, is_shiny=is_shiny, ivs=original_ivs
     )
 
-    # Phase: pokedex + trade evolve + trade status + title updates in parallel
+    # Phase: pokedex + trade status + title updates in parallel
     reg_task = queries.register_pokedex(user_id, offer_pokemon_id, "trade")
-    evo_task = try_trade_evolve(user_id, new_instance_id, offer_pokemon_id)
     status_task = queries.update_trade_status(trade_id, "accepted")
     title1_task = update_title(user_id)
     title2_task = update_title(from_user_id)
 
-    _, evo_msg, _, _, _ = await asyncio.gather(
-        reg_task, evo_task, status_task, title1_task, title2_task,
-    )
+    await asyncio.gather(reg_task, status_task, title1_task, title2_task)
+
+    # Check trade evolution eligibility (don't auto-evolve)
+    pending_evo = build_trade_evo_info(offer_pokemon_id, new_instance_id)
 
     shiny_tag = " ★이로치" if is_shiny else ""
     tb = type_badge(trade["offer_pokemon_id"]) if trade.get("offer_pokemon_id") else ""
@@ -128,7 +128,6 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
         f"{icon_emoji('check')} 교환 성사!\n\n"
         f"{tb} {trade['offer_name']}{shiny_tag}을(를) 받았습니다!"
     )
-    if evo_msg:
-        msg += evo_msg
 
+    trade["pending_evo"] = pending_evo
     return True, msg, trade

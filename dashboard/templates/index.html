@@ -543,7 +543,7 @@
             #boardTable th,#boardTable td{padding:6px 4px!important}
         }
         /* Marketplace */
-        .mkt-card{position:relative;padding:14px;border-radius:12px;background:var(--card-bg);border:1px solid #d0d0d0;transition:transform .15s,box-shadow .15s}
+        .mkt-card{position:relative;padding:14px;border-radius:12px;background:var(--card,#fff);border:1px solid #d0d0d0;transition:transform .15s,box-shadow .15s}
         .mkt-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
         .mkt-card.ultra_legendary{background:linear-gradient(135deg,#FFF0F0,#FFCDD2);border-color:#FFCDD2}
         .mkt-card.legendary{background:linear-gradient(135deg,#FFFDE7,#FFF9C4);border-color:#FFF9C4}
@@ -571,7 +571,7 @@
         .mkt-card.mkt-sellable:hover{border-color:var(--accent)}
         .mkt-card.mkt-sellable.selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(231,76,60,.15)}
         .mkt-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center}
-        .mkt-modal{background:var(--card-bg);border-radius:16px;padding:24px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+        .mkt-modal{background:var(--card,#fff);border-radius:16px;padding:24px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3)}
         /* Detail view */
         .mkt-grid-detail{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
         .mkt-detail .mkt-name{font-size:17px}
@@ -904,7 +904,7 @@
                     </div>
                     <div id="mktSellGrid" class="poke-grid"></div>
                     <!-- Price input (shown after selecting a pokemon) -->
-                    <div id="mktSellForm" style="display:none;margin-top:16px;padding:16px;background:var(--card-bg);border-radius:12px;border:1px solid var(--border)">
+                    <div id="mktSellForm" style="display:none;margin-top:16px;padding:16px;background:var(--card,#fff);border-radius:12px;border:1px solid var(--border)">
                         <div id="mktSellSelected" style="margin-bottom:12px"></div>
                         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                             <label style="font-weight:600">가격 (BP):</label>
@@ -2786,16 +2786,16 @@ async function loadMyPokemon(){
     }
 
     // Rarity filter dropdown
-    document.getElementById("pokeRarityFilter").onchange=function(){_pokeFilter=this.value;_pgState._pokePg=0;renderMyPokemon()};
+    document.getElementById("pokeRarityFilter").onchange=function(){_pokeFilter=this.value;_pgState._pokePg=0;_pokeTablePg=0;renderMyPokemon()};
     // Shiny toggle button
     document.getElementById("shinyFilterBtn").onclick=function(){
         _pokeShinyFilter=!_pokeShinyFilter;
         this.classList.toggle("active",_pokeShinyFilter);
-        _pgState._pokePg=0;renderMyPokemon();
+        _pgState._pokePg=0;_pokeTablePg=0;renderMyPokemon();
     };
-    document.getElementById("pokeGenFilter").onchange=function(){_pokeGenFilter=this.value;_pgState._pokePg=0;renderMyPokemon()};
-    document.getElementById("pokeTypeFilter").onchange=function(){_pokeTypeFilter=this.value;_pgState._pokePg=0;renderMyPokemon()};
-    document.getElementById("pokeSortBy").onchange=function(){_pokeSort=this.value;_pgState._pokePg=0;renderMyPokemon()};
+    document.getElementById("pokeGenFilter").onchange=function(){_pokeGenFilter=this.value;_pgState._pokePg=0;_pokeTablePg=0;renderMyPokemon()};
+    document.getElementById("pokeTypeFilter").onchange=function(){_pokeTypeFilter=this.value;_pgState._pokePg=0;_pokeTablePg=0;renderMyPokemon()};
+    document.getElementById("pokeSortBy").onchange=function(){_pokeSort=this.value;_pgState._pokePg=0;_pokeTablePg=0;renderMyPokemon()};
 
     renderMyPokemon();
 }
@@ -2972,11 +2972,29 @@ function togglePokeTableView(){
     document.getElementById("pokeTableWrap").style.display=_pokeTableMode?"":"none";
     if(_pokeTableMode) renderPokeTable();
 }
+let _pokeTablePg=0;
+const _POKE_TABLE_PER_PAGE=200;
 function renderPokeTable(){
-    const list=filterAndSortPokemon().slice(0,200);
+    const allList=filterAndSortPokemon();
+    const totalPages=Math.max(1,Math.ceil(allList.length/_POKE_TABLE_PER_PAGE));
+    _pokeTablePg=Math.min(_pokeTablePg,totalPages-1);
+    const start=_pokeTablePg*_POKE_TABLE_PER_PAGE;
+    const list=allList.slice(start,start+_POKE_TABLE_PER_PAGE);
     const COST_MAP={common:1,rare:2,epic:4,legendary:5,ultra_legendary:6};
     const rarKo={ultra_legendary:"초전설",legendary:"전설",epic:"에픽",rare:"레어",common:"일반"};
-    let h=`<div style="font-size:11px;color:var(--dim);margin-bottom:4px">${list.length}마리 표시 (최대 200)</div>`;
+    let h="";
+    // Pagination top
+    if(totalPages>1){
+        h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px">
+            <span style="color:var(--dim)">총 ${allList.length}마리</span>
+            <button class="poke-pg-btn" onclick="_pokeTablePg=Math.max(0,_pokeTablePg-1);renderPokeTable()"${_pokeTablePg===0?" disabled":""}>&lsaquo; 이전</button>
+            <span style="font-weight:600">${_pokeTablePg+1} / ${totalPages}</span>
+            <button class="poke-pg-btn" onclick="_pokeTablePg=Math.min(${totalPages-1},_pokeTablePg+1);renderPokeTable()"${_pokeTablePg>=totalPages-1?" disabled":""}>다음 &rsaquo;</button>
+            <span style="color:var(--muted);font-size:10px">(${start+1}~${start+list.length} 표시, 페이지당 200)</span>
+        </div>`;
+    } else {
+        h+=`<div style="font-size:11px;color:var(--dim);margin-bottom:4px">${list.length}마리 표시</div>`;
+    }
     h+=`<table><thead><tr>
         <th>#</th><th>이름</th><th>타입</th><th>등급</th><th>코스트</th>
         <th>IV</th><th>시너지</th>
@@ -2989,7 +3007,7 @@ function renderPokeTable(){
         const t2=p.type2?"/"+p.type2:"";
         const tn=p.team_num?`팀${p.team_num}`:"";
         h+=`<tr>
-            <td>${i+1}</td>
+            <td>${start+i+1}</td>
             <td><b>${p.name_ko}</b>${shiny}</td>
             <td>${TYPE_NAMES[p.pokemon_type]||t1}${p.type2?"/"+( TYPE_NAMES[p.type2]||p.type2):""}</td>
             <td><span class="badge badge-${p.rarity}" style="font-size:9px">${rarKo[p.rarity]||p.rarity}</span></td>
@@ -3007,6 +3025,14 @@ function renderPokeTable(){
         </tr>`;
     });
     h+="</tbody></table>";
+    // Pagination bottom
+    if(totalPages>1){
+        h+=`<div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px">
+            <button class="poke-pg-btn" onclick="_pokeTablePg=Math.max(0,_pokeTablePg-1);renderPokeTable()"${_pokeTablePg===0?" disabled":""}>&lsaquo; 이전</button>
+            <span style="font-weight:600">${_pokeTablePg+1} / ${totalPages}</span>
+            <button class="poke-pg-btn" onclick="_pokeTablePg=Math.min(${totalPages-1},_pokeTablePg+1);renderPokeTable()"${_pokeTablePg>=totalPages-1?" disabled":""}>다음 &rsaquo;</button>
+        </div>`;
+    }
     document.getElementById("pokeTableContent").innerHTML=h;
 }
 
@@ -4531,7 +4557,8 @@ async function marketBuyExecute(listingId,btn){
         const d=await res.json();
         document.querySelector(".mkt-modal-bg")?.remove();
         if(d.ok){
-            showToast("✅ "+( d.message||"구매 완료!"));
+            if(d.pending_evo){showToast("🎉 구매 완료! 텔레그램 DM에서 교환진화 여부를 선택해주세요!","success",5000)}
+            else{showToast("✅ "+( d.message||"구매 완료!"))}
             if(d.new_bp!=null){_mktMyBp=d.new_bp;document.getElementById("mktMyBp").textContent=d.new_bp.toLocaleString()+" BP"}
             _cache={};
             marketFetchListings();
@@ -4692,7 +4719,7 @@ if(typeof showToast==="undefined"){
     window.showToast=function(msg){
         const t=document.createElement("div");
         t.textContent=msg;
-        Object.assign(t.style,{position:"fixed",bottom:"24px",left:"50%",transform:"translateX(-50%)",background:"var(--card-bg,#333)",color:"var(--text,#fff)",padding:"10px 20px",borderRadius:"10px",fontSize:"14px",fontWeight:"600",zIndex:"9999",boxShadow:"0 4px 16px rgba(0,0,0,.3)",transition:"opacity .4s",whiteSpace:"nowrap"});
+        Object.assign(t.style,{position:"fixed",bottom:"24px",left:"50%",transform:"translateX(-50%)",background:"#333",color:"#fff",padding:"10px 20px",borderRadius:"10px",fontSize:"14px",fontWeight:"600",zIndex:"9999",boxShadow:"0 4px 16px rgba(0,0,0,.3)",transition:"opacity .4s",whiteSpace:"nowrap"});
         document.body.appendChild(t);
         setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),500)},2500);
     };

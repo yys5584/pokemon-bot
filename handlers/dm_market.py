@@ -543,6 +543,30 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 await context.bot.send_message(chat_id=info["seller_id"], text=seller_msg)
             except Exception:
                 pass
+
+            # Send trade evolution choice DM to buyer
+            if info.get("pending_evo"):
+                try:
+                    evo = info["pending_evo"]
+                    source = await queries.get_pokemon(evo["source_id"])
+                    target = await queries.get_pokemon(evo["target_id"])
+                    if source and target:
+                        evo_text = (
+                            f"✨ 교환 진화 가능!\n\n"
+                            f"{source['emoji']} {source['name_ko']}을(를)\n"
+                            f"{target['emoji']} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
+                            f"진화하시겠습니까?"
+                        )
+                        evo_buttons = [[
+                            InlineKeyboardButton("✨ 진화시키기", callback_data=f"tevo_yes_{evo['instance_id']}"),
+                            InlineKeyboardButton("❌ 그대로 유지", callback_data=f"tevo_no_{evo['instance_id']}"),
+                        ]]
+                        await context.bot.send_message(
+                            chat_id=user_id, text=evo_text,
+                            reply_markup=InlineKeyboardMarkup(evo_buttons),
+                        )
+                except Exception:
+                    pass
         return
 
     # ── Cancel purchase confirmation ──

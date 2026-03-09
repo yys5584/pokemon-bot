@@ -6,7 +6,7 @@ import math
 import config
 from database import queries
 from database import battle_queries as bq
-from services.evolution_service import try_trade_evolve
+from services.evolution_service import build_trade_evo_info
 from utils.helpers import update_title
 
 logger = logging.getLogger(__name__)
@@ -147,8 +147,8 @@ async def buy_listing(
         logger.error(f"Market purchase failed: {e}")
         return False, "거래 처리 중 오류가 발생했습니다.", None
 
-    # Check for trade evolution
-    evo_msg = await try_trade_evolve(buyer_id, new_instance_id, listing["pokemon_id"])
+    # Check for trade evolution eligibility (don't auto-evolve)
+    pending_evo = build_trade_evo_info(listing["pokemon_id"], new_instance_id)
 
     # Update titles
     await update_title(buyer_id)
@@ -161,8 +161,6 @@ async def buy_listing(
         f"{listing['emoji']} {listing['pokemon_name']}{shiny_tag}\n"
         f"💰 {price:,} BP 지불"
     )
-    if evo_msg:
-        msg += evo_msg
 
     return True, msg, {
         "seller_id": listing["seller_id"],
@@ -174,6 +172,7 @@ async def buy_listing(
         "fee": fee,
         "seller_gets": seller_gets,
         "is_shiny": is_shiny,
+        "pending_evo": pending_evo,
     }
 
 

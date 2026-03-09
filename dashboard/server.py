@@ -1908,6 +1908,30 @@ async def _admin_send_dm(user_id: int, text: str, parse_mode: str = "HTML") -> b
         return False
 
 
+async def _send_dm_with_markup(user_id: int, text: str, reply_markup: dict) -> bool:
+    """Send Telegram DM with inline keyboard via Bot API (form-data, reply_markup as JSON string)."""
+    import json as _json
+    bot_token = os.getenv("BOT_TOKEN", "")
+    if not bot_token:
+        return False
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": str(user_id),
+        "text": text,
+        "reply_markup": _json.dumps(reply_markup),
+    }
+    try:
+        async with _aiohttp.ClientSession() as cs:
+            async with cs.post(url, data=payload) as resp:
+                if resp.status != 200:
+                    body = await resp.text()
+                    logger.warning(f"Telegram DM with markup failed ({resp.status}): {body}")
+                return resp.status == 200
+    except Exception as e:
+        logger.warning(f"Telegram DM with markup exception: {e}")
+        return False
+
+
 async def api_admin_users(request):
     """Admin: list all users with search/pagination."""
     if not await _admin_check(request):
@@ -3089,11 +3113,36 @@ async def api_market_buy(request):
         except Exception:
             pass
 
+        # Send trade evolution choice DM to buyer via Telegram
+        if trade_info.get("pending_evo"):
+            try:
+                evo = trade_info["pending_evo"]
+                source = await queries.get_pokemon(evo["source_id"])
+                target = await queries.get_pokemon(evo["target_id"])
+                if source and target:
+                    evo_text = (
+                        f"✨ 교환 진화 가능!\n\n"
+                        f"{source['emoji']} {source['name_ko']}을(를)\n"
+                        f"{target['emoji']} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
+                        f"진화하시겠습니까?"
+                    )
+                    reply_markup = {
+                        "inline_keyboard": [[
+                            {"text": "✨ 진화시키기", "callback_data": f"tevo_yes_{evo['instance_id']}"},
+                            {"text": "❌ 그대로 유지", "callback_data": f"tevo_no_{evo['instance_id']}"},
+                        ]]
+                    }
+                    await _send_dm_with_markup(sess["user_id"], evo_text, reply_markup)
+            except Exception:
+                pass
+
+    has_pending_evo = bool(trade_info.get("pending_evo")) if trade_info else False
     return web.json_response({
         "ok": True, "message": message,
         "pokemon_name": trade_info.get("pokemon_name", "") if trade_info else "",
         "price": trade_info.get("price", 0) if trade_info else 0,
         "new_bp": new_bp,
+        "pending_evo": has_pending_evo,
     })
 
 

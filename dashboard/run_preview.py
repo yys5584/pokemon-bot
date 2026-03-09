@@ -977,7 +977,11 @@ async def mock_market_sell(request):
 async def mock_market_buy(request):
     if not _mock_user:
         return web.json_response({"error": "Login required"}, status=401)
-    return web.json_response({"ok": True, "message": "구매 완료!", "pokemon_name": "리자몽", "price": 8500, "new_bp": 4000})
+    body = await request.json() if request.content_length else {}
+    listing_id = body.get("listing_id", 0)
+    # Simulate pending_evo for listing_id ending in odd number (교환진화 대상)
+    has_evo = (int(listing_id) % 2 == 1) if listing_id else False
+    return web.json_response({"ok": True, "message": "구매 완료!", "pokemon_name": "리자몽", "price": 8500, "new_bp": 4000, "pending_evo": has_evo})
 
 
 async def mock_market_cancel(request):
