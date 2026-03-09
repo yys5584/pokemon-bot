@@ -334,6 +334,20 @@ async def validate_team_for_ranked(user_id: int, season: dict) -> tuple[bool, st
     if not team:
         return False, "배틀팀이 없습니다! 팀을 먼저 등록하세요."
 
+    # 6마리 필수
+    if len(team) < config.RANKED_TEAM_SIZE:
+        return False, f"팀이 {len(team)}마리뿐입니다! {config.RANKED_TEAM_SIZE}마리를 모두 채워야 배틀할 수 있습니다."
+
+    # COST 제한
+    total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
+    if total_cost > config.RANKED_COST_LIMIT:
+        return False, f"팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT}) 팀을 다시 편성해주세요."
+
+    # 초전설 제한
+    ultra_count = sum(1 for p in team if p.get("rarity") == "ultra_legendary")
+    if ultra_count > config.RANKED_ULTRA_MAX:
+        return False, f"초전설은 팀당 {config.RANKED_ULTRA_MAX}마리까지만 편성 가능합니다."
+
     ok, err = validate_weekly_rule(team, season["weekly_rule"])
     if not ok:
         return False, f"🔒 시즌 법칙 위반: {err}"

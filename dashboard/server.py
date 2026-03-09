@@ -1888,19 +1888,23 @@ async def _admin_check(request):
 
 
 async def _admin_send_dm(user_id: int, text: str, parse_mode: str = "HTML") -> bool:
-    """Send Telegram DM to a user via Bot API."""
+    """Send Telegram DM to a user via Bot API (form-data for VM compatibility)."""
     bot_token = os.getenv("BOT_TOKEN", "")
     if not bot_token:
         return False
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = {"chat_id": user_id, "text": text}
+    payload = {"chat_id": str(user_id), "text": text}
     if parse_mode:
         payload["parse_mode"] = parse_mode
     try:
         async with _aiohttp.ClientSession() as cs:
-            async with cs.post(url, json=payload) as resp:
+            async with cs.post(url, data=payload) as resp:
+                if resp.status != 200:
+                    body = await resp.text()
+                    logger.warning(f"Telegram DM failed ({resp.status}): {body}")
                 return resp.status == 200
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Telegram DM exception: {e}")
         return False
 
 

@@ -1247,6 +1247,15 @@ async def _do_set_slot(p: dict, user_id: int, team_num: int, slot: int) -> str:
             if t["slot"] != slot and t.get("rarity") in ("epic", "legendary", "ultra_legendary") and t.get("pokemon_id") == p["pokemon_id"]:
                 return "같은 종의 포켓몬은 중복 불가!"
 
+    # Validate: COST limit
+    import config
+    total_cost = config.RANKED_COST.get(p["rarity"], 0)
+    for t in team:
+        if t["slot"] != slot:
+            total_cost += config.RANKED_COST.get(t.get("rarity", ""), 0)
+    if total_cost > config.RANKED_COST_LIMIT:
+        return f"❌ 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n코스트 {config.RANKED_COST_LIMIT} 이하로 편성해주세요."
+
     # Save
     instance_ids = [slot_map[s] for s in sorted(slot_map.keys())]
     await bq.set_battle_team(user_id, instance_ids, team_num)

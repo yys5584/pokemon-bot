@@ -674,6 +674,10 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("숫자만 입력해주세요. 예: 팀등록1 3 1 5 2")
         return
 
+    if len(nums) != config.RANKED_TEAM_SIZE:
+        await update.message.reply_text(f"❌ 팀은 반드시 {config.RANKED_TEAM_SIZE}마리로 구성해야 합니다! (현재 {len(nums)}마리)")
+        return
+
     if len(set(nums)) != len(nums):
         await update.message.reply_text("중복된 번호가 있습니다.")
         return
@@ -1124,6 +1128,21 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             await query.answer("팀에 포켓몬이 없습니다!", show_alert=True)
             return
 
+        # --- 6마리 필수 ---
+        filled = sum(1 for v in current.values() if v is not None)
+        if filled < config.RANKED_TEAM_SIZE:
+            try:
+                await query.edit_message_text(
+                    f"❌ 팀은 반드시 {config.RANKED_TEAM_SIZE}마리로 구성해야 합니다!\n"
+                    f"현재 {filled}마리만 등록되어 있습니다.\n"
+                    f"'팀편집' 명령어로 빈 슬롯을 채워주세요.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            context.user_data.pop(f"team_draft_{tn}", None)
+            return
+
         # --- COST 검증 ---
         rarities = draft.get("rarities", {})
         total_cost = 0
@@ -1158,8 +1177,8 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             context.user_data.pop(f"team_draft_{tn}", None)
             return
 
-        # Save to DB: build ordered instance_ids
-        instance_ids = [current[s] for s in sorted(current.keys())]
+        # Save to DB: build ordered instance_ids (filter None safety)
+        instance_ids = [current[s] for s in sorted(current.keys()) if current[s] is not None]
         await bq.set_battle_team(owner_id, instance_ids, tn)
 
         # Clean up draft
@@ -1687,6 +1706,21 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
             parse_mode="HTML",
         )
         return
+    if len(c_team) < config.RANKED_TEAM_SIZE:
+        await update.message.reply_text(
+            f"❌ 팀이 {len(c_team)}마리뿐입니다! {config.RANKED_TEAM_SIZE}마리를 모두 채워야 배틀할 수 있습니다.\n"
+            "DM에서 '팀편집'으로 팀을 완성하세요.",
+            parse_mode="HTML",
+        )
+        return
+    c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
+    if c_cost > config.RANKED_COST_LIMIT:
+        await update.message.reply_text(
+            f"❌ 팀 코스트 초과! ({c_cost}/{config.RANKED_COST_LIMIT})\n"
+            "DM에서 '팀편집'으로 코스트를 조정하세요.",
+            parse_mode="HTML",
+        )
+        return
 
     # Check for existing pending challenge
     existing = await bq.get_pending_challenge(challenger_id, defender_id)
@@ -1830,11 +1864,49 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             except Exception:
                 pass
             return
+        if len(d_team) < config.RANKED_TEAM_SIZE:
+            try:
+                await query.edit_message_text(
+                    f"❌ 수비자 팀이 {len(d_team)}마리뿐입니다! {config.RANKED_TEAM_SIZE}마리를 모두 채워야 배틀할 수 있습니다.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            return
+        d_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in d_team)
+        if d_cost > config.RANKED_COST_LIMIT:
+            try:
+                await query.edit_message_text(
+                    f"❌ 수비자 팀 코스트 초과! ({d_cost}/{config.RANKED_COST_LIMIT})\n팀을 다시 편성해주세요.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            return
 
         c_team = await bq.get_battle_team(challenge["challenger_id"])
         if not c_team:
             try:
                 await query.edit_message_text(f"{icon_emoji('battle')} 도전자의 배틀 팀이 없습니다!", parse_mode="HTML")
+            except Exception:
+                pass
+            return
+        if len(c_team) < config.RANKED_TEAM_SIZE:
+            try:
+                await query.edit_message_text(
+                    f"❌ 도전자 팀이 {len(c_team)}마리뿐입니다! 배틀 불가.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            return
+        c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
+        if c_cost > config.RANKED_COST_LIMIT:
+            try:
+                await query.edit_message_text(
+                    f"❌ 도전자 팀 코스트 초과! ({c_cost}/{config.RANKED_COST_LIMIT})\n배틀 불가.",
+                    parse_mode="HTML",
+                )
             except Exception:
                 pass
             return
@@ -2753,9 +2825,16 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     # 상대 팀 로드
     opp_team = await bq.get_battle_team(opponent_id)
-    if not opp_team:
+    if not opp_team or len(opp_team) < config.RANKED_TEAM_SIZE:
         try:
-            await matching_msg.edit_text("😢 상대의 팀 데이터를 불러올 수 없습니다.\n잠시 후 다시 시도해주세요!")
+            await matching_msg.edit_text("😢 상대의 팀이 조건을 충족하지 않습니다.\n잠시 후 다시 시도해주세요!")
+        except Exception:
+            pass
+        return
+    opp_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in opp_team)
+    if opp_cost > config.RANKED_COST_LIMIT:
+        try:
+            await matching_msg.edit_text("😢 상대의 팀이 코스트 조건을 위반합니다.\n잠시 후 다시 시도해주세요!")
         except Exception:
             pass
         return
@@ -2983,6 +3062,17 @@ async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "🎰 배틀 팀이 없습니다!\n"
             "DM에서 '팀등록'으로 먼저 팀을 등록하세요."
+        )
+        return
+    if len(c_team) < config.RANKED_TEAM_SIZE:
+        await update.message.reply_text(
+            f"❌ 팀이 {len(c_team)}마리뿐입니다! {config.RANKED_TEAM_SIZE}마리를 모두 채워야 배틀할 수 있습니다."
+        )
+        return
+    c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
+    if c_cost > config.RANKED_COST_LIMIT:
+        await update.message.reply_text(
+            f"❌ 팀 코스트 초과! ({c_cost}/{config.RANKED_COST_LIMIT})\n'팀편집'으로 팀을 수정하세요."
         )
         return
 
@@ -3247,11 +3337,39 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
         except Exception:
             pass
         return
+    if len(d_team) < config.RANKED_TEAM_SIZE:
+        try:
+            await query.edit_message_text(
+                f"❌ 수비자 팀이 {len(d_team)}마리뿐입니다! {config.RANKED_TEAM_SIZE}마리를 모두 채워야 합니다."
+            )
+        except Exception:
+            pass
+        return
+    d_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in d_team)
+    if d_cost > config.RANKED_COST_LIMIT:
+        try:
+            await query.edit_message_text(f"❌ 수비자 팀 코스트 초과! ({d_cost}/{config.RANKED_COST_LIMIT})")
+        except Exception:
+            pass
+        return
 
     c_team = await bq.get_battle_team(challenger_id)
     if not c_team:
         try:
             await query.edit_message_text("🎰 도전자의 배틀 팀이 없습니다!")
+        except Exception:
+            pass
+        return
+    if len(c_team) < config.RANKED_TEAM_SIZE:
+        try:
+            await query.edit_message_text(f"❌ 도전자 팀이 {len(c_team)}마리뿐입니다! 배틀 불가.")
+        except Exception:
+            pass
+        return
+    c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
+    if c_cost > config.RANKED_COST_LIMIT:
+        try:
+            await query.edit_message_text(f"❌ 도전자 팀 코스트 초과! ({c_cost}/{config.RANKED_COST_LIMIT})")
         except Exception:
             pass
         return

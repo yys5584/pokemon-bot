@@ -1450,6 +1450,7 @@
                     <select class="poke-select" id="pokeSortBy">
                         <option value="real_power">실전투력순</option>
                         <option value="iv_total">IV 총합순</option>
+                        <option value="rarity">등급순</option>
                         <option value="synergy_score">시너지순</option>
                         <option value="friendship">친밀도순</option>
                         <option value="name">이름순</option>
@@ -2695,8 +2696,10 @@ function filterAndSortPokemon(){
     if(_pokeTypeFilter) list=list.filter(p=>p.pokemon_type===_pokeTypeFilter||p.type2===_pokeTypeFilter);
     // Sort
     const dir=_pokeSortAsc?1:-1;
+    const RARITY_ORDER={ultra_legendary:5,legendary:4,epic:3,rare:2,common:1};
     if(_pokeSort==="real_power") list.sort((a,b)=>dir*(a.real_power-b.real_power));
     else if(_pokeSort==="iv_total") list.sort((a,b)=>dir*(a.iv_total-b.iv_total));
+    else if(_pokeSort==="rarity") list.sort((a,b)=>{const d=dir*((RARITY_ORDER[a.rarity]||0)-(RARITY_ORDER[b.rarity]||0));return d!==0?d:dir*(a.real_power-b.real_power)});
     else if(_pokeSort==="synergy_score") list.sort((a,b)=>dir*(a.synergy_score-b.synergy_score));
     else if(_pokeSort==="friendship") list.sort((a,b)=>dir*(a.friendship-b.friendship));
     else if(_pokeSort==="name") list.sort((a,b)=>-dir*a.name_ko.localeCompare(b.name_ko));
