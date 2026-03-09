@@ -1088,8 +1088,15 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if not _check_owner(owner_id):
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
             return
+
+        # Check if editing session is still alive (draft exists in memory)
+        key = f"team_draft_{tn}"
+        draft = context.user_data.get(key)
+        if not draft:
+            await query.answer("편집 세션이 만료되었습니다. '팀편집'으로 다시 시작하세요.", show_alert=True)
+            return
+
         await query.answer()
-        draft = await _get_draft(owner_id, tn)
         current = draft["current"]
 
         if not current:

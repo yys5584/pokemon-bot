@@ -397,6 +397,21 @@
         .adm-cat-btn.active-manage{background:rgba(0,255,136,.08);color:#00ff88;border-color:rgba(0,255,136,.3);box-shadow:0 0 20px rgba(0,255,136,.12),inset 0 0 20px rgba(0,255,136,.04)}
         .adm-cat-btn.active-db{background:rgba(0,212,255,.08);color:#00d4ff;border-color:rgba(0,212,255,.3);box-shadow:0 0 20px rgba(0,212,255,.12),inset 0 0 20px rgba(0,212,255,.04)}
         .adm-cat-btn.active-kpi{background:rgba(168,85,247,.08);color:#a855f7;border-color:rgba(168,85,247,.3);box-shadow:0 0 20px rgba(168,85,247,.12),inset 0 0 20px rgba(168,85,247,.04)}
+        .adm-cat-btn.active-battle{background:rgba(255,140,0,.08);color:#ff8c00;border-color:rgba(255,140,0,.3);box-shadow:0 0 20px rgba(255,140,0,.12),inset 0 0 20px rgba(255,140,0,.04)}
+        .bf-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 0}
+        .bf-label{color:rgba(255,255,255,.45);font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+        .bf-select{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e0e0e0;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;outline:none;transition:border-color .2s}
+        .bf-select:hover,.bf-select:focus{border-color:rgba(255,140,0,.4)}
+        .bt-table{width:100%;border-collapse:collapse;font-size:12px}
+        .bt-table th{text-align:left;padding:8px 6px;color:rgba(255,255,255,.4);font-weight:600;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-transform:uppercase}
+        .bt-table td{padding:7px 6px;border-bottom:1px solid rgba(255,255,255,.04);color:rgba(255,255,255,.8)}
+        .bt-table tr:hover td{background:rgba(255,255,255,.03)}
+        .bt-rarity{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600}
+        .bt-rarity.common{background:rgba(180,180,180,.15);color:#b0b0b0}
+        .bt-rarity.rare{background:rgba(59,130,246,.15);color:#60a5fa}
+        .bt-rarity.epic{background:rgba(168,85,247,.15);color:#c084fc}
+        .bt-rarity.legendary{background:rgba(251,191,36,.15);color:#fbbf24}
+        .bt-rarity.ultra_legendary{background:rgba(255,140,0,.15);color:#ff8c00}
 
         /* Admin title */
         .adm-title{font-size:18px;font-weight:700;color:#e8e8e8;margin-bottom:4px;display:flex;align-items:center;gap:8px}
@@ -1462,6 +1477,7 @@
                 <div class="adm-cat-btn active-manage" onclick="admCatSwitch('manage')" id="admCatBtn-manage">⚡ 관리</div>
                 <div class="adm-cat-btn" onclick="admCatSwitch('db')" id="admCatBtn-db">🗄️ DB</div>
                 <div class="adm-cat-btn" onclick="admCatSwitch('kpi')" id="admCatBtn-kpi">📈 KPI</div>
+                <div class="adm-cat-btn" onclick="admCatSwitch('battle')" id="admCatBtn-battle">⚔️ 배틀</div>
             </div>
 
             <!-- Category: Manage -->
@@ -1561,6 +1577,73 @@
                 </div>
             </div>
             </div><!-- /admCat-kpi -->
+
+            <!-- Category: Battle Analytics -->
+            <div id="admCat-battle" style="display:none">
+                <!-- Filter Bar -->
+                <div class="section" style="padding:14px 16px">
+                    <div class="bf-bar">
+                        <span class="bf-label">기간</span>
+                        <select id="bfDays" class="bf-select" onchange="admBattleLoad()">
+                            <option value="7" selected>7일</option>
+                            <option value="14">14일</option>
+                            <option value="30">30일</option>
+                            <option value="all">전체</option>
+                        </select>
+                        <span class="bf-label">타입</span>
+                        <select id="bfType" class="bf-select" onchange="admBattleTypeChanged()">
+                            <option value="all" selected>전체</option>
+                            <option value="normal">일반배틀</option>
+                            <option value="ranked">랭크전</option>
+                            <option value="yacha">야차</option>
+                            <option value="tournament">토너먼트</option>
+                        </select>
+                        <span class="bf-label">등급</span>
+                        <select id="bfRarity" class="bf-select" onchange="admBattleLoad()">
+                            <option value="all" selected>전체</option>
+                            <option value="common">⬜ 일반</option>
+                            <option value="rare">🟦 레어</option>
+                            <option value="epic">🟪 에픽</option>
+                            <option value="legendary">🟨 전설</option>
+                            <option value="ultra_legendary">🟧 초전설</option>
+                        </select>
+                        <span id="bfTierWrap" style="display:none;">
+                            <span class="bf-label">티어</span>
+                            <select id="bfTier" class="bf-select" onchange="admBattleLoad()">
+                                <option value="all" selected>전체</option>
+                                <option value="bronze">🥉 브론즈</option>
+                                <option value="silver">🥈 실버</option>
+                                <option value="gold">🏅 골드</option>
+                                <option value="platinum">💎 플래티넘</option>
+                                <option value="diamond">💠 다이아</option>
+                                <option value="master">👑 마스터</option>
+                            </select>
+                        </span>
+                    </div>
+                </div>
+                <!-- Summary Cards -->
+                <div class="kpi-grid" id="battleSummaryCards" style="margin-bottom:16px">
+                    <div class="kpi-card"><div class="kpi-value" id="bsTotalBattles">-</div><div class="kpi-label">총 배틀</div></div>
+                    <div class="kpi-card"><div class="kpi-value" id="bsTodayBattles">-</div><div class="kpi-label">오늘</div></div>
+                    <div class="kpi-card"><div class="kpi-value" id="bsAvgRounds">-</div><div class="kpi-label">평균 라운드</div></div>
+                    <div class="kpi-card"><div class="kpi-value" id="bsCritRate">-</div><div class="kpi-label">크리율 (기대 10%)</div></div>
+                </div>
+                <!-- Chart: Daily Battles -->
+                <div class="section" style="margin-bottom:16px">
+                    <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.6);margin-bottom:10px">📊 일별 배틀 추이</div>
+                    <div style="height:220px"><canvas id="chartBattleDaily"></canvas></div>
+                </div>
+                <!-- Chart: Rarity Stats -->
+                <div class="section" style="margin-bottom:16px">
+                    <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.6);margin-bottom:10px">📊 등급별 사용률 & 승률</div>
+                    <div style="height:220px"><canvas id="chartRarityStats"></canvas></div>
+                </div>
+                <!-- Table: Pokemon Ranking -->
+                <div class="section">
+                    <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.6);margin-bottom:10px">🏆 포켓몬 사용률/승률 Top 30</div>
+                    <div id="battlePokemonTable" style="overflow-x:auto"></div>
+                </div>
+            </div><!-- /admCat-battle -->
 
         </div>
 
@@ -3306,7 +3389,7 @@ async function adminFulfillOrder(orderKey){
 
 // --- Admin Category Tabs ---
 function admCatSwitch(cat){
-    ["manage","db","kpi"].forEach(c=>{
+    ["manage","db","kpi","battle"].forEach(c=>{
         const el=document.getElementById("admCat-"+c);
         const btn=document.getElementById("admCatBtn-"+c);
         if(el)el.style.display=c===cat?"":"none";
@@ -3314,6 +3397,7 @@ function admCatSwitch(cat){
     });
     if(cat==="db")admDbTab(_admDbCur||"overview");
     if(cat==="kpi")admKpiLoad();
+    if(cat==="battle")admBattleLoad();
 }
 
 // --- KPI Dashboard (Dark Neon) ---
@@ -3431,6 +3515,124 @@ async function admKpiLoad(){
         },options:{responsive:true,maintainAspectRatio:false,cutout:"68%",plugins:{legend:{display:false}},animation:{duration:800}}});
         const dc=document.getElementById("kpiDonutCenter");
         if(dc)dc.innerHTML=`<div class="donut-val">${t.pageviews}</div><div class="donut-label">Total Views</div>`;
+    }
+}
+
+// --- Battle Analytics Dashboard ---
+let _battleCharts={};
+const _RARITY_LABELS={common:"일반",rare:"레어",epic:"에픽",legendary:"전설",ultra_legendary:"초전설"};
+const _RARITY_COLORS={common:"#b0b0b0",rare:"#3b82f6",epic:"#a855f7",legendary:"#fbbf24",ultra_legendary:"#ff8c00"};
+
+function admBattleTypeChanged(){
+    const tw=document.getElementById("bfTierWrap");
+    const sel=document.getElementById("bfType");
+    if(tw){tw.style.display=sel&&sel.value==="ranked"?"":"none";}
+    const ts=document.getElementById("bfTier");
+    if(ts)ts.value="all";
+    admBattleLoad();
+}
+
+async function admBattleLoad(){
+    const cards=document.getElementById("battleSummaryCards");
+    if(!cards)return;
+
+    const days=(document.getElementById("bfDays")||{}).value||"7";
+    const btype=(document.getElementById("bfType")||{}).value||"all";
+    const rarity=(document.getElementById("bfRarity")||{}).value||"all";
+    const tier=(document.getElementById("bfTier")||{}).value||"all";
+    const url=`/api/admin/battle-analytics?days=${days}&battle_type=${btype}&rarity=${rarity}&tier=${tier}`;
+
+    cards.innerHTML='<div class="kpi-card" style="grid-column:1/-1;text-align:center;color:rgba(255,255,255,.4)">로딩 중...</div>';
+    const d=await fetchJSON(url);
+    if(!d){cards.innerHTML='<div class="kpi-card" style="grid-column:1/-1;text-align:center;color:rgba(255,255,255,.4)">로드 실패</div>';return;}
+
+    // Summary cards
+    const s=d.summary||{};
+    const cr=d.crit_skill_rates||{};
+    cards.innerHTML=`
+        <div class="kpi-card"><div class="kpi-value">${(s.total_battles||0).toLocaleString()}</div><div class="kpi-label">총 배틀</div></div>
+        <div class="kpi-card"><div class="kpi-value">${(s.today_battles||0).toLocaleString()}</div><div class="kpi-label">오늘</div></div>
+        <div class="kpi-card"><div class="kpi-value">${s.avg_rounds||0}</div><div class="kpi-label">평균 라운드</div></div>
+        <div class="kpi-card"><div class="kpi-value" style="color:${Math.abs((cr.actual_crit_rate||0)-10)>2?_NEON.red:_NEON.green}">${cr.actual_crit_rate||0}%</div><div class="kpi-label">크리율 (기대 10%)</div></div>
+    `;
+
+    // Destroy old charts
+    Object.values(_battleCharts).forEach(c=>{try{c.destroy()}catch(e){}});
+    _battleCharts={};
+
+    const chartFont={family:"'Pretendard',-apple-system,sans-serif",size:11};
+    const gridColor="rgba(255,255,255,.06)";
+    const tickColor="rgba(255,255,255,.3)";
+    const defaultOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickColor,font:chartFont,boxWidth:10,padding:12}}},animation:{duration:600}};
+
+    // Chart 1: Daily battles (Line)
+    const dailyEl=document.getElementById("chartBattleDaily");
+    if(dailyEl&&d.daily_battles&&d.daily_battles.length){
+        const dCtx=dailyEl.getContext("2d");
+        const grad1=dCtx.createLinearGradient(0,0,0,200);
+        grad1.addColorStop(0,"rgba(255,140,0,.3)");grad1.addColorStop(1,"rgba(255,140,0,.02)");
+        const grad2=dCtx.createLinearGradient(0,0,0,200);
+        grad2.addColorStop(0,"rgba(0,212,255,.25)");grad2.addColorStop(1,"rgba(0,212,255,.02)");
+        _battleCharts.daily=new Chart(dailyEl,{
+            type:"line",
+            data:{
+                labels:d.daily_battles.map(r=>{const dt=new Date(r.date);return(dt.getMonth()+1)+"/"+dt.getDate()}),
+                datasets:[
+                    {label:"전체",data:d.daily_battles.map(r=>r.total),borderColor:_NEON.orange,backgroundColor:grad1,fill:true,tension:.4,pointRadius:3,borderWidth:2},
+                    {label:"랭크",data:d.daily_battles.map(r=>r.ranked),borderColor:_NEON.cyan,backgroundColor:grad2,fill:true,tension:.4,pointRadius:3,borderWidth:2},
+                    {label:"일반",data:d.daily_battles.map(r=>r.normal),borderColor:_NEON.green,fill:false,tension:.4,pointRadius:2,borderWidth:1.5,borderDash:[4,3]}
+                ]
+            },
+            options:{...defaultOpts,scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},x:{grid:{color:"rgba(255,255,255,.03)"},ticks:{color:tickColor,font:chartFont}}}}
+        });
+    }
+
+    // Chart 2: Rarity stats (Bar: usage + win rate)
+    const rarEl=document.getElementById("chartRarityStats");
+    if(rarEl&&d.rarity_stats&&d.rarity_stats.length){
+        const labels=d.rarity_stats.map(r=>_RARITY_LABELS[r.rarity]||r.rarity);
+        const bgColors=d.rarity_stats.map(r=>(_RARITY_COLORS[r.rarity]||"#888")+"99");
+        _battleCharts.rarity=new Chart(rarEl,{
+            type:"bar",
+            data:{
+                labels,
+                datasets:[
+                    {label:"사용수",data:d.rarity_stats.map(r=>r.uses),backgroundColor:bgColors,borderRadius:4,yAxisID:"y"},
+                    {label:"승률%",data:d.rarity_stats.map(r=>r.win_rate),type:"line",borderColor:_NEON.pink,backgroundColor:"transparent",pointRadius:5,pointBackgroundColor:_NEON.pink,borderWidth:2,yAxisID:"y1"}
+                ]
+            },
+            options:{...defaultOpts,scales:{
+                y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont},title:{display:true,text:"사용수",color:tickColor,font:chartFont}},
+                y1:{position:"right",beginAtZero:true,max:100,grid:{drawOnChartArea:false},ticks:{color:_NEON.pink,font:chartFont,callback:v=>v+"%"},title:{display:true,text:"승률",color:_NEON.pink,font:chartFont}},
+                x:{grid:{color:"rgba(255,255,255,.03)"},ticks:{color:tickColor,font:chartFont}}
+            }}
+        });
+    }
+
+    // Table: Pokemon ranking
+    const tbl=document.getElementById("battlePokemonTable");
+    if(tbl){
+        if(!d.pokemon_ranking||!d.pokemon_ranking.length){
+            tbl.innerHTML='<p class="empty-msg">데이터 없음</p>';
+        }else{
+            let h='<table class="bt-table"><thead><tr><th>#</th><th>포켓몬</th><th>등급</th><th>사용</th><th>승률</th><th>평균딜</th><th>킬</th><th>데스</th></tr></thead><tbody>';
+            d.pokemon_ranking.forEach((p,i)=>{
+                const wr=p.win_rate||0;
+                const wrColor=wr>=60?_NEON.green:wr>=50?"#fbbf24":wr>=40?_NEON.orange:_NEON.red;
+                h+=`<tr>
+                    <td style="color:rgba(255,255,255,.3)">${i+1}</td>
+                    <td>${p.emoji||""} ${p.name_ko}</td>
+                    <td><span class="bt-rarity ${p.rarity}">${_RARITY_LABELS[p.rarity]||p.rarity}</span></td>
+                    <td>${p.uses}</td>
+                    <td style="color:${wrColor};font-weight:600">${wr}%</td>
+                    <td>${(p.avg_damage||0).toLocaleString()}</td>
+                    <td>${p.avg_kills||0}</td>
+                    <td>${p.avg_deaths||0}</td>
+                </tr>`;
+            });
+            h+='</tbody></table>';
+            tbl.innerHTML=h;
+        }
     }
 }
 

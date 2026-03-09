@@ -599,6 +599,41 @@ async def mock_admin_kpi(request):
     })
 
 
+async def mock_admin_battle_analytics(request):
+    """Return mock battle analytics data for preview."""
+    import datetime
+    today = datetime.date.today()
+    daily = []
+    for i in range(6, -1, -1):
+        d = today - datetime.timedelta(days=i)
+        total = 30 + (i * 13) % 50
+        ranked = int(total * 0.4)
+        daily.append({"date": d.isoformat(), "total": total, "ranked": ranked, "normal": total - ranked})
+    return web.json_response({
+        "filters": {"days": "7", "battle_type": "all", "rarity": "all", "tier": "all"},
+        "summary": {"total_battles": 847, "today_battles": 42, "avg_rounds": 12.3, "total_pokemon_used": 5082},
+        "pokemon_ranking": [
+            {"pokemon_id": 376, "name_ko": "메타그로스", "emoji": "", "rarity": "epic", "uses": 234, "wins": 145, "win_rate": 62.0, "avg_damage": 850, "avg_kills": 1.8, "avg_deaths": 0.4},
+            {"pokemon_id": 384, "name_ko": "레쿠쟈", "emoji": "", "rarity": "ultra_legendary", "uses": 189, "wins": 118, "win_rate": 62.4, "avg_damage": 1420, "avg_kills": 2.3, "avg_deaths": 0.5},
+            {"pokemon_id": 445, "name_ko": "한카리아스", "emoji": "", "rarity": "legendary", "uses": 156, "wins": 89, "win_rate": 57.1, "avg_damage": 1180, "avg_kills": 1.9, "avg_deaths": 0.6},
+            {"pokemon_id": 130, "name_ko": "갸라도스", "emoji": "", "rarity": "epic", "uses": 142, "wins": 75, "win_rate": 52.8, "avg_damage": 780, "avg_kills": 1.5, "avg_deaths": 0.7},
+            {"pokemon_id": 248, "name_ko": "마기라스", "emoji": "", "rarity": "legendary", "uses": 128, "wins": 70, "win_rate": 54.7, "avg_damage": 1050, "avg_kills": 1.7, "avg_deaths": 0.6},
+            {"pokemon_id": 149, "name_ko": "망나뇽", "emoji": "", "rarity": "legendary", "uses": 115, "wins": 58, "win_rate": 50.4, "avg_damage": 980, "avg_kills": 1.6, "avg_deaths": 0.8},
+            {"pokemon_id": 6, "name_ko": "리자몽", "emoji": "", "rarity": "epic", "uses": 98, "wins": 42, "win_rate": 42.9, "avg_damage": 680, "avg_kills": 1.2, "avg_deaths": 0.9},
+            {"pokemon_id": 25, "name_ko": "피카츄", "emoji": "", "rarity": "rare", "uses": 85, "wins": 30, "win_rate": 35.3, "avg_damage": 320, "avg_kills": 0.8, "avg_deaths": 1.0},
+        ],
+        "rarity_stats": [
+            {"rarity": "common", "uses": 1200, "wins": 480, "win_rate": 40.0, "avg_damage": 280},
+            {"rarity": "rare", "uses": 980, "wins": 430, "win_rate": 43.9, "avg_damage": 420},
+            {"rarity": "epic", "uses": 1560, "wins": 820, "win_rate": 52.6, "avg_damage": 750},
+            {"rarity": "legendary", "uses": 890, "wins": 510, "win_rate": 57.3, "avg_damage": 1100},
+            {"rarity": "ultra_legendary", "uses": 452, "wins": 280, "win_rate": 61.9, "avg_damage": 1380},
+        ],
+        "daily_battles": daily,
+        "crit_skill_rates": {"actual_crit_rate": 10.2, "expected_crit_rate": 10.0, "actual_skill_rate": 29.8, "expected_skill_rate": 30.0, "total_turns": 42350},
+    })
+
+
 # ============================================================
 # Mock Board Data
 # ============================================================
@@ -874,6 +909,7 @@ def create_preview_app():
     app.router.add_post("/api/analytics/pageview", mock_analytics_pageview)
     app.router.add_post("/api/analytics/session", mock_analytics_session)
     app.router.add_get("/api/admin/kpi", mock_admin_kpi)
+    app.router.add_get("/api/admin/battle-analytics", mock_admin_battle_analytics)
     # Catch-all for API routes
     for api_path in [
         "/api/overview", "/api/chats", "/api/users", "/api/spawns/recent",

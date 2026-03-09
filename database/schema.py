@@ -281,6 +281,38 @@ BATTLE_TABLES = [
     "CREATE INDEX IF NOT EXISTS idx_battle_records_winner ON battle_records(winner_id)",
     "CREATE INDEX IF NOT EXISTS idx_battle_records_loser ON battle_records(loser_id)",
 
+    # Battle Pokemon Stats (per-pokemon performance analytics)
+    """
+    CREATE TABLE IF NOT EXISTS battle_pokemon_stats (
+        id SERIAL PRIMARY KEY,
+        battle_record_id INTEGER REFERENCES battle_records(id) ON DELETE CASCADE,
+        battle_type TEXT NOT NULL DEFAULT 'normal',
+        user_id BIGINT NOT NULL,
+        pokemon_id INTEGER NOT NULL,
+        rarity TEXT NOT NULL,
+        is_shiny BOOLEAN DEFAULT FALSE,
+        iv_total INTEGER DEFAULT 0,
+        damage_dealt INTEGER DEFAULT 0,
+        damage_taken INTEGER DEFAULT 0,
+        kills INTEGER DEFAULT 0,
+        deaths INTEGER DEFAULT 0,
+        turns_alive INTEGER DEFAULT 0,
+        crits_landed INTEGER DEFAULT 0,
+        crits_received INTEGER DEFAULT 0,
+        skills_activated INTEGER DEFAULT 0,
+        super_effective_hits INTEGER DEFAULT 0,
+        not_effective_hits INTEGER DEFAULT 0,
+        side TEXT NOT NULL,
+        won BOOLEAN NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_bps_pokemon ON battle_pokemon_stats(pokemon_id)",
+    "CREATE INDEX IF NOT EXISTS idx_bps_battle ON battle_pokemon_stats(battle_record_id)",
+    "CREATE INDEX IF NOT EXISTS idx_bps_user ON battle_pokemon_stats(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_bps_created ON battle_pokemon_stats(created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_bps_type ON battle_pokemon_stats(battle_type)",
+
     # BP purchase log (persistent daily limit tracking)
     """
     CREATE TABLE IF NOT EXISTS bp_purchase_log (

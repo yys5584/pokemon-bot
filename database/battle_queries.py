@@ -453,6 +453,28 @@ async def get_last_yacha_time_any(user_id: int) -> str | None:
     return str(row["created_at"]) if row else None
 
 
+async def save_battle_pokemon_stats(battle_record_id: int, stats: list[dict]):
+    """Save per-pokemon battle stats for analytics."""
+    if not stats:
+        return
+    pool = await get_db()
+    for s in stats:
+        await pool.execute(
+            """INSERT INTO battle_pokemon_stats
+                   (battle_record_id, battle_type, user_id, pokemon_id, rarity, is_shiny,
+                    iv_total, damage_dealt, damage_taken, kills, deaths, turns_alive,
+                    crits_landed, crits_received, skills_activated,
+                    super_effective_hits, not_effective_hits, side, won)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)""",
+            battle_record_id, s["battle_type"], s["user_id"], s["pokemon_id"],
+            s["rarity"], s["is_shiny"], s["iv_total"],
+            s["damage_dealt"], s["damage_taken"], s["kills"], s["deaths"],
+            s["turns_alive"], s["crits_landed"], s["crits_received"],
+            s["skills_activated"], s["super_effective_hits"], s["not_effective_hits"],
+            s["side"], s["won"],
+        )
+
+
 async def use_master_balls(user_id: int, count: int) -> bool:
     """Use multiple master balls. Returns True if successful (atomic)."""
     pool = await get_db()

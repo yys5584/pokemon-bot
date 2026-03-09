@@ -153,12 +153,13 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
         "pokemon_id": pid,
         "tb": tb,
         "iv_grade": iv_grade,
+        "iv_total": iv_sum,
     }
 
 
-def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str, str]:
+def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str, str, float]:
     """Calculate damage from attacker to defender.
-    Returns (damage, effect_text, crit_mark).
+    Returns (damage, effect_text, crit_mark, type_mult).
     """
     # Physical vs Special: use whichever offensive stat is higher
     atk_phys = attacker["stats"]["atk"]
@@ -206,7 +207,7 @@ def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str, str]:
 
     crit_mark = "*" if crit > 1.0 else ""
     effect_text = f" {' '.join(effects)}" if effects else ""
-    return damage, effect_text, crit_mark
+    return damage, effect_text, crit_mark, type_mult
 
 
 def _hp_bar(current: int, max_hp: int, length: int = 6) -> str:
@@ -267,22 +268,22 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             first_is_challenger = False
 
         # First attack
-        dmg1, eff1, crit1 = _calc_damage(first, second)
+        dmg1, eff1, crit1, tmult1 = _calc_damage(first, second)
         second["current_hp"] -= dmg1
 
         # Second attacks back if alive
-        dmg2, eff2, crit2 = 0, "", ""
+        dmg2, eff2, crit2, tmult2 = 0, "", "", 1.0
         if second["current_hp"] > 0:
-            dmg2, eff2, crit2 = _calc_damage(second, first)
+            dmg2, eff2, crit2, tmult2 = _calc_damage(second, first)
             first["current_hp"] -= dmg2
 
         # Map to challenger(left)/defender(right) for consistent display
         if first_is_challenger:
-            c_dmg, c_eff, c_crit = dmg1, eff1, crit1
-            d_dmg, d_eff, d_crit = dmg2, eff2, crit2
+            c_dmg, c_eff, c_crit, c_tmult = dmg1, eff1, crit1, tmult1
+            d_dmg, d_eff, d_crit, d_tmult = dmg2, eff2, crit2, tmult2
         else:
-            d_dmg, d_eff, d_crit = dmg1, eff1, crit1
-            c_dmg, c_eff, c_crit = dmg2, eff2, crit2
+            d_dmg, d_eff, d_crit, d_tmult = dmg1, eff1, crit1, tmult1
+            c_dmg, c_eff, c_crit, c_tmult = dmg2, eff2, crit2, tmult2
 
         # → = left attacks right, ← = right attacks left
         c_part = f"→{c_dmg}{c_crit}{c_eff}" if c_dmg else ""
@@ -311,6 +312,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             "c_pokemon_id": c_mon["pokemon_id"], "d_pokemon_id": d_mon["pokemon_id"],
             "c_rarity": c_mon["rarity"], "d_rarity": d_mon["rarity"],
             "c_shiny": c_mon.get("is_shiny", False), "d_shiny": d_mon.get("is_shiny", False),
+            "c_type_mult": c_tmult, "d_type_mult": d_tmult,
         })
 
         # KO check - challenger's pokemon
@@ -400,6 +402,143 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             or (winner == "defender" and d_remaining == len(defender_team))
         ),
     }
+
+
+def _extract_pokemon_stats(
+    turn_data: list[dict],
+    c_combatants: list[dict],
+    d_combatants: list[dict],
+    winner_id: int,
+    loser_id: int,
+    challenger_id: int,
+    defender_id: int,
+    battle_type: str,
+) -> list[dict]:
+    """Extract per-pokemon battle stats from turn_data for analytics.
+
+    Returns a list of dicts ready for DB insertion (max 12 for 6v6).
+    """
+    # Init stats from combatant lists
+    # Key: ("c", idx) or ("d", idx)
+    stats: dict[tuple[str, int], dict] = {}
+
+    for idx, mon in enumerate(c_combatants):
+        stats[("c", idx)] = {
+            "battle_type": battle_type,
+            "user_id": challenger_id,
+            "pokemon_id": mon["pokemon_id"],
+            "rarity": mon["rarity"],
+            "is_shiny": mon.get("is_shiny", False),
+            "iv_total": mon.get("iv_total", 0),
+            "damage_dealt": 0,
+            "damage_taken": 0,
+            "kills": 0,
+            "deaths": 0,
+            "turns_alive": 0,
+            "crits_landed": 0,
+            "crits_received": 0,
+            "skills_activated": 0,
+            "super_effective_hits": 0,
+            "not_effective_hits": 0,
+            "side": "challenger",
+            "won": challenger_id == winner_id,
+        }
+
+    for idx, mon in enumerate(d_combatants):
+        stats[("d", idx)] = {
+            "battle_type": battle_type,
+            "user_id": defender_id,
+            "pokemon_id": mon["pokemon_id"],
+            "rarity": mon["rarity"],
+            "is_shiny": mon.get("is_shiny", False),
+            "iv_total": mon.get("iv_total", 0),
+            "damage_dealt": 0,
+            "damage_taken": 0,
+            "kills": 0,
+            "deaths": 0,
+            "turns_alive": 0,
+            "crits_landed": 0,
+            "crits_received": 0,
+            "skills_activated": 0,
+            "super_effective_hits": 0,
+            "not_effective_hits": 0,
+            "side": "defender",
+            "won": defender_id == winner_id,
+        }
+
+    # Track current active pokemon index per side
+    cur_c_idx = 0
+    cur_d_idx = 0
+
+    for entry in turn_data:
+        etype = entry.get("type")
+
+        if etype == "matchup":
+            cur_c_idx = entry.get("c_idx", cur_c_idx)
+            cur_d_idx = entry.get("d_idx", cur_d_idx)
+
+        elif etype == "turn":
+            ci = entry.get("c_idx", cur_c_idx)
+            di = entry.get("d_idx", cur_d_idx)
+            c_s = stats.get(("c", ci))
+            d_s = stats.get(("d", di))
+
+            if c_s:
+                c_s["turns_alive"] += 1
+                c_s["damage_dealt"] += entry.get("c_dmg", 0)
+                c_s["damage_taken"] += entry.get("d_dmg", 0)
+                if entry.get("c_crit") == "*":
+                    c_s["crits_landed"] += 1
+                if entry.get("d_crit") == "*":
+                    c_s["crits_received"] += 1
+                if entry.get("c_eff") and "「" in entry["c_eff"]:
+                    c_s["skills_activated"] += 1
+                c_tm = entry.get("c_type_mult", 1.0)
+                if c_tm and entry.get("c_dmg", 0) > 0:
+                    if c_tm > 1.0:
+                        c_s["super_effective_hits"] += 1
+                    elif c_tm < 1.0:
+                        c_s["not_effective_hits"] += 1
+
+            if d_s:
+                d_s["turns_alive"] += 1
+                d_s["damage_dealt"] += entry.get("d_dmg", 0)
+                d_s["damage_taken"] += entry.get("c_dmg", 0)
+                if entry.get("d_crit") == "*":
+                    d_s["crits_landed"] += 1
+                if entry.get("c_crit") == "*":
+                    d_s["crits_received"] += 1
+                if entry.get("d_eff") and "「" in entry["d_eff"]:
+                    d_s["skills_activated"] += 1
+                d_tm = entry.get("d_type_mult", 1.0)
+                if d_tm and entry.get("d_dmg", 0) > 0:
+                    if d_tm > 1.0:
+                        d_s["super_effective_hits"] += 1
+                    elif d_tm < 1.0:
+                        d_s["not_effective_hits"] += 1
+
+        elif etype == "ko":
+            side = entry.get("side")
+            if side == "challenger":
+                s = stats.get(("c", cur_c_idx))
+                if s:
+                    s["deaths"] = 1
+                # The opponent (defender) gets a kill
+                ds = stats.get(("d", cur_d_idx))
+                if ds:
+                    ds["kills"] += 1
+                cur_c_idx += 1
+            elif side == "defender":
+                s = stats.get(("d", cur_d_idx))
+                if s:
+                    s["deaths"] = 1
+                # The opponent (challenger) gets a kill
+                cs = stats.get(("c", cur_c_idx))
+                if cs:
+                    cs["kills"] += 1
+                cur_d_idx += 1
+
+    return list(stats.values())
 
 
 def _calculate_bp(winner_team_size: int, loser_team_size: int, perfect: bool, streak: int) -> int:
@@ -528,6 +667,17 @@ async def execute_battle(
         bp_earned=bp_won,
         battle_type=battle_type,
     )
+
+    # Save per-pokemon battle stats for analytics (non-blocking)
+    try:
+        pokemon_stats = _extract_pokemon_stats(
+            result["turn_data"], c_combatants, d_combatants,
+            winner_id, loser_id, challenger_id, defender_id, battle_type,
+        )
+        if pokemon_stats:
+            await bq.save_battle_pokemon_stats(battle_record_id, pokemon_stats)
+    except Exception as e:
+        logger.error(f"Battle stats save failed: {e}")
 
     # Ranked: process RP changes
     ranked_info = None
