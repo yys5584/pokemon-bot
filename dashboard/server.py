@@ -1638,6 +1638,40 @@ async def api_battle_ranking(request):
     return pg_json_response(ranking)
 
 
+async def api_ranked_season(request):
+    """Get current ranked season info + ranking."""
+    from database import ranked_queries as rq
+    pool = await queries.get_db()
+
+    season = await rq.get_current_season()
+    if not season:
+        return pg_json_response({"season": None, "ranking": []})
+
+    season_id = season["season_id"]
+
+    from services.ranked_service import tier_display
+
+    rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
+
+    ranking = await rq.get_ranked_ranking(season_id, limit=20)
+    for r in ranking:
+        r["tier_display"] = tier_display(r["tier"])
+        if r.get("title_emoji"):
+            r["title_emoji"] = _web_emoji(r["title_emoji"])
+
+    return pg_json_response({
+        "season": {
+            "season_id": season_id,
+            "weekly_rule": season["weekly_rule"],
+            "weekly_rule_name": rule_info.get("name", ""),
+            "weekly_rule_desc": rule_info.get("desc", ""),
+            "starts_at": str(season["starts_at"]),
+            "ends_at": str(season["ends_at"]),
+        },
+        "ranking": ranking,
+    })
+
+
 async def api_battle_recent(request):
     """Get recent battle records."""
     pool = await queries.get_db()
@@ -3320,6 +3354,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/battle/recent", api_battle_recent)
     app.router.add_get("/api/battle/ranking-teams", api_battle_ranking_teams)
     app.router.add_get("/api/battle/tiers", api_battle_tiers)
+    app.router.add_get("/api/ranked/season", api_ranked_season)
     app.router.add_get("/api/tournament/winners", api_tournament_winners)
     app.router.add_get("/api/dashboard-kpi", api_dashboard_kpi)
     app.router.add_get("/api/type-chart", api_type_chart)

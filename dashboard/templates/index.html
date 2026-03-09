@@ -762,7 +762,11 @@
         <!-- BATTLE & RANKING -->
         <div class="page" id="page-battlerank">
             <div class="grid-rank">
-                <div class="section" style="display:flex;flex-direction:column;min-height:300px"><h2>🏆 랭크전</h2><div style="flex:1;display:flex;align-items:center;justify-content:center"><span style="font-size:28px;font-weight:700;color:#d5c9a8;letter-spacing:3px">COMING SOON</span></div></div>
+                <div class="section" style="min-height:300px">
+                    <h2>🏟️ 시즌 랭크전</h2>
+                    <div id="rankedSeasonInfo" style="margin-bottom:12px"><div class="loading">로딩 중...</div></div>
+                    <div id="rankedRanking"></div>
+                </div>
                 <div class="section"><h2>⚔️ 배틀 랭킹</h2><div class="rank-filters" id="battleSortBtns"><button class="rank-filter active" data-sort="bp">BP</button><button class="rank-filter" data-sort="wr">승률</button><button class="rank-filter" data-sort="wins">승리</button><button class="rank-filter" data-sort="streak">연승</button></div><div id="battleRanking"><div class="loading">로딩 중...</div></div></div>
             </div>
             <div class="grid-3" style="margin-top:10px">
@@ -798,6 +802,7 @@
                 <!-- 가이드 탭 네비게이션 -->
                 <div id="guideTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
                     <button class="guide-tab active" data-guide="battle" onclick="switchGuide('battle')">⚔️ 배틀</button>
+                    <button class="guide-tab" data-guide="ranked" onclick="switchGuide('ranked')">🏟️ 시즌 랭크전</button>
                     <button class="guide-tab" data-guide="typechart" onclick="switchGuide('typechart')">🔥 상성표</button>
                     <button class="guide-tab" data-guide="rarity" onclick="switchGuide('rarity')">🎯 등급 & 출현</button>
                     <button class="guide-tab" data-guide="catch" onclick="switchGuide('catch')">🔴 포획</button>
@@ -805,6 +810,95 @@
                     <button class="guide-tab" data-guide="trade" onclick="switchGuide('trade')">🔄 거래 & 교환</button>
                     <button class="guide-tab" data-guide="mission" onclick="switchGuide('mission')">📋 일일 미션</button>
                     <button class="guide-tab" data-guide="cxp" onclick="switchGuide('cxp')">🏠 채팅방</button>
+                </div>
+
+                <!-- ===== 시즌 랭크전 ===== -->
+                <div class="guide-section" id="guide-ranked">
+                    <div class="guide-card">
+                        <h3>🏟️ 시즌 랭크전</h3>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">2주 시즌제로 운영되는 랭크 PvP! RP를 쌓아 챌린저에 도전하세요.</p>
+
+                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(255,215,0,.08),rgba(147,112,219,.08));border:1px solid rgba(255,215,0,.15);border-radius:10px;padding:16px;margin-bottom:16px">
+                            <h4 style="margin-top:0">📌 기본 시스템</h4>
+                            <table class="guide-table" style="font-size:13px">
+                                <tr><th>항목</th><th>내용</th></tr>
+                                <tr><td>시즌</td><td>2주 단위 (격주 월요일 리셋)</td></tr>
+                                <tr><td>장소</td><td>지정 아레나 채팅방에서만 가능</td></tr>
+                                <tr><td>명령어</td><td>상대에게 답장 + <b>랭전</b></td></tr>
+                                <tr><td>쿨다운</td><td>같은 상대 30분 / 전체 2분</td></tr>
+                                <tr><td>일일 상한</td><td>20회/일</td></tr>
+                            </table>
+                        </div>
+
+                        <div class="guide-block" style="margin-bottom:16px">
+                            <h4>🔒 시즌 법칙 (2주 내내 고정)</h4>
+                            <p style="font-size:11px;color:var(--muted);margin-bottom:8px">시즌 시작 시 법칙 발표</p>
+                            <table class="guide-table" style="font-size:13px">
+                                <tr><th>법칙</th><th>설명</th></tr>
+                                <tr><td>🏆 제한 없음</td><td>풀 오픈 (최강전)</td></tr>
+                                <tr><td>🚫 초전설 금지</td><td>초전설 포켓몬 사용 불가</td></tr>
+                                <tr><td>🚫 전설 금지</td><td>전설+초전설 사용 불가</td></tr>
+                                <tr><td>👶 최종진화 금지</td><td>최종진화 포켓몬 사용 불가</td></tr>
+                                <tr><td>🎯 에픽 이하 전용</td><td>에픽 등급까지만 사용 가능</td></tr>
+                            </table>
+                        </div>
+
+                        <div class="guide-block" style="margin-bottom:16px">
+                            <h4>📋 일일 조건 (매일 자정 변경)</h4>
+                            <p style="font-size:11px;color:var(--muted);margin-bottom:8px">직전 2일과 겹치지 않음</p>
+                            <table class="guide-table" style="font-size:13px">
+                                <tr><th>조건</th><th>설명</th></tr>
+                                <tr><td>🆓 자유</td><td>추가 제한 없음</td></tr>
+                                <tr><td>🌿 풀타입 필수</td><td>풀 타입 1마리 이상 편성</td></tr>
+                                <tr><td>💧 물타입 필수</td><td>물 타입 1마리 이상 편성</td></tr>
+                                <tr><td>🔥 불꽃타입 필수</td><td>불꽃 타입 1마리 이상 편성</td></tr>
+                                <tr><td>⚡ 전기타입 필수</td><td>전기 타입 1마리 이상 편성</td></tr>
+                                <tr><td>🟢 커먼 전용</td><td>커먼 등급만 사용</td></tr>
+                                <tr><td>⭐ 레어 2마리 필수</td><td>레어 등급 2마리 이상</td></tr>
+                                <tr><td>4️⃣ 4마리 제한</td><td>최대 4마리 편성</td></tr>
+                                <tr><td>🎲 3마리 제한</td><td>최대 3마리 편성</td></tr>
+                                <tr><td>🔄 단일타입 전용</td><td>팀 전원 같은 주 타입</td></tr>
+                            </table>
+                        </div>
+
+                        <div class="guide-block" style="margin-bottom:16px">
+                            <h4>📈 티어 & RP</h4>
+                            <table class="guide-table" style="font-size:13px">
+                                <tr><th>티어</th><th>RP 범위</th><th>시즌 보상</th></tr>
+                                <tr><td>🥉 브론즈</td><td>0 ~ 299</td><td>BP 50</td></tr>
+                                <tr><td>🥈 실버</td><td>300 ~ 599</td><td>BP 150</td></tr>
+                                <tr><td>🏅 골드</td><td>600 ~ 999</td><td>BP 300</td></tr>
+                                <tr><td>💎 플래티넘</td><td>1000 ~ 1499</td><td>마스터볼 1 + BP 200</td></tr>
+                                <tr><td>💠 다이아</td><td>1500 ~ 1999</td><td>마스터볼 2 + BP 300</td></tr>
+                                <tr><td>👑 마스터</td><td>2000+</td><td>마스터볼 3 + BP 500</td></tr>
+                                <tr style="background:rgba(255,215,0,.08)"><td>⚔️ 챌린저</td><td>마스터 Top 10</td><td>마스터볼 5 + BP 800</td></tr>
+                                <tr style="background:rgba(255,215,0,.15)"><td>🏆 시즌 챔피언</td><td>시즌 1위</td><td>전용 칭호 해금!</td></tr>
+                            </table>
+                        </div>
+
+                        <div class="guide-block" style="background:rgba(0,0,0,.03);border-radius:8px;padding:12px;margin-bottom:16px">
+                            <h4 style="margin-top:0">⚡ RP 계산</h4>
+                            <div style="font-size:12px;line-height:1.8">
+                                • 승리: +30 기본 + 티어차 보정(±10) + 연승보너스(연승×2, 최대+10)<br>
+                                • 패배: -20 기본 (브론즈/실버: -15 보호, 첫 10전 50% 감소)<br>
+                                • RP 최솟값: 0 (마이너스 불가)<br>
+                                • 같은 상대 반복 시 RP 감소 (3회부터 50%→25%→0%)<br>
+                                • 티어 3단계 이상 차이: 상위자 RP 최소화<br>
+                                • 시즌 소프트 리셋: 새 시즌 RP = 이전 RP × 40%
+                            </div>
+                        </div>
+
+                        <div class="guide-block">
+                            <h4>💬 관련 명령어</h4>
+                            <table class="guide-table" style="font-size:13px">
+                                <tr><th>명령어</th><th>위치</th><th>설명</th></tr>
+                                <tr><td><b>랭전</b></td><td>아레나 (답장)</td><td>랭크전 도전</td></tr>
+                                <tr><td><b>시즌</b></td><td>DM</td><td>시즌 법칙/조건 + 내 기록</td></tr>
+                                <tr><td><b>시즌랭킹</b></td><td>DM</td><td>시즌 랭킹 TOP 15</td></tr>
+                                <tr><td><b>/아레나등록</b></td><td>그룹 (관리자)</td><td>채팅방을 아레나 후보로 등록</td></tr>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ===== 상성표 ===== -->
@@ -1874,14 +1968,42 @@ async function loadChannelTop5(){
 
 // --- BATTLE & RANKING ---
 async function loadBattleRank(){
-    const[ranking,teams,users,kpi,tWinnersBR,ivRanking]=await Promise.all([
+    const[ranking,teams,users,kpi,tWinnersBR,ivRanking,rankedData]=await Promise.all([
         fetchJSON("/api/battle/ranking"),
         fetchJSON("/api/battle/ranking-teams"),
         fetchJSON("/api/users"),
         fetchJSON("/api/fun-kpis"),
         fetchJSON("/api/tournament/winners"),
-        fetchJSON("/api/iv-ranking")
+        fetchJSON("/api/iv-ranking"),
+        fetchJSON("/api/ranked/season"),
     ]);
+
+    // Ranked season info + ranking
+    if(rankedData&&rankedData.season){
+        const s=rankedData.season;
+        let infoHtml=`<div style="background:linear-gradient(135deg,rgba(255,215,0,.06),rgba(147,112,219,.08));border:1px solid rgba(255,215,0,.15);border-radius:10px;padding:14px;margin-bottom:10px">`;
+        infoHtml+=`<div style="font-size:14px;font-weight:700;margin-bottom:8px">📅 시즌 ${s.season_id}</div>`;
+        infoHtml+=`<div style="font-size:12px">`;
+        infoHtml+=`<div>🔒 <b>${s.weekly_rule_name}</b></div>`;
+        infoHtml+=`<div style="color:var(--muted);margin-top:2px">${s.weekly_rule_desc}</div>`;
+        infoHtml+=`</div></div>`;
+        document.getElementById("rankedSeasonInfo").innerHTML=infoHtml;
+
+        const rk=rankedData.ranking||[];
+        if(rk.length){
+            let h=`<table><thead><tr><th>#</th><th>이름</th><th>티어</th><th>RP</th><th>승</th><th>패</th><th>연승</th></tr></thead><tbody>`;
+            rk.forEach((r,i)=>{
+                const total=r.ranked_wins+r.ranked_losses;
+                const wr=total>0?Math.round(r.ranked_wins/total*100)+"%":"-";
+                h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td style="white-space:nowrap">${r.tier_display}</td><td style="font-weight:700;color:var(--gold)">${r.rp}</td><td style="color:var(--green)">${r.ranked_wins}</td><td style="color:var(--red)">${r.ranked_losses}</td><td>🔥${r.best_ranked_streak}</td></tr>`;
+            });
+            h+="</tbody></table>";
+            document.getElementById("rankedRanking").innerHTML=h;
+        }else{document.getElementById("rankedRanking").innerHTML='<p class="empty-msg">아직 이번 시즌 기록이 없습니다</p>'}
+    }else{
+        document.getElementById("rankedSeasonInfo").innerHTML='<p class="empty-msg">현재 활성 시즌이 없습니다</p>';
+        document.getElementById("rankedRanking").innerHTML='';
+    }
 
     // Battle ranking with paging + team tooltip + sort
     function renderBattleRanking(sortKey){

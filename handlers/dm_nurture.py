@@ -98,6 +98,49 @@ async def _resolve_pokemon(update, user_id, text, cmd, cmd_key=None):
     return None, True
 
 
+async def nurture_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '친밀도강화' command (DM). Show partner info + feed/play buttons."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    await queries.ensure_user(
+        user_id,
+        update.effective_user.first_name or "트레이너",
+        update.effective_user.username,
+    )
+
+    from database import battle_queries as bq
+    partner = await bq.get_partner(user_id)
+    if not partner:
+        await update.message.reply_text(
+            "🤝 파트너 포켓몬이 없습니다!\n"
+            "'파트너 [이름/번호]'로 먼저 설정하세요."
+        )
+        return
+
+    inst_id = partner["instance_id"]
+    name = partner["name_ko"]
+    max_f = config.get_max_friendship(partner)
+    friendship = partner["friendship"]
+    hearts = hearts_display(friendship, max_f)
+
+    lines = [
+        f"💪 친밀도 강화 — {name}",
+        f"{hearts}  {friendship}/{max_f}",
+    ]
+    if friendship >= max_f:
+        lines.append("✅ 친밀도가 최대입니다!")
+
+    buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🍖 밥주기", callback_data=f"nurt_feed_{inst_id}"),
+            InlineKeyboardButton("🎾 놀아주기", callback_data=f"nurt_play_{inst_id}"),
+        ],
+    ])
+    await update.message.reply_text("\n".join(lines), reply_markup=buttons, parse_mode="HTML")
+
+
 async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '밥 [번호]' command."""
     if not update.effective_user or not update.message:

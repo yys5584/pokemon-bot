@@ -39,6 +39,39 @@ async def mock_json(request):
         return web.json_response(MOCK_RANKING)
     if path == "/api/battle/ranking-teams":
         return web.json_response({})
+    if path == "/api/ranked/season":
+        return web.json_response({
+            "season": {
+                "season_id": "2026-S05",
+                "weekly_rule": "no_normal",
+                "weekly_rule_name": "🚫 노말타입 금지",
+                "weekly_rule_desc": "노말 타입 포켓몬 사용 불가 (잠만보, 럭키, 해피너스, 캥카 등)",
+                "starts_at": "2026-03-09 00:00:00+09:00",
+                "ends_at": "2026-03-22 23:59:59+09:00",
+            },
+            "ranking": [
+                {"user_id": 1, "display_name": "트레이너A", "title_emoji": "",
+                 "rp": 2340, "tier": "challenger", "tier_display": "⚔️챌린저",
+                 "ranked_wins": 35, "ranked_losses": 8, "best_ranked_streak": 9,
+                 "peak_rp": 2340, "peak_tier": "challenger"},
+                {"user_id": 2, "display_name": "트레이너B", "title_emoji": "",
+                 "rp": 2120, "tier": "challenger", "tier_display": "⚔️챌린저",
+                 "ranked_wins": 28, "ranked_losses": 12, "best_ranked_streak": 6,
+                 "peak_rp": 2180, "peak_tier": "challenger"},
+                {"user_id": 3, "display_name": "트레이너C", "title_emoji": "",
+                 "rp": 1520, "tier": "diamond", "tier_display": "💠다이아",
+                 "ranked_wins": 20, "ranked_losses": 10, "best_ranked_streak": 5,
+                 "peak_rp": 1520, "peak_tier": "diamond"},
+                {"user_id": 4, "display_name": "트레이너D", "title_emoji": "",
+                 "rp": 890, "tier": "gold", "tier_display": "🏅골드",
+                 "ranked_wins": 12, "ranked_losses": 7, "best_ranked_streak": 4,
+                 "peak_rp": 920, "peak_tier": "gold"},
+                {"user_id": 5, "display_name": "트레이너E", "title_emoji": "",
+                 "rp": 320, "tier": "silver", "tier_display": "🥈실버",
+                 "ranked_wins": 5, "ranked_losses": 5, "best_ranked_streak": 2,
+                 "peak_rp": 350, "peak_tier": "silver"},
+            ],
+        })
     if path == "/api/type-chart":
         # Return real type chart from config
         import config
@@ -846,7 +879,7 @@ def create_preview_app():
         "/api/overview", "/api/chats", "/api/users", "/api/spawns/recent",
         "/api/pokemon/stats", "/api/events", "/api/fun-kpis",
         "/api/battle/ranking", "/api/battle/ranking-teams", "/api/battle/tiers",
-        "/api/dashboard-kpi", "/api/type-chart",
+        "/api/ranked/season", "/api/dashboard-kpi", "/api/type-chart",
         "/api/tournament/winners", "/api/iv-ranking",
     ]:
         app.router.add_get(api_path, mock_json)

@@ -27,16 +27,17 @@ from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_ha
 from handlers.battle import (
     partner_handler, partner_callback_handler,
     team_handler, team_register_handler, team_clear_handler, team_select_handler,
-    team_callback_handler,
+    team_swap_handler, team_edit_menu_handler, team_callback_handler,
     battle_stats_handler, bp_handler, bp_shop_handler, bp_buy_handler, shop_callback_handler,
     battle_challenge_handler, battle_callback_handler, battle_result_callback_handler,
     battle_ranking_handler, battle_accept_text_handler, battle_decline_text_handler,
     tier_handler,
-    ranked_coming_soon_handler,
+    ranked_challenge_handler, ranked_callback_handler,
+    season_info_handler, ranked_ranking_handler, arena_register_handler,
     yacha_handler, yacha_type_callback, yacha_amount_callback,
     yacha_response_callback, yacha_result_callback,
 )
-from handlers.dm_nurture import feed_handler, play_handler, evolve_handler, nurture_callback_handler
+from handlers.dm_nurture import feed_handler, play_handler, evolve_handler, nurture_callback_handler, nurture_menu_handler
 # DM trade removed — replaced by group reply trade
 # from handlers.dm_trade import trade_handler, accept_handler, reject_handler
 from handlers.dm_market import (
@@ -330,6 +331,126 @@ async def weather_update_job(context):
     await update_weather(weather_city)
 
 
+# --- Ranked season jobs ---
+
+async def ranked_weekly_reset_job(context):
+    """격주 월요일 00:05 KST: 시즌 보상 → 소프트 리셋 → 새 시즌 → 아레나 공지.
+    매주 월요일마다 주간 법칙 갱신은 별도 처리."""
+    try:
+        from services import ranked_service as rs
+        from database import ranked_queries as rq
+
+        # 현재 요일 확인 (월=0)
+        now = config.get_kst_now()
+        if now.weekday() != 0:
+            return  # 월요일만
+
+        prev_season = await rq.get_current_season()
+
+        # 2주 시즌: 시즌 종료 여부 확인 (시즌이 아직 진행 중이면 스킵)
+        if prev_season:
+            ends_at = prev_season["ends_at"]
+            # ends_at가 datetime 객체면 직접 비교, naive면 KST로 가정
+            if ends_at.tzinfo is None:
+                ends_at = ends_at.replace(tzinfo=config.KST)
+            if now < ends_at:
+                # 시즌 아직 진행 중 → 리셋 안 함
+                logger.info(f"Season {prev_season['season_id']} still active, skipping reset")
+                return
+
+        # 이전 시즌 보상 처리
+        if prev_season and not prev_season["rewards_distributed"]:
+            rewarded = await rs.process_season_rewards(prev_season["season_id"])
+            logger.info(f"Season rewards: {len(rewarded)} users rewarded")
+
+            # 시즌 1위 → 챔피언 칭호 해금
+            champion_uid = await rs.get_season_champion(prev_season["season_id"])
+            if champion_uid:
+                try:
+                    await queries.unlock_title(champion_uid, "ranked_champion")
+                    logger.info(f"Season champion title unlocked for {champion_uid}")
+                except Exception:
+                    pass
+
+            # 보상 DM 발송
+            for r in rewarded:
+                try:
+                    tier_d = rs.tier_display(r["tier"])
+                    parts = []
+                    if r.get("masterball", 0):
+                        parts.append(f"마스터볼 x{r['masterball']}")
+                    if r.get("bp", 0):
+                        parts.append(f"BP {r['bp']}")
+                    reward_txt = " + ".join(parts)
+                    champ_note = ""
+                    if r["user_id"] == champion_uid:
+                        champ_note = "\n🏆 <b>시즌 챔피언!</b> '시즌 챔피언' 칭호 해금!"
+                    await context.bot.send_message(
+                        chat_id=r["user_id"],
+                        text=f"🏟️ 시즌 {prev_season['season_id']} 보상!\n"
+                             f"최고 티어: {tier_d}\n🎁 {reward_txt}{champ_note}",
+                        parse_mode="HTML",
+                    )
+                except Exception:
+                    pass
+
+        # 새 시즌 생성 (소프트 리셋 포함)
+        if prev_season:
+            new_season = await rs.soft_reset_new_season(prev_season["season_id"])
+        else:
+            new_season = await rs.ensure_current_season()
+
+        if not new_season:
+            logger.error("Failed to create new ranked season")
+            return
+
+        # 새 시즌 공지 (아레나들에)
+        rule_info = config.WEEKLY_RULES.get(new_season["weekly_rule"], {})
+
+        # 지난 시즌 TOP 3
+        top3_lines = []
+        if prev_season:
+            top3 = await rq.get_ranked_ranking(prev_season["season_id"], limit=3)
+            medals = ["🥇", "🥈", "🥉"]
+            for i, r in enumerate(top3):
+                td = rs.tier_display(r["tier"])
+                name = r.get("display_name") or "???"
+                top3_lines.append(f"  {medals[i]} {name} ({td} {r['rp']} RP)")
+
+        announce = [
+            f"🏟️ 시즌 배틀 시즌 {new_season['season_id']} 시작!\n",
+            f"🔒 시즌 법칙: {rule_info.get('name', new_season['weekly_rule'])}",
+            f"   └ {rule_info.get('desc', '')}",
+        ]
+
+        arena_ids = new_season.get("arena_chat_ids") or []
+        arena_names = []
+        for aid in arena_ids:
+            try:
+                chat = await context.bot.get_chat(aid)
+                arena_names.append(chat.title or str(aid))
+            except Exception:
+                arena_names.append(str(aid))
+        announce.append(f"📍 아레나: {', '.join(arena_names)}")
+
+        if top3_lines:
+            announce.append(f"\n🏆 지난 시즌 TOP 3")
+            announce.extend(top3_lines)
+
+        announce.append("\n💡 상대에게 답장 + '랭전'으로 도전!")
+
+        text = "\n".join(announce)
+        for aid in arena_ids:
+            try:
+                await context.bot.send_message(chat_id=aid, text=text, parse_mode="HTML")
+            except Exception:
+                pass
+
+        logger.info(f"New ranked season started: {new_season['season_id']}")
+    except Exception as e:
+        logger.error(f"Ranked weekly reset failed: {e}")
+
+
 # --- Weather command handler ---
 
 async def _optout_handler(update, context):
@@ -402,6 +523,7 @@ def main():
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^(📖\s*)?도감"), pokedex_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^날씨$"), weather_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📦\s*)?내포켓몬\s*\d*$"), my_pokemon_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(💪\s*)?친밀도강화$"), nurture_menu_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^밥(\s+.+)?$"), feed_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^놀기(\s+.+)?$"), play_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^진화(\s+.+)?$"), evolve_handler))
@@ -410,12 +532,12 @@ def main():
     # DM trade removed — replaced by group reply trade
 
     # Marketplace (DM) — 구체적 서브커맨드 먼저 등록
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*등록\s"), market_register_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*취소\s"), market_cancel_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*구매\s"), market_buy_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*검색\s"), market_search_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소\s*내꺼"), market_my_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^거래소"), market_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소\s*등록\s"), market_register_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소\s*취소\s"), market_cancel_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소\s*구매\s"), market_buy_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소\s*검색\s"), market_search_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소\s*내꺼"), market_my_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소"), market_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^방생$"), release_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^합성$"), fusion_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?미션$"), mission_handler))
@@ -425,15 +547,19 @@ def main():
 
     # Battle system (DM)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🤝\s*)?파트너(\s+.+)?$"), partner_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(✏️\s*)?팀편집$"), team_edit_menu_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^팀등록[12]?(\s|$)"), team_register_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^팀해제[12]?$"), team_clear_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^팀선택"), team_select_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^팀스왑$"), team_swap_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(⚔️\s*)?팀[12]?$"), team_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏆\s*)?배틀전적$"), battle_stats_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(bp)?구매"), bp_buy_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🏪\s*)?(bp)?상점$"), bp_shop_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp$"), bp_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^티어$"), tier_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^시즌$"), season_info_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(시즌)?랭킹$"), ranked_ranking_handler))
 
     # Admin commands (DM)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^통계$"), stats_handler))
@@ -471,9 +597,10 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀수락$"), battle_accept_text_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀거절$"), battle_decline_text_handler))
 
-    # Ranked battle (Coming Soon) & Yacha (Betting Battle)
-    app.add_handler(MessageHandler(group & filters.Regex(r"^랭전$"), ranked_coming_soon_handler))
+    # Ranked battle & Yacha (Betting Battle)
+    app.add_handler(MessageHandler(group & filters.Regex(r"^랭전$"), ranked_challenge_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^야차$"), yacha_handler))
+    app.add_handler(CommandHandler("아레나등록", arena_register_handler))
 
     # Admin group commands
     app.add_handler(MessageHandler(group & filters.Regex(r"^스폰배율"), spawn_rate_handler))
@@ -532,10 +659,13 @@ def main():
     app.add_handler(CallbackQueryHandler(partner_callback_handler, pattern=r"^partner_"))
 
     # Team selection callback
-    app.add_handler(CallbackQueryHandler(team_callback_handler, pattern=r"^t(edit|slot_view|pick|rem|p|cl|done|cancel|del)_"))
+    app.add_handler(CallbackQueryHandler(team_callback_handler, pattern=r"^t(edit|slot_view|pick|rem|p|cl|done|cancel|del|swap|swap_cancel|sw)_"))
 
     # Battle accept/decline callback
     app.add_handler(CallbackQueryHandler(battle_callback_handler, pattern=r"^battle_"))
+
+    # Ranked battle accept/decline callback
+    app.add_handler(CallbackQueryHandler(ranked_callback_handler, pattern=r"^ranked_"))
 
     # Battle result detail/skip/teabag callback
     app.add_handler(CallbackQueryHandler(battle_result_callback_handler, pattern=r"^b(detail|skip|tbag)_"))
@@ -594,6 +724,13 @@ def main():
         interval=3600,
         first=3600,
         name="weather_update",
+    )
+
+    # Ranked season: weekly reset at Monday 00:05 KST
+    app.job_queue.run_daily(
+        ranked_weekly_reset_job,
+        time=dt_time(0, 5, 0, tzinfo=kst),
+        name="ranked_weekly_reset",
     )
 
     # Tournament schedule (21:00 registration, 21:50 snapshot, 22:00 start — KST)

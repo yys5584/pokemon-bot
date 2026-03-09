@@ -102,6 +102,26 @@ async def get_active_team_number(user_id: int) -> int:
     return row["active_team"] if row else 1
 
 
+async def swap_teams(user_id: int):
+    """Swap team 1 and team 2 entirely, then flip active_team."""
+    pool = await get_db()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "UPDATE battle_teams SET team_number = 99 WHERE user_id = $1 AND team_number = 1",
+                user_id)
+            await conn.execute(
+                "UPDATE battle_teams SET team_number = 1 WHERE user_id = $1 AND team_number = 2",
+                user_id)
+            await conn.execute(
+                "UPDATE battle_teams SET team_number = 2 WHERE user_id = $1 AND team_number = 99",
+                user_id)
+    # Flip active team
+    active = await get_active_team_number(user_id)
+    new_active = 2 if active == 1 else 1
+    await set_active_team(user_id, new_active)
+
+
 async def validate_team_pokemon(user_id: int, instance_ids: list[int]) -> list[dict]:
     """Validate that all instance IDs belong to the user and are active.
     Returns list of valid pokemon dicts."""
@@ -126,17 +146,19 @@ async def validate_team_pokemon(user_id: int, instance_ids: list[int]) -> list[d
 async def create_challenge(
     challenger_id: int, defender_id: int, chat_id: int, expires_at,
     bet_type: str | None = None, bet_amount: int = 0,
+    battle_type: str = "normal",
 ) -> int:
     """Create a battle challenge. Returns challenge ID.
     bet_type: None (normal battle), 'bp' or 'masterball' (yacha).
+    battle_type: 'normal', 'ranked', 'yacha'.
     """
     pool = await get_db()
     row = await pool.fetchrow(
         """INSERT INTO battle_challenges
-               (challenger_id, defender_id, chat_id, expires_at, bet_type, bet_amount)
-           VALUES ($1, $2, $3, $4, $5, $6)
+               (challenger_id, defender_id, chat_id, expires_at, bet_type, bet_amount, battle_type)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING id""",
-        challenger_id, defender_id, chat_id, expires_at, bet_type, bet_amount,
+        challenger_id, defender_id, chat_id, expires_at, bet_type, bet_amount, battle_type,
     )
     return row["id"]
 
@@ -220,6 +242,7 @@ async def record_battle(
     total_rounds: int,
     battle_log: str,
     bp_earned: int,
+    battle_type: str = "normal",
 ) -> int:
     """Record a completed battle. Returns record ID."""
     pool = await get_db()
@@ -227,12 +250,12 @@ async def record_battle(
         """INSERT INTO battle_records
                (challenge_id, chat_id, winner_id, loser_id,
                 winner_team_size, loser_team_size, winner_remaining,
-                total_rounds, battle_log, bp_earned)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                total_rounds, battle_log, bp_earned, battle_type)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            RETURNING id""",
         challenge_id, chat_id, winner_id, loser_id,
         winner_team_size, loser_team_size, winner_remaining,
-        total_rounds, battle_log, bp_earned,
+        total_rounds, battle_log, bp_earned, battle_type,
     )
     return row["id"]
 

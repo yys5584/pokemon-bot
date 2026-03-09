@@ -23,11 +23,11 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type == "private":
         menu_keyboard = ReplyKeyboardMarkup(
             [
-                ["📋 상태창", "📖 도감"],
-                ["📦 내포켓몬", "🤝 파트너"],
-                ["⚔️ 팀1", "⚔️ 팀2"],
-                ["🏪 상점", "🏆 배틀전적"],
-                ["🏷️ 칭호", "📋 칭호목록"],
+                ["📋 상태창", "📦 내포켓몬"],
+                ["⚔️ 팀", "✏️ 팀편집"],
+                ["🛒 거래소", "🏪 상점"],
+                ["🤝 파트너", "💪 친밀도강화"],
+                ["📖 도감", "🏷️ 칭호"],
             ],
             resize_keyboard=True,
             input_field_placeholder="명령어를 선택하세요",

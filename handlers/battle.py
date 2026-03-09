@@ -323,21 +323,43 @@ def _iv_grade_tag(p: dict) -> str:
 def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, InlineKeyboardMarkup]:
     """Build slot-first team editor main view.
     Shows 6 slots as 3x2 grid buttons + 완료/취소.
-    draft = {"original": {slot: inst_id}, "current": {slot: inst_id}, "names": {inst_id: name_ko}}
+    Supports swap mode for reordering slots.
     """
     current = draft["current"]
     names = draft["names"]
+    rarities = draft.get("rarities", {})
+    swap_mode = draft.get("swap_mode", False)
+    swap_first = draft.get("swap_first")
     filled = sum(1 for v in current.values() if v is not None)
     slot_plain = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
 
-    lines = [f"{icon_emoji('battle')} 배틀 팀 {team_num} 편집  ({filled}/{TEAM_MAX})\n"]
+    # Calculate total cost
+    total_cost = 0
+    for inst_id in current.values():
+        if inst_id is not None:
+            rarity = rarities.get(inst_id, "")
+            total_cost += config.RANKED_COST.get(rarity, 0)
+
+    header = f"{icon_emoji('battle')} 배틀 팀 {team_num} 편집  ({filled}/{TEAM_MAX})  💰 {total_cost}/{config.RANKED_COST_LIMIT}"
+    if swap_mode:
+        if swap_first is not None:
+            first_name = names.get(current.get(swap_first), "(빈)")
+            header += f"\n\n🔀 {slot_plain[swap_first-1]} {first_name} 선택됨 → 바꿀 슬롯을 선택하세요"
+        else:
+            header += "\n\n🔀 바꿀 첫 번째 슬롯을 선택하세요"
+    lines = [header + "\n"]
+
     for s in range(1, 7):
         inst_id = current.get(s)
         if inst_id:
-            lines.append(f"{slot_plain[s-1]} {names.get(inst_id, '???')}")
+            cost = config.RANKED_COST.get(rarities.get(inst_id, ""), 0)
+            mark = " ✓" if swap_mode and swap_first == s else ""
+            lines.append(f"{slot_plain[s-1]} {names.get(inst_id, '???')} (💰{cost}){mark}")
         else:
             lines.append(f"{slot_plain[s-1]} (빈)")
-    lines.append("\n슬롯을 눌러 포켓몬을 배치/교체하세요.")
+
+    if not swap_mode:
+        lines.append("\n슬롯을 눌러 포켓몬을 배치/교체하세요.")
 
     # 3x2 grid buttons
     buttons = []
@@ -348,9 +370,16 @@ def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, In
             label = f"{slot_plain[s-1]} {names.get(inst_id, '???')}"
         else:
             label = f"{slot_plain[s-1]} (빈)"
-        row.append(InlineKeyboardButton(
-            label, callback_data=f"tslot_view_{user_id}_{s}_{team_num}",
-        ))
+
+        if swap_mode:
+            # In swap mode, slot buttons trigger swap selection
+            row.append(InlineKeyboardButton(
+                label, callback_data=f"tsw_{user_id}_{s}_{team_num}",
+            ))
+        else:
+            row.append(InlineKeyboardButton(
+                label, callback_data=f"tslot_view_{user_id}_{s}_{team_num}",
+            ))
         if len(row) == 3:
             buttons.append(row)
             row = []
@@ -358,10 +387,18 @@ def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, In
         buttons.append(row)
 
     # Action row
-    buttons.append([
-        InlineKeyboardButton("✅ 완료", callback_data=f"tdone_{user_id}_{team_num}"),
-        InlineKeyboardButton("❌ 취소", callback_data=f"tcancel_{user_id}_{team_num}"),
-    ])
+    if swap_mode:
+        buttons.append([
+            InlineKeyboardButton("↩ 취소", callback_data=f"tswap_cancel_{user_id}_{team_num}"),
+        ])
+    else:
+        buttons.append([
+            InlineKeyboardButton("🔀 순서변경", callback_data=f"tswap_{user_id}_{team_num}"),
+        ])
+        buttons.append([
+            InlineKeyboardButton("✅ 완료", callback_data=f"tdone_{user_id}_{team_num}"),
+            InlineKeyboardButton("❌ 취소", callback_data=f"tcancel_{user_id}_{team_num}"),
+        ])
 
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
@@ -414,9 +451,10 @@ async def _build_slot_pokemon_list(user_id: int, slot: int, draft: dict,
         shiny = "✨" if p.get("is_shiny") else ""
         rl = config.RARITY_LABEL.get(p.get("rarity", ""), "")
         rl_tag = f"({rl})" if rl else ""
+        cost = config.RANKED_COST.get(p.get("rarity", ""), 0)
         in_slot = inst_to_slot.get(p["id"])
         slot_mark = f"[⚔{in_slot}]" if in_slot else ""
-        label = f"{p['name_ko']}{shiny}{rl_tag}{iv_tag} {slot_mark}"
+        label = f"{p['name_ko']}{shiny}{rl_tag}{iv_tag} 💰{cost} {slot_mark}"
         # callback: tpick_{uid}_{slot}_{instance_id}_{page}_{tn}
         row.append(InlineKeyboardButton(
             label, callback_data=f"tpick_{user_id}_{slot}_{p['id']}_{page}_{team_num}",
@@ -449,15 +487,20 @@ async def _init_draft(context, user_id: int, team_num: int) -> dict:
     team = await bq.get_battle_team(user_id, team_num)
     # Build names map from team data + will be enriched later
     names = {}
+    rarities = {}
     current = {}
     for t in team:
         current[t["slot"]] = t["pokemon_instance_id"]
         names[t["pokemon_instance_id"]] = t["name_ko"]
+        rarities[t["pokemon_instance_id"]] = t["rarity"]
 
     draft = {
         "original": dict(current),
         "current": current,
         "names": names,
+        "rarities": rarities,
+        "swap_mode": False,
+        "swap_first": None,
     }
     context.user_data[f"team_draft_{team_num}"] = draft
     return draft
@@ -497,6 +540,7 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     total_power = 0
     total_base_power = 0
+    total_cost = 0
     for i, p in enumerate(team):
         evo_stage = EVO_STAGE_MAP.get(p["pokemon_id"], 3)
         stats = calc_battle_stats(
@@ -516,17 +560,20 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         partner_mark = " 🤝" if p["pokemon_instance_id"] == partner_instance else ""
         rb = rarity_badge(p["rarity"])
         rl = config.RARITY_LABEL.get(p["rarity"], "")
+        cost = config.RANKED_COST.get(p["rarity"], 0)
+        total_cost += cost
         iv_sum = iv_total(p.get("iv_hp"), p.get("iv_atk"), p.get("iv_def"),
                           p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
         iv_grade, _ = config.get_iv_grade(iv_sum)
         iv_tag = f"[{iv_grade}: {iv_sum}] " if iv_sum > 0 else ""
         lines.append(
             f"{slot_emojis[i]} {rb}{tb} {p['name_ko']} ({rl}){partner_mark}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
-            f"    {iv_tag}{format_stats_line(stats, base)}"
+            f"    {iv_tag}{format_stats_line(stats, base)}  💰{cost}"
         )
     iv_diff = total_power - total_base_power
     total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
     lines.append(f"\n{icon_emoji('bolt')} 팀 전투력: {total_tag}")
+    lines.append(f"💰 팀 코스트: {total_cost}/{config.RANKED_COST_LIMIT}")
 
     if team_num != active_num:
         lines.append(f"\n💡 '팀선택 {team_num}'으로 이 팀을 배틀에 사용할 수 있습니다.")
@@ -544,6 +591,39 @@ def _parse_team_number(text: str) -> int:
     if text.endswith("2"):
         return 2
     return 1
+
+
+async def team_edit_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '팀편집' command (DM). Show team 1/2 edit selector."""
+    if not update.effective_user or not update.message:
+        return
+    user_id = update.effective_user.id
+
+    team1 = await bq.get_battle_team(user_id, 1)
+    team2 = await bq.get_battle_team(user_id, 2)
+    active = await bq.get_active_team_number(user_id)
+
+    t1_label = f"팀1 ({len(team1)}마리)" if team1 else "팀1 (비어있음)"
+    t2_label = f"팀2 ({len(team2)}마리)" if team2 else "팀2 (비어있음)"
+    if active == 1:
+        t1_label += " ✅"
+    else:
+        t2_label += " ✅"
+
+    buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(f"✏️ {t1_label}", callback_data=f"tedit_{user_id}_1"),
+            InlineKeyboardButton(f"✏️ {t2_label}", callback_data=f"tedit_{user_id}_2"),
+        ],
+        [
+            InlineKeyboardButton("🔀 팀1↔팀2 교환", callback_data=f"tswap_teams_{user_id}"),
+        ],
+    ])
+    await update.message.reply_text(
+        f"{icon_emoji('battle')} 편집할 팀을 선택하세요:",
+        reply_markup=buttons,
+        parse_mode="HTML",
+    )
 
 
 async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -675,6 +755,24 @@ async def team_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text(f"{icon_emoji('check')} 배틀 팀 {team_num}을(를) 활성 팀으로 설정했습니다!", parse_mode="HTML")
 
 
+async def team_swap_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '팀스왑' command (DM). Swap team 1 ↔ team 2."""
+    if not update.effective_user or not update.message:
+        return
+    user_id = update.effective_user.id
+    team1 = await bq.get_battle_team(user_id, 1)
+    team2 = await bq.get_battle_team(user_id, 2)
+    if not team1 and not team2:
+        await update.message.reply_text("교환할 팀이 없습니다.")
+        return
+    await bq.swap_teams(user_id)
+    active = await bq.get_active_team_number(user_id)
+    await update.message.reply_text(
+        f"🔀 팀 1 ↔ 팀 2 교환 완료!\n활성 팀: 팀 {active}",
+        parse_mode="HTML",
+    )
+
+
 async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle team editor inline callbacks (slot-first draft architecture)."""
     query = update.callback_query
@@ -790,6 +888,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         # Place pokemon
         current[slot] = inst_id
         draft["names"][inst_id] = pokemon["name_ko"]
+        draft.setdefault("rarities", {})[inst_id] = pokemon.get("rarity", "")
 
         await query.answer()
         # Return to slot main view
@@ -862,6 +961,114 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 raise
         except Exception:
             logger.exception("tcl edit_message_text failed")
+
+    # tswap_{uid}_{tn} — enter swap mode
+    elif data.startswith("tswap_") and not data.startswith("tswap_cancel_") and not data.startswith("tswap_teams_"):
+        owner_id = int(parts[1])
+        tn = int(parts[2])
+        if not _check_owner(owner_id):
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        draft = await _get_draft(owner_id, tn)
+        draft["swap_mode"] = True
+        draft["swap_first"] = None
+        text_msg, markup = _build_team_slots(owner_id, draft, tn)
+        try:
+            await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
+        except Exception:
+            logger.exception("tswap edit_message_text failed")
+
+    # tswap_cancel_{uid}_{tn} — cancel swap mode
+    elif data.startswith("tswap_cancel_"):
+        owner_id = int(parts[2])
+        tn = int(parts[3])
+        if not _check_owner(owner_id):
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        draft = await _get_draft(owner_id, tn)
+        draft["swap_mode"] = False
+        draft["swap_first"] = None
+        text_msg, markup = _build_team_slots(owner_id, draft, tn)
+        try:
+            await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
+        except Exception:
+            logger.exception("tswap_cancel edit_message_text failed")
+
+    # tsw_{uid}_{slot}_{tn} — swap slot selection
+    elif data.startswith("tsw_"):
+        owner_id = int(parts[1])
+        slot = int(parts[2])
+        tn = int(parts[3])
+        if not _check_owner(owner_id):
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        draft = await _get_draft(owner_id, tn)
+        current = draft["current"]
+
+        if draft.get("swap_first") is None:
+            # First selection
+            draft["swap_first"] = slot
+        else:
+            # Second selection — execute swap
+            s1 = draft["swap_first"]
+            s2 = slot
+            if s1 != s2:
+                v1, v2 = current.get(s1), current.get(s2)
+                # Swap
+                if v1 is not None:
+                    current[s2] = v1
+                elif s2 in current:
+                    del current[s2]
+                if v2 is not None:
+                    current[s1] = v2
+                elif s1 in current:
+                    del current[s1]
+            # Exit swap mode
+            draft["swap_mode"] = False
+            draft["swap_first"] = None
+
+        text_msg, markup = _build_team_slots(owner_id, draft, tn)
+        try:
+            await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
+        except Exception:
+            logger.exception("tsw edit_message_text failed")
+
+    # tswap_teams_{uid} — swap team 1 ↔ team 2 (from edit menu)
+    elif data.startswith("tswap_teams_"):
+        owner_id = int(parts[2])
+        if not _check_owner(owner_id):
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        team1 = await bq.get_battle_team(owner_id, 1)
+        team2 = await bq.get_battle_team(owner_id, 2)
+        if not team1 and not team2:
+            await query.answer("교환할 팀이 없습니다!", show_alert=True)
+            return
+        await query.answer()
+        await bq.swap_teams(owner_id)
+        active = await bq.get_active_team_number(owner_id)
+        try:
+            await query.edit_message_text(
+                f"🔀 팀 1 ↔ 팀 2 교환 완료!\n활성 팀: 팀 {active}",
+                parse_mode="HTML",
+            )
+        except BadRequest as e:
+            if "not modified" not in str(e).lower():
+                raise
+        except Exception:
+            logger.exception("tswap_teams edit_message_text failed")
 
     # tdone_{uid}_{tn} — save draft to DB
     elif data.startswith("tdone_"):
@@ -936,7 +1143,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 # ============================================================
 
 async def battle_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle 배틀전적 command (DM). Show user's battle record."""
+    """Handle 배틀전적 command (DM). Show user's battle record + ranked info."""
     if not update.effective_user:
         return
 
@@ -955,6 +1162,26 @@ async def battle_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         f"💫 최고 연승: {stats['best_streak']}",
         f"{icon_emoji('coin')} 보유 BP: {stats['battle_points']}",
     ]
+
+    # 시즌 랭크 정보
+    try:
+        from services import ranked_service as rs
+        from database import ranked_queries as rq
+        season = await rq.get_current_season()
+        if season:
+            rec = await rq.get_season_record(user_id, season["season_id"])
+            if rec:
+                tier_disp = rs.tier_display(rec["tier"])
+                r_total = rec["ranked_wins"] + rec["ranked_losses"]
+                r_wr = round(rec["ranked_wins"] / r_total * 100, 1) if r_total > 0 else 0
+                lines.extend([
+                    "",
+                    f"🏟️ 시즌 {season['season_id']}",
+                    f"{tier_disp}  RP {rec['rp']}",
+                    f"랭크 {rec['ranked_wins']}승 {rec['ranked_losses']}패 ({r_wr}%)",
+                ])
+    except Exception:
+        pass
 
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
@@ -1848,14 +2075,517 @@ async def battle_decline_text_handler(update: Update, context: ContextTypes.DEFA
 
 
 # ============================================================
-# Ranked Battle (랭전 - Coming Soon)
+# Ranked Battle (랭전 - Season PvP)
 # ============================================================
 
-async def ranked_coming_soon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle '랭전' command (group). Show coming soon message."""
+async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '랭전' command (group → arena only). Ranked battle challenge."""
     if not update.effective_user or not update.message:
         return
-    await update.message.reply_text("🏟️ 랭크전은 준비 중입니다! (Coming Soon)")
+
+    chat_id = update.effective_chat.id
+    challenger_id = update.effective_user.id
+    challenger_name = update.effective_user.first_name or "트레이너"
+
+    from services.tournament_service import is_tournament_active
+    if is_tournament_active(chat_id):
+        return
+
+    # 아레나 체크
+    from database import ranked_queries as rq
+    if not await rq.is_arena(chat_id):
+        await update.message.reply_text("🏟️ 랭크전은 아레나에서만 가능합니다!\n'시즌' 명령으로 아레나 목록을 확인하세요.")
+        return
+
+    # 답장 필수
+    reply = update.message.reply_to_message
+    if not reply or not reply.from_user:
+        await update.message.reply_text(
+            f"{icon_emoji('battle')} 랭크전을 신청하려면 상대방의 메시지에 답장하며 '랭전'을 입력하세요!", parse_mode="HTML"
+        )
+        return
+
+    defender_id = reply.from_user.id
+    defender_name = reply.from_user.first_name or "트레이너"
+
+    if challenger_id == defender_id:
+        await update.message.reply_text("자기 자신에게 랭크전을 신청할 수 없습니다.")
+        return
+    if reply.from_user.is_bot:
+        await update.message.reply_text("봇에게는 랭크전을 신청할 수 없습니다.")
+        return
+
+    await queries.ensure_user(challenger_id, challenger_name, update.effective_user.username)
+    await queries.ensure_user(defender_id, defender_name, reply.from_user.username)
+
+    # 시즌 확인/생성
+    from services import ranked_service as rs
+    season = await rs.ensure_current_season()
+    if not season:
+        await update.message.reply_text("🏟️ 현재 시즌이 없습니다. 잠시 후 다시 시도하세요.")
+        return
+
+    season_id = season["season_id"]
+
+    # 일일 랭크전 상한 체크
+    today_str = str(config.get_kst_now().date())
+    c_today_count = await rq.get_ranked_battles_today(challenger_id, today_str)
+    if c_today_count >= config.RANKED_DAILY_CAP:
+        await update.message.reply_text(f"오늘 랭크전 {config.RANKED_DAILY_CAP}회를 모두 소진했습니다.")
+        return
+
+    # 같은 상대 쿨다운 (랭크전 전용)
+    from datetime import datetime, timedelta, timezone
+    last_vs = await rq.get_last_ranked_vs(challenger_id, defender_id)
+    if last_vs:
+        if hasattr(last_vs, 'tzinfo') and last_vs.tzinfo is None:
+            last_vs = last_vs.replace(tzinfo=timezone.utc)
+        cooldown = timedelta(seconds=config.RANKED_COOLDOWN_SAME)
+        if datetime.now(timezone.utc) - last_vs < cooldown:
+            remaining = cooldown - (datetime.now(timezone.utc) - last_vs)
+            mins = int(remaining.total_seconds() // 60)
+            await update.message.reply_text(
+                f"같은 상대와의 랭크전은 {config.RANKED_COOLDOWN_SAME // 60}분 쿨다운입니다. ({mins}분 남음)"
+            )
+            return
+
+    # 전체 랭크전 쿨다운
+    last_any = await bq.get_last_battle_time_any(challenger_id)
+    if last_any:
+        last_time = datetime.fromisoformat(last_any) if isinstance(last_any, str) else last_any
+        if hasattr(last_time, 'tzinfo') and last_time.tzinfo is None:
+            last_time = last_time.replace(tzinfo=timezone.utc)
+        cooldown = timedelta(seconds=config.RANKED_COOLDOWN_GLOBAL)
+        if datetime.now(timezone.utc) - last_time < cooldown:
+            remaining = cooldown - (datetime.now(timezone.utc) - last_time)
+            secs = int(remaining.total_seconds())
+            await update.message.reply_text(f"배틀 쿨다운 중입니다. ({secs}초 남음)")
+            return
+
+    # 도전자 팀 확인
+    c_team = await bq.get_battle_team(challenger_id)
+    if not c_team:
+        await update.message.reply_text(
+            f"{icon_emoji('battle')} 배틀 팀이 없습니다!\nDM에서 '팀등록'으로 먼저 팀을 등록하세요.",
+            parse_mode="HTML",
+        )
+        return
+
+    # 도전자 팀 법칙 검증
+    ok, err = await rs.validate_team_for_ranked(challenger_id, season)
+    if not ok:
+        await update.message.reply_text(f"❌ 팀이 랭크전 조건을 충족하지 않습니다.\n{err}")
+        return
+
+    # 중복 도전 체크
+    existing = await bq.get_pending_challenge(challenger_id, defender_id)
+    if existing:
+        await update.message.reply_text("이미 대기 중인 배틀 신청이 있습니다.")
+        return
+
+    # 시즌 법칙 표시 텍스트
+    rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
+    rule_txt = f"🔒 {rule_info.get('name', season['weekly_rule'])}"
+
+    # 도전 생성
+    expires = (datetime.now(timezone.utc) + timedelta(seconds=config.BATTLE_CHALLENGE_TIMEOUT))
+    challenge_id = await bq.create_challenge(
+        challenger_id, defender_id, chat_id, expires,
+        battle_type="ranked",
+    )
+
+    buttons = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "✅ 수락",
+                callback_data=f"ranked_accept_{challenge_id}_{defender_id}",
+            ),
+            InlineKeyboardButton(
+                "❌ 거절",
+                callback_data=f"ranked_decline_{challenge_id}_{defender_id}",
+            ),
+        ]
+    ])
+
+    challenge_msg = await update.message.reply_text(
+        f"🏟️ {challenger_name}님이 {defender_name}님에게 <b>랭크전</b>을 신청합니다!\n"
+        f"{rule_txt}\n"
+        f"{config.BATTLE_CHALLENGE_TIMEOUT}초 내에 수락해주세요!",
+        reply_markup=buttons,
+        parse_mode="HTML",
+    )
+
+    async def _ranked_timeout(ctx):
+        try:
+            challenge = await bq.get_challenge_by_id(challenge_id)
+            if challenge and challenge["status"] == "pending":
+                await bq.update_challenge_status(challenge_id, "expired")
+                await ctx.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=challenge_msg.message_id,
+                    text=f"⏰ {challenger_name}님의 랭크전 신청이 만료되었습니다.",
+                )
+        except Exception:
+            pass
+
+    context.job_queue.run_once(
+        _ranked_timeout,
+        when=config.BATTLE_CHALLENGE_TIMEOUT,
+        name=f"ranked_timeout_{challenge_id}",
+    )
+
+
+async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle ranked battle accept/decline inline button callbacks."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    data = query.data
+    if not data.startswith("ranked_"):
+        return
+
+    if _is_duplicate_callback(query):
+        await query.answer()
+        return
+
+    await query.answer()
+
+    parts = data.split("_")
+    # ranked_accept_{challenge_id}_{defender_id}
+    action = parts[1]
+    challenge_id = int(parts[2])
+    expected_defender = int(parts[3])
+
+    # 타임아웃 job 취소
+    jobs = context.job_queue.get_jobs_by_name(f"ranked_timeout_{challenge_id}")
+    for job in jobs:
+        job.schedule_removal()
+
+    if query.from_user.id != expected_defender:
+        await query.answer("본인만 응답할 수 있습니다!", show_alert=True)
+        return
+
+    challenge = await bq.get_challenge_by_id(challenge_id)
+    if not challenge:
+        try:
+            await query.edit_message_text("배틀 신청을 찾을 수 없습니다.")
+        except Exception:
+            pass
+        return
+
+    if challenge["status"] != "pending":
+        try:
+            await query.edit_message_text("이미 처리된 배틀 신청입니다.")
+        except Exception:
+            pass
+        return
+
+    from datetime import datetime, timezone
+    expires = challenge["expires_at"]
+    if hasattr(expires, 'tzinfo') and expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > expires:
+        await bq.update_challenge_status(challenge_id, "expired")
+        try:
+            await query.edit_message_text("⏰ 랭크전 신청이 만료되었습니다.")
+        except Exception:
+            pass
+        return
+
+    if action == "decline":
+        await bq.update_challenge_status(challenge_id, "declined")
+        try:
+            await query.edit_message_text("❌ 랭크전이 거절되었습니다.")
+        except Exception:
+            pass
+        return
+
+    if action == "accept":
+        from services import ranked_service as rs
+        from database import ranked_queries as rq
+
+        # 수비자 팀 확인
+        d_team = await bq.get_battle_team(expected_defender)
+        if not d_team:
+            try:
+                await query.edit_message_text(
+                    f"{icon_emoji('battle')} 수비자의 배틀 팀이 없습니다!\nDM에서 '팀등록'으로 먼저 팀을 등록하세요.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            return
+
+        c_team = await bq.get_battle_team(challenge["challenger_id"])
+        if not c_team:
+            try:
+                await query.edit_message_text(f"{icon_emoji('battle')} 도전자의 배틀 팀이 없습니다!", parse_mode="HTML")
+            except Exception:
+                pass
+            return
+
+        # 양쪽 팀 재검증 (수락 시점)
+        season = await rs.ensure_current_season()
+        if not season:
+            try:
+                await query.edit_message_text("🏟️ 현재 시즌이 없습니다.")
+            except Exception:
+                pass
+            return
+
+        ok_c, err_c = await rs.validate_team_for_ranked(challenge["challenger_id"], season)
+        if not ok_c:
+            try:
+                await query.edit_message_text(f"❌ 도전자 팀이 법칙 위반: {err_c}")
+            except Exception:
+                pass
+            return
+
+        ok_d, err_d = await rs.validate_team_for_ranked(expected_defender, season)
+        if not ok_d:
+            try:
+                await query.edit_message_text(f"❌ 수비자 팀이 법칙 위반: {err_d}")
+            except Exception:
+                pass
+            return
+
+        await bq.update_challenge_status(challenge_id, "accepted")
+
+        # 배틀 실행!
+        from services.battle_service import execute_battle
+        result = await execute_battle(
+            challenger_id=challenge["challenger_id"],
+            defender_id=expected_defender,
+            challenger_team=c_team,
+            defender_team=d_team,
+            challenge_id=challenge_id,
+            chat_id=challenge["chat_id"],
+            bot=context.bot,
+            battle_type="ranked",
+        )
+
+        # 랭크전 결과 텍스트 조합
+        ranked_info = result.get("ranked_info")
+        winner_id = result["winner_id"]
+        loser_id = result["loser_id"]
+        cache_key = result["cache_key"]
+
+        rp_lines = []
+        if ranked_info:
+            w_tier_disp = rs.tier_display(ranked_info["winner_tier_after"])
+            l_tier_disp = rs.tier_display(ranked_info["loser_tier_after"])
+            rp_lines = [
+                f"📈 RP +{ranked_info['winner_rp_gain']} "
+                f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']} {w_tier_disp})",
+                f"📉 RP -{ranked_info['loser_rp_loss']} "
+                f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']} {l_tier_disp})",
+            ]
+
+            # 윈트레이딩 감지 경고
+            pair_decay = ranked_info.get("pair_decay", 1.0)
+            if pair_decay < 1.0 and pair_decay > 0:
+                rp_lines.append(f"⚠️ 같은 상대 반복 대전 — RP {int(pair_decay*100)}% 적용")
+            elif pair_decay == 0:
+                rp_lines.append("🚫 같은 상대 일일 한도 초과 — RP 미적용")
+
+            # 티어 변동 알림
+            if ranked_info["winner_tier_before"] != ranked_info["winner_tier_after"]:
+                new_t = rs.tier_display(ranked_info["winner_tier_after"])
+                rp_lines.append(f"🎉 승급! → {new_t}")
+            if ranked_info["loser_tier_before"] != ranked_info["loser_tier_after"]:
+                old_t = rs.tier_display(ranked_info["loser_tier_before"])
+                rp_lines.append(f"⬇️ 강등… → {rs.tier_display(ranked_info['loser_tier_after'])}")
+
+        # 법칙 헤더
+        rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
+        header = f"🏟️ 랭크전 결과!\n🔒 {rule_info.get('name', '')}"
+
+        display = result["display_text"].replace(f"{icon_emoji('battle')} 배틀 결과!", header)
+        if rp_lines:
+            display += "\n" + "\n".join(rp_lines)
+
+        battle_buttons = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(
+                    "📋 상세보기",
+                    callback_data=f"bdetail_{cache_key}_{winner_id}_{loser_id}",
+                ),
+                InlineKeyboardButton(
+                    "⏭ 스킵",
+                    callback_data=f"bskip_{winner_id}_{loser_id}",
+                ),
+            ]
+        ])
+
+        try:
+            await query.edit_message_text(
+                display, parse_mode="HTML", reply_markup=battle_buttons,
+            )
+        except Exception:
+            try:
+                await context.bot.send_message(
+                    chat_id=challenge["chat_id"],
+                    text=display, parse_mode="HTML", reply_markup=battle_buttons,
+                )
+            except Exception:
+                pass
+
+        # 랭크 칭호 체크
+        if ranked_info:
+            await _check_ranked_titles(winner_id, ranked_info, is_winner=True)
+            await _check_ranked_titles(loser_id, ranked_info, is_winner=False)
+
+
+async def _check_ranked_titles(user_id: int, ranked_info: dict, is_winner: bool):
+    """Check and unlock ranked battle titles."""
+    from database import ranked_queries as rq
+    from services.ranked_service import current_season_id
+
+    season_id = current_season_id()
+    rec = await rq.get_season_record(user_id, season_id)
+    if not rec:
+        return
+
+    total = rec["ranked_wins"] + rec["ranked_losses"]
+    tier = rec["tier"]
+    streak = rec["ranked_streak"] if is_winner else 0
+
+    best_streak = rec.get("best_ranked_streak", 0)
+    checks = [
+        ("ranked_first", total >= 1),
+        ("ranked_silver", tier in ("silver", "gold", "platinum", "diamond", "master", "challenger")),
+        ("ranked_gold", tier in ("gold", "platinum", "diamond", "master", "challenger")),
+        ("ranked_platinum", tier in ("platinum", "diamond", "master", "challenger")),
+        ("ranked_diamond", tier in ("diamond", "master", "challenger")),
+        ("ranked_master", tier in ("master", "challenger")),
+        ("ranked_challenger", tier == "challenger"),
+        ("ranked_streak5", best_streak >= 5),
+        ("ranked_streak10", best_streak >= 10),
+    ]
+
+    for title_id, condition in checks:
+        if condition and title_id in config.RANKED_TITLES:
+            already = await queries.has_title(user_id, title_id)
+            if not already:
+                await queries.unlock_title(user_id, title_id)
+                logger.info(f"Ranked title unlocked: {user_id} -> {title_id}")
+
+
+async def season_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '시즌' command (DM). Show current season info + user record."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    from services import ranked_service as rs
+    from database import ranked_queries as rq
+
+    season = await rs.ensure_current_season()
+    if not season:
+        await update.message.reply_text("🏟️ 현재 활성 시즌이 없습니다.")
+        return
+
+    season_id = season["season_id"]
+    rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
+
+    # 아레나 목록
+    arena_ids = season.get("arena_chat_ids") or []
+    arena_names = []
+    for aid in arena_ids:
+        try:
+            chat = await context.bot.get_chat(aid)
+            arena_names.append(chat.title or str(aid))
+        except Exception:
+            arena_names.append(str(aid))
+
+    arena_txt = ", ".join(arena_names) if arena_names else "미지정"
+
+    lines = [
+        f"🏟️ <b>시즌 {season_id}</b>",
+        f"📅 기간: {season.get('starts_at', '?'):%m/%d} ~ {season.get('ends_at', '?'):%m/%d}",
+        f"🔒 시즌 법칙: {rule_info.get('name', season['weekly_rule'])}",
+        f"   └ {rule_info.get('desc', '')}",
+        f"📍 아레나: {arena_txt}",
+        "",
+    ]
+
+    # 내 시즌 기록
+    rec = await rq.get_season_record(user_id, season_id)
+    if rec:
+        tier_disp = rs.tier_display(rec["tier"])
+        total = rec["ranked_wins"] + rec["ranked_losses"]
+        wr = round(rec["ranked_wins"] / total * 100, 1) if total > 0 else 0
+        lines.extend([
+            f"── 나의 시즌 기록 ──",
+            f"{tier_disp}  RP {rec['rp']}",
+            f"🏆 {rec['ranked_wins']}승 {rec['ranked_losses']}패 ({wr}%)",
+            f"🔥 현재 연승: {rec['ranked_streak']}  |  최고: {rec['best_ranked_streak']}",
+            f"📈 피크: {rs.tier_display(rec['peak_tier'])} {rec['peak_rp']} RP",
+        ])
+    else:
+        lines.append("아직 이번 시즌 랭크전 기록이 없습니다.\n아레나에서 '랭전'으로 도전하세요!")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
+async def ranked_ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '랭킹' or '시즌랭킹' command (DM). Show season ranking."""
+    if not update.effective_user or not update.message:
+        return
+
+    from services import ranked_service as rs
+    from database import ranked_queries as rq
+
+    season = await rs.ensure_current_season()
+    if not season:
+        await update.message.reply_text("🏟️ 현재 활성 시즌이 없습니다.")
+        return
+
+    ranking = await rq.get_ranked_ranking(season["season_id"], limit=15)
+    if not ranking:
+        await update.message.reply_text("🏟️ 아직 이번 시즌 랭크전 기록이 없습니다.")
+        return
+
+    lines = [f"🏟️ <b>시즌 {season['season_id']} 랭킹</b>\n"]
+    medals = ["🥇", "🥈", "🥉"]
+    for i, r in enumerate(ranking):
+        medal = medals[i] if i < 3 else f"{i+1}."
+        tier_d = rs.tier_display(r["tier"])
+        te = r.get("title_emoji", "")
+        te_str = f"{icon_emoji(te)} " if te and te in config.ICON_CUSTOM_EMOJI else ""
+        name = escape_html(r["display_name"] or "???")
+        lines.append(
+            f"{medal} {te_str}{name}  {tier_d} {r['rp']} RP  "
+            f"({r['ranked_wins']}승 {r['ranked_losses']}패)"
+        )
+
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
+async def arena_register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '/아레나등록' command (group, admin only). Register chat as arena candidate."""
+    if not update.effective_user or not update.message:
+        return
+
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+
+    # 관리자 체크
+    try:
+        member = await context.bot.get_chat_member(chat_id, user_id)
+        if member.status not in ("administrator", "creator"):
+            await update.message.reply_text("아레나 등록은 관리자만 가능합니다.")
+            return
+    except Exception:
+        await update.message.reply_text("관리자 권한을 확인할 수 없습니다.")
+        return
+
+    chat_name = update.effective_chat.title or str(chat_id)
+
+    from database import ranked_queries as rq
+    await rq.register_arena(chat_id, chat_name, user_id)
+    await update.message.reply_text(f"✅ '{chat_name}'이(가) 아레나 후보로 등록되었습니다!\n매주 월요일 시즌 아레나 선정에 포함됩니다.")
 
 
 # ============================================================

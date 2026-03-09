@@ -427,11 +427,14 @@ async def execute_battle(
     chat_id: int,
     skip_bp: bool = False,
     bot=None,
+    battle_type: str = "normal",
 ) -> dict:
     """Execute a full battle and record results.
 
+    battle_type: 'normal', 'yacha', 'ranked'
     Returns dict with 'display_text' for the chat message.
     """
+    is_ranked = battle_type == "ranked"
     # Get partner info
     c_partner = await bq.get_partner(challenger_id)
     d_partner = await bq.get_partner(defender_id)
@@ -469,15 +472,15 @@ async def execute_battle(
     winner_stats = await bq.get_battle_stats(winner_id)
     new_streak = winner_stats["battle_streak"] + 1
 
-    # Calculate BP (skip for yacha — yacha handles its own payout)
-    if skip_bp:
+    # Calculate BP (skip for yacha/ranked — they handle own payouts)
+    if skip_bp or is_ranked:
         bp_won = 0
         bp_lose = 0
     else:
         bp_won = _calculate_bp(winner_team_size, loser_team_size, result["perfect_win"], new_streak)
         bp_lose = config.BP_LOSE
 
-    # Update stats
+    # Update stats (ranked still counts in overall battle_wins/losses)
     await bq.update_battle_stats_win(winner_id, bp_won)
     await bq.update_battle_stats_lose(loser_id, bp_lose)
 
@@ -512,7 +515,7 @@ async def execute_battle(
         asyncio.create_task(_battle_cxp())
 
     # Record battle
-    await bq.record_battle(
+    battle_record_id = await bq.record_battle(
         challenge_id=challenge_id,
         chat_id=chat_id,
         winner_id=winner_id,
@@ -523,7 +526,16 @@ async def execute_battle(
         total_rounds=result["rounds"],
         battle_log=result["log"],
         bp_earned=bp_won,
+        battle_type=battle_type,
     )
+
+    # Ranked: process RP changes
+    ranked_info = None
+    if is_ranked:
+        from services.ranked_service import process_ranked_result, current_season_id
+        ranked_info = await process_ranked_result(
+            winner_id, loser_id, current_season_id(), battle_record_id,
+        )
 
     # Get display names — challenger always LEFT, defender always RIGHT
     c_user = await queries.get_user(challenger_id)
@@ -589,6 +601,8 @@ async def execute_battle(
         "winner_name": winner_name,
         "new_streak": new_streak,
         "perfect_win": result["perfect_win"],
+        "battle_type": battle_type,
+        "ranked_info": ranked_info,
     }
 
 

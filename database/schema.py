@@ -409,6 +409,9 @@ TEAM_SLOT_MIGRATIONS = [
     "ALTER TABLE battle_teams DROP CONSTRAINT IF EXISTS battle_teams_user_id_pokemon_instance_id_key",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_bt_user_team_slot ON battle_teams(user_id, team_number, slot)",
     "ALTER TABLE users ADD COLUMN active_team INTEGER NOT NULL DEFAULT 1",
+    # team_number must be 1 or 2
+    "ALTER TABLE battle_teams DROP CONSTRAINT IF EXISTS bt_team_number_check",
+    "ALTER TABLE battle_teams ADD CONSTRAINT bt_team_number_check CHECK(team_number IN (1, 2))",
 ]
 
 MISSION_TABLES = [
@@ -473,6 +476,80 @@ CREATE TABLE IF NOT EXISTS tournament_registrations (
     registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )
 """
+
+# ─── 랭크전 (시즌 배틀) 테이블 ─────────────────────────
+RANKED_TABLES = [
+    """
+    CREATE TABLE IF NOT EXISTS seasons (
+        id SERIAL PRIMARY KEY,
+        season_id TEXT NOT NULL UNIQUE,
+        weekly_rule TEXT NOT NULL,
+        starts_at TIMESTAMPTZ NOT NULL,
+        ends_at TIMESTAMPTZ NOT NULL,
+        arena_chat_ids BIGINT[] NOT NULL DEFAULT '{}',
+        rewards_distributed BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_seasons_id ON seasons(season_id)",
+    """
+    CREATE TABLE IF NOT EXISTS season_daily_conditions (
+        id SERIAL PRIMARY KEY,
+        season_id TEXT NOT NULL,
+        date DATE NOT NULL,
+        condition_key TEXT NOT NULL,
+        UNIQUE(season_id, date)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS season_records (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES users(user_id),
+        season_id TEXT NOT NULL,
+        rp INTEGER NOT NULL DEFAULT 0,
+        tier TEXT NOT NULL DEFAULT 'bronze',
+        ranked_wins INTEGER NOT NULL DEFAULT 0,
+        ranked_losses INTEGER NOT NULL DEFAULT 0,
+        ranked_streak INTEGER NOT NULL DEFAULT 0,
+        best_ranked_streak INTEGER NOT NULL DEFAULT 0,
+        peak_rp INTEGER NOT NULL DEFAULT 0,
+        peak_tier TEXT NOT NULL DEFAULT 'bronze',
+        UNIQUE(user_id, season_id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_sr_season ON season_records(season_id, rp DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_sr_user ON season_records(user_id)",
+    """
+    CREATE TABLE IF NOT EXISTS ranked_battle_log (
+        id SERIAL PRIMARY KEY,
+        battle_record_id INTEGER REFERENCES battle_records(id),
+        season_id TEXT NOT NULL,
+        winner_rp_before INTEGER NOT NULL,
+        winner_rp_after INTEGER NOT NULL,
+        loser_rp_before INTEGER NOT NULL,
+        loser_rp_after INTEGER NOT NULL,
+        winner_tier_before TEXT NOT NULL,
+        winner_tier_after TEXT NOT NULL,
+        loser_tier_before TEXT NOT NULL,
+        loser_tier_after TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_rbl_season ON ranked_battle_log(season_id)",
+    """
+    CREATE TABLE IF NOT EXISTS arena_candidates (
+        chat_id BIGINT PRIMARY KEY,
+        chat_name TEXT NOT NULL,
+        registered_by BIGINT NOT NULL,
+        registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """,
+]
+
+RANKED_MIGRATIONS = [
+    "ALTER TABLE battle_challenges ADD COLUMN battle_type TEXT NOT NULL DEFAULT 'normal'",
+    "ALTER TABLE battle_records ADD COLUMN battle_type TEXT NOT NULL DEFAULT 'normal'",
+]
 
 ULTRA_LEGENDARY_MIGRATIONS = [
     # CHECK 제약 업데이트 (ultra_legendary 추가)
@@ -640,6 +717,18 @@ async def create_tables():
         await pool.execute("CREATE INDEX IF NOT EXISTS idx_cxp_log_chat ON chat_cxp_log(chat_id, created_at)")
     except Exception:
         pass
+
+    # Ranked (season) battle tables
+    for sql in RANKED_TABLES:
+        try:
+            await pool.execute(sql)
+        except Exception:
+            pass
+    for mig in RANKED_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
 
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
