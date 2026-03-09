@@ -377,6 +377,8 @@ _NEXT_STEP = {
 
 async def tutorial_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '튜토' text in DM — advance tutorial to next step."""
+    if not update.effective_user or not update.message:
+        return
     user_id = update.effective_user.id
     step = await queries.get_tutorial_step(user_id)
 
@@ -402,6 +404,8 @@ async def tutorial_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def tutorial_dm_catch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle ㅊ/ㅎ/ㅁ text in DM — tutorial catch actions."""
+    if not update.effective_user or not update.message:
+        return
     user_id = update.effective_user.id
     text = update.message.text.strip()
     step = await queries.get_tutorial_step(user_id)

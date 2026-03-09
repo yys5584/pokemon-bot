@@ -24,7 +24,7 @@ if _sentry_dsn:
     import sentry_sdk
     sentry_sdk.init(
         dsn=_sentry_dsn,
-        traces_sample_rate=0.1,
+        traces_sample_rate=0.02,  # 2% (was 10%) — reduce PgBouncer cleanup noise
         environment="dashboard",
         send_default_pii=False,
     )

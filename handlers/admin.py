@@ -174,13 +174,19 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             # Increment count and show remaining
             await queries.increment_force_spawn(chat_id)
             used = count + 1
-            resp = await update.message.reply_text(f"{icon_emoji('bolt')} 강제스폰! ({used}/50회)", parse_mode="HTML")
-            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            try:
+                resp = await context.bot.send_message(chat_id=chat_id, text=f"{icon_emoji('bolt')} 강제스폰! ({used}/50회)", parse_mode="HTML")
+                schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            except Exception:
+                pass
             logger.info(f"force_spawn: success in chat {chat_id} ({used}/50)")
         except Exception as e:
             logger.error(f"force_spawn FAILED in chat {chat_id}: {e}", exc_info=True)
-            resp = await update.message.reply_text(f"❌ 강제스폰 실패: {e}")
-            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            try:
+                resp = await context.bot.send_message(chat_id=chat_id, text=f"❌ 강제스폰 실패: {e}")
+                schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            except Exception:
+                pass
 
 
 async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

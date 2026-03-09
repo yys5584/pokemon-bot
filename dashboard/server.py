@@ -509,17 +509,18 @@ async def api_my_summary(request):
         pool = await queries.get_db()
         uid = sess["user_id"]
 
-        row = await pool.fetchrow("""
-            SELECT COUNT(*) as total,
-                   COUNT(CASE WHEN is_shiny = 1 THEN 1 END) as shiny_count,
-                   COUNT(DISTINCT pokemon_id) as dex_count
-            FROM user_pokemon WHERE user_id = $1 AND is_active = 1
-        """, uid)
-
-        battle_row = await pool.fetchrow("""
-            SELECT battle_points, battle_wins, battle_losses, best_streak
-            FROM users WHERE user_id = $1
-        """, uid)
+        row, battle_row = await asyncio.gather(
+            pool.fetchrow("""
+                SELECT COUNT(*) as total,
+                       COUNT(CASE WHEN is_shiny = 1 THEN 1 END) as shiny_count,
+                       COUNT(DISTINCT pokemon_id) as dex_count
+                FROM user_pokemon WHERE user_id = $1 AND is_active = 1
+            """, uid),
+            pool.fetchrow("""
+                SELECT battle_points, battle_wins, battle_losses, best_streak
+                FROM users WHERE user_id = $1
+            """, uid),
+        )
 
         return pg_json_response({
             "total_pokemon": row["total"],
@@ -544,18 +545,18 @@ async def api_my_pokedex(request):
         pool = await queries.get_db()
         uid = sess["user_id"]
 
-        # All pokemon master data
-        all_pm = await pool.fetch("""
-            SELECT id, name_ko, name_en, emoji, rarity, pokemon_type, catch_rate,
-                   evolves_from, evolves_to, evolution_method
-            FROM pokemon_master ORDER BY id
-        """)
-
-        # User's caught pokemon
-        caught_rows = await pool.fetch("""
-            SELECT pokemon_id, method, first_caught_at
-            FROM pokedex WHERE user_id = $1
-        """, uid)
+        # All pokemon master data + user's caught pokemon in parallel
+        all_pm, caught_rows = await asyncio.gather(
+            pool.fetch("""
+                SELECT id, name_ko, name_en, emoji, rarity, pokemon_type, catch_rate,
+                       evolves_from, evolves_to, evolution_method
+                FROM pokemon_master ORDER BY id
+            """),
+            pool.fetch("""
+                SELECT pokemon_id, method, first_caught_at
+                FROM pokedex WHERE user_id = $1
+            """, uid),
+        )
         caught_map = {r["pokemon_id"]: {"method": r["method"]} for r in caught_rows}
 
         # Get type2 info from base stats + evo stage + TMI
@@ -1653,25 +1654,52 @@ async def api_battle_recent(request):
 
 
 async def api_battle_ranking_teams(request):
-    """Get battle teams + partner info for top 10 rankers."""
+    """Get battle teams + partner info for top 10 rankers (bulk query)."""
     try:
         ranking = await bq.get_battle_ranking(10)
+        if not ranking:
+            return pg_json_response({})
+
+        uids = [r["user_id"] for r in ranking]
+        pool = await queries.get_db()
+
+        # Bulk: all teams + all partners in 2 queries
+        teams_rows, partners_rows = await asyncio.gather(
+            pool.fetch("""
+                SELECT bt.user_id, bt.slot, bt.pokemon_instance_id,
+                       up.is_shiny, pm.name_ko, pm.emoji
+                FROM battle_teams bt
+                JOIN users u ON bt.user_id = u.user_id AND bt.team_number = u.active_team
+                JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
+                JOIN pokemon_master pm ON up.pokemon_id = pm.id
+                WHERE bt.user_id = ANY($1) AND up.is_active = 1
+                ORDER BY bt.user_id, bt.slot
+            """, uids),
+            pool.fetch("""
+                SELECT u.user_id, u.partner_pokemon_id
+                FROM users u WHERE u.user_id = ANY($1)
+            """, uids),
+        )
+
+        partner_map = {r["user_id"]: r["partner_pokemon_id"] for r in partners_rows}
+
         result = {}
-        for r in ranking:
-            uid = r["user_id"]
-            team_task = bq.get_battle_team(uid)
-            partner_task = bq.get_partner(uid)
-            team, partner = await asyncio.gather(team_task, partner_task)
-            partner_iid = partner["instance_id"] if partner else None
-            result[str(uid)] = [
-                {
-                    "emoji": p["emoji"],
-                    "name_ko": p["name_ko"],
-                    "is_partner": p["pokemon_instance_id"] == partner_iid,
-                    "is_shiny": bool(p.get("is_shiny", 0)),
-                }
-                for p in team
-            ]
+        for r in teams_rows:
+            uid_str = str(r["user_id"])
+            if uid_str not in result:
+                result[uid_str] = []
+            result[uid_str].append({
+                "emoji": r["emoji"],
+                "name_ko": r["name_ko"],
+                "is_partner": r["pokemon_instance_id"] == partner_map.get(r["user_id"]),
+                "is_shiny": bool(r.get("is_shiny", 0)),
+            })
+
+        # Ensure all ranked users have an entry
+        for uid in uids:
+            if str(uid) not in result:
+                result[str(uid)] = []
+
         return pg_json_response(result)
     except InterfaceError:
         return web.json_response({"error": "서버 재시작 중입니다"}, status=503)

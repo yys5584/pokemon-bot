@@ -172,6 +172,8 @@ async def _get_candidates(user_id: int, filt: dict) -> list[dict]:
 
 async def release_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '방생' command in DM."""
+    if not update.effective_user or not update.message:
+        return
     user_id = update.effective_user.id
 
     # Reset filter state

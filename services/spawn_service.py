@@ -834,7 +834,32 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         )
 
     except Exception as e:
-        logger.error(f"Spawn execution failed for chat {chat_id}: {e}")
+        # Handle group → supergroup migration
+        if "migrate" in str(e).lower() and hasattr(e, "new_chat_id"):
+            new_id = e.new_chat_id
+            logger.info(f"Chat {chat_id} migrated to {new_id}, updating DB...")
+            try:
+                pool = await queries.get_db()
+                await pool.execute(
+                    "UPDATE chat_rooms SET chat_id = $1 WHERE chat_id = $2",
+                    new_id, chat_id,
+                )
+                logger.info(f"Chat migration {chat_id} → {new_id} done.")
+            except Exception as me:
+                logger.error(f"Chat migration update failed: {me}")
+        elif "kicked" in str(e).lower() or "forbidden" in str(e).lower():
+            logger.info(f"Bot kicked from chat {chat_id}, deactivating...")
+            try:
+                pool = await queries.get_db()
+                await pool.execute(
+                    "UPDATE chat_rooms SET is_active = 0 WHERE chat_id = $1",
+                    chat_id,
+                )
+                logger.info(f"Chat {chat_id} deactivated.")
+            except Exception as de:
+                logger.error(f"Chat deactivation failed: {de}")
+        else:
+            logger.error(f"Spawn execution failed for chat {chat_id}: {e}")
 
 
 async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):

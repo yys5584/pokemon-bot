@@ -157,6 +157,8 @@ def _pokemon_summary(p: dict) -> str:
 
 async def fusion_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '합성' command in DM."""
+    if not update.effective_user or not update.message:
+        return
     user_id = update.effective_user.id
 
     # Reset state

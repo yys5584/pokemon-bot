@@ -2148,17 +2148,13 @@ async def get_user_catch_rates(limit: int = 10) -> list[dict]:
     rows = await pool.fetch(
         """SELECT u.display_name,
                   COUNT(*) as attempts,
-                  SUM(CASE WHEN sl.caught_by_user_id = ca.user_id THEN 1 ELSE 0 END) as catches,
+                  SUM(CASE WHEN ss.caught_by_user_id = ca.user_id THEN 1 ELSE 0 END) as catches,
                   ROUND(
-                      (CAST(SUM(CASE WHEN sl.caught_by_user_id = ca.user_id THEN 1 ELSE 0 END) AS NUMERIC)
+                      (CAST(SUM(CASE WHEN ss.caught_by_user_id = ca.user_id THEN 1 ELSE 0 END) AS NUMERIC)
                       / COUNT(*) * 100)::NUMERIC, 1
                   ) as catch_rate
            FROM catch_attempts ca
            JOIN spawn_sessions ss ON ca.session_id = ss.id
-           JOIN spawn_log sl ON sl.chat_id = ss.chat_id
-               AND sl.pokemon_id = ss.pokemon_id
-               AND sl.spawned_at >= ss.spawned_at
-               AND sl.spawned_at <= COALESCE(ss.expires_at, ss.spawned_at + INTERVAL '5 minutes')
            JOIN users u ON ca.user_id = u.user_id
            GROUP BY ca.user_id, u.display_name
            HAVING COUNT(*) >= 5

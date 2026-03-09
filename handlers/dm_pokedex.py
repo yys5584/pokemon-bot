@@ -191,7 +191,7 @@ def _build_dex_view(user_id: int, display_name: str, title_part: str,
 
 async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /도감 or /pokedex command (DM only)."""
-    if not update.effective_user:
+    if not update.effective_user or not update.message:
         return
 
     user_id = update.effective_user.id
@@ -354,7 +354,7 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /내포켓몬 command (DM only) — text list view."""
-    if not update.effective_user:
+    if not update.effective_user or not update.message:
         return
 
     user_id = update.effective_user.id

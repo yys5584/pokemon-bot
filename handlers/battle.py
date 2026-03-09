@@ -95,7 +95,7 @@ def _build_partner_list(user_id: int, pokemon_list: list, page: int,
 
 async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 파트너 command (DM). Show current or set partner."""
-    if not update.effective_user:
+    if not update.effective_user or not update.message:
         return
 
     user_id = update.effective_user.id
@@ -465,7 +465,7 @@ async def _init_draft(context, user_id: int, team_num: int) -> dict:
 
 async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 팀/팀1/팀2 command (DM). Show current battle team or start selection."""
-    if not update.effective_user:
+    if not update.effective_user or not update.message:
         return
 
     user_id = update.effective_user.id
@@ -548,7 +548,7 @@ def _parse_team_number(text: str) -> int:
 
 async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 팀등록/팀등록1/팀등록2 command (DM). Register battle team via text or show selector."""
-    if not update.effective_user:
+    if not update.effective_user or not update.message:
         return
 
     user_id = update.effective_user.id
@@ -641,7 +641,7 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def team_clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 팀해제/팀해제1/팀해제2 command (DM). Clear battle team."""
-    if not update.effective_user:
+    if not update.effective_user or not update.message:
         return
 
     user_id = update.effective_user.id
@@ -653,7 +653,7 @@ async def team_clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def team_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '팀선택 1' or '팀선택 2' command (DM). Switch active battle team."""
-    if not update.effective_user:
+    if not update.effective_user or not update.message:
         return
 
     user_id = update.effective_user.id
@@ -1830,7 +1830,7 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def battle_accept_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '배틀수락' text command in group."""
-    if not update.effective_user:
+    if not update.effective_user or not update.message:
         return
     # For simplicity, just remind to use the button
     await update.message.reply_text(
@@ -1840,7 +1840,7 @@ async def battle_accept_text_handler(update: Update, context: ContextTypes.DEFAU
 
 async def battle_decline_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '배틀거절' text command in group."""
-    if not update.effective_user:
+    if not update.effective_user or not update.message:
         return
     await update.message.reply_text(
         "배틀 거절은 위의 ❌ 거절 버튼을 눌러주세요!"
