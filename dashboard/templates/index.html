@@ -2331,56 +2331,101 @@ function typeTip(type,chart,names){
 }
 
 // --- POKEMON TIER ---
+window._tierSort={key:'power',dir:-1};
+window._tierTypeFilter='';
+window._tierRarityFilter='';
+
 async function loadTier(){
     const [tiers,tc]=await Promise.all([fetchJSON("/api/battle/tiers"),getTypeChart()]);
     if(!tiers||!tiers.length){document.getElementById("tierTable").innerHTML='<p class="empty-msg">데이터 없음</p>';return}
     const chart=tc?tc.chart:null;
     const names=tc?tc.type_names:{};
-
-    const rarityLabel={"ultra_legendary":"초전설","legendary":"전설","epic":"에픽","rare":"희귀","common":"일반"};
     let mx={hp:1,atk:1,def:1,spa:1,spdef:1,spd:1};
     for(const p of tiers){mx.hp=Math.max(mx.hp,p.hp);mx.atk=Math.max(mx.atk,p.atk);mx.def=Math.max(mx.def,p.def_);mx.spa=Math.max(mx.spa,p.spa||0);mx.spdef=Math.max(mx.spdef,p.spdef||0);mx.spd=Math.max(mx.spd,p.spd)}
 
+    // Collect unique types
+    const typeSet=new Set();
+    for(const p of tiers){typeSet.add(p.type1);if(p.type2)typeSet.add(p.type2)}
+    const allTypes=[...typeSet].sort((a,b)=>(TYPE_NAMES[a]||a).localeCompare(TYPE_NAMES[b]||b,'ko'));
+
+    window._tierData=tiers; window._tierChart=chart; window._tierNames=names; window._tierMx=mx; window._tierAllTypes=allTypes;
+    _renderTierPage();
+}
+
+function _getFilteredTier(){
+    let list=[...window._tierData];
+    const tf=window._tierTypeFilter;
+    const rf=window._tierRarityFilter;
+    if(tf) list=list.filter(p=>p.type1===tf||p.type2===tf);
+    if(rf) list=list.filter(p=>p.rarity===rf);
+    const {key,dir}=window._tierSort;
+    const getVal=p=>{
+        if(key==='hp')return p.hp;if(key==='atk')return p.atk;if(key==='def')return p.def_;
+        if(key==='spa')return p.spa||0;if(key==='spdef')return p.spdef||0;if(key==='spd')return p.spd;
+        if(key==='power')return p.power;if(key==='skill')return p.skill_power;return 0;
+    };
+    list.sort((a,b)=>dir*(getVal(a)-getVal(b)));
+    return list;
+}
+
+function _renderTierPage(){
+    const tiers=_getFilteredTier();
+    const chart=window._tierChart, names=window._tierNames, mx=window._tierMx;
+    const allTypes=window._tierAllTypes||[];
+    const rarityLabel={"ultra_legendary":"초전설","legendary":"전설","epic":"에픽","rare":"희귀","common":"일반"};
+    const evoLabel={1:"1진화",2:"2진화",3:"최종"};
+    const tf=window._tierTypeFilter, rf=window._tierRarityFilter;
+
+    // Info box
     let h=`<div style="margin-bottom:14px;font-size:12px;color:var(--muted);line-height:2;background:var(--card);padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.06)">
         <div style="margin-bottom:6px">
             <b style="color:var(--text)">⚡ 전투력</b> = max(공격,특공) × 스킬배율 × 내구력(HP×방어)
             &nbsp;|&nbsp; 상위 2개 스탯 <b>굵게</b> 표시
             &nbsp;|&nbsp; 타입 아이콘 호버 시 상성 확인
-        </div>
-        <div style="margin-bottom:6px">
-            <b style="color:var(--text)">등급</b>
-            <span class="badge badge-ultra_legendary" style="font-size:9px">초전설</span>
-            <span class="badge badge-legendary" style="font-size:9px">전설</span>
-            <span class="badge badge-epic" style="font-size:9px">에픽</span>
-            <span class="badge badge-rare" style="font-size:9px">희귀</span>
-            <span class="badge badge-common" style="font-size:9px">일반</span>
-        </div>
-        <div>
-            <b style="color:var(--text)">IV 등급</b>
-            <span style="color:var(--gold);font-weight:700">S</span> 160+ (86%)
-            <span style="color:var(--green);font-weight:700">&nbsp;A</span> 120+ (65%)
-            <span style="color:var(--blue);font-weight:700">&nbsp;B</span> 93+ (50%)
-            <span style="color:var(--orange);font-weight:700">&nbsp;C</span> 62+ (33%)
-            <span style="color:var(--red);font-weight:700">&nbsp;D</span> 0+
-            <span style="color:var(--muted)">&nbsp;(총합 /186)</span>
+            &nbsp;|&nbsp; 컬럼 클릭 시 정렬
         </div>
     </div>`;
-    // Store for filtering
-    window._tierData=tiers; window._tierChart=chart; window._tierNames=names; window._tierMx=mx;
-    _renderTierTable(tiers, chart, names, mx, rarityLabel);
-}
 
-function _renderTierTable(tiers, chart, names, mx, rarityLabel){
-    if(!rarityLabel)rarityLabel={"ultra_legendary":"초전설","legendary":"전설","epic":"에픽","rare":"희귀","common":"일반"};
-    const evoLabel={1:"1진화",2:"2진화",3:"최종"};
-    let h=`<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <span style="font-size:12px;font-weight:600;color:var(--dim)">진화단계:</span>
-        <button class="poke-filter${!window._tierEvoFilter?' active':''}" onclick="filterTierEvo('')">전체</button>
-        <button class="poke-filter${window._tierEvoFilter===3?' active':''}" onclick="filterTierEvo(3)">최종진화</button>
-        <button class="poke-filter${window._tierEvoFilter===2?' active':''}" onclick="filterTierEvo(2)">2진화</button>
-        <button class="poke-filter${window._tierEvoFilter===1?' active':''}" onclick="filterTierEvo(1)">1진화</button>
+    // Type filter
+    h+=`<div style="margin-bottom:8px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:12px;font-weight:600;color:var(--dim);margin-right:2px">타입:</span>
+        <button class="poke-filter${!tf?' active':''}" onclick="filterTierType('')">전체</button>`;
+    for(const t of allTypes){
+        h+=`<button class="poke-filter${tf===t?' active':''}" onclick="filterTierType('${t}')" style="display:inline-flex;align-items:center;gap:3px"><img src="/static/types/${t}.png?v=2" style="width:14px;height:14px">${TYPE_NAMES[t]||t}</button>`;
+    }
+    h+=`</div>`;
+
+    // Rarity filter
+    h+=`<div style="margin-bottom:12px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:12px;font-weight:600;color:var(--dim);margin-right:2px">등급:</span>
+        <button class="poke-filter${!rf?' active':''}" onclick="filterTierRarity('')">전체</button>
+        <button class="poke-filter${rf==='ultra_legendary'?' active':''}" onclick="filterTierRarity('ultra_legendary')">🟧초전설</button>
+        <button class="poke-filter${rf==='legendary'?' active':''}" onclick="filterTierRarity('legendary')">🟨전설</button>
+        <button class="poke-filter${rf==='epic'?' active':''}" onclick="filterTierRarity('epic')">🟪에픽</button>
+        <button class="poke-filter${rf==='rare'?' active':''}" onclick="filterTierRarity('rare')">🟦레어</button>
+        <button class="poke-filter${rf==='common'?' active':''}" onclick="filterTierRarity('common')">⬜일반</button>
     </div>`;
-    h+=`<table><thead><tr><th>푸키몬</th><th>타입</th><th>등급</th><th class="hide-m">스킬</th><th>체력</th><th>공격</th><th>방어</th><th class="hide-m">특수공격</th><th class="hide-m">특수방어</th><th>속도</th><th>전투력</th></tr></thead><tbody>`;
+
+    // Sort arrow helper
+    const {key:sk,dir:sd}=window._tierSort;
+    const sa=k=>sk===k?(sd>0?'▲':'▼'):'';
+    const sc=k=>sk===k?'color:var(--primary);cursor:pointer':'cursor:pointer';
+
+    // Count
+    h+=`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">${tiers.length}마리 표시</div>`;
+
+    // Table
+    h+=`<table><thead><tr>
+        <th>푸키몬</th><th>타입</th><th>등급</th>
+        <th class="hide-m" style="${sc('skill')}" onclick="sortTier('skill')">스킬${sa('skill')}</th>
+        <th style="${sc('hp')}" onclick="sortTier('hp')">체력${sa('hp')}</th>
+        <th style="${sc('atk')}" onclick="sortTier('atk')">공격${sa('atk')}</th>
+        <th style="${sc('def')}" onclick="sortTier('def')">방어${sa('def')}</th>
+        <th class="hide-m" style="${sc('spa')}" onclick="sortTier('spa')">특공${sa('spa')}</th>
+        <th class="hide-m" style="${sc('spdef')}" onclick="sortTier('spdef')">특방${sa('spdef')}</th>
+        <th style="${sc('spd')}" onclick="sortTier('spd')">속도${sa('spd')}</th>
+        <th style="${sc('power')}" onclick="sortTier('power')">전투력${sa('power')}</th>
+    </tr></thead><tbody>`;
     for(const p of tiers){
         const tops=topStats(p);
         const t1=typeTip(p.type1,chart,names);
@@ -2404,12 +2449,13 @@ function _renderTierTable(tiers, chart, names, mx, rarityLabel){
     document.getElementById("tierTable").innerHTML=h;
 }
 
-window._tierEvoFilter='';
-function filterTierEvo(stage){
-    window._tierEvoFilter=stage;
-    const filtered=stage?window._tierData.filter(p=>p.evo_stage===stage):window._tierData;
-    _renderTierTable(filtered,window._tierChart,window._tierNames,window._tierMx);
+function sortTier(key){
+    if(window._tierSort.key===key) window._tierSort.dir*=-1;
+    else{window._tierSort={key,dir:-1}}
+    _renderTierPage();
 }
+function filterTierType(t){window._tierTypeFilter=t;_renderTierPage()}
+function filterTierRarity(r){window._tierRarityFilter=r;_renderTierPage()}
 
 // --- TYPE CHART ---
 function typeIcon(type,size){
