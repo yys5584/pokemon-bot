@@ -2718,7 +2718,6 @@ async def api_admin_battle_analytics(request):
         GROUP BY bps.pokemon_id, pm.name_ko, pm.emoji, bps.rarity
         HAVING COUNT(*) >= 3
         ORDER BY uses DESC
-        LIMIT 30
     """
     pokemon_rows = await pool.fetch(pokemon_q, *params)
 
