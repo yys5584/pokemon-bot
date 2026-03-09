@@ -34,8 +34,9 @@ def _iv_tag(p: dict) -> str:
     return f"[{_iv_grade(total)}]"
 
 
-def _hearts(friendship: int) -> str:
-    return "♥" * friendship + "○" * (5 - friendship)
+def _hearts(friendship: int, pokemon: dict | None = None) -> str:
+    max_f = config.get_max_friendship(pokemon) if pokemon else config.MAX_FRIENDSHIP
+    return "♥" * friendship + "○" * (max_f - friendship)
 
 
 async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -102,7 +103,7 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             for i, p in enumerate(matches, 1):
                 shiny = "✨" if p.get("is_shiny") else ""
                 iv = _iv_tag(p)
-                lines.append(f"  #{i} {p['name_ko']}{shiny} {iv} {_hearts(p.get('friendship', 0))}")
+                lines.append(f"  #{i} {p['name_ko']}{shiny} {iv} {_hearts(p.get('friendship', 0), p)}")
             lines.append(f"\n예시: 교환 {pokemon_name} #1")
             await msg.reply_text("\n".join(lines))
             return
@@ -147,7 +148,7 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Build trade message
     shiny = "✨" if pokemon.get("is_shiny") else ""
     iv = _iv_tag(pokemon)
-    hearts = _hearts(pokemon.get("friendship", 0))
+    hearts = _hearts(pokemon.get("friendship", 0), pokemon)
 
     from_name = from_user.first_name or "트레이너"
     to_name = to_user.first_name or "트레이너"
