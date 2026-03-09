@@ -1498,9 +1498,16 @@
                     </select>
                     <button class="poke-sort-dir" id="pokeSortDir" onclick="toggleSortDir()" title="정렬 방향 변경" style="padding:4px 8px;border-radius:8px;font-size:14px;background:var(--card);border:1px solid var(--border);cursor:pointer">⬇</button>
                     <button class="poke-fusion-btn" id="fusionModeBtn" style="margin-left:auto;padding:4px 12px;border-radius:16px;font-size:12px;font-weight:600;background:#E8F5E9;border:1px solid #A5D6A7;color:#2E7D32;cursor:pointer" onclick="toggleFusionMode()">🔀 합성</button>
+                    <button id="pokeTableViewBtn" style="padding:4px 12px;border-radius:16px;font-size:12px;font-weight:600;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;cursor:pointer" onclick="togglePokeTableView()">📋 한번에 보기</button>
                 </div>
                 <div class="poke-grid" id="pokeGrid"><div class="loading">로딩 중...</div></div>
                 <div id="pokeGridNav"></div>
+                <div id="pokeTableWrap" style="display:none">
+                    <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <span style="font-size:12px;color:var(--dim)">💡 아래 표를 드래그로 선택 → 복사(Ctrl+C)해서 ChatGPT에 붙여넣기하면 팀 편성 추천을 받을 수 있습니다!</span>
+                    </div>
+                    <div id="pokeTableContent" style="overflow-x:auto"></div>
+                </div>
             </div>
         </div>
 
@@ -2890,6 +2897,7 @@ function renderPokemonCard(p){
 }
 
 function renderMyPokemon(){
+    if(_pokeTableMode) renderPokeTable();
     const list=filterAndSortPokemon();
     const grid=document.getElementById("pokeGrid");
     const navEl=document.getElementById("pokeGridNav");
@@ -2949,6 +2957,57 @@ function renderTeamView(num){
         <span style="font-weight:600;color:${totalCost>18?'var(--red)':'var(--text)'}">코스트 ${totalCost}/18</span>
     </div>`;
     grid.innerHTML=costHtml+team.map(renderPokemonCard).join("");
+}
+
+// --- Pokemon Table View (한번에 보기) ---
+let _pokeTableMode=false;
+function togglePokeTableView(){
+    _pokeTableMode=!_pokeTableMode;
+    const btn=document.getElementById("pokeTableViewBtn");
+    btn.style.background=_pokeTableMode?"#1565C0":"#E3F2FD";
+    btn.style.color=_pokeTableMode?"#fff":"#1565C0";
+    btn.textContent=_pokeTableMode?"🔲 카드 보기":"📋 한번에 보기";
+    document.getElementById("pokeGrid").style.display=_pokeTableMode?"none":"";
+    document.getElementById("pokeGridNav").style.display=_pokeTableMode?"none":"";
+    document.getElementById("pokeTableWrap").style.display=_pokeTableMode?"":"none";
+    if(_pokeTableMode) renderPokeTable();
+}
+function renderPokeTable(){
+    const list=filterAndSortPokemon().slice(0,200);
+    const COST_MAP={common:1,rare:2,epic:4,legendary:5,ultra_legendary:6};
+    const rarKo={ultra_legendary:"초전설",legendary:"전설",epic:"에픽",rare:"레어",common:"일반"};
+    let h=`<div style="font-size:11px;color:var(--dim);margin-bottom:4px">${list.length}마리 표시 (최대 200)</div>`;
+    h+=`<table><thead><tr>
+        <th>#</th><th>이름</th><th>타입</th><th>등급</th><th>코스트</th>
+        <th>IV</th><th>시너지</th>
+        <th>HP</th><th>공격</th><th>방어</th><th>특공</th><th>특방</th><th>속도</th>
+        <th>전투력</th><th>팀</th>
+    </tr></thead><tbody>`;
+    list.forEach((p,i)=>{
+        const shiny=p.is_shiny?"✨":"";
+        const t1=p.pokemon_type||"";
+        const t2=p.type2?"/"+p.type2:"";
+        const tn=p.team_num?`팀${p.team_num}`:"";
+        h+=`<tr>
+            <td>${i+1}</td>
+            <td><b>${p.name_ko}</b>${shiny}</td>
+            <td>${TYPE_NAMES[p.pokemon_type]||t1}${p.type2?"/"+( TYPE_NAMES[p.type2]||p.type2):""}</td>
+            <td><span class="badge badge-${p.rarity}" style="font-size:9px">${rarKo[p.rarity]||p.rarity}</span></td>
+            <td>${COST_MAP[p.rarity]||"?"}</td>
+            <td><span class="poke-iv-badge ${p.iv_grade==="S"?"iv-s":p.iv_grade==="A"?"iv-a":p.iv_grade==="B"?"iv-b":p.iv_grade==="C"?"iv-c":"iv-d"}">${p.iv_grade}</span> ${p.iv_total}</td>
+            <td>${p.synergy_label||""} ${p.synergy_score||""}</td>
+            <td>${p.real_stats?.hp||p.stats?.hp||"-"}</td>
+            <td>${p.real_stats?.atk||p.stats?.atk||"-"}</td>
+            <td>${p.real_stats?.def||p.stats?.def||"-"}</td>
+            <td>${p.real_stats?.spa||p.stats?.spa||"-"}</td>
+            <td>${p.real_stats?.spdef||p.stats?.spdef||"-"}</td>
+            <td>${p.real_stats?.spd||p.stats?.spd||"-"}</td>
+            <td style="font-weight:700">${p.real_power||p.power||"-"}</td>
+            <td>${tn}</td>
+        </tr>`;
+    });
+    h+="</tbody></table>";
+    document.getElementById("pokeTableContent").innerHTML=h;
 }
 
 // --- POKEDEX PAGE ---
