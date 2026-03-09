@@ -490,6 +490,26 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                     except Exception:
                         pass
 
+        # Refund hyper balls when master ball user wins (hyper had no chance)
+        if winner.get("used_master_ball"):
+            hyper_refund_ids = [
+                r["user_id"] for r in results
+                if r["used_hyper_ball"] and r["user_id"] != winner_id
+            ]
+            if hyper_refund_ids:
+                await queries.add_hyper_balls_bulk(hyper_refund_ids)
+                for loser in results:
+                    if loser["used_hyper_ball"] and loser["user_id"] != winner_id:
+                        logger.info(f"Refunded hyper ball to {loser['display_name']} (master ball override, overlap)")
+                        try:
+                            await context.bot.send_message(
+                                chat_id=loser["user_id"],
+                                text=f"{ball_emoji('hyperball')} 하이퍼볼이 환불되었습니다. (마스터볼 포획으로 자동 환불)",
+                                parse_mode="HTML",
+                            )
+                        except Exception:
+                            pass
+
         # Give Pokemon + register pokedex + close session (transaction)
         _inst_id, caught_ivs = await queries.catch_pokemon_transaction(
             winner_id, pokemon_id, chat_id, is_shiny, session_id,
@@ -1001,6 +1021,26 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                     except Exception:
                         pass
 
+        # Refund hyper balls when master ball user wins (hyper had no chance)
+        if winner.get("used_master_ball"):
+            hyper_refund_ids = [
+                r["user_id"] for r in results
+                if r["used_hyper_ball"] and r["user_id"] != winner_id
+            ]
+            if hyper_refund_ids:
+                await queries.add_hyper_balls_bulk(hyper_refund_ids)
+                for loser in results:
+                    if loser["used_hyper_ball"] and loser["user_id"] != winner_id:
+                        logger.info(f"Refunded hyper ball to {loser['display_name']} (master ball override)")
+                        try:
+                            await context.bot.send_message(
+                                chat_id=loser["user_id"],
+                                text=f"{ball_emoji('hyperball')} 하이퍼볼이 환불되었습니다. (마스터볼 포획으로 자동 환불)",
+                                parse_mode="HTML",
+                            )
+                        except Exception:
+                            pass
+
         # Give Pokemon + register pokedex + close session (transaction)
         _inst_id, caught_ivs = await queries.catch_pokemon_transaction(
             winner_id, pokemon_id, chat_id, is_shiny, session_id,
@@ -1335,6 +1375,14 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             if mr_ids:
                 await queries.add_master_balls_bulk(mr_ids)
                 refunded.extend((uid, "master") for uid in mr_ids)
+
+            # Refund hyper balls when master ball user wins
+            if winner.get("used_master_ball"):
+                hr_ids = [r["user_id"] for r in results
+                          if r["used_hyper_ball"] and r["user_id"] != winner_id]
+                if hr_ids:
+                    await queries.add_hyper_balls_bulk(hr_ids)
+                    refunded.extend((uid, "hyper") for uid in hr_ids)
 
             # Give pokemon (transaction)
             _inst_id, caught_ivs = await queries.catch_pokemon_transaction(

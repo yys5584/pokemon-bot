@@ -2472,6 +2472,18 @@ async def add_master_balls_bulk(user_ids: list[int]):
     )
 
 
+async def add_hyper_balls_bulk(user_ids: list[int]):
+    """Refund 1 hyper ball to each user in the list (batch UPDATE)."""
+    if not user_ids:
+        return
+    pool = await get_db()
+    await pool.execute(
+        """UPDATE users SET hyper_balls = hyper_balls + 1
+           WHERE user_id = ANY($1::bigint[])""",
+        user_ids,
+    )
+
+
 # ============================================================
 # Journey System
 # ============================================================
