@@ -2406,14 +2406,20 @@ function _renderTierPage(){
         </div>
     </div>`;
 
-    // Type filter
-    h+=`<div style="margin-bottom:8px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-        <span style="font-size:12px;font-weight:600;color:var(--dim);margin-right:2px">타입:</span>
-        <button class="poke-filter${!tf?' active':''}" onclick="filterTierType('')">전체</button>`;
+    // Type filter (collapsible)
+    const tfOpen=window._tierTypeOpen;
+    const tfLabel=tf?`<img src="/static/types/${tf}.png?v=2" style="width:14px;height:14px;vertical-align:middle"> ${TYPE_NAMES[tf]||tf}`:'전체';
+    h+=`<div style="margin-bottom:8px">
+        <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:12px;font-weight:600;color:var(--dim)">타입:</span>
+            <button class="poke-filter active" onclick="toggleTierTypePanel()" style="display:inline-flex;align-items:center;gap:4px">${tfLabel} <span style="font-size:9px;transition:transform .2s;display:inline-block;${tfOpen?'transform:rotate(180deg)':''}">▼</span></button>
+        </div>
+        <div id="tierTypePanel" style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;${tfOpen?'':'display:none'}">
+            <button class="poke-filter${!tf?' active':''}" onclick="filterTierType('')" style="font-size:11px">전체</button>`;
     for(const t of allTypes){
-        h+=`<button class="poke-filter${tf===t?' active':''}" onclick="filterTierType('${t}')" style="display:inline-flex;align-items:center;gap:3px"><img src="/static/types/${t}.png?v=2" style="width:14px;height:14px">${TYPE_NAMES[t]||t}</button>`;
+        h+=`<button class="poke-filter${tf===t?' active':''}" onclick="filterTierType('${t}')" style="display:inline-flex;align-items:center;gap:3px;font-size:11px"><img src="/static/types/${t}.png?v=2" style="width:14px;height:14px">${TYPE_NAMES[t]||t}</button>`;
     }
-    h+=`</div>`;
+    h+=`</div></div>`;
 
     // Rarity filter
     h+=`<div style="margin-bottom:12px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">
@@ -2426,10 +2432,13 @@ function _renderTierPage(){
         <button class="poke-filter${rf==='common'?' active':''}" onclick="filterTierRarity('common')">⬜일반</button>
     </div>`;
 
-    // Sort arrow helper
+    // Sort arrow helper — always show arrow, highlight active
     const {key:sk,dir:sd}=window._tierSort;
-    const sa=k=>sk===k?(sd>0?'▲':'▼'):'';
-    const sc=k=>sk===k?'color:var(--primary);cursor:pointer':'cursor:pointer';
+    const sa=k=>{
+        if(sk===k) return `<span style="color:var(--accent);font-weight:700">${sd>0?'▲':'▼'}</span>`;
+        return `<span style="color:#ccc;font-size:10px">↕</span>`;
+    };
+    const sc=k=>`cursor:pointer;user-select:none${sk===k?';color:var(--accent)':''}`;
 
     // Count
     h+=`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">${tiers.length}마리 표시</div>`;
@@ -2437,14 +2446,14 @@ function _renderTierPage(){
     // Table
     h+=`<table><thead><tr>
         <th>푸키몬</th><th>타입</th><th>등급</th>
-        <th class="hide-m" style="${sc('skill')}" onclick="sortTier('skill')">스킬${sa('skill')}</th>
-        <th style="${sc('hp')}" onclick="sortTier('hp')">체력${sa('hp')}</th>
-        <th style="${sc('atk')}" onclick="sortTier('atk')">공격${sa('atk')}</th>
-        <th style="${sc('def')}" onclick="sortTier('def')">방어${sa('def')}</th>
-        <th class="hide-m" style="${sc('spa')}" onclick="sortTier('spa')">특공${sa('spa')}</th>
-        <th class="hide-m" style="${sc('spdef')}" onclick="sortTier('spdef')">특방${sa('spdef')}</th>
-        <th style="${sc('spd')}" onclick="sortTier('spd')">속도${sa('spd')}</th>
-        <th style="${sc('power')}" onclick="sortTier('power')">전투력${sa('power')}</th>
+        <th class="hide-m" style="${sc('skill')}" onclick="sortTier('skill')">스킬 ${sa('skill')}</th>
+        <th style="${sc('hp')}" onclick="sortTier('hp')">체력 ${sa('hp')}</th>
+        <th style="${sc('atk')}" onclick="sortTier('atk')">공격 ${sa('atk')}</th>
+        <th style="${sc('def')}" onclick="sortTier('def')">방어 ${sa('def')}</th>
+        <th class="hide-m" style="${sc('spa')}" onclick="sortTier('spa')">특공 ${sa('spa')}</th>
+        <th class="hide-m" style="${sc('spdef')}" onclick="sortTier('spdef')">특방 ${sa('spdef')}</th>
+        <th style="${sc('spd')}" onclick="sortTier('spd')">속도 ${sa('spd')}</th>
+        <th style="${sc('power')}" onclick="sortTier('power')">전투력 ${sa('power')}</th>
     </tr></thead><tbody>`;
     for(const p of tiers){
         const tops=topStats(p);
@@ -2469,12 +2478,20 @@ function _renderTierPage(){
     document.getElementById("tierTable").innerHTML=h;
 }
 
+window._tierTypeOpen=false;
+function toggleTierTypePanel(){
+    window._tierTypeOpen=!window._tierTypeOpen;
+    const panel=document.getElementById("tierTypePanel");
+    if(panel) panel.style.display=window._tierTypeOpen?"flex":"none";
+    // Update arrow
+    _renderTierPage();
+}
 function sortTier(key){
     if(window._tierSort.key===key) window._tierSort.dir*=-1;
     else{window._tierSort={key,dir:-1}}
     _renderTierPage();
 }
-function filterTierType(t){window._tierTypeFilter=t;_renderTierPage()}
+function filterTierType(t){window._tierTypeFilter=t;window._tierTypeOpen=false;_renderTierPage()}
 function filterTierRarity(r){window._tierRarityFilter=r;_renderTierPage()}
 
 // --- TYPE CHART ---
