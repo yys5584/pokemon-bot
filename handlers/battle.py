@@ -492,7 +492,8 @@ async def _init_draft(context, user_id: int, team_num: int) -> dict:
     current = {}
     for t in team:
         current[t["slot"]] = t["pokemon_instance_id"]
-        names[t["pokemon_instance_id"]] = t["name_ko"]
+        shiny = "✨" if t.get("is_shiny") else ""
+        names[t["pokemon_instance_id"]] = f"{t['name_ko']}{shiny}"
         rarities[t["pokemon_instance_id"]] = t["rarity"]
 
     draft = {
@@ -567,8 +568,9 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                           p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
         iv_grade, _ = config.get_iv_grade(iv_sum)
         iv_tag = f"[{iv_grade}: {iv_sum}] " if iv_sum > 0 else ""
+        shiny_mark = "✨" if p.get("is_shiny") else ""
         lines.append(
-            f"{slot_emojis[i]} {rb}{tb} {p['name_ko']} ({rl}){partner_mark}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
+            f"{slot_emojis[i]} {rb}{tb} {p['name_ko']}{shiny_mark} ({rl}){partner_mark}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
             f"    {iv_tag}{format_stats_line(stats, base)}  💰{cost}"
         )
     iv_diff = total_power - total_base_power
@@ -714,6 +716,24 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 f"⚠️ 에픽 이상 포켓몬은 같은 종을 팀에 중복으로 넣을 수 없습니다!\n\n"
                 f"중복: {', '.join(high_dups)}\n"
                 f"같은 종은 1마리만 남기고 다시 등록해주세요."
+            ),
+        )
+        return
+
+    # COST 검증
+    total_cost = sum(config.RANKED_COST.get(pokemon_list[n - 1].get("rarity", ""), 0) for n in nums)
+    if total_cost > config.RANKED_COST_LIMIT:
+        cost_lines = []
+        for n in nums:
+            p = pokemon_list[n - 1]
+            c = config.RANKED_COST.get(p.get("rarity", ""), 0)
+            cost_lines.append(f"  {p['name_ko']} 💰{c}")
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"❌ 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n\n"
+                + "\n".join(cost_lines)
+                + f"\n\n코스트 {config.RANKED_COST_LIMIT} 이하로 편성해주세요."
             ),
         )
         return
@@ -898,7 +918,8 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
         # Place pokemon
         current[slot] = inst_id
-        draft["names"][inst_id] = pokemon["name_ko"]
+        shiny_tag = "✨" if pokemon.get("is_shiny") else ""
+        draft["names"][inst_id] = f"{pokemon['name_ko']}{shiny_tag}"
         draft.setdefault("rarities", {})[inst_id] = pokemon.get("rarity", "")
 
         await query.answer()
@@ -1101,6 +1122,40 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
         if not current:
             await query.answer("팀에 포켓몬이 없습니다!", show_alert=True)
+            return
+
+        # --- COST 검증 ---
+        rarities = draft.get("rarities", {})
+        total_cost = 0
+        ultra_count = 0
+        for inst_id in current.values():
+            if inst_id is not None:
+                rar = rarities.get(inst_id, "")
+                total_cost += config.RANKED_COST.get(rar, 0)
+                if rar == "ultra_legendary":
+                    ultra_count += 1
+        if total_cost > config.RANKED_COST_LIMIT:
+            try:
+                await query.edit_message_text(
+                    f"❌ 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n\n"
+                    f"코스트 {config.RANKED_COST_LIMIT} 이하로 편성해주세요.\n"
+                    f"'팀편집' 명령어로 다시 시도하세요.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            context.user_data.pop(f"team_draft_{tn}", None)
+            return
+        if ultra_count > config.RANKED_ULTRA_MAX:
+            try:
+                await query.edit_message_text(
+                    f"❌ 초전설은 팀당 {config.RANKED_ULTRA_MAX}마리까지만 편성 가능합니다.\n"
+                    f"'팀편집' 명령어로 다시 시도하세요.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            context.user_data.pop(f"team_draft_{tn}", None)
             return
 
         # Save to DB: build ordered instance_ids

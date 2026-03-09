@@ -100,46 +100,61 @@ async def mock_json(request):
         })
     if path == "/api/battle/tiers":
         return web.json_response([
-            {"id": 150, "name": "뮤츠", "emoji": "🔮", "rarity": "ultra_legendary",
+            {"id": 150, "name": "뮤츠", "emoji": "🔮", "rarity": "ultra_legendary", "evo_stage": 3,
              "type1": "psychic", "type2": None, "stat_ko": "공격",
              "power": 95.2, "skill_name": "사이코키네시스",
              "skill_power": 1.8, "hp": 318, "atk": 110, "def_": 90,
              "spa": 154, "spdef": 90, "spd": 130},
-            {"id": 242, "name": "해피너스", "emoji": "🩷", "rarity": "epic",
+            {"id": 242, "name": "해피너스", "emoji": "🩷", "rarity": "epic", "evo_stage": 3,
              "type1": "normal", "type2": None, "stat_ko": "방어",
              "power": 88.7, "skill_name": "알폭탄",
              "skill_power": 1.3, "hp": 548, "atk": 23, "def_": 23,
              "spa": 65, "spdef": 85, "spd": 52},
-            {"id": 250, "name": "칠색조", "emoji": "🔥", "rarity": "ultra_legendary",
+            {"id": 250, "name": "칠색조", "emoji": "🔥", "rarity": "ultra_legendary", "evo_stage": 3,
              "type1": "fire", "type2": "flying", "stat_ko": "공격",
              "power": 85.4, "skill_name": "성스러운불꽃",
              "skill_power": 2.0, "hp": 306, "atk": 120, "def_": 88,
              "spa": 104, "spdef": 138, "spd": 88},
-            {"id": 249, "name": "루기아", "emoji": "🌊", "rarity": "ultra_legendary",
+            {"id": 249, "name": "루기아", "emoji": "🌊", "rarity": "ultra_legendary", "evo_stage": 3,
              "type1": "psychic", "type2": "flying", "stat_ko": "방어",
              "power": 82.1, "skill_name": "에어로블라스트",
              "skill_power": 1.7, "hp": 318, "atk": 90, "def_": 130,
              "spa": 90, "spdef": 154, "spd": 110},
-            {"id": 248, "name": "마기라스", "emoji": "🪨", "rarity": "epic",
+            {"id": 248, "name": "마기라스", "emoji": "🪨", "rarity": "epic", "evo_stage": 3,
              "type1": "rock", "type2": "dark", "stat_ko": "공격",
              "power": 67.5, "skill_name": "깨물어부수기",
              "skill_power": 1.5, "hp": 291, "atk": 123, "def_": 104,
              "spa": 93, "spdef": 97, "spd": 67},
-            {"id": 149, "name": "망나뇽", "emoji": "🐉", "rarity": "epic",
+            {"id": 149, "name": "망나뇽", "emoji": "🐉", "rarity": "epic", "evo_stage": 3,
              "type1": "dragon", "type2": "flying", "stat_ko": "공격",
              "power": 61.9, "skill_name": "역린",
              "skill_power": 1.5, "hp": 270, "atk": 123, "def_": 93,
              "spa": 97, "spdef": 97, "spd": 81},
-            {"id": 131, "name": "라프라스", "emoji": "🧊", "rarity": "rare",
+            {"id": 148, "name": "신뇽", "emoji": "🐉", "rarity": "epic", "evo_stage": 2,
+             "type1": "dragon", "type2": None, "stat_ko": "공격",
+             "power": 38.4, "skill_name": "-",
+             "skill_power": 1.0, "hp": 186, "atk": 82, "def_": 63,
+             "spa": 65, "spdef": 65, "spd": 68},
+            {"id": 131, "name": "라프라스", "emoji": "🧊", "rarity": "rare", "evo_stage": 3,
              "type1": "water", "type2": "ice", "stat_ko": "방어",
              "power": 56.0, "skill_name": "냉동빔",
              "skill_power": 1.5, "hp": 360, "atk": 85, "def_": 81,
              "spa": 85, "spdef": 93, "spd": 66},
-            {"id": 20, "name": "레트라", "emoji": "🐀", "rarity": "common",
+            {"id": 25, "name": "피카츄", "emoji": "⚡", "rarity": "rare", "evo_stage": 2,
+             "type1": "electric", "type2": None, "stat_ko": "속도",
+             "power": 22.5, "skill_name": "10만볼트",
+             "skill_power": 1.4, "hp": 156, "atk": 55, "def_": 40,
+             "spa": 50, "spdef": 50, "spd": 90},
+            {"id": 20, "name": "레트라", "emoji": "🐀", "rarity": "common", "evo_stage": 3,
              "type1": "normal", "type2": None, "stat_ko": "속도",
              "power": 15.2, "skill_name": "필살앞니",
              "skill_power": 1.4, "hp": 165, "atk": 62, "def_": 52,
              "spa": 43, "spdef": 55, "spd": 88},
+            {"id": 19, "name": "꼬렛", "emoji": "🐀", "rarity": "common", "evo_stage": 1,
+             "type1": "normal", "type2": None, "stat_ko": "속도",
+             "power": 8.3, "skill_name": "-",
+             "skill_power": 1.0, "hp": 126, "atk": 48, "def_": 35,
+             "spa": 25, "spdef": 35, "spd": 72},
         ])
     if path == "/api/dashboard-kpi":
         return web.json_response({
@@ -864,6 +879,113 @@ async def mock_board_comment_delete(request):
     return web.json_response({"error": "Not found"}, status=404)
 
 
+# ── Marketplace mock data ──
+import math as _math
+
+MOCK_MARKET_LISTINGS = [
+    {"id":1,"pokemon_name":"리자몽","pokemon_id":6,"emoji":"🔥","rarity":"epic","pokemon_type":"fire","type2":"flying","is_shiny":True,"price_bp":8500,"seller_id":9999,"seller_name":"트레이너A","iv_hp":25,"iv_atk":28,"iv_def":15,"iv_spa":31,"iv_spdef":12,"iv_spd":22,"iv_total":133,"iv_grade":"A","friendship":5,"created_at":"2026-03-08T10:00:00+09:00","time_remaining":"5일 12시간"},
+    {"id":2,"pokemon_name":"뮤츠","pokemon_id":150,"emoji":"🔮","rarity":"ultra_legendary","pokemon_type":"psychic","type2":None,"is_shiny":False,"price_bp":25000,"seller_id":1832746512,"seller_name":"테스트유저","iv_hp":20,"iv_atk":18,"iv_def":10,"iv_spa":31,"iv_spdef":15,"iv_spd":28,"iv_total":122,"iv_grade":"A","friendship":5,"created_at":"2026-03-07T14:30:00+09:00","time_remaining":"4일 2시간"},
+    {"id":3,"pokemon_name":"피카츄","pokemon_id":25,"emoji":"⚡","rarity":"rare","pokemon_type":"electric","type2":None,"is_shiny":False,"price_bp":500,"seller_id":9998,"seller_name":"초보트레이너","iv_hp":10,"iv_atk":15,"iv_def":12,"iv_spa":8,"iv_spdef":20,"iv_spd":14,"iv_total":79,"iv_grade":"C","friendship":3,"created_at":"2026-03-09T08:00:00+09:00","time_remaining":"6일 20시간"},
+    {"id":4,"pokemon_name":"마기라스","pokemon_id":248,"emoji":"🏔️","rarity":"legendary","pokemon_type":"rock","type2":"dark","is_shiny":False,"price_bp":15000,"seller_id":9997,"seller_name":"고수트레이너","iv_hp":28,"iv_atk":31,"iv_def":25,"iv_spa":20,"iv_spdef":22,"iv_spd":30,"iv_total":156,"iv_grade":"S","friendship":5,"created_at":"2026-03-08T22:15:00+09:00","time_remaining":"6일 10시간"},
+    {"id":5,"pokemon_name":"메타그로스","pokemon_id":376,"emoji":"⚙️","rarity":"epic","pokemon_type":"steel","type2":"psychic","is_shiny":True,"price_bp":12000,"seller_id":9996,"seller_name":"배틀마스터","iv_hp":22,"iv_atk":30,"iv_def":28,"iv_spa":15,"iv_spdef":18,"iv_spd":25,"iv_total":138,"iv_grade":"A","friendship":7,"created_at":"2026-03-07T18:45:00+09:00","time_remaining":"5일 6시간"},
+    {"id":6,"pokemon_name":"이상해꽃","pokemon_id":3,"emoji":"🌸","rarity":"rare","pokemon_type":"grass","type2":"poison","is_shiny":False,"price_bp":800,"seller_id":9999,"seller_name":"트레이너A","iv_hp":18,"iv_atk":12,"iv_def":20,"iv_spa":25,"iv_spdef":22,"iv_spd":10,"iv_total":107,"iv_grade":"B","friendship":5,"created_at":"2026-03-09T01:30:00+09:00","time_remaining":"6일 13시간"},
+    {"id":7,"pokemon_name":"갸라도스","pokemon_id":130,"emoji":"🐲","rarity":"epic","pokemon_type":"water","type2":"flying","is_shiny":False,"price_bp":3500,"seller_id":9995,"seller_name":"수집가","iv_hp":20,"iv_atk":26,"iv_def":18,"iv_spa":10,"iv_spdef":15,"iv_spd":22,"iv_total":111,"iv_grade":"B","friendship":4,"created_at":"2026-03-08T06:00:00+09:00","time_remaining":"5일 18시간"},
+    {"id":8,"pokemon_name":"잠만보","pokemon_id":143,"emoji":"😴","rarity":"epic","pokemon_type":"normal","type2":None,"is_shiny":False,"price_bp":4000,"seller_id":1832746512,"seller_name":"테스트유저","iv_hp":31,"iv_atk":15,"iv_def":28,"iv_spa":8,"iv_spdef":30,"iv_spd":5,"iv_total":117,"iv_grade":"B","friendship":3,"created_at":"2026-03-08T12:00:00+09:00","time_remaining":"5일 0시간"},
+    {"id":9,"pokemon_name":"꼬부기","pokemon_id":7,"emoji":"🐢","rarity":"common","pokemon_type":"water","type2":None,"is_shiny":False,"price_bp":200,"seller_id":9994,"seller_name":"뉴비","iv_hp":8,"iv_atk":10,"iv_def":15,"iv_spa":12,"iv_spdef":8,"iv_spd":10,"iv_total":63,"iv_grade":"C","friendship":1,"created_at":"2026-03-09T05:00:00+09:00","time_remaining":"6일 17시간"},
+    {"id":10,"pokemon_name":"루기아","pokemon_id":249,"emoji":"🌊","rarity":"ultra_legendary","pokemon_type":"psychic","type2":"flying","is_shiny":True,"price_bp":50000,"seller_id":9993,"seller_name":"레전드헌터","iv_hp":30,"iv_atk":25,"iv_def":31,"iv_spa":28,"iv_spdef":31,"iv_spd":20,"iv_total":165,"iv_grade":"S","friendship":7,"created_at":"2026-03-07T09:00:00+09:00","time_remaining":"4일 21시간"},
+]
+
+
+async def mock_market_listings(request):
+    """Mock: browse market listings with filters."""
+    listings = list(MOCK_MARKET_LISTINGS)
+    q = request.query
+    if q.get("rarity"):
+        listings = [l for l in listings if l["rarity"] == q["rarity"]]
+    if q.get("q"):
+        s = q["q"].lower()
+        listings = [l for l in listings if s in l["pokemon_name"].lower()]
+    if q.get("shiny") == "1":
+        listings = [l for l in listings if l["is_shiny"]]
+    if q.get("iv_grade"):
+        thresholds = {"S": 160, "A": 120, "B": 93, "C": 62}
+        min_iv = thresholds.get(q["iv_grade"], 0)
+        listings = [l for l in listings if l["iv_total"] >= min_iv]
+    if q.get("price_min", "").isdigit():
+        listings = [l for l in listings if l["price_bp"] >= int(q["price_min"])]
+    if q.get("price_max", "").isdigit():
+        listings = [l for l in listings if l["price_bp"] <= int(q["price_max"])]
+    sort = q.get("sort", "newest")
+    if sort == "price_asc":
+        listings.sort(key=lambda x: x["price_bp"])
+    elif sort == "price_desc":
+        listings.sort(key=lambda x: -x["price_bp"])
+    elif sort == "rarity":
+        ro = {"ultra_legendary": 1, "legendary": 2, "epic": 3, "rare": 4, "common": 5}
+        listings.sort(key=lambda x: ro.get(x["rarity"], 9))
+    page = int(q.get("page", 0))
+    ps = int(q.get("page_size", 20))
+    total = len(listings)
+    listings = listings[page * ps:(page + 1) * ps]
+    return web.json_response({"listings": listings, "total": total, "page": page, "page_size": ps, "fee_rate": 0.05})
+
+
+async def mock_market_stats(request):
+    return web.json_response({"total_active": len(MOCK_MARKET_LISTINGS), "total_sold_24h": 5, "avg_price": 4200, "volume_24h": 21000})
+
+
+async def mock_market_my_listings(request):
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+    mine = [l for l in MOCK_MARKET_LISTINGS if l["seller_id"] == _mock_user["user_id"]]
+    return web.json_response(mine)
+
+
+async def mock_market_my_balance(request):
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+    return web.json_response({"bp": 12500})
+
+
+async def mock_market_my_sellable(request):
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+    sellable = [
+        {"id":101,"pokemon_id":94,"name_ko":"팬텀","emoji":"👻","rarity":"epic","pokemon_type":"ghost","type2":"poison","is_shiny":False,"friendship":5,"iv_total":128,"iv_grade":"A"},
+        {"id":102,"pokemon_id":131,"name_ko":"라프라스","emoji":"🦕","rarity":"epic","pokemon_type":"water","type2":"ice","is_shiny":True,"friendship":7,"iv_total":145,"iv_grade":"A"},
+        {"id":103,"pokemon_id":59,"name_ko":"윈디","emoji":"🐕","rarity":"rare","pokemon_type":"fire","type2":None,"is_shiny":False,"friendship":5,"iv_total":98,"iv_grade":"B"},
+        {"id":104,"pokemon_id":65,"name_ko":"후딘","emoji":"🧙","rarity":"epic","pokemon_type":"psychic","type2":None,"is_shiny":False,"friendship":4,"iv_total":110,"iv_grade":"B"},
+        {"id":105,"pokemon_id":149,"name_ko":"망나뇽","emoji":"🐉","rarity":"legendary","pokemon_type":"dragon","type2":"flying","is_shiny":False,"friendship":5,"iv_total":155,"iv_grade":"S"},
+    ]
+    q = request.query.get("q", "").strip().lower()
+    if q:
+        sellable = [s for s in sellable if q in s["name_ko"].lower()]
+    return web.json_response(sellable)
+
+
+async def mock_market_sell(request):
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+    body = await request.json()
+    price = int(body.get("price_bp", 0))
+    if price < 100:
+        return web.json_response({"error": "최소 가격: 100 BP"}, status=400)
+    fee = max(1, _math.ceil(price * 0.05))
+    return web.json_response({"ok": True, "listing_id": 999, "fee": fee, "seller_gets": price - fee, "message": "거래소 등록 완료!"})
+
+
+async def mock_market_buy(request):
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+    return web.json_response({"ok": True, "message": "구매 완료!", "pokemon_name": "리자몽", "price": 8500, "new_bp": 4000})
+
+
+async def mock_market_cancel(request):
+    if not _mock_user:
+        return web.json_response({"error": "Login required"}, status=401)
+    return web.json_response({"ok": True, "message": "거래소 등록 취소!"})
+
+
 def create_preview_app():
     app = web.Application()
     app.router.add_get("/", index)
@@ -928,10 +1050,19 @@ def create_preview_app():
     app.router.add_post("/api/board/posts/{id}/like", mock_board_post_like)
     app.router.add_post("/api/board/posts/{id}/comments", mock_board_comment_create)
     app.router.add_delete("/api/board/comments/{id}", mock_board_comment_delete)
+    # Marketplace (mock)
+    app.router.add_get("/api/market/listings", mock_market_listings)
+    app.router.add_get("/api/market/stats", mock_market_stats)
+    app.router.add_get("/api/market/my-listings", mock_market_my_listings)
+    app.router.add_get("/api/market/my-balance", mock_market_my_balance)
+    app.router.add_get("/api/market/my-sellable", mock_market_my_sellable)
+    app.router.add_post("/api/market/sell", mock_market_sell)
+    app.router.add_post("/api/market/buy", mock_market_buy)
+    app.router.add_post("/api/market/cancel", mock_market_cancel)
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all
-    for p in ["/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin"]:
+    for p in ["/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin", "/market"]:
         app.router.add_get(p, index)
     return app
 

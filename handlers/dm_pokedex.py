@@ -1743,6 +1743,80 @@ async def _build_evo_chain(pokemon: dict) -> str:
 # Title List (all titles + how to unlock)
 # ============================================================
 
+TITLE_LIST_CATEGORIES = None  # lazy-init
+
+def _get_title_categories():
+    global TITLE_LIST_CATEGORIES
+    if TITLE_LIST_CATEGORIES is None:
+        TITLE_LIST_CATEGORIES = [
+            (f"{icon_emoji('pokedex')} 1세대 도감 (관동)", ["beginner", "collector", "trainer", "master", "champion", "living_dex"]),
+            (f"{icon_emoji('chikorita')} 2세대 도감 (성도)", ["gen2_starter", "gen2_collector", "gen2_trainer", "gen2_master"]),
+            (f"{icon_emoji('mew')} 그랜드", ["grand_master"]),
+            (f"{icon_emoji('dratini')} 전설", ["legend_hunter"]),
+            (f"{icon_emoji('gotcha')} 활동 기반", ["first_catch", "catch_master", "run_expert", "owl", "decisive", "love_fan", "diligent"]),
+            (f"{icon_emoji('crystal')} 수집 특화", ["furry", "rare_hunter"]),
+            ("🟣 마스터볼", ["masterball_rich"]),
+            (f"{icon_emoji('exchange')} 교환", ["trader"]),
+            (f"{icon_emoji('battle')} 배틀", ["battle_first", "battle_fighter", "battle_champion", "battle_legend",
+                        "battle_streak3", "battle_streak10", "battle_sweep", "partner_set"]),
+            ("🏆 토너먼트", ["tournament_first", "inaugural_champ", "tournament_champ"]),
+            (f"{icon_emoji('crystal')} 이로치", ["shiny_hunter", "shiny_master", "shiny_legend"]),
+        ]
+    return TITLE_LIST_CATEGORIES
+
+TITLE_LIST_PAGE_SIZE = 3  # categories per page
+
+
+def _build_title_list_page(unlocked_ids: set, page: int) -> tuple[str, InlineKeyboardMarkup | None]:
+    """Build a page of the title list."""
+    cats = _get_title_categories()
+    total_pages = max(1, -(-len(cats) // TITLE_LIST_PAGE_SIZE))  # ceil div
+    page = max(0, min(page, total_pages - 1))
+    start = page * TITLE_LIST_PAGE_SIZE
+    page_cats = cats[start:start + TITLE_LIST_PAGE_SIZE]
+
+    total = len(config.UNLOCKABLE_TITLES)
+    got = len(unlocked_ids)
+    lines = [f"🏷️ 전체 칭호 목록 ({page+1}/{total_pages})  해금: {got}/{total}개\n"]
+
+    for cat_name, title_ids in page_cats:
+        cat_lines = []
+        for tid in title_ids:
+            t_info = config.UNLOCKABLE_TITLES.get(tid)
+            if not t_info:
+                continue
+            name, emoji, desc, _, _ = t_info
+            status = icon_emoji("check") if tid in unlocked_ids else "🔒"
+            badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
+            buff = config.TITLE_BUFFS.get(tid)
+            buff_text = ""
+            if buff:
+                bparts = []
+                if buff.get("daily_masterball"):
+                    bparts.append(f"마볼+{buff['daily_masterball']}/일")
+                if buff.get("extra_feed"):
+                    bparts.append(f"밥+{buff['extra_feed']}")
+                if bparts:
+                    buff_text = f" ✨{', '.join(bparts)}"
+            cat_lines.append(f"  {status} {badge} {name} — {desc}{buff_text}")
+        if cat_lines:
+            lines.append(f"\n{cat_name}")
+            lines.extend(cat_lines)
+
+    lines.append("\n'칭호' 명령어로 장착할 수 있어요!")
+
+    # Pagination buttons
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"tlist_{page-1}"))
+    nav_row.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="tlist_noop"))
+    if page < total_pages - 1:
+        nav_row.append(InlineKeyboardButton("다음 ▶", callback_data=f"tlist_{page+1}"))
+    markup = InlineKeyboardMarkup([nav_row]) if total_pages > 1 else None
+
+    return "\n".join(lines), markup
+
+
 async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '칭호목록' command (DM) — show all titles and unlock conditions."""
     if not update.effective_user or not update.message:
@@ -1755,64 +1829,107 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         update.effective_user.username,
     )
 
-    # Get user's unlocked titles
     unlocked = await queries.get_user_titles(user_id)
     unlocked_ids = {ut["title_id"] for ut in unlocked}
 
-    lines = ["🏷️ 전체 칭호 목록\n"]
+    text, markup = _build_title_list_page(unlocked_ids, 0)
+    await update.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
 
-    # Group by category
-    categories = {
-        f"{icon_emoji('pokedex')} 1세대 도감 (관동)": ["beginner", "collector", "trainer", "master", "champion", "living_dex"],
-        f"{icon_emoji('chikorita')} 2세대 도감 (성도)": ["gen2_starter", "gen2_collector", "gen2_trainer", "gen2_master"],
-        f"{icon_emoji('mew')} 그랜드": ["grand_master"],
-        f"{icon_emoji('dratini')} 전설": ["legend_hunter"],
-        f"{icon_emoji('gotcha')} 활동 기반": ["first_catch", "catch_master", "run_expert", "owl", "decisive", "love_fan", "diligent"],
-        f"{icon_emoji('crystal')} 수집 특화": ["furry", "rare_hunter"],
-        "🟣 마스터볼": ["masterball_rich"],
-        f"{icon_emoji('exchange')} 교환": ["trader"],
-        f"{icon_emoji('battle')} 배틀": ["battle_first", "battle_fighter", "battle_champion", "battle_legend",
-                    "battle_streak3", "battle_streak10", "battle_sweep", "partner_set"],
-        "🏆 토너먼트": ["tournament_first", "inaugural_champ", "tournament_champ"],
-        f"{icon_emoji('crystal')} 이로치": ["shiny_hunter", "shiny_master", "shiny_legend"],
-    }
 
-    for cat_name, title_ids in categories.items():
-        cat_lines = []
-        for tid in title_ids:
-            t_info = config.UNLOCKABLE_TITLES.get(tid)
-            if not t_info:
-                continue
-            name, emoji, desc, _, _ = t_info
-            status = icon_emoji("check") if tid in unlocked_ids else "🔒"
-            badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
-            buff = config.TITLE_BUFFS.get(tid)
-            buff_text = ""
-            if buff:
-                parts = []
-                if buff.get("daily_masterball"):
-                    parts.append(f"마볼+{buff['daily_masterball']}/일")
-                if buff.get("extra_feed"):
-                    parts.append(f"밥+{buff['extra_feed']}")
-                if parts:
-                    buff_text = f" ✨{', '.join(parts)}"
-            cat_lines.append(f"  {status} {badge} {name} — {desc}{buff_text}")
+async def title_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle tlist_{page} callback for title list pagination."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
 
-        if cat_lines:
-            lines.append(f"\n{cat_name}")
-            lines.extend(cat_lines)
+    data = query.data
+    if data == "tlist_noop":
+        await query.answer()
+        return
+    if not data.startswith("tlist_"):
+        return
 
-    total = len(config.UNLOCKABLE_TITLES)
-    got = len(unlocked_ids)
-    lines.append(f"\n\n해금: {got}/{total}개")
-    lines.append("'칭호' 명령어로 장착할 수 있어요!")
+    try:
+        page = int(data.split("_")[1])
+    except (ValueError, IndexError):
+        await query.answer()
+        return
 
-    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    user_id = query.from_user.id
+    unlocked = await queries.get_user_titles(user_id)
+    unlocked_ids = {ut["title_id"] for ut in unlocked}
+
+    text, markup = _build_title_list_page(unlocked_ids, page)
+    await query.answer()
+    try:
+        await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+    except Exception:
+        pass
 
 
 # ============================================================
 # Title Selection
 # ============================================================
+
+TITLE_SELECT_PAGE_SIZE = 8  # titles per page
+
+
+def _build_title_select_page(unlocked: list[dict], current_title: str, page: int) -> tuple[str, InlineKeyboardMarkup]:
+    """Build a page of title selection buttons."""
+    # Build flat list of (tid, t_info)
+    items = []
+    for ut in unlocked:
+        tid = ut["title_id"]
+        t_info = config.UNLOCKABLE_TITLES.get(tid)
+        if t_info:
+            items.append((tid, t_info))
+
+    total_pages = max(1, -(-len(items) // TITLE_SELECT_PAGE_SIZE))
+    page = max(0, min(page, total_pages - 1))
+    start = page * TITLE_SELECT_PAGE_SIZE
+    page_items = items[start:start + TITLE_SELECT_PAGE_SIZE]
+
+    lines = [f"🏷️ 내 칭호 ({page+1}/{total_pages})\n"]
+    buttons = []
+    for tid, t_info in page_items:
+        name, emoji, desc, _, _ = t_info
+        badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
+        equipped = f" {icon_emoji('check')}" if name == current_title else ""
+        buff = config.TITLE_BUFFS.get(tid)
+        buff_text = ""
+        if buff:
+            bparts = []
+            if buff.get("daily_masterball"):
+                bparts.append(f"마볼+{buff['daily_masterball']}/일")
+            if buff.get("extra_feed"):
+                bparts.append(f"밥+{buff['extra_feed']}")
+            if bparts:
+                buff_text = f" ✨{', '.join(bparts)}"
+        lines.append(f"{badge} {name}{equipped} — {desc}{buff_text}")
+        btn_label = f"{'✅ ' if name == current_title else ''}{name}"
+        buttons.append(InlineKeyboardButton(btn_label, callback_data=f"title_{tid}"))
+
+    # Add "remove title" button (always on first page)
+    if page == 0:
+        no_mark = f" {icon_emoji('check')}" if not current_title else ""
+        lines.append(f"\n🚫 칭호 없음{no_mark}")
+        buttons.append(InlineKeyboardButton(f"{'✅ ' if not current_title else ''}🚫 해제", callback_data="title_none"))
+
+    # 2 buttons per row
+    keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
+
+    # Navigation row
+    if total_pages > 1:
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"titlep_{page-1}"))
+        nav.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="titlep_noop"))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"titlep_{page+1}"))
+        keyboard.append(nav)
+
+    return "\n".join(lines) + "\n\n⬇️ 장착할 칭호를 선택하세요:", InlineKeyboardMarkup(keyboard)
+
 
 async def title_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '칭호' command (DM) — show unlocked titles and let user equip one."""
@@ -1839,45 +1956,40 @@ async def title_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    lines = ["🏷️ 내 칭호 목록\n"]
+    text, markup = _build_title_select_page(unlocked, current_title, 0)
+    await update.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
 
-    buttons = []
-    for ut in unlocked:
-        tid = ut["title_id"]
-        t_info = config.UNLOCKABLE_TITLES.get(tid)
-        if not t_info:
-            continue
-        name, emoji, desc, _, _ = t_info
-        badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
-        equipped = f" {icon_emoji('check')}" if name == current_title else ""
-        buff = config.TITLE_BUFFS.get(tid)
-        buff_text = ""
-        if buff:
-            parts = []
-            if buff.get("daily_masterball"):
-                parts.append(f"마볼+{buff['daily_masterball']}/일")
-            if buff.get("extra_feed"):
-                parts.append(f"밥+{buff['extra_feed']}")
-            if parts:
-                buff_text = f" ✨{', '.join(parts)}"
-        lines.append(f"{badge} {name}{equipped} — {desc}{buff_text}")
-        btn_label = f"{'✅ ' if name == current_title else ''}{name}"
-        buttons.append(InlineKeyboardButton(btn_label, callback_data=f"title_{tid}"))
 
-    # Add "remove title" button
-    no_title_mark = f" {icon_emoji('check')}" if not current_title else ""
-    lines.append(f"\n🚫 칭호 없음{no_title_mark}")
-    buttons.append(InlineKeyboardButton(f"{'✅ ' if not current_title else ''}🚫 해제", callback_data="title_none"))
+async def title_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle titlep_{page} callback for title selection pagination."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
 
-    # 2 buttons per row
-    keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
-    markup = InlineKeyboardMarkup(keyboard)
+    data = query.data
+    if data == "titlep_noop":
+        await query.answer()
+        return
+    if not data.startswith("titlep_"):
+        return
 
-    await update.message.reply_text(
-        "\n".join(lines) + "\n\n⬇️ 장착할 칭호를 선택하세요:",
-        reply_markup=markup,
-        parse_mode="HTML",
-    )
+    try:
+        page = int(data.split("_")[1])
+    except (ValueError, IndexError):
+        await query.answer()
+        return
+
+    user_id = query.from_user.id
+    unlocked = await queries.get_user_titles(user_id)
+    user = await queries.get_user(user_id)
+    current_title = user.get("title", "") if user else ""
+
+    text, markup = _build_title_select_page(unlocked, current_title, page)
+    await query.answer()
+    try:
+        await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+    except Exception:
+        pass
 
 
 async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):

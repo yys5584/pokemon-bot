@@ -307,7 +307,7 @@ async def get_battle_ranking(limit: int = 10) -> list[dict]:
                   u.battle_wins, u.battle_losses, u.best_streak,
                   u.battle_points
            FROM users u
-           WHERE u.battle_points > 0 OR u.battle_wins > 0
+           WHERE u.battle_points > 0 OR u.battle_wins > 0 OR u.battle_losses > 0
            ORDER BY u.battle_points DESC, u.battle_wins DESC
            LIMIT $1""",
         limit,

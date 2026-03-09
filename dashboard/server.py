@@ -24,6 +24,7 @@ from utils.battle_calc import (
     get_normalized_base_stats, EVO_STAGE_MAP, _iv_mult,
 )
 from models.pokemon_base_stats import POKEMON_BASE_STATS
+from services import market_service
 
 
 # ============================================================
@@ -1631,7 +1632,7 @@ async def api_iv_ranking(request):
 # --- Battle APIs ---
 
 async def api_battle_ranking(request):
-    ranking = await bq.get_battle_ranking(20)
+    ranking = await bq.get_battle_ranking(100)
     for r in ranking:
         if r.get("title_emoji"):
             r["title_emoji"] = _web_emoji(r["title_emoji"])
@@ -1754,15 +1755,13 @@ async def api_battle_tiers(request):
         ORDER BY id
     """)
 
-    # Only final evolutions (evolves_to IS NULL or evo_stage == 3)
-    final_evos = [r for r in rows if r["evolves_to"] is None]
-
     scored = []
-    for r in final_evos:
+    for r in rows:
         base = get_normalized_base_stats(r["id"])
+        evo_stage = EVO_STAGE_MAP.get(r["id"], 3)
         stats = calc_battle_stats(
             r["rarity"], r["stat_type"], 5,
-            evo_stage=3 if base else EVO_STAGE_MAP.get(r["id"], 3),
+            evo_stage=evo_stage,
             **(base or {}),
         )
         from models.pokemon_skills import get_max_skill_power
@@ -1787,7 +1786,7 @@ async def api_battle_tiers(request):
 
         scored.append({
             "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
-            "rarity": r["rarity"],
+            "rarity": r["rarity"], "evo_stage": evo_stage,
             "type1": type1, "type2": type2,
             "stat_ko": stat_ko, "power": round(power, 1),
             "skill_name": get_skill_display(r["id"]), "skill_power": _skill_pow,
@@ -2806,6 +2805,318 @@ async def api_admin_battle_analytics(request):
     })
 
 
+# ============================================================
+# Marketplace API (Web)
+# ============================================================
+
+async def api_market_listings(request):
+    """Public: browse active market listings with filters."""
+    q = request.query
+    page = max(0, int(q.get("page", 0)))
+    page_size = min(50, max(1, int(q.get("page_size", 20))))
+    rarity = q.get("rarity") or None
+    iv_grade = q.get("iv_grade") or None
+    shiny_only = q.get("shiny") == "1"
+    search = q.get("q") or None
+    sort = q.get("sort", "newest")
+    price_min = int(q["price_min"]) if q.get("price_min", "").isdigit() else None
+    price_max = int(q["price_max"]) if q.get("price_max", "").isdigit() else None
+
+    rows, total = await queries.get_active_listings_web(
+        page=page, page_size=page_size,
+        rarity=rarity, iv_grade=iv_grade,
+        shiny_only=shiny_only, search=search,
+        price_min=price_min, price_max=price_max,
+        sort=sort,
+    )
+
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
+    expire_days = config.MARKET_LISTING_EXPIRE_DAYS
+
+    listings = []
+    for r in rows:
+        iv_hp = r.get("iv_hp") or 0
+        iv_atk = r.get("iv_atk") or 0
+        iv_def = r.get("iv_def") or 0
+        iv_spa = r.get("iv_spa") or 0
+        iv_spdef = r.get("iv_spdef") or 0
+        iv_spd = r.get("iv_spd") or 0
+        total_iv = iv_hp + iv_atk + iv_def + iv_spa + iv_spdef + iv_spd
+        grade, _ = config.get_iv_grade(total_iv)
+
+        # time remaining
+        created = r["created_at"]
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        expires = created + timedelta(days=expire_days)
+        remaining = expires - now
+        if remaining.total_seconds() <= 0:
+            time_remaining = "만료됨"
+        elif remaining.days > 0:
+            time_remaining = f"{remaining.days}일 {remaining.seconds // 3600}시간"
+        else:
+            time_remaining = f"{remaining.seconds // 3600}시간 {(remaining.seconds % 3600) // 60}분"
+
+        # type2 from POKEMON_BASE_STATS
+        pbs = POKEMON_BASE_STATS.get(r["pokemon_id"])
+        type2 = None
+        if pbs and len(pbs[-1]) > 1:
+            type2 = pbs[-1][1]
+
+        listings.append({
+            "id": r["id"],
+            "pokemon_name": r["pokemon_name"],
+            "pokemon_id": r["pokemon_id"],
+            "emoji": r["emoji"],
+            "rarity": r["rarity"],
+            "pokemon_type": r.get("pokemon_type", ""),
+            "type2": type2,
+            "is_shiny": bool(r.get("is_shiny")),
+            "price_bp": r["price_bp"],
+            "seller_name": r["seller_name"],
+            "seller_id": r["seller_id"],
+            "iv_hp": iv_hp, "iv_atk": iv_atk, "iv_def": iv_def,
+            "iv_spa": iv_spa, "iv_spdef": iv_spdef, "iv_spd": iv_spd,
+            "iv_total": total_iv,
+            "iv_grade": grade,
+            "friendship": r.get("friendship", 0),
+            "created_at": r["created_at"].isoformat() if r.get("created_at") else "",
+            "time_remaining": time_remaining,
+        })
+
+    return web.json_response({
+        "listings": listings, "total": total,
+        "page": page, "page_size": page_size,
+        "fee_rate": config.MARKET_FEE_RATE,
+    })
+
+
+async def api_market_stats(request):
+    """Public: marketplace summary stats."""
+    pool = await queries.get_db()
+    row = await pool.fetchrow("""
+        SELECT
+            (SELECT COUNT(*) FROM market_listings
+             WHERE status='active' AND created_at > NOW()-INTERVAL '7 days') AS active,
+            (SELECT COUNT(*) FROM market_listings
+             WHERE status='sold' AND sold_at > NOW()-INTERVAL '1 day') AS sold_24h,
+            (SELECT COALESCE(AVG(price_bp),0) FROM market_listings
+             WHERE status='active' AND created_at > NOW()-INTERVAL '7 days') AS avg_price,
+            (SELECT COALESCE(SUM(price_bp),0) FROM market_listings
+             WHERE status='sold' AND sold_at > NOW()-INTERVAL '1 day') AS volume_24h
+    """)
+    return web.json_response({
+        "total_active": int(row["active"]),
+        "total_sold_24h": int(row["sold_24h"]),
+        "avg_price": int(row["avg_price"]),
+        "volume_24h": int(row["volume_24h"]),
+    })
+
+
+async def api_market_my_listings(request):
+    """Auth: get user's own active listings."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+
+    rows = await queries.get_user_active_listings(sess["user_id"])
+    listings = []
+    for r in rows:
+        iv_hp = r.get("iv_hp") or 0
+        iv_atk = r.get("iv_atk") or 0
+        iv_def = r.get("iv_def") or 0
+        iv_spa = r.get("iv_spa") or 0
+        iv_spdef = r.get("iv_spdef") or 0
+        iv_spd = r.get("iv_spd") or 0
+        total_iv = iv_hp + iv_atk + iv_def + iv_spa + iv_spdef + iv_spd
+        grade, _ = config.get_iv_grade(total_iv)
+        listings.append({
+            "id": r["id"], "pokemon_name": r["pokemon_name"],
+            "pokemon_id": r.get("pokemon_id"), "emoji": r.get("emoji", ""),
+            "rarity": r.get("rarity", ""),
+            "is_shiny": bool(r.get("is_shiny")),
+            "price_bp": r["price_bp"],
+            "iv_total": total_iv, "iv_grade": grade,
+            "created_at": r["created_at"].isoformat() if r.get("created_at") else "",
+        })
+    return web.json_response(listings)
+
+
+async def api_market_my_balance(request):
+    """Auth: get user's BP balance."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+    bp = await bq.get_bp(sess["user_id"])
+    return web.json_response({"bp": bp})
+
+
+async def api_market_my_sellable(request):
+    """Auth: get user's pokemon available for selling."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+
+    user_id = sess["user_id"]
+    pool = await queries.get_db()
+
+    search = request.query.get("q", "").strip()
+    search_clause = ""
+    params = [user_id]
+    if search:
+        params.append(f"%{search}%")
+        search_clause = f"AND pm.name_ko ILIKE ${len(params)}"
+
+    rows = await pool.fetch(f"""
+        SELECT up.id, up.pokemon_id, up.friendship, up.is_shiny, up.is_favorite,
+               up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd,
+               pm.name_ko, pm.emoji, pm.rarity, pm.pokemon_type,
+               bt.slot AS team_slot
+        FROM user_pokemon up
+        JOIN pokemon_master pm ON up.pokemon_id = pm.id
+        LEFT JOIN battle_teams bt ON bt.pokemon_instance_id = up.id
+        WHERE up.user_id = $1 AND up.is_active = 1
+          AND bt.slot IS NULL
+          AND up.is_favorite = 0
+          AND up.id NOT IN (
+              SELECT offer_pokemon_instance_id FROM trades
+              WHERE status = 'pending'
+          )
+          AND up.id NOT IN (
+              SELECT pokemon_instance_id FROM market_listings
+              WHERE status = 'active'
+          )
+          {search_clause}
+        ORDER BY up.id DESC
+    """, *params)
+
+    result = []
+    for r in rows:
+        iv_hp = r.get("iv_hp") or 0
+        iv_atk = r.get("iv_atk") or 0
+        iv_def = r.get("iv_def") or 0
+        iv_spa = r.get("iv_spa") or 0
+        iv_spdef = r.get("iv_spdef") or 0
+        iv_spd = r.get("iv_spd") or 0
+        total_iv = iv_hp + iv_atk + iv_def + iv_spa + iv_spdef + iv_spd
+        grade, _ = config.get_iv_grade(total_iv)
+        pbs = POKEMON_BASE_STATS.get(r["pokemon_id"])
+        type2 = pbs[-1][1] if pbs and len(pbs[-1]) > 1 else None
+        result.append({
+            "id": r["id"], "pokemon_id": r["pokemon_id"],
+            "name_ko": r["name_ko"], "emoji": r["emoji"],
+            "rarity": r["rarity"], "pokemon_type": r.get("pokemon_type", ""),
+            "type2": type2,
+            "is_shiny": bool(r["is_shiny"]),
+            "friendship": r["friendship"],
+            "iv_total": total_iv, "iv_grade": grade,
+        })
+    return web.json_response(result)
+
+
+async def api_market_sell(request):
+    """Auth: create a market listing."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    instance_id = body.get("instance_id")
+    price_bp = body.get("price_bp")
+    if not instance_id or not price_bp:
+        return web.json_response({"error": "instance_id, price_bp 필요"}, status=400)
+
+    price_bp = int(price_bp)
+    if price_bp < config.MARKET_MIN_PRICE:
+        return web.json_response({"error": f"최소 가격: {config.MARKET_MIN_PRICE} BP"}, status=400)
+
+    success, message, listing_id, _ = await market_service.create_listing(
+        sess["user_id"], "", price_bp, instance_id=int(instance_id),
+    )
+    if not success:
+        return web.json_response({"error": message}, status=400)
+
+    fee = market_service.calc_fee(price_bp)
+    return web.json_response({
+        "ok": True, "listing_id": listing_id,
+        "fee": fee, "seller_gets": price_bp - fee,
+        "message": message,
+    })
+
+
+async def api_market_buy(request):
+    """Auth: purchase a market listing."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    listing_id = body.get("listing_id")
+    if not listing_id:
+        return web.json_response({"error": "listing_id 필요"}, status=400)
+
+    success, message, trade_info = await market_service.buy_listing(
+        sess["user_id"], int(listing_id),
+    )
+    if not success:
+        return web.json_response({"error": message}, status=400)
+
+    new_bp = await bq.get_bp(sess["user_id"])
+
+    # Notify seller via Telegram DM
+    if trade_info:
+        try:
+            seller_id = trade_info.get("seller_id")
+            pokemon_name = trade_info.get("pokemon_name", "")
+            seller_gets = trade_info.get("seller_gets", 0)
+            fee = trade_info.get("fee", 0)
+            await _admin_send_dm(
+                seller_id,
+                f"💰 거래소 판매 알림!\n\n"
+                f"{pokemon_name}이(가) 웹 거래소에서 판매되었습니다.\n"
+                f"💵 수익: {seller_gets:,} BP (수수료 {fee:,} BP)",
+            )
+        except Exception:
+            pass
+
+    return web.json_response({
+        "ok": True, "message": message,
+        "pokemon_name": trade_info.get("pokemon_name", "") if trade_info else "",
+        "price": trade_info.get("price", 0) if trade_info else 0,
+        "new_bp": new_bp,
+    })
+
+
+async def api_market_cancel(request):
+    """Auth: cancel own market listing."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    listing_id = body.get("listing_id")
+    if not listing_id:
+        return web.json_response({"error": "listing_id 필요"}, status=400)
+
+    success, message = await market_service.cancel_listing_for_user(
+        sess["user_id"], int(listing_id),
+    )
+    if not success:
+        return web.json_response({"error": message}, status=400)
+
+    return web.json_response({"ok": True, "message": message})
+
+
 # --- NOWPayments Integration ---
 
 NOWPAYMENTS_API_KEY = os.getenv("NOWPAYMENTS_API_KEY", "")
@@ -3535,10 +3846,19 @@ def create_app() -> web.Application:
     app.router.add_post("/api/board/posts/{id}/comments", api_board_comment_create)
     app.router.add_delete("/api/board/comments/{id}", api_board_comment_delete)
     app.router.add_get("/uploads/board/{filename}", api_board_image)
+    # Marketplace (web)
+    app.router.add_get("/api/market/listings", api_market_listings)
+    app.router.add_get("/api/market/stats", api_market_stats)
+    app.router.add_get("/api/market/my-listings", api_market_my_listings)
+    app.router.add_get("/api/market/my-balance", api_market_my_balance)
+    app.router.add_get("/api/market/my-sellable", api_market_my_sellable)
+    app.router.add_post("/api/market/sell", api_market_sell)
+    app.router.add_post("/api/market/buy", api_market_buy)
+    app.router.add_post("/api/market/cancel", api_market_cancel)
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all: serve index.html for all non-API, non-static paths
-    SPA_PAGES = {"/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin"}
+    SPA_PAGES = {"/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin", "/market"}
     for p in SPA_PAGES:
         app.router.add_get(p, index)
     return app

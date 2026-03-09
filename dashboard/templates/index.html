@@ -540,6 +540,29 @@
             #boardTable{font-size:11px}
             #boardTable th,#boardTable td{padding:6px 4px!important}
         }
+        /* Marketplace */
+        .mkt-card{position:relative;padding:12px;border-radius:12px;background:var(--card-bg);border:1px solid var(--border);transition:transform .15s,box-shadow .15s}
+        .mkt-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
+        .mkt-card.shiny{border-color:#FFD700;box-shadow:0 0 8px rgba(255,215,0,.15)}
+        .mkt-card .mkt-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+        .mkt-card .mkt-name{font-size:15px;font-weight:700}
+        .mkt-card .mkt-rarity{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;color:#fff}
+        .mkt-rar-common{background:#78909C}.mkt-rar-rare{background:#1E88E5}.mkt-rar-epic{background:#8E24AA}.mkt-rar-legendary{background:#F9A825;color:#333}.mkt-rar-ultra_legendary{background:#E53935}
+        .mkt-card .mkt-iv{font-size:11px;font-weight:600;padding:1px 5px;border-radius:3px;margin-left:4px}
+        .mkt-iv-S{background:#FFD700;color:#333}.mkt-iv-A{background:#4CAF50;color:#fff}.mkt-iv-B{background:#2196F3;color:#fff}.mkt-iv-C{background:#78909C;color:#fff}.mkt-iv-D{background:#555;color:#aaa}
+        .mkt-card .mkt-price{font-size:18px;font-weight:800;color:var(--accent);margin:8px 0 4px}
+        .mkt-card .mkt-seller{font-size:11px;color:var(--dim)}
+        .mkt-card .mkt-time{font-size:10px;color:var(--dim);position:absolute;top:8px;right:10px}
+        .mkt-card .mkt-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0}
+        .mkt-btn{padding:6px 16px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
+        .mkt-btn-buy{background:var(--accent);color:#fff}.mkt-btn-buy:hover{filter:brightness(1.1)}
+        .mkt-btn-cancel{background:#e57373;color:#fff}.mkt-btn-cancel:hover{background:#ef5350}
+        .mkt-btn-sell{background:#66BB6A;color:#fff}.mkt-btn-sell:hover{background:#4CAF50}
+        .mkt-btn:disabled{opacity:.5;cursor:not-allowed}
+        .mkt-sell-card{cursor:pointer;padding:10px;border-radius:10px;background:var(--card-bg);border:2px solid transparent;transition:border-color .15s}
+        .mkt-sell-card:hover,.mkt-sell-card.selected{border-color:var(--accent)}
+        .mkt-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center}
+        .mkt-modal{background:var(--card-bg);border-radius:16px;padding:24px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3)}
     </style>
 </head>
 <body>
@@ -559,6 +582,7 @@
         <div class="nav-tab active" data-page="home">홈</div>
         <div class="nav-tab" data-page="board">💬 게시판</div>
         <div class="nav-tab" data-page="battlerank">배틀 & 랭킹</div>
+        <div class="nav-tab" data-page="market">🏪 거래소</div>
         <div class="nav-tab" data-page="tier">푸키몬 티어</div>
         <div class="nav-tab" data-page="guide">📖 가이드</div>
         <div class="nav-tab" data-page="stats">통계</div>
@@ -788,6 +812,91 @@
                 <div class="section"><h2>🏆 토너먼트 우승자</h2><div id="tournamentWinnersBR"><div class="loading">로딩 중...</div></div></div>
                 <div class="section"><h2>📖 도감 랭킹</h2><div id="fullUsersTable"><div class="loading">로딩 중...</div></div></div>
                 <div class="section"><h2>⭐ 이로치 / 개체값</h2><div class="rank-filters" id="shinyIvBtns"><button class="rank-filter active" data-tab="shiny">이로치</button><button class="rank-filter" data-tab="iv">개체값</button></div><div id="shinyHoldersFull"><div class="loading">로딩 중...</div></div><div id="ivRankingFull" style="display:none"><div class="loading">로딩 중...</div></div></div>
+            </div>
+        </div>
+
+        <!-- MARKETPLACE -->
+        <div class="page" id="page-market">
+            <!-- Summary cards -->
+            <div class="poke-summary" id="marketSummary">
+                <div class="card"><div class="label">등록 매물</div><div class="value" id="mktActiveCount">--</div></div>
+                <div class="card"><div class="label">24시간 거래</div><div class="value" id="mktSold24h">--</div></div>
+                <div class="card"><div class="label">평균 가격</div><div class="value" id="mktAvgPrice">-- BP</div></div>
+                <div class="card"><div class="label">나의 BP</div><div class="value" id="mktMyBp">🔒</div></div>
+            </div>
+            <!-- Sub-tabs -->
+            <div style="display:flex;gap:4px;margin:12px 0 8px;flex-wrap:wrap">
+                <button class="poke-filter active" id="mtab-browse" onclick="switchMarketTab('browse')">🔍 매물 둘러보기</button>
+                <button class="poke-filter" id="mtab-sell" onclick="switchMarketTab('sell')">📤 판매 등록</button>
+                <button class="poke-filter" id="mtab-mylistings" onclick="switchMarketTab('mylistings')">📋 나의 매물</button>
+            </div>
+            <!-- Browse section -->
+            <div id="mkt-browse">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+                    <input type="text" id="mktSearch" placeholder="포켓몬 이름 검색..." class="poke-select" style="flex:1;min-width:120px" oninput="mktSearchDebounce()">
+                    <select class="poke-select" id="mktRarity" onchange="marketFetchListings()">
+                        <option value="">등급 전체</option>
+                        <option value="ultra_legendary">🔴 초전설</option>
+                        <option value="legendary">🟡 전설</option>
+                        <option value="epic">🟣 에픽</option>
+                        <option value="rare">🔵 희귀</option>
+                        <option value="common">🟢 일반</option>
+                    </select>
+                    <select class="poke-select" id="mktIv" onchange="marketFetchListings()">
+                        <option value="">IV 전체</option>
+                        <option value="S">S등급+</option>
+                        <option value="A">A등급+</option>
+                        <option value="B">B등급+</option>
+                    </select>
+                    <button class="poke-filter" id="mktShinyBtn" onclick="mktToggleShiny()">✨ 이로치</button>
+                    <select class="poke-select" id="mktSort" onchange="marketFetchListings()">
+                        <option value="newest">최신순</option>
+                        <option value="price_asc">가격 낮은순</option>
+                        <option value="price_desc">가격 높은순</option>
+                        <option value="rarity">등급순</option>
+                    </select>
+                </div>
+                <div class="poke-grid" id="marketGrid"><div class="loading">로딩 중...</div></div>
+                <div id="marketPaging" style="text-align:center;margin:12px 0"></div>
+            </div>
+            <!-- Sell section (auth required) -->
+            <div id="mkt-sell" style="display:none">
+                <div id="mktSellAuth" style="display:none">
+                    <div class="section" style="text-align:center;padding:40px 16px">
+                        <p style="font-size:18px;margin-bottom:12px">🔒 로그인이 필요합니다</p>
+                        <p style="color:var(--dim);margin-bottom:16px">포켓몬을 판매하려면 텔레그램으로 로그인하세요.</p>
+                        <button class="poke-filter active" onclick="telegramConnect()" style="font-size:14px;padding:8px 24px">텔레그램 로그인</button>
+                    </div>
+                </div>
+                <div id="mktSellContent" style="display:none">
+                    <div style="margin-bottom:12px">
+                        <input type="text" id="mktSellSearch" placeholder="내 포켓몬 검색..." class="poke-select" style="width:100%;max-width:300px" oninput="mktSellSearchDebounce()">
+                    </div>
+                    <div id="mktSellGrid" class="poke-grid"></div>
+                    <!-- Price input (shown after selecting a pokemon) -->
+                    <div id="mktSellForm" style="display:none;margin-top:16px;padding:16px;background:var(--card-bg);border-radius:12px;border:1px solid var(--border)">
+                        <div id="mktSellSelected" style="margin-bottom:12px"></div>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                            <label style="font-weight:600">가격 (BP):</label>
+                            <input type="number" id="mktSellPrice" min="100" placeholder="최소 100" class="poke-select" style="width:120px" oninput="mktCalcFee()">
+                            <span id="mktFeePreview" style="color:var(--dim);font-size:13px"></span>
+                        </div>
+                        <button class="poke-filter active" style="margin-top:12px;padding:8px 32px" onclick="marketSellConfirm()">📤 등록하기</button>
+                    </div>
+                </div>
+            </div>
+            <!-- My listings section (auth required) -->
+            <div id="mkt-mylistings" style="display:none">
+                <div id="mktMyAuth" style="display:none">
+                    <div class="section" style="text-align:center;padding:40px 16px">
+                        <p style="font-size:18px;margin-bottom:12px">🔒 로그인이 필요합니다</p>
+                        <button class="poke-filter active" onclick="telegramConnect()" style="font-size:14px;padding:8px 24px">텔레그램 로그인</button>
+                    </div>
+                </div>
+                <div id="mktMyContent" style="display:none">
+                    <div class="poke-grid" id="mktMyGrid"></div>
+                    <div id="mktMyEmpty" style="display:none;text-align:center;padding:40px 16px;color:var(--dim)">등록된 매물이 없습니다.</div>
+                </div>
             </div>
         </div>
 
@@ -1814,7 +1923,7 @@ function updateQuotaBadge(remaining,bonus){
 }
 
 // --- Tab Navigation with URL routing ---
-const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",tier:"/tier",typechart:"/types",guide:"/guide",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",admin:"/admin"};
+const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",market:"/market",tier:"/tier",typechart:"/types",guide:"/guide",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",admin:"/admin"};
 function switchGuide(id){document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));document.getElementById('guide-'+id).classList.add('active');document.querySelector('.guide-tab[data-guide="'+id+'"]').classList.add('active');if(id==='typechart'){const src=document.getElementById('typeChartGrid');const dst=document.getElementById('typeChartGuide');if(src&&dst&&src.innerHTML&&!src.innerHTML.includes('로딩')){dst.innerHTML=src.innerHTML}else{loadTypeChart().then(()=>{const s2=document.getElementById('typeChartGrid');if(s2)dst.innerHTML=s2.innerHTML})}}}
 const PATH_PAGES=Object.fromEntries(Object.entries(PAGE_PATHS).map(([k,v])=>[v,k]));
 let currentPage="home";
@@ -1889,6 +1998,7 @@ async function loadPage(page){
         else if(page==="mypokemon"){if(_authUser)await loadMyPokemon()}
         else if(page==="pokedex"){if(_authUser)await loadPokedex()}
         else if(page==="simulator"){if(_authUser)await loadSimulator()}
+        else if(page==="market") await loadMarket()
         else if(page==="board"){if(!_boardLoaded)boardLoadList()}
         else if(page==="admin"){if(_authUser&&_authUser.is_admin)await loadAdmin()}
     }catch(e){console.error("Load error:",e)}
@@ -2254,13 +2364,29 @@ async function loadTier(){
             <span style="color:var(--muted)">&nbsp;(총합 /186)</span>
         </div>
     </div>`;
+    // Store for filtering
+    window._tierData=tiers; window._tierChart=chart; window._tierNames=names; window._tierMx=mx;
+    _renderTierTable(tiers, chart, names, mx, rarityLabel);
+}
+
+function _renderTierTable(tiers, chart, names, mx, rarityLabel){
+    if(!rarityLabel)rarityLabel={"ultra_legendary":"초전설","legendary":"전설","epic":"에픽","rare":"희귀","common":"일반"};
+    const evoLabel={1:"1진화",2:"2진화",3:"최종"};
+    let h=`<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:12px;font-weight:600;color:var(--dim)">진화단계:</span>
+        <button class="poke-filter${!window._tierEvoFilter?' active':''}" onclick="filterTierEvo('')">전체</button>
+        <button class="poke-filter${window._tierEvoFilter===3?' active':''}" onclick="filterTierEvo(3)">최종진화</button>
+        <button class="poke-filter${window._tierEvoFilter===2?' active':''}" onclick="filterTierEvo(2)">2진화</button>
+        <button class="poke-filter${window._tierEvoFilter===1?' active':''}" onclick="filterTierEvo(1)">1진화</button>
+    </div>`;
     h+=`<table><thead><tr><th>푸키몬</th><th>타입</th><th>등급</th><th class="hide-m">스킬</th><th>체력</th><th>공격</th><th>방어</th><th class="hide-m">특수공격</th><th class="hide-m">특수방어</th><th>속도</th><th>전투력</th></tr></thead><tbody>`;
     for(const p of tiers){
         const tops=topStats(p);
         const t1=typeTip(p.type1,chart,names);
         const t2=p.type2?typeTip(p.type2,chart,names):'';
+        const evoTag=p.evo_stage<3?`<span style="font-size:9px;color:var(--dim);font-weight:400"> ${evoLabel[p.evo_stage]||""}</span>`:"";
         h+=`<tr>
-            <td><b>${p.name}</b></td>
+            <td><b>${p.name}</b>${evoTag}</td>
             <td>${t1}${t2}</td>
             <td><span class="badge badge-${p.rarity}" style="font-size:9px">${rarityLabel[p.rarity]||p.rarity}</span></td>
             <td class="hide-m" style="color:var(--orange)" title="${p.skill_name}">${p.skill_power}x</td>
@@ -2275,6 +2401,13 @@ async function loadTier(){
     }
     h+="</tbody></table>";
     document.getElementById("tierTable").innerHTML=h;
+}
+
+window._tierEvoFilter='';
+function filterTierEvo(stage){
+    window._tierEvoFilter=stage;
+    const filtered=stage?window._tierData.filter(p=>p.evo_stage===stage):window._tierData;
+    _renderTierTable(filtered,window._tierChart,window._tierNames,window._tierMx);
 }
 
 // --- TYPE CHART ---
@@ -3966,6 +4099,340 @@ async function admOptoutRemove(uid){
 async function loadAdmin(){
     await Promise.all([adminLoadUsers(),adminLoadOrders()]);
     admCatSwitch("manage");
+}
+
+
+// ============ Marketplace (거래소) ============
+const MKT_RARITY_KO={common:"일반",rare:"희귀",epic:"에픽",legendary:"전설",ultra_legendary:"초전설"};
+let _mktPage=0, _mktTotal=0, _mktPageSize=20, _mktFeeRate=0.05;
+let _mktShiny=false;
+let _mktSearchTimer=null, _mktSellSearchTimer=null;
+let _mktSellSelected=null; // selected pokemon instance for selling
+let _mktMyBp=null;
+
+async function loadMarket(){
+    // Stats
+    const stats=await fetchJSON("/api/market/stats");
+    if(stats){
+        document.getElementById("mktActiveCount").textContent=stats.total_active;
+        document.getElementById("mktSold24h").textContent=stats.total_sold_24h;
+        document.getElementById("mktAvgPrice").textContent=(stats.avg_price||0).toLocaleString()+" BP";
+    }
+    // BP (only if logged in)
+    if(_authUser){
+        updateMarketBp();
+    }
+    // Fetch listings
+    _mktPage=0;
+    await marketFetchListings();
+}
+
+async function updateMarketBp(){
+    try{
+        const d=await fetch(API+"/api/market/my-balance").then(r=>r.ok?r.json():null);
+        if(d&&d.bp!=null){
+            _mktMyBp=d.bp;
+            document.getElementById("mktMyBp").textContent=d.bp.toLocaleString()+" BP";
+        }
+    }catch(e){}
+}
+
+function switchMarketTab(tab){
+    const tabs=["browse","sell","mylistings"];
+    tabs.forEach(t=>{
+        document.getElementById("mkt-"+t).style.display=t===tab?"block":"none";
+        document.getElementById("mtab-"+t).classList.toggle("active",t===tab);
+    });
+    if(tab==="browse"){
+        _mktPage=0;
+        marketFetchListings();
+    } else if(tab==="sell"){
+        if(!_authUser){
+            document.getElementById("mktSellAuth").style.display="block";
+            document.getElementById("mktSellContent").style.display="none";
+        } else {
+            document.getElementById("mktSellAuth").style.display="none";
+            document.getElementById("mktSellContent").style.display="block";
+            loadMarketSell();
+        }
+    } else if(tab==="mylistings"){
+        if(!_authUser){
+            document.getElementById("mktMyAuth").style.display="block";
+            document.getElementById("mktMyContent").style.display="none";
+        } else {
+            document.getElementById("mktMyAuth").style.display="none";
+            document.getElementById("mktMyContent").style.display="block";
+            loadMarketMyListings();
+        }
+    }
+}
+
+function mktToggleShiny(){
+    _mktShiny=!_mktShiny;
+    document.getElementById("mktShinyBtn").classList.toggle("active",_mktShiny);
+    _mktPage=0;
+    marketFetchListings();
+}
+
+function mktSearchDebounce(){
+    clearTimeout(_mktSearchTimer);
+    _mktSearchTimer=setTimeout(()=>{_mktPage=0;marketFetchListings()},350);
+}
+
+async function marketFetchListings(){
+    const grid=document.getElementById("marketGrid");
+    grid.innerHTML='<div class="loading">로딩 중...</div>';
+    const params=new URLSearchParams();
+    params.set("page",_mktPage);
+    params.set("page_size",_mktPageSize);
+    const q=document.getElementById("mktSearch").value.trim();
+    if(q) params.set("q",q);
+    const rar=document.getElementById("mktRarity").value;
+    if(rar) params.set("rarity",rar);
+    const iv=document.getElementById("mktIv").value;
+    if(iv) params.set("iv_grade",iv);
+    if(_mktShiny) params.set("shiny","1");
+    const sort=document.getElementById("mktSort").value;
+    if(sort) params.set("sort",sort);
+    try{
+        const data=await fetch(API+"/api/market/listings?"+params).then(r=>r.json());
+        if(!data||!data.listings){grid.innerHTML='<div class="sim-empty">매물을 불러올 수 없습니다.</div>';return}
+        _mktTotal=data.total;
+        _mktFeeRate=data.fee_rate||0.05;
+        if(data.listings.length===0){
+            grid.innerHTML='<div class="sim-empty">등록된 매물이 없습니다.</div>';
+        } else {
+            grid.innerHTML=data.listings.map(l=>renderMarketCard(l)).join("");
+        }
+        renderMarketPaging();
+    }catch(e){
+        grid.innerHTML='<div class="sim-empty">오류가 발생했습니다.</div>';
+    }
+}
+
+function renderMarketCard(l){
+    const shinyClass=l.is_shiny?"shiny":"";
+    const shinyTag=l.is_shiny?' <span style="color:#FFD700">✨</span>':"";
+    const rarKo=MKT_RARITY_KO[l.rarity]||l.rarity;
+    const ivBadge=l.iv_grade?`<span class="mkt-iv mkt-iv-${l.iv_grade}">${l.iv_grade}</span>`:"";
+    const ivText=l.iv_total!=null?`<span style="font-size:11px;color:var(--dim)">IV ${l.iv_total}</span>`:"";
+    const type2=l.type2?`/${l.type2}`:"";
+    const sellerIsMe=_authUser&&l.seller_id===_authUser.user_id;
+    let btn;
+    if(sellerIsMe){
+        btn=`<button class="mkt-btn mkt-btn-cancel" onclick="marketCancel(${l.id})">취소</button>`;
+    } else if(!_authUser){
+        btn=`<button class="mkt-btn mkt-btn-buy" onclick="alert('로그인이 필요합니다.')">구매</button>`;
+    } else {
+        btn=`<button class="mkt-btn mkt-btn-buy" onclick="marketBuy(${l.id},'${escHtml(l.pokemon_name)}',${l.price_bp})">구매</button>`;
+    }
+    return `<div class="mkt-card ${shinyClass}">
+        <span class="mkt-time">${l.time_remaining||""}</span>
+        <div class="mkt-top">
+            <span class="mkt-name">${l.emoji||""} ${escHtml(l.pokemon_name)}${shinyTag}</span>
+            <span class="mkt-rarity mkt-rar-${l.rarity}">${rarKo}</span>
+        </div>
+        <div class="mkt-meta">
+            <span style="font-size:11px;color:var(--dim)">${l.pokemon_type||""}${type2}</span>
+            ${ivBadge} ${ivText}
+        </div>
+        <div class="mkt-price">💰 ${(l.price_bp||0).toLocaleString()} BP</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="mkt-seller">판매: ${escHtml(l.seller_name)}</span>
+            ${btn}
+        </div>
+    </div>`;
+}
+
+function renderMarketPaging(){
+    const totalPages=Math.max(1,Math.ceil(_mktTotal/_mktPageSize));
+    const el=document.getElementById("marketPaging");
+    if(totalPages<=1){el.innerHTML="";return}
+    let html=`<button class="poke-filter" ${_mktPage<=0?"disabled":""} onclick="_mktPage--;marketFetchListings()">◀ 이전</button>`;
+    html+=` <span style="margin:0 8px;font-size:13px;color:var(--dim)">${_mktPage+1} / ${totalPages}</span> `;
+    html+=`<button class="poke-filter" ${_mktPage>=totalPages-1?"disabled":""} onclick="_mktPage++;marketFetchListings()">다음 ▶</button>`;
+    el.innerHTML=html;
+}
+
+// --- Marketplace: Buy ---
+function marketBuy(listingId,name,price){
+    const bpText=_mktMyBp!=null?`내 BP: ${_mktMyBp.toLocaleString()} BP`:"";
+    const insufficient=_mktMyBp!=null&&_mktMyBp<price;
+    const warnHtml=insufficient?'<div style="color:#e57373;font-weight:700;margin-top:6px">⚠️ BP가 부족합니다!</div>':"";
+    const modal=document.createElement("div");
+    modal.className="mkt-modal-bg";
+    modal.innerHTML=`<div class="mkt-modal">
+        <h3 style="margin:0 0 12px">🛒 구매 확인</h3>
+        <p><b>${name}</b></p>
+        <p style="font-size:20px;font-weight:800;color:var(--accent);margin:8px 0">💰 ${price.toLocaleString()} BP</p>
+        <p style="color:var(--dim);font-size:13px">${bpText}</p>
+        ${warnHtml}
+        <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+            <button class="mkt-btn" style="background:var(--border);color:var(--text)" onclick="this.closest('.mkt-modal-bg').remove()">취소</button>
+            <button class="mkt-btn mkt-btn-buy" id="mktBuyConfirmBtn" ${insufficient?"disabled":""} onclick="marketBuyExecute(${listingId},this)">확인</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener("click",e=>{if(e.target===modal)modal.remove()});
+}
+
+async function marketBuyExecute(listingId,btn){
+    btn.disabled=true;btn.textContent="처리 중...";
+    try{
+        const res=await fetch(API+"/api/market/buy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({listing_id:listingId})});
+        const d=await res.json();
+        document.querySelector(".mkt-modal-bg")?.remove();
+        if(d.ok){
+            showToast("✅ "+( d.message||"구매 완료!"));
+            if(d.new_bp!=null){_mktMyBp=d.new_bp;document.getElementById("mktMyBp").textContent=d.new_bp.toLocaleString()+" BP"}
+            _cache={};
+            marketFetchListings();
+            fetchJSON("/api/market/stats").then(s=>{if(s){document.getElementById("mktActiveCount").textContent=s.total_active;document.getElementById("mktSold24h").textContent=s.total_sold_24h}});
+        } else {
+            showToast("❌ "+(d.error||"구매 실패"));
+        }
+    }catch(e){
+        document.querySelector(".mkt-modal-bg")?.remove();
+        showToast("❌ 오류가 발생했습니다.");
+    }
+}
+
+// --- Marketplace: Cancel ---
+async function marketCancel(listingId){
+    if(!confirm("이 매물을 거래소에서 내리시겠습니까?"))return;
+    try{
+        const res=await fetch(API+"/api/market/cancel",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({listing_id:listingId})});
+        const d=await res.json();
+        if(d.ok){
+            showToast("✅ "+(d.message||"등록 취소 완료!"));
+            _cache={};
+            marketFetchListings();
+            fetchJSON("/api/market/stats").then(s=>{if(s)document.getElementById("mktActiveCount").textContent=s.total_active});
+        } else {
+            showToast("❌ "+(d.error||"취소 실패"));
+        }
+    }catch(e){showToast("❌ 오류가 발생했습니다.")}
+}
+
+// --- Marketplace: Sell ---
+async function loadMarketSell(){
+    const grid=document.getElementById("mktSellGrid");
+    grid.innerHTML='<div class="loading">로딩 중...</div>';
+    document.getElementById("mktSellForm").style.display="none";
+    _mktSellSelected=null;
+    const q=document.getElementById("mktSellSearch").value.trim();
+    const params=q?`?q=${encodeURIComponent(q)}`:"";
+    try{
+        const data=await fetch(API+"/api/market/my-sellable"+params).then(r=>r.ok?r.json():null);
+        if(!data||data.error){grid.innerHTML='<div class="sim-empty">로그인이 필요합니다.</div>';return}
+        if(data.length===0){grid.innerHTML='<div class="sim-empty">판매 가능한 포켓몬이 없습니다.</div>';return}
+        grid.innerHTML=data.map(p=>{
+            const shiny=p.is_shiny?'<span style="color:#FFD700">✨</span>':"";
+            const ivBadge=p.iv_grade?`<span class="mkt-iv mkt-iv-${p.iv_grade}">${p.iv_grade}</span>`:"";
+            const rarKo=MKT_RARITY_KO[p.rarity]||p.rarity;
+            return `<div class="mkt-sell-card" data-id="${p.id}" data-name="${escHtml(p.name_ko)}" data-emoji="${p.emoji||""}" data-rarity="${p.rarity}" onclick="mktSelectSellPokemon(this,${p.id},'${escHtml(p.name_ko)}','${p.emoji||""}','${rarKo}','${p.iv_grade||""}',${p.iv_total||0},${p.is_shiny?1:0})">
+                <div style="font-size:15px;font-weight:700">${p.emoji||""} ${escHtml(p.name_ko)} ${shiny}</div>
+                <div style="display:flex;gap:4px;align-items:center;margin-top:4px">
+                    <span class="mkt-rarity mkt-rar-${p.rarity}" style="font-size:9px">${rarKo}</span>
+                    ${ivBadge}
+                    <span style="font-size:11px;color:var(--dim)">IV ${p.iv_total||"?"}</span>
+                </div>
+            </div>`;
+        }).join("");
+    }catch(e){grid.innerHTML='<div class="sim-empty">오류가 발생했습니다.</div>'}
+}
+
+function mktSelectSellPokemon(el,id,name,emoji,rarKo,ivGrade,ivTotal,isShiny){
+    document.querySelectorAll(".mkt-sell-card").forEach(c=>c.classList.remove("selected"));
+    el.classList.add("selected");
+    _mktSellSelected={id,name,emoji,isShiny};
+    const shiny=isShiny?'<span style="color:#FFD700">✨</span>':"";
+    const ivBadge=ivGrade?`<span class="mkt-iv mkt-iv-${ivGrade}">${ivGrade}</span>`:"";
+    document.getElementById("mktSellSelected").innerHTML=`
+        <div style="font-size:16px;font-weight:700">${emoji} ${name} ${shiny}
+            <span class="mkt-rarity mkt-rar-${el.dataset.rarity}" style="font-size:9px">${rarKo}</span>
+            ${ivBadge} <span style="font-size:11px;color:var(--dim)">IV ${ivTotal}</span>
+        </div>`;
+    document.getElementById("mktSellForm").style.display="block";
+    document.getElementById("mktSellPrice").value="";
+    document.getElementById("mktFeePreview").textContent="";
+}
+
+function mktCalcFee(){
+    const price=parseInt(document.getElementById("mktSellPrice").value)||0;
+    const el=document.getElementById("mktFeePreview");
+    if(price<100){el.textContent=price>0?"최소 100 BP":"";return}
+    const fee=Math.max(1,Math.ceil(price*_mktFeeRate));
+    el.textContent=`수수료 ${(_mktFeeRate*100).toFixed(0)}% = ${fee.toLocaleString()} BP → 수익 ${(price-fee).toLocaleString()} BP`;
+}
+
+async function marketSellConfirm(){
+    if(!_mktSellSelected){showToast("포켓몬을 선택해주세요.");return}
+    const price=parseInt(document.getElementById("mktSellPrice").value)||0;
+    if(price<100){showToast("❌ 최소 가격은 100 BP입니다.");return}
+    const fee=Math.max(1,Math.ceil(price*_mktFeeRate));
+    if(!confirm(`${_mktSellSelected.emoji} ${_mktSellSelected.name}\n가격: ${price.toLocaleString()} BP\n수수료: ${fee.toLocaleString()} BP\n수익: ${(price-fee).toLocaleString()} BP\n\n등록하시겠습니까?`))return;
+    try{
+        const res=await fetch(API+"/api/market/sell",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instance_id:_mktSellSelected.id,price_bp:price})});
+        const d=await res.json();
+        if(d.ok){
+            showToast("✅ "+(d.message||"거래소 등록 완료!"));
+            _cache={};
+            _mktSellSelected=null;
+            document.getElementById("mktSellForm").style.display="none";
+            switchMarketTab("mylistings");
+        } else {
+            showToast("❌ "+(d.error||"등록 실패"));
+        }
+    }catch(e){showToast("❌ 오류가 발생했습니다.")}
+}
+
+function mktSellSearchDebounce(){
+    clearTimeout(_mktSellSearchTimer);
+    _mktSellSearchTimer=setTimeout(()=>loadMarketSell(),350);
+}
+
+// --- Marketplace: My Listings ---
+async function loadMarketMyListings(){
+    const grid=document.getElementById("mktMyGrid");
+    const empty=document.getElementById("mktMyEmpty");
+    grid.innerHTML='<div class="loading">로딩 중...</div>';
+    empty.style.display="none";
+    try{
+        const data=await fetch(API+"/api/market/my-listings").then(r=>r.ok?r.json():null);
+        if(!data||data.error){grid.innerHTML='<div class="sim-empty">로그인이 필요합니다.</div>';return}
+        if(data.length===0){
+            grid.innerHTML="";
+            empty.style.display="block";
+            return;
+        }
+        grid.innerHTML=data.map(l=>{
+            const shiny=l.is_shiny?'<span style="color:#FFD700">✨</span>':"";
+            const rarKo=MKT_RARITY_KO[l.rarity]||l.rarity;
+            const ivBadge=l.iv_grade?`<span class="mkt-iv mkt-iv-${l.iv_grade}">${l.iv_grade}</span>`:"";
+            return `<div class="mkt-card">
+                <span class="mkt-time">${l.time_remaining||""}</span>
+                <div class="mkt-top">
+                    <span class="mkt-name">${l.emoji||""} ${escHtml(l.pokemon_name)} ${shiny}</span>
+                    <span class="mkt-rarity mkt-rar-${l.rarity}">${rarKo}</span>
+                </div>
+                <div class="mkt-meta">${ivBadge} <span style="font-size:11px;color:var(--dim)">IV ${l.iv_total||"?"}</span></div>
+                <div class="mkt-price">💰 ${(l.price_bp||0).toLocaleString()} BP</div>
+                <button class="mkt-btn mkt-btn-cancel" onclick="marketCancel(${l.id})">등록 취소</button>
+            </div>`;
+        }).join("");
+    }catch(e){grid.innerHTML='<div class="sim-empty">오류가 발생했습니다.</div>'}
+}
+
+// --- Toast helper (reuse if exists, else simple fallback) ---
+if(typeof showToast==="undefined"){
+    window.showToast=function(msg){
+        const t=document.createElement("div");
+        t.textContent=msg;
+        Object.assign(t.style,{position:"fixed",bottom:"24px",left:"50%",transform:"translateX(-50%)",background:"var(--card-bg,#333)",color:"var(--text,#fff)",padding:"10px 20px",borderRadius:"10px",fontSize:"14px",fontWeight:"600",zIndex:"9999",boxShadow:"0 4px 16px rgba(0,0,0,.3)",transition:"opacity .4s",whiteSpace:"nowrap"});
+        document.body.appendChild(t);
+        setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),500)},2500);
+    };
 }
 
 

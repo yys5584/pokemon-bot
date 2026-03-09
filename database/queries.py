@@ -424,7 +424,7 @@ async def get_user_pokemon_list(user_id: int) -> list[dict]:
                    WHEN 'epic' THEN 2
                    WHEN 'rare' THEN 3
                    WHEN 'common' THEN 4
-               END, up.id ASC""",
+               END, pm.name_ko, up.is_shiny DESC, up.id ASC""",
         user_id,
     )
     return [dict(r) for r in rows]
@@ -1456,6 +1456,105 @@ async def get_active_listings(
            JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
            WHERE {where_sql}
            ORDER BY ml.created_at DESC
+           LIMIT ${idx} OFFSET ${idx + 1}""",
+        *params,
+    )
+    return [dict(r) for r in rows], total
+
+
+async def get_active_listings_web(
+    page: int = 0, page_size: int = 20,
+    rarity: str | None = None,
+    iv_grade: str | None = None,
+    shiny_only: bool = False,
+    search: str | None = None,
+    price_min: int | None = None,
+    price_max: int | None = None,
+    sort: str = "newest",
+) -> tuple[list[dict], int]:
+    """Get paginated active listings for web dashboard.
+
+    Extended version of get_active_listings() with more filters and sort options.
+    Returns (listings, total_count).
+    """
+    pool = await get_db()
+
+    where = ["ml.status = 'active'", "ml.created_at > NOW() - INTERVAL '7 days'"]
+    params: list = []
+    idx = 1
+
+    if rarity:
+        params.append(rarity)
+        where.append(f"pm.rarity = ${idx}")
+        idx += 1
+
+    # IV grade filter
+    iv_thresholds = {g: t for t, g, _ in _cfg.IV_GRADE_THRESHOLDS if g != "D"}
+    if iv_grade and iv_grade in iv_thresholds:
+        min_iv = iv_thresholds[iv_grade]
+        where.append(
+            f"(COALESCE(up.iv_hp,0)+COALESCE(up.iv_atk,0)+COALESCE(up.iv_def,0)"
+            f"+COALESCE(up.iv_spa,0)+COALESCE(up.iv_spdef,0)+COALESCE(up.iv_spd,0)) >= ${idx}"
+        )
+        params.append(min_iv)
+        idx += 1
+
+    if shiny_only:
+        where.append("up.is_shiny = 1")
+
+    if search:
+        params.append(f"%{search}%")
+        where.append(f"ml.pokemon_name ILIKE ${idx}")
+        idx += 1
+
+    if price_min is not None:
+        params.append(price_min)
+        where.append(f"ml.price_bp >= ${idx}")
+        idx += 1
+
+    if price_max is not None:
+        params.append(price_max)
+        where.append(f"ml.price_bp <= ${idx}")
+        idx += 1
+
+    where_sql = " AND ".join(where)
+
+    # Sort
+    sort_map = {
+        "newest": "ml.created_at DESC",
+        "price_asc": "ml.price_bp ASC",
+        "price_desc": "ml.price_bp DESC",
+        "rarity": """CASE pm.rarity
+            WHEN 'ultra_legendary' THEN 1 WHEN 'legendary' THEN 2
+            WHEN 'epic' THEN 3 WHEN 'rare' THEN 4 ELSE 5 END, ml.created_at DESC""",
+    }
+    order_sql = sort_map.get(sort, "ml.created_at DESC")
+
+    count_row = await pool.fetchrow(
+        f"""SELECT COUNT(*) AS cnt FROM market_listings ml
+           JOIN pokemon_master pm ON ml.pokemon_id = pm.id
+           JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
+           WHERE {where_sql}""",
+        *params,
+    )
+    total = count_row["cnt"]
+
+    params.append(page_size)
+    params.append(page * page_size)
+    rows = await pool.fetch(
+        f"""SELECT ml.id, ml.seller_id, ml.pokemon_id, ml.pokemon_name,
+                  ml.price_bp, ml.created_at, ml.is_shiny,
+                  u.display_name AS seller_name,
+                  pm.emoji, pm.rarity, pm.pokemon_type,
+                  up.iv_hp, up.iv_atk, up.iv_def,
+                  up.iv_spa, up.iv_spdef, up.iv_spd,
+                  up.friendship
+           FROM market_listings ml
+           JOIN users u ON ml.seller_id = u.user_id
+           JOIN pokemon_master pm ON ml.pokemon_id = pm.id
+           JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
+           WHERE {where_sql}
+           ORDER BY {order_sql}
            LIMIT ${idx} OFFSET ${idx + 1}""",
         *params,
     )
