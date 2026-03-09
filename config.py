@@ -620,7 +620,7 @@ RANKED_COST = {
     "common": 1,
     "rare": 2,
     "epic": 4,
-    "legendary": 6,
+    "legendary": 5,
     "ultra_legendary": 6,
 }
 RANKED_COST_LIMIT = 18          # 6마리 팀 총 코스트 상한
