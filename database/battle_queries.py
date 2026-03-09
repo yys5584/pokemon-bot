@@ -105,17 +105,12 @@ async def get_active_team_number(user_id: int) -> int:
 async def swap_teams(user_id: int):
     """Swap team 1 and team 2 entirely, then flip active_team."""
     pool = await get_db()
-    async with pool.acquire() as conn:
-        async with conn.transaction():
-            await conn.execute(
-                "UPDATE battle_teams SET team_number = 99 WHERE user_id = $1 AND team_number = 1",
-                user_id)
-            await conn.execute(
-                "UPDATE battle_teams SET team_number = 1 WHERE user_id = $1 AND team_number = 2",
-                user_id)
-            await conn.execute(
-                "UPDATE battle_teams SET team_number = 2 WHERE user_id = $1 AND team_number = 99",
-                user_id)
+    # CASE문으로 한 번에 1↔2 스왑 (CHECK 제약 bt_team_number_check 우회)
+    await pool.execute(
+        """UPDATE battle_teams
+           SET team_number = CASE WHEN team_number = 1 THEN 2 ELSE 1 END
+           WHERE user_id = $1 AND team_number IN (1, 2)""",
+        user_id)
     # Flip active team
     active = await get_active_team_number(user_id)
     new_active = 2 if active == 1 else 1
