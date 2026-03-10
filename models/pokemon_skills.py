@@ -854,34 +854,22 @@ SKILL_EFFECTS = {
     "자폭":         {"type": "self_destruct", "damage_bonus": 3.0},
     "대폭발":       {"type": "self_destruct", "damage_bonus": 3.5},
 
-    # --- 반동기: 준 데미지의 X%를 자신도 받음 ---
-    "역린":         {"type": "recoil", "pct": 0.30},
-    "브레이브버드":  {"type": "recoil", "pct": 0.25},
-    "인파이트":     {"type": "recoil", "pct": 0.20},
-    "하이점프킥":   {"type": "recoil", "pct": 0.20},
-
-    # --- 흡수계: 준 데미지의 X%만큼 HP 회복 ---
-    "흡수":         {"type": "drain", "pct": 0.25},
-    "메가드레인":   {"type": "drain", "pct": 0.35},
-    "기가드레인":   {"type": "drain", "pct": 0.50},
-
-    # --- 선제기: 스피드 무시하고 선공 ---
-    "신속":         {"type": "priority"},
-    "전광석화":     {"type": "priority"},
-    "불릿펀치":     {"type": "priority"},
-    "마하펀치":     {"type": "priority"},
-
-    # --- 물뛰기: 데미지 0 ---
-    "튀어오르기":   {"type": "splash"},
-
-    # --- 랜덤: 배율 0.5~3.0 랜덤 ---
-    "손가락흔들기": {"type": "random_power", "min": 0.5, "max": 3.0},
-
-    # --- 반격: 후공 시 받은 데미지 × 1.5 반사 ---
-    "반격":         {"type": "counter", "mult": 1.5},
-
-    # --- 잠자기: 공격 안 하고 HP 50% 회복 ---
-    "잠자기":       {"type": "rest", "heal_pct": 0.50},
+    # --- 아래 효과들은 목요일 배포 예정 (v2.4) ---
+    # "역린":         {"type": "recoil", "pct": 0.30},
+    # "브레이브버드":  {"type": "recoil", "pct": 0.25},
+    # "인파이트":     {"type": "recoil", "pct": 0.20},
+    # "하이점프킥":   {"type": "recoil", "pct": 0.20},
+    # "흡수":         {"type": "drain", "pct": 0.25},
+    # "메가드레인":   {"type": "drain", "pct": 0.35},
+    # "기가드레인":   {"type": "drain", "pct": 0.50},
+    # "신속":         {"type": "priority"},
+    # "전광석화":     {"type": "priority"},
+    # "불릿펀치":     {"type": "priority"},
+    # "마하펀치":     {"type": "priority"},
+    # "튀어오르기":   {"type": "splash"},
+    # "손가락흔들기": {"type": "random_power", "min": 0.5, "max": 3.0},
+    # "반격":         {"type": "counter", "mult": 1.5},
+    # "잠자기":       {"type": "rest", "heal_pct": 0.50},
 }
 
 
