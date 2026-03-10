@@ -18,7 +18,7 @@ from telegram.ext import (
 
 from database.connection import get_db, close_db
 from database.schema import create_tables
-from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types, migrate_assign_ivs, migrate_rarity_v2, migrate_ultra_legendary, migrate_catch_rates_v3
+from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types, migrate_assign_ivs, migrate_rarity_v2, migrate_ultra_legendary, migrate_catch_rates_v3, migrate_add_nurture_locked
 from database import queries
 
 from handlers.start import start_handler, help_handler
@@ -103,13 +103,14 @@ async def post_init(application: Application):
     logger.info(f"[{time.monotonic()-t0:.1f}s] DB + schema + seed done")
 
     # Phase 2: 배틀데이터 시드 + 마이그레이션 (병렬)
-    migrated, iv_assigned, _, rarity_migrated, ultra_migrated, catch_migrated = await asyncio.gather(
+    migrated, iv_assigned, _, rarity_migrated, ultra_migrated, catch_migrated, nurture_locked = await asyncio.gather(
         migrate_18_types(),
         migrate_assign_ivs(),
         seed_battle_data(),
         migrate_rarity_v2(),
         migrate_ultra_legendary(),
         migrate_catch_rates_v3(),
+        migrate_add_nurture_locked(),
     )
     if migrated:
         logger.info(f"18-type migration applied: {migrated} pokemon updated.")
@@ -121,6 +122,8 @@ async def post_init(application: Application):
         logger.info(f"Ultra-legendary migration: {ultra_migrated} pokemon promoted to ultra_legendary.")
     if catch_migrated:
         logger.info(f"Catch rate v3 migration: {catch_migrated} pokemon catch_rate unified by rarity.")
+    if nurture_locked:
+        logger.info("Nurture locked column added to user_pokemon.")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready. 251 Pokemon seeded.")
 
     # Phase 3: 독립 작업 병렬 (cleanup + missed_reset)

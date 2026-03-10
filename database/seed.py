@@ -226,3 +226,25 @@ async def migrate_catch_rates_v3():
 
     total = await pool.fetchval("SELECT count(*) FROM pokemon_master")
     return total
+
+
+async def migrate_add_nurture_locked():
+    """Add nurture_locked column to user_pokemon.
+
+    교환으로 받은 진화 포켓몬의 친밀도 강화를 차단하기 위한 플래그.
+    """
+    pool = await get_db()
+
+    # 컬럼 존재 여부 확인
+    exists = await pool.fetchval("""
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'user_pokemon' AND column_name = 'nurture_locked'
+    """)
+    if exists:
+        return False  # Already migrated
+
+    await pool.execute("""
+        ALTER TABLE user_pokemon
+        ADD COLUMN nurture_locked BOOLEAN NOT NULL DEFAULT FALSE
+    """)
+    return True

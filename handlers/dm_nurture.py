@@ -168,6 +168,14 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     max_f = config.get_max_friendship(pokemon)
 
+    # 교환으로 받은 진화 포켓몬은 친밀도 강화 불가
+    if pokemon.get("nurture_locked"):
+        await update.message.reply_text(
+            f"❌ {pokemon['name_ko']}은(는) 교환으로 받은 진화 포켓몬이라\n"
+            f"친밀도를 올릴 수 없습니다."
+        )
+        return
+
     if pokemon["fed_today"] >= feed_limit:
         msg = f"오늘은 이미 {pokemon['name_ko']}에게 밥을 {feed_limit}번 줬습니다!"
         if pokemon["friendship"] < max_f:
@@ -233,6 +241,14 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     max_f = config.get_max_friendship(pokemon)
+
+    # 교환으로 받은 진화 포켓몬은 친밀도 강화 불가
+    if pokemon.get("nurture_locked"):
+        await update.message.reply_text(
+            f"❌ {pokemon['name_ko']}은(는) 교환으로 받은 진화 포켓몬이라\n"
+            f"친밀도를 올릴 수 없습니다."
+        )
+        return
 
     if pokemon["played_today"] >= config.PLAY_PER_DAY:
         msg = f"오늘은 이미 {pokemon['name_ko']}와(과) {config.PLAY_PER_DAY}번 놀았습니다!"
@@ -341,6 +357,14 @@ async def nurture_callback_handler(update: Update, context: ContextTypes.DEFAULT
 
 async def _do_feed(query, user_id, pokemon):
     """Execute feed logic from callback."""
+    # 교환으로 받은 진화 포켓몬은 친밀도 강화 불가
+    if pokemon.get("nurture_locked"):
+        await query.edit_message_text(
+            f"❌ {pokemon['name_ko']}은(는) 교환으로 받은 진화 포켓몬이라\n"
+            f"친밀도를 올릴 수 없습니다."
+        )
+        return
+
     feed_limit = config.FEED_PER_DAY
     user_data = await queries.get_user(user_id)
     if user_data and user_data.get("title"):
@@ -407,6 +431,14 @@ async def _do_feed(query, user_id, pokemon):
 
 async def _do_play(query, user_id, pokemon):
     """Execute play logic from callback."""
+    # 교환으로 받은 진화 포켓몬은 친밀도 강화 불가
+    if pokemon.get("nurture_locked"):
+        await query.edit_message_text(
+            f"❌ {pokemon['name_ko']}은(는) 교환으로 받은 진화 포켓몬이라\n"
+            f"친밀도를 올릴 수 없습니다."
+        )
+        return
+
     max_f = config.get_max_friendship(pokemon)
 
     if pokemon["played_today"] >= config.PLAY_PER_DAY:

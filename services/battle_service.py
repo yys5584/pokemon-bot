@@ -9,7 +9,7 @@ from database import battle_queries as bq
 from database import queries
 from utils.battle_calc import calc_battle_stats, calc_power, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
 from utils.helpers import type_badge, icon_emoji, rarity_badge
-from models.pokemon_skills import POKEMON_SKILLS
+from models.pokemon_skills import POKEMON_SKILLS, get_skill_effect
 from models.pokemon_base_stats import POKEMON_BASE_STATS
 
 try:
@@ -157,9 +157,11 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
     }
 
 
-def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str, str, float]:
+def _calc_damage(attacker: dict, defender: dict, received_dmg: int = 0) -> tuple[int, str, str, float, dict | None]:
     """Calculate damage from attacker to defender.
-    Returns (damage, effect_text, crit_mark, type_mult).
+    Returns (damage, effect_text, crit_mark, type_mult, effect_info).
+    effect_info: dict with skill effect details, or None.
+    received_dmg: damage received this turn (for counter calculation).
     """
     # Physical vs Special: use whichever offensive stat is higher
     atk_phys = attacker["stats"]["atk"]
@@ -187,27 +189,92 @@ def _calc_damage(attacker: dict, defender: dict) -> tuple[int, str, str, float]:
         chosen_skill = ("몸통박치기", 1.2)
     skill_name, skill_power = chosen_skill
 
+    # Skill effect lookup
+    effect = get_skill_effect(skill_name)
+    effect_info = None
+
     # Critical hit (10%)
     crit = 1.5 if random.random() < config.BATTLE_CRIT_RATE else 1.0
 
     # Skill activation (30%)
     skill_activated = random.random() < config.BATTLE_SKILL_RATE
-    skill_mult = skill_power if skill_activated else 1.0
 
-    # Random variance (±10%)
-    variance = random.uniform(0.9, 1.1)
+    if skill_activated and effect:
+        etype = effect["type"]
 
-    damage = int(base * type_mult * crit * skill_mult * variance)
-    damage = max(1, damage)  # At least 1 damage
+        if etype == "splash":
+            # 튀어오르기: 데미지 0
+            damage = 0
+            effect_info = {"type": "splash"}
+
+        elif etype == "rest":
+            # 잠자기: 공격 안 하고 HP 회복
+            max_hp = attacker["stats"]["hp"]
+            heal = int(max_hp * effect["heal_pct"])
+            damage = 0
+            effect_info = {"type": "rest", "heal": heal}
+
+        elif etype == "self_destruct":
+            # 자폭/대폭발: 데미지 대폭 증가 + 자신 즉사
+            skill_mult = effect["damage_bonus"]
+            variance = random.uniform(0.9, 1.1)
+            damage = max(1, int(base * type_mult * crit * skill_mult * variance))
+            effect_info = {"type": "self_destruct"}
+
+        elif etype == "random_power":
+            # 손가락흔들기: 랜덤 배율
+            rand_mult = random.uniform(effect["min"], effect["max"])
+            variance = random.uniform(0.9, 1.1)
+            damage = max(1, int(base * type_mult * crit * rand_mult * variance))
+            effect_info = {"type": "random_power", "mult": rand_mult}
+
+        elif etype == "counter":
+            # 반격: 받은 데미지 × mult 반사 (후공 시에만)
+            if received_dmg > 0:
+                damage = int(received_dmg * effect["mult"])
+                effect_info = {"type": "counter", "reflected": damage}
+            else:
+                # 선공이면 일반 스킬 발동
+                skill_mult = skill_power
+                variance = random.uniform(0.9, 1.1)
+                damage = max(1, int(base * type_mult * crit * skill_mult * variance))
+                effect_info = None
+
+        else:
+            # recoil, drain: 일반 데미지 계산 후 효과 정보 첨부
+            skill_mult = skill_power
+            variance = random.uniform(0.9, 1.1)
+            damage = max(1, int(base * type_mult * crit * skill_mult * variance))
+            effect_info = {"type": etype, "pct": effect.get("pct", 0)}
+
+    else:
+        # 스킬 미발동 또는 효과 없는 일반 스킬
+        skill_mult = skill_power if skill_activated else 1.0
+        variance = random.uniform(0.9, 1.1)
+        damage = max(1, int(base * type_mult * crit * skill_mult * variance))
 
     # Build effect text
     effects = []
     if skill_activated:
         effects.append(f"「{skill_name}」")
+    if effect_info and effect_info["type"] == "self_destruct":
+        effects.append("💥")
+    if effect_info and effect_info["type"] == "splash":
+        effects.clear()
+        effects.append("아무일도일어나지않았다!")
 
     crit_mark = "*" if crit > 1.0 else ""
     effect_text = f" {' '.join(effects)}" if effects else ""
-    return damage, effect_text, crit_mark, type_mult
+    return damage, effect_text, crit_mark, type_mult, effect_info
+
+
+def _has_priority(mon: dict) -> bool:
+    """Check if pokemon has a priority move (선제기)."""
+    for skill_name, _ in mon.get("skills", []):
+        eff = get_skill_effect(skill_name)
+        if eff and eff["type"] == "priority":
+            return True
+    return False
 
 
 def _hp_bar(current: int, max_hp: int, length: int = 6) -> str:
@@ -259,8 +326,16 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
         if round_num > config.BATTLE_MAX_ROUNDS:
             break
 
-        # Speed determines who goes first
-        if c_mon["stats"]["spd"] >= d_mon["stats"]["spd"]:
+        # Speed determines who goes first (선제기 우선)
+        c_prio = _has_priority(c_mon)
+        d_prio = _has_priority(d_mon)
+        if c_prio and not d_prio:
+            first, second = c_mon, d_mon
+            first_is_challenger = True
+        elif d_prio and not c_prio:
+            first, second = d_mon, c_mon
+            first_is_challenger = False
+        elif c_mon["stats"]["spd"] >= d_mon["stats"]["spd"]:
             first, second = c_mon, d_mon
             first_is_challenger = True
         else:
@@ -268,14 +343,50 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             first_is_challenger = False
 
         # First attack
-        dmg1, eff1, crit1, tmult1 = _calc_damage(first, second)
-        second["current_hp"] -= dmg1
+        dmg1, eff1, crit1, tmult1, fx1 = _calc_damage(first, second)
+        # Rest: 공격 안 하고 HP 회복
+        if fx1 and fx1["type"] == "rest":
+            max_hp = first["stats"]["hp"]
+            first["current_hp"] = min(max_hp, first["current_hp"] + fx1["heal"])
+        else:
+            second["current_hp"] -= dmg1
 
         # Second attacks back if alive
-        dmg2, eff2, crit2, tmult2 = 0, "", "", 1.0
+        dmg2, eff2, crit2, tmult2, fx2 = 0, "", "", 1.0, None
         if second["current_hp"] > 0:
-            dmg2, eff2, crit2, tmult2 = _calc_damage(second, first)
-            first["current_hp"] -= dmg2
+            # 반격: 받은 데미지를 전달
+            received = dmg1 if (fx1 is None or fx1["type"] != "rest") else 0
+            dmg2, eff2, crit2, tmult2, fx2 = _calc_damage(second, first, received_dmg=received)
+            if fx2 and fx2["type"] == "rest":
+                max_hp = second["stats"]["hp"]
+                second["current_hp"] = min(max_hp, second["current_hp"] + fx2["heal"])
+            else:
+                first["current_hp"] -= dmg2
+
+        # --- 스킬 효과 적용 (백그라운드) ---
+        # First attacker effects
+        if fx1:
+            if fx1["type"] == "self_destruct":
+                first["current_hp"] = 0
+            elif fx1["type"] == "recoil" and dmg1 > 0:
+                recoil_dmg = max(1, int(dmg1 * fx1["pct"]))
+                first["current_hp"] -= recoil_dmg
+            elif fx1["type"] == "drain" and dmg1 > 0:
+                heal = max(1, int(dmg1 * fx1["pct"]))
+                max_hp = first["stats"]["hp"]
+                first["current_hp"] = min(max_hp, first["current_hp"] + heal)
+
+        # Second attacker effects
+        if fx2:
+            if fx2["type"] == "self_destruct":
+                second["current_hp"] = 0
+            elif fx2["type"] == "recoil" and dmg2 > 0:
+                recoil_dmg = max(1, int(dmg2 * fx2["pct"]))
+                second["current_hp"] -= recoil_dmg
+            elif fx2["type"] == "drain" and dmg2 > 0:
+                heal = max(1, int(dmg2 * fx2["pct"]))
+                max_hp = second["stats"]["hp"]
+                second["current_hp"] = min(max_hp, second["current_hp"] + heal)
 
         # Map to challenger(left)/defender(right) for consistent display
         if first_is_challenger:

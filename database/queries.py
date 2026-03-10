@@ -369,10 +369,12 @@ async def get_all_pokemon() -> list[dict]:
 async def give_pokemon_to_user(
     user_id: int, pokemon_id: int, chat_id: int | None = None,
     is_shiny: bool = False, ivs: dict | None = None,
+    nurture_locked: bool = False,
 ) -> tuple[int, dict]:
     """Add a Pokemon to user's collection with IVs.
 
     If ivs dict provided, uses those IVs (for trades). Otherwise generates random IVs.
+    nurture_locked: True면 친밀도 강화 불가 (진화 후 교환된 포켓몬)
     Returns (instance_id, iv_dict).
     iv_dict keys: iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd
     """
@@ -384,11 +386,13 @@ async def give_pokemon_to_user(
     row = await pool.fetchrow(
         """INSERT INTO user_pokemon
                (user_id, pokemon_id, caught_in_chat_id, is_shiny,
-                iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id""",
+                iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd,
+                nurture_locked)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id""",
         user_id, pokemon_id, chat_id, 1 if is_shiny else 0,
         ivs["iv_hp"], ivs["iv_atk"], ivs["iv_def"],
         ivs["iv_spa"], ivs["iv_spdef"], ivs["iv_spd"],
+        nurture_locked,
     )
     return row["id"], ivs
 

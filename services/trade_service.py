@@ -7,6 +7,10 @@ from database import queries
 from database import battle_queries as bq
 from services.evolution_service import build_trade_evo_info
 from utils.helpers import update_title, type_badge, icon_emoji
+from models.pokemon_data import ALL_POKEMON
+
+# evolves_from 빠른 조회용 dict: {pokemon_id: evolves_from_id or None}
+_EVOLVES_FROM = {p[0]: p[6] for p in ALL_POKEMON}
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +111,11 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
         "iv_spdef": offer_pokemon.get("iv_spdef"),
         "iv_spd": offer_pokemon.get("iv_spd"),
     }
+    # 진화형 포켓몬 교환 시 친밀도 강화 잠금
+    is_evolved = _EVOLVES_FROM.get(offer_pokemon_id) is not None
     new_instance_id, _ivs = await queries.give_pokemon_to_user(
-        user_id, offer_pokemon_id, is_shiny=is_shiny, ivs=original_ivs
+        user_id, offer_pokemon_id, is_shiny=is_shiny, ivs=original_ivs,
+        nurture_locked=is_evolved,
     )
 
     # Phase: pokedex + trade status + title updates in parallel

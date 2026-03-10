@@ -843,6 +843,53 @@ POKEMON_SKILLS = {
 }
 
 
+# ============================================================
+# Skill Effects — 특징 스킬 고유 효과
+# ============================================================
+# 스킬 발동(30%) 시 추가 효과가 적용된다.
+# 등록되지 않은 스킬은 기존처럼 단순 데미지 배율만 적용.
+
+SKILL_EFFECTS = {
+    # --- 자폭계: 데미지 대폭 증가 + 자신 즉사 ---
+    "자폭":         {"type": "self_destruct", "damage_bonus": 3.0},
+    "대폭발":       {"type": "self_destruct", "damage_bonus": 3.5},
+
+    # --- 반동기: 준 데미지의 X%를 자신도 받음 ---
+    "역린":         {"type": "recoil", "pct": 0.30},
+    "브레이브버드":  {"type": "recoil", "pct": 0.25},
+    "인파이트":     {"type": "recoil", "pct": 0.20},
+    "하이점프킥":   {"type": "recoil", "pct": 0.20},
+
+    # --- 흡수계: 준 데미지의 X%만큼 HP 회복 ---
+    "흡수":         {"type": "drain", "pct": 0.25},
+    "메가드레인":   {"type": "drain", "pct": 0.35},
+    "기가드레인":   {"type": "drain", "pct": 0.50},
+
+    # --- 선제기: 스피드 무시하고 선공 ---
+    "신속":         {"type": "priority"},
+    "전광석화":     {"type": "priority"},
+    "불릿펀치":     {"type": "priority"},
+    "마하펀치":     {"type": "priority"},
+
+    # --- 물뛰기: 데미지 0 ---
+    "튀어오르기":   {"type": "splash"},
+
+    # --- 랜덤: 배율 0.5~3.0 랜덤 ---
+    "손가락흔들기": {"type": "random_power", "min": 0.5, "max": 3.0},
+
+    # --- 반격: 후공 시 받은 데미지 × 1.5 반사 ---
+    "반격":         {"type": "counter", "mult": 1.5},
+
+    # --- 잠자기: 공격 안 하고 HP 50% 회복 ---
+    "잠자기":       {"type": "rest", "heal_pct": 0.50},
+}
+
+
+def get_skill_effect(skill_name: str) -> dict | None:
+    """Return effect dict for a skill, or None if no special effect."""
+    return SKILL_EFFECTS.get(skill_name)
+
+
 def get_primary_skill(pokemon_id: int) -> tuple[str, float]:
     """Return (skill_name, power) — 단일속성이면 그대로, 이중속성이면 1차 스킬."""
     raw = POKEMON_SKILLS.get(pokemon_id, ("몸통박치기", 1.2))
