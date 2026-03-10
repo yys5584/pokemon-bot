@@ -59,7 +59,7 @@ ALL_POKEMON_GEN3 = [
     (290, "토중몬", "Nincada", "🐛", "common", 0.80, None, 291, "friendship"),  # Nincada
     (291, "아이스크", "Ninjask", "🐛", "rare", 0.50, 290, None, "none"),  # Ninjask
 
-    (292, "껍질몬", "Shedinja", "🐛", "common", 0.15, None, None, "none"),  # Shedinja
+    (292, "껍질몬", "Shedinja", "🐛", "common", 0.80, None, None, "none"),  # Shedinja
 
     (293, "소곤룡", "Whismur", "⭐", "common", 0.80, None, 294, "friendship"),  # Whismur
     (294, "노공룡", "Loudred", "⭐", "common", 0.80, 293, 295, "friendship"),  # Loudred

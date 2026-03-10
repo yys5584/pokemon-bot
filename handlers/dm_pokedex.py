@@ -1702,7 +1702,7 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
         f"No.{pid:03d} {pokemon['name_ko']} ({pokemon['name_en']})",
         f"등급: {rarity_text}",
         f"타입: {tb}{type_names}",
-        f"포획률: {int(pokemon['catch_rate'] * 100)}%",
+        f"포획률: {int(pokemon['catch_rate'] * 100)}% (하이퍼볼 {min(100, int(pokemon['catch_rate'] * config.HYPER_BALL_CATCH_MULTIPLIER * 100))}%)",
         f"상태: {owned}",
     ]
 

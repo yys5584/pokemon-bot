@@ -447,10 +447,17 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
     if user_id in _tournament_state["participants"]:
         return False, "이미 등록되었습니다!"
 
-    # Check battle team exists (validation only, snapshot later at 21:50)
+    # Check battle team exists + cost validation
     team = await bq.get_battle_team(user_id)
     if not team:
         return False, "배틀팀이 없습니다! DM에서 '팀등록'으로 팀을 먼저 구성하세요."
+
+    total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
+    if total_cost > config.RANKED_COST_LIMIT:
+        return False, (
+            f"❌ 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n"
+            f"코스트 {config.RANKED_COST_LIMIT} 이하로 편성해주세요."
+        )
 
     _tournament_state["participants"][user_id] = {
         "name": display_name,
@@ -477,13 +484,19 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
         return
 
     removed = []
+    cost_removed = []
     for user_id, data in list(participants.items()):
         team = await bq.get_battle_team(user_id)
         if not team:
             removed.append(data["name"])
             del participants[user_id]
         else:
-            data["team"] = team
+            total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
+            if total_cost > config.RANKED_COST_LIMIT:
+                cost_removed.append(f"{data['name']}({total_cost})")
+                del participants[user_id]
+            else:
+                data["team"] = team
 
     lines = [
         f"⚔️ 배틀팀 확정! ({len(participants)}명)",
@@ -492,6 +505,8 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
     ]
     if removed:
         lines.append(f"\n⚠️ 팀 미등록으로 제외: {', '.join(removed)}")
+    if cost_removed:
+        lines.append(f"\n⚠️ 코스트 초과로 제외: {', '.join(cost_removed)}")
 
     await _safe_send(context.bot, chat_id, text="\n".join(lines))
 

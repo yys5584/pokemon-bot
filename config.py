@@ -32,20 +32,20 @@ ADMIN_IDS = [
 
 # --- Rarity System ---
 RARITY_WEIGHTS = {
-    "common": 50,
-    "rare": 30,
-    "epic": 45,              # 15 * 3 (에픽 3배 상시적용)
-    "legendary": 15,          # 5 * 3  (전설 3배 상시적용)
-    "ultra_legendary": 3,     # 초전설 (극히 희귀)
+    "common": 49.5,           # ~49.7%
+    "rare": 30,               # ~30.2%
+    "epic": 15,               # ~15.1%
+    "legendary": 4,           # ~4.0%
+    "ultra_legendary": 1.5,   # ~1.5%
 }
 
 # Midnight bonus (2am-5am KST): rare+ 추가 부스트
 RARITY_WEIGHTS_MIDNIGHT = {
-    "common": 30,
-    "rare": 35,
-    "epic": 55,              # 45 → 55 (심야 추가 부스트)
-    "legendary": 20,          # 15 → 20 (심야 추가 부스트)
-    "ultra_legendary": 5,     # 3 → 5 (심야 추가 부스트)
+    "common": 40,             # ~40%
+    "rare": 30,               # ~30%
+    "epic": 20,               # ~20%
+    "legendary": 8,           # ~8%
+    "ultra_legendary": 2,     # ~2%
 }
 
 RARITY_EMOJI = {
@@ -65,12 +65,13 @@ RARITY_LABEL = {
 }
 
 # --- Catch Rates (by rarity, base) ---
+# 참고용: 실제 포획률은 pokemon_master.catch_rate (DB) 사용
 CATCH_RATES = {
-    "common": 1.00,          # 0.70 * 2 → 100% (커먼 확정)
-    "rare": 0.80,            # 0.40 * 2
-    "epic": 0.30,            # 0.15 * 2
-    "legendary": 0.06,       # 0.03 * 2
-    "ultra_legendary": 0.06, # 초전설 (전설과 동일)
+    "common": 0.80,
+    "rare": 0.50,
+    "epic": 0.15,
+    "legendary": 0.05,
+    "ultra_legendary": 0.03,
 }
 
 # --- Spawn System ---

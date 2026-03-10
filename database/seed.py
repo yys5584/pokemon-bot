@@ -194,3 +194,35 @@ async def migrate_ultra_legendary():
         "UPDATE pokemon_master SET rarity = 'ultra_legendary' WHERE id IN (150, 249, 250)"
     )
     return 3
+
+
+async def migrate_catch_rates_v3():
+    """Unify catch_rate per rarity tier.
+
+    common=0.80, rare=0.50, epic=0.15, legendary=0.05, ultra_legendary=0.03
+    Runs once — checks if Bulbasaur (ID 1, common) catch_rate is already 0.80.
+    """
+    pool = await get_db()
+
+    row = await pool.fetchrow(
+        "SELECT catch_rate FROM pokemon_master WHERE id = 1"
+    )
+    if row and abs(float(row["catch_rate"]) - 0.80) < 0.001:
+        return False  # Already migrated
+
+    rate_map = {
+        "common": 0.80,
+        "rare": 0.50,
+        "epic": 0.15,
+        "legendary": 0.05,
+        "ultra_legendary": 0.03,
+    }
+
+    for rarity, rate in rate_map.items():
+        await pool.execute(
+            "UPDATE pokemon_master SET catch_rate = $1 WHERE rarity = $2",
+            rate, rarity,
+        )
+
+    total = await pool.fetchval("SELECT count(*) FROM pokemon_master")
+    return total
