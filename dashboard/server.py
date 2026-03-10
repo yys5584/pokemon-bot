@@ -834,7 +834,7 @@ async def api_my_team_recommend(request):
     allowed, remaining, bonus_rem = await _check_llm_limit(uid, cost=1)
     if not allowed:
         return pg_json_response({
-            "team": [], "analysis": "크레딧을 모두 사용했습니다.\n💎 아래 후원하기로 추가 크레딧을 구매할 수 있어요!",
+            "team": [], "analysis": "크레딧을 모두 사용했습니다.",
             "warnings": [], "remaining": 0, "bonus_remaining": 0,
         })
 
@@ -1401,7 +1401,7 @@ async def api_my_chat(request):
     allowed, remaining, bonus_rem = await _check_llm_limit(uid, cost=chat_cost)
     if not allowed:
         return pg_json_response({
-            "analysis": f"크레딧이 부족합니다. ({chat_cost}크레딧 필요, 잔여 {remaining}크레딧)\n\n⚡ 빠른 분석(전투력/시너지/카운터/밸런스)은 1크레딧만 차감됩니다.\n💎 아래 후원하기로 추가 크레딧을 구매할 수 있어요!",
+            "analysis": f"크레딧이 부족합니다. ({chat_cost}크레딧 필요, 잔여 {remaining}크레딧)\n\n⚡ 빠른 분석(전투력/시너지/카운터/밸런스)은 1크레딧만 차감됩니다.",
             "team": [], "warnings": [], "remaining": remaining, "bonus_remaining": bonus_rem,
         })
 

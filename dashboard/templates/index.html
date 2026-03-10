@@ -747,7 +747,7 @@
                                 <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
                                     <ul style="font-size:12px;line-height:1.8;margin:0 0 0 16px;padding:0">
                                         <li>AI 배틀 어드바이저 추가 (Gemini 2.5 Flash)</li>
-                                        <li>크레딧 시스템 + 서버 운영 후원</li>
+                                        <li>크레딧 시스템 + AI 배틀 분석</li>
                                         <li>내 푸키몬 페이지 + 텔레그램 로그인</li>
                                         <li>URL 라우팅 + 대시보드 리뉴얼</li>
                                         <li>배틀 밸런스 조정</li>
@@ -1579,8 +1579,8 @@
                     위 버튼을 눌러 팀 분석을 시작하세요!
                 </div>
             </div>
-            <!-- Donation Section -->
-            <div class="donate-bar-wrap" style="margin-top:14px">
+            <!-- Donation Section (hidden) -->
+            <div class="donate-bar-wrap" style="margin-top:14px;display:none">
                 <div class="donate-header">
                     <div class="donate-title">☕ 서버 운영 후원 <span style="font-size:10px;font-weight:400;color:var(--muted)">(클로드 MAX 멘징비)</span></div>
                     <div id="donateAmount" class="donate-amount">$0 <span class="goal">/ $200</span></div>
@@ -1591,7 +1591,7 @@
                 </div>
                 <div id="donateLabel" class="donate-label">후원하시면 크레딧 보너스가 지급됩니다!</div>
             </div>
-            <div class="section" style="margin-top:10px">
+            <div class="section" style="margin-top:10px;display:none">
                 <h2>💎 크레딧 추가 후원</h2>
                 <p style="font-size:11px;color:var(--muted);margin-bottom:10px">후원 시 크레딧 보너스가 지급됩니다. 송금 후 아래 확인 버튼을 눌러주세요.</p>
                 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
@@ -2110,9 +2110,7 @@ async function loadHome(){
         <div class="card"><div class="label">총 교환</div><div class="value">${d.total_trades}</div></div>
         <div class="card"><div class="label">🏪 판매 완료</div><div class="value">${d.market_trades||0}건</div><div class="sub">${(d.market_volume_bp||0).toLocaleString()} BP</div></div>
         <div class="card hl-green"><div class="label">🎯 포획률</div><div class="value">${kpi.global_catch_rate}%</div></div>
-        <div class="card hl-purple"><div class="label">☕ 후원 현황</div><div class="value" id="homeDonateVal">$0</div></div>`;
-    // Load donation for home KPI
-    fetchJSON("/api/donation").then(don=>{if(don)document.getElementById("homeDonateVal").textContent=`$${don.current}`}).catch(()=>{});
+        `;
 
     // Events
     const eSec=document.getElementById("eventsSection");
