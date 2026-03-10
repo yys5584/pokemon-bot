@@ -10,13 +10,7 @@ from database import queries
 from utils.battle_calc import calc_battle_stats, calc_power, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
 from utils.helpers import type_badge, icon_emoji, rarity_badge
 from models.pokemon_skills import POKEMON_SKILLS, get_skill_effect
-from models.pokemon_base_stats import POKEMON_BASE_STATS
-
-try:
-    from models.pokemon_base_stats_gen3 import POKEMON_BASE_STATS_GEN3
-    _ALL_BASE_STATS = {**POKEMON_BASE_STATS, **POKEMON_BASE_STATS_GEN3}
-except ImportError:
-    _ALL_BASE_STATS = POKEMON_BASE_STATS
+from models.pokemon_base_stats import POKEMON_BASE_STATS  # already includes gen3
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +129,7 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
 
     # Type badge + dual type list
     tb = type_badge(pid, pokemon.get("pokemon_type"))
-    bs = _ALL_BASE_STATS.get(pid)
+    bs = POKEMON_BASE_STATS.get(pid)
     dual_types = bs[-1] if bs else [pokemon.get("pokemon_type", "normal")]
 
     return {

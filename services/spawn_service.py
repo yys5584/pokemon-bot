@@ -4,14 +4,14 @@ import asyncio
 import random
 import logging
 import time as _time
-from datetime import datetime, timedelta, time as dt_time
+from datetime import datetime, timedelta
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import config
 from database import queries
-from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_pokemon_boost, get_shiny_boost
+from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_shiny_boost
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
 from utils.helpers import schedule_delete, close_button, rarity_badge, type_badge, ball_emoji, shiny_emoji, icon_emoji

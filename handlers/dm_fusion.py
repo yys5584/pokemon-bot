@@ -39,8 +39,7 @@ def _get_state(context) -> dict:
     return state
 
 
-def _iv_total(p: dict) -> int:
-    return sum(p.get(f"iv_{s}", 0) or 0 for s in ("hp", "atk", "def", "spa", "spdef", "spd"))
+from utils.helpers import pokemon_iv_total as _iv_total, iv_grade
 
 
 def _filter_species(species: list[dict], rarity_filter: str) -> list[dict]:
@@ -112,7 +111,7 @@ def _build_copies_panel(user_id: int, copies: list[dict], sel_a: int | None, sel
     rows = []
     for p in copies:
         total = _iv_total(p)
-        grade, _ = config.get_iv_grade(total)
+        grade = iv_grade(total)
         shiny_mark = "⭐" if p.get("is_shiny") else ""
         selected = ""
         if p["id"] == sel_a:
@@ -158,7 +157,7 @@ def _build_copies_panel(user_id: int, copies: list[dict], sel_a: int | None, sel
 
 def _pokemon_summary(p: dict) -> str:
     total = _iv_total(p)
-    grade, _ = config.get_iv_grade(total)
+    grade = iv_grade(total)
     shiny = "⭐" if p.get("is_shiny") else ""
     return f"{shiny}[{grade}] IV:{total} (HP:{p.get('iv_hp',0)} ATK:{p.get('iv_atk',0)} DEF:{p.get('iv_def',0)} SpA:{p.get('iv_spa',0)} SpD:{p.get('iv_spdef',0)} SPD:{p.get('iv_spd',0)})"
 
@@ -321,7 +320,7 @@ async def fusion_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = "🔀 <b>합성 완료!</b>\n\n"
         if result:
             total = _iv_total(result)
-            grade, _ = config.get_iv_grade(total)
+            grade = iv_grade(total)
             emoji = rarity_badge(result.get("rarity", ""))
             name = result.get("name_ko", "???")
             shiny = " ⭐이로치" if result.get("is_shiny") else ""

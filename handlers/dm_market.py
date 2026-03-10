@@ -9,26 +9,9 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from services.market_service import create_listing, buy_listing, cancel_listing_for_user, calc_fee
-from utils.battle_calc import iv_total
+from utils.helpers import iv_grade_tag as _iv_tag
 
 logger = logging.getLogger(__name__)
-
-
-# ── Helpers ──────────────────────────────────────────────
-
-def _iv_grade(total: int) -> str:
-    grade, _ = config.get_iv_grade(total)
-    return grade
-
-
-def _iv_tag(p: dict) -> str:
-    if p.get("iv_hp") is None:
-        return ""
-    total = iv_total(
-        p.get("iv_hp"), p.get("iv_atk"), p.get("iv_def"),
-        p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"),
-    )
-    return f" [{_iv_grade(total)}]"
 
 
 def _listing_line(ml: dict) -> str:

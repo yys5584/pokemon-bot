@@ -9,9 +9,8 @@ import config
 from database import queries
 from services.evolution_service import try_evolve
 from services.event_service import get_friendship_boost
-from utils.helpers import hearts_display, type_badge, shiny_emoji, icon_emoji
+from utils.helpers import hearts_display, icon_emoji, iv_grade_tag as _iv_grade_tag
 from utils.parse import parse_number, parse_name_arg, parse_select_index
-from utils.battle_calc import iv_total
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +24,6 @@ async def _check_and_notify_mission(update: Update, mission_key: str):
             await update.message.reply_text(msg, parse_mode="HTML")
     except Exception:
         pass
-
-
-def _iv_grade_tag(p: dict) -> str:
-    """Return IV grade string like ' [A]' for a pokemon dict."""
-    if p.get("iv_hp") is None:
-        return ""
-    total = iv_total(p.get("iv_hp"), p.get("iv_atk"), p.get("iv_def"),
-                     p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
-    grade, _ = config.get_iv_grade(total)
-    return f" [{grade}]"
 
 
 async def _resolve_pokemon(update, user_id, text, cmd, cmd_key=None):

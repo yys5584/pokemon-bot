@@ -476,7 +476,7 @@ async def event_dm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📢 이벤트 알림!\n\n"
         f"{desc}\n"
         f"⏰ 종료: {end_str}\n\n"
-        f"👉 https://t.me/tg_poke"
+        f"👉 {config.BOT_CHANNEL_URL}"
     )
 
     sent = 0

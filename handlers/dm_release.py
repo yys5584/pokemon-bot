@@ -28,9 +28,7 @@ def _get_filter(context) -> dict:
     return context.user_data[key]
 
 
-def _iv_total(p: dict) -> int:
-    """Calculate total IV from a pokemon dict."""
-    return sum(p.get(f"iv_{s}", 0) or 0 for s in ("hp", "atk", "def", "spa", "spdef", "spd"))
+from utils.helpers import pokemon_iv_total as _iv_total, iv_grade
 
 
 def _build_panel(user_id: int, filt: dict) -> tuple[str, InlineKeyboardMarkup]:
@@ -129,7 +127,7 @@ async def _get_candidates(user_id: int, filt: dict) -> list[dict]:
         # Apply IV grade filter (if any selected)
         if filt["iv_grades"]:
             total = _iv_total(p)
-            grade, _ = config.get_iv_grade(total)
+            grade = iv_grade(total)
             if grade not in filt["iv_grades"]:
                 continue
 
@@ -303,7 +301,7 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sample = candidates[:10]
         for p in sample:
             total = _iv_total(p)
-            grade, _ = config.get_iv_grade(total)
+            grade = iv_grade(total)
             emoji = config.RARITY_EMOJI.get(p.get("rarity", ""), "")
             name = p.get("name_ko", "???")
             text += f"• {emoji} {name} [{grade}]\n"

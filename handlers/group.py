@@ -14,7 +14,7 @@ from database import battle_queries as bq
 from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
 from services.tournament_service import is_tournament_active
-from utils.helpers import time_ago, rarity_display, escape_html, get_decorated_name, truncate_name, schedule_delete, try_delete, ball_emoji, shiny_emoji, icon_emoji
+from utils.helpers import time_ago, get_decorated_name, truncate_name, schedule_delete, ball_emoji, shiny_emoji, icon_emoji
 from models.pokemon_data import ALL_POKEMON
 
 logger = logging.getLogger(__name__)
@@ -578,7 +578,7 @@ async def dashboard_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text(
         f"{icon_emoji('computer')} <b>포켓몬 봇 대시보드</b>\n\n"
-        "🔗 <a href='https://tgpoke.com'>tgpoke.com</a>\n\n"
+        f"🔗 <a href='{config.DASHBOARD_URL}'>tgpoke.com</a>\n\n"
         "에픽/전설 보유자 랭킹, 도망 장인, 행운아/불행아,\n"
         "교환왕, 올빼미족 등 재미있는 통계를 확인하세요!",
         parse_mode="HTML",

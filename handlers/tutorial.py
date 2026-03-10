@@ -10,6 +10,8 @@ import logging
 import random
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+
+import config
 from telegram.ext import ContextTypes
 
 from database import queries
@@ -346,7 +348,7 @@ async def _send_step(context, user_id: int, step: int):
                 f"• 출석 — 매일 출석 보상\n"
                 f"• {windy} 날씨에 따라 특정 타입 포획률 UP!\n"
                 "━━━━━━━━━━━━━━━\n\n"
-                "🏠 공식방: https://t.me/tg_poke\n"
+                f"🏠 공식방: {config.BOT_CHANNEL_URL}\n"
                 f"{crystal} 30초마다 포켓몬이 출현해요!\n"
                 "🏆 매일 저녁 9시 대회 접수, 10시 포켓몬 마스터 대회!\n\n"
                 "도움이 필요하면 언제든 \"도움말\"을 입력하세요!"

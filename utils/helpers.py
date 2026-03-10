@@ -5,12 +5,14 @@ import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+import config
 from config import (
     TITLES, LEGEND_HUNTER_THRESHOLD, LEGEND_HUNTER_TITLE,
     RARITY_EMOJI, RARITY_LABEL, RARITY_CUSTOM_EMOJI,
     TYPE_EMOJI, TYPE_CUSTOM_EMOJI, BALL_CUSTOM_EMOJI, ICON_CUSTOM_EMOJI,
     UNLOCKABLE_TITLES,
 )
+from utils.battle_calc import iv_total
 from database import queries
 
 _logger = logging.getLogger(__name__)
@@ -294,3 +296,36 @@ def get_decorated_name(display_name: str, title: str = "", title_emoji: str = ""
             return f"<b>「{badge} {title}」{name}</b>"
         return f"「{badge} {title}」{name}"
     return name
+
+
+# ── IV helper functions (공용) ──────────────────────────────
+
+
+def pokemon_iv_total(p: dict) -> int:
+    """dict에서 IV 합계 계산. iv_hp가 None이면 0 반환."""
+    if p.get("iv_hp") is None:
+        return 0
+    return iv_total(
+        p.get("iv_hp"), p.get("iv_atk"), p.get("iv_def"),
+        p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"),
+    )
+
+
+def iv_grade(total: int) -> str:
+    """IV 합계 → 등급 문자 ('S', 'A', 'B', ...)."""
+    grade, _ = config.get_iv_grade(total)
+    return grade
+
+
+def iv_grade_tag(p: dict, show_total: bool = False) -> str:
+    """포켓몬 dict → ' [A]' 또는 ' [A]155' 형태 태그. IV 없으면 빈 문자열."""
+    if p.get("iv_hp") is None:
+        return ""
+    total = iv_total(
+        p.get("iv_hp"), p.get("iv_atk"), p.get("iv_def"),
+        p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"),
+    )
+    grade, _ = config.get_iv_grade(total)
+    if show_total:
+        return f" [{grade}]{total}"
+    return f" [{grade}]"

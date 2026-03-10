@@ -3,12 +3,12 @@
 import asyncio
 import logging
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, ReplyKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import config
 from database import queries
-from utils.helpers import hearts_display, rarity_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji, shiny_emoji, icon_emoji, ball_emoji, resolve_title_badge
+from utils.helpers import hearts_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji, shiny_emoji, icon_emoji, ball_emoji, resolve_title_badge, pokemon_iv_total as _iv_sum, iv_grade
 from utils.card_generator import generate_card
 from utils.parse import parse_number, parse_name_arg
 from utils.battle_calc import iv_total
@@ -411,13 +411,6 @@ def _get_filter(context) -> dict:
         filt["gen_open"] = False
     return filt
 
-
-def _iv_sum(p: dict) -> int:
-    """Calculate IV total for a pokemon dict."""
-    if p.get("iv_hp") is None:
-        return 0
-    return iv_total(p["iv_hp"], p.get("iv_atk", 0), p.get("iv_def", 0),
-                    p.get("iv_spa", 0), p.get("iv_spdef", 0), p.get("iv_spd", 0))
 
 
 def _apply_filters(pokemon_list: list, filt: dict) -> list:

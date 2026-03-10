@@ -11,8 +11,8 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from database import battle_queries as bq
-from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, get_type_multiplier, EVO_STAGE_MAP, iv_total
-from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge, icon_emoji, shiny_emoji, ball_emoji
+from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, EVO_STAGE_MAP, iv_total
+from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge, icon_emoji, ball_emoji, iv_grade_tag
 
 logger = logging.getLogger(__name__)
 
@@ -310,14 +310,7 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
 # ============================================================
 
 def _iv_grade_tag(p: dict) -> str:
-    """Return '[A]155' style IV grade+total tag for a pokemon dict, or '' if no IV."""
-    iv_hp = p.get("iv_hp")
-    if iv_hp is None:
-        return ""
-    total = iv_total(iv_hp, p.get("iv_atk"), p.get("iv_def"),
-                     p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
-    grade, _ = config.get_iv_grade(total)
-    return f" [{grade}]{total}"
+    return iv_grade_tag(p, show_total=True)
 
 
 def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, InlineKeyboardMarkup]:
@@ -1342,8 +1335,8 @@ async def bp_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def _masterball_price(bought_today: int) -> int:
-    """Progressive master ball pricing: 200 → 300 → 500."""
-    prices = [200, 300, 500]
+    """Progressive master ball pricing."""
+    prices = config.BP_MASTERBALL_PRICES
     if bought_today >= len(prices):
         return 0  # sold out
     return prices[bought_today]
@@ -1439,7 +1432,8 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"{ball_emoji('masterball')} 마스터볼 1개 구매 완료! ({cost} BP)\n"
             f"{icon_emoji('coin')} 남은 BP: {bp}\n"
-            f"📦 오늘 남은 구매: {remaining}개{next_str}"
+            f"📦 오늘 남은 구매: {remaining}개{next_str}",
+            parse_mode="HTML",
         )
 
     elif item in ("강제스폰", "강스", "강제스폰권", "강스권"):

@@ -412,7 +412,7 @@ async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
             f"{_bt} 아케이드 토너먼트 개최!\n\n"
             "⏰ 21:00~21:50 등록 / 22:00 대회 시작\n"
             f"{icon_emoji('bookmark')} 아래 채널에서 ㄷ 입력으로 참가!\n"
-            "👉 https://t.me/tg_poke\n\n"
+            f"👉 {config.BOT_CHANNEL_URL}\n\n"
             f"{_bt} 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
             f"{icon_emoji('crown')} 우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {_se}이로치(초전설) + 챔피언 칭호\n"
             f"🥈 준우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {_se}이로치(전설)\n"
@@ -1473,7 +1473,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         await pool.execute(
             "INSERT INTO board_posts (board_type, user_id, display_name, title, content) "
             "VALUES ($1, $2, $3, $4, $5)",
-            "notice", 1723681348, "TG포켓", notice_title, notice_content,
+            "notice", 1832746512, "TG포켓", notice_title, notice_content,
         )
         logger.info(f"Tournament result posted to notice board: {notice_title}")
     except Exception:
