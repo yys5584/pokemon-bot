@@ -2328,10 +2328,14 @@ async def type_chart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         # Defense: what is strong against this type
         weak_to = []
+        resist_from = []
         immune_from = []
         for atk_type, adv_list in config.TYPE_ADVANTAGE.items():
             if target_type in adv_list:
                 weak_to.append(atk_type)
+        for atk_type, res_list in config.TYPE_RESISTANCE.items():
+            if target_type in res_list:
+                resist_from.append(atk_type)
         for atk_type, imm_list in config.TYPE_IMMUNITY.items():
             if target_type in imm_list:
                 immune_from.append(atk_type)
@@ -2343,16 +2347,19 @@ async def type_chart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         lines = [
             f"{te} {ko} 타입 상성\n",
-            f"⚔️ 공격 시 효과적 (1.3x):",
+            f"⚔️ 공격 시 효과적 (2x):",
             f"  {fmt(strong)}",
         ]
         if immune_vs:
-            lines.append(f"\n🚫 공격 시 면역 (0.3x):")
+            lines.append(f"\n🚫 공격 시 면역 (0x):")
             lines.append(f"  {fmt(immune_vs)}")
-        lines.append(f"\n🛡️ 방어 시 약점 (1.3x 피해):")
+        lines.append(f"\n🛡️ 방어 시 약점 (2x 피해):")
         lines.append(f"  {fmt(weak_to)}")
+        if resist_from:
+            lines.append(f"\n🛡️ 방어 시 반감 (0.5x 피해):")
+            lines.append(f"  {fmt(resist_from)}")
         if immune_from:
-            lines.append(f"\n🛡️ 방어 시 면역 (0.3x 피해):")
+            lines.append(f"\n🛡️ 방어 시 면역 (0x 피해):")
             lines.append(f"  {fmt(immune_from)}")
 
         await update.message.reply_text("\n".join(lines), parse_mode="HTML")

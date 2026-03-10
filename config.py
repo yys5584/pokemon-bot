@@ -418,6 +418,28 @@ TYPE_IMMUNITY = {
     "dragon":   ["fairy"],
 }
 
+# 타입 내성: key 타입으로 공격 시 value 리스트 타입이 반감 (0.5x, 본가 Gen6+ 동일)
+TYPE_RESISTANCE = {
+    "normal":   ["rock", "steel"],
+    "fire":     ["fire", "water", "rock", "dragon"],
+    "water":    ["water", "grass", "dragon"],
+    "grass":    ["fire", "grass", "poison", "flying", "bug", "dragon", "steel"],
+    "electric": ["grass", "electric", "dragon"],
+    "ice":      ["fire", "water", "ice", "steel"],
+    "fighting": ["poison", "flying", "psychic", "bug", "fairy"],
+    "poison":   ["poison", "ground", "rock", "ghost"],
+    "ground":   ["grass", "bug"],
+    "flying":   ["electric", "rock", "steel"],
+    "psychic":  ["psychic", "steel"],
+    "bug":      ["fire", "fighting", "poison", "flying", "ghost", "steel", "fairy"],
+    "rock":     ["fighting", "ground", "steel"],
+    "ghost":    ["dark"],
+    "dragon":   ["steel"],
+    "dark":     ["fighting", "dark", "fairy"],
+    "steel":    ["fire", "water", "electric", "steel"],
+    "fairy":    ["fire", "poison", "steel"],
+}
+
 # --- Battle Rules ---
 BATTLE_CHALLENGE_TIMEOUT = 30       # 도전 대기 시간 (초)
 BATTLE_COOLDOWN_SAME = 300          # 같은 상대 쿨다운 (5분)

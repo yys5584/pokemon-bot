@@ -148,8 +148,8 @@ def _single_type_mult(atk_type: str, def_type: str) -> float:
     # Super effective (2x)
     if def_type in config.TYPE_ADVANTAGE.get(atk_type, []):
         return config.BATTLE_TYPE_ADVANTAGE_MULT  # 2.0
-    # Not very effective (0.5x)
-    if atk_type in config.TYPE_ADVANTAGE.get(def_type, []):
+    # Not very effective (0.5x) — 본가 내성표 기준
+    if def_type in config.TYPE_RESISTANCE.get(atk_type, []):
         return config.BATTLE_TYPE_DISADVANTAGE_MULT  # 0.5
     return 1.0
 

@@ -1830,12 +1830,12 @@ async def api_type_chart(request):
         for def_type in types:
             immunities = config.TYPE_IMMUNITY.get(atk_type, [])
             advantages = config.TYPE_ADVANTAGE.get(atk_type, [])
-            disadvantages = config.TYPE_ADVANTAGE.get(def_type, [])
+            resistances = config.TYPE_RESISTANCE.get(atk_type, [])
             if def_type in immunities:
                 row[def_type] = 0
             elif def_type in advantages:
                 row[def_type] = 2  # super effective
-            elif atk_type in disadvantages:
+            elif def_type in resistances:
                 row[def_type] = 0.5  # not very effective
             else:
                 row[def_type] = 1
