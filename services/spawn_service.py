@@ -634,11 +634,22 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 InlineKeyboardButton("방생하기 🔄", callback_data=f"catch_release_{_inst_id}"),
             ]])
             try:
-                await context.bot.send_message(
+                dm_msg = await context.bot.send_message(
                     chat_id=winner_id, text=dm_text,
                     parse_mode="HTML", reply_markup=catch_buttons,
                 )
                 logger.info(f"Catch DM sent to {winner_id} for {pokemon_name}")
+
+                # 5분 후 자동 가방 넣기
+                context.job_queue.run_once(
+                    _auto_keep_pokemon,
+                    when=300,
+                    data={
+                        "chat_id": winner_id,
+                        "message_id": dm_msg.message_id,
+                        "instance_id": _inst_id,
+                    },
+                )
             except Exception as dm_err:
                 logger.warning(f"Failed to send catch DM to {winner_id}: {dm_err}")
         except Exception as e:
@@ -670,6 +681,25 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
     except Exception as e:
         logger.error(f"Overlap resolve failed for session {session_id}: {e}")
         await queries.close_spawn_session(session_id)
+
+
+async def _auto_keep_pokemon(context: ContextTypes.DEFAULT_TYPE):
+    """5분 경과 시 자동으로 가방에 넣기 (버튼 제거)."""
+    data = context.job.data
+    chat_id = data["chat_id"]
+    message_id = data["message_id"]
+
+    try:
+        # 버튼 제거 시도 — 이미 사용자가 버튼을 눌렀으면 reply_markup이 없어서 무시됨
+        await context.bot.edit_message_reply_markup(
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=None,
+        )
+        logger.info(f"Auto-keep: buttons removed for instance {data.get('instance_id')} (user {chat_id})")
+    except Exception:
+        # 이미 버튼이 제거된 경우 (사용자가 선택 완료) — 무시
+        pass
 
 
 async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
@@ -1185,11 +1215,22 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             ]])
 
             try:
-                await context.bot.send_message(
+                dm_msg = await context.bot.send_message(
                     chat_id=winner_id, text=dm_text,
                     parse_mode="HTML", reply_markup=catch_buttons,
                 )
                 logger.info(f"Catch DM sent to {winner_id} for {pokemon_name}")
+
+                # 5분 후 자동 가방 넣기
+                context.job_queue.run_once(
+                    _auto_keep_pokemon,
+                    when=300,
+                    data={
+                        "chat_id": winner_id,
+                        "message_id": dm_msg.message_id,
+                        "instance_id": _inst_id,
+                    },
+                )
             except Exception as dm_err:
                 logger.warning(f"Failed to send catch DM to {winner_id}: {dm_err}")
         except Exception as e:
