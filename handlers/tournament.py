@@ -18,8 +18,8 @@ async def tournament_join_handler(update: Update, context: ContextTypes.DEFAULT_
 
     chat_id = update.effective_chat.id
 
-    # Only works in arcade channels
-    if chat_id not in config.ARCADE_CHAT_IDS:
+    # Only works in tournament chat
+    if chat_id != config.TOURNAMENT_CHAT_ID:
         return
 
     user_id = update.effective_user.id

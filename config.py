@@ -91,6 +91,8 @@ SPAWN_MAX_DAILY = 12               # Absolute max spawns per day per chat (regar
 
 # --- Arcade Channel (30초마다 강제스폰) ---
 ARCADE_CHAT_IDS: set[int] = set()  # 채팅방 등록 후 chat_id 추가
+# --- Tournament (아케이드와 독립) ---
+TOURNAMENT_CHAT_ID: int | None = None  # DB에서 로드
 ARCADE_SPAWN_INTERVAL = 30         # 초 (관리자 등록 아케이드)
 ARCADE_TICKET_SPAWN_INTERVAL = 60  # 초 (티켓 아케이드)
 ARCADE_SPAWN_WINDOW = 25           # 초 (포획 제한시간, 겹침 방지)
@@ -959,3 +961,152 @@ ICON_CUSTOM_EMOJI = {
     "moltres": "6142975986985081276",
     "psyduck": "6143060400272317013",
 }
+
+# --- Camp System (포켓몬 캠프) ---
+CAMP_ZONES = {
+    "grass":    {"name": "풀숲",     "emoji": "🌿", "types": ["grass", "bug"],   "fragment": "green",  "frag_emoji": "🟢"},
+    "water":    {"name": "호수",     "emoji": "💧", "types": ["water"],          "fragment": "blue",   "frag_emoji": "🔵"},
+    "fire":     {"name": "모닥불",   "emoji": "🔥", "types": ["fire"],           "fragment": "red",    "frag_emoji": "🔴"},
+    "rock":     {"name": "바위산",   "emoji": "⛰️", "types": ["rock", "ground"], "fragment": "brown",  "frag_emoji": "🟤"},
+    "sky":      {"name": "하늘",     "emoji": "🌤️", "types": ["flying"],         "fragment": "white",  "frag_emoji": "⚪"},
+    "shadow":   {"name": "그림자숲", "emoji": "🌑", "types": ["dark", "ghost"],  "fragment": "purple", "frag_emoji": "🟣"},
+    "electric": {"name": "전기탑",   "emoji": "⚡", "types": ["electric"],        "fragment": "yellow", "frag_emoji": "🟡"},
+}
+CAMP_DEFAULT_ZONES = ["grass", "water", "fire"]
+CAMP_ZONE_UNLOCK_THRESHOLD = 3  # 해당 타입 N마리 이상 배치 시 해금
+CAMP_SLOTS_TABLE = [(0, 3), (31, 4), (101, 5), (201, 6)]  # (min_dex, slots)
+
+# 임무 설정
+CAMP_MISSION_IV_RANGE = (15, 25)
+CAMP_IV_STATS = ["iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"]
+CAMP_IV_STAT_NAMES = {
+    "iv_hp": "HP", "iv_atk": "힘", "iv_def": "방어",
+    "iv_spa": "특공", "iv_spdef": "특방", "iv_spd": "스피드",
+}
+
+# 조각 배수
+CAMP_FRAG_MULT_TYPE = 1      # 타입만 매칭
+CAMP_FRAG_MULT_POKEMON = 2   # 지정 포켓몬 (IV 미달)
+CAMP_FRAG_MULT_FULL = 5      # 지정 포켓몬 + IV 충족
+CAMP_FRAG_SHINY_BONUS = 1    # 이로치 추가
+
+# 이로치 전환 비용 (조각 총 개수)
+CAMP_SHINY_COST = {
+    "common": 30, "rare": 60, "epic": 120,
+    "legendary": 250, "ultra_legendary": 250,
+}
+# 이로치 전환에 필요한 최소 색 종류
+CAMP_SHINY_COLOR_REQ = {
+    "common": 1, "rare": 3, "epic": 5,
+    "legendary": 7, "ultra_legendary": 7,
+}
+CAMP_SHINY_MIN_DAYS = 7  # 배치 최소 일수
+# 기여도(누적 획득 조각) 최소 조건 — 프리라이더 방지
+# 유저당 일일 ~3조각 기준: legendary ~2.5주, ultra ~1달
+CAMP_SHINY_CONTRIBUTION_REQ = {
+    "legendary": 50,
+    "ultra_legendary": 100,
+}
+
+# 스케줄러 타이밍
+CAMP_NEWS_INTERVAL = 14400   # 소식 주기 (4시간, 초)
+CAMP_EVENT_INTERVAL = 28800  # 참여형 이벤트 주기 (8시간, 초)
+CAMP_EVENT_TIMEOUT = 30      # 이벤트 반응 제한 (초)
+CAMP_MSG_DELETE_DELAY = 3600 # 메시지 자동삭제 (1시간)
+
+# 캠프 레벨 (그룹) — 20명 활동 기준 ~1달 만렙
+CAMP_LEVEL_TABLE = [
+    (1, 0),       # 시작
+    (2, 10),      # ~반나절
+    (3, 25),
+    (4, 45),
+    (5, 70),      # ~2일
+    (6, 100),
+    (7, 140),     # ~3.5일
+    (8, 190),
+    (9, 250),
+    (10, 320),    # ~1주
+    (11, 400),
+    (12, 490),
+    (13, 590),    # ~2주
+    (14, 700),
+    (15, 820),    # ~3주
+    (16, 950),
+    (17, 1050),
+    (18, 1150),
+    (19, 1250),   # ~1달
+    (20, 1400),   # 스트레치 골
+]
+CAMP_LEVEL_NAMES = {
+    1: "🏜️ 빈 터",       2: "⛺ 작은 텐트",   3: "🔥 모닥불",
+    4: "🎪 텐트촌",       5: "🏚️ 통나무집",    6: "🌱 작은 정원",
+    7: "🏡 울타리집",     8: "💧 물레방아",     9: "🏘️ 작은 마을",
+    10: "🏛️ 광장",       11: "🛒 시장",        12: "🌾 풍차마을",
+    13: "🏢 마을회관",    14: "🌳 공원",        15: "📚 도서관",
+    16: "🏙️ 큰 마을",    17: "🏰 성벽도시",    18: "🌆 도시",
+    19: "👑 왕궁",        20: "✨ 포켓몬 왕국",
+}
+CAMP_LEVEL_MAX_ZONES = {
+    1: 3, 2: 3, 3: 3,           # Lv.1~3:  3구역
+    4: 4, 5: 4, 6: 4,           # Lv.4~6:  4구역
+    7: 5, 8: 5, 9: 5,           # Lv.7~9:  5구역
+    10: 6, 11: 6, 12: 6,        # Lv.10~12: 6구역
+    13: 6, 14: 6,
+    15: 7, 16: 7, 17: 7,        # Lv.15~20: 7구역 (전체)
+    18: 7, 19: 7, 20: 7,
+}
+
+# 소식 템플릿
+CAMP_NEWS_TEMPLATES = {
+    "grass": [
+        "{name}의 {pokemon}(이/가) 풀숲에 꽃을 피웠다 🌸",
+        "{name}의 {pokemon}(이/가) 풀숲에서 열매를 발견했다 🍎",
+        "{name}의 {pokemon}(이/가) 풀숲에서 낮잠을 즐기고 있다 💤",
+        "{name}의 {pokemon}(이/가) 풀숲에서 나비를 쫓고 있다 🦋",
+    ],
+    "water": [
+        "{name}의 {pokemon}(이/가) 호수에서 조개를 주웠다 🐚",
+        "{name}의 {pokemon}(이/가) 호수에서 헤엄치고 있다 🏊",
+        "{name}의 {pokemon}(이/가) 호수에서 물수제비를 뜨고 있다 💧",
+    ],
+    "fire": [
+        "{name}의 {pokemon}(이/가) 모닥불을 더 크게 피웠다 🔥",
+        "{name}의 {pokemon}(이/가) 모닥불 옆에서 요리를 하고 있다 🍳",
+        "{name}의 {pokemon}(이/가) 모닥불의 불씨를 지키고 있다 🕯️",
+    ],
+    "rock": [
+        "{name}의 {pokemon}(이/가) 바위산에서 빛나는 돌을 발견했다 💎",
+        "{name}의 {pokemon}(이/가) 바위산 꼭대기에 올랐다 ⛰️",
+    ],
+    "sky": [
+        "{name}의 {pokemon}(이/가) 하늘을 자유롭게 날고 있다 🕊️",
+        "{name}의 {pokemon}(이/가) 하늘에서 먹이를 가져왔다 🐛",
+    ],
+    "shadow": [
+        "{name}의 {pokemon}(이/가) 그림자숲에서 보물상자를 찾았다 🔮",
+        "{name}의 {pokemon}(이/가) 그림자숲에서 장난을 치고 있다 👻",
+    ],
+    "electric": [
+        "{name}의 {pokemon}(이/가) 전기탑에서 전기를 모으고 있다 ⚡",
+        "{name}의 {pokemon}(이/가) 전기탑을 밝게 빛나게 했다 💡",
+    ],
+}
+
+# 참여형 이벤트 템플릿
+CAMP_EVENT_TEMPLATES = {
+    "grass":    {"text": "풀숲의 씨앗에 물을 줘야해요! 🌱",       "button": "물주기💧"},
+    "water":    {"text": "호수에서 큰 물고기가 발견됐습니다! 🐟", "button": "도와주기🎣"},
+    "fire":     {"text": "모닥불에서 요리를 시작했어요! 🍳",      "button": "재료주기🍎"},
+    "rock":     {"text": "바위산에서 빛나는 무언가가... ✨",       "button": "파헤치기⛏️"},
+    "sky":      {"text": "하늘에서 무언가를 발견하고 돌아왔어요!", "button": "확인하기👀"},
+    "shadow":   {"text": "그림자숲에서 보물상자를 찾았어요! 🔮",  "button": "열기🔓"},
+    "electric": {"text": "전기탑에 전기를 모으고 있어요! ⚡",      "button": "충전⚡"},
+}
+
+# 유저간 인터랙션 템플릿
+CAMP_INTERACTION_TEMPLATES = [
+    "{name1}의 {p1}(이/가) {name2}의 {p2}에게 장난을 쳤다 😆",
+    "{name1}의 {p1}와(과) {name2}의 {p2}(이/가) 같이 놀고 있다 🎶",
+    "{name1}의 {p1}(이/가) {name2}의 {p2}(을/를) 구경하고 있다 👀",
+    "{name1}의 {p1}와(과) {name2}의 {p2}(이/가) 나란히 잠들었다 💤💤",
+]

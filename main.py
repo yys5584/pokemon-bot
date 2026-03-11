@@ -57,7 +57,7 @@ from handlers.admin import (
     pokeball_reset_handler,
     event_start_handler, event_list_handler, event_end_handler, event_dm_callback,
     stats_handler, channel_list_handler, grant_masterball_handler,
-    arcade_handler, force_tournament_reg_handler, force_tournament_run_handler,
+    arcade_handler, tournament_chat_handler, force_tournament_reg_handler, force_tournament_run_handler,
 )
 
 from services.spawn_service import schedule_all_chats
@@ -157,6 +157,11 @@ async def post_init(application: Application):
     weather_city = os.getenv("WEATHER_CITY", "Seoul")
     asyncio.create_task(update_weather(weather_city))
 
+    # Load tournament chat ID from DB
+    config.TOURNAMENT_CHAT_ID = await queries.get_tournament_chat_id()
+    if config.TOURNAMENT_CHAT_ID:
+        logger.info(f"Tournament chat loaded: {config.TOURNAMENT_CHAT_ID}")
+
     # Phase 4: 스폰 스케줄링 (Telegram API 호출 필요, 마지막)
     await schedule_all_chats(application)
     logger.info(f"[{time.monotonic()-t0:.1f}s] Startup complete.")
@@ -178,16 +183,19 @@ async def post_init(application: Application):
         )
         if not _tournament_state["registering"] and not _tournament_state["running"]:
             # Restore state without re-broadcasting
-            chat_id = next(iter(config.ARCADE_CHAT_IDS))
-            _tournament_state["registering"] = True
-            _tournament_state["chat_id"] = chat_id
-            # Load previously registered participants from DB
-            saved = await _load_registrations_db()
-            _tournament_state["participants"] = saved
-            logger.info(
-                f"Recovered tournament registration (restarted at {now_kst.strftime('%H:%M')} KST, "
-                f"{len(saved)} participants restored)"
-            )
+            chat_id = config.TOURNAMENT_CHAT_ID
+            if not chat_id:
+                logger.warning("No tournament chat configured, skip recovery")
+            else:
+                _tournament_state["registering"] = True
+                _tournament_state["chat_id"] = chat_id
+                # Load previously registered participants from DB
+                saved = await _load_registrations_db()
+                _tournament_state["participants"] = saved
+                logger.info(
+                    f"Recovered tournament registration (restarted at {now_kst.strftime('%H:%M')} KST, "
+                    f"{len(saved)} participants restored)"
+                )
 
     # Notify recently active users about restart
     # asyncio.create_task(_notify_restart(application.bot))  # DM 알림 비활성화
@@ -585,6 +593,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^이벤트종료"), event_end_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^마볼지급"), grant_masterball_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^아케이드"), arcade_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회방(등록|해제)$"), tournament_chat_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회시작$"), force_tournament_reg_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회진행$"), force_tournament_run_handler))
 

@@ -1805,6 +1805,28 @@ async def get_arcade_chat_ids() -> set[int]:
     return {r["chat_id"] for r in rows}
 
 
+async def get_tournament_chat_id() -> int | None:
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT value FROM bot_settings WHERE key = 'tournament_chat_id'"
+    )
+    return int(row["value"]) if row else None
+
+
+async def set_tournament_chat_id(chat_id: int | None):
+    pool = await get_db()
+    if chat_id is None:
+        await pool.execute(
+            "DELETE FROM bot_settings WHERE key = 'tournament_chat_id'"
+        )
+    else:
+        await pool.execute("""
+            INSERT INTO bot_settings (key, value)
+            VALUES ('tournament_chat_id', $1)
+            ON CONFLICT (key) DO UPDATE SET value = $1
+        """, str(chat_id))
+
+
 # ============================================================
 # Events
 # ============================================================

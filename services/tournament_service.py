@@ -410,17 +410,17 @@ def is_tournament_active(chat_id: int) -> bool:
 
 async def start_registration(context: ContextTypes.DEFAULT_TYPE):
     """JobQueue callback — 21:00 KST: stop spawns, open registration."""
-    if not config.ARCADE_CHAT_IDS:
-        logger.warning("No arcade chat IDs configured, skipping tournament.")
+    chat_id = config.TOURNAMENT_CHAT_ID
+    if not chat_id:
+        logger.warning("No tournament chat configured, skipping tournament.")
         return
 
     _reset_state()
     await _clear_registrations_db()
-    chat_id = next(iter(config.ARCADE_CHAT_IDS))
     _tournament_state["registering"] = True
     _tournament_state["chat_id"] = chat_id
 
-    # Cancel all spawn jobs for this chat
+    # Cancel all spawn jobs for this chat (normal + arcade)
     chat_str = str(chat_id)
     for job in context.job_queue.jobs():
         if job.name and chat_str in job.name and (

@@ -770,6 +770,23 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Arcade channel unregistered: {chat_id}")
 
 
+async def tournament_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: '대회방등록' / '대회방해제' — set tournament chat independently from arcade."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    text = (update.message.text or "").strip()
+    chat_id = update.effective_chat.id
+
+    if "해제" in text:
+        await queries.set_tournament_chat_id(None)
+        config.TOURNAMENT_CHAT_ID = None
+        await update.message.reply_text("🏟️ 대회방 해제 완료.")
+    else:
+        await queries.set_tournament_chat_id(chat_id)
+        config.TOURNAMENT_CHAT_ID = chat_id
+        await update.message.reply_text(f"🏟️ 대회방 등록 완료!\n채팅방 ID: {chat_id}")
+
+
 async def force_tournament_reg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Admin command: 대회시작 — manually trigger tournament registration."""
     if not update.effective_user or not is_admin(update.effective_user.id):
