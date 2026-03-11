@@ -229,6 +229,7 @@
         .section h2{font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);display:flex;align-items:center;gap:6px}
         .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
         .grid-3{display:grid;grid-template-columns:1fr 1.2fr 0.8fr;gap:10px;margin-bottom:10px}
+        .grid-battle{grid-template-columns:1fr 1fr 1fr}
 
         /* Tables */
         table{width:100%;border-collapse:collapse}
@@ -373,7 +374,7 @@
         .tc-legend-item{display:flex;align-items:center;gap:4px}
 
         @media(max-width:600px){
-            .grid-2,.grid-3{grid-template-columns:1fr}
+            .grid-2,.grid-3,.grid-battle{grid-template-columns:1fr}
             .grid-rank{grid-template-columns:1fr}
             .cards{grid-template-columns:repeat(2,1fr)}
             .container{padding:8px 6px}
@@ -845,7 +846,7 @@
                 </div>
                 <div class="section"><h2>⚔️ 배틀 랭킹</h2><div class="rank-filters" id="battleSortBtns"><button class="rank-filter active" data-sort="bp">BP</button><button class="rank-filter" data-sort="wr">승률</button><button class="rank-filter" data-sort="wins">승리</button><button class="rank-filter" data-sort="streak">연승</button></div><div id="battleRanking"><div class="loading">로딩 중...</div></div></div>
             </div>
-            <div class="grid-3" style="margin-top:10px;grid-template-columns:1fr 1fr 1fr">
+            <div class="grid-3 grid-battle" style="margin-top:10px">
                 <div class="section"><h2>🏆 토너먼트 우승자</h2><div id="tournamentWinnersBR"><div class="loading">로딩 중...</div></div></div>
                 <div class="section"><h2>📖 도감 랭킹</h2><div id="fullUsersTable"><div class="loading">로딩 중...</div></div></div>
                 <div class="section"><h2>⭐ 이로치 / 개체값</h2><div class="rank-filters" id="shinyIvBtns"><button class="rank-filter active" data-tab="shiny">이로치</button><button class="rank-filter" data-tab="iv">개체값</button></div><div id="shinyHoldersFull"><div class="loading">로딩 중...</div></div><div id="ivRankingFull" style="display:none"><div class="loading">로딩 중...</div></div></div>
@@ -2218,10 +2219,10 @@ async function loadHome(){
     if(tWinners&&tWinners.length){
         let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th></tr></thead><tbody>`;
         tWinners.forEach((w,i)=>{
-            const titleBadges=w.titles.map(t=>`<span class="tw-badge" title="${t.title_desc}">${stripEmoji(t.title_emoji)} ${t.title_name}</span>`).join(" ");
+            const titleBadges=w.titles.map(t=>`<span class="tw-badge" title="${t.title_name}: ${t.title_desc}">${stripEmoji(t.title_emoji)}</span>`).join(" ");
             const teamTip=w.team.length?`<span class="tip-content">${w.team.map(p=>`${p.shiny?'✨':''}${p.emoji} ${p.name}`).join("<br>")}</span>`:"";
-            const nameCell=teamTip?`<span class="team-tip">${escHtml(w.display_name)}${teamTip}</span>`:escHtml(w.display_name);
-            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${nameCell}</td><td>${titleBadges}</td></tr>`;
+            const nameCell=teamTip?`<span class="team-tip">${escHtml(stripEmoji(w.display_name))}${teamTip}</span>`:escHtml(stripEmoji(w.display_name));
+            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${nameCell}</td><td style="white-space:nowrap">${titleBadges}</td></tr>`;
         });
         twEl.innerHTML=h+"</tbody></table>";
     }else{twEl.innerHTML='<p class="empty-msg">아직 우승자가 없습니다</p>'}
@@ -2378,8 +2379,8 @@ async function loadBattleRank(){
     if(tWinnersBR&&tWinnersBR.length){
         let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th></tr></thead><tbody>`;
         tWinnersBR.forEach((w,i)=>{
-            const titleBadges=w.titles.map(t=>`<span class="tw-badge" title="${t.title_desc}">${stripEmoji(t.title_emoji)} ${t.title_name}</span>`).join(" ");
-            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${escHtml(w.display_name)}</td><td>${titleBadges}</td></tr>`;
+            const titleBadges=w.titles.map(t=>`<span class="tw-badge" title="${t.title_name}: ${t.title_desc}">${stripEmoji(t.title_emoji)}</span>`).join(" ");
+            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${escHtml(stripEmoji(w.display_name))}</td><td style="white-space:nowrap">${titleBadges}</td></tr>`;
         });
         twBREl.innerHTML=h+"</tbody></table>";
     }else{twBREl.innerHTML='<p class="empty-msg">우승자 없음</p>'}
