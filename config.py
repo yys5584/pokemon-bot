@@ -483,7 +483,7 @@ ARCADE_PASS_DURATION = 3600          # 이용권 지속시간 (초) = 1시간
 ARCADE_PASS_DAILY_LIMIT = 3          # 일일 구매 제한
 
 # --- Shiny System ---
-SHINY_RATE_NATURAL = 0.10            # 자연 스폰 이로치 확률 10%
+SHINY_RATE_NATURAL = 0.0             # 자연 스폰 이로치 확률 0% (확정 스폰만)
 SHINY_RATE_FORCE = 0.02              # 강제스폰 이로치 확률 2%
 SHINY_RATE_ARCADE = 0.01             # 아케이드 이로치 확률 1%
 

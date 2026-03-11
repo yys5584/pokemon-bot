@@ -852,7 +852,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # 4. Pick random Pokemon
         pokemon = await pick_random_pokemon(rarity)
 
-        # 4.5 Shiny determination (with event boost + chat level boost)
+        # 4.5 Shiny determination (자연 스폰은 확정만, 강스/아케이드는 랜덤 유지)
         if force_shiny:
             is_shiny = True
         else:
@@ -862,16 +862,16 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 shiny_rate = config.SHINY_RATE_FORCE
             else:
                 shiny_rate = config.SHINY_RATE_NATURAL
-            shiny_mult = await get_shiny_boost()
-            # Apply chat level shiny boost
+            # Chat level shiny boost (강스/아케이드에만 의미 있음)
             level_shiny_add = 0.0
             try:
                 _lrow = await queries.get_chat_level(chat_id)
                 if _lrow:
                     _linfo = config.get_chat_level_info(_lrow["cxp"])
-                    level_shiny_add = _linfo["shiny_boost_pct"] / 100.0  # e.g. 0.2% → 0.002
+                    level_shiny_add = _linfo["shiny_boost_pct"] / 100.0
             except Exception:
                 pass
+            shiny_mult = await get_shiny_boost()
             is_shiny = random.random() < min(1.0, shiny_rate * shiny_mult + level_shiny_add)
 
         # 5. Generate card image FIRST (before creating session)
