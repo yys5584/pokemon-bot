@@ -602,81 +602,6 @@ ULTRA_LEGENDARY_MIGRATIONS = [
     "UPDATE pokemon_master SET rarity = 'ultra_legendary' WHERE id IN (150, 249, 250)",
 ]
 
-# ── Camp System Tables ──
-CAMP_TABLES = [
-    """
-    CREATE TABLE IF NOT EXISTS camp_placements (
-        id SERIAL PRIMARY KEY,
-        chat_id BIGINT NOT NULL,
-        user_id BIGINT NOT NULL,
-        pokemon_id INT NOT NULL,
-        zone_type VARCHAR(20) NOT NULL,
-        placed_at TIMESTAMPTZ DEFAULT NOW(),
-        UNIQUE (user_id, pokemon_id)
-    )
-    """,
-    "CREATE INDEX IF NOT EXISTS idx_camp_place_chat ON camp_placements(chat_id)",
-    "CREATE INDEX IF NOT EXISTS idx_camp_place_user ON camp_placements(chat_id, user_id)",
-    """
-    CREATE TABLE IF NOT EXISTS camp_zones (
-        chat_id BIGINT NOT NULL,
-        zone_type VARCHAR(20) NOT NULL,
-        unlocked_at TIMESTAMPTZ DEFAULT NOW(),
-        PRIMARY KEY (chat_id, zone_type)
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS camp_daily_missions (
-        id SERIAL PRIMARY KEY,
-        chat_id BIGINT NOT NULL,
-        zone_type VARCHAR(20) NOT NULL,
-        required_pokemon_id INT NOT NULL,
-        required_stat VARCHAR(10) NOT NULL,
-        required_value INT NOT NULL,
-        mission_date DATE NOT NULL,
-        UNIQUE (chat_id, zone_type, mission_date)
-    )
-    """,
-    "CREATE INDEX IF NOT EXISTS idx_camp_mission_date ON camp_daily_missions(chat_id, mission_date)",
-    """
-    CREATE TABLE IF NOT EXISTS camp_fragments (
-        user_id BIGINT NOT NULL,
-        fragment_type VARCHAR(20) NOT NULL,
-        amount INT DEFAULT 0,
-        PRIMARY KEY (user_id, fragment_type)
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS camp_fragment_log (
-        id SERIAL PRIMARY KEY,
-        user_id BIGINT NOT NULL,
-        chat_id BIGINT NOT NULL,
-        fragment_type VARCHAR(20) NOT NULL,
-        amount INT NOT NULL,
-        source VARCHAR(30) NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS camp_events (
-        id SERIAL PRIMARY KEY,
-        chat_id BIGINT NOT NULL,
-        event_type VARCHAR(30) NOT NULL,
-        zone_type VARCHAR(20) NOT NULL,
-        triggered_by_user BIGINT,
-        responded_by_user BIGINT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS camp_level (
-        chat_id BIGINT PRIMARY KEY,
-        total_fragments INT DEFAULT 0,
-        level INT DEFAULT 1,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-    """,
-]
 
 
 async def create_tables():
@@ -855,12 +780,6 @@ async def create_tables():
         except Exception:
             pass
 
-    # Camp system tables
-    for sql in CAMP_TABLES:
-        try:
-            await pool.execute(sql)
-        except Exception:
-            pass
 
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
