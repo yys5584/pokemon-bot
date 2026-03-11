@@ -315,6 +315,27 @@ async def get_battle_ranking(limit: int = 10) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+async def get_winrate_ranking(limit: int = 5, min_games: int = 5) -> list[dict]:
+    """Get battle ranking by win rate (min_games required)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT u.user_id, u.display_name, u.username,
+                  u.title, u.title_emoji,
+                  u.battle_wins, u.battle_losses,
+                  (u.battle_wins + u.battle_losses) AS total_games,
+                  ROUND(u.battle_wins * 100.0
+                        / NULLIF(u.battle_wins + u.battle_losses, 0), 1)
+                      AS winrate
+           FROM users u
+           WHERE (u.battle_wins + u.battle_losses) >= $2
+           ORDER BY winrate DESC, u.battle_wins DESC
+           LIMIT $1""",
+        limit,
+        min_games,
+    )
+    return [dict(r) for r in rows]
+
+
 # ============================================================
 # BP (Battle Points)
 # ============================================================

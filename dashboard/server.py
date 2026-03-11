@@ -1544,8 +1544,25 @@ _ICON_TO_UNICODE = {
 }
 
 
+import re as _re
+
+_TG_EMOJI_RE = _re.compile(r"<tg-emoji[^>]*>([^<]*)</tg-emoji>")
+
+
 def _web_emoji(icon_key: str) -> str:
-    """Convert icon key to unicode emoji for web. Returns as-is if already emoji."""
+    """Convert icon key to unicode emoji for web.
+
+    Handles three cases:
+    1. Known icon key (e.g. "pikachu") → mapped unicode emoji
+    2. Raw <tg-emoji> HTML tag → extract fallback text inside
+    3. Already a unicode emoji → return as-is
+    """
+    if not icon_key:
+        return ""
+    # Strip Telegram custom emoji HTML tags → use fallback text
+    if "<tg-emoji" in icon_key:
+        m = _TG_EMOJI_RE.search(icon_key)
+        return m.group(1) if m else ""
     return _ICON_TO_UNICODE.get(icon_key, icon_key)
 
 

@@ -504,21 +504,21 @@ async def attendance_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /랭킹 command in group chat."""
+    """Handle /랭킹 command in group chat — 승률 랭킹."""
     if not update.effective_chat:
         return
     if is_tournament_active(update.effective_chat.id):
         return
 
     try:
-        rankings = await queries.get_rankings(limit=5)
+        rankings = await bq.get_winrate_ranking(limit=5, min_games=5)
 
         if not rankings:
-            await update.message.reply_text("아직 포켓몬을 잡은 트레이너가 없습니다!")
+            await update.message.reply_text("아직 배틀 기록이 충분한 트레이너가 없습니다! (최소 5판)")
             return
 
         medals = ["🥇", "🥈", "🥉", "4.", "5."]
-        lines = ["🏅 <b>도감왕</b>"]
+        lines = ["⚔️ <b>승률 랭킹</b> (최소 5판)"]
         for i, r in enumerate(rankings):
             medal = medals[i] if i < len(medals) else f"{i+1}."
             decorated = get_decorated_name(
@@ -528,8 +528,11 @@ async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 r.get("username"),
                 html=True,
             )
+            wr = r["winrate"] or 0
+            w = r["battle_wins"]
+            total = r["total_games"]
             lines.append(
-                f"{medal} {decorated} — {r['caught_count']}/{len(ALL_POKEMON)}"
+                f"{medal} {decorated} — {wr}% ({w}승/{total}판)"
             )
 
         await update.message.reply_text("\n".join(lines), parse_mode="HTML")
