@@ -350,8 +350,10 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     last_used = _love_cooldown.get(user_id)
     if last_used and (now - last_used).total_seconds() < cooldown_sec:
         remaining = int(cooldown_sec - (now - last_used).total_seconds())
+        mins, secs = divmod(remaining, 60)
+        time_str = f"{mins}분 {secs}초" if mins else f"{secs}초"
         await update.message.reply_text(
-            f"⏳ 포켓볼 충전 쿨타임! {remaining}초 후에 다시 충전할 수 있어요.",
+            f"⏳ 포켓볼 충전 쿨타임! {time_str} 후에 다시 충전할 수 있어요.",
         )
         return
     _love_cooldown[user_id] = now

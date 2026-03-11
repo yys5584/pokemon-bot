@@ -23,7 +23,12 @@ async def can_attempt_catch(user_id: int) -> tuple[bool, str]:
         )
         max_today = config.MAX_CATCH_ATTEMPTS_PER_DAY + bonus
         if limit["attempt_count"] >= max_today:
-            return False, f"오늘 잡기 횟수({max_today}회)를 모두 사용했습니다!"
+            if bonus >= 100:
+                return False, (
+                    f"오늘 잡기 횟수({max_today}회)를 모두 사용했습니다!\n"
+                    f"💡 DM 상점에서 '구매 포켓볼초기화'로 리셋할 수 있어요!"
+                )
+            return False, f"오늘 잡기 횟수({max_today}회)를 모두 사용했습니다!\n💡 채팅방에서 '포켓볼 충전'으로 +10회 충전하세요!"
 
     return True, ""
 
