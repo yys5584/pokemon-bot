@@ -16,7 +16,7 @@ from database import queries
 from database import battle_queries as bq
 from database.connection import get_db
 from services.battle_service import _prepare_combatant, _resolve_battle, _hp_bar
-from utils.card_generator import generate_card
+from utils.card_generator import generate_card, generate_lineup_card
 
 # ── Bracket Tree Renderer ──────────────────────────────────────
 import unicodedata
@@ -775,14 +775,38 @@ async def _run_match(
         # ── Finals: each hit as separate message (3s delay) ──
         p1_name = p1_data['name']
         p2_name = p2_data['name']
-        await _safe_send(context.bot, chat_id,
-            text=(
-                f"🏆 결승전!\n"
-                f"{C}{p1_name} vs {D}{p2_name}\n"
-                f"━━━━━━━━━━━━━━━"
-            ),
-            parse_mode="HTML",
-        )
+
+        # Lineup card image
+        try:
+            lineup_data_1 = [
+                {"pokemon_id": m["pokemon_id"], "name": m["name"],
+                 "rarity": m["rarity"], "is_shiny": m.get("is_shiny", False)}
+                for m in team1
+            ]
+            lineup_data_2 = [
+                {"pokemon_id": m["pokemon_id"], "name": m["name"],
+                 "rarity": m["rarity"], "is_shiny": m.get("is_shiny", False)}
+                for m in team2
+            ]
+            loop = asyncio.get_event_loop()
+            lineup_buf = await loop.run_in_executor(
+                None, generate_lineup_card, p1_name, lineup_data_1, p2_name, lineup_data_2
+            )
+            await _safe_send_photo(
+                context.bot, chat_id, photo=lineup_buf,
+                caption=f"🏆 결승전! — {p1_name} vs {p2_name}",
+                parse_mode="HTML",
+            )
+        except Exception:
+            logger.error("Failed to generate lineup card", exc_info=True)
+            await _safe_send(context.bot, chat_id,
+                text=(
+                    f"🏆 결승전!\n"
+                    f"{C}{p1_name} vs {D}{p2_name}\n"
+                    f"━━━━━━━━━━━━━━━"
+                ),
+                parse_mode="HTML",
+            )
         await asyncio.sleep(3)
 
         for _i, td in enumerate(result["turn_data"]):

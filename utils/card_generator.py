@@ -1,6 +1,7 @@
 """Generate 16:9 Pokemon card images for spawn/pokedex display."""
 
 import io
+import math
 import os
 from pathlib import Path
 from functools import lru_cache
@@ -292,4 +293,201 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
     card_rgb.save(buf, format="JPEG", quality=85)
     buf.seek(0)
     buf.name = "card.jpg"  # Telegram needs extension hint
+    return buf
+
+
+# ── Lineup Card (Finals VS image) ─────────────────────────────
+
+# Smaller sprite loader for lineup card (160px)
+@lru_cache(maxsize=48)
+def _load_sprite_small(pokemon_id: int) -> Image.Image | None:
+    """Load and scale a Pokemon sprite to 160px for lineup card."""
+    sprite_path = ASSETS_DIR / f"{pokemon_id}.png"
+    if not sprite_path.exists():
+        return None
+    sprite = Image.open(sprite_path).convert("RGBA")
+    max_size = 160
+    ratio = min(max_size / sprite.width, max_size / sprite.height)
+    new_w = int(sprite.width * ratio)
+    new_h = int(sprite.height * ratio)
+    return sprite.resize((new_w, new_h), Image.LANCZOS)
+
+
+def generate_lineup_card(
+    p1_name: str,
+    p1_team: list[dict],
+    p2_name: str,
+    p2_team: list[dict],
+) -> io.BytesIO:
+    """Generate a VS lineup card image for tournament finals.
+
+    Each team entry: {"pokemon_id": int, "name": str, "rarity": str, "is_shiny": bool}
+    Returns BytesIO (JPEG).
+    """
+    W, H = 1200, 680
+    BG_TOP = (15, 18, 25)
+    BG_BOT = (8, 10, 16)
+
+    # Background gradient
+    card = _make_gradient(W, H, BG_TOP, BG_BOT).convert("RGBA")
+    draw = ImageDraw.Draw(card)
+
+    # Diagonal split: red left, blue right
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ov_draw = ImageDraw.Draw(overlay)
+    # Left side tint (red)
+    ov_draw.polygon([(0, 0), (W // 2 + 60, 0), (W // 2 - 60, H), (0, H)],
+                    fill=(180, 30, 30, 35))
+    # Right side tint (blue)
+    ov_draw.polygon([(W // 2 - 60, H), (W // 2 + 60, 0), (W, 0), (W, H)],
+                    fill=(30, 60, 180, 35))
+    card = Image.alpha_composite(card, overlay)
+    draw = ImageDraw.Draw(card)
+
+    # Fonts
+    font_title = _get_font(36)
+    font_name = _get_font(18)
+    font_vs = _get_font(52)
+    font_rarity = _get_font(13)
+
+    # VS text in center
+    vs_text = "VS"
+    vs_bbox = draw.textbbox((0, 0), vs_text, font=font_vs)
+    vs_w = vs_bbox[2] - vs_bbox[0]
+    vs_x = (W - vs_w) // 2
+    vs_y = H // 2 - 30
+    # Glow behind VS
+    for r in range(40, 0, -2):
+        alpha = int(25 * (r / 40))
+        draw.ellipse([vs_x + vs_w // 2 - r, vs_y + 20 - r,
+                      vs_x + vs_w // 2 + r, vs_y + 20 + r],
+                     fill=(255, 200, 50, alpha))
+    draw.text((vs_x + 2, vs_y + 2), vs_text, fill=(0, 0, 0, 180), font=font_vs)
+    draw.text((vs_x, vs_y), vs_text, fill=(255, 220, 50, 255), font=font_vs)
+
+    # Divider line
+    draw.line([(W // 2, 70), (W // 2, H - 30)], fill=(255, 255, 255, 40), width=2)
+
+    # Trainer names
+    # Left trainer (red accent)
+    p1_bbox = draw.textbbox((0, 0), p1_name, font=font_title)
+    p1_tw = p1_bbox[2] - p1_bbox[0]
+    p1_tx = (W // 4) - p1_tw // 2
+    draw.text((p1_tx + 2, 22), p1_name, fill=(0, 0, 0, 150), font=font_title)
+    draw.text((p1_tx, 20), p1_name, fill=(255, 100, 100, 255), font=font_title)
+
+    # Right trainer (blue accent)
+    p2_bbox = draw.textbbox((0, 0), p2_name, font=font_title)
+    p2_tw = p2_bbox[2] - p2_bbox[0]
+    p2_tx = (W * 3 // 4) - p2_tw // 2
+    draw.text((p2_tx + 2, 22), p2_name, fill=(0, 0, 0, 150), font=font_title)
+    draw.text((p2_tx, 20), p2_name, fill=(100, 150, 255, 255), font=font_title)
+
+    # Header underlines
+    draw.line([(40, 65), (W // 2 - 30, 65)], fill=(255, 100, 100, 120), width=2)
+    draw.line([(W // 2 + 30, 65), (W - 40, 65)], fill=(100, 150, 255, 120), width=2)
+
+    # Draw team slots: 3x2 grid on each side
+    def _draw_team(team: list[dict], base_x: int, base_y: int):
+        """Draw 6 pokemon in a 3x2 grid."""
+        slot_w, slot_h = 160, 200
+        gap_x, gap_y = 12, 10
+        cols = 3
+
+        for i, mon in enumerate(team[:6]):
+            col = i % cols
+            row = i // cols
+            sx = base_x + col * (slot_w + gap_x)
+            sy = base_y + row * (slot_h + gap_y)
+
+            pid = mon.get("pokemon_id", 0)
+            name = mon.get("name", "???")
+            rarity = mon.get("rarity", "common")
+            is_shiny = mon.get("is_shiny", False)
+
+            accent = RARITY_ACCENT.get(rarity, RARITY_ACCENT["common"])
+
+            # Slot background
+            draw.rounded_rectangle(
+                [sx, sy, sx + slot_w, sy + slot_h],
+                radius=10,
+                fill=(20, 24, 32, 200),
+                outline=(*accent, 150),
+                width=2,
+            )
+
+            # Shiny shimmer border
+            if is_shiny:
+                draw.rounded_rectangle(
+                    [sx - 1, sy - 1, sx + slot_w + 1, sy + slot_h + 1],
+                    radius=11,
+                    outline=(255, 215, 0, 200),
+                    width=2,
+                )
+
+            # Mini glow
+            gcx = sx + slot_w // 2
+            gcy = sy + 75
+            for r in range(50, 0, -3):
+                a = int(20 * (r / 50))
+                draw.ellipse([gcx - r, gcy - r, gcx + r, gcy + r],
+                             fill=(*accent, a))
+
+            # Sprite
+            sprite = _load_sprite_small(pid)
+            if sprite:
+                spx = sx + (slot_w - sprite.width) // 2
+                spy = sy + 10 + (130 - sprite.height) // 2
+                card.paste(sprite, (spx, spy), sprite)
+
+            # Pokemon name
+            n_bbox = draw.textbbox((0, 0), name, font=font_name)
+            n_w = n_bbox[2] - n_bbox[0]
+            nx = sx + (slot_w - n_w) // 2
+            ny = sy + slot_h - 45
+            draw.text((nx + 1, ny + 1), name, fill=(0, 0, 0, 180), font=font_name)
+            draw.text((nx, ny), name, fill=(255, 255, 255, 240), font=font_name)
+
+            # Rarity badge
+            rarity_labels = {"common": "일반", "rare": "레어", "epic": "에픽",
+                             "legendary": "전설", "ultra_legendary": "초전설"}
+            r_text = rarity_labels.get(rarity, rarity)
+            if is_shiny:
+                r_text = f"✨{r_text}"
+            r_bbox = draw.textbbox((0, 0), r_text, font=font_rarity)
+            r_w = r_bbox[2] - r_bbox[0]
+            rx = sx + (slot_w - r_w) // 2
+            ry = sy + slot_h - 24
+            draw.rounded_rectangle(
+                [rx - 4, ry - 2, rx + r_w + 4, ry + 16],
+                radius=4,
+                fill=(*accent, 180),
+            )
+            draw.text((rx, ry), r_text, fill=(255, 255, 255, 230), font=font_rarity)
+
+    # Left team: 3x2 starting at x=30
+    left_base_x = 30
+    team_base_y = 80
+    _draw_team(p1_team, left_base_x, team_base_y)
+
+    # Right team: 3x2 starting after center
+    right_base_x = W // 2 + 30
+    _draw_team(p2_team, right_base_x, team_base_y)
+
+    # Bottom bar
+    draw.rectangle([0, H - 4, W, H], fill=(255, 220, 50, 200))
+
+    # "FINALS" label
+    finals_text = "🏆 FINALS"
+    f_bbox = draw.textbbox((0, 0), finals_text, font=font_name)
+    f_w = f_bbox[2] - f_bbox[0]
+    fx = (W - f_w) // 2
+    draw.text((fx, H - 28), finals_text, fill=(255, 220, 50, 220), font=font_name)
+
+    # Output
+    buf = io.BytesIO()
+    card_rgb = card.convert("RGB")
+    card_rgb.save(buf, format="JPEG", quality=90)
+    buf.seek(0)
+    buf.name = "lineup.jpg"
     return buf
