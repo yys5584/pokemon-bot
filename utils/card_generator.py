@@ -13,16 +13,28 @@ BALL_DIR = Path(__file__).parent.parent / "assets" / "ball"
 CARD_WIDTH = 960
 CARD_HEIGHT = 540  # 16:9
 
-# Font paths: try Windows (malgun) then Linux (NanumGothic)
+# Font paths by style
 _FONT_PATHS = [
     "C:/Windows/Fonts/malgun.ttf",
     "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
     "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
 ]
+_FONT_BOLD_PATHS = [
+    "C:/Windows/Fonts/malgunbd.ttf",
+    "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+    "C:/Windows/Fonts/malgun.ttf",
+]
+_FONT_IMPACT_PATHS = [
+    "C:/Windows/Fonts/impact.ttf",
+    "C:/Windows/Fonts/arialbd.ttf",
+    "C:/Windows/Fonts/malgunbd.ttf",
+]
 
-@lru_cache(maxsize=8)
-def _get_font(size: int) -> ImageFont.FreeTypeFont:
-    for path in _FONT_PATHS:
+@lru_cache(maxsize=16)
+def _get_font(size: int, style: str = "regular") -> ImageFont.FreeTypeFont:
+    paths = {"regular": _FONT_PATHS, "bold": _FONT_BOLD_PATHS,
+             "impact": _FONT_IMPACT_PATHS}.get(style, _FONT_PATHS)
+    for path in paths:
         if os.path.exists(path):
             return ImageFont.truetype(path, size)
     return ImageFont.load_default()
@@ -329,89 +341,78 @@ def generate_lineup_card(
     from datetime import datetime
 
     W, H = 1200, 680
-    BG_TOP = (15, 18, 25)
-    BG_BOT = (8, 10, 16)
-
     if not date_str:
         date_str = datetime.now().strftime("%Y.%m.%d")
 
-    # Background gradient
-    card = _make_gradient(W, H, BG_TOP, BG_BOT).convert("RGBA")
+    # ── Background: bold red / black diagonal split ──
+    card = Image.new("RGBA", (W, H), (0, 0, 0, 255))
     draw = ImageDraw.Draw(card)
 
-    # Diagonal split: red left, blue right
+    # Red left half (solid, strong)
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ov_draw = ImageDraw.Draw(overlay)
-    ov_draw.polygon([(0, 0), (W // 2 + 60, 0), (W // 2 - 60, H), (0, H)],
-                    fill=(180, 30, 30, 35))
-    ov_draw.polygon([(W // 2 - 60, H), (W // 2 + 60, 0), (W, 0), (W, H)],
-                    fill=(30, 60, 180, 35))
+    ov_draw.polygon(
+        [(0, 0), (W // 2 + 80, 0), (W // 2 - 80, H), (0, H)],
+        fill=(190, 30, 30, 255),
+    )
     card = Image.alpha_composite(card, overlay)
+
+    # Subtle gradient shading on the diagonal edge
+    edge_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    edge_draw = ImageDraw.Draw(edge_layer)
+    for i in range(40):
+        alpha = int(60 * (1 - i / 40))
+        offset = i * 2
+        edge_draw.polygon(
+            [(W // 2 - 80 + offset, H), (W // 2 + 80 + offset, 0),
+             (W // 2 + 82 + offset, 0), (W // 2 - 78 + offset, H)],
+            fill=(0, 0, 0, alpha),
+        )
+    card = Image.alpha_composite(card, edge_layer)
     draw = ImageDraw.Draw(card)
 
-    # Fonts
-    font_title = _get_font(36)
-    font_name = _get_font(18)
-    font_rarity = _get_font(13)
-    font_date = _get_font(16)
-    font_finals = _get_font(20)
+    # Center point
+    cx, cy = W // 2, H // 2
 
-    # ── Center: Pokeball + date ──
-    pokeball_path = BALL_DIR / "pokeball.png"
-    ball_size = 90
-    cx, cy = W // 2, H // 2 - 10
-    if pokeball_path.exists():
-        ball_img = Image.open(pokeball_path).convert("RGBA")
-        ball_img = ball_img.resize((ball_size, ball_size), Image.LANCZOS)
-        # Glow behind pokeball
-        glow_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        glow_draw = ImageDraw.Draw(glow_layer)
-        for r in range(60, 0, -2):
-            a = int(30 * (r / 60))
-            glow_draw.ellipse([cx - r, cy - r, cx + r, cy + r],
-                              fill=(255, 255, 255, a))
-        card = Image.alpha_composite(card, glow_layer)
-        draw = ImageDraw.Draw(card)
-        # Paste pokeball
-        bx = cx - ball_size // 2
-        by = cy - ball_size // 2
-        card.paste(ball_img, (bx, by), ball_img)
+    # ── Fonts ──
+    font_vs = _get_font(90, "impact")
+    font_banner = _get_font(28, "bold")
+    font_title = _get_font(30, "bold")
+    font_name = _get_font(17, "bold")
+    font_rarity = _get_font(12, "bold")
+    font_date = _get_font(14, "bold")
 
-    # Date below pokeball
-    d_bbox = draw.textbbox((0, 0), date_str, font=font_date)
-    d_w = d_bbox[2] - d_bbox[0]
-    dx = cx - d_w // 2
-    dy = cy + ball_size // 2 + 8
-    draw.text((dx + 1, dy + 1), date_str, fill=(0, 0, 0, 150), font=font_date)
-    draw.text((dx, dy), date_str, fill=(200, 200, 200, 220), font=font_date)
+    # ── "TG포켓 결승전" banner at very top ──
+    banner_text = "TG포켓 결승전"
+    b_bbox = draw.textbbox((0, 0), banner_text, font=font_banner)
+    b_w = b_bbox[2] - b_bbox[0]
+    bx = cx - b_w // 2
+    by = 10
+    draw.text((bx + 1, by + 1), banner_text, fill=(0, 0, 0, 180), font=font_banner)
+    draw.text((bx, by), banner_text, fill=(255, 220, 80, 255), font=font_banner)
 
-    # Divider line (above and below pokeball area)
-    draw.line([(W // 2, 70), (W // 2, cy - ball_size // 2 - 10)],
-              fill=(255, 255, 255, 40), width=2)
-    draw.line([(W // 2, dy + 25), (W // 2, H - 30)],
-              fill=(255, 255, 255, 40), width=2)
-
-    # ── Trainer names ──
+    # ── Trainer names below banner ──
+    name_y = 48
     p1_bbox = draw.textbbox((0, 0), p1_name, font=font_title)
     p1_tw = p1_bbox[2] - p1_bbox[0]
     p1_tx = (W // 4) - p1_tw // 2
-    draw.text((p1_tx + 2, 22), p1_name, fill=(0, 0, 0, 150), font=font_title)
-    draw.text((p1_tx, 20), p1_name, fill=(255, 100, 100, 255), font=font_title)
+    draw.text((p1_tx + 2, name_y + 2), p1_name, fill=(0, 0, 0, 150), font=font_title)
+    draw.text((p1_tx, name_y), p1_name, fill=(255, 255, 255, 255), font=font_title)
 
     p2_bbox = draw.textbbox((0, 0), p2_name, font=font_title)
     p2_tw = p2_bbox[2] - p2_bbox[0]
     p2_tx = (W * 3 // 4) - p2_tw // 2
-    draw.text((p2_tx + 2, 22), p2_name, fill=(0, 0, 0, 150), font=font_title)
-    draw.text((p2_tx, 20), p2_name, fill=(100, 150, 255, 255), font=font_title)
+    draw.text((p2_tx + 2, name_y + 2), p2_name, fill=(0, 0, 0, 150), font=font_title)
+    draw.text((p2_tx, name_y), p2_name, fill=(255, 255, 255, 255), font=font_title)
 
-    # Header underlines
-    draw.line([(40, 65), (W // 2 - 30, 65)], fill=(255, 100, 100, 120), width=2)
-    draw.line([(W // 2 + 30, 65), (W - 40, 65)], fill=(100, 150, 255, 120), width=2)
+    # Thin accent lines under names
+    draw.line([(30, 86), (W // 2 - 50, 86)], fill=(255, 255, 255, 80), width=1)
+    draw.line([(W // 2 + 50, 86), (W - 30, 86)], fill=(255, 255, 255, 80), width=1)
 
     # ── Draw team slots: 3x2 grid on each side ──
     def _draw_team(team: list[dict], base_x: int, base_y: int):
-        slot_w, slot_h = 160, 200
-        gap_x, gap_y = 12, 10
+        slot_w, slot_h = 150, 175
+        gap_x, gap_y = 10, 8
         cols = 3
 
         for i, mon in enumerate(team[:6]):
@@ -424,82 +425,94 @@ def generate_lineup_card(
             name = mon.get("name", "???")
             rarity = mon.get("rarity", "common")
             is_shiny = mon.get("is_shiny", False)
-
             accent = RARITY_ACCENT.get(rarity, RARITY_ACCENT["common"])
 
-            # Slot background
+            # Slot background (semi-transparent dark)
             draw.rounded_rectangle(
                 [sx, sy, sx + slot_w, sy + slot_h],
-                radius=10,
-                fill=(20, 24, 32, 200),
-                outline=(*accent, 150),
+                radius=8,
+                fill=(10, 12, 18, 190),
+                outline=(*accent, 120),
                 width=2,
             )
-
-            # Shiny shimmer border
             if is_shiny:
                 draw.rounded_rectangle(
                     [sx - 1, sy - 1, sx + slot_w + 1, sy + slot_h + 1],
-                    radius=11,
-                    outline=(255, 215, 0, 200),
-                    width=2,
+                    radius=9, outline=(255, 215, 0, 200), width=2,
                 )
 
             # Mini glow
-            gcx = sx + slot_w // 2
-            gcy = sy + 75
-            for r in range(50, 0, -3):
-                a = int(20 * (r / 50))
-                draw.ellipse([gcx - r, gcy - r, gcx + r, gcy + r],
-                             fill=(*accent, a))
+            gcx, gcy = sx + slot_w // 2, sy + 70
+            for r in range(45, 0, -3):
+                a = int(18 * (r / 45))
+                draw.ellipse([gcx - r, gcy - r, gcx + r, gcy + r], fill=(*accent, a))
 
             # Sprite
             sprite = _load_sprite_small(pid)
             if sprite:
                 spx = sx + (slot_w - sprite.width) // 2
-                spy = sy + 10 + (130 - sprite.height) // 2
+                spy = sy + 8 + (120 - sprite.height) // 2
                 card.paste(sprite, (spx, spy), sprite)
 
             # Pokemon name
             n_bbox = draw.textbbox((0, 0), name, font=font_name)
             n_w = n_bbox[2] - n_bbox[0]
             nx = sx + (slot_w - n_w) // 2
-            ny = sy + slot_h - 45
-            draw.text((nx + 1, ny + 1), name, fill=(0, 0, 0, 180), font=font_name)
+            ny = sy + slot_h - 30
+            draw.text((nx + 1, ny + 1), name, fill=(0, 0, 0, 200), font=font_name)
             draw.text((nx, ny), name, fill=(255, 255, 255, 240), font=font_name)
 
-            # Rarity badge
-            rarity_labels = {"common": "일반", "rare": "레어", "epic": "에픽",
-                             "legendary": "전설", "ultra_legendary": "초전설"}
-            r_text = rarity_labels.get(rarity, rarity)
+            # Shiny sparkle indicator (top-right corner)
             if is_shiny:
-                r_text = "* " + r_text
-            r_bbox = draw.textbbox((0, 0), r_text, font=font_rarity)
-            r_w = r_bbox[2] - r_bbox[0]
-            rx = sx + (slot_w - r_w) // 2
-            ry = sy + slot_h - 24
-            draw.rounded_rectangle(
-                [rx - 4, ry - 2, rx + r_w + 4, ry + 16],
-                radius=4,
-                fill=(*accent, 180),
-            )
-            draw.text((rx, ry), r_text, fill=(255, 255, 255, 230), font=font_rarity)
+                font_sparkle = _get_font(18, "bold")
+                draw.text((sx + slot_w - 22, sy + 4), "*", fill=(255, 215, 0, 255), font=font_sparkle)
+                draw.text((sx + slot_w - 14, sy + 12), "*", fill=(255, 255, 180, 200), font=_get_font(12, "bold"))
 
-    # Left team
-    _draw_team(p1_team, 30, 80)
-    # Right team
-    _draw_team(p2_team, W // 2 + 30, 80)
+    _draw_team(p1_team, 25, 95)
+    _draw_team(p2_team, W // 2 + 80, 95)
 
-    # Bottom bar
-    draw.rectangle([0, H - 4, W, H], fill=(255, 220, 50, 200))
+    # ── VS text LAST (drawn on top of everything) ──
+    vs_text = "VS"
+    vs_bbox = draw.textbbox((0, 0), vs_text, font=font_vs)
+    vs_w = vs_bbox[2] - vs_bbox[0]
+    vs_h = vs_bbox[3] - vs_bbox[1]
+    vs_x = cx - vs_w // 2
+    vs_y = cy - vs_h // 2 - 10
 
-    # "FINALS" label (no emoji — font can't render)
-    finals_text = "TOURNAMENT FINALS"
-    f_bbox = draw.textbbox((0, 0), finals_text, font=font_finals)
-    f_w = f_bbox[2] - f_bbox[0]
-    fx = (W - f_w) // 2
-    draw.text((fx + 1, H - 32), finals_text, fill=(0, 0, 0, 120), font=font_finals)
-    draw.text((fx, H - 33), finals_text, fill=(255, 220, 50, 230), font=font_finals)
+    # Dark backdrop behind VS for readability
+    vs_pad = 20
+    vs_bg = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    vs_bg_draw = ImageDraw.Draw(vs_bg)
+    vs_bg_draw.rounded_rectangle(
+        [vs_x - vs_pad, vs_y - vs_pad // 2,
+         vs_x + vs_w + vs_pad, vs_y + vs_h + 40],
+        radius=12, fill=(0, 0, 0, 160),
+    )
+    card = Image.alpha_composite(card, vs_bg)
+    draw = ImageDraw.Draw(card)
+
+    # Shadow layers for depth
+    for off in range(8, 0, -1):
+        a = int(90 * (off / 8))
+        draw.text((vs_x + off, vs_y + off), vs_text, fill=(0, 0, 0, a), font=font_vs)
+    # Dark outline
+    for dx in (-3, -2, -1, 0, 1, 2, 3):
+        for dy in (-3, -2, -1, 0, 1, 2, 3):
+            if dx or dy:
+                draw.text((vs_x + dx, vs_y + dy), vs_text, fill=(30, 30, 30, 255), font=font_vs)
+    # White fill
+    draw.text((vs_x, vs_y), vs_text, fill=(255, 255, 255, 255), font=font_vs)
+
+    # Date at bottom center
+    d_bbox = draw.textbbox((0, 0), date_str, font=font_date)
+    d_w = d_bbox[2] - d_bbox[0]
+    dx = cx - d_w // 2
+    dy = H - 28
+    draw.text((dx + 1, dy + 1), date_str, fill=(0, 0, 0, 200), font=font_date)
+    draw.text((dx, dy), date_str, fill=(200, 200, 200, 240), font=font_date)
+
+    # Bottom accent bar
+    draw.rectangle([0, H - 3, W, H], fill=(255, 255, 255, 100))
 
     # Output
     buf = io.BytesIO()
