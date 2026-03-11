@@ -340,15 +340,16 @@ async def get_pokemon(pokemon_id: int) -> dict | None:
 
 
 async def search_pokemon_by_name(name: str) -> dict | None:
-    """Search pokemon_master by Korean name (exact or partial)."""
+    """Search pokemon_master by Korean name (exact or partial, min 2 chars)."""
     await _load_pokemon_cache()
     # Exact match
     if name in _pokemon_by_name:
         return _pokemon_by_name[name]
-    # Partial match
-    for k, v in _pokemon_by_name.items():
-        if name in k:
-            return v
+    # Partial match (require at least 2 characters to avoid over-matching)
+    if len(name) >= 2:
+        for k, v in _pokemon_by_name.items():
+            if name in k:
+                return v
     return None
 
 

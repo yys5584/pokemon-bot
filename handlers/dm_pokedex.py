@@ -212,8 +212,16 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if args and not args[0].isdigit():
         name_query = " ".join(args)
-        await _show_pokemon_detail(update, user_id, name_query)
-        return
+        # Only respond if it looks like a pokemon name (exists in cache or future gen list)
+        pokemon = await queries.search_pokemon_by_name(name_query)
+        is_future = any(
+            name_query == fn or (len(name_query) >= 2 and name_query in fn)
+            for fn in _FUTURE_GEN_POKEMON
+        )
+        if pokemon or is_future:
+            await _show_pokemon_detail(update, user_id, name_query)
+            return
+        # Not a pokemon name → fall through to normal pokedex list
 
     # Page handling
     page = 0
@@ -1701,8 +1709,49 @@ POKEMON_TMI = {
 
 
 
+# 4~9세대 대표 포켓몬 이름 (한국어) — "아직 업데이트 안 됨" 안내용
+_FUTURE_GEN_POKEMON = {
+    # 4세대
+    "모부기", "수풀부기", "토대부기", "불꽃숭이", "파이숭이", "초염몽", "팽도리", "팽태자", "엠페르트",
+    "찌르꼬", "찌르버드", "찌르레기", "비달", "비버네일", "코링크", "럭시오", "렌트라",
+    "두꺼비", "독개굴", "파치리스", "브이젤", "플로젤", "체리버", "체리꼬",
+    "동풍박쥐", "동풍바구", "루카리오", "리올루", "히포포타스", "하마돈", "스콜피", "드래피온",
+    "삐뚤기", "대포탑", "진화기", "드래", "갈레이드", "뚜벅쵸", "무장조",
+    "로토무", "유크시", "에무리트", "아그놈", "디아루가", "펄기아", "기라티나",
+    "크레세리아", "다크라이", "쉐이미", "아르세우스",
+    # 5세대
+    "주리비얀", "샤비", "염무왕", "뚜꾸리", "챠오꾸리", "대검귀",
+    "수댕이", "쌍검귀", "대검귀", "조로아", "조로아크",
+    "치라미", "치라치노", "리그레", "오베무", "비크로스", "볼트로스", "토네로스", "랜드로스",
+    "레시라무", "제크로무", "큐레무", "켈디오", "메로엣타", "게노세크트",
+    # 6세대
+    "도치마론", "도치보구", "브리가론", "푸호꼬", "테르나", "마폭시",
+    "개구마르", "개굴닌자", "부케", "파르빗", "파르토", "트리미앙",
+    "제르네아스", "이벨타르", "지가르데", "디안시", "후파", "볼케니온",
+    # 7세대
+    "나몰빼미", "올빼미스", "모닥냥", "어흥염", "누리공", "누리레느",
+    "이와룡", "큰입해적", "장크로다일", "루가루간", "토게데마루", "미미큐",
+    "코스모그", "코스모움", "솔가레오", "루나아라", "네크로즈마", "마기아나", "마샤도",
+    # 8세대
+    "흥나숭", "고릴타", "염버니", "에이스번", "메소꿩", "인텔리존",
+    "울머호크", "가라르마타도가스", "자시안", "자마젠타", "무한다이노", "칼리렉스",
+    # 9세대
+    "뉴비", "마스카나", "웰카모", "라우드보", "홀비", "파모", "파모트",
+    "코라이돈", "미라이돈", "오거폰", "테라파고스",
+}
+
+
 async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
     """Show detailed info for a specific Pokemon."""
+    # Check if it's a future-gen pokemon
+    for future_name in _FUTURE_GEN_POKEMON:
+        if name_query == future_name or (len(name_query) >= 2 and name_query in future_name):
+            await update.message.reply_text(
+                f"'{name_query}' 포켓몬은 현재 3세대(호연)까지만 업데이트되어 있습니다.\n"
+                "4세대 이후 포켓몬은 추후 업데이트 예정입니다!"
+            )
+            return
+
     pokemon = await queries.search_pokemon_by_name(name_query)
 
     if not pokemon:
