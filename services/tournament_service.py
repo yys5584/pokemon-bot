@@ -32,8 +32,11 @@ def _rpad(s: str, target: int) -> str:
     return s + ' ' * max(0, target - _dw(s))
 
 
-def _trunc(s: str, max_dw: int = 10) -> str:
-    """Truncate string to max display width, adding … if needed."""
+def _trunc(s: str, max_dw: int = 8) -> str:
+    """Truncate string to max display width, adding … if needed.
+
+    max_dw=8 → 한글 4자(dw8) / 영어 7자+… / 혼합도 안전.
+    """
     w = 0
     for i, c in enumerate(s):
         cw = 2 if unicodedata.east_asian_width(c) in ('W', 'F') else 1

@@ -9,6 +9,7 @@ from functools import lru_cache
 from PIL import Image, ImageDraw, ImageFont
 
 ASSETS_DIR = Path(__file__).parent.parent / "assets" / "pokemon"
+BALL_DIR = Path(__file__).parent.parent / "assets" / "ball"
 CARD_WIDTH = 960
 CARD_HEIGHT = 540  # 16:9
 
@@ -318,15 +319,21 @@ def generate_lineup_card(
     p1_team: list[dict],
     p2_name: str,
     p2_team: list[dict],
+    date_str: str = "",
 ) -> io.BytesIO:
     """Generate a VS lineup card image for tournament finals.
 
     Each team entry: {"pokemon_id": int, "name": str, "rarity": str, "is_shiny": bool}
     Returns BytesIO (JPEG).
     """
+    from datetime import datetime
+
     W, H = 1200, 680
     BG_TOP = (15, 18, 25)
     BG_BOT = (8, 10, 16)
+
+    if not date_str:
+        date_str = datetime.now().strftime("%Y.%m.%d")
 
     # Background gradient
     card = _make_gradient(W, H, BG_TOP, BG_BOT).convert("RGBA")
@@ -335,10 +342,8 @@ def generate_lineup_card(
     # Diagonal split: red left, blue right
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ov_draw = ImageDraw.Draw(overlay)
-    # Left side tint (red)
     ov_draw.polygon([(0, 0), (W // 2 + 60, 0), (W // 2 - 60, H), (0, H)],
                     fill=(180, 30, 30, 35))
-    # Right side tint (blue)
     ov_draw.polygon([(W // 2 - 60, H), (W // 2 + 60, 0), (W, 0), (W, H)],
                     fill=(30, 60, 180, 35))
     card = Image.alpha_composite(card, overlay)
@@ -347,36 +352,52 @@ def generate_lineup_card(
     # Fonts
     font_title = _get_font(36)
     font_name = _get_font(18)
-    font_vs = _get_font(52)
     font_rarity = _get_font(13)
+    font_date = _get_font(16)
+    font_finals = _get_font(20)
 
-    # VS text in center
-    vs_text = "VS"
-    vs_bbox = draw.textbbox((0, 0), vs_text, font=font_vs)
-    vs_w = vs_bbox[2] - vs_bbox[0]
-    vs_x = (W - vs_w) // 2
-    vs_y = H // 2 - 30
-    # Glow behind VS
-    for r in range(40, 0, -2):
-        alpha = int(25 * (r / 40))
-        draw.ellipse([vs_x + vs_w // 2 - r, vs_y + 20 - r,
-                      vs_x + vs_w // 2 + r, vs_y + 20 + r],
-                     fill=(255, 200, 50, alpha))
-    draw.text((vs_x + 2, vs_y + 2), vs_text, fill=(0, 0, 0, 180), font=font_vs)
-    draw.text((vs_x, vs_y), vs_text, fill=(255, 220, 50, 255), font=font_vs)
+    # ── Center: Pokeball + date ──
+    pokeball_path = BALL_DIR / "pokeball.png"
+    ball_size = 90
+    cx, cy = W // 2, H // 2 - 10
+    if pokeball_path.exists():
+        ball_img = Image.open(pokeball_path).convert("RGBA")
+        ball_img = ball_img.resize((ball_size, ball_size), Image.LANCZOS)
+        # Glow behind pokeball
+        glow_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow_layer)
+        for r in range(60, 0, -2):
+            a = int(30 * (r / 60))
+            glow_draw.ellipse([cx - r, cy - r, cx + r, cy + r],
+                              fill=(255, 255, 255, a))
+        card = Image.alpha_composite(card, glow_layer)
+        draw = ImageDraw.Draw(card)
+        # Paste pokeball
+        bx = cx - ball_size // 2
+        by = cy - ball_size // 2
+        card.paste(ball_img, (bx, by), ball_img)
 
-    # Divider line
-    draw.line([(W // 2, 70), (W // 2, H - 30)], fill=(255, 255, 255, 40), width=2)
+    # Date below pokeball
+    d_bbox = draw.textbbox((0, 0), date_str, font=font_date)
+    d_w = d_bbox[2] - d_bbox[0]
+    dx = cx - d_w // 2
+    dy = cy + ball_size // 2 + 8
+    draw.text((dx + 1, dy + 1), date_str, fill=(0, 0, 0, 150), font=font_date)
+    draw.text((dx, dy), date_str, fill=(200, 200, 200, 220), font=font_date)
 
-    # Trainer names
-    # Left trainer (red accent)
+    # Divider line (above and below pokeball area)
+    draw.line([(W // 2, 70), (W // 2, cy - ball_size // 2 - 10)],
+              fill=(255, 255, 255, 40), width=2)
+    draw.line([(W // 2, dy + 25), (W // 2, H - 30)],
+              fill=(255, 255, 255, 40), width=2)
+
+    # ── Trainer names ──
     p1_bbox = draw.textbbox((0, 0), p1_name, font=font_title)
     p1_tw = p1_bbox[2] - p1_bbox[0]
     p1_tx = (W // 4) - p1_tw // 2
     draw.text((p1_tx + 2, 22), p1_name, fill=(0, 0, 0, 150), font=font_title)
     draw.text((p1_tx, 20), p1_name, fill=(255, 100, 100, 255), font=font_title)
 
-    # Right trainer (blue accent)
     p2_bbox = draw.textbbox((0, 0), p2_name, font=font_title)
     p2_tw = p2_bbox[2] - p2_bbox[0]
     p2_tx = (W * 3 // 4) - p2_tw // 2
@@ -387,9 +408,8 @@ def generate_lineup_card(
     draw.line([(40, 65), (W // 2 - 30, 65)], fill=(255, 100, 100, 120), width=2)
     draw.line([(W // 2 + 30, 65), (W - 40, 65)], fill=(100, 150, 255, 120), width=2)
 
-    # Draw team slots: 3x2 grid on each side
+    # ── Draw team slots: 3x2 grid on each side ──
     def _draw_team(team: list[dict], base_x: int, base_y: int):
-        """Draw 6 pokemon in a 3x2 grid."""
         slot_w, slot_h = 160, 200
         gap_x, gap_y = 12, 10
         cols = 3
@@ -453,7 +473,7 @@ def generate_lineup_card(
                              "legendary": "전설", "ultra_legendary": "초전설"}
             r_text = rarity_labels.get(rarity, rarity)
             if is_shiny:
-                r_text = f"✨{r_text}"
+                r_text = "* " + r_text
             r_bbox = draw.textbbox((0, 0), r_text, font=font_rarity)
             r_w = r_bbox[2] - r_bbox[0]
             rx = sx + (slot_w - r_w) // 2
@@ -465,24 +485,21 @@ def generate_lineup_card(
             )
             draw.text((rx, ry), r_text, fill=(255, 255, 255, 230), font=font_rarity)
 
-    # Left team: 3x2 starting at x=30
-    left_base_x = 30
-    team_base_y = 80
-    _draw_team(p1_team, left_base_x, team_base_y)
-
-    # Right team: 3x2 starting after center
-    right_base_x = W // 2 + 30
-    _draw_team(p2_team, right_base_x, team_base_y)
+    # Left team
+    _draw_team(p1_team, 30, 80)
+    # Right team
+    _draw_team(p2_team, W // 2 + 30, 80)
 
     # Bottom bar
     draw.rectangle([0, H - 4, W, H], fill=(255, 220, 50, 200))
 
-    # "FINALS" label
-    finals_text = "🏆 FINALS"
-    f_bbox = draw.textbbox((0, 0), finals_text, font=font_name)
+    # "FINALS" label (no emoji — font can't render)
+    finals_text = "TOURNAMENT FINALS"
+    f_bbox = draw.textbbox((0, 0), finals_text, font=font_finals)
     f_w = f_bbox[2] - f_bbox[0]
     fx = (W - f_w) // 2
-    draw.text((fx, H - 28), finals_text, fill=(255, 220, 50, 220), font=font_name)
+    draw.text((fx + 1, H - 32), finals_text, fill=(0, 0, 0, 120), font=font_finals)
+    draw.text((fx, H - 33), finals_text, fill=(255, 220, 50, 230), font=font_finals)
 
     # Output
     buf = io.BytesIO()
