@@ -552,10 +552,13 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
             else:
                 data["team"] = team
 
+    # Close registration after snapshot
+    _tournament_state["registering"] = False
+
     lines = [
         f"⚔️ 배틀팀 확정! ({len(participants)}명)",
         "━━━━━━━━━━━━━━━",
-        "이제부터 팀 변경이 대회에 반영되지 않습니다.",
+        "대회 접수가 마감되었습니다.",
     ]
     if removed:
         lines.append(f"\n⚠️ 팀 미등록으로 제외: {', '.join(removed)}")
@@ -1000,8 +1003,8 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     """JobQueue callback — 22:00 KST: close registration, run tournament."""
     chat_id = _tournament_state["chat_id"]
 
-    if not _tournament_state["registering"]:
-        # Registration wasn't started (no arcade channel configured)
+    if not _tournament_state["chat_id"] or not _tournament_state["participants"]:
+        # Tournament wasn't set up properly
         return
 
     _tournament_state["registering"] = False
