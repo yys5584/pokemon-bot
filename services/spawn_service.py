@@ -574,6 +574,9 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                         except Exception:
                             pass
 
+        # Collect failed user IDs for title tracking
+        failed_ids = [r["user_id"] for r in results if not r["success"]]
+
         # Give Pokemon + register pokedex + close session (transaction)
         _inst_id, caught_ivs = await queries.catch_pokemon_transaction(
             winner_id, pokemon_id, chat_id, is_shiny, session_id,
@@ -1143,6 +1146,9 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                             )
                         except Exception:
                             pass
+
+        # Collect failed user IDs for title tracking
+        failed_ids = [r["user_id"] for r in results if not r["success"]]
 
         # Give Pokemon + register pokedex + close session (transaction)
         _inst_id, caught_ivs = await queries.catch_pokemon_transaction(
