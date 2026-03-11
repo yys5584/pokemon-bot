@@ -1554,15 +1554,14 @@ def _web_emoji(icon_key: str) -> str:
 
     Handles three cases:
     1. Known icon key (e.g. "pikachu") → mapped unicode emoji
-    2. Raw <tg-emoji> HTML tag → extract fallback text inside
+    2. Raw <tg-emoji> HTML tag → extract fallback text inside (supports multiple)
     3. Already a unicode emoji → return as-is
     """
     if not icon_key:
         return ""
     # Strip Telegram custom emoji HTML tags → use fallback text
     if "<tg-emoji" in icon_key:
-        m = _TG_EMOJI_RE.search(icon_key)
-        return m.group(1) if m else ""
+        return _TG_EMOJI_RE.sub(r"\1", icon_key)
     return _ICON_TO_UNICODE.get(icon_key, icon_key)
 
 
@@ -1607,6 +1606,8 @@ async def api_users(request):
     for u in users:
         if u.get("title_emoji"):
             u["title_emoji"] = _web_emoji(u["title_emoji"])
+        if u.get("display_name"):
+            u["display_name"] = _web_emoji(u["display_name"])
     return pg_json_response(users)
 
 
@@ -1662,6 +1663,15 @@ async def api_fun_kpis(request):
     lucky_users = user_catch_rates[:5] if user_catch_rates else []
     unlucky_users = sorted(user_catch_rates, key=lambda x: x["catch_rate"])[:5] if user_catch_rates else []
 
+    # Strip <tg-emoji> from all display_name fields in KPI lists
+    for lst in (shiny_holders, rare_holders, escape_masters, night_owls,
+                masterball_rich, pokeball_addicts, lucky_users, unlucky_users,
+                trade_kings, love_leaders):
+        if lst:
+            for item in lst:
+                if item.get("display_name"):
+                    item["display_name"] = _web_emoji(item["display_name"])
+
     return pg_json_response({
         "global_catch_rate": global_catch_rate,
         "total_master_balls_used": total_mb_used,
@@ -1698,10 +1708,14 @@ async def api_iv_ranking(request):
     """)
     # Sort by iv_total desc, take top 10
     result = sorted([dict(r) for r in rows], key=lambda x: x["iv_total"], reverse=True)[:10]
-    # Add grade
+    # Add grade + strip tg-emoji from display fields
     for r in result:
         grade, _ = config.get_iv_grade(r["iv_total"])
         r["iv_grade"] = grade
+        if r.get("display_name"):
+            r["display_name"] = _web_emoji(r["display_name"])
+        if r.get("emoji"):
+            r["emoji"] = _web_emoji(r["emoji"])
     return pg_json_response(result)
 
 
