@@ -854,22 +854,29 @@ SKILL_EFFECTS = {
     "자폭":         {"type": "self_destruct", "damage_bonus": 3.0},
     "대폭발":       {"type": "self_destruct", "damage_bonus": 3.5},
 
-    # --- 아래 효과들은 목요일 배포 예정 (v2.4) ---
-    # "역린":         {"type": "recoil", "pct": 0.30},
-    # "브레이브버드":  {"type": "recoil", "pct": 0.25},
-    # "인파이트":     {"type": "recoil", "pct": 0.20},
-    # "하이점프킥":   {"type": "recoil", "pct": 0.20},
-    # "흡수":         {"type": "drain", "pct": 0.25},
-    # "메가드레인":   {"type": "drain", "pct": 0.35},
-    # "기가드레인":   {"type": "drain", "pct": 0.50},
-    # "신속":         {"type": "priority"},
-    # "전광석화":     {"type": "priority"},
-    # "불릿펀치":     {"type": "priority"},
-    # "마하펀치":     {"type": "priority"},
-    # "튀어오르기":   {"type": "splash"},
-    # "손가락흔들기": {"type": "random_power", "min": 0.5, "max": 3.0},
-    # "반격":         {"type": "counter", "mult": 1.5},
-    # "잠자기":       {"type": "rest", "heal_pct": 0.50},
+    # --- 반동계: x2.0 데미지 + 25% 자기피해 (통일) ---
+    # damage_bonus가 skill_power 대신 사용됨. 순대미지 = 2.0 × 0.75 = 1.50
+    "역린":         {"type": "recoil", "damage_bonus": 2.0, "pct": 0.25},
+    "브레이브버드":  {"type": "recoil", "damage_bonus": 2.0, "pct": 0.25},
+    "인파이트":     {"type": "recoil", "damage_bonus": 2.0, "pct": 0.25},
+    "하이점프킥":   {"type": "recoil", "damage_bonus": 2.0, "pct": 0.25},
+
+    # --- 흡수계: 데미지 + HP 회복 ---
+    "흡수":         {"type": "drain", "pct": 0.25},
+    "메가드레인":   {"type": "drain", "pct": 0.35},
+    "기가드레인":   {"type": "drain", "pct": 0.50},
+
+    # --- 선제기: 발동(30%) 시 그 턴만 선공 ---
+    "신속":         {"type": "priority"},
+    "전광석화":     {"type": "priority"},
+    "불릿펀치":     {"type": "priority"},
+    "마하펀치":     {"type": "priority"},
+
+    # --- 기타 ---
+    "튀어오르기":   {"type": "splash"},
+    "손가락흔들기": {"type": "random_power", "min": 0.5, "max": 2.5},
+    "반격":         {"type": "counter", "mult": 1.5},
+    "잠자기":       {"type": "rest", "heal_pct": 0.35},
 }
 
 

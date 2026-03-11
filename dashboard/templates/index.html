@@ -276,7 +276,7 @@
 
         /* Stat bar (tier table) - desktop only */
         .stat-bar-wrap{display:none}
-        @media(min-width:769px){.stat-bar-wrap{display:inline-block;width:60px;height:8px;background:var(--border);border-radius:4px;overflow:hidden;vertical-align:middle;margin-left:4px}}
+        @media(min-width:1200px){.stat-bar-wrap{display:inline-block;width:60px;height:8px;background:var(--border);border-radius:4px;overflow:hidden;vertical-align:middle;margin-left:4px}}
         .stat-bar-fill{display:block;height:100%;border-radius:4px}
 
         /* Type tooltip (AI advisor) */
@@ -517,6 +517,17 @@
         .guide-list{margin:6px 0 0 20px;font-size:12px;line-height:1.8;color:var(--text)}
         .guide-list li{margin-bottom:2px}
         .guide-formula{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;font-weight:600;color:var(--red);margin:8px 0;font-family:monospace}
+        /* Skill tooltip */
+        .skill-cell{position:relative;cursor:default}
+        .skill-cell .skill-base{display:flex;align-items:center;gap:4px}
+        .skill-cell .skill-tag{display:inline-block;padding:1px 4px;border-radius:3px;font-size:9px;font-weight:700;line-height:1.3}
+        .skill-cell .skill-tip{display:none;position:absolute;left:50%;top:100%;transform:translateX(-50%);z-index:100;background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:10px 12px;min-width:200px;max-width:280px;box-shadow:0 4px 16px rgba(0,0,0,.5);pointer-events:none;white-space:normal}
+        .skill-cell:hover .skill-tip{display:block}
+        .skill-tip-name{font-weight:700;font-size:12px;margin-bottom:6px;color:#fff}
+        .skill-tip-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;color:#ccc}
+        .skill-tip-row span:first-child{color:#999}
+        .skill-tip-divider{border-top:1px solid #333;margin:5px 0}
+        .skill-tip-desc{font-size:10px;color:#aaa;margin-top:4px;line-height:1.5}
         .guide-card code{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid var(--border)}
         .board-side-item{padding:8px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;transition:background .15s}
         .board-side-item:hover{background:var(--border)}
@@ -2433,6 +2444,44 @@ function _getFilteredTier(){
     return list;
 }
 
+function renderSkillCell(p){
+    const effs=p.skill_effects||[];
+    const EFFECT_META={
+        self_destruct:{tag:"💥자폭",color:"#ff4444",bg:"#ff444422",desc:s=>`x${s.damage_bonus} 데미지 후 자신 즉사`},
+        recoil:{tag:"💢반동",color:"#ff6b35",bg:"#ff6b3522",desc:s=>`발동 시 x${s.damage_bonus} 데미지, ${Math.round(s.pct*100)}% 자기피해`},
+        drain:{tag:"🌿흡수",color:"#4caf50",bg:"#4caf5022",desc:s=>`발동 시 데미지의 ${Math.round(s.pct*100)}% HP 회복`},
+        priority:{tag:"⚡선제",color:"#ffeb3b",bg:"#ffeb3b22",desc:()=>`발동 시 그 턴만 선공 (30% 확률)`},
+        rest:{tag:"💤회복",color:"#90caf9",bg:"#90caf922",desc:s=>`발동 시 공격 없이 최대HP ${Math.round(s.heal_pct*100)}% 회복`},
+        counter:{tag:"🔄반격",color:"#ce93d8",bg:"#ce93d822",desc:s=>`발동 시 받은 데미지 x${s.mult} 반사`},
+        random_power:{tag:"🎲랜덤",color:"#ff9800",bg:"#ff980022",desc:s=>`발동 시 x${s.min}~x${s.max} 랜덤 데미지`},
+        splash:{tag:"💦허탕",color:"#666",bg:"#66666622",desc:()=>`발동 시 데미지 0 (아무 일도 일어나지 않았다!)`},
+        normal:{tag:"",color:"",bg:"",desc:()=>""},
+    };
+    // Base display: skill names + power
+    let base=`<span style="color:var(--orange);font-weight:600">${p.skill_power}x</span>`;
+    // Add effect tags
+    const tags=effs.filter(e=>e.type!=='normal').map(e=>{
+        const m=EFFECT_META[e.type]||EFFECT_META.normal;
+        return m.tag?`<span class="skill-tag" style="color:${m.color};background:${m.bg}">${m.tag}</span>`:'';
+    }).filter(Boolean).join('');
+    if(tags) base+=` ${tags}`;
+
+    // Tooltip
+    let tip=`<div class="skill-tip">`;
+    tip+=`<div class="skill-tip-name">${p.skill_name}</div>`;
+    for(const e of effs){
+        const m=EFFECT_META[e.type]||EFFECT_META.normal;
+        tip+=`<div class="skill-tip-row"><span>${e.name}</span><span style="color:var(--orange)">x${e.power}</span></div>`;
+        if(e.type!=='normal'){
+            tip+=`<div style="font-size:10px;color:${m.color};padding:1px 0 4px">${m.tag} ${m.desc(e)}</div>`;
+        }
+    }
+    tip+=`<div class="skill-tip-divider"></div>`;
+    tip+=`<div class="skill-tip-desc">스킬 발동률: 30% · 미발동 시 일반공격</div>`;
+    tip+=`</div>`;
+    return `<div class="skill-base">${base}</div>${tip}`;
+}
+
 function _renderTierPage(){
     const tiers=_getFilteredTier();
     const chart=window._tierChart, names=window._tierNames, mx=window._tierMx;
@@ -2518,7 +2567,7 @@ function _renderTierPage(){
             <td><b>${p.name}</b>${evoTag}</td>
             <td>${t1}${t2}</td>
             <td><span class="badge badge-${p.rarity}" style="font-size:9px" title="코스트: ${TIER_COST[p.rarity]||'?'}">${rarityLabel[p.rarity]||p.rarity}</span> <span style="font-size:9px;color:#999">${TIER_COST[p.rarity]||''}</span></td>
-            <td class="hide-m" style="color:var(--orange)" title="${p.skill_name}">${p.skill_power}x</td>
+            <td class="hide-m skill-cell">${renderSkillCell(p)}</td>
             <td style="color:var(--green);${sw('hp',tops)}">${p.hp}${sbar(p.hp,mx.hp,'var(--green)')}</td>
             <td style="color:var(--red);${sw('atk',tops)}">${p.atk}${sbar(p.atk,mx.atk,'var(--red)')}</td>
             <td style="color:var(--blue);${sw('def',tops)}">${p.def_}${sbar(p.def_,mx.def,'var(--blue)')}</td>

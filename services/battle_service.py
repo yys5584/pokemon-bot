@@ -234,8 +234,15 @@ def _calc_damage(attacker: dict, defender: dict, received_dmg: int = 0) -> tuple
                 damage = max(1, int(base * type_mult * crit * skill_mult * variance))
                 effect_info = None
 
+        elif etype == "recoil":
+            # 반동계: damage_bonus가 있으면 skill_power 대신 사용 (고위력 반동기)
+            skill_mult = effect.get("damage_bonus", skill_power)
+            variance = random.uniform(0.9, 1.1)
+            damage = max(1, int(base * type_mult * crit * skill_mult * variance))
+            effect_info = {"type": "recoil", "pct": effect.get("pct", 0)}
+
         else:
-            # recoil, drain: 일반 데미지 계산 후 효과 정보 첨부
+            # drain: 일반 데미지 계산 후 효과 정보 첨부
             skill_mult = skill_power
             variance = random.uniform(0.9, 1.1)
             damage = max(1, int(base * type_mult * crit * skill_mult * variance))
@@ -251,11 +258,23 @@ def _calc_damage(attacker: dict, defender: dict, received_dmg: int = 0) -> tuple
     effects = []
     if skill_activated:
         effects.append(f"「{skill_name}」")
-    if effect_info and effect_info["type"] == "self_destruct":
-        effects.append("💥")
-    if effect_info and effect_info["type"] == "splash":
-        effects.clear()
-        effects.append("아무일도일어나지않았다!")
+    if effect_info:
+        etype_display = effect_info["type"]
+        if etype_display == "self_destruct":
+            effects.append("💥")
+        elif etype_display == "recoil":
+            effects.append("💢")
+        elif etype_display == "drain":
+            effects.append("🌿")
+        elif etype_display == "rest":
+            effects.append("💤")
+        elif etype_display == "counter":
+            effects.append("🔄")
+        elif etype_display == "random_power":
+            effects.append(f"🎲x{effect_info.get('mult', 1):.1f}")
+        elif etype_display == "splash":
+            effects.clear()
+            effects.append("아무일도일어나지않았다!")
 
     crit_mark = "*" if crit > 1.0 else ""
     effect_text = f" {' '.join(effects)}" if effects else ""
@@ -320,9 +339,9 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
         if round_num > config.BATTLE_MAX_ROUNDS:
             break
 
-        # Speed determines who goes first (선제기 우선)
-        c_prio = _has_priority(c_mon)
-        d_prio = _has_priority(d_mon)
+        # Speed determines who goes first (선제기: 30% 확률 발동)
+        c_prio = _has_priority(c_mon) and random.random() < config.BATTLE_SKILL_RATE
+        d_prio = _has_priority(d_mon) and random.random() < config.BATTLE_SKILL_RATE
         if c_prio and not d_prio:
             first, second = c_mon, d_mon
             first_is_challenger = True
@@ -391,8 +410,9 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             c_dmg, c_eff, c_crit, c_tmult = dmg2, eff2, crit2, tmult2
 
         # → = left attacks right, ← = right attacks left
-        c_part = f"→{c_dmg}{c_crit}{c_eff}" if c_dmg else ""
-        d_part = f"←{d_dmg}{d_crit}{d_eff}" if d_dmg else ""
+        # rest/splash 등 dmg=0이어도 효과 텍스트가 있으면 표시
+        c_part = f"→{c_dmg}{c_crit}{c_eff}" if c_dmg else (c_eff.strip() if c_eff.strip() else "")
+        d_part = f"←{d_dmg}{d_crit}{d_eff}" if d_dmg else (d_eff.strip() if d_eff.strip() else "")
         log_lines.append(
             f" {match_turn}턴: {c_mon['name']} {c_part} | {d_mon['name']} {d_part}"
         )

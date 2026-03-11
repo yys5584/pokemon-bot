@@ -1745,7 +1745,7 @@ async def api_battle_tiers(request):
     from database.connection import get_db
     import config
     from utils.battle_calc import calc_battle_stats, EVO_STAGE_MAP, get_normalized_base_stats
-    from models.pokemon_skills import POKEMON_SKILLS, get_skill_display, get_max_skill_power
+    from models.pokemon_skills import POKEMON_SKILLS, SKILL_EFFECTS, get_skill_display, get_max_skill_power
     from models.pokemon_base_stats import POKEMON_BASE_STATS
 
     pool = await get_db()
@@ -1784,12 +1784,25 @@ async def api_battle_tiers(request):
 
         stat_ko = {"offensive": "공격", "defensive": "방어", "balanced": "균형", "speedy": "속도"}.get(r["stat_type"], r["stat_type"])
 
+        # Skill effect info for tooltip
+        raw_skills = POKEMON_SKILLS.get(r["id"])
+        skill_effects_list = []
+        if raw_skills:
+            sk_list = [raw_skills] if isinstance(raw_skills, tuple) else raw_skills
+            for sn, sp in sk_list:
+                eff = SKILL_EFFECTS.get(sn)
+                if eff:
+                    skill_effects_list.append({"name": sn, "power": sp, **eff})
+                else:
+                    skill_effects_list.append({"name": sn, "power": sp, "type": "normal"})
+
         scored.append({
             "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
             "rarity": r["rarity"], "evo_stage": evo_stage,
             "type1": type1, "type2": type2,
             "stat_ko": stat_ko, "power": round(power, 1),
             "skill_name": get_skill_display(r["id"]), "skill_power": _skill_pow,
+            "skill_effects": skill_effects_list,
             "hp": stats["hp"], "atk": stats["atk"],
             "def_": stats["def"], "spa": stats["spa"],
             "spdef": stats["spdef"], "spd": stats["spd"],
