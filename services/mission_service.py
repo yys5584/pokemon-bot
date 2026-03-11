@@ -42,14 +42,26 @@ async def check_mission_progress(user_id: int, mission_key: str) -> str | None:
         return None  # 아직 목표 미달
 
     # ── 개별 보상 자동 지급 ──
-    await bq.add_bp(user_id, config.MISSION_REWARD_BP)
-    await queries.add_hyper_ball(user_id, config.MISSION_REWARD_HYPER)
+    # 구독자 미션 보상 배율 적용
+    bp_reward = config.MISSION_REWARD_BP
+    hyper_reward = config.MISSION_REWARD_HYPER
+    try:
+        from services.subscription_service import get_benefit_value
+        mission_mult = await get_benefit_value(user_id, "mission_reward_multiplier", 1.0)
+        if mission_mult > 1.0:
+            bp_reward = int(bp_reward * mission_mult)
+            hyper_reward = int(hyper_reward * mission_mult) or hyper_reward
+    except Exception:
+        pass
+
+    await bq.add_bp(user_id, bp_reward)
+    await queries.add_hyper_ball(user_id, hyper_reward)
     await queries.claim_mission_reward(user_id, date, mission_key)
 
     label = config.MISSION_POOL.get(mission_key, {}).get("label", mission_key)
     msg = (
         f"🎯 미션 완료! {label}\n"
-        f"{ball_emoji('hyperball')} 하이퍼볼 {config.MISSION_REWARD_HYPER}개 + {config.MISSION_REWARD_BP} BP 획득!"
+        f"{ball_emoji('hyperball')} 하이퍼볼 {hyper_reward}개 + {bp_reward} BP 획득!"
     )
 
     # ── 전체 완료 체크 ──

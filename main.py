@@ -59,6 +59,10 @@ from handlers.admin import (
     stats_handler, channel_list_handler, grant_masterball_handler,
     arcade_handler, tournament_chat_handler, force_tournament_reg_handler, force_tournament_run_handler,
 )
+from handlers.dm_subscription import (
+    subscription_handler, subscription_callback_handler,
+    subscription_status_handler, premium_shop_handler, channel_shop_handler,
+)
 
 from services.spawn_service import schedule_all_chats
 from services.weather_service import update_weather, get_current_weather, WEATHER_BOOSTS
@@ -156,6 +160,12 @@ async def post_init(application: Application):
     # Weather는 느릴 수 있으므로 백그라운드로 (시작 차단 안 함)
     weather_city = os.getenv("WEATHER_CITY", "Seoul")
     asyncio.create_task(update_weather(weather_city))
+
+    # 구독 블록체인 모니터 (Base 체인 USDC/USDT Transfer 폴링)
+    if config.SUBSCRIPTION_WALLET:
+        from services.subscription_service import chain_monitor_loop
+        asyncio.create_task(chain_monitor_loop(application.bot))
+        logger.info("Subscription chain monitor started")
 
     # Load tournament chat ID from DB
     config.TOURNAMENT_CHAT_ID = await queries.get_tournament_chat_id()
@@ -277,6 +287,33 @@ async def _grant_title_buffs():
             logger.info(f"Title buff: +{buff['daily_masterball']} masterball to user {bu['user_id']} ({bu['title']})")
 
 
+async def _grant_subscription_daily(bot):
+    """구독자 일일 혜택 지급: 하이퍼볼 +5, 채널장 아케이드 +1."""
+    try:
+        from database import subscription_queries as sq
+        subs = await sq.get_all_active_subscriptions()
+        if not subs:
+            return
+        for sub in subs:
+            uid = sub["user_id"]
+            tier_cfg = config.SUBSCRIPTION_TIERS.get(sub["tier"], {})
+            benefits = tier_cfg.get("benefits", {})
+
+            # 일일 하이퍼볼 +5
+            daily_hyper = benefits.get("daily_hyperball", 0)
+            if daily_hyper:
+                await queries.add_hyper_ball(uid, daily_hyper)
+
+            # 채널장: 일일 아케이드 패스 +1
+            daily_arcade = benefits.get("daily_free_arcade_pass", 0)
+            if daily_arcade:
+                await queries.add_arcade_ticket(uid, daily_arcade)
+
+        logger.info(f"Subscription daily benefits granted to {len(subs)} subscribers")
+    except Exception as e:
+        logger.error(f"Subscription daily grant error: {e}")
+
+
 async def midnight_reset(context):
     """자정(0시 KST) 일일 리셋: 잡기횟수, 보너스, 밥/놀기, 강제스폰, 스폰카운트."""
     from database.connection import get_db
@@ -304,6 +341,7 @@ async def midnight_reset(context):
         queries.cleanup_old_missions(days=7),
         queries.reset_daily_cxp(),
         _grant_title_buffs(),
+        _grant_subscription_daily(context.bot),
     )
 
     # Record reset timestamp
@@ -560,6 +598,12 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^방생$"), release_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^합성$"), fusion_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?미션$"), mission_handler))
+
+    # Subscription system (DM + Group)
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(💎\s*)?구독$"), subscription_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^구독정보$"), subscription_status_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(💎\s*)?프리미엄상점$"), premium_shop_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^채팅상점$"), channel_shop_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?칭호목록$"), title_list_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?칭호$"), title_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?상태창$"), status_handler))
@@ -729,6 +773,9 @@ def main():
     app.add_handler(CallbackQueryHandler(yacha_response_callback, pattern=r"^yacha_"))
     app.add_handler(CallbackQueryHandler(yacha_result_callback, pattern=r"^yres_"))
 
+    # Subscription callbacks (sub_tier_, sub_token_, sub_check_, sub_cancel_, sub_back, sub_status, sub_pshop_, sub_cshop_)
+    app.add_handler(CallbackQueryHandler(subscription_callback_handler, pattern=r"^sub_"))
+
     # Event DM broadcast callback
     app.add_handler(CallbackQueryHandler(event_dm_callback, pattern=r"^evt_dm_"))
 
@@ -774,6 +821,20 @@ def main():
         ranked_weekly_reset_job,
         time=dt_time(0, 5, 0, tzinfo=kst),
         name="ranked_weekly_reset",
+    )
+
+    # Subscription: 만료 체크 + 갱신 알림 (매일 09:00 KST)
+    async def _subscription_expiry_job(context):
+        try:
+            from services.subscription_service import check_expiry_and_notify
+            await check_expiry_and_notify(context.bot)
+        except Exception as e:
+            logger.error(f"Subscription expiry job error: {e}")
+
+    app.job_queue.run_daily(
+        _subscription_expiry_job,
+        time=dt_time(9, 0, 0, tzinfo=kst),
+        name="subscription_expiry",
     )
 
     # Tournament schedule (21:00 registration, 21:50 snapshot, 22:00 start — KST)

@@ -756,6 +756,15 @@ async def execute_battle(
         bp_won = _calculate_bp(winner_team_size, loser_team_size, result["perfect_win"], new_streak)
         bp_lose = config.BP_LOSE
 
+        # 구독자 BP 배율 적용
+        try:
+            from services.subscription_service import get_benefit_value
+            multiplier = await get_benefit_value(winner_id, "bp_multiplier", 1.0)
+            if multiplier > 1.0:
+                bp_won = int(bp_won * multiplier)
+        except Exception:
+            pass
+
     # Update stats (ranked still counts in overall battle_wins/losses)
     await bq.update_battle_stats_win(winner_id, bp_won)
     await bq.update_battle_stats_lose(loser_id, bp_lose)
@@ -829,6 +838,17 @@ async def execute_battle(
     d_user = await queries.get_user(defender_id)
     c_name = c_user["display_name"] if c_user else "???"
     d_name = d_user["display_name"] if d_user else "???"
+
+    # 구독자 존칭 적용
+    try:
+        from utils.honorific import honorific_name as _hon_name
+        from services.subscription_service import get_user_tier
+        c_tier = await get_user_tier(challenger_id)
+        d_tier = await get_user_tier(defender_id)
+        c_name = _hon_name(c_name, c_tier)
+        d_name = _hon_name(d_name, d_tier)
+    except Exception:
+        pass
     c_te = c_user.get("title_emoji", "") if c_user else ""
     d_te = d_user.get("title_emoji", "") if d_user else ""
     c_title_str = f"{icon_emoji(c_te)} " if c_te and c_te in config.ICON_CUSTOM_EMOJI else ""

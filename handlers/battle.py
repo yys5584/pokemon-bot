@@ -2107,6 +2107,15 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
         w_name = winner_user["display_name"] if winner_user else "???"
         l_name = loser_user["display_name"] if loser_user else "???"
 
+        # 구독자 존칭 적용 (패배자가 구독자면 님 붙임)
+        try:
+            from utils.honorific import honorific_name as _hon_name
+            from services.subscription_service import get_user_tier
+            l_tier = await get_user_tier(loser_id)
+            l_name = _hon_name(l_name, l_tier)
+        except Exception:
+            pass
+
         await query.answer()
 
         # Remove only the teabag button, keep detail/skip
@@ -3589,6 +3598,15 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
         loser_user = await queries.get_user(loser_id)
         w_name = winner_user["display_name"] if winner_user else "???"
         l_name = loser_user["display_name"] if loser_user else "???"
+
+        # 구독자 존칭 적용 (패배자가 구독자면 님 붙임)
+        try:
+            from utils.honorific import honorific_name as _hon_name
+            from services.subscription_service import get_user_tier
+            l_tier = await get_user_tier(loser_id)
+            l_name = _hon_name(l_name, l_tier)
+        except Exception:
+            pass
 
         await query.answer()
 

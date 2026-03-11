@@ -140,14 +140,21 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             return
 
-        # Check force spawn limit (50 per chat)
+        # Check force spawn limit (50 per chat) — 구독자 무제한 체크
         count = await queries.get_force_spawn_count(chat_id)
-        if count >= 50:
+        force_spawn_unlimited = False
+        try:
+            from services.subscription_service import has_benefit
+            force_spawn_unlimited = await has_benefit(user_id, "force_spawn_unlimited")
+        except Exception:
+            pass
+
+        if not force_spawn_unlimited and count >= 50:
             resp = await update.message.reply_text("🚫 이 방의 강제스폰 횟수를 모두 사용했습니다! (50/50회)")
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             return
 
-        logger.info(f"force_spawn: executing spawn in chat {chat_id} (count: {count}/50)")
+        logger.info(f"force_spawn: executing spawn in chat {chat_id} (count: {count}/50, unlimited={force_spawn_unlimited})")
 
         try:
             # Trigger spawn immediately (force=True skips activity check)
@@ -175,7 +182,8 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             await queries.increment_force_spawn(chat_id)
             used = count + 1
             try:
-                resp = await context.bot.send_message(chat_id=chat_id, text=f"{icon_emoji('bolt')} 강제스폰! ({used}/50회)", parse_mode="HTML")
+                count_txt = f"({used}/∞)" if force_spawn_unlimited else f"({used}/50회)"
+                resp = await context.bot.send_message(chat_id=chat_id, text=f"{icon_emoji('bolt')} 강제스폰! {count_txt}", parse_mode="HTML")
                 schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             except Exception:
                 pass

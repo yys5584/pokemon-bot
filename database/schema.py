@@ -498,6 +498,45 @@ CHAT_LEVEL_MIGRATIONS = [
     "ALTER TABLE chat_rooms ADD COLUMN cxp_today INTEGER NOT NULL DEFAULT 0",
 ]
 
+# ─── 구독 시스템 ─────────────────────────────────
+SUBSCRIPTION_TABLES = [
+    """
+    CREATE TABLE IF NOT EXISTS subscription_payments (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES users(user_id),
+        tier TEXT NOT NULL,
+        amount_raw BIGINT NOT NULL,
+        amount_usd NUMERIC(10,6) NOT NULL,
+        token TEXT NOT NULL,
+        chain TEXT NOT NULL DEFAULT 'base',
+        tx_hash TEXT UNIQUE,
+        from_address TEXT,
+        status TEXT NOT NULL DEFAULT 'pending'
+            CHECK(status IN ('pending','confirmed','expired')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        confirmed_at TIMESTAMPTZ,
+        expires_at TIMESTAMPTZ NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_subpay_status ON subscription_payments(status, expires_at)",
+    "CREATE INDEX IF NOT EXISTS idx_subpay_user ON subscription_payments(user_id, status)",
+    "CREATE INDEX IF NOT EXISTS idx_subpay_amount ON subscription_payments(amount_raw, token, status)",
+    """
+    CREATE TABLE IF NOT EXISTS subscriptions (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES users(user_id),
+        tier TEXT NOT NULL,
+        starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        payment_id INTEGER REFERENCES subscription_payments(id),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_subs_active ON subscriptions(user_id, is_active, expires_at)",
+    "CREATE INDEX IF NOT EXISTS idx_subs_expiry ON subscriptions(is_active, expires_at)",
+]
+
 CHAT_CXP_LOG_TABLE = """
 CREATE TABLE IF NOT EXISTS chat_cxp_log (
     id SERIAL PRIMARY KEY,
@@ -780,6 +819,12 @@ async def create_tables():
         except Exception:
             pass
 
+    # Subscription system tables
+    for sql in SUBSCRIPTION_TABLES:
+        try:
+            await pool.execute(sql)
+        except Exception:
+            pass
 
     # ── Performance indexes (idempotent) ──
     perf_indexes = [

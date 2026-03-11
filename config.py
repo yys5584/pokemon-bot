@@ -510,6 +510,69 @@ CXP_PER_FORCE_SPAWN = 1
 CXP_DAILY_CAP = 50
 AUTO_ARCADE_DURATION = 3600          # Lv.8 자동 아케이드 (1시간, 초)
 
+# ─── 구독 시스템 ─────────────────────────────────
+SUBSCRIPTION_TIERS = {
+    "basic": {
+        "name": "베이직",
+        "price_usd": 3.90,
+        "duration_days": 30,
+        "benefits": {
+            "pokeball_unlimited": True,
+            "masterball_daily_limit": 5,
+            "premium_shop": True,
+            "catch_cooldown_bypass": True,
+            "daily_hyperball": 5,
+            "bp_multiplier": 1.5,
+            "mission_reward_multiplier": 1.5,
+            "honorific": "polite",
+        },
+        "description": "포케볼 무제한 · 프리미엄상점 · 쿨다운 해제 · 하이퍼볼+5 · BP 1.5배 · 미션 1.5배 · 🎩???",
+    },
+    "channel_owner": {
+        "name": "채널장",
+        "price_usd": 9.90,
+        "duration_days": 30,
+        "benefits": {
+            "pokeball_unlimited": True,
+            "masterball_daily_limit": 5,
+            "premium_shop": True,
+            "catch_cooldown_bypass": True,
+            "daily_hyperball": 5,
+            "bp_multiplier": 1.5,
+            "mission_reward_multiplier": 1.5,
+            "force_spawn_unlimited": True,
+            "channel_shop": True,
+            "channel_spawn_boost": 1.3,
+            "daily_free_arcade_pass": 1,
+            "channel_cxp_multiplier": 1.5,
+            "honorific": "supreme",
+        },
+        "description": "베이직 전부 · 강스 무제한 · 채팅상점 · 스폰+30% · 아케이드+1 · 채널XP 1.5배 · 🎩???(강화)",
+    },
+}
+
+# 커밍쑨 티어 (UI 표시용)
+SUBSCRIPTION_COMING_SOON = {
+    "premium": {"name": "프리미엄", "description": "베이직 + 캠프 강화 + 추가 혜택"},
+    "premium_channel": {"name": "프리미엄 채널장", "description": "채널장 + 캠프 채널 혜택 + 추가 혜택"},
+}
+
+# 블록체인 결제 설정
+SUBSCRIPTION_WALLET = os.getenv("SUBSCRIPTION_WALLET", "")
+BASE_RPC_URL = os.getenv("BASE_RPC_URL", "https://mainnet.base.org")
+USDC_CONTRACT = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+USDT_CONTRACT = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"
+TOKEN_DECIMALS = 6
+CHAIN_POLL_INTERVAL = 20              # 블록체인 폴링 간격 (초)
+PAYMENT_WINDOW = 1800                 # 결제 대기 시간 (30분)
+RENEWAL_REMINDER_DAYS = 3             # 만료 알림 (3일 전)
+
+# 채팅상점 가격
+CHANNEL_SHOP_ARCADE_SPEED_COST = 300   # BP — 아케이드 속도 부스트 (-10초)
+CHANNEL_SHOP_ARCADE_EXTEND_COST = 200  # BP — 아케이드 시간 연장 (+30분)
+ARCADE_SPEED_BOOST_REDUCTION = 10      # 초
+ARCADE_EXTEND_MINUTES = 30             # 분
+
 
 def get_chat_level_info(cxp: int) -> dict:
     """CXP로 현재 레벨 + 혜택 조회."""

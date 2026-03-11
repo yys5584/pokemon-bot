@@ -22,6 +22,16 @@ logger = logging.getLogger(__name__)
 async def _add_cxp_bg(context, chat_id: int, amount: int, action: str, user_id: int | None = None):
     """Background: award CXP to a chat room and announce level-ups."""
     try:
+        # 구독자 채널 CXP 배율 적용
+        if user_id:
+            try:
+                from services.subscription_service import get_benefit_value
+                cxp_mult = await get_benefit_value(user_id, "channel_cxp_multiplier", 1.0)
+                if cxp_mult > 1.0:
+                    amount = int(amount * cxp_mult)
+            except Exception:
+                pass
+
         new_level = await queries.add_chat_cxp(chat_id, amount, action, user_id)
         if new_level:
             info = config.get_chat_level_info(0)  # just for display
@@ -310,6 +320,60 @@ def stop_arcade_for_chat(app, chat_id: int):
     logger.info(f"Arcade stopped for chat {chat_id}")
 
 
+def get_arcade_state(app, chat_id: int) -> dict | None:
+    """아케이드 상태 조회. active=True이면 interval 포함."""
+    for job in app.job_queue.jobs():
+        if job.name == f"arcade_{chat_id}" and job.removed is False:
+            data = job.data or {}
+            return {
+                "active": True,
+                "interval": data.get("interval", config.ARCADE_SPAWN_INTERVAL),
+            }
+    return None
+
+
+def set_arcade_interval(app, chat_id: int, new_interval: int):
+    """활성 아케이드의 스폰 간격 변경."""
+    job_name = f"arcade_{chat_id}"
+    for job in app.job_queue.jobs():
+        if job.name == job_name:
+            job.schedule_removal()
+
+    app.job_queue.run_repeating(
+        execute_spawn,
+        interval=new_interval,
+        first=new_interval,
+        data={"chat_id": chat_id, "force": True, "interval": new_interval},
+        name=job_name,
+    )
+    logger.info(f"Arcade interval changed for {chat_id}: {new_interval}s")
+
+
+def extend_arcade_time(app, chat_id: int, extend_minutes: int):
+    """활성 아케이드 시간 연장 (만료 잡 재스케줄)."""
+    expire_name = f"arcade_expire_{chat_id}"
+    remaining = 0
+
+    for job in app.job_queue.jobs():
+        if job.name == expire_name and job.removed is False:
+            # 기존 만료까지 남은 시간 계산
+            if job.next_t:
+                from datetime import datetime, timezone as tz
+                now = datetime.now(tz.utc)
+                remaining = max(0, int((job.next_t - now).total_seconds()))
+            job.schedule_removal()
+            break
+
+    new_remaining = remaining + (extend_minutes * 60)
+    app.job_queue.run_once(
+        _expire_temp_arcade,
+        when=new_remaining,
+        data={"chat_id": chat_id},
+        name=expire_name,
+    )
+    logger.info(f"Arcade extended for {chat_id}: +{extend_minutes}m (total remaining: {new_remaining}s)")
+
+
 async def _expire_temp_arcade(context: ContextTypes.DEFAULT_TYPE):
     """Auto-expire a temporary arcade session."""
     chat_id = context.job.data["chat_id"]
@@ -527,9 +591,20 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         # Build result message
         from utils.helpers import get_decorated_name
         from utils.battle_calc import iv_total
+        from utils.honorific import honorific_name as _hon_name, honorific_catch_verb as _hon_verb
         user_data = await queries.get_user(winner_id)
+
+        # 구독자 존칭 적용
+        _winner_tier = None
+        try:
+            from services.subscription_service import get_user_tier
+            _winner_tier = await get_user_tier(winner_id)
+        except Exception:
+            pass
+        _display = _hon_name(winner_name, _winner_tier) if _winner_tier else winner_name
+
         decorated = get_decorated_name(
-            winner_name,
+            _display,
             user_data.get("title", "") if user_data else "",
             user_data.get("title_emoji", "") if user_data else "",
             winner.get("username"), html=True,
@@ -547,13 +622,15 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         be_master = ball_emoji("masterball")
         be_hyper = ball_emoji("hyperball")
 
+        _catch = _hon_verb("포획!", _winner_tier)
+        _catch_confirm = _hon_verb("확정 포획!", _winner_tier)
         if winner.get("used_master_ball"):
-            msg = f"{be_master} 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 확정 포획!{iv_tag}"
+            msg = f"{be_master} 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch_confirm}{iv_tag}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
-            msg = f"{be_hyper} 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
+            msg = f"{be_hyper} 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch}{iv_tag}"
         else:
-            msg = f"딸깍! {be_pokeball} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
+            msg = f"딸깍! {be_pokeball} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch}{iv_tag}"
 
         if is_shiny:
             _se = shiny_emoji()
@@ -1103,9 +1180,20 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         # Build message with decorated name (HTML bold for titled users)
         from utils.helpers import get_decorated_name
+        from utils.honorific import honorific_name as _hon_name, honorific_catch_verb as _hon_verb
         user_data = await queries.get_user(winner_id)
+
+        # 구독자 존칭 적용
+        _winner_tier = None
+        try:
+            from services.subscription_service import get_user_tier
+            _winner_tier = await get_user_tier(winner_id)
+        except Exception:
+            pass
+        _display = _hon_name(winner_name, _winner_tier) if _winner_tier else winner_name
+
         decorated = get_decorated_name(
-            winner_name,
+            _display,
             user_data.get("title", "") if user_data else "",
             user_data.get("title_emoji", "") if user_data else "",
             winner.get("username"),
@@ -1127,15 +1215,17 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         be_pokeball = ball_emoji("pokeball")
         be_master = ball_emoji("masterball")
         be_hyper = ball_emoji("hyperball")
+        _catch = _hon_verb("포획!", _winner_tier)
+        _catch_confirm = _hon_verb("확정 포획!", _winner_tier)
         if winner.get("used_master_ball"):
-            msg = f"{be_master} 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 확정 포획!{iv_tag}"
+            msg = f"{be_master} 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch_confirm}{iv_tag}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
-            msg = f"{be_hyper} 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
+            msg = f"{be_hyper} 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch}{iv_tag}"
         elif rarity in ("epic", "legendary", "ultra_legendary") and is_first:
-            msg = f"🌟 {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획! (이 방 최초){iv_tag}"
+            msg = f"🌟 {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch} (이 방 최초){iv_tag}"
         else:
-            msg = f"딸깍! {be_pokeball} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
+            msg = f"딸깍! {be_pokeball} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch}{iv_tag}"
 
         # Shiny catch announcement
         if is_shiny:
