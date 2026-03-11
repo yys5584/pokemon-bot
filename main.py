@@ -233,7 +233,28 @@ async def _notify_restart(bot):
 
 
 async def post_shutdown(application: Application):
-    """Called on shutdown — close DB."""
+    """Called on shutdown — resolve active spawns, then close DB."""
+    try:
+        from services.spawn_service import resolve_unresolved_sessions
+        refunded = await resolve_unresolved_sessions(application.bot)
+        if refunded:
+            for uid, ball_type in refunded:
+                try:
+                    from utils.helpers import ball_emoji
+                    be = ball_emoji("masterball") if ball_type == "master" else ball_emoji("hyperball")
+                    bname = "마스터볼" if ball_type == "master" else "하이퍼볼"
+                    await application.bot.send_message(
+                        chat_id=uid,
+                        text=f"{be} 서버 점검으로 인해 {bname}이 환불되었습니다.",
+                        parse_mode="HTML",
+                    )
+                except Exception:
+                    pass
+            logger.info(f"[shutdown] Resolved spawns, refunded {len(refunded)} balls")
+        else:
+            logger.info("[shutdown] No pending spawns to resolve")
+    except Exception as e:
+        logger.error(f"[shutdown] Failed to resolve spawns: {e}")
     await close_db()
     logger.info("Database closed.")
 
