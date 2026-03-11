@@ -88,6 +88,11 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
     if trade["status"] != "pending":
         return False, "이미 처리된 교환입니다.", None
 
+    # Atomically claim this trade (prevents race condition / double-accept)
+    claimed = await queries.update_trade_status(trade_id, "accepted", require_pending=True)
+    if not claimed:
+        return False, "이미 처리된 교환입니다.", None
+
     offer_instance_id = trade["offer_pokemon_instance_id"]
     offer_pokemon_id = trade["offer_pokemon_id"]
     from_user_id = trade["from_user_id"]
@@ -118,13 +123,12 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
         nurture_locked=is_evolved,
     )
 
-    # Phase: pokedex + trade status + title updates in parallel
+    # Phase: pokedex + title updates in parallel (trade status already set above)
     reg_task = queries.register_pokedex(user_id, offer_pokemon_id, "trade")
-    status_task = queries.update_trade_status(trade_id, "accepted")
     title1_task = update_title(user_id)
     title2_task = update_title(from_user_id)
 
-    await asyncio.gather(reg_task, status_task, title1_task, title2_task)
+    await asyncio.gather(reg_task, title1_task, title2_task)
 
     # Check trade evolution eligibility (don't auto-evolve)
     pending_evo = build_trade_evo_info(offer_pokemon_id, new_instance_id)

@@ -329,7 +329,7 @@ async def api_auth_telegram(request):
             "photo_url": data.get("photo_url", ""),
         },
     })
-    resp.set_cookie("sid", sid, max_age=SESSION_MAX_AGE, httponly=True, samesite="Lax")
+    resp.set_cookie("sid", sid, max_age=SESSION_MAX_AGE, httponly=True, samesite="Lax", secure=True)
     return resp
 
 
@@ -1219,13 +1219,14 @@ async def _call_gemini(system_prompt: str, messages: list, user_msg: str) -> tup
         },
     }
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    headers = {"x-goog-api-key": api_key, "Content-Type": "application/json"}
 
     max_retries = 3
     for attempt in range(max_retries):
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=90)) as resp:
+                async with session.post(url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=90)) as resp:
                     if resp.status == 429:
                         wait = 2 ** attempt + 1  # 2s, 3s, 5s
                         logger.warning(f"Gemini 429 rate limit, retry {attempt+1}/{max_retries} in {wait}s")
@@ -1362,7 +1363,7 @@ async def api_my_fusion(request):
         success, msg, result = await execute_fusion(sess["user_id"], id_a, id_b)
     except Exception as e:
         logger.exception("Fusion error: user=%s a=%s b=%s", sess["user_id"], id_a, id_b)
-        return web.json_response({"error": f"서버 오류: {e}"}, status=500)
+        return web.json_response({"error": "서버 오류가 발생했습니다."}, status=500)
 
     if not success:
         return web.json_response({"error": msg}, status=400)
@@ -3347,8 +3348,8 @@ async def api_payment_webhook(request):
             hashlib.sha512,
         ).hexdigest()
         if not hmac.compare_digest(sig, expected):
-            # Signature mismatch — log but still process (NOWPayments JSON serialization can differ)
-            logger.warning(f"NOWPayments webhook: signature mismatch (expected={expected[:16]}... got={sig[:16]}...), processing anyway")
+            logger.warning(f"NOWPayments webhook: signature mismatch (expected={expected[:16]}... got={sig[:16]}...)")
+            return web.json_response({"error": "Invalid signature"}, status=403)
 
     payment_status = body.get("payment_status")
     order_id = body.get("order_id", "")

@@ -1848,9 +1848,12 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     parts = data.split("_")
     # battle_accept_{challenge_id}_{defender_id}
     # battle_decline_{challenge_id}_{defender_id}
-    action = parts[1]
-    challenge_id = int(parts[2])
-    expected_defender = int(parts[3])
+    try:
+        action = parts[1]
+        challenge_id = int(parts[2])
+        expected_defender = int(parts[3])
+    except (IndexError, ValueError):
+        return
 
     # 타임아웃 job 취소
     jobs = context.job_queue.get_jobs_by_name(f"battle_timeout_{challenge_id}")
@@ -2445,9 +2448,12 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
     parts = data.split("_")
     # ranked_accept_{challenge_id}_{defender_id}
-    action = parts[1]
-    challenge_id = int(parts[2])
-    expected_defender = int(parts[3])
+    try:
+        action = parts[1]
+        challenge_id = int(parts[2])
+        expected_defender = int(parts[3])
+    except (IndexError, ValueError):
+        return
 
     # 타임아웃 job 취소
     jobs = context.job_queue.get_jobs_by_name(f"ranked_timeout_{challenge_id}")
@@ -3566,9 +3572,13 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     data = query.data  # yres_tbag_{w}_{l}
     parts = data.split("_")
-    action = parts[1]  # tbag
-    winner_id = int(parts[2])
-    loser_id = int(parts[3])
+    try:
+        action = parts[1]  # tbag
+        winner_id = int(parts[2])
+        loser_id = int(parts[3])
+    except (IndexError, ValueError):
+        await query.answer()
+        return
 
     if action == "tbag":
         if query.from_user.id != winner_id:

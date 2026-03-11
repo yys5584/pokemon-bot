@@ -183,7 +183,7 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         except Exception as e:
             logger.error(f"force_spawn FAILED in chat {chat_id}: {e}", exc_info=True)
             try:
-                resp = await context.bot.send_message(chat_id=chat_id, text=f"❌ 강제스폰 실패: {e}")
+                resp = await context.bot.send_message(chat_id=chat_id, text="❌ 강제스폰 실패. 로그를 확인하세요.")
                 schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             except Exception:
                 pass
@@ -236,16 +236,9 @@ async def force_spawn_reset_handler(update: Update, context: ContextTypes.DEFAUL
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
-    # Allow bot admins + group admins (same as force_spawn)
+    # Bot admins only (global reset affects ALL chats)
     if not is_admin(user_id):
-        if update.effective_chat.type == "private":
-            return
-        try:
-            member = await context.bot.get_chat_member(chat_id, user_id)
-            if member.status not in ("creator", "administrator"):
-                return
-        except Exception:
-            return
+        return
 
     await queries.reset_force_spawn_counts()
     await update.message.reply_text(f"{icon_emoji('check')} 모든 방의 강제스폰 횟수가 초기화되었습니다!", parse_mode="HTML")
@@ -259,16 +252,9 @@ async def pokeball_reset_handler(update: Update, context: ContextTypes.DEFAULT_T
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
-    # Allow bot admins + group admins
+    # Bot admins only (global reset affects ALL users)
     if not is_admin(user_id):
-        if update.effective_chat.type == "private":
-            return
-        try:
-            member = await context.bot.get_chat_member(chat_id, user_id)
-            if member.status not in ("creator", "administrator"):
-                return
-        except Exception:
-            return
+        return
 
     await queries.reset_catch_limits()
     await update.message.reply_text(f"{icon_emoji('check')} 모든 유저의 포켓볼(잡기 횟수)이 초기화되었습니다!", parse_mode="HTML")

@@ -1301,8 +1301,14 @@ async def get_trade(trade_id: int) -> dict | None:
     return dict(row) if row else None
 
 
-async def update_trade_status(trade_id: int, status: str):
+async def update_trade_status(trade_id: int, status: str, *, require_pending: bool = False):
     pool = await get_db()
+    if require_pending:
+        row = await pool.fetchrow(
+            "UPDATE trades SET status = $1, resolved_at = NOW() WHERE id = $2 AND status = 'pending' RETURNING id",
+            status, trade_id,
+        )
+        return row is not None
     await pool.execute(
         "UPDATE trades SET status = $1, resolved_at = NOW() WHERE id = $2",
         status, trade_id,

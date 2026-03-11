@@ -1952,7 +1952,7 @@ function updateAuthUI(){
     const admTab=document.getElementById("adminTab");
     if(_authUser){
         const photo=_authUser.photo_url?`<img class="user-avatar" src="${_authUser.photo_url}" alt="">`:'';
-        area.innerHTML=`<div class="user-info">${photo}<span class="user-name">${_authUser.display_name}</span><span id="quotaBadge" style="background:rgba(255,255,255,.15);color:#FFD54F;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap">🎫 --</span><button class="logout-btn" onclick="telegramLogout()">로그아웃</button></div>`;
+        area.innerHTML=`<div class="user-info">${photo}<span class="user-name">${escHtml(_authUser.display_name)}</span><span id="quotaBadge" style="background:rgba(255,255,255,.15);color:#FFD54F;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap">🎫 --</span><button class="logout-btn" onclick="telegramLogout()">로그아웃</button></div>`;
         fetchQuota();
         if(admTab)admTab.style.display=_authUser.is_admin?"":"none";
     }else{
@@ -2189,7 +2189,7 @@ async function loadHome(){
     if(kpi.shiny_holders&&kpi.shiny_holders.length){
         let h=`<table><thead><tr><th>#</th><th>이름</th><th>이로치 수</th></tr></thead><tbody>`;
         kpi.shiny_holders.slice(0,10).forEach((r,i)=>{
-            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td style="font-weight:700;color:var(--gold)">★ ${r.shiny_count}</td></tr>`;
+            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${escHtml(r.display_name)}</td><td style="font-weight:700;color:var(--gold)">★ ${r.shiny_count}</td></tr>`;
         });
         document.getElementById("shinyHoldersHome").innerHTML=h+"</tbody></table>";
     }else{document.getElementById("shinyHoldersHome").innerHTML='<p class="empty-msg">이로치 보유자 없음</p>'}
@@ -2198,7 +2198,7 @@ async function loadHome(){
     const users=await fetchJSON("/api/users");
     if(users&&users.length){
         let h=`<table><thead><tr><th>#</th><th>이름</th><th>도감</th></tr></thead><tbody>`;
-        users.slice(0,10).forEach((u,i)=>{h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${u.title?u.title_emoji+" ":""}${u.display_name}</td><td style="font-weight:700">${u.pokedex_count}/386</td></tr>`});
+        users.slice(0,10).forEach((u,i)=>{h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${u.title?escHtml(u.title_emoji)+" ":""}${escHtml(u.display_name)}</td><td style="font-weight:700">${u.pokedex_count}/386</td></tr>`});
         document.getElementById("usersTable").innerHTML=h+"</tbody></table>";
     }
 
@@ -2206,7 +2206,7 @@ async function loadHome(){
     if(spawns&&spawns.length){
         let h='<ul class="log-list">';
         spawns.slice(0,10).forEach(s=>{
-            const c=s.caught_by_name?`<span class="log-catch">${s.caught_by_name} 포획!</span>`:`<span class="log-escape">도망</span>`;
+            const c=s.caught_by_name?`<span class="log-catch">${escHtml(s.caught_by_name)} 포획!</span>`:`<span class="log-escape">도망</span>`;
             h+=`<li class="log-item"><span class="log-time">${formatTime(s.spawned_at)}</span><span class="log-emoji">${s.pokemon_emoji}</span><span class="log-text">${s.pokemon_name} ${rarityBadge(s.rarity)} ${c}</span></li>`;
         });
         document.getElementById("recentLogHome").innerHTML=h+"</ul>";
@@ -2219,7 +2219,7 @@ async function loadHome(){
         tWinners.forEach((w,i)=>{
             const titleBadges=w.titles.map(t=>`<span class="tw-badge" title="${t.title_desc}">${t.title_emoji} ${t.title_name}</span>`).join(" ");
             const teamTip=w.team.length?`<span class="tip-content">${w.team.map(p=>`${p.shiny?'✨':''}${p.emoji} ${p.name}`).join("<br>")}</span>`:"";
-            const nameCell=teamTip?`<span class="team-tip">${w.display_name}${teamTip}</span>`:w.display_name;
+            const nameCell=teamTip?`<span class="team-tip">${escHtml(w.display_name)}${teamTip}</span>`:escHtml(w.display_name);
             h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${nameCell}</td><td>${titleBadges}</td></tr>`;
         });
         twEl.innerHTML=h+"</tbody></table>";
@@ -2278,7 +2278,7 @@ async function loadBattleRank(){
             rk.forEach((r,i)=>{
                 const total=r.ranked_wins+r.ranked_losses;
                 const wr=total>0?Math.round(r.ranked_wins/total*100)+"%":"-";
-                h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td style="white-space:nowrap">${r.tier_display}</td><td style="font-weight:700;color:var(--gold)">${r.rp}</td><td style="color:var(--green)">${r.ranked_wins}</td><td style="color:var(--red)">${r.ranked_losses}</td><td>🔥${r.best_ranked_streak}</td></tr>`;
+                h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${escHtml(r.display_name)}</td><td style="white-space:nowrap">${r.tier_display}</td><td style="font-weight:700;color:var(--gold)">${r.rp}</td><td style="color:var(--green)">${r.ranked_wins}</td><td style="color:var(--red)">${r.ranked_losses}</td><td>🔥${r.best_ranked_streak}</td></tr>`;
             });
             h+="</tbody></table>";
             document.getElementById("rankedRanking").innerHTML=h;
@@ -2313,7 +2313,7 @@ async function loadBattleRank(){
                         return s+p.emoji+p.name_ko+partner;
                     }).join("<br>")}</span>`;
                 }
-                const nameCell=teamHtml?`<span class="team-tip">${title}${r.display_name}${teamHtml}</span>`:`${title}${r.display_name}`;
+                const nameCell=teamHtml?`<span class="team-tip">${title}${escHtml(r.display_name)}${teamHtml}</span>`:`${title}${escHtml(r.display_name)}`;
                 h+=`<tr><td>${idx<3?medals[idx]:idx+1}</td><td>${nameCell}</td><td style="color:var(--green);font-weight:600">${r.battle_wins}</td><td style="color:var(--red)">${r.battle_losses}</td><td>${wr}</td><td>🔥${r.best_streak}</td><td style="color:var(--gold)">${r.battle_points}</td></tr>`;
             });
             return h+"</tbody></table>";
@@ -2336,7 +2336,7 @@ async function loadBattleRank(){
             let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th><th class="hide-m">1세대</th><th class="hide-m">2세대</th><th class="hide-m">3세대</th><th>도감</th></tr></thead><tbody>`;
             slice.forEach((u,i)=>{
                 const idx=offset+i;
-                h+=`<tr><td>${idx<3?medals[idx]:idx+1}</td><td>${u.display_name}</td><td style="white-space:nowrap;font-size:11px">${u.title?u.title_emoji+" "+u.title:"-"}</td><td class="hide-m">${u.gen1_count}/151</td><td class="hide-m">${u.gen2_count}/100</td><td class="hide-m">${u.gen3_count||0}/135</td><td style="font-weight:700">${u.pokedex_count}/386</td></tr>`;
+                h+=`<tr><td>${idx<3?medals[idx]:idx+1}</td><td>${escHtml(u.display_name)}</td><td style="white-space:nowrap;font-size:11px">${u.title?escHtml(u.title_emoji)+" "+escHtml(u.title):"-"}</td><td class="hide-m">${u.gen1_count}/151</td><td class="hide-m">${u.gen2_count}/100</td><td class="hide-m">${u.gen3_count||0}/135</td><td style="font-weight:700">${u.pokedex_count}/386</td></tr>`;
             });
             return h+"</tbody></table>";
         });
@@ -2346,7 +2346,7 @@ async function loadBattleRank(){
     if(kpi&&kpi.shiny_holders&&kpi.shiny_holders.length){
         const top10=kpi.shiny_holders.slice(0,10);
         let sh=`<table><thead><tr><th>#</th><th>이름</th><th>이로치</th></tr></thead><tbody>`;
-        top10.forEach((r,i)=>{sh+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td style="font-weight:700;color:var(--gold)">★ ${r.shiny_count}</td></tr>`});
+        top10.forEach((r,i)=>{sh+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${escHtml(r.display_name)}</td><td style="font-weight:700;color:var(--gold)">★ ${r.shiny_count}</td></tr>`});
         document.getElementById("shinyHoldersFull").innerHTML=sh+"</tbody></table>";
     }else{document.getElementById("shinyHoldersFull").innerHTML='<p class="empty-msg">이로치 보유자 없음</p>'}
 
@@ -2356,7 +2356,7 @@ async function loadBattleRank(){
         let ih=`<table><thead><tr><th>#</th><th>이름</th><th>푸키몬</th><th>개체값</th></tr></thead><tbody>`;
         ivRanking.forEach((r,i)=>{
             const shiny=r.is_shiny?"✨":"";
-            ih+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${r.display_name}</td><td>${shiny}${r.emoji} ${r.name_ko}</td><td style="font-weight:700;color:var(--green)">${r.iv_grade}급 ${r.iv_total}점</td></tr>`;
+            ih+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${escHtml(r.display_name)}</td><td>${shiny}${r.emoji} ${escHtml(r.name_ko)}</td><td style="font-weight:700;color:var(--green)">${r.iv_grade}급 ${r.iv_total}점</td></tr>`;
         });
         ivEl.innerHTML=ih+"</tbody></table>";
     }else{ivEl.innerHTML='<p class="empty-msg">개체값 데이터 없음</p>'}
@@ -2378,7 +2378,7 @@ async function loadBattleRank(){
         let h=`<table><thead><tr><th>#</th><th>이름</th><th>칭호</th></tr></thead><tbody>`;
         tWinnersBR.forEach((w,i)=>{
             const titleBadges=w.titles.map(t=>`<span class="tw-badge" title="${t.title_desc}">${t.title_emoji} ${t.title_name}</span>`).join(" ");
-            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${w.display_name}</td><td>${titleBadges}</td></tr>`;
+            h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${escHtml(w.display_name)}</td><td>${titleBadges}</td></tr>`;
         });
         twBREl.innerHTML=h+"</tbody></table>";
     }else{twBREl.innerHTML='<p class="empty-msg">우승자 없음</p>'}
