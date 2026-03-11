@@ -185,14 +185,17 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_FEED * boost
-    new_friendship = await queries.atomic_feed(pokemon["id"], gain, max_f)
+    new_friendship = await queries.atomic_feed(pokemon["id"], gain, max_f, feed_limit)
     if new_friendship is None:
+        await update.message.reply_text(f"오늘은 이미 {pokemon['name_ko']}에게 밥을 {feed_limit}번 줬습니다!")
         return
 
     # Mission: feed
     asyncio.create_task(_check_and_notify_mission(update, "feed"))
 
-    remaining = feed_limit - pokemon["fed_today"] - 1
+    # fed_today는 이미 DB에서 +1됨, 새로 조회 대신 계산
+    fed_after = pokemon["fed_today"] + 1
+    remaining = feed_limit - fed_after
     hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 
@@ -263,16 +266,19 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    play_limit = config.PLAY_PER_DAY
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_PLAY * boost
-    new_friendship = await queries.atomic_play(pokemon["id"], gain, max_f)
+    new_friendship = await queries.atomic_play(pokemon["id"], gain, max_f, play_limit)
     if new_friendship is None:
+        await update.message.reply_text(f"오늘은 이미 {pokemon['name_ko']}와(과) {play_limit}번 놀았습니다!")
         return
 
     # Mission: play
     asyncio.create_task(_check_and_notify_mission(update, "play"))
 
-    remaining = config.PLAY_PER_DAY - pokemon["played_today"] - 1
+    played_after = pokemon["played_today"] + 1
+    remaining = play_limit - played_after
     hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 
@@ -383,8 +389,9 @@ async def _do_feed(query, user_id, pokemon):
 
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_FEED * boost
-    new_friendship = await queries.atomic_feed(pokemon["id"], gain, max_f)
+    new_friendship = await queries.atomic_feed(pokemon["id"], gain, max_f, feed_limit)
     if new_friendship is None:
+        await query.edit_message_text(f"오늘은 이미 {pokemon['name_ko']}에게 밥을 {feed_limit}번 줬습니다!")
         return
 
     # Mission: feed (callback path — use user_id directly, no Update object)
@@ -398,7 +405,8 @@ async def _do_feed(query, user_id, pokemon):
             pass
     asyncio.create_task(_cb_feed_mission())
 
-    remaining = feed_limit - pokemon["fed_today"] - 1
+    fed_after = pokemon["fed_today"] + 1
+    remaining = feed_limit - fed_after
     hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 
@@ -454,10 +462,12 @@ async def _do_play(query, user_id, pokemon):
         )
         return
 
+    play_limit = config.PLAY_PER_DAY
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_PLAY * boost
-    new_friendship = await queries.atomic_play(pokemon["id"], gain, max_f)
+    new_friendship = await queries.atomic_play(pokemon["id"], gain, max_f, play_limit)
     if new_friendship is None:
+        await query.edit_message_text(f"오늘은 이미 {pokemon['name_ko']}와(과) {play_limit}번 놀았습니다!")
         return
 
     # Mission: play (callback path — use user_id directly, no Update object)
@@ -471,7 +481,8 @@ async def _do_play(query, user_id, pokemon):
             pass
     asyncio.create_task(_cb_play_mission())
 
-    remaining = config.PLAY_PER_DAY - pokemon["played_today"] - 1
+    played_after = pokemon["played_today"] + 1
+    remaining = play_limit - played_after
     hearts = hearts_display(new_friendship, max_f)
     boost_text = f" (이벤트 {boost}배!)" if boost > 1 else ""
 

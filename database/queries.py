@@ -488,31 +488,32 @@ async def update_pokemon_friendship(instance_id: int, friendship: int):
     )
 
 
-async def atomic_feed(instance_id: int, gain: int, max_friendship: int) -> int | None:
-    """Atomically increment friendship + fed_today, return new friendship.
-    Returns None if already at feed limit (fed_today >= fed_limit checked by caller)."""
+async def atomic_feed(instance_id: int, gain: int, max_friendship: int, feed_limit: int = 5) -> int | None:
+    """Atomically increment friendship + fed_today only if under limit.
+    Returns new friendship, or None if limit already reached (race-safe)."""
     pool = await get_db()
     row = await pool.fetchrow(
         """UPDATE user_pokemon
            SET friendship = LEAST(friendship + $2, $3),
                fed_today = fed_today + 1
-           WHERE id = $1
+           WHERE id = $1 AND fed_today < $4
            RETURNING friendship""",
-        instance_id, gain, max_friendship,
+        instance_id, gain, max_friendship, feed_limit,
     )
     return row["friendship"] if row else None
 
 
-async def atomic_play(instance_id: int, gain: int, max_friendship: int) -> int | None:
-    """Atomically increment friendship + played_today, return new friendship."""
+async def atomic_play(instance_id: int, gain: int, max_friendship: int, play_limit: int = 5) -> int | None:
+    """Atomically increment friendship + played_today only if under limit.
+    Returns new friendship, or None if limit already reached (race-safe)."""
     pool = await get_db()
     row = await pool.fetchrow(
         """UPDATE user_pokemon
            SET friendship = LEAST(friendship + $2, $3),
                played_today = played_today + 1
-           WHERE id = $1
+           WHERE id = $1 AND played_today < $4
            RETURNING friendship""",
-        instance_id, gain, max_friendship,
+        instance_id, gain, max_friendship, play_limit,
     )
     return row["friendship"] if row else None
 
