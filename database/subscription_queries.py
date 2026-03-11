@@ -50,6 +50,18 @@ async def get_pending_by_amount(amount_raw: int, token: str) -> dict | None:
     return dict(row) if row else None
 
 
+async def get_all_pending_by_token(token: str) -> list[dict]:
+    """해당 토큰의 모든 활성 pending 결제 목록."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT * FROM subscription_payments
+           WHERE token = $1 AND status = 'pending' AND expires_at > NOW()
+           ORDER BY created_at ASC""",
+        token,
+    )
+    return [dict(r) for r in rows]
+
+
 async def confirm_payment(payment_id: int, tx_hash: str, from_address: str) -> None:
     """결제 확인 (pending → confirmed)."""
     pool = await get_db()

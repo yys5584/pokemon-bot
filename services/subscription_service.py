@@ -51,10 +51,10 @@ def _token_name(contract_addr: str) -> str | None:
     return None
 
 
-# ─── 고유 금액 생성 ───────────────────────────────
+# ─── 금액 계산 ────────────────────────────────────
 
 async def generate_unique_amount(tier: str, token: str) -> tuple[int, float]:
-    """티어 기반 고유 결제 금액 생성.
+    """티어 정가 반환 (jitter 없음, 관리자 수동 승인 방식).
 
     Returns:
         (amount_raw, amount_usd): raw = 6 decimals int, usd = float
@@ -63,19 +63,8 @@ async def generate_unique_amount(tier: str, token: str) -> tuple[int, float]:
     if not tier_cfg:
         raise ValueError(f"Unknown tier: {tier}")
 
-    base_price = tier_cfg["price_usd"]
-
-    for _ in range(10):
-        jitter = random.randint(1, 9) / 100.0  # $0.01 ~ $0.09
-        amount_usd = round(base_price + jitter, 2)
-        amount_raw = int(amount_usd * 1_000_000)  # 6 decimals
-
-        if not await sq.is_amount_taken(amount_raw, token):
-            return amount_raw, amount_usd
-
-    # fallback: 극히 드문 경우
-    amount_usd = round(base_price + random.randint(10, 19) / 100.0, 2)
-    amount_raw = int(amount_usd * 1_000_000)
+    amount_usd = tier_cfg["price_usd"]
+    amount_raw = int(amount_usd * 1_000_000)  # 6 decimals
     return amount_raw, amount_usd
 
 
@@ -161,7 +150,7 @@ async def poll_chain_transfers(bot) -> None:
 
 
 async def _process_transfer(log, bot) -> None:
-    """단일 Transfer 이벤트 처리."""
+    """단일 Transfer 이벤트 처리 — 범위 내 금액이면 자동 매칭."""
     contract_addr = log["address"]
     token = _token_name(contract_addr)
     if not token:
@@ -170,57 +159,79 @@ async def _process_transfer(log, bot) -> None:
     # Transfer event: topics[1]=from, topics[2]=to, data=amount
     from_addr = "0x" + log["topics"][1].hex()[-40:]
     amount_raw = int(log["data"].hex(), 16)
-    tx_hash = log["transactionHash"].hex()
+    tx_hash = "0x" + log["transactionHash"].hex()
+    amount_usd = amount_raw / 1_000_000
 
-    # pending payment 매칭
-    payment = await sq.get_pending_by_amount(amount_raw, token)
-    if not payment:
+    # pending 결제 중 금액 범위(±$0.50) 매칭
+    TOLERANCE_RAW = 500_000  # $0.50 in 6 decimals
+    pending_list = await sq.get_all_pending_by_token(token)
+    matched = None
+    for p in pending_list:
+        if abs(p["amount_raw"] - amount_raw) <= TOLERANCE_RAW:
+            matched = p
+            break
+
+    if not matched:
+        logger.info(
+            f"Transfer detected (no match): {amount_usd} {token} "
+            f"from {from_addr[:10]}... tx={tx_hash[:20]}"
+        )
         return
 
     # 이미 처리된 tx인지 확인 (tx_hash UNIQUE)
     try:
-        await sq.confirm_payment(payment["id"], tx_hash, from_addr)
+        await sq.confirm_payment(matched["id"], tx_hash, from_addr)
     except Exception:
         logger.warning(f"Duplicate tx or confirm error: {tx_hash}")
         return
 
     # 구독 활성화
-    tier_cfg = config.SUBSCRIPTION_TIERS.get(payment["tier"], {})
+    tier_cfg = config.SUBSCRIPTION_TIERS.get(matched["tier"], {})
     duration = tier_cfg.get("duration_days", 30)
 
     # 기존 구독이 있으면 만료일부터 연장
-    existing = await sq.get_active_subscription(payment["user_id"])
-    if existing and existing["tier"] == payment["tier"]:
+    existing = await sq.get_active_subscription(matched["user_id"])
+    if existing and existing["tier"] == matched["tier"]:
         base_date = existing["expires_at"]
     else:
         base_date = datetime.now(timezone.utc)
 
     expires_at = base_date + timedelta(days=duration)
     await sq.create_subscription(
-        payment["user_id"], payment["tier"], expires_at, payment["id"],
+        matched["user_id"], matched["tier"], expires_at, matched["id"],
     )
+
+    tier_name = tier_cfg.get("name", matched["tier"])
+    exp_kst = expires_at.astimezone(config.KST).strftime("%Y-%m-%d %H:%M")
 
     logger.info(
-        f"Subscription activated: user={payment['user_id']} "
-        f"tier={payment['tier']} expires={expires_at} tx={tx_hash[:16]}..."
+        f"Subscription activated: user={matched['user_id']} "
+        f"tier={matched['tier']} paid={amount_usd} {token} expires={expires_at}"
     )
 
-    # DM 알림
+    # 유저에게 DM 알림
     try:
-        tier_name = tier_cfg.get("name", payment["tier"])
-        exp_kst = expires_at.astimezone(config.KST).strftime("%Y-%m-%d %H:%M")
-        text = (
+        user_text = (
             f"✅ <b>구독이 활성화되었습니다!</b>\n\n"
             f"💎 티어: {tier_name}\n"
-            f"📅 만료: {exp_kst} (KST)\n"
-            f"💰 결제: {payment['amount_usd']} {token}\n\n"
+            f"📅 만료: {exp_kst} (KST)\n\n"
             f"DM에서 '구독정보'로 혜택을 확인하세요!"
         )
         await bot.send_message(
-            chat_id=payment["user_id"], text=text, parse_mode="HTML",
+            chat_id=matched["user_id"], text=user_text, parse_mode="HTML",
         )
     except Exception as e:
-        logger.error(f"Subscription DM failed for {payment['user_id']}: {e}")
+        logger.error(f"Subscription DM failed for {matched['user_id']}: {e}")
+
+    # 관리자에게도 알림
+    try:
+        admin_text = (
+            f"💰 구독 자동 승인: user={matched['user_id']} "
+            f"tier={tier_name} paid={amount_usd} {token}"
+        )
+        await bot.send_message(chat_id=config.admin_id, text=admin_text)
+    except Exception:
+        pass
 
 
 # ─── 혜택 체크 ────────────────────────────────────
