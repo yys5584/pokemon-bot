@@ -644,17 +644,25 @@ def _validate_team(team: list[dict]) -> bool:
     return True
 
 
+_RARITY_COST = {"common": 1, "rare": 2, "epic": 4, "legendary": 5, "ultra_legendary": 6}
+_COST_LIMIT = 18
+
 def _pick_team(candidates: list[dict], max_size: int = 6) -> list[dict]:
-    """Pick top candidates respecting team composition rules.
-    Rules: max 1 ultra_legendary, max 1 legendary, no duplicate epic/leg/ultra species.
+    """Pick top candidates respecting team composition + cost rules.
+    Rules: max 1 ultra_legendary, max 1 legendary, no duplicate epic/leg/ultra species,
+    total cost <= 18.
     """
     team = []
     epic_species = set()
     has_legendary = False
     has_ultra = False
+    total_cost = 0
     for p in candidates:
         if len(team) >= max_size:
             break
+        cost = _RARITY_COST.get(p["rarity"], 1)
+        if total_cost + cost > _COST_LIMIT:
+            continue
         if p["rarity"] == "ultra_legendary":
             if has_ultra:
                 continue
@@ -668,6 +676,7 @@ def _pick_team(candidates: list[dict], max_size: int = 6) -> list[dict]:
                 continue
             epic_species.add(p["pokemon_id"])
         team.append(p)
+        total_cost += cost
     return team
 
 
@@ -676,7 +685,8 @@ def _recommend_power(pokemon: list[dict]) -> tuple[list[dict], str]:
     sorted_p = sorted(pokemon, key=lambda x: x["real_power"], reverse=True)
     team = _pick_team(sorted_p)
     total = sum(p["real_power"] for p in team)
-    analysis = f"실전투력 TOP 6 구성입니다. 총 전투력 {total}."
+    team_cost = sum(_RARITY_COST.get(p["rarity"], 1) for p in team)
+    analysis = f"실전투력 TOP 6 구성입니다. 총 전투력 {total}. (코스트 {team_cost}/{_COST_LIMIT})"
     types = set(p["pokemon_type"] for p in team)
     if len(types) < 3:
         analysis += " 타입 다양성이 부족해 상성에 취약할 수 있습니다."
@@ -688,7 +698,8 @@ def _recommend_synergy(pokemon: list[dict]) -> tuple[list[dict], str]:
     sorted_p = sorted(pokemon, key=lambda x: (x["synergy_score"], x["real_power"]), reverse=True)
     team = _pick_team(sorted_p)
     avg_syn = sum(p["synergy_score"] for p in team) // max(len(team), 1)
-    analysis = f"IV-종족값 시너지가 가장 좋은 6마리입니다. 평균 시너지 {avg_syn}점."
+    team_cost = sum(_RARITY_COST.get(p["rarity"], 1) for p in team)
+    analysis = f"IV-종족값 시너지가 가장 좋은 6마리입니다. 평균 시너지 {avg_syn}점. (코스트 {team_cost}/{_COST_LIMIT})"
     low = [p for p in team if p["synergy_score"] < 50]
     if low:
         names = ", ".join(p["name_ko"] for p in low)
@@ -767,10 +778,11 @@ async def _recommend_counter(pokemon: list[dict]) -> tuple[list[dict], str]:
         if p.get("type2"):
             team_types.add(p["type2"])
     type_names = ", ".join(config.TYPE_NAME_KO.get(t, t) for t in team_types)
+    team_cost = sum(_RARITY_COST.get(p["rarity"], 1) for p in team)
     analysis = (
         f"상위 랭커 팀에 {enemy_str} 타입이 많습니다.\n"
         f"카운터 상성 + 높은 전투력 기준으로 팀을 구성했습니다.\n"
-        f"팀 타입: {type_names}"
+        f"팀 타입: {type_names} (코스트 {team_cost}/{_COST_LIMIT})"
     )
 
     return team, analysis
@@ -785,16 +797,20 @@ def _recommend_balance(pokemon: list[dict]) -> tuple[list[dict], str]:
 
     sorted_p = sorted(pokemon, key=lambda x: x["_balance"], reverse=True)
 
-    # Greedy pick with type diversity bonus
+    # Greedy pick with type diversity bonus + cost limit
     team = []
     used_types = set()
     epic_species = set()
     has_legendary = False
     has_ultra = False
+    total_cost = 0
 
     for p in sorted_p:
         if len(team) >= 6:
             break
+        cost = _RARITY_COST.get(p["rarity"], 1)
+        if total_cost + cost > _COST_LIMIT:
+            continue
         if p["rarity"] == "ultra_legendary":
             if has_ultra:
                 continue
@@ -809,6 +825,7 @@ def _recommend_balance(pokemon: list[dict]) -> tuple[list[dict], str]:
         bonus = 20 if p["pokemon_type"] not in used_types else 0
         p["_balance"] += bonus
         team.append(p)
+        total_cost += cost
         used_types.add(p["pokemon_type"])
         if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
             epic_species.add(p["pokemon_id"])
@@ -819,7 +836,8 @@ def _recommend_balance(pokemon: list[dict]) -> tuple[list[dict], str]:
     for p in pokemon:
         p.pop("_balance", None)
 
-    analysis = f"전투력 + 시너지 + 타입 다양성을 균형있게 고려한 추천입니다. {len(used_types)}개 타입 커버."
+    team_cost = sum(_RARITY_COST.get(p["rarity"], 1) for p in team)
+    analysis = f"전투력 + 시너지 + 타입 다양성을 균형있게 고려한 추천입니다. {len(used_types)}개 타입 커버. (코스트 {team_cost}/{_COST_LIMIT})"
     return team, analysis
 
 
