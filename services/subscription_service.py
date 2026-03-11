@@ -37,7 +37,7 @@ def _get_transfer_topic() -> str:
     global _TRANSFER_TOPIC
     if _TRANSFER_TOPIC is None:
         from web3 import Web3
-        _TRANSFER_TOPIC = Web3.keccak(text="Transfer(address,address,uint256)").hex()
+        _TRANSFER_TOPIC = "0x" + Web3.keccak(text="Transfer(address,address,uint256)").hex()
     return _TRANSFER_TOPIC
 
 
