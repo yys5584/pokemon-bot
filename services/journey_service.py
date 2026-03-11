@@ -8,6 +8,7 @@ import logging
 
 import config
 from database import queries
+from database.connection import get_db
 from utils.helpers import ball_emoji, icon_emoji
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 JOURNEY_MILESTONES = [
     # step 0→1: 1st catch
     {
-        "msg": "🎉 첫 포켓몬! DM에서 밥 피카츄 로 밥을 줘보세요!",
+        "msg": "🎉 첫 포켓몬! DM에서 밥 {pokemon} 로 밥을 줘보세요!",
         "rewards": [("hyper_ball", 3)],
     },
     # step 1→2: 2nd catch
@@ -34,7 +35,7 @@ JOURNEY_MILESTONES = [
     },
     # step 3→4: 4th catch
     {
-        "msg": "🔄 채팅방에서 다른 트레이너에게 답글로 교환 피카츄 를 보내보세요!",
+        "msg": "🔄 채팅방에서 다른 트레이너에게 답글로 교환 {pokemon} 를 보내보세요!",
         "rewards": [("bp", 200)],
     },
     # step 4→5: 5th catch
@@ -51,17 +52,30 @@ JOURNEY_MILESTONES = [
 
 # ── Phase 2: Daily Guide Tips (step 6~12 → 7~13) ──
 GUIDE_TIPS = [
-    "💡 DM에서 감정 피카츄 로 포켓몬의 IV를 상세하게 볼 수 있어요!",
+    "💡 DM에서 감정 {pokemon} 로 포켓몬의 IV를 상세하게 볼 수 있어요!",
     "💡 DM에서 상성 불꽃 으로 배틀 상성표를 확인해보세요!",
     "💡 DM에서 칭호 를 입력하면 멋진 칭호를 장착할 수 있어요!",
     "💡 채팅방에서 출석 을 매일 치면 하이퍼볼을 받을 수 있어요!",
-    "💡 DM에서 파트너 피카츄 로 파트너를 설정하면 배틀에서 공격력 +5%!",
-    "💡 DM에서 진화 피카츄 로 친밀도 MAX인 포켓몬을 진화시킬 수 있어요!",
+    "💡 DM에서 파트너 {pokemon} 로 파트너를 설정하면 배틀에서 공격력 +5%!",
+    "💡 DM에서 진화 {pokemon} 로 친밀도 MAX인 포켓몬을 진화시킬 수 있어요!",
     "💡 합성 팁: ⭐이로치 + 일반 합성 → 이로치 유지! ⭐+⭐ 합성 → 최소 A등급 보장!",
     f"💡 {config.DASHBOARD_URL} 대시보드에서 내 포켓몬을 한눈에 볼 수 있어요!",
 ]
 
 JOURNEY_COMPLETE_STEP = 14  # step >= 14 means fully done (6 milestones + 8 tips)
+
+
+async def _get_first_pokemon_name(user_id: int) -> str:
+    """유저의 첫 번째 포켓몬 이름 반환. 없으면 '포켓몬명'."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT pm.name_ko FROM user_pokemon up
+           JOIN pokemon_master pm ON pm.id = up.pokemon_id
+           WHERE up.user_id = $1 AND up.is_active = 1
+           ORDER BY up.id ASC LIMIT 1""",
+        user_id,
+    )
+    return row["name_ko"] if row else "포켓몬명"
 
 
 async def check_journey(user_id: int) -> str | None:
@@ -79,6 +93,9 @@ async def check_journey(user_id: int) -> str | None:
         # ── Already completed ──
         if step >= JOURNEY_COMPLETE_STEP:
             return None
+
+        # 포켓몬 이름 (가이드 메시지용)
+        pokemon_name = await _get_first_pokemon_name(user_id)
 
         # ── Phase 1: Milestones (step 0~5) ──
         if step < len(JOURNEY_MILESTONES):
@@ -102,7 +119,7 @@ async def check_journey(user_id: int) -> str | None:
             new_step = step + 1
             await queries.update_journey_step(user_id, new_step)
 
-            msg = milestone["msg"]
+            msg = milestone["msg"].format(pokemon=pokemon_name)
             if reward_lines:
                 msg += "\n🎁 보상: " + ", ".join(reward_lines)
 
@@ -121,7 +138,7 @@ async def check_journey(user_id: int) -> str | None:
                     return None  # Already shown today
 
             # Show tip and advance
-            tip = GUIDE_TIPS[tip_index]
+            tip = GUIDE_TIPS[tip_index].format(pokemon=pokemon_name)
             await queries.update_journey_tip_date(user_id, today_str)
 
             logger.info(f"Journey guide tip {tip_index + 1}/7 for user {user_id}")
