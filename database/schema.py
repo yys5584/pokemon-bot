@@ -484,6 +484,14 @@ RARITY_FIX_MIGRATIONS = [
     "UPDATE pokemon_master SET rarity = 'epic', catch_rate = 0.15 WHERE id IN (289, 373, 376) AND rarity = 'legendary'",
 ]
 
+# 2026-03-11 밸런스 등급 조정
+RARITY_BALANCE_MIGRATIONS = [
+    # 에픽 → 레어 (나인테일, 골덕, 날쌩마, 점토도리)
+    "UPDATE pokemon_master SET rarity = 'rare', catch_rate = 0.50 WHERE id IN (38, 55, 78, 344) AND rarity = 'epic'",
+    # 레어 → 커먼 (토게틱, 코산호, 마이농)
+    "UPDATE pokemon_master SET rarity = 'common', catch_rate = 0.80 WHERE id IN (176, 222, 312) AND rarity = 'rare'",
+]
+
 CHAT_LEVEL_MIGRATIONS = [
     "ALTER TABLE chat_rooms ADD COLUMN cxp INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE chat_rooms ADD COLUMN chat_level INTEGER NOT NULL DEFAULT 1",
@@ -592,6 +600,82 @@ ULTRA_LEGENDARY_MIGRATIONS = [
     "CHECK(rarity IN ('common','rare','epic','legendary','ultra_legendary'))",
     # BST 680 3종을 ultra_legendary로 승격
     "UPDATE pokemon_master SET rarity = 'ultra_legendary' WHERE id IN (150, 249, 250)",
+]
+
+# ── Camp System Tables ──
+CAMP_TABLES = [
+    """
+    CREATE TABLE IF NOT EXISTS camp_placements (
+        id SERIAL PRIMARY KEY,
+        chat_id BIGINT NOT NULL,
+        user_id BIGINT NOT NULL,
+        pokemon_id INT NOT NULL,
+        zone_type VARCHAR(20) NOT NULL,
+        placed_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE (user_id, pokemon_id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_camp_place_chat ON camp_placements(chat_id)",
+    "CREATE INDEX IF NOT EXISTS idx_camp_place_user ON camp_placements(chat_id, user_id)",
+    """
+    CREATE TABLE IF NOT EXISTS camp_zones (
+        chat_id BIGINT NOT NULL,
+        zone_type VARCHAR(20) NOT NULL,
+        unlocked_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (chat_id, zone_type)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS camp_daily_missions (
+        id SERIAL PRIMARY KEY,
+        chat_id BIGINT NOT NULL,
+        zone_type VARCHAR(20) NOT NULL,
+        required_pokemon_id INT NOT NULL,
+        required_stat VARCHAR(10) NOT NULL,
+        required_value INT NOT NULL,
+        mission_date DATE NOT NULL,
+        UNIQUE (chat_id, zone_type, mission_date)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_camp_mission_date ON camp_daily_missions(chat_id, mission_date)",
+    """
+    CREATE TABLE IF NOT EXISTS camp_fragments (
+        user_id BIGINT NOT NULL,
+        fragment_type VARCHAR(20) NOT NULL,
+        amount INT DEFAULT 0,
+        PRIMARY KEY (user_id, fragment_type)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS camp_fragment_log (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        chat_id BIGINT NOT NULL,
+        fragment_type VARCHAR(20) NOT NULL,
+        amount INT NOT NULL,
+        source VARCHAR(30) NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS camp_events (
+        id SERIAL PRIMARY KEY,
+        chat_id BIGINT NOT NULL,
+        event_type VARCHAR(30) NOT NULL,
+        zone_type VARCHAR(20) NOT NULL,
+        triggered_by_user BIGINT,
+        responded_by_user BIGINT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS camp_level (
+        chat_id BIGINT PRIMARY KEY,
+        total_fragments INT DEFAULT 0,
+        level INT DEFAULT 1,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+    """,
 ]
 
 
@@ -761,6 +845,20 @@ async def create_tables():
     for mig in RANKED_MIGRATIONS:
         try:
             await pool.execute(mig)
+        except Exception:
+            pass
+
+    # Rarity balance adjustments (2026-03-11)
+    for mig in RARITY_BALANCE_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+
+    # Camp system tables
+    for sql in CAMP_TABLES:
+        try:
+            await pool.execute(sql)
         except Exception:
             pass
 

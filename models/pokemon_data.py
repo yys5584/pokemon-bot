@@ -71,7 +71,7 @@ ALL_POKEMON = [
 
     # --- Vulpix line ---
     (37, "식스테일", "Vulpix", "🦊", "common", 0.80, None, 38, "friendship"),
-    (38, "나인테일", "Ninetales", "🦊", "epic", 0.15, 37, None, "none"),
+    (38, "나인테일", "Ninetales", "🦊", "rare", 0.50, 37, None, "none"),
 
     # --- Jigglypuff line ---
     (39, "푸린", "Jigglypuff", "🎤", "common", 0.80, None, 40, "friendship"),
@@ -104,7 +104,7 @@ ALL_POKEMON = [
 
     # --- Psyduck line ---
     (54, "고라파덕", "Psyduck", "🦆", "common", 0.80, None, 55, "friendship"),
-    (55, "골덕", "Golduck", "🦆", "epic", 0.15, 54, None, "none"),
+    (55, "골덕", "Golduck", "🦆", "rare", 0.50, 54, None, "none"),
 
     # --- Mankey line ---
     (56, "망키", "Mankey", "🐵", "common", 0.80, None, 57, "friendship"),
@@ -145,7 +145,7 @@ ALL_POKEMON = [
 
     # --- Ponyta line ---
     (77, "포니타", "Ponyta", "🐴", "rare", 0.50, None, 78, "friendship"),
-    (78, "날쌩마", "Rapidash", "🐴", "epic", 0.15, 77, None, "none"),
+    (78, "날쌩마", "Rapidash", "🐴", "rare", 0.50, 77, None, "none"),
 
     # --- Slowpoke line ---
     (79, "야돈", "Slowpoke", "🦛", "common", 0.80, None, 80, "friendship"),
@@ -363,7 +363,7 @@ ALL_POKEMON = [
 
     # --- Togepi line ---
     (175, "토게피", "Togepi", "⭐", "common", 0.80, None, 176, "friendship"),
-    (176, "토게틱", "Togetic", "⭐", "rare", 0.50, 175, None, "none"),
+    (176, "토게틱", "Togetic", "⭐", "common", 0.80, 175, None, "none"),
 
     # --- Natu line ---
     (177, "네이티", "Natu", "🔮", "common", 0.80, None, 178, "friendship"),
@@ -475,7 +475,7 @@ ALL_POKEMON = [
     (221, "메꾸리", "Piloswine", "❄️", "rare", 0.50, 220, None, "none"),
 
     # --- Corsola ---
-    (222, "코산호", "Corsola", "💧", "rare", 0.50, None, None, "none"),
+    (222, "코산호", "Corsola", "💧", "common", 0.80, None, None, "none"),
 
     # --- Remoraid line ---
     (223, "총어", "Remoraid", "💧", "common", 0.80, None, 224, "friendship"),

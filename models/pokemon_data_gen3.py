@@ -91,7 +91,7 @@ ALL_POKEMON_GEN3 = [
 
     (311, "플러시", "Plusle", "⚡", "rare", 0.50, None, None, "none"),  # Plusle
 
-    (312, "마이농", "Minun", "⚡", "rare", 0.50, None, None, "none"),  # Minun
+    (312, "마이농", "Minun", "⚡", "common", 0.80, None, None, "none"),  # Minun
 
     (313, "볼비트", "Volbeat", "🐛", "rare", 0.50, None, None, "none"),  # Volbeat
 
@@ -143,7 +143,7 @@ ALL_POKEMON_GEN3 = [
     (342, "가재장군", "Crawdaunt", "💧", "rare", 0.50, 341, None, "none"),  # Crawdaunt
 
     (343, "오뚝군", "Baltoy", "🌍", "common", 0.80, None, 344, "friendship"),  # Baltoy
-    (344, "점토도리", "Claydol", "🌍", "epic", 0.15, 343, None, "none"),  # Claydol
+    (344, "점토도리", "Claydol", "🌍", "rare", 0.50, 343, None, "none"),  # Claydol
 
     (345, "릴링", "Lileep", "🗿", "common", 0.80, None, 346, "friendship"),  # Lileep
     (346, "릴리요", "Cradily", "🗿", "rare", 0.50, 345, None, "none"),  # Cradily

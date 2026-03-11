@@ -95,7 +95,7 @@ POKEMON_SKILLS = {
 
     # --- Vulpix line ---
     37: ("불꽃세례", 1.2),       # 식스테일 (common) fire
-    38: ("화염방사", 1.5),       # 나인테일 (epic) fire
+    38: ("화염방사", 1.4),       # 나인테일 (rare) fire
 
     # --- Jigglypuff line (normal/fairy) ---
     39: [("하이퍼보이스", 1.2), ("달콤한키스", 1.2)],   # 푸린 (common)
@@ -128,7 +128,7 @@ POKEMON_SKILLS = {
 
     # --- Psyduck line ---
     54: ("물대포", 1.2),         # 고라파덕 (common 1단) water
-    55: ("하이드로펌프", 1.5),   # 골덕 (epic) water
+    55: ("하이드로펌프", 1.4),   # 골덕 (rare) water
 
     # --- Mankey line ---
     56: ("태권당수", 1.2),       # 망키 (common 1단) fighting
@@ -169,7 +169,7 @@ POKEMON_SKILLS = {
 
     # --- Ponyta line ---
     77: ("불꽃세례", 1.3),       # 포니타 (rare) fire
-    78: ("화염방사", 1.5),       # 날쌩마 (epic) fire
+    78: ("화염방사", 1.4),       # 날쌩마 (rare) fire
 
     # --- Slowpoke line (water/psychic) ---
     79: [("물대포", 1.2), ("사념의머리", 1.2)],         # 야돈 (common)
@@ -385,7 +385,7 @@ POKEMON_SKILLS = {
 
     # --- Togepi line ---
     175: ("손가락흔들기", 1.2),  # 토게피 (common) fairy
-    176: [("매지컬샤인", 1.3), ("에어슬래시", 1.3)],    # 토게틱 (common) fairy/flying
+    176: [("매지컬샤인", 1.2), ("에어슬래시", 1.2)],    # 토게틱 (common) fairy/flying
 
     # --- Natu line (psychic/flying) ---
     177: [("염동력", 1.2), ("공중날기", 1.2)],          # 네이티 (common 1단)
@@ -497,7 +497,7 @@ POKEMON_SKILLS = {
     221: [("냉동빔", 1.4), ("지진", 1.4)],              # 메꾸리 (rare 최종)
 
     # --- Corsola (water/rock) ---
-    222: [("거품광선", 1.3), ("고대의힘", 1.3)],        # 코산호 (common)
+    222: [("거품광선", 1.2), ("고대의힘", 1.2)],        # 코산호 (common)
 
     # --- Remoraid line ---
     223: ("물대포", 1.2),        # 총어 (common 1단) water
@@ -681,7 +681,7 @@ POKEMON_SKILLS = {
     311: ("스파크", 1.3),         # 플러시 (rare) electric
 
     # --- Minun ---
-    312: ("방전", 1.3),           # 마이농 (rare) electric
+    312: ("방전", 1.2),           # 마이농 (common) electric
 
     # --- Volbeat ---
     313: ("시그널빔", 1.3),       # 볼비트 (rare) bug
@@ -753,7 +753,7 @@ POKEMON_SKILLS = {
 
     # --- Baltoy line (ground/psychic) ---
     343: [("진흙뿌리기", 1.2), ("염동력", 1.2)],        # 오뚝군 (common)
-    344: [("대지의힘", 1.5), ("사이코키네시스", 1.5)],  # 점토도리 (epic BST≥500)
+    344: [("대지의힘", 1.4), ("사이코키네시스", 1.4)],  # 점토도리 (rare) ground/psychic
 
     # --- Lileep line (rock/grass) ---
     345: [("고대의힘", 1.3), ("기가드레인", 1.3)],      # 릴링 (common BST≥350)
