@@ -579,15 +579,6 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             winner_id, pokemon_id, chat_id, is_shiny, session_id,
         )
 
-        # Update consecutive
-        today = config.get_kst_today()
-        await queries.increment_consecutive(winner_id, today)
-        failed_ids = [r["user_id"] for r in results if not r["success"]]
-        if failed_ids:
-            await asyncio.gather(
-                *(queries.reset_consecutive(uid, today) for uid in failed_ids)
-            )
-
         # Build result message
         from utils.helpers import get_decorated_name
         from utils.battle_calc import iv_total
@@ -1163,17 +1154,6 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         # CXP: +1 for catch
         asyncio.create_task(_add_cxp_bg(context, chat_id, config.CXP_PER_CATCH, "catch", winner_id))
-
-        # Update consecutive catches
-        today = config.get_kst_today()
-        await queries.increment_consecutive(winner_id, today)
-
-        # Reset consecutive for everyone who failed (batch)
-        failed_ids = [r["user_id"] for r in results if not r["success"]]
-        if failed_ids:
-            await asyncio.gather(
-                *(queries.reset_consecutive(uid, today) for uid in failed_ids)
-            )
 
         # Check if first catch in chat (for rare+ announcement)
         is_first = await queries.is_first_catch_in_chat(chat_id, pokemon_id)

@@ -116,7 +116,7 @@ SPAWN_TIERS = [
 
 # --- Catch Limits (Anti-abuse) ---
 MAX_CATCH_ATTEMPTS_PER_DAY = 20
-CONSECUTIVE_CATCH_COOLDOWN = 2     # After N consecutive catches, skip next
+POKEBALL_RECHARGE_COOLDOWN = 300   # 포켓볼 충전 쿨다운 (초) — 5분
 
 # --- Nurture System ---
 MAX_FRIENDSHIP = 5
@@ -127,6 +127,7 @@ FRIENDSHIP_PER_PLAY = 1            # +1 per play
 
 # --- Trade ---
 TRADE_BP_COST = 150                # 교환 시 BP 비용
+TRADE_DAILY_LIMIT = 10             # 일일 교환 제한 (보내기/받기 각각)
 
 # --- Marketplace ---
 MARKET_FEE_RATE = 0.05             # 5% 판매 수수료

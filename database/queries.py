@@ -2966,3 +2966,13 @@ async def toggle_patch_optout(user_id: int) -> bool:
         user_id,
     )
     return bool(row["patch_optout"]) if row else False
+
+
+async def get_daily_trade_count(user_id: int, role: str = "sender") -> int:
+    """오늘 교환 횟수 (role='sender': 보낸 횟수, 'receiver': 받은 횟수)."""
+    pool = await get_db()
+    col = "from_user_id" if role == "sender" else "to_user_id"
+    return await pool.fetchval(
+        f"SELECT COUNT(*) FROM trades WHERE {col} = $1 AND created_at >= CURRENT_DATE",
+        user_id,
+    ) or 0

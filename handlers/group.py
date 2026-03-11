@@ -338,10 +338,22 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     display_name = update.effective_user.first_name or "트레이너"
     now = datetime.now()
 
-    # 30 second cooldown per user (anti-spam)
+    # 포켓볼 충전 쿨다운 (구독자는 면제)
+    cooldown_sec = config.POKEBALL_RECHARGE_COOLDOWN
+    try:
+        from services.subscription_service import has_benefit
+        if await has_benefit(user_id, "catch_cooldown_bypass"):
+            cooldown_sec = 30  # 구독자는 30초만
+    except Exception:
+        pass
+
     last_used = _love_cooldown.get(user_id)
-    if last_used and (now - last_used).total_seconds() < 30:
-        return  # Silently ignore spam
+    if last_used and (now - last_used).total_seconds() < cooldown_sec:
+        remaining = int(cooldown_sec - (now - last_used).total_seconds())
+        await update.message.reply_text(
+            f"⏳ 포켓볼 충전 쿨타임! {remaining}초 후에 다시 충전할 수 있어요.",
+        )
+        return
     _love_cooldown[user_id] = now
 
     today = config.get_kst_today()
