@@ -66,7 +66,7 @@ async def generate_unique_amount(tier: str, token: str) -> tuple[int, float]:
     base_price = tier_cfg["price_usd"]
 
     for _ in range(10):
-        jitter = random.randint(2, 99) / 100.0  # $0.02 ~ $0.99
+        jitter = random.randint(1, 9) / 100.0  # $0.01 ~ $0.09
         amount_usd = round(base_price + jitter, 2)
         amount_raw = int(amount_usd * 1_000_000)  # 6 decimals
 
@@ -74,7 +74,7 @@ async def generate_unique_amount(tier: str, token: str) -> tuple[int, float]:
             return amount_raw, amount_usd
 
     # fallback: 극히 드문 경우
-    amount_usd = round(base_price + random.randint(100, 199) / 100.0, 2)
+    amount_usd = round(base_price + random.randint(10, 19) / 100.0, 2)
     amount_raw = int(amount_usd * 1_000_000)
     return amount_raw, amount_usd
 
