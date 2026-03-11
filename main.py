@@ -533,7 +533,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^도움말$"), help_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^(📖\s*)?도감"), pokedex_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^날씨$"), weather_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📦\s*)?내포켓몬\s*\d*$"), my_pokemon_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📦\s*)?내포켓몬(\s+.+)?$"), my_pokemon_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(💪\s*)?친밀도강화$"), nurture_menu_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^밥(\s+.+)?$"), feed_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^놀기(\s+.+)?$"), play_handler))
@@ -606,7 +606,7 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^날씨$"), weather_handler))
     app.add_handler(MessageHandler((group | dm) & filters.Regex(r"^대시보드$"), dashboard_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^방정보$"), room_info_handler))
-    app.add_handler(MessageHandler(group & filters.Regex(r"^내포켓몬"), my_pokemon_group_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^내포켓몬\s+.+"), my_pokemon_group_handler))
 
     # Camp system (Group)
     if HAS_CAMP:

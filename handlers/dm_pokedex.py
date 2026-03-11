@@ -386,6 +386,50 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(detail_text, reply_markup=detail_markup, parse_mode="HTML")
         return
 
+    # Check if a name search was given: "내포켓몬 리자몽"
+    import re
+    name_match = re.sub(r"^(📦\s*)?내포켓몬\s*", "", text).strip()
+    if name_match:
+        matches = [
+            (i, p) for i, p in enumerate(pokemon_list)
+            if name_match in p["name_ko"]
+        ]
+        if not matches:
+            await update.message.reply_text(f"'{name_match}' 이름의 포켓몬을 보유하고 있지 않습니다.")
+            return
+        if len(matches) == 1:
+            # Single match → detail view
+            idx = matches[0][0]
+            page = idx // MYPOKE_PAGE_SIZE
+            detail_text, detail_markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            await update.message.reply_text(detail_text, reply_markup=detail_markup, parse_mode="HTML")
+        else:
+            # Multiple matches → show list with select buttons
+            lines = [f"🔍 '{name_match}' 검색 결과 ({len(matches)}마리)"]
+            buttons = []
+            for i, (idx, p) in enumerate(matches[:20]):
+                s = shiny_emoji() if p.get("is_shiny") else ""
+                rb = rarity_badge(p.get("rarity", ""))
+                tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+                iv_tag = ""
+                if p.get("iv_hp") is not None:
+                    grade, _ = config.get_iv_grade(_iv_sum(p))
+                    iv_tag = f" [{grade}]"
+                team_tag = f" 🎯팀{p['team_num']}" if p.get("team_num") else ""
+                lines.append(f"{i+1}. {rb}{tb}{s} {p['name_ko']}{iv_tag}{team_tag}")
+                page = idx // MYPOKE_PAGE_SIZE
+                buttons.append([InlineKeyboardButton(
+                    f"{i+1}. {p['name_ko']}{' ✨' if p.get('is_shiny') else ''}",
+                    callback_data=f"mypoke_v_{user_id}_{idx}_{page}",
+                )])
+            from telegram import InlineKeyboardMarkup
+            await update.message.reply_text(
+                "\n".join(lines),
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode="HTML",
+            )
+        return
+
     # Default: show list view page 0
     filt = _get_filter(context)
     list_text, list_markup = _build_list_view(user_id, pokemon_list, page=0, filt=filt)

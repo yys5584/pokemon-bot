@@ -650,10 +650,17 @@ async def room_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle '내포켓몬' command in group chat — compact pokemon list."""
+    """Handle '내포켓몬 {이름}' command in group chat — search specific pokemon."""
     if not update.effective_user or not update.message:
         return
     if update.effective_chat and is_tournament_active(update.effective_chat.id):
+        return
+
+    import re
+    text = (update.message.text or "").strip()
+    name_query = re.sub(r"^내포켓몬\s*", "", text).strip()
+    if not name_query:
+        await update.message.reply_text("사용법: 내포켓몬 리자몽")
         return
 
     user_id = update.effective_user.id
@@ -669,50 +676,36 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("보유한 포켓몬이 없습니다.")
         return
 
-    # Group by rarity for compact display
-    rarity_order = ["ultra_legendary", "legendary", "epic", "rare", "common"]
+    matches = [p for p in pokemon_list if name_query in p["name_ko"]]
+    if not matches:
+        msg = await update.message.reply_text(f"'{name_query}' — 보유하지 않은 포켓몬입니다.")
+        schedule_delete(context, msg, delay=30)
+        return
+
     rarity_labels = {
         "ultra_legendary": "초전설", "legendary": "전설",
         "epic": "에픽", "rare": "레어", "common": "일반",
     }
-    by_rarity: dict[str, list] = {}
-    for p in pokemon_list:
-        r = p.get("rarity", "common")
-        by_rarity.setdefault(r, []).append(p)
-
-    lines = [f"🎒 <b>{display_name}</b>의 포켓몬 ({len(pokemon_list)}마리)"]
+    lines = [f"🔍 <b>{display_name}</b>의 '{name_query}' ({len(matches)}마리)"]
     lines.append("━━━━━━━━━━━━━━━")
+    for i, p in enumerate(matches[:15]):
+        rb = rarity_badge(p.get("rarity", "common"))
+        tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+        s = " ✨" if p.get("is_shiny") else ""
+        iv_tag = ""
+        if p.get("iv_hp") is not None:
+            iv_sum = sum(p.get(f"iv_{s}", 0) for s in ["hp", "atk", "def", "spa", "spdef", "spd"])
+            grade, _ = config.get_iv_grade(iv_sum)
+            iv_tag = f" [{grade}]"
+        team_tag = f" 🎯팀{p['team_num']}" if p.get("team_num") else ""
+        fav = " ⭐" if p.get("is_favorite") else ""
+        rl = rarity_labels.get(p.get("rarity", ""), "")
+        lines.append(f"{i+1}. {rb}{tb}{s} {p['name_ko']} ({rl}){iv_tag}{team_tag}{fav}")
 
-    for r in rarity_order:
-        group = by_rarity.get(r)
-        if not group:
-            continue
-        label = rarity_labels.get(r, r)
-        # Group duplicate species
-        species: dict[int, list] = {}
-        for p in group:
-            species.setdefault(p["pokemon_id"], []).append(p)
+    if len(matches) > 15:
+        lines.append(f"...외 {len(matches) - 15}마리")
 
-        entries = []
-        for pid, members in species.items():
-            first = members[0]
-            tb = type_badge(pid, first.get("pokemon_type"))
-            name = first["name_ko"]
-            shiny_count = sum(1 for m in members if m.get("is_shiny"))
-            if len(members) > 1:
-                s = f" ✨{shiny_count}" if shiny_count else ""
-                entries.append(f"{tb}{name} x{len(members)}{s}")
-            else:
-                s = f" ✨" if shiny_count else ""
-                entries.append(f"{tb}{name}{s}")
-
-        rb = rarity_badge(r)
-        lines.append(f"\n{rb} <b>{label}</b> ({len(group)})")
-        lines.append(", ".join(entries))
-
-    msg = await update.message.reply_text(
-        "\n".join(lines), parse_mode="HTML",
-    )
+    msg = await update.message.reply_text("\n".join(lines), parse_mode="HTML")
     schedule_delete(context, msg, delay=60)
 
 
