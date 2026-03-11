@@ -220,8 +220,7 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         if pokemon or is_future:
             await _show_pokemon_detail(update, user_id, name_query)
-            return
-        # Not a pokemon name → fall through to normal pokedex list
+        return  # Non-pokemon text → silently ignore (no response)
 
     # Page handling
     page = 0
