@@ -194,6 +194,12 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not update.message:
         return
 
+    # Block in tournament chat during tournament
+    if update.effective_chat and update.effective_chat.type != "private":
+        from services.tournament_service import is_tournament_active
+        if is_tournament_active(update.effective_chat.id):
+            return
+
     user_id = update.effective_user.id
     display_name = update.effective_user.first_name or "트레이너"
 
