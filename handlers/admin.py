@@ -706,6 +706,16 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = parts[1]
 
     if action == "등록":
+        # 최소 멤버 수 체크 (관리자 제외)
+        if not is_admin(user_id):
+            room = await queries.get_chat_room(chat_id)
+            member_count = room["member_count"] if room else 0
+            if member_count < config.SPAWN_MIN_MEMBERS:
+                await update.message.reply_text(
+                    f"🚫 멤버가 {config.SPAWN_MIN_MEMBERS}명 이상인 방에서만 아케이드를 사용할 수 있습니다. (현재 {member_count}명)"
+                )
+                return
+
         # Already an arcade channel?
         if chat_id in config.ARCADE_CHAT_IDS:
             await update.message.reply_text("🕹️ 이미 영구 아케이드 채널입니다!")
