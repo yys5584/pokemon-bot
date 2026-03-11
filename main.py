@@ -22,7 +22,7 @@ from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types,
 from database import queries
 
 from handlers.start import start_handler, help_handler
-from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback
+from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, my_pokemon_group_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, title_list_callback, title_page_callback, status_handler, appraisal_handler, type_chart_handler
 from handlers.battle import (
     partner_handler, partner_callback_handler,
@@ -64,6 +64,8 @@ from services.spawn_service import schedule_all_chats
 from services.weather_service import update_weather, get_current_weather, WEATHER_BOOSTS
 from services.tournament_service import start_registration, start_tournament, snapshot_teams
 from handlers.tournament import tournament_join_handler
+from handlers.camp import camp_handler, camp_callback_handler, camp_mission_job, camp_news_job, camp_event_job
+from handlers.dm_camp import my_camp_handler, shiny_convert_handler, camp_dm_callback_handler
 # Dashboard now runs as separate process (pokemon-dashboard.service)
 # from dashboard.server import start_dashboard
 
@@ -550,6 +552,10 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?칭호$"), title_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?상태창$"), status_handler))
 
+    # Camp system (DM)
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^내캠프$"), my_camp_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^이로치전환$"), shiny_convert_handler))
+
     # Battle system (DM)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🤝\s*)?파트너(\s+.+)?$"), partner_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(✏️\s*)?팀편집$"), team_edit_menu_handler))
@@ -595,6 +601,10 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^날씨$"), weather_handler))
     app.add_handler(MessageHandler((group | dm) & filters.Regex(r"^대시보드$"), dashboard_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^방정보$"), room_info_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^내포켓몬$"), my_pokemon_group_handler))
+
+    # Camp system (Group)
+    app.add_handler(MessageHandler(group & filters.Regex(r"^캠프$"), camp_handler))
 
     # Battle system (Group)
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀$"), battle_challenge_handler))
@@ -707,6 +717,10 @@ def main():
     # Event DM broadcast callback
     app.add_handler(CallbackQueryHandler(event_dm_callback, pattern=r"^evt_dm_"))
 
+    # Camp callbacks
+    app.add_handler(CallbackQueryHandler(camp_callback_handler, pattern=r"^camp_"))
+    app.add_handler(CallbackQueryHandler(camp_dm_callback_handler, pattern=r"^cdm_"))
+
     # Activity tracker — runs for every group text message (handler group -1)
     app.add_handler(
         MessageHandler(group & filters.TEXT, on_chat_activity),
@@ -761,6 +775,25 @@ def main():
         start_tournament,
         time=dt_time(config.TOURNAMENT_START_HOUR, 0, 0, tzinfo=kst),
         name="tournament_start",
+    )
+
+    # Camp system schedulers
+    app.job_queue.run_daily(
+        camp_mission_job,
+        time=dt_time(0, 1, 0, tzinfo=kst),
+        name="camp_mission",
+    )
+    app.job_queue.run_repeating(
+        camp_news_job,
+        interval=config.CAMP_NEWS_INTERVAL,
+        first=7200,
+        name="camp_news",
+    )
+    app.job_queue.run_repeating(
+        camp_event_job,
+        interval=config.CAMP_EVENT_INTERVAL,
+        first=10800,
+        name="camp_event",
     )
 
     # --- Start polling ---

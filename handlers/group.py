@@ -14,7 +14,7 @@ from database import battle_queries as bq
 from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
 from services.tournament_service import is_tournament_active
-from utils.helpers import time_ago, get_decorated_name, truncate_name, schedule_delete, ball_emoji, shiny_emoji, icon_emoji
+from utils.helpers import time_ago, get_decorated_name, truncate_name, schedule_delete, ball_emoji, shiny_emoji, icon_emoji, rarity_badge, type_badge
 from models.pokemon_data import ALL_POKEMON
 
 logger = logging.getLogger(__name__)
@@ -647,6 +647,73 @@ async def room_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Room info handler error: {e}")
         await update.message.reply_text("방 정보를 불러올 수 없습니다.")
+
+
+async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '내포켓몬' command in group chat — compact pokemon list."""
+    if not update.effective_user or not update.message:
+        return
+    if update.effective_chat and is_tournament_active(update.effective_chat.id):
+        return
+
+    user_id = update.effective_user.id
+    display_name = get_decorated_name(update.effective_user)
+    await queries.ensure_user(
+        user_id,
+        update.effective_user.first_name or "트레이너",
+        update.effective_user.username,
+    )
+
+    pokemon_list = await queries.get_user_pokemon_list(user_id)
+    if not pokemon_list:
+        await update.message.reply_text("보유한 포켓몬이 없습니다.")
+        return
+
+    # Group by rarity for compact display
+    rarity_order = ["ultra_legendary", "legendary", "epic", "rare", "common"]
+    rarity_labels = {
+        "ultra_legendary": "초전설", "legendary": "전설",
+        "epic": "에픽", "rare": "레어", "common": "일반",
+    }
+    by_rarity: dict[str, list] = {}
+    for p in pokemon_list:
+        r = p.get("rarity", "common")
+        by_rarity.setdefault(r, []).append(p)
+
+    lines = [f"🎒 <b>{display_name}</b>의 포켓몬 ({len(pokemon_list)}마리)"]
+    lines.append("━━━━━━━━━━━━━━━")
+
+    for r in rarity_order:
+        group = by_rarity.get(r)
+        if not group:
+            continue
+        label = rarity_labels.get(r, r)
+        # Group duplicate species
+        species: dict[int, list] = {}
+        for p in group:
+            species.setdefault(p["pokemon_id"], []).append(p)
+
+        entries = []
+        for pid, members in species.items():
+            first = members[0]
+            tb = type_badge(pid, first.get("pokemon_type"))
+            name = first["name_ko"]
+            shiny_count = sum(1 for m in members if m.get("is_shiny"))
+            if len(members) > 1:
+                s = f" ✨{shiny_count}" if shiny_count else ""
+                entries.append(f"{tb}{name} x{len(members)}{s}")
+            else:
+                s = f" ✨" if shiny_count else ""
+                entries.append(f"{tb}{name}{s}")
+
+        rb = rarity_badge(r)
+        lines.append(f"\n{rb} <b>{label}</b> ({len(group)})")
+        lines.append(", ".join(entries))
+
+    msg = await update.message.reply_text(
+        "\n".join(lines), parse_mode="HTML",
+    )
+    schedule_delete(context, msg, delay=60)
 
 
 # --- Catch DM: Keep / Release callbacks ---
