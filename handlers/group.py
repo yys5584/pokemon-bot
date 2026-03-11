@@ -667,11 +667,18 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
         return
 
     user_id = update.effective_user.id
-    display_name = get_decorated_name(update.effective_user)
     await queries.ensure_user(
         user_id,
         update.effective_user.first_name or "트레이너",
         update.effective_user.username,
+    )
+    user = await queries.get_user(user_id)
+    display_name = get_decorated_name(
+        user.get("display_name", update.effective_user.first_name or "트레이너") if user else (update.effective_user.first_name or "트레이너"),
+        user.get("title", "") if user else "",
+        user.get("title_emoji", "") if user else "",
+        update.effective_user.username,
+        html=True,
     )
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
