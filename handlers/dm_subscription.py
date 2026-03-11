@@ -14,8 +14,20 @@ from services.subscription_service import (
     has_benefit,
     get_user_tier,
 )
+from utils.helpers import ball_emoji, icon_emoji
 
 logger = logging.getLogger(__name__)
+
+# 구독 UI 커스텀 이모지 단축
+_E_CRYSTAL = icon_emoji("crystal")       # 💎
+_E_PIKACHU = icon_emoji("pikachu")       # 🟢 베이직
+_E_CROWN = icon_emoji("crown")           # 🟣 채널장
+_E_CHECK = icon_emoji("check")           # ✅
+_E_COIN = icon_emoji("coin")             # 💰
+_E_BOLT = icon_emoji("bolt")             # ⚡
+_E_SHOP = icon_emoji("shopping-bag")     # 🏪
+_E_MASTER = ball_emoji("masterball")     # 마스터볼
+_E_POKE = icon_emoji("pokecenter")       # 포케센터
 
 
 # ─── 구독 메인 (DM: "구독") ──────────────────────
@@ -30,17 +42,18 @@ async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     if sub:
         tier_name = config.SUBSCRIPTION_TIERS.get(sub["tier"], {}).get("name", sub["tier"])
         exp = sub["expires_at"].astimezone(config.KST).strftime("%Y-%m-%d")
-        status_line = f"\n✅ 현재 구독: <b>{tier_name}</b> (~ {exp})\n"
+        status_line = f"\n{_E_CHECK} 현재 구독: <b>{tier_name}</b> (~ {exp})\n"
 
-    lines = ["💎 <b>TG포켓 구독 서비스</b>\n"]
+    lines = [f"{_E_CRYSTAL} <b>TG포켓 구독 서비스</b>\n"]
     if status_line:
         lines.append(status_line)
 
     # 오픈 티어
     buttons = []
+    _TIER_EMOJI = {"basic": _E_PIKACHU, "channel_owner": _E_CROWN}
     for key, tier in config.SUBSCRIPTION_TIERS.items():
-        emoji = "🟢" if key == "basic" else "🟣"
-        current = " ✅" if sub and sub["tier"] == key else ""
+        emoji = _TIER_EMOJI.get(key, _E_POKE)
+        current = f" {_E_CHECK}" if sub and sub["tier"] == key else ""
         lines.append(
             f"{emoji} <b>{tier['name']}</b> — ${tier['price_usd']}/월{current}\n"
             f"  {tier['description']}\n"
@@ -89,7 +102,7 @@ async def subscription_callback_handler(update: Update, context: ContextTypes.DE
             [InlineKeyboardButton("← 뒤로", callback_data="sub_back")],
         ])
         await query.edit_message_text(
-            f"💰 <b>{tier_cfg['name']}</b> 결제\n\n"
+            f"{_E_COIN} <b>{tier_cfg['name']}</b> 결제\n\n"
             f"Base 체인에서 결제할 토큰을 선택하세요:",
             parse_mode="HTML",
             reply_markup=keyboard,
@@ -121,10 +134,10 @@ async def subscription_callback_handler(update: Update, context: ContextTypes.DE
         ])
 
         await query.edit_message_text(
-            f"📋 <b>구독 결제 안내</b>\n\n"
-            f"💎 티어: {config.SUBSCRIPTION_TIERS[tier]['name']}\n"
-            f"💵 금액: <b>{amount} {token}</b>\n"
-            f"🔗 체인: Base\n"
+            f"{_E_CRYSTAL} <b>구독 결제 안내</b>\n\n"
+            f"{_E_POKE} 티어: {config.SUBSCRIPTION_TIERS[tier]['name']}\n"
+            f"{_E_COIN} 금액: <b>{amount} {token}</b>\n"
+            f"{_E_BOLT} 체인: Base\n"
             f"📮 주소:\n<code>{wallet}</code>\n\n"
             f"⚠️ 정확히 <b>{amount} {token}</b>을 보내주세요!\n"
             f"⏱️ {exp_min}분 이내에 전송해주세요.\n\n"
@@ -149,8 +162,8 @@ async def subscription_callback_handler(update: Update, context: ContextTypes.DE
             tier_name = config.SUBSCRIPTION_TIERS.get(sub["tier"], {}).get("name", sub["tier"])
             exp = sub["expires_at"].astimezone(config.KST).strftime("%Y-%m-%d %H:%M")
             await query.edit_message_text(
-                f"✅ <b>구독이 활성화되었습니다!</b>\n\n"
-                f"💎 티어: {tier_name}\n"
+                f"{_E_CHECK} <b>구독이 활성화되었습니다!</b>\n\n"
+                f"{_E_CRYSTAL} 티어: {tier_name}\n"
                 f"📅 만료: {exp} (KST)\n\n"
                 f"DM에서 '구독정보'로 혜택을 확인하세요!",
                 parse_mode="HTML",
@@ -185,16 +198,17 @@ async def subscription_callback_handler(update: Update, context: ContextTypes.DE
         if sub:
             tier_name = config.SUBSCRIPTION_TIERS.get(sub["tier"], {}).get("name", sub["tier"])
             exp = sub["expires_at"].astimezone(config.KST).strftime("%Y-%m-%d")
-            status_line = f"\n✅ 현재 구독: <b>{tier_name}</b> (~ {exp})\n"
+            status_line = f"\n{_E_CHECK} 현재 구독: <b>{tier_name}</b> (~ {exp})\n"
 
-        lines = ["💎 <b>TG포켓 구독 서비스</b>\n"]
+        lines = [f"{_E_CRYSTAL} <b>TG포켓 구독 서비스</b>\n"]
         if status_line:
             lines.append(status_line)
 
+        _TIER_EMOJI = {"basic": _E_PIKACHU, "channel_owner": _E_CROWN}
         buttons = []
         for key, tier in config.SUBSCRIPTION_TIERS.items():
-            emoji = "🟢" if key == "basic" else "🟣"
-            current = " ✅" if sub and sub["tier"] == key else ""
+            emoji = _TIER_EMOJI.get(key, _E_POKE)
+            current = f" {_E_CHECK}" if sub and sub["tier"] == key else ""
             lines.append(
                 f"{emoji} <b>{tier['name']}</b> — ${tier['price_usd']}/월{current}\n"
                 f"  {tier['description']}\n"
@@ -240,7 +254,7 @@ async def subscription_status_handler(update: Update, context: ContextTypes.DEFA
 
     if not sub:
         await update.message.reply_text(
-            "💎 현재 구독 중인 티어가 없습니다.\n\nDM에서 '구독'으로 시작하세요!",
+            f"{_E_CRYSTAL} 현재 구독 중인 티어가 없습니다.\n\nDM에서 '구독'으로 시작하세요!",
             parse_mode="HTML",
         )
         return
@@ -279,7 +293,7 @@ async def subscription_status_handler(update: Update, context: ContextTypes.DEFA
         benefit_lines.append("• 🎩 ???")
 
     text = (
-        f"💎 <b>구독 정보</b>\n\n"
+        f"{_E_CRYSTAL} <b>구독 정보</b>\n\n"
         f"티어: <b>{tier_name}</b>\n"
         f"만료: {exp} (KST)\n\n"
         f"<b>혜택:</b>\n" + "\n".join(benefit_lines)
@@ -292,14 +306,14 @@ async def _show_status(query, user_id: int):
     """콜백에서 호출되는 상태 표시."""
     sub = await get_user_subscription(user_id)
     if not sub:
-        await query.edit_message_text("💎 현재 구독 중인 티어가 없습니다.")
+        await query.edit_message_text(f"{_E_CRYSTAL} 현재 구독 중인 티어가 없습니다.", parse_mode="HTML")
         return
 
     tier_cfg = config.SUBSCRIPTION_TIERS.get(sub["tier"], {})
     tier_name = tier_cfg.get("name", sub["tier"])
     exp = sub["expires_at"].astimezone(config.KST).strftime("%Y-%m-%d %H:%M")
     await query.edit_message_text(
-        f"💎 <b>{tier_name}</b> 구독 중\n📅 만료: {exp} (KST)",
+        f"{_E_CRYSTAL} <b>{tier_name}</b> 구독 중\n📅 만료: {exp} (KST)",
         parse_mode="HTML",
     )
 
@@ -334,8 +348,8 @@ async def premium_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     next_price = prices[purchases_today] if purchases_today < max_limit else None
 
     lines = [
-        "💎 <b>프리미엄 상점</b>\n",
-        f"🔴 마스터볼 ({purchases_today}/{max_limit})",
+        f"{_E_CRYSTAL} <b>프리미엄 상점</b>\n",
+        f"{_E_MASTER} 마스터볼 ({purchases_today}/{max_limit})",
     ]
 
     if next_price:
@@ -383,12 +397,12 @@ async def channel_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     bp = await bq.get_bp(user_id)
 
     text = (
-        f"🏪 <b>채널장 상점</b>\n\n"
-        f"⚡ <b>아케이드 속도 부스트</b> — {config.CHANNEL_SHOP_ARCADE_SPEED_COST} BP\n"
+        f"{_E_SHOP} <b>채널장 상점</b>\n\n"
+        f"{_E_BOLT} <b>아케이드 속도 부스트</b> — {config.CHANNEL_SHOP_ARCADE_SPEED_COST} BP\n"
         f"   현재 간격에서 -{config.ARCADE_SPEED_BOOST_REDUCTION}초 (최소 20초)\n\n"
         f"⏱️ <b>아케이드 시간 연장</b> — {config.CHANNEL_SHOP_ARCADE_EXTEND_COST} BP\n"
         f"   활성 아케이드 +{config.ARCADE_EXTEND_MINUTES}분 연장\n\n"
-        f"💰 보유 BP: {bp:,}"
+        f"{_E_COIN} 보유 BP: {bp:,}"
     )
 
     keyboard = InlineKeyboardMarkup([
@@ -489,9 +503,10 @@ async def _handle_channel_shop_speed(query, user_id: int, chat_id: int, context)
     set_arcade_interval(context.application, chat_id, new_interval)
 
     await query.edit_message_text(
-        f"⚡ 아케이드 속도 부스트 적용!\n\n"
+        f"{_E_BOLT} 아케이드 속도 부스트 적용!\n\n"
         f"스폰 간격: {current_interval}초 → {new_interval}초\n"
-        f"💰 {cost} BP 사용 (잔여: {bp - cost:,} BP)"
+        f"{_E_COIN} {cost} BP 사용 (잔여: {bp - cost:,} BP)",
+        parse_mode="HTML",
     )
 
 
@@ -524,5 +539,6 @@ async def _handle_channel_shop_extend(query, user_id: int, chat_id: int, context
     await query.edit_message_text(
         f"⏱️ 아케이드 시간 연장 완료!\n\n"
         f"+{extend_minutes}분 연장되었습니다.\n"
-        f"💰 {cost} BP 사용 (잔여: {bp - cost:,} BP)"
+        f"{_E_COIN} {cost} BP 사용 (잔여: {bp - cost:,} BP)",
+        parse_mode="HTML",
     )
