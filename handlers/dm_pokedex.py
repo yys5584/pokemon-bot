@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from utils.helpers import hearts_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji, shiny_emoji, icon_emoji, ball_emoji, resolve_title_badge, pokemon_iv_total as _iv_sum, iv_grade
-from utils.card_generator import generate_card
+from utils.card_generator import generate_card, generate_pokedex_card
 from utils.parse import parse_number, parse_name_arg
 from utils.battle_calc import iv_total
 
@@ -1762,8 +1762,16 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
 
     caption = "\n".join(lines)
 
-    # Generate 16:9 card image
-    card_buf = generate_card(pid, pokemon["name_ko"], pokemon["rarity"], pokemon["emoji"])
+    # Generate pokedex-style card image
+    is_owned = pid in caught_ids
+    card_buf = generate_pokedex_card(
+        pokemon_id=pid,
+        name_ko=pokemon["name_ko"],
+        rarity=pokemon["rarity"],
+        type_names=type_names,
+        catch_rate=pokemon["catch_rate"],
+        owned=is_owned,
+    )
     await update.message.reply_photo(photo=card_buf, caption=caption, parse_mode="HTML")
 
 

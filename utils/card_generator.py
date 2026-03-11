@@ -521,3 +521,218 @@ def generate_lineup_card(
     buf.seek(0)
     buf.name = "lineup.jpg"
     return buf
+
+
+# ── Pokedex Device Card (도감 전용) ─────────────────────────────
+
+# Rarity → circle glow color (brighter version of accent)
+_RARITY_CIRCLE = {
+    "common":         (100, 210, 160),
+    "rare":           (90, 170, 255),
+    "epic":           (200, 150, 255),
+    "legendary":      (255, 230, 50),
+    "ultra_legendary": (255, 80, 80),
+}
+
+_RARITY_LABEL_KO = {
+    "common": "일반",
+    "rare": "레어",
+    "epic": "에픽",
+    "legendary": "전설",
+    "ultra_legendary": "초전설",
+}
+
+
+def generate_pokedex_card(
+    pokemon_id: int,
+    name_ko: str,
+    rarity: str,
+    emoji: str = "",
+    pokemon_type: str = "",
+    type_names: str = "",
+    catch_rate: float = 0.0,
+    owned: bool = False,
+) -> io.BytesIO:
+    """Generate a Pokedex-device-style card (960x540, 16:9).
+
+    Features a device frame with screen area, circular rarity glow
+    behind the Pokemon, and info panel on the right side.
+    """
+    W, H = 960, 540
+    accent = RARITY_ACCENT.get(rarity, RARITY_ACCENT["common"])
+    circle_color = _RARITY_CIRCLE.get(rarity, _RARITY_CIRCLE["common"])
+
+    card = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+
+    # ── 1. Device outer body (red metallic frame) ──
+    draw = ImageDraw.Draw(card)
+
+    # Outer shell - dark red gradient feel
+    draw.rounded_rectangle([0, 0, W - 1, H - 1], radius=24,
+                           fill=(180, 35, 35, 255))
+    # Inner darker band for depth
+    draw.rounded_rectangle([4, 4, W - 5, H - 5], radius=22,
+                           fill=(155, 28, 28, 255))
+    # Highlight strip at top (glossy feel)
+    highlight = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    h_draw = ImageDraw.Draw(highlight)
+    h_draw.rounded_rectangle([6, 6, W - 7, 50], radius=20,
+                             fill=(255, 255, 255, 25))
+    card = Image.alpha_composite(card, highlight)
+    draw = ImageDraw.Draw(card)
+
+    # ── 2. Screen area (dark inset) ──
+    scr_x, scr_y = 20, 20
+    scr_w, scr_h = W - 40, H - 40  # 920 x 500
+    # Screen bezel (dark border)
+    draw.rounded_rectangle(
+        [scr_x - 2, scr_y - 2, scr_x + scr_w + 2, scr_y + scr_h + 2],
+        radius=14, fill=(30, 30, 30, 255),
+    )
+    # Screen background - dark blue-black
+    draw.rounded_rectangle(
+        [scr_x, scr_y, scr_x + scr_w, scr_y + scr_h],
+        radius=12, fill=(12, 18, 30, 255),
+    )
+
+    # ── 3. Screen grid lines (subtle tech feel) ──
+    for gx in range(scr_x + 40, scr_x + scr_w, 60):
+        draw.line([(gx, scr_y + 10), (gx, scr_y + scr_h - 10)],
+                  fill=(40, 55, 75, 40), width=1)
+    for gy in range(scr_y + 40, scr_y + scr_h, 60):
+        draw.line([(scr_x + 10, gy), (scr_x + scr_w - 10, gy)],
+                  fill=(40, 55, 75, 40), width=1)
+
+    # ── 4. Left section: Pokemon with circle glow ──
+    left_cx = scr_x + 250  # center of pokemon area
+    left_cy = scr_y + scr_h // 2 - 10
+
+    # Circular rarity glow (large, soft)
+    glow_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow_layer)
+
+    # Outer soft glow
+    for i in range(40, 0, -1):
+        alpha = int(35 * (i / 40))
+        r = int(170 * (i / 40))
+        glow_draw.ellipse(
+            [left_cx - r, left_cy - r, left_cx + r, left_cy + r],
+            fill=(*circle_color, alpha),
+        )
+    card = Image.alpha_composite(card, glow_layer)
+    draw = ImageDraw.Draw(card)
+
+    # Solid circle behind pokemon (rarity color)
+    draw.ellipse(
+        [left_cx - 120, left_cy - 120, left_cx + 120, left_cy + 120],
+        fill=(*accent, 60),
+        outline=(*accent, 120),
+        width=2,
+    )
+
+    # Pokemon sprite (centered on circle)
+    sprite = _load_sprite(pokemon_id)
+    if sprite:
+        sx = left_cx - sprite.width // 2
+        sy = left_cy - sprite.height // 2
+        card.paste(sprite, (sx, sy), sprite)
+
+    # ── 5. Right section: Info panel ──
+    info_x = scr_x + 480
+    info_y = scr_y + 30
+    info_w = scr_w - 490
+    font_id = _get_font(48, "impact")
+    font_name = _get_font(34, "bold")
+    font_info = _get_font(21, "regular")
+    font_badge = _get_font(19, "bold")
+
+    # Pokemon ID (large, top of info area)
+    id_text = f"#{pokemon_id:03d}"
+    draw.text((info_x + 2, info_y + 2), id_text,
+              fill=(0, 0, 0, 180), font=font_id)
+    draw.text((info_x, info_y), id_text,
+              fill=(*accent, 255), font=font_id)
+
+    # Pokemon name
+    name_y = info_y + 62
+    draw.text((info_x + 1, name_y + 1), name_ko,
+              fill=(0, 0, 0, 180), font=font_name)
+    draw.text((info_x, name_y), name_ko,
+              fill=(255, 255, 255, 255), font=font_name)
+
+    # Divider line
+    div_y = name_y + 48
+    draw.line([(info_x, div_y), (info_x + info_w, div_y)],
+              fill=(*accent, 100), width=2)
+
+    # Rarity badge - smart text color (dark text on bright backgrounds)
+    rarity_label = _RARITY_LABEL_KO.get(rarity, rarity)
+    badge_y = div_y + 16
+    rbbox = draw.textbbox((0, 0), rarity_label, font=font_badge)
+    rw = rbbox[2] - rbbox[0]
+    draw.rounded_rectangle(
+        [info_x, badge_y - 4, info_x + rw + 20, badge_y + 26],
+        radius=5, fill=(*accent, 220),
+    )
+    # Use dark text on bright badges (legendary/common), white on dark
+    badge_brightness = accent[0] * 0.299 + accent[1] * 0.587 + accent[2] * 0.114
+    badge_text_color = (20, 20, 20, 255) if badge_brightness > 160 else (255, 255, 255, 255)
+    draw.text((info_x + 10, badge_y), rarity_label,
+              fill=badge_text_color, font=font_badge)
+
+    # Type info
+    if type_names:
+        type_y = badge_y + 40
+        draw.text((info_x, type_y), f"타입  {type_names}",
+                  fill=(190, 210, 230, 255), font=font_info)
+
+    # Catch rate
+    if catch_rate > 0:
+        rate_y = badge_y + 40 + (30 if type_names else 0)
+        rate_pct = int(catch_rate * 100)
+        draw.text((info_x, rate_y), f"포획률  {rate_pct}%",
+                  fill=(190, 210, 230, 255), font=font_info)
+
+    # Owned status (colored dot + text, avoids Unicode glyph issues)
+    status_y = badge_y + 80 + (30 if type_names else 0)
+    dot_r = 7
+    dot_cy = status_y + 11
+    if owned:
+        draw.ellipse([info_x, dot_cy - dot_r, info_x + dot_r * 2, dot_cy + dot_r],
+                     fill=(100, 220, 140, 255))
+        draw.text((info_x + dot_r * 2 + 8, status_y), "보유 중",
+                  fill=(100, 220, 140, 255), font=font_info)
+    else:
+        draw.ellipse([info_x, dot_cy - dot_r, info_x + dot_r * 2, dot_cy + dot_r],
+                     fill=(200, 100, 100, 255))
+        draw.text((info_x + dot_r * 2 + 8, status_y), "미보유",
+                  fill=(200, 100, 100, 255), font=font_info)
+
+    # ── 6. Device decorations ──
+    # Small LED indicator (top-left of device, like a camera/sensor)
+    draw.ellipse([30, 8, 40, 18], fill=(50, 50, 60, 255),
+                 outline=(80, 80, 90, 255))
+    draw.ellipse([32, 10, 38, 16], fill=(80, 200, 255, 180))
+
+    # Two small dots next to LED
+    draw.ellipse([46, 10, 52, 16], fill=(200, 60, 60, 180))
+    draw.ellipse([58, 10, 64, 16], fill=(120, 200, 80, 180))
+
+    # Bottom bar - thin accent line inside screen
+    draw.rectangle(
+        [scr_x + 10, scr_y + scr_h - 6, scr_x + scr_w - 10, scr_y + scr_h - 4],
+        fill=(*accent, 80),
+    )
+
+    # "POKEDEX" watermark bottom-right of screen
+    font_wm = _get_font(12, "bold")
+    draw.text((scr_x + scr_w - 85, scr_y + scr_h - 22), "POKEDEX",
+              fill=(60, 80, 100, 120), font=font_wm)
+
+    # Output
+    buf = io.BytesIO()
+    card_rgb = card.convert("RGB")
+    card_rgb.save(buf, format="JPEG", quality=88)
+    buf.seek(0)
+    buf.name = "pokedex.jpg"
+    return buf
