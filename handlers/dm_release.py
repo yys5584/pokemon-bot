@@ -40,13 +40,13 @@ def _build_panel(user_id: int, filt: dict) -> tuple[str, InlineKeyboardMarkup]:
     sel_iv = sorted(filt["iv_grades"], key=lambda g: IV_GRADES.index(g))
     sel_gen = [GEN_LABELS[g] for g in ("gen1", "gen2", "gen3") if g in filt["gens"]]
     if sel_r:
-        text += f"\n선택된 희귀도: {', '.join(sel_r)}"
+        text += f"\n선택된 등급: {', '.join(sel_r)}"
     if sel_iv:
         text += f"\n선택된 IV등급: {', '.join(sel_iv)}"
     if sel_gen:
         text += f"\n선택된 세대: {', '.join(sel_gen)}"
     if not sel_r and not sel_iv:
-        text += "\n<i>최소 희귀도 또는 IV등급 1개를 선택하세요</i>"
+        text += "\n<i>최소 등급 또는 IV등급 1개를 선택하세요</i>"
 
     # Generation buttons
     gen_row = []

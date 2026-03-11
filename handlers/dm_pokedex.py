@@ -520,7 +520,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     if filt.get("sort") == "iv":
         filter_tags.append("IV순")
     elif filt.get("sort") == "rarity":
-        filter_tags.append("희귀도순")
+        filter_tags.append("등급순")
     if filt.get("fav"):
         filter_tags.append("⭐즐찾")
     if filt.get("shiny"):
@@ -604,7 +604,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
             callback_data=f"mypoke_sort_{user_id}_iv",
         ),
         InlineKeyboardButton(
-            f"{'✓' if sort_mode == 'rarity' else ''}💎희귀도",
+            f"{'✓' if sort_mode == 'rarity' else ''}💎등급",
             callback_data=f"mypoke_sort_{user_id}_rarity",
         ),
         InlineKeyboardButton(

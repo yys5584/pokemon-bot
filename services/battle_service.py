@@ -358,9 +358,11 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
         # First attack
         dmg1, eff1, crit1, tmult1, fx1 = _calc_damage(first, second)
         # Rest: 공격 안 하고 HP 회복
+        rest_lines = []
         if fx1 and fx1["type"] == "rest":
             max_hp = first["stats"]["hp"]
             first["current_hp"] = min(max_hp, first["current_hp"] + fx1["heal"])
+            rest_lines.append(f"  💤 {first['name']} HP +{fx1['heal']} 회복")
         else:
             second["current_hp"] -= dmg1
 
@@ -373,33 +375,41 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             if fx2 and fx2["type"] == "rest":
                 max_hp = second["stats"]["hp"]
                 second["current_hp"] = min(max_hp, second["current_hp"] + fx2["heal"])
+                rest_lines.append(f"  💤 {second['name']} HP +{fx2['heal']} 회복")
             else:
                 first["current_hp"] -= dmg2
 
-        # --- 스킬 효과 적용 (백그라운드) ---
+        # --- 스킬 효과 적용 + 로그 ---
+        fx_lines = []
         # First attacker effects
         if fx1:
             if fx1["type"] == "self_destruct":
                 first["current_hp"] = 0
+                fx_lines.append(f"  💥 {first['name']}의 자폭!")
             elif fx1["type"] == "recoil" and dmg1 > 0:
                 recoil_dmg = max(1, int(dmg1 * fx1["pct"]))
                 first["current_hp"] -= recoil_dmg
+                fx_lines.append(f"  💢 {first['name']} 반동 -{recoil_dmg}")
             elif fx1["type"] == "drain" and dmg1 > 0:
                 heal = max(1, int(dmg1 * fx1["pct"]))
                 max_hp = first["stats"]["hp"]
                 first["current_hp"] = min(max_hp, first["current_hp"] + heal)
+                fx_lines.append(f"  🌿 {first['name']} HP +{heal} 흡수")
 
         # Second attacker effects
         if fx2:
             if fx2["type"] == "self_destruct":
                 second["current_hp"] = 0
+                fx_lines.append(f"  💥 {second['name']}의 자폭!")
             elif fx2["type"] == "recoil" and dmg2 > 0:
                 recoil_dmg = max(1, int(dmg2 * fx2["pct"]))
                 second["current_hp"] -= recoil_dmg
+                fx_lines.append(f"  💢 {second['name']} 반동 -{recoil_dmg}")
             elif fx2["type"] == "drain" and dmg2 > 0:
                 heal = max(1, int(dmg2 * fx2["pct"]))
                 max_hp = second["stats"]["hp"]
                 second["current_hp"] = min(max_hp, second["current_hp"] + heal)
+                fx_lines.append(f"  🌿 {second['name']} HP +{heal} 흡수")
 
         # Map to challenger(left)/defender(right) for consistent display
         if first_is_challenger:
@@ -416,6 +426,8 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
         log_lines.append(
             f" {match_turn}턴: {c_mon['name']} {c_part} | {d_mon['name']} {d_part}"
         )
+        for fl in rest_lines + fx_lines:
+            log_lines.append(fl)
 
         # Structured turn data
         # Store max_hp from the matchup entry
