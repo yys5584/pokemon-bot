@@ -256,6 +256,57 @@ def _switch_line(trainer: str, dead: str, next_name: str,
     return line
 
 
+def _extract_mvp(turn_data: list[dict], winner_side: str) -> str | None:
+    """Extract MVP Pokemon line from turn_data for the winning side.
+
+    Returns formatted string like "⭐ MVP: 리자몽 (딜 482 / 킬 3)" or None.
+    """
+    # Track damage dealt and kills per pokemon name on each side
+    dmg_by_name: dict[str, int] = {}   # name -> total damage
+    kills_by_name: dict[str, int] = {}  # name -> kill count
+
+    # Current active pokemon names per side (for attributing kills)
+    current_c_name = None
+    current_d_name = None
+
+    for td in turn_data:
+        if td["type"] == "matchup":
+            current_c_name = td["c_name"]
+            current_d_name = td["d_name"]
+
+        elif td["type"] == "turn":
+            if winner_side == "challenger":
+                name = td["c_name"]
+                dmg = td["c_dmg"]
+            else:
+                name = td["d_name"]
+                dmg = td["d_dmg"]
+            dmg_by_name[name] = dmg_by_name.get(name, 0) + dmg
+
+        elif td["type"] == "ko":
+            # Who killed this pokemon?
+            # side = which side's pokemon died
+            if td["side"] != winner_side:
+                # Enemy pokemon died → attribute kill to our current active pokemon
+                if winner_side == "challenger" and current_c_name:
+                    kills_by_name[current_c_name] = kills_by_name.get(current_c_name, 0) + 1
+                elif winner_side == "defender" and current_d_name:
+                    kills_by_name[current_d_name] = kills_by_name.get(current_d_name, 0) + 1
+
+    if not dmg_by_name:
+        return None
+
+    # Pick MVP: highest damage, tiebreak by kills
+    mvp_name = max(dmg_by_name, key=lambda n: (dmg_by_name[n], kills_by_name.get(n, 0)))
+    total_dmg = dmg_by_name[mvp_name]
+    total_kills = kills_by_name.get(mvp_name, 0)
+
+    if total_kills > 0:
+        return f"⭐ MVP: {mvp_name} (딜 {total_dmg} / 킬 {total_kills})"
+    else:
+        return f"⭐ MVP: {mvp_name} (딜 {total_dmg})"
+
+
 async def _safe_send(bot, chat_id, text, **kwargs):
     """send_message with RetryAfter auto-retry."""
     for attempt in range(3):
@@ -382,8 +433,8 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
             "📋 참가 방법: ㄷ 입력\n"
             "⚔️ 배틀팀이 등록되어 있어야 참가 가능!\n\n"
             "🏆 보상\n"
-            f"  🥇 우승: 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치(초전설) + 챔피언 칭호\n"
-            f"  🥈 준우승: 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + ✨이로치(전설)\n"
+            f"  🥇 우승: 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치(초전설+일반) + 챔피언 칭호\n"
+            f"  🥈 준우승: 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + ✨이로치(전설+일반)\n"
             f"  🏅 4강: 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치(에픽)\n"
             f"  🎟️ 참가: 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개\n\n"
             "스폰은 대회 종료 후 재개됩니다."
@@ -414,8 +465,8 @@ async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
             f"{icon_emoji('bookmark')} 아래 채널에서 ㄷ 입력으로 참가!\n"
             f"👉 {config.BOT_CHANNEL_URL}\n\n"
             f"{_bt} 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
-            f"{icon_emoji('crown')} 우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {_se}이로치(초전설) + 챔피언 칭호\n"
-            f"🥈 준우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {_se}이로치(전설)\n"
+            f"{icon_emoji('crown')} 우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {_se}이로치(초전설+일반) + 챔피언 칭호\n"
+            f"🥈 준우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {_se}이로치(전설+일반)\n"
             f"{icon_emoji('champion')} 4강: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {_se}이로치(에픽)\n"
             f"{icon_emoji('gotcha')} 참가: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개"
         )
@@ -628,12 +679,16 @@ async def _run_match(
     # Resolve battle
     result = _resolve_battle(team1, team2)
 
-    if result["winner"] == "challenger":
+    winner_side = result["winner"]
+    if winner_side == "challenger":
         winner_id, winner_data = p1_id, p1_data
         remaining = result["challenger_remaining"]
     else:
         winner_id, winner_data = p2_id, p2_data
         remaining = result["defender_remaining"]
+
+    # MVP line
+    mvp_line = _extract_mvp(result["turn_data"], winner_side)
 
     # Helper: team marker for KO/next based on side
     def _mark(side):
@@ -801,9 +856,10 @@ async def _run_match(
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
                 await asyncio.sleep(3)
 
-        await _safe_send(context.bot, chat_id,
-            text=f"\n🎉 {winner_data['name']} 우승! (남은 {remaining}마리)",
-        )
+        win_text = f"\n🎉 {winner_data['name']} 우승! (남은 {remaining}마리)"
+        if mvp_line:
+            win_text += f"\n{mvp_line}"
+        await _safe_send(context.bot, chat_id, text=win_text)
 
     elif is_semi:
         # ── Semi-finals: turn-by-turn, one message per turn (3s delay) ──
@@ -873,9 +929,10 @@ async def _run_match(
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
                 await asyncio.sleep(3)
 
-        await _safe_send(context.bot, chat_id,
-            text=f"→ {winner_data['name']} 승리! (남은 {remaining}마리)",
-        )
+        win_text = f"→ {winner_data['name']} 승리! (남은 {remaining}마리)"
+        if mvp_line:
+            win_text += f"\n{mvp_line}"
+        await _safe_send(context.bot, chat_id, text=win_text)
 
     elif is_quarter:
         # ── Quarter-finals: grouped by matchup (3s delay) ──
@@ -895,16 +952,17 @@ async def _run_match(
                 await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
                 await asyncio.sleep(3)
 
-        await _safe_send(context.bot, chat_id,
-            text=f"→ {winner_data['name']} 승리! (남은 {remaining}마리)",
-        )
+        win_text = f"→ {winner_data['name']} 승리! (남은 {remaining}마리)"
+        if mvp_line:
+            win_text += f"\n{mvp_line}"
+        await _safe_send(context.bot, chat_id, text=win_text)
 
     else:
         # ── Lower rounds: one-line summary ──
-        await _safe_send(context.bot, chat_id,
-            text=f"⚔️ {p1_data['name']} vs {p2_data['name']} → {winner_data['name']} 승리!",
-            parse_mode="HTML",
-        )
+        win_text = f"⚔️ {p1_data['name']} vs {p2_data['name']} → {winner_data['name']} 승리!"
+        if mvp_line:
+            win_text += f"\n{mvp_line}"
+        await _safe_send(context.bot, chat_id, text=win_text, parse_mode="HTML")
 
     return winner_id, winner_data
 
@@ -1177,7 +1235,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     if eliminated is None:
         eliminated = {}
 
-    # ── 1st place: master balls + shiny legendary + title ──
+    # ── 1st place: master balls + shiny legendary + shiny common + title ──
     try:
         await queries.add_master_ball(winner_id, config.TOURNAMENT_PRIZE_1ST_MB)
     except Exception:
@@ -1189,6 +1247,13 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         _, shiny_1st_ivs = await queries.give_pokemon_to_user(winner_id, shiny_1st_id, chat_id, is_shiny=True)
     except Exception:
         logger.error(f"Failed to give shiny pokemon to winner {winner_id}")
+    # Bonus: shiny common
+    bonus_1st_id, bonus_1st_name = _random_shiny_pokemon("common")
+    bonus_1st_ivs = {}
+    try:
+        _, bonus_1st_ivs = await queries.give_pokemon_to_user(winner_id, bonus_1st_id, chat_id, is_shiny=True)
+    except Exception:
+        logger.error(f"Failed to give bonus shiny common to winner {winner_id}")
 
     # ── 2nd place (runner-up) ──
     runner_up_id = None
@@ -1199,9 +1264,11 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             uid2, _ = p2
             runner_up_id = uid2 if uid1 == winner_id else uid1
 
-    # ── 2nd place (runner-up): master balls + shiny legendary ──
+    # ── 2nd place (runner-up): master balls + shiny legendary + shiny common ──
     shiny_2nd_name = ""
     shiny_2nd_ivs = {}
+    bonus_2nd_name = ""
+    bonus_2nd_ivs = {}
     if runner_up_id:
         try:
             await queries.add_master_ball(runner_up_id, config.TOURNAMENT_PRIZE_2ND_MB)
@@ -1213,6 +1280,13 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give shiny pokemon to runner-up {runner_up_id}")
         shiny_2nd_name = s2_name
+        # Bonus: shiny common
+        b2_id, b2_name = _random_shiny_pokemon("common")
+        try:
+            _, bonus_2nd_ivs = await queries.give_pokemon_to_user(runner_up_id, b2_id, chat_id, is_shiny=True)
+        except Exception:
+            logger.error(f"Failed to give bonus shiny common to runner-up {runner_up_id}")
+        bonus_2nd_name = b2_name
 
     # ── Semi-finalists (4강): master balls + shiny epic ──
     finalists = {winner_id}
@@ -1287,14 +1361,14 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         "\n🏆 토너먼트 결과",
         "━━━━━━━━━━━━━━━",
         f"🥇 {winner_data['name']}",
-        f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치 {shiny_1st_name} + 🎖️ 챔피언 칭호",
+        f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치 {shiny_1st_name} + ✨이로치 {bonus_1st_name} + 🎖️ 챔피언 칭호",
     ]
 
     if runner_up_id:
         runner_up_user = await queries.get_user(runner_up_id)
         r_name = runner_up_user["display_name"] if runner_up_user else "???"
         lines.append(f"🥈 {r_name}")
-        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + ✨이로치 {shiny_2nd_name}")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + ✨이로치 {shiny_2nd_name} + ✨이로치 {bonus_2nd_name}")
 
     fourth_placers = semi_reward_targets
     if fourth_placers:
@@ -1343,7 +1417,8 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         "━━━━━━━━━━━━━━━\n\n"
         f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 지급!\n"
         f"🎖️ 챔피언 칭호 획득!\n\n"
-        f"{_iv_detail(shiny_1st_name, config.TOURNAMENT_PRIZE_1ST_SHINY, shiny_1st_ivs)}"
+        f"{_iv_detail(shiny_1st_name, config.TOURNAMENT_PRIZE_1ST_SHINY, shiny_1st_ivs)}\n\n"
+        f"{_iv_detail(bonus_1st_name, 'common', bonus_1st_ivs)}"
     )
     if new_titles:
         for _, tname, temoji in new_titles:
@@ -1360,7 +1435,8 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             "🥈 토너먼트 준우승을 축하합니다!\n"
             "━━━━━━━━━━━━━━━\n\n"
             f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 지급!\n\n"
-            f"{_iv_detail(shiny_2nd_name, config.TOURNAMENT_PRIZE_2ND_SHINY, shiny_2nd_ivs)}"
+            f"{_iv_detail(shiny_2nd_name, config.TOURNAMENT_PRIZE_2ND_SHINY, shiny_2nd_ivs)}\n\n"
+            f"{_iv_detail(bonus_2nd_name, 'common', bonus_2nd_ivs)}"
         )
         try:
             await context.bot.send_message(chat_id=runner_up_id, text=dm_text, parse_mode="HTML")
