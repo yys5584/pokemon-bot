@@ -523,6 +523,17 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                     f"{info['emoji']} {info['pokemon_name']}{shiny_tag}이(가) 판매되었습니다.\n"
                     f"💵 수익: {info['seller_gets']:,} BP (수수료 {info['fee']:,} BP)"
                 )
+                # Show remaining listings
+                remaining = await queries.get_user_active_listings(info["seller_id"])
+                if remaining:
+                    seller_msg += f"\n\n📋 남은 매물 ({len(remaining)}개):"
+                    for ml in remaining[:5]:
+                        s = "✨" if ml.get("is_shiny") else ""
+                        seller_msg += f"\n  #{ml['id']} {ml['emoji']} {ml['pokemon_name']}{s} — {ml['price_bp']:,} BP"
+                    if len(remaining) > 5:
+                        seller_msg += f"\n  … 외 {len(remaining) - 5}개"
+                else:
+                    seller_msg += "\n\n📋 남은 매물이 없습니다."
                 await context.bot.send_message(chat_id=info["seller_id"], text=seller_msg)
             except Exception:
                 pass
