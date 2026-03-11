@@ -2707,6 +2707,16 @@ async def save_kpi_snapshot(data: dict):
     return {"d1_retention": d1_retention, "d7_retention": d7_retention}
 
 
+async def get_previous_snapshot() -> dict | None:
+    """전일 KPI 스냅샷 조회."""
+    pool = await get_db()
+    yesterday = (_cfg.get_kst_now().date() - timedelta(days=1))
+    row = await pool.fetchrow(
+        "SELECT * FROM kpi_daily_snapshots WHERE date = $1", yesterday,
+    )
+    return dict(row) if row else None
+
+
 async def get_retention_history(days: int = 14) -> list[dict]:
     """최근 N일간 리텐션 히스토리 조회."""
     pool = await get_db()

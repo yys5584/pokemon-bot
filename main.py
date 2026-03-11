@@ -351,6 +351,35 @@ body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 </div></body></html>"""
 
 
+def _delta_badge(today, yesterday, suffix="", reverse=False):
+    """전일 대비 변화 뱃지 HTML. reverse=True면 감소가 긍정(예: 마볼 소비)."""
+    if yesterday is None or yesterday == 0:
+        return ""
+    diff = today - yesterday
+    pct = round(diff / yesterday * 100)
+    if diff == 0:
+        return '<span style="color:#888;font-size:11px">→ 0%</span>'
+    color = "#4caf50" if (diff > 0) != reverse else "#e53935"
+    arrow = "▲" if diff > 0 else "▼"
+    return f'<span style="color:{color};font-size:11px;font-weight:600">{arrow} {abs(pct)}%{suffix}</span>'
+
+
+def _get_today_patches() -> list[str]:
+    """오늘 날짜의 git 커밋 메시지 목록 (feat/fix만)."""
+    import subprocess
+    try:
+        today_str = config.get_kst_now().strftime("%Y-%m-%d")
+        result = subprocess.run(
+            ["git", "log", f"--since={today_str} 00:00", f"--until={today_str} 23:59",
+             "--pretty=format:%s", "--no-merges"],
+            capture_output=True, text=True, timeout=5, cwd="/home/ubuntu/pokemon-bot",
+        )
+        lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
+        return [l for l in lines if any(l.startswith(p) for p in ("feat:", "fix:", "refactor:"))]
+    except Exception:
+        return []
+
+
 async def _send_daily_kpi_report(context):
     """매일 23:55 KST: 일일 KPI 리포트를 HTML 파일로 관리자 DM 발송."""
     import io
@@ -363,7 +392,79 @@ async def _send_daily_kpi_report(context):
         d1_ret = retention.get("d1_retention")
         d7_ret = retention.get("d7_retention")
 
+        # 전일 스냅샷 조회
+        prev = await queries.get_previous_snapshot()
+
         catch_rate = d["catch_rate"]
+
+        # ── 전일 대비 섹션 ──
+        if prev:
+            delta_html = f"""
+<div class="section">
+<div class="section-title">📊 전일 대비</div>
+<div class="grid grid-3">
+<div class="card"><div class="label">DAU</div><div class="value">{d['dau']}</div>{_delta_badge(d['dau'], prev.get('dau'))}</div>
+<div class="card"><div class="label">스폰</div><div class="value">{d['spawns']:,}</div>{_delta_badge(d['spawns'], prev.get('spawns'))}</div>
+<div class="card"><div class="label">포획</div><div class="value">{d['catches']:,}</div>{_delta_badge(d['catches'], prev.get('catches'))}</div>
+<div class="card"><div class="label">배틀</div><div class="value">{d['battles']}</div>{_delta_badge(d['battles'], prev.get('battles'))}</div>
+<div class="card"><div class="label">신규가입</div><div class="value">{d['new_users']}</div>{_delta_badge(d['new_users'], prev.get('new_users'))}</div>
+<div class="card"><div class="label">이로치</div><div class="value">{d['shiny_caught']}</div>{_delta_badge(d['shiny_caught'], prev.get('shiny_caught'))}</div>
+</div></div>"""
+        else:
+            delta_html = ""
+
+        # ── 오늘 패치 섹션 ──
+        patches = _get_today_patches()
+        if patches:
+            patch_items = ""
+            feat_count = sum(1 for p in patches if p.startswith("feat:"))
+            fix_count = sum(1 for p in patches if p.startswith("fix:"))
+            for p in patches[:8]:  # 최대 8개
+                prefix = p.split(":")[0]
+                emoji = "🆕" if prefix == "feat" else "🔧" if prefix == "fix" else "♻️"
+                msg = p.split(":", 1)[1].strip() if ":" in p else p
+                patch_items += f'<div style="display:flex;gap:6px;align-items:start;margin-bottom:6px;font-size:13px"><span>{emoji}</span><span>{msg}</span></div>'
+            if len(patches) > 8:
+                patch_items += f'<div style="font-size:12px;color:#888">외 {len(patches) - 8}건</div>'
+            patch_html = f"""
+<div class="section">
+<div class="section-title">🛠️ 오늘 패치 ({feat_count} feat / {fix_count} fix)</div>
+{patch_items}
+</div>"""
+        else:
+            patch_html = '<div class="section"><div class="section-title">🛠️ 오늘 패치</div><div style="font-size:13px;color:#888">배포 없음</div></div>'
+
+        # ── 인사이트 섹션 ──
+        insights = []
+        if prev:
+            dau_diff = d["dau"] - prev.get("dau", 0)
+            if dau_diff > 0 and patches:
+                insights.append(f"DAU가 전일 대비 +{dau_diff}명 증가. 오늘 패치({len(patches)}건)의 긍정적 영향 가능성.")
+            elif dau_diff < 0:
+                insights.append(f"DAU가 전일 대비 {dau_diff}명 감소. 자연 이탈 또는 콘텐츠 소진 모니터링 필요.")
+            catch_prev = prev.get("catches", 0)
+            if catch_prev and d["catches"]:
+                prev_rate = round(catch_prev / max(prev.get("spawns", 1), 1) * 100, 1)
+                if abs(catch_rate - prev_rate) > 3:
+                    insights.append(f"포획률 {prev_rate}% → {catch_rate}% ({'상승' if catch_rate > prev_rate else '하락'}). 밸런스 패치 영향 확인.")
+        if d1_ret is not None:
+            if d1_ret >= 70:
+                insights.append(f"D+1 리텐션 {d1_ret}%로 양호. 핵심 루프 건강.")
+            elif d1_ret < 50:
+                insights.append(f"D+1 리텐션 {d1_ret}%로 주의. 복귀 동기 강화 필요.")
+        if d["battles"] == 0 and d["dau"] > 0:
+            insights.append("배틀 0건 — 매칭 시스템 또는 동기 부여 점검 필요.")
+
+        insight_html = ""
+        if insights:
+            items = "".join(f'<li style="margin-bottom:6px;font-size:13px">{ins}</li>' for ins in insights)
+            insight_html = f"""
+<div class="section">
+<div class="section-title">💡 인사이트</div>
+<ul style="list-style:none;padding:0">{items}</ul>
+</div>"""
+
+        # ── Top 채널 ──
         top_html = ""
         if d["top_chats"]:
             items = ""
@@ -376,6 +477,8 @@ async def _send_daily_kpi_report(context):
 <ul class="channel-list">{items}</ul></div>"""
 
         body = f"""
+{delta_html}
+
 <div class="section">
 <div class="section-title">👥 유저</div>
 <div class="grid grid-3">
@@ -387,7 +490,7 @@ async def _send_daily_kpi_report(context):
 <div class="card"><div class="label">총 유저</div><div class="value">{d['total_users']}</div></div>
 <div class="card"><div class="label">D+1 리텐션</div><div class="value accent">{f'{d1_ret}%' if d1_ret is not None else '-'}</div></div>
 </div>
-<div style="margin-top:8px"><div class="card"><div class="label">D+7 리텐션</div><div class="value" style="color:#ff9800">{f'{d7_ret}%' if d7_ret is not None else '데이터 수집 중'}</div><div class="sub">7일 후부터 표시</div></div></div>
+<div style="margin-top:8px"><div class="card"><div class="label">D+7 리텐션</div><div class="value" style="color:#ff9800">{f'{d7_ret}%' if d7_ret is not None else '수집 중'}</div><div class="sub">7일 후부터 표시</div></div></div>
 </div>
 
 <div class="section">
@@ -416,7 +519,9 @@ async def _send_daily_kpi_report(context):
 <div class="card"><div class="label">구독 매출</div><div class="value accent">${d['sub_revenue_today']:.1f}</div><div class="sub">활성 {d['sub_active']}명</div></div>
 </div></div>
 
-{top_html}"""
+{top_html}
+{patch_html}
+{insight_html}"""
 
         date_str = f"{d['date']} ({d['weekday']})"
         html = _kpi_html_template("📊 일일 KPI 리포트", body, date_str)
