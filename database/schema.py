@@ -826,6 +826,26 @@ async def create_tables():
         except Exception:
             pass
 
+    # KPI daily snapshots table
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS kpi_daily_snapshots (
+            id SERIAL PRIMARY KEY,
+            date DATE NOT NULL UNIQUE,
+            dau INTEGER NOT NULL DEFAULT 0,
+            new_users INTEGER NOT NULL DEFAULT 0,
+            spawns INTEGER NOT NULL DEFAULT 0,
+            catches INTEGER NOT NULL DEFAULT 0,
+            shiny_caught INTEGER NOT NULL DEFAULT 0,
+            battles INTEGER NOT NULL DEFAULT 0,
+            ranked_battles INTEGER NOT NULL DEFAULT 0,
+            bp_earned INTEGER NOT NULL DEFAULT 0,
+            active_user_ids BIGINT[] NOT NULL DEFAULT '{}',
+            d1_retention REAL,
+            d7_retention REAL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

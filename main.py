@@ -358,6 +358,11 @@ async def _send_daily_kpi_report(context):
         d = await queries.kpi_daily_snapshot()
         eco = d["economy"]
 
+        # 스냅샷 저장 + D+1/D+7 리텐션 계산
+        retention = await queries.save_kpi_snapshot(d)
+        d1_ret = retention.get("d1_retention")
+        d7_ret = retention.get("d7_retention")
+
         catch_rate = d["catch_rate"]
         top_html = ""
         if d["top_chats"]:
@@ -378,7 +383,11 @@ async def _send_daily_kpi_report(context):
 <div class="card"><div class="label">신규가입</div><div class="value">{d['new_users']}</div></div>
 <div class="card"><div class="label">실시간(1h)</div><div class="value">{d['active_1h']}</div></div>
 </div>
-<div style="margin-top:8px"><div class="card"><div class="label">총 유저</div><div class="value">{d['total_users']}</div></div></div>
+<div class="grid" style="margin-top:8px">
+<div class="card"><div class="label">총 유저</div><div class="value">{d['total_users']}</div></div>
+<div class="card"><div class="label">D+1 리텐션</div><div class="value accent">{f'{d1_ret}%' if d1_ret is not None else '-'}</div></div>
+</div>
+<div style="margin-top:8px"><div class="card"><div class="label">D+7 리텐션</div><div class="value" style="color:#ff9800">{f'{d7_ret}%' if d7_ret is not None else '데이터 수집 중'}</div><div class="sub">7일 후부터 표시</div></div></div>
 </div>
 
 <div class="section">

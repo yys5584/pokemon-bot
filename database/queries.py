@@ -2647,6 +2647,78 @@ async def kpi_weekly_snapshot() -> dict:
     }
 
 
+async def save_kpi_snapshot(data: dict):
+    """일일 KPI 스냅샷을 DB에 저장하고, D+1/D+7 리텐션을 계산."""
+    pool = await get_db()
+    today = _cfg.get_kst_now().date()
+
+    # 오늘 활성 유저 ID 목록
+    active_rows = await pool.fetch(
+        """SELECT DISTINCT user_id FROM catch_attempts
+           WHERE (attempted_at AT TIME ZONE 'Asia/Seoul')::date = $1""",
+        today,
+    )
+    active_ids = [r["user_id"] for r in active_rows]
+
+    # D+1 리텐션: 어제 활성 유저 중 오늘도 활성인 비율
+    d1_retention = None
+    yesterday_snap = await pool.fetchrow(
+        "SELECT active_user_ids FROM kpi_daily_snapshots WHERE date = $1",
+        today - timedelta(days=1),
+    )
+    if yesterday_snap and yesterday_snap["active_user_ids"]:
+        y_set = set(yesterday_snap["active_user_ids"])
+        if y_set:
+            returned = len(y_set & set(active_ids))
+            d1_retention = round(returned / len(y_set) * 100, 1)
+
+    # D+7 리텐션: 7일 전 활성 유저 중 오늘도 활성인 비율
+    d7_retention = None
+    week_ago_snap = await pool.fetchrow(
+        "SELECT active_user_ids FROM kpi_daily_snapshots WHERE date = $1",
+        today - timedelta(days=7),
+    )
+    if week_ago_snap and week_ago_snap["active_user_ids"]:
+        w_set = set(week_ago_snap["active_user_ids"])
+        if w_set:
+            returned = len(w_set & set(active_ids))
+            d7_retention = round(returned / len(w_set) * 100, 1)
+
+    await pool.execute("""
+        INSERT INTO kpi_daily_snapshots
+            (date, dau, new_users, spawns, catches, shiny_caught,
+             battles, ranked_battles, bp_earned, active_user_ids,
+             d1_retention, d7_retention)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (date) DO UPDATE SET
+            dau = EXCLUDED.dau, new_users = EXCLUDED.new_users,
+            spawns = EXCLUDED.spawns, catches = EXCLUDED.catches,
+            shiny_caught = EXCLUDED.shiny_caught, battles = EXCLUDED.battles,
+            ranked_battles = EXCLUDED.ranked_battles, bp_earned = EXCLUDED.bp_earned,
+            active_user_ids = EXCLUDED.active_user_ids,
+            d1_retention = EXCLUDED.d1_retention, d7_retention = EXCLUDED.d7_retention
+    """,
+        today, data.get("dau", 0), data.get("new_users", 0),
+        data.get("spawns", 0), data.get("catches", 0), data.get("shiny_caught", 0),
+        data.get("battles", 0), data.get("ranked_battles", 0), data.get("bp_earned", 0),
+        active_ids, d1_retention, d7_retention,
+    )
+
+    return {"d1_retention": d1_retention, "d7_retention": d7_retention}
+
+
+async def get_retention_history(days: int = 14) -> list[dict]:
+    """최근 N일간 리텐션 히스토리 조회."""
+    pool = await get_db()
+    rows = await pool.fetch("""
+        SELECT date, dau, d1_retention, d7_retention
+        FROM kpi_daily_snapshots
+        WHERE date >= (NOW() AT TIME ZONE 'Asia/Seoul')::date - $1
+        ORDER BY date
+    """, days)
+    return [dict(r) for r in rows]
+
+
 async def add_master_balls_bulk(user_ids: list[int]):
     """Refund 1 master ball to each user in the list (batch UPDATE)."""
     if not user_ids:
