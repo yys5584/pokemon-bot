@@ -1,0 +1,10 @@
+[
+  {"date": "2026-03-07", "tag": "content", "title": "3세대 포켓몬 135종 추가 (No.252~386)"},
+  {"date": "2026-03-09", "tag": "system", "title": "v2.0 랭크전 DM 자동매칭 + 이로치 합성 규칙 변경"},
+  {"date": "2026-03-10", "tag": "balance", "title": "배틀 COST 18 제한 도입 + 데미지 공식 본가화"},
+  {"date": "2026-03-10", "tag": "system", "title": "스킬 효과 시스템 (자폭/대폭발 우선 배포)"},
+  {"date": "2026-03-10", "tag": "balance", "title": "v2.3 스폰/포획 확률 리밸런싱"},
+  {"date": "2026-03-11", "tag": "system", "title": "스킬 효과 시스템 전면 활성화"},
+  {"date": "2026-03-11", "tag": "balance", "title": "등급 조정 — 에픽 4종 레어로, 레어 3종 커먼으로 하향"},
+  {"date": "2026-03-12", "tag": "monetization", "title": "EVM 구독 결제 시스템 (Base USDC/USDT)"}
+]

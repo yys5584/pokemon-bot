@@ -2559,6 +2559,17 @@ async def kpi_daily_snapshot() -> dict:
     # Top 채널
     top_chats = await get_active_chat_rooms_top(3)
 
+    # 시간대별 활성 유저
+    hourly_rows = await pool.fetch(
+        """SELECT EXTRACT(HOUR FROM attempted_at AT TIME ZONE 'Asia/Seoul')::int as hr,
+                  COUNT(DISTINCT user_id) as users
+           FROM catch_attempts
+           WHERE attempted_at >= $1 AND attempted_at < $1 + INTERVAL '1 day'
+           GROUP BY hr ORDER BY hr""",
+        today,
+    )
+    hourly = {r["hr"]: r["users"] for r in hourly_rows}
+
     return {
         "date": today.strftime("%Y-%m-%d"),
         "weekday": ["월", "화", "수", "목", "금", "토", "일"][today.weekday()],
@@ -2587,6 +2598,8 @@ async def kpi_daily_snapshot() -> dict:
         "economy": economy,
         # 채널
         "top_chats": top_chats,
+        # 시간대별
+        "hourly": hourly,
     }
 
 

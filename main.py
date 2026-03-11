@@ -434,14 +434,52 @@ async def _send_daily_kpi_report(context):
         else:
             patch_html = '<div class="section"><div class="section-title">🛠️ 오늘 패치</div><div style="font-size:13px;color:#888">배포 없음</div></div>'
 
+        # ── 마일스톤 로드 ──
+        milestones_today = []
+        milestones_recent = []
+        try:
+            import json as _json
+            ms_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "milestones.json")
+            with open(ms_path, "r", encoding="utf-8") as f:
+                all_ms = _json.load(f)
+            today_str_ms = d["date"]
+            from datetime import datetime as _dt, timedelta as _td
+            for ms in all_ms:
+                if ms["date"] == today_str_ms:
+                    milestones_today.append(ms)
+                # 최근 7일 이내 마일스톤
+                ms_date = _dt.strptime(ms["date"], "%Y-%m-%d")
+                today_date = _dt.strptime(today_str_ms, "%Y-%m-%d")
+                if 0 < (today_date - ms_date).days <= 7:
+                    milestones_recent.append(ms)
+        except Exception:
+            pass
+
         # ── 인사이트 섹션 ──
         insights = []
-        if prev:
+
+        # 오늘 마일스톤
+        for ms in milestones_today:
+            tag_emoji = {"content": "🎮", "system": "⚙️", "balance": "⚖️", "monetization": "💎", "event": "🎪"}.get(ms["tag"], "📌")
+            insights.append(f"{tag_emoji} <b>오늘 마일스톤:</b> {ms['title']}")
+
+        # 최근 마일스톤 영향 분석
+        if prev and milestones_recent:
+            dau_diff = d["dau"] - prev.get("dau", 0)
+            recent_titles = [ms["title"] for ms in milestones_recent[:3]]
+            context_str = " / ".join(recent_titles)
+            if dau_diff > 0:
+                insights.append(f"DAU +{dau_diff}명 증가. 최근 주요 업데이트({context_str}) 영향 가능성.")
+            elif dau_diff < 0:
+                insights.append(f"DAU {dau_diff}명 감소. 최근 업데이트({context_str}) 후 안정화 구간 또는 추가 조치 필요.")
+        elif prev:
             dau_diff = d["dau"] - prev.get("dau", 0)
             if dau_diff > 0 and patches:
-                insights.append(f"DAU가 전일 대비 +{dau_diff}명 증가. 오늘 패치({len(patches)}건)의 긍정적 영향 가능성.")
+                insights.append(f"DAU +{dau_diff}명 증가. 오늘 패치({len(patches)}건)의 긍정적 영향 가능성.")
             elif dau_diff < 0:
-                insights.append(f"DAU가 전일 대비 {dau_diff}명 감소. 자연 이탈 또는 콘텐츠 소진 모니터링 필요.")
+                insights.append(f"DAU {dau_diff}명 감소. 자연 이탈 또는 콘텐츠 소진 모니터링 필요.")
+
+        if prev:
             catch_prev = prev.get("catches", 0)
             if catch_prev and d["catches"]:
                 prev_rate = round(catch_prev / max(prev.get("spawns", 1), 1) * 100, 1)
@@ -462,6 +500,31 @@ async def _send_daily_kpi_report(context):
 <div class="section">
 <div class="section-title">💡 인사이트</div>
 <ul style="list-style:none;padding:0">{items}</ul>
+</div>"""
+
+        # ── 시간대별 활성 그래프 ──
+        hourly = d.get("hourly", {})
+        hourly_html = ""
+        if hourly:
+            max_users = max(hourly.values()) or 1
+            peak_hr = max(hourly, key=hourly.get)
+            bars = ""
+            for hr in range(24):
+                users = hourly.get(hr, 0)
+                pct = round(users / max_users * 100) if max_users else 0
+                is_peak = hr == peak_hr and users > 0
+                bar_color = "#e53935" if is_peak else "#ffcdd2" if pct > 0 else "#f5f5f5"
+                label_style = "font-weight:700;color:#e53935" if is_peak else "color:#888"
+                bars += (
+                    f'<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0">'
+                    f'<div style="width:100%;background:{bar_color};height:{max(pct, 2)}px;border-radius:2px 2px 0 0;min-height:2px"></div>'
+                    f'<div style="font-size:9px;{label_style};margin-top:2px">{hr}</div>'
+                    f'</div>'
+                )
+            hourly_html = f"""
+<div class="section">
+<div class="section-title">🕐 시간대별 활성 (피크: {peak_hr}시, {hourly.get(peak_hr, 0)}명)</div>
+<div style="display:flex;gap:1px;align-items:flex-end;height:80px;padding:0 4px">{bars}</div>
 </div>"""
 
         # ── Top 채널 ──
@@ -519,6 +582,7 @@ async def _send_daily_kpi_report(context):
 <div class="card"><div class="label">구독 매출</div><div class="value accent">${d['sub_revenue_today']:.1f}</div><div class="sub">활성 {d['sub_active']}명</div></div>
 </div></div>
 
+{hourly_html}
 {top_html}
 {patch_html}
 {insight_html}"""
