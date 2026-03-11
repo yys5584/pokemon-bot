@@ -314,55 +314,123 @@ async def _grant_subscription_daily(bot):
         logger.error(f"Subscription daily grant error: {e}")
 
 
+def _kpi_html_template(title: str, body: str, date_str: str) -> str:
+    """KPI 리포트용 HTML 템플릿."""
+    return f"""<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title}</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;color:#1a1a2e;padding:24px;line-height:1.6}}
+.report{{max-width:640px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);overflow:hidden}}
+.header{{background:linear-gradient(135deg,#e53935,#ff6f61);color:#fff;padding:28px 32px;text-align:center}}
+.header h1{{font-size:22px;font-weight:700;margin-bottom:4px}}
+.header .date{{font-size:14px;opacity:.85}}
+.body{{padding:24px 28px}}
+.section{{margin-bottom:20px}}
+.section-title{{font-size:15px;font-weight:700;color:#e53935;margin-bottom:10px;display:flex;align-items:center;gap:8px;border-bottom:2px solid #fce4ec;padding-bottom:6px}}
+.grid{{display:grid;grid-template-columns:1fr 1fr;gap:10px}}
+.grid-3{{grid-template-columns:1fr 1fr 1fr}}
+.card{{background:#fafafa;border-radius:10px;padding:14px;text-align:center;border:1px solid #f0f0f0}}
+.card .label{{font-size:11px;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}}
+.card .value{{font-size:22px;font-weight:700;color:#1a1a2e}}
+.card .value.accent{{color:#e53935}}
+.card .sub{{font-size:11px;color:#999;margin-top:2px}}
+.channel-list{{list-style:none}}
+.channel-list li{{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;margin-bottom:4px;background:#fafafa;font-size:13px}}
+.channel-list li:nth-child(1){{background:#fff3e0;font-weight:600}}
+.channel-list li:nth-child(2){{background:#fce4ec}}
+.channel-list .rank{{font-weight:700;color:#e53935;min-width:24px}}
+.channel-list .cnt{{color:#666;font-size:12px}}
+.footer{{text-align:center;padding:16px;color:#aaa;font-size:11px;border-top:1px solid #f0f0f0}}
+</style></head><body>
+<div class="report">
+<div class="header"><h1>{title}</h1><div class="date">{date_str}</div></div>
+<div class="body">{body}</div>
+<div class="footer">TGPoke KPI Report &mdash; auto-generated</div>
+</div></body></html>"""
+
+
 async def _send_daily_kpi_report(context):
-    """매일 23:55 KST: 일일 KPI 리포트를 관리자 DM으로 발송."""
+    """매일 23:55 KST: 일일 KPI 리포트를 HTML 파일로 관리자 DM 발송."""
+    import io
     try:
         d = await queries.kpi_daily_snapshot()
         eco = d["economy"]
 
-        lines = [
-            f"📊 <b>일일 리포트 — {d['date']} ({d['weekday']})</b>",
-            "",
-            "👥 <b>유저</b>",
-            f"├ DAU: <b>{d['dau']}명</b> / 신규가입: <b>{d['new_users']}명</b>",
-            f"├ 실시간 접속(1h): <b>{d['active_1h']}명</b>",
-            f"└ 총 유저: {d['total_users']}명",
-            "",
-            "🎯 <b>스폰/포획</b>",
-            f"├ 총 스폰: <b>{d['spawns']:,}회</b> / 포획: <b>{d['catches']:,}건</b> ({d['catch_rate']}%)",
-            f"├ 이로치 포획: <b>{d['shiny_caught']}마리</b>",
-            f"└ 마스터볼 사용: {d['mb_used']}개",
-            "",
-            "⚔️ <b>배틀</b>",
-            f"├ 총 배틀: <b>{d['battles']}전</b> / 랭크전: {d['ranked_battles']}전",
-            f"└ BP 유통: +{d['bp_earned']:,}",
-            "",
-            "💰 <b>경제</b>",
-            f"├ 마볼 보유총량: {eco['master_balls_circulation']}개 / 하볼: {eco['hyper_balls_circulation']}개",
-            f"├ 거래소: 신규 {d['market_new']}건 / 체결 {d['market_sold']}건",
-            f"└ 구독: 활성 {d['sub_active']}명 (오늘 매출 ${d['sub_revenue_today']:.1f})",
-        ]
-
+        catch_rate = d["catch_rate"]
+        top_html = ""
         if d["top_chats"]:
-            lines.append("")
-            lines.append("📈 <b>Top 채널</b>")
+            items = ""
             for i, ch in enumerate(d["top_chats"], 1):
                 title = ch.get("chat_title", "?")[:15]
-                lines.append(f"{i}. {title} — {ch['today_spawns']}회 ({ch.get('member_count', 0)}명)")
+                members = ch.get("member_count", 0)
+                items += f'<li><span class="rank">{i}</span><span>{title}</span><span class="cnt">{ch["today_spawns"]}회 · {members}명</span></li>'
+            top_html = f"""<div class="section">
+<div class="section-title">📈 Top 채널 (스폰 기준)</div>
+<ul class="channel-list">{items}</ul></div>"""
 
-        text = "\n".join(lines)
+        body = f"""
+<div class="section">
+<div class="section-title">👥 유저</div>
+<div class="grid grid-3">
+<div class="card"><div class="label">DAU</div><div class="value accent">{d['dau']}</div></div>
+<div class="card"><div class="label">신규가입</div><div class="value">{d['new_users']}</div></div>
+<div class="card"><div class="label">실시간(1h)</div><div class="value">{d['active_1h']}</div></div>
+</div>
+<div style="margin-top:8px"><div class="card"><div class="label">총 유저</div><div class="value">{d['total_users']}</div></div></div>
+</div>
+
+<div class="section">
+<div class="section-title">🎯 스폰 / 포획</div>
+<div class="grid">
+<div class="card"><div class="label">총 스폰</div><div class="value">{d['spawns']:,}</div></div>
+<div class="card"><div class="label">포획</div><div class="value accent">{d['catches']:,}</div><div class="sub">포획률 {catch_rate}%</div></div>
+<div class="card"><div class="label">이로치 포획</div><div class="value" style="color:#ff9800">{d['shiny_caught']}</div></div>
+<div class="card"><div class="label">마스터볼 사용</div><div class="value">{d['mb_used']}</div></div>
+</div></div>
+
+<div class="section">
+<div class="section-title">⚔️ 배틀</div>
+<div class="grid grid-3">
+<div class="card"><div class="label">총 배틀</div><div class="value">{d['battles']}</div></div>
+<div class="card"><div class="label">랭크전</div><div class="value">{d['ranked_battles']}</div></div>
+<div class="card"><div class="label">BP 유통</div><div class="value">+{d['bp_earned']:,}</div></div>
+</div></div>
+
+<div class="section">
+<div class="section-title">💰 경제</div>
+<div class="grid">
+<div class="card"><div class="label">마스터볼 보유</div><div class="value">{eco['master_balls_circulation']}</div></div>
+<div class="card"><div class="label">하이퍼볼 보유</div><div class="value">{eco['hyper_balls_circulation']}</div></div>
+<div class="card"><div class="label">거래소</div><div class="value">{d['market_sold']}</div><div class="sub">신규 {d['market_new']}건</div></div>
+<div class="card"><div class="label">구독 매출</div><div class="value accent">${d['sub_revenue_today']:.1f}</div><div class="sub">활성 {d['sub_active']}명</div></div>
+</div></div>
+
+{top_html}"""
+
+        date_str = f"{d['date']} ({d['weekday']})"
+        html = _kpi_html_template("📊 일일 KPI 리포트", body, date_str)
+        filename = f"kpi_daily_{d['date'].replace('-', '')}.html"
+
         for admin_id in config.ADMIN_IDS:
             try:
-                await context.bot.send_message(chat_id=admin_id, text=text, parse_mode="HTML")
+                buf = io.BytesIO(html.encode("utf-8"))
+                buf.name = filename
+                await context.bot.send_document(
+                    chat_id=admin_id, document=buf,
+                    caption=f"📊 일일 KPI 리포트 — {date_str}",
+                )
             except Exception:
                 pass
-        logger.info("Daily KPI report sent to admins.")
+        logger.info("Daily KPI report (HTML) sent to admins.")
     except Exception as e:
         logger.error(f"Daily KPI report error: {e}")
 
 
 async def _send_weekly_kpi_report(context):
-    """매주 월요일 00:01 KST: 주간 KPI 리포트를 관리자 DM으로 발송."""
+    """매주 월요일 00:01 KST: 주간 KPI 리포트를 HTML 파일로 관리자 DM 발송."""
+    import io
     now = config.get_kst_now()
     if now.weekday() != 0:
         return
@@ -371,43 +439,69 @@ async def _send_weekly_kpi_report(context):
 
         dau_hist = w.get("dau_history", [])
         weekdays = ["월", "화", "수", "목", "금", "토", "일"]
-        dau_line = " | ".join(
-            f"{weekdays[i % 7]} {h.get('dau', 0)}" for i, h in enumerate(dau_hist)
-        ) if dau_hist else "(데이터 없음)"
         avg_dau = round(sum(h.get("dau", 0) for h in dau_hist) / max(len(dau_hist), 1), 1)
+        max_dau = max((h.get("dau", 0) for h in dau_hist), default=1) or 1
 
-        lines = [
-            f"📊 <b>주간 리포트 — {w['period']}</b>",
-            "",
-            "📈 <b>DAU 트렌드</b>",
-            f"{dau_line}",
-            f"평균: <b>{avg_dau}명</b>",
-            "",
-            "👥 <b>유저</b>",
-            f"├ 주간 활성(WAU): <b>{w['wau']}명</b>",
-            f"└ 신규가입: <b>{w['new_users']}명</b>",
-            "",
-            "🎯 <b>스폰/포획</b>",
-            f"├ 총 스폰: <b>{w['spawns']:,}회</b> / 포획: <b>{w['catches']:,}건</b> ({w['catch_rate']}%)",
-            f"├ 이로치: {w['shiny_caught']}마리",
-            f"└ 마볼 소비: {w['mb_used']}개",
-            "",
-            "⚔️ <b>배틀</b>",
-            f"├ 총 배틀: <b>{w['battles']}전</b>",
-            f"└ BP 총유통: +{w['bp_earned']:,}",
-            "",
-            "💰 <b>경제</b>",
-            f"├ 거래소 체결: {w['market_sold']}건",
-            f"└ 구독 매출: ${w['sub_revenue']:.1f}",
-        ]
+        # DAU bar chart HTML
+        bars = ""
+        for i, h in enumerate(dau_hist):
+            dau = h.get("dau", 0)
+            pct = round(dau / max_dau * 100)
+            day = weekdays[i % 7]
+            bars += f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="min-width:20px;font-size:12px;color:#888">{day}</span><div style="background:linear-gradient(90deg,#e53935,#ff6f61);height:22px;border-radius:4px;width:{pct}%;min-width:2px"></div><span style="font-size:13px;font-weight:600">{dau}</span></div>'
 
-        text = "\n".join(lines)
+        body = f"""
+<div class="section">
+<div class="section-title">📈 DAU 트렌드</div>
+{bars}
+<div class="card" style="margin-top:10px"><div class="label">주간 평균 DAU</div><div class="value accent">{avg_dau}</div></div>
+</div>
+
+<div class="section">
+<div class="section-title">👥 유저</div>
+<div class="grid">
+<div class="card"><div class="label">WAU (주간 활성)</div><div class="value accent">{w['wau']}</div></div>
+<div class="card"><div class="label">신규가입</div><div class="value">{w['new_users']}</div></div>
+</div></div>
+
+<div class="section">
+<div class="section-title">🎯 스폰 / 포획</div>
+<div class="grid">
+<div class="card"><div class="label">총 스폰</div><div class="value">{w['spawns']:,}</div></div>
+<div class="card"><div class="label">포획</div><div class="value accent">{w['catches']:,}</div><div class="sub">포획률 {w['catch_rate']}%</div></div>
+<div class="card"><div class="label">이로치</div><div class="value" style="color:#ff9800">{w['shiny_caught']}</div></div>
+<div class="card"><div class="label">마볼 소비</div><div class="value">{w['mb_used']}</div></div>
+</div></div>
+
+<div class="section">
+<div class="section-title">⚔️ 배틀</div>
+<div class="grid">
+<div class="card"><div class="label">총 배틀</div><div class="value">{w['battles']}</div></div>
+<div class="card"><div class="label">BP 총유통</div><div class="value">+{w['bp_earned']:,}</div></div>
+</div></div>
+
+<div class="section">
+<div class="section-title">💰 경제</div>
+<div class="grid">
+<div class="card"><div class="label">거래소 체결</div><div class="value">{w['market_sold']}</div></div>
+<div class="card"><div class="label">구독 매출</div><div class="value accent">${w['sub_revenue']:.1f}</div></div>
+</div></div>"""
+
+        period = w["period"]
+        html = _kpi_html_template("📊 주간 KPI 리포트", body, period)
+        filename = f"kpi_weekly_{now.strftime('%Y%m%d')}.html"
+
         for admin_id in config.ADMIN_IDS:
             try:
-                await context.bot.send_message(chat_id=admin_id, text=text, parse_mode="HTML")
+                buf = io.BytesIO(html.encode("utf-8"))
+                buf.name = filename
+                await context.bot.send_document(
+                    chat_id=admin_id, document=buf,
+                    caption=f"📊 주간 KPI 리포트 — {period}",
+                )
             except Exception:
                 pass
-        logger.info("Weekly KPI report sent to admins.")
+        logger.info("Weekly KPI report (HTML) sent to admins.")
     except Exception as e:
         logger.error(f"Weekly KPI report error: {e}")
 
