@@ -606,7 +606,7 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^날씨$"), weather_handler))
     app.add_handler(MessageHandler((group | dm) & filters.Regex(r"^대시보드$"), dashboard_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^방정보$"), room_info_handler))
-    app.add_handler(MessageHandler(group & filters.Regex(r"^내포켓몬$"), my_pokemon_group_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^내포켓몬"), my_pokemon_group_handler))
 
     # Camp system (Group)
     if HAS_CAMP:
