@@ -4180,10 +4180,25 @@ function admTime(iso){if(!iso)return"—";const d=new Date(iso);return d.toLocal
 async function admDbOverview(){
     const el=document.getElementById("admDbContent");
     el.innerHTML='<div class="loading">로딩 중...</div>';
-    const d=await fetchJSON("/api/admin/db/overview");
+    const[d,kpi]=await Promise.all([fetchJSON("/api/admin/db/overview"),fetchJSON("/api/dashboard-kpi")]);
     if(!d){el.innerHTML='<p class="empty-msg">로드 실패</p>';return}
+    const newToday=kpi?kpi.new_today||0:0;
+    const active1h=kpi?kpi.active_1h||0:0;
+    const dau=kpi?kpi.dau||0:0;
     el.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+        <div style="background:linear-gradient(135deg,#1a237e,#283593);padding:12px;border-radius:8px">
+            <div style="font-size:11px;color:rgba(255,255,255,.7)">👥 DAU (오늘)</div>
+            <div style="font-size:22px;font-weight:700;color:#fff">${dau}</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#1b5e20,#2e7d32);padding:12px;border-radius:8px">
+            <div style="font-size:11px;color:rgba(255,255,255,.7)">🟢 실시간 접속 (1h)</div>
+            <div style="font-size:22px;font-weight:700;color:#69f0ae">${active1h}</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#e65100,#f57c00);padding:12px;border-radius:8px">
+            <div style="font-size:11px;color:rgba(255,255,255,.7)">🆕 오늘 신규가입</div>
+            <div style="font-size:22px;font-weight:700;color:#fff">${newToday}</div>
+        </div>
         <div style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border)">
             <div style="font-size:11px;color:var(--muted)">총 유저</div>
             <div style="font-size:22px;font-weight:700;color:var(--text)">${d.total_users.toLocaleString()}</div>

@@ -1925,12 +1925,19 @@ async def api_battle_tiers(request):
 
 async def api_dashboard_kpi(request):
     """DAU, retention, economy health — single endpoint."""
-    dau, dau_hist, retention, economy, top_channels = await asyncio.gather(
+    pool = await queries.get_db()
+    now = config.get_kst_now()
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    one_hour_ago = now - __import__('datetime').timedelta(hours=1)
+
+    dau, dau_hist, retention, economy, top_channels, new_today, active_1h = await asyncio.gather(
         queries.get_dau(),
         queries.get_dau_history(7),
         queries.get_retention_d1(),
         queries.get_economy_health(),
         queries.get_active_chat_rooms_top(5),
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM users WHERE registered_at >= $1", today),
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM users WHERE last_active_at >= $1", one_hour_ago),
     )
     return pg_json_response({
         "dau": dau,
@@ -1938,6 +1945,8 @@ async def api_dashboard_kpi(request):
         "retention": retention,
         "economy": economy,
         "top_channels": top_channels,
+        "new_today": new_today["cnt"] if new_today else 0,
+        "active_1h": active_1h["cnt"] if active_1h else 0,
     })
 
 

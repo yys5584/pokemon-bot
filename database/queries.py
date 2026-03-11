@@ -2493,6 +2493,160 @@ async def count_total_catches_bulk(user_ids: list[int]) -> dict[int, int]:
     return {r["user_id"]: r["cnt"] for r in rows}
 
 
+# ============================================================
+# KPI Report Queries (일일/주간 리포트용)
+# ============================================================
+
+async def kpi_daily_snapshot() -> dict:
+    """일일 KPI 스냅샷 — midnight_reset 직전에 호출."""
+    pool = await get_db()
+    now = _cfg.get_kst_now()
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    one_hour_ago = now - timedelta(hours=1)
+
+    (
+        dau_row, new_row, active_1h_row, total_users_row,
+        spawn_row, shiny_row, mb_used_row,
+        battle_row, ranked_row, bp_row,
+        market_new_row, market_sold_row,
+        sub_active_row, sub_revenue_row,
+        economy,
+    ) = await asyncio.gather(
+        # 유저
+        pool.fetchrow("SELECT COUNT(DISTINCT user_id) as cnt FROM catch_attempts WHERE attempted_at >= $1", today),
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM users WHERE registered_at >= $1", today),
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM users WHERE last_active_at >= $1", one_hour_ago),
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM users"),
+        # 스폰/포획
+        pool.fetchrow(
+            """SELECT COUNT(*) as spawns,
+                      COUNT(caught_by_user_id) as catches,
+                      COUNT(*) FILTER (WHERE is_shiny = 1) as shiny_spawns
+               FROM spawn_log WHERE spawned_at >= $1""", today),
+        pool.fetchrow(
+            """SELECT COUNT(*) as cnt FROM spawn_log
+               WHERE spawned_at >= $1 AND is_shiny = 1 AND caught_by_user_id IS NOT NULL""", today),
+        pool.fetchrow(
+            "SELECT COUNT(*) as cnt FROM catch_attempts WHERE used_master_ball = 1 AND attempted_at >= $1", today),
+        # 배틀
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM battle_records WHERE created_at >= $1", today),
+        pool.fetchrow(
+            """SELECT COUNT(*) as cnt FROM battle_records
+               WHERE created_at >= $1 AND bp_earned > 0
+                 AND EXISTS (SELECT 1 FROM season_records)""", today),
+        pool.fetchrow(
+            "SELECT COALESCE(SUM(bp_earned), 0) as total FROM battle_records WHERE created_at >= $1", today),
+        # 거래소
+        pool.fetchrow(
+            "SELECT COUNT(*) as cnt FROM market_listings WHERE created_at >= $1", today),
+        pool.fetchrow(
+            "SELECT COUNT(*) as cnt FROM market_listings WHERE sold_at >= $1 AND status = 'sold'", today),
+        # 구독
+        pool.fetchrow(
+            "SELECT COUNT(*) as cnt FROM subscriptions WHERE is_active = 1"),
+        pool.fetchrow(
+            """SELECT COALESCE(SUM(amount_usd), 0) as total
+               FROM subscription_payments WHERE status = 'confirmed' AND confirmed_at >= $1""", today),
+        # 경제
+        get_economy_health(),
+    )
+
+    spawns = spawn_row["spawns"] if spawn_row else 0
+    catches = spawn_row["catches"] if spawn_row else 0
+    catch_rate = round(catches / spawns * 100, 1) if spawns > 0 else 0
+
+    # Top 채널
+    top_chats = await get_active_chat_rooms_top(3)
+
+    return {
+        "date": today.strftime("%Y-%m-%d"),
+        "weekday": ["월", "화", "수", "목", "금", "토", "일"][today.weekday()],
+        # 유저
+        "dau": dau_row["cnt"] if dau_row else 0,
+        "new_users": new_row["cnt"] if new_row else 0,
+        "active_1h": active_1h_row["cnt"] if active_1h_row else 0,
+        "total_users": total_users_row["cnt"] if total_users_row else 0,
+        # 스폰/포획
+        "spawns": spawns,
+        "catches": catches,
+        "catch_rate": catch_rate,
+        "shiny_caught": shiny_row["cnt"] if shiny_row else 0,
+        "mb_used": mb_used_row["cnt"] if mb_used_row else 0,
+        # 배틀
+        "battles": battle_row["cnt"] if battle_row else 0,
+        "ranked_battles": ranked_row["cnt"] if ranked_row else 0,
+        "bp_earned": int(bp_row["total"]) if bp_row else 0,
+        # 거래소
+        "market_new": market_new_row["cnt"] if market_new_row else 0,
+        "market_sold": market_sold_row["cnt"] if market_sold_row else 0,
+        # 구독
+        "sub_active": sub_active_row["cnt"] if sub_active_row else 0,
+        "sub_revenue_today": float(sub_revenue_row["total"]) if sub_revenue_row else 0,
+        # 경제
+        "economy": economy,
+        # 채널
+        "top_chats": top_chats,
+    }
+
+
+async def kpi_weekly_snapshot() -> dict:
+    """주간 KPI 스냅샷 — 월요일 리셋 시점에 호출."""
+    pool = await get_db()
+    now = _cfg.get_kst_now()
+    week_start = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    (
+        wau_row, new_row,
+        spawn_row, shiny_row, mb_row,
+        battle_row, bp_row,
+        market_row, sub_row,
+    ) = await asyncio.gather(
+        pool.fetchrow(
+            "SELECT COUNT(DISTINCT user_id) as cnt FROM catch_attempts WHERE attempted_at >= $1", week_start),
+        pool.fetchrow(
+            "SELECT COUNT(*) as cnt FROM users WHERE registered_at >= $1", week_start),
+        pool.fetchrow(
+            """SELECT COUNT(*) as spawns, COUNT(caught_by_user_id) as catches
+               FROM spawn_log WHERE spawned_at >= $1""", week_start),
+        pool.fetchrow(
+            """SELECT COUNT(*) as cnt FROM spawn_log
+               WHERE spawned_at >= $1 AND is_shiny = 1 AND caught_by_user_id IS NOT NULL""", week_start),
+        pool.fetchrow(
+            "SELECT COUNT(*) as cnt FROM catch_attempts WHERE used_master_ball = 1 AND attempted_at >= $1",
+            week_start),
+        pool.fetchrow(
+            "SELECT COUNT(*) as cnt FROM battle_records WHERE created_at >= $1", week_start),
+        pool.fetchrow(
+            "SELECT COALESCE(SUM(bp_earned), 0) as total FROM battle_records WHERE created_at >= $1", week_start),
+        pool.fetchrow(
+            "SELECT COUNT(*) as cnt FROM market_listings WHERE sold_at >= $1 AND status = 'sold'", week_start),
+        pool.fetchrow(
+            """SELECT COALESCE(SUM(amount_usd), 0) as total
+               FROM subscription_payments WHERE status = 'confirmed' AND confirmed_at >= $1""", week_start),
+    )
+
+    dau_history = await get_dau_history(7)
+
+    spawns = spawn_row["spawns"] if spawn_row else 0
+    catches = spawn_row["catches"] if spawn_row else 0
+
+    return {
+        "period": f"{week_start.strftime('%m/%d')} ~ {now.strftime('%m/%d')}",
+        "dau_history": dau_history,
+        "wau": wau_row["cnt"] if wau_row else 0,
+        "new_users": new_row["cnt"] if new_row else 0,
+        "spawns": spawns,
+        "catches": catches,
+        "catch_rate": round(catches / spawns * 100, 1) if spawns > 0 else 0,
+        "shiny_caught": shiny_row["cnt"] if shiny_row else 0,
+        "mb_used": mb_row["cnt"] if mb_row else 0,
+        "battles": battle_row["cnt"] if battle_row else 0,
+        "bp_earned": int(bp_row["total"]) if bp_row else 0,
+        "market_sold": market_row["cnt"] if market_row else 0,
+        "sub_revenue": float(sub_row["total"]) if sub_row else 0,
+    }
+
+
 async def add_master_balls_bulk(user_ids: list[int]):
     """Refund 1 master ball to each user in the list (batch UPDATE)."""
     if not user_ids:

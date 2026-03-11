@@ -314,6 +314,104 @@ async def _grant_subscription_daily(bot):
         logger.error(f"Subscription daily grant error: {e}")
 
 
+async def _send_daily_kpi_report(context):
+    """매일 23:55 KST: 일일 KPI 리포트를 관리자 DM으로 발송."""
+    try:
+        d = await queries.kpi_daily_snapshot()
+        eco = d["economy"]
+
+        lines = [
+            f"📊 <b>일일 리포트 — {d['date']} ({d['weekday']})</b>",
+            "",
+            "👥 <b>유저</b>",
+            f"├ DAU: <b>{d['dau']}명</b> / 신규가입: <b>{d['new_users']}명</b>",
+            f"├ 실시간 접속(1h): <b>{d['active_1h']}명</b>",
+            f"└ 총 유저: {d['total_users']}명",
+            "",
+            "🎯 <b>스폰/포획</b>",
+            f"├ 총 스폰: <b>{d['spawns']:,}회</b> / 포획: <b>{d['catches']:,}건</b> ({d['catch_rate']}%)",
+            f"├ 이로치 포획: <b>{d['shiny_caught']}마리</b>",
+            f"└ 마스터볼 사용: {d['mb_used']}개",
+            "",
+            "⚔️ <b>배틀</b>",
+            f"├ 총 배틀: <b>{d['battles']}전</b> / 랭크전: {d['ranked_battles']}전",
+            f"└ BP 유통: +{d['bp_earned']:,}",
+            "",
+            "💰 <b>경제</b>",
+            f"├ 마볼 보유총량: {eco['master_balls_circulation']}개 / 하볼: {eco['hyper_balls_circulation']}개",
+            f"├ 거래소: 신규 {d['market_new']}건 / 체결 {d['market_sold']}건",
+            f"└ 구독: 활성 {d['sub_active']}명 (오늘 매출 ${d['sub_revenue_today']:.1f})",
+        ]
+
+        if d["top_chats"]:
+            lines.append("")
+            lines.append("📈 <b>Top 채널</b>")
+            for i, ch in enumerate(d["top_chats"], 1):
+                title = ch.get("chat_title", "?")[:15]
+                lines.append(f"{i}. {title} — {ch['today_spawns']}회 ({ch.get('member_count', 0)}명)")
+
+        text = "\n".join(lines)
+        for admin_id in config.ADMIN_IDS:
+            try:
+                await context.bot.send_message(chat_id=admin_id, text=text, parse_mode="HTML")
+            except Exception:
+                pass
+        logger.info("Daily KPI report sent to admins.")
+    except Exception as e:
+        logger.error(f"Daily KPI report error: {e}")
+
+
+async def _send_weekly_kpi_report(context):
+    """매주 월요일 00:01 KST: 주간 KPI 리포트를 관리자 DM으로 발송."""
+    now = config.get_kst_now()
+    if now.weekday() != 0:
+        return
+    try:
+        w = await queries.kpi_weekly_snapshot()
+
+        dau_hist = w.get("dau_history", [])
+        weekdays = ["월", "화", "수", "목", "금", "토", "일"]
+        dau_line = " | ".join(
+            f"{weekdays[i % 7]} {h.get('dau', 0)}" for i, h in enumerate(dau_hist)
+        ) if dau_hist else "(데이터 없음)"
+        avg_dau = round(sum(h.get("dau", 0) for h in dau_hist) / max(len(dau_hist), 1), 1)
+
+        lines = [
+            f"📊 <b>주간 리포트 — {w['period']}</b>",
+            "",
+            "📈 <b>DAU 트렌드</b>",
+            f"{dau_line}",
+            f"평균: <b>{avg_dau}명</b>",
+            "",
+            "👥 <b>유저</b>",
+            f"├ 주간 활성(WAU): <b>{w['wau']}명</b>",
+            f"└ 신규가입: <b>{w['new_users']}명</b>",
+            "",
+            "🎯 <b>스폰/포획</b>",
+            f"├ 총 스폰: <b>{w['spawns']:,}회</b> / 포획: <b>{w['catches']:,}건</b> ({w['catch_rate']}%)",
+            f"├ 이로치: {w['shiny_caught']}마리",
+            f"└ 마볼 소비: {w['mb_used']}개",
+            "",
+            "⚔️ <b>배틀</b>",
+            f"├ 총 배틀: <b>{w['battles']}전</b>",
+            f"└ BP 총유통: +{w['bp_earned']:,}",
+            "",
+            "💰 <b>경제</b>",
+            f"├ 거래소 체결: {w['market_sold']}건",
+            f"└ 구독 매출: ${w['sub_revenue']:.1f}",
+        ]
+
+        text = "\n".join(lines)
+        for admin_id in config.ADMIN_IDS:
+            try:
+                await context.bot.send_message(chat_id=admin_id, text=text, parse_mode="HTML")
+            except Exception:
+                pass
+        logger.info("Weekly KPI report sent to admins.")
+    except Exception as e:
+        logger.error(f"Weekly KPI report error: {e}")
+
+
 async def midnight_reset(context):
     """자정(0시 KST) 일일 리셋: 잡기횟수, 보너스, 밥/놀기, 강제스폰, 스폰카운트."""
     from database.connection import get_db
@@ -793,10 +891,24 @@ def main():
     # --- Schedule jobs ---
     # KST = UTC+9
     kst = timezone(timedelta(hours=9))
+    # KPI 일일 리포트 (23:55 KST — 리셋 전 데이터 캡처)
+    app.job_queue.run_daily(
+        _send_daily_kpi_report,
+        time=dt_time(23, 55, 0, tzinfo=kst),
+        name="daily_kpi_report",
+    )
+
     app.job_queue.run_daily(
         midnight_reset,
         time=dt_time(0, 0, 0, tzinfo=kst),
         name="reset_midnight",
+    )
+
+    # KPI 주간 리포트 (월요일 00:01 KST)
+    app.job_queue.run_daily(
+        _send_weekly_kpi_report,
+        time=dt_time(0, 1, 0, tzinfo=kst),
+        name="weekly_kpi_report",
     )
 
     # 3-hourly catch recharge at 3, 6, 9, 12, 15, 18, 21 KST
