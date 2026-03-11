@@ -148,7 +148,7 @@ async def _send_step(context, user_id: int, step: int):
         await bot.send_message(
             chat_id=user_id,
             text=(
-                f"⚠️ 희귀 등급은 일반보다 포획률이 낮아요!\n\n"
+                f"⚠️ 레어 등급은 일반보다 포획률이 낮아요!\n\n"
                 f"💡 {hyperball} <b>하이퍼볼(ㅎ)</b>은 포켓볼보다 포획률이 3배 높아요.\n"
                 f"   하나 지급해 드릴테니 던져볼까요?"
             ),

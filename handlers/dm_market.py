@@ -23,7 +23,7 @@ def _listing_line(ml: dict) -> str:
 
 RARITY_LABELS = {
     "": "전체",
-    "common": "커먼",
+    "common": "일반",
     "rare": "레어",
     "epic": "에픽",
     "legendary": "전설",

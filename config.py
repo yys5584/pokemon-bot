@@ -62,7 +62,7 @@ RARITY_EMOJI = {
 
 RARITY_LABEL = {
     "common": "일반",
-    "rare": "희귀",
+    "rare": "레어",
     "epic": "에픽",
     "legendary": "전설",
     "ultra_legendary": "초전설",
@@ -287,7 +287,7 @@ EVENT_TEMPLATES = {
         "event_type": "rarity_boost",
         "multiplier": 2.0,
         "target": "rare",
-        "description": "🔵 레어 출현! 희귀 포켓몬 출현률 2배",
+        "description": "🔵 레어 출현! 레어 포켓몬 출현률 2배",
     },
     "이브이데이": {
         "event_type": "pokemon_boost",

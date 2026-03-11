@@ -15,7 +15,7 @@ SPECIES_PAGE_SIZE = 8
 RARITY_FILTERS = [
     ("all", "전체"),
     ("common", "일반"),
-    ("rare", "희귀"),
+    ("rare", "레어"),
     ("epic", "에픽"),
     ("legendary", "전설"),
     ("ultra_legendary", "초전설"),

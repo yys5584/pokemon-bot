@@ -530,7 +530,7 @@ async def mock_admin_db_overview(request):
 async def mock_admin_db_shiny(request):
     items = [
         {"pokemon":"앤테이","rarity":"legendary","rarity_label":"전설","chat":"tg_poke","caught_by":"크립토비밥","caught_uid":53720317,"time":"2026-03-05T23:46:00","iv_grade":"B","iv_total":112,"ivs":{"hp":16,"atk":18,"def":23,"spa":16,"spdef":25,"spd":14}},
-        {"pokemon":"에브이","rarity":"rare","rarity_label":"희귀","chat":"tg_poke","caught_by":"문유","caught_uid":123,"time":"2026-03-04T15:30:00","iv_grade":"A","iv_total":155,"ivs":{"hp":28,"atk":25,"def":27,"spa":26,"spdef":24,"spd":25}},
+        {"pokemon":"에브이","rarity":"rare","rarity_label":"레어","chat":"tg_poke","caught_by":"문유","caught_uid":123,"time":"2026-03-04T15:30:00","iv_grade":"A","iv_total":155,"ivs":{"hp":28,"atk":25,"def":27,"spa":26,"spdef":24,"spd":25}},
         {"pokemon":"잠만보","rarity":"epic","rarity_label":"에픽","chat":"tg_poke","caught_by":None,"caught_uid":None,"time":"2026-03-03T12:00:00","iv_grade":None,"iv_total":None,"ivs":None},
     ]
     return web.json_response({"items":items,"total":3,"page":1,"pages":1,"summary":{"total":85,"caught":42,"escaped":43}})
@@ -550,7 +550,7 @@ async def mock_admin_db_user_pokemon(request):
     if not q:
         return web.json_response({"error": "q required"})
     items = [
-        {"id":13987,"name":"옥타콘","rarity":"rare","rarity_label":"희귀","shiny":True,"active":True,"time":"2026-03-05T23:49:00","iv_grade":"A","iv_total":148,"ivs":{"hp":25,"atk":22,"def":28,"spa":24,"spdef":26,"spd":23}},
+        {"id":13987,"name":"옥타콘","rarity":"rare","rarity_label":"레어","shiny":True,"active":True,"time":"2026-03-05T23:49:00","iv_grade":"A","iv_total":148,"ivs":{"hp":25,"atk":22,"def":28,"spa":24,"spdef":26,"spd":23}},
         {"id":13985,"name":"앤테이","rarity":"legendary","rarity_label":"전설","shiny":True,"active":True,"time":"2026-03-05T23:46:00","iv_grade":"B","iv_total":112,"ivs":{"hp":16,"atk":18,"def":23,"spa":16,"spdef":25,"spd":14}},
     ]
     return web.json_response({"user":{"id":53720317,"name":"크립토비밥","username":"phyllrar"},"items":items,"total":2,"summary":{"total":45,"shiny":3,"by_rarity":{"common":{"count":20,"shiny":0},"rare":{"count":15,"shiny":1},"epic":{"count":7,"shiny":1},"legendary":{"count":3,"shiny":1}}}})
@@ -645,14 +645,14 @@ async def mock_admin_battle_analytics(request):
         "filters": {"days": "7", "battle_type": "all", "rarity": "all", "tier": "all"},
         "summary": {"total_battles": 847, "today_battles": 42, "avg_rounds": 12.3, "total_pokemon_used": 5082},
         "pokemon_ranking": [
-            {"pokemon_id": 376, "name_ko": "메타그로스", "emoji": "", "rarity": "epic", "uses": 234, "wins": 145, "win_rate": 62.0, "avg_damage": 850, "avg_kills": 1.8, "avg_deaths": 0.4},
-            {"pokemon_id": 384, "name_ko": "레쿠쟈", "emoji": "", "rarity": "ultra_legendary", "uses": 189, "wins": 118, "win_rate": 62.4, "avg_damage": 1420, "avg_kills": 2.3, "avg_deaths": 0.5},
-            {"pokemon_id": 445, "name_ko": "한카리아스", "emoji": "", "rarity": "legendary", "uses": 156, "wins": 89, "win_rate": 57.1, "avg_damage": 1180, "avg_kills": 1.9, "avg_deaths": 0.6},
-            {"pokemon_id": 130, "name_ko": "갸라도스", "emoji": "", "rarity": "epic", "uses": 142, "wins": 75, "win_rate": 52.8, "avg_damage": 780, "avg_kills": 1.5, "avg_deaths": 0.7},
-            {"pokemon_id": 248, "name_ko": "마기라스", "emoji": "", "rarity": "legendary", "uses": 128, "wins": 70, "win_rate": 54.7, "avg_damage": 1050, "avg_kills": 1.7, "avg_deaths": 0.6},
-            {"pokemon_id": 149, "name_ko": "망나뇽", "emoji": "", "rarity": "legendary", "uses": 115, "wins": 58, "win_rate": 50.4, "avg_damage": 980, "avg_kills": 1.6, "avg_deaths": 0.8},
-            {"pokemon_id": 6, "name_ko": "리자몽", "emoji": "", "rarity": "epic", "uses": 98, "wins": 42, "win_rate": 42.9, "avg_damage": 680, "avg_kills": 1.2, "avg_deaths": 0.9},
-            {"pokemon_id": 25, "name_ko": "피카츄", "emoji": "", "rarity": "rare", "uses": 85, "wins": 30, "win_rate": 35.3, "avg_damage": 320, "avg_kills": 0.8, "avg_deaths": 1.0},
+            {"pokemon_id": 376, "name_ko": "메타그로스", "emoji": "", "rarity": "epic", "uses": 234, "unique_users": 18, "wins": 145, "win_rate": 62.0, "avg_damage": 850, "avg_kills": 1.8, "avg_deaths": 0.4},
+            {"pokemon_id": 384, "name_ko": "레쿠쟈", "emoji": "", "rarity": "ultra_legendary", "uses": 189, "unique_users": 12, "wins": 118, "win_rate": 62.4, "avg_damage": 1420, "avg_kills": 2.3, "avg_deaths": 0.5},
+            {"pokemon_id": 445, "name_ko": "한카리아스", "emoji": "", "rarity": "legendary", "uses": 156, "unique_users": 15, "wins": 89, "win_rate": 57.1, "avg_damage": 1180, "avg_kills": 1.9, "avg_deaths": 0.6},
+            {"pokemon_id": 130, "name_ko": "갸라도스", "emoji": "", "rarity": "epic", "uses": 142, "unique_users": 22, "wins": 75, "win_rate": 52.8, "avg_damage": 780, "avg_kills": 1.5, "avg_deaths": 0.7},
+            {"pokemon_id": 248, "name_ko": "마기라스", "emoji": "", "rarity": "legendary", "uses": 128, "unique_users": 14, "wins": 70, "win_rate": 54.7, "avg_damage": 1050, "avg_kills": 1.7, "avg_deaths": 0.6},
+            {"pokemon_id": 149, "name_ko": "망나뇽", "emoji": "", "rarity": "legendary", "uses": 115, "unique_users": 20, "wins": 58, "win_rate": 50.4, "avg_damage": 980, "avg_kills": 1.6, "avg_deaths": 0.8},
+            {"pokemon_id": 6, "name_ko": "리자몽", "emoji": "", "rarity": "epic", "uses": 98, "unique_users": 25, "wins": 42, "win_rate": 42.9, "avg_damage": 680, "avg_kills": 1.2, "avg_deaths": 0.9},
+            {"pokemon_id": 25, "name_ko": "피카츄", "emoji": "", "rarity": "rare", "uses": 85, "unique_users": 30, "wins": 30, "win_rate": 35.3, "avg_damage": 320, "avg_kills": 0.8, "avg_deaths": 1.0},
         ],
         "rarity_stats": [
             {"rarity": "common", "uses": 1200, "wins": 480, "win_rate": 40.0, "avg_damage": 280},
@@ -1088,6 +1088,8 @@ def create_preview_app():
     # Board deep-link sub-routes
     app.router.add_get("/board/post/{id}", index)
     app.router.add_get("/board/{sub}", index)
+    # Admin deep-link sub-routes
+    app.router.add_get("/admin/{sub}", index)
     return app
 
 

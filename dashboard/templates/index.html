@@ -876,7 +876,7 @@
                         <option value="ultra_legendary">🔴 초전설</option>
                         <option value="legendary">🟡 전설</option>
                         <option value="epic">🟣 에픽</option>
-                        <option value="rare">🔵 희귀</option>
+                        <option value="rare">🔵 레어</option>
                         <option value="common">🟢 일반</option>
                     </select>
                     <select class="poke-select" id="mktIv" onchange="marketFetchListings()">
@@ -1018,7 +1018,7 @@
                                 <tr><td>💧 물타입 필수</td><td>물 타입 1마리 이상 편성</td></tr>
                                 <tr><td>🔥 불꽃타입 필수</td><td>불꽃 타입 1마리 이상 편성</td></tr>
                                 <tr><td>⚡ 전기타입 필수</td><td>전기 타입 1마리 이상 편성</td></tr>
-                                <tr><td>🟢 커먼 전용</td><td>커먼 등급만 사용</td></tr>
+                                <tr><td>🟢 일반 전용</td><td>일반 등급만 사용</td></tr>
                                 <tr><td>⭐ 레어 2마리 필수</td><td>레어 등급 2마리 이상</td></tr>
                                 <tr><td>4️⃣ 4마리 제한</td><td>최대 4마리 편성</td></tr>
                                 <tr><td>🎲 3마리 제한</td><td>최대 3마리 편성</td></tr>
@@ -1191,21 +1191,21 @@
                             <h4>📊 등급별 확률</h4>
                             <table class="guide-table">
                                 <tr><th>등급</th><th>출현률</th><th>포획률</th><th>하이퍼볼</th></tr>
-                                <tr><td>🟢 일반 (커먼)</td><td>49.5%</td><td>80%</td><td>100%</td></tr>
-                                <tr><td>🔵 희귀 (레어)</td><td>30.0%</td><td>50%</td><td>100%</td></tr>
+                                <tr><td>🟢 일반</td><td>49.5%</td><td>80%</td><td>100%</td></tr>
+                                <tr><td>🔵 레어</td><td>30.0%</td><td>50%</td><td>100%</td></tr>
                                 <tr><td>🟣 에픽</td><td>15.0%</td><td>15%</td><td>45%</td></tr>
-                                <tr><td>🟡 전설 (레전더리)</td><td>4.0%</td><td>5%</td><td>15%</td></tr>
+                                <tr><td>🟡 전설</td><td>4.0%</td><td>5%</td><td>15%</td></tr>
                                 <tr><td>🔴 초전설</td><td>1.5%</td><td>3%</td><td>9%</td></tr>
                             </table>
                         </div>
 
                         <div class="guide-block">
                             <h4>🌙 심야 보너스 (새벽 2시~5시)</h4>
-                            <p>심야 시간대에는 희귀 포켓몬 출현이 증가합니다!</p>
+                            <p>심야 시간대에는 고등급 포켓몬 출현이 증가합니다!</p>
                             <table class="guide-table">
                                 <tr><th>등급</th><th>일반 시간</th><th>심야 시간</th></tr>
                                 <tr><td>🟢 일반</td><td>49.5%</td><td>40%</td></tr>
-                                <tr><td>🔵 희귀</td><td>30.0%</td><td>30%</td></tr>
+                                <tr><td>🔵 레어</td><td>30.0%</td><td>30%</td></tr>
                                 <tr><td>🟣 에픽</td><td>15.0%</td><td>20%</td></tr>
                                 <tr><td>🟡 전설</td><td>4.0%</td><td>8%</td></tr>
                                 <tr><td>🔴 초전설</td><td>1.5%</td><td>2%</td></tr>
@@ -1485,7 +1485,7 @@
                         <option value="ultra_legendary">🔴 초전설</option>
                         <option value="legendary">🟡 전설</option>
                         <option value="epic">🟣 에픽</option>
-                        <option value="rare">🔵 희귀</option>
+                        <option value="rare">🔵 레어</option>
                         <option value="common">🟢 일반</option>
                     </select>
                     <button class="poke-filter" data-filter="shiny" id="shinyFilterBtn">✨ 이로치</button>
@@ -1808,7 +1808,10 @@
                 </div>
                 <!-- Table: Pokemon Ranking -->
                 <div class="section">
-                    <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.6);margin-bottom:10px">🏆 포켓몬 사용률/승률 Top 30</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                        <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,.6)">🏆 포켓몬 사용률/승률</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,.25)" id="btPokemonCount"></div>
+                    </div>
                     <div id="battlePokemonTable" style="overflow-x:auto"></div>
                 </div>
             </div><!-- /admCat-battle -->
@@ -1852,7 +1855,7 @@ async function fetchJSON(u){
     _cache[u]={d,t:Date.now()};
     return d;
 }
-function rarityBadge(r){const l={common:"일반",rare:"희귀",epic:"에픽",legendary:"전설",ultra_legendary:"초전설"};return`<span class="badge badge-${r}">${l[r]||r}</span>`}
+function rarityBadge(r){const l={common:"일반",rare:"레어",epic:"에픽",legendary:"전설",ultra_legendary:"초전설"};return`<span class="badge badge-${r}">${l[r]||r}</span>`}
 function tierBadge(t){const c={"S+":"sp","S":"s","A+":"ap","A":"a","B+":"bp","B":"b","C+":"cp","C":"c","D+":"dp","D":"d"};return`<span class="tier tier-${c[t]||'d'}">${t}</span>`}
 function formatTime(t){if(!t)return"-";var d=new Date(t);d=new Date(d.getTime()+9*60*60*1000);return d.toISOString().replace("T"," ").substring(0,16)}
 function shortNum(n){if(n>=1e6)return(n/1e6).toFixed(1).replace(/\.0$/,'')+'M';if(n>=1e4)return Math.round(n/1e3)+'k';if(n>=1e3)return(n/1e3).toFixed(1).replace(/\.0$/,'')+'k';return String(n)}
@@ -1983,6 +1986,7 @@ function updateQuotaBadge(remaining,bonus){
 
 // --- Tab Navigation with URL routing ---
 const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",market:"/market",tier:"/tier",typechart:"/types",guide:"/guide",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",admin:"/admin"};
+const ADMIN_CATS=["manage","db","kpi","battle"];
 function switchGuide(id){document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));document.getElementById('guide-'+id).classList.add('active');document.querySelector('.guide-tab[data-guide="'+id+'"]').classList.add('active');if(id==='typechart'){const src=document.getElementById('typeChartGrid');const dst=document.getElementById('typeChartGuide');if(src&&dst&&src.innerHTML&&!src.innerHTML.includes('로딩')){dst.innerHTML=src.innerHTML}else{loadTypeChart().then(()=>{const s2=document.getElementById('typeChartGrid');if(s2)dst.innerHTML=s2.innerHTML})}}}
 const PATH_PAGES=Object.fromEntries(Object.entries(PAGE_PATHS).map(([k,v])=>[v,k]));
 let currentPage="home";
@@ -2050,12 +2054,21 @@ window.addEventListener("popstate",(e)=>{
         if(el) boardSideNav(el,false);
         return;
     }
+    // Admin deep-link: sub-tab
+    if(st&&st.page==="admin"&&st.adminCat){
+        navigateTo("admin",false);
+        admCatSwitch(st.adminCat,false);
+        return;
+    }
     // Fallback: parse from pathname for board sub-paths
     const path=location.pathname;
     const postMatch=path.match(/^\/board\/post\/(\d+)$/);
     if(postMatch){navigateTo("board",false);boardOpenPost(parseInt(postMatch[1]),false);return}
     const boardMatch=path.match(/^\/board\/(notice|community)$/);
     if(boardMatch){navigateTo("board",false);const el=document.querySelector(`.board-side-item[data-board="${boardMatch[1]}"],.board-side-sub[data-board="${boardMatch[1]}"]`);if(el)boardSideNav(el,false);return}
+    // Admin sub-path fallback
+    const adminMatch=path.match(/^\/admin\/(manage|db|kpi|battle)$/);
+    if(adminMatch){navigateTo("admin",false);admCatSwitch(adminMatch[1],false);return}
     const page=st?.page||PATH_PAGES[path]||"home";
     navigateTo(page,false);
 });
@@ -2486,7 +2499,7 @@ function _renderTierPage(){
     const tiers=_getFilteredTier();
     const chart=window._tierChart, names=window._tierNames, mx=window._tierMx;
     const allTypes=window._tierAllTypes||[];
-    const rarityLabel={"ultra_legendary":"초전설","legendary":"전설","epic":"에픽","rare":"희귀","common":"일반"};
+    const rarityLabel={"ultra_legendary":"초전설","legendary":"전설","epic":"에픽","rare":"레어","common":"일반"};
     const evoLabel={1:"1진화",2:"2진화",3:"최종"};
     const tf=window._tierTypeFilter, rf=window._tierRarityFilter;
 
@@ -3492,7 +3505,7 @@ function mdToHtml(text){
         .replace(/\b(1\.3배|1\.3x)\b/g,'<span style="color:#2E7D32;font-weight:600">$1</span>')
         .replace(/\b(0\.3배|0\.3x|면역)\b/g,'<span style="color:#C62828;font-weight:600">$1</span>')
         // Rarity colors
-        .replace(/(🟢커먼|커먼)/g,'<span style="color:#4CAF50">$1</span>')
+        .replace(/(🟢일반|일반)/g,'<span style="color:#4CAF50">$1</span>')
         .replace(/(🔵레어|레어)/g,'<span style="color:#1976D2">$1</span>')
         .replace(/(🟣에픽|에픽)/g,'<span style="color:#7B1FA2">$1</span>')
         .replace(/(🟡전설|전설)/g,'<span style="color:#F57F17">$1</span>')
@@ -3820,13 +3833,14 @@ async function adminFulfillOrder(orderKey){
 }
 
 // --- Admin Category Tabs ---
-function admCatSwitch(cat){
+function admCatSwitch(cat,pushState=true){
     ["manage","db","kpi","battle"].forEach(c=>{
         const el=document.getElementById("admCat-"+c);
         const btn=document.getElementById("admCatBtn-"+c);
         if(el)el.style.display=c===cat?"":"none";
         if(btn){btn.className="adm-cat-btn"+(c===cat?" active-"+c:"")}
     });
+    if(pushState) history.pushState({page:"admin",adminCat:cat},"","/admin/"+cat);
     if(cat==="db")admDbTab(_admDbCur||"overview");
     if(cat==="kpi")admKpiLoad();
     if(cat==="battle")admBattleLoad();
@@ -4041,31 +4055,79 @@ async function admBattleLoad(){
         });
     }
 
-    // Table: Pokemon ranking
+    // Table: Pokemon ranking (sortable)
+    _admBattleData = d.pokemon_ranking || [];
+    _admBattleSort = {col:"uses",asc:false};
+    const cntEl=document.getElementById("btPokemonCount");
+    if(cntEl) cntEl.textContent=`총 ${_admBattleData.length}종`;
+    admBattleRenderTable();
+}
+
+let _admBattleData=[];
+let _admBattleSort={col:"uses",asc:false};
+
+function admBattleSortBy(col){
+    if(_admBattleSort.col===col) _admBattleSort.asc=!_admBattleSort.asc;
+    else { _admBattleSort.col=col; _admBattleSort.asc=false; }
+    admBattleRenderTable();
+}
+
+function admBattleRenderTable(){
     const tbl=document.getElementById("battlePokemonTable");
-    if(tbl){
-        if(!d.pokemon_ranking||!d.pokemon_ranking.length){
-            tbl.innerHTML='<p class="empty-msg">데이터 없음</p>';
-        }else{
-            let h='<table class="bt-table"><thead><tr><th>#</th><th>포켓몬</th><th>등급</th><th>사용</th><th>승률</th><th>평균딜</th><th>킬</th><th>데스</th></tr></thead><tbody>';
-            d.pokemon_ranking.forEach((p,i)=>{
-                const wr=p.win_rate||0;
-                const wrColor=wr>=60?_NEON.green:wr>=50?"#fbbf24":wr>=40?_NEON.orange:_NEON.red;
-                h+=`<tr>
-                    <td style="color:rgba(255,255,255,.3)">${i+1}</td>
-                    <td>${p.emoji||""} ${p.name_ko}</td>
-                    <td><span class="bt-rarity ${p.rarity}">${_RARITY_LABELS[p.rarity]||p.rarity}</span></td>
-                    <td>${p.uses}</td>
-                    <td style="color:${wrColor};font-weight:600">${wr}%</td>
-                    <td>${(p.avg_damage||0).toLocaleString()}</td>
-                    <td>${p.avg_kills||0}</td>
-                    <td>${p.avg_deaths||0}</td>
-                </tr>`;
-            });
-            h+='</tbody></table>';
-            tbl.innerHTML=h;
-        }
-    }
+    if(!tbl)return;
+    const data=_admBattleData;
+    if(!data.length){tbl.innerHTML='<p class="empty-msg">데이터 없음</p>';return;}
+
+    // Sort
+    const {col,asc}=_admBattleSort;
+    const sorted=[...data].sort((a,b)=>{
+        let va=a[col]||0, vb=b[col]||0;
+        return asc? va-vb : vb-va;
+    });
+
+    // Compute OP thresholds (top 10% or top 3)
+    const allKills=data.map(p=>p.avg_kills||0).sort((a,b)=>b-a);
+    const allDmg=data.map(p=>p.avg_damage||0).sort((a,b)=>b-a);
+    const opKillTh=allKills[Math.min(2,allKills.length-1)]||0;
+    const opDmgTh=allDmg[Math.min(2,allDmg.length-1)]||0;
+
+    const cols=[
+        {key:"uses",label:"사용"},
+        {key:"unique_users",label:"유저"},
+        {key:"win_rate",label:"승률"},
+        {key:"avg_damage",label:"평균딜"},
+        {key:"avg_kills",label:"킬"},
+        {key:"avg_deaths",label:"데스"}
+    ];
+    const arrow=k=> _admBattleSort.col===k ? (_admBattleSort.asc?" ▲":" ▼") : "";
+
+    let h='<table class="bt-table"><thead><tr><th>#</th><th>포켓몬</th><th>등급</th>';
+    cols.forEach(c=>{
+        h+=`<th class="bt-sortable" onclick="admBattleSortBy('${c.key}')" style="cursor:pointer;user-select:none">${c.label}<span style="font-size:9px;opacity:.5">${arrow(c.key)}</span></th>`;
+    });
+    h+='</tr></thead><tbody>';
+
+    sorted.forEach((p,i)=>{
+        const wr=p.win_rate||0;
+        const wrColor=wr>=60?_NEON.green:wr>=50?"#fbbf24":wr>=40?_NEON.orange:_NEON.red;
+        const kills=p.avg_kills||0;
+        const dmg=p.avg_damage||0;
+        const isOP=(kills>=opKillTh&&opKillTh>0)||(dmg>=opDmgTh&&opDmgTh>0);
+        const opBadge=isOP?'<span style="background:linear-gradient(135deg,#ff006e,#ff4444);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;font-weight:700">OP</span>':"";
+        h+=`<tr${isOP?' style="background:rgba(255,0,110,.06)"':''}>
+            <td style="color:rgba(255,255,255,.3)">${i+1}</td>
+            <td>${p.emoji||""} ${p.name_ko}${opBadge}</td>
+            <td><span class="bt-rarity ${p.rarity}">${_RARITY_LABELS[p.rarity]||p.rarity}</span></td>
+            <td>${p.uses}</td>
+            <td style="color:${_NEON.cyan}">${p.unique_users||0}<span style="font-size:9px;color:rgba(255,255,255,.25)">명</span></td>
+            <td style="color:${wrColor};font-weight:600">${wr}%</td>
+            <td>${dmg.toLocaleString()}</td>
+            <td style="${kills>=opKillTh&&opKillTh>0?'color:'+_NEON.pink+';font-weight:600':''}">${kills}</td>
+            <td>${p.avg_deaths||0}</td>
+        </tr>`;
+    });
+    h+='</tbody></table>';
+    tbl.innerHTML=h;
 }
 
 // --- Pageview Tracker ---
@@ -4175,7 +4237,7 @@ async function admDbShiny(page){
         <select onchange="_admDbState.shiny.rarity=this.value;_admDbState.shiny.page=1;admDbShiny()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--card)">
             <option value=""${!s.rarity?" selected":""}>전체 등급</option>
             <option value="common"${s.rarity==="common"?" selected":""}>일반</option>
-            <option value="rare"${s.rarity==="rare"?" selected":""}>희귀</option>
+            <option value="rare"${s.rarity==="rare"?" selected":""}>레어</option>
             <option value="epic"${s.rarity==="epic"?" selected":""}>에픽</option>
             <option value="ultra_legendary"${s.rarity==="ultra_legendary"?" selected":""}>초전설</option>
             <option value="legendary"${s.rarity==="legendary"?" selected":""}>전설</option>
@@ -4226,7 +4288,7 @@ async function admDbSpawns(page){
         <select onchange="_admDbState.spawns.rarity=this.value;_admDbState.spawns.page=1;admDbSpawns()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--card)">
             <option value=""${!s.rarity?" selected":""}>전체 등급</option>
             <option value="common"${s.rarity==="common"?" selected":""}>일반</option>
-            <option value="rare"${s.rarity==="rare"?" selected":""}>희귀</option>
+            <option value="rare"${s.rarity==="rare"?" selected":""}>레어</option>
             <option value="epic"${s.rarity==="epic"?" selected":""}>에픽</option>
             <option value="ultra_legendary"${s.rarity==="ultra_legendary"?" selected":""}>초전설</option>
             <option value="legendary"${s.rarity==="legendary"?" selected":""}>전설</option>
@@ -4275,7 +4337,7 @@ async function admDbUserPoke(){
         <select onchange="_admDbState.userpoke.rarity=this.value;admDbUserPokeLoad()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--card)">
             <option value="">전체 등급</option>
             <option value="common"${s.rarity==="common"?" selected":""}>일반</option>
-            <option value="rare"${s.rarity==="rare"?" selected":""}>희귀</option>
+            <option value="rare"${s.rarity==="rare"?" selected":""}>레어</option>
             <option value="epic"${s.rarity==="epic"?" selected":""}>에픽</option>
             <option value="ultra_legendary"${s.rarity==="ultra_legendary"?" selected":""}>초전설</option>
             <option value="legendary"${s.rarity==="legendary"?" selected":""}>전설</option>
@@ -4315,7 +4377,7 @@ async function admDbUserPokeLoad(){
     if(br.ultra_legendary)h+=` | 🔴초전설 ${br.ultra_legendary.count}`;
     if(br.legendary)h+=` | 🟡전설 ${br.legendary.count}`;
     if(br.epic)h+=` | 🟣에픽 ${br.epic.count}`;
-    if(br.rare)h+=` | 🔵희귀 ${br.rare.count}`;
+    if(br.rare)h+=` | 🔵레어 ${br.rare.count}`;
     if(br.common)h+=` | 🟢일반 ${br.common.count}`;
     h+=`</div></div>`;
     if(!d.items.length){el.innerHTML=h+'<p class="empty-msg">조건에 맞는 포켓몬 없음</p>';return}
@@ -4397,12 +4459,14 @@ async function admOptoutRemove(uid){
 // Override loadAdmin to work with category tabs
 async function loadAdmin(){
     await Promise.all([adminLoadUsers(),adminLoadOrders()]);
-    admCatSwitch("manage");
+    // If we're already on a sub-route (e.g. /admin/battle), don't override
+    const adminMatch=location.pathname.match(/^\/admin\/(manage|db|kpi|battle)$/);
+    if(!adminMatch) admCatSwitch("manage",false);
 }
 
 
 // ============ Marketplace (거래소) ============
-const MKT_RARITY_KO={common:"일반",rare:"희귀",epic:"에픽",legendary:"전설",ultra_legendary:"초전설"};
+const MKT_RARITY_KO={common:"일반",rare:"레어",epic:"에픽",legendary:"전설",ultra_legendary:"초전설"};
 let _mktPage=0, _mktTotal=0, _mktPageSize=20, _mktFeeRate=0.05;
 let _mktShiny=false;
 let _mktSearchTimer=null, _mktSellSearchTimer=null;
@@ -5095,6 +5159,13 @@ function _escHtml(s) {
         history.replaceState({page:"board",board:sub},"",path);
         const el=document.querySelector(`.board-side-item[data-board="${sub}"],.board-side-sub[data-board="${sub}"]`);
         if(el) boardSideNav(el,false);
+    }
+    // Admin deep-link: sub-tab (/admin/battle, /admin/kpi, etc.)
+    else if(/^\/admin\/(manage|db|kpi|battle)$/.test(path)){
+        const cat=path.split("/")[2];
+        navigateTo("admin",false);
+        history.replaceState({page:"admin",adminCat:cat},"",path);
+        admCatSwitch(cat,false);
     }
     else{
         const initPage=PATH_PAGES[path]||"home";
