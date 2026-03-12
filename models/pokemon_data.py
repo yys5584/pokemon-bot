@@ -179,8 +179,8 @@ ALL_POKEMON = [
     (93, "고우스트", "Haunter", "👻", "rare", 0.50, 92, 94, "trade"),
     (94, "팬텀", "Gengar", "👻", "epic", 0.15, 93, None, "none"),
 
-    # --- Onix (no evolution in Gen1) ---
-    (95, "롱스톤", "Onix", "🪨", "common", 0.80, None, None, "none"),
+    # --- Onix → Steelix (trade evolution) ---
+    (95, "롱스톤", "Onix", "🪨", "common", 0.80, None, 208, "trade"),
 
     # --- Drowzee line ---
     (96, "슬리프", "Drowzee", "😴", "common", 0.80, None, 97, "friendship"),
@@ -230,7 +230,7 @@ ALL_POKEMON = [
 
     # --- Horsea line ---
     (116, "쏘드라", "Horsea", "🐉", "common", 0.80, None, 117, "friendship"),
-    (117, "시드라", "Seadra", "🐉", "rare", 0.50, 116, None, "none"),
+    (117, "시드라", "Seadra", "🐉", "rare", 0.50, 116, 230, "trade"),
 
     # --- Goldeen line ---
     (118, "콘치", "Goldeen", "🐟", "common", 0.80, None, 119, "friendship"),
@@ -243,8 +243,8 @@ ALL_POKEMON = [
     # --- Mr. Mime (no evolution in Gen1) ---
     (122, "마임맨", "Mr. Mime", "🤡", "rare", 0.50, None, None, "none"),
 
-    # --- Scyther (no evolution in Gen1) ---
-    (123, "스라크", "Scyther", "🗡️", "epic", 0.15, None, None, "none"),
+    # --- Scyther → Scizor (trade evolution) ---
+    (123, "스라크", "Scyther", "🗡️", "epic", 0.15, None, 212, "trade"),
 
     # --- Jynx (no evolution in Gen1) ---
     (124, "루주라", "Jynx", "💋", "rare", 0.50, None, None, "none"),
@@ -277,8 +277,8 @@ ALL_POKEMON = [
     (135, "쥬피썬더", "Jolteon", "⚡", "epic", 0.15, 133, None, "none"),
     (136, "부스터", "Flareon", "🔥", "epic", 0.15, 133, None, "none"),
 
-    # --- Porygon (no evolution in Gen1) ---
-    (137, "폴리곤", "Porygon", "🤖", "common", 0.80, None, None, "none"),
+    # --- Porygon → Porygon2 (trade evolution) ---
+    (137, "폴리곤", "Porygon", "🤖", "common", 0.80, None, 233, "trade"),
 
     # --- Omanyte line ---
     (138, "암나이트", "Omanyte", "🐚", "common", 0.80, None, 139, "friendship"),

@@ -248,3 +248,26 @@ async def migrate_add_nurture_locked():
         ADD COLUMN nurture_locked BOOLEAN NOT NULL DEFAULT FALSE
     """)
     return True
+
+
+async def migrate_trade_evo_fix():
+    """Fix trade evolution routes for cross-gen Pokemon.
+
+    롱스톤→강철톤, 시드라→킹드라, 스라크→핫삼, 폴리곤→폴리곤2
+    evolves_to / evolution_method 가 누락되어 진화 불가였던 버그 수정.
+    """
+    from database.schema import TRADE_EVO_FIX_MIGRATIONS
+
+    pool = await get_db()
+
+    # 이미 적용됐는지 확인 (시드라의 evolves_to가 230이면 완료)
+    row = await pool.fetchrow(
+        "SELECT evolves_to FROM pokemon_master WHERE id = 117"
+    )
+    if row and row["evolves_to"] == 230:
+        return False  # Already migrated
+
+    for sql in TRADE_EVO_FIX_MIGRATIONS:
+        await pool.execute(sql)
+
+    return True

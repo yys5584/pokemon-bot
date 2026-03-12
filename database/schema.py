@@ -641,6 +641,14 @@ ULTRA_LEGENDARY_MIGRATIONS = [
     "UPDATE pokemon_master SET rarity = 'ultra_legendary' WHERE id IN (150, 249, 250)",
 ]
 
+# 2026-03-12 교환 진화 경로 복구 (롱스톤/시드라/스라크/폴리곤)
+TRADE_EVO_FIX_MIGRATIONS = [
+    "UPDATE pokemon_master SET evolves_to = 208, evolution_method = 'trade' WHERE id = 95",   # 롱스톤 → 강철톤
+    "UPDATE pokemon_master SET evolves_to = 230, evolution_method = 'trade' WHERE id = 117",  # 시드라 → 킹드라
+    "UPDATE pokemon_master SET evolves_to = 212, evolution_method = 'trade' WHERE id = 123",  # 스라크 → 핫삼
+    "UPDATE pokemon_master SET evolves_to = 233, evolution_method = 'trade' WHERE id = 137",  # 폴리곤 → 폴리곤2
+]
+
 
 
 async def create_tables():
