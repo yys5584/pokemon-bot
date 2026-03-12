@@ -701,33 +701,61 @@ _COST_LIMIT = 18
 def _pick_team(candidates: list[dict], max_size: int = 6) -> list[dict]:
     """Pick top candidates respecting team composition + cost rules.
     Rules: max 1 ultra_legendary, max 1 legendary, no duplicate epic/leg/ultra species,
-    total cost <= 18.
+    total cost <= 18, always try to fill 6 slots.
     """
     team = []
-    epic_species = set()
+    used_ids = set()  # pokemon_id (에픽 이상 중복 방지)
     has_legendary = False
     has_ultra = False
     total_cost = 0
+
+    def _can_add(p):
+        cost = _RARITY_COST.get(p["rarity"], 1)
+        if total_cost + cost > _COST_LIMIT:
+            return False
+        if p["rarity"] == "ultra_legendary" and has_ultra:
+            return False
+        if p["rarity"] == "legendary" and has_legendary:
+            return False
+        if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
+            if p["pokemon_id"] in used_ids:
+                return False
+        return True
+
+    def _add(p):
+        nonlocal total_cost, has_ultra, has_legendary
+        cost = _RARITY_COST.get(p["rarity"], 1)
+        team.append(p)
+        total_cost += cost
+        if p["rarity"] == "ultra_legendary":
+            has_ultra = True
+        if p["rarity"] == "legendary":
+            has_legendary = True
+        if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
+            used_ids.add(p["pokemon_id"])
+
+    # 1차: 우선순위(전투력) 순으로 코스트 허용 내 추가
+    skipped = []
     for p in candidates:
         if len(team) >= max_size:
             break
-        cost = _RARITY_COST.get(p["rarity"], 1)
-        if total_cost + cost > _COST_LIMIT:
-            continue
-        if p["rarity"] == "ultra_legendary":
-            if has_ultra:
-                continue
-            has_ultra = True
-        if p["rarity"] == "legendary":
-            if has_legendary:
-                continue
-            has_legendary = True
-        if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
-            if p["pokemon_id"] in epic_species:
-                continue
-            epic_species.add(p["pokemon_id"])
-        team.append(p)
-        total_cost += cost
+        if _can_add(p):
+            _add(p)
+        else:
+            skipped.append(p)
+
+    # 2차: 6마리 미달이면, 남은 코스트로 들어갈 수 있는 포켓몬 채움
+    if len(team) < max_size:
+        remaining = _COST_LIMIT - total_cost
+        # 낮은 코스트순 정렬 (같으면 전투력 높은 순)
+        fillers = [p for p in skipped if p not in team]
+        fillers.sort(key=lambda p: (_RARITY_COST.get(p["rarity"], 1), -p.get("real_power", 0)))
+        for p in fillers:
+            if len(team) >= max_size:
+                break
+            if _can_add(p):
+                _add(p)
+
     return team
 
 
@@ -881,8 +909,34 @@ def _recommend_balance(pokemon: list[dict]) -> tuple[list[dict], str]:
         if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
             epic_species.add(p["pokemon_id"])
 
+    # 6마리 미달 시 남은 코스트로 채움
+    if len(team) < 6:
+        remaining_cost = _COST_LIMIT - total_cost
+        fillers = [p for p in sorted_p if p not in team]
+        fillers.sort(key=lambda p: (_RARITY_COST.get(p["rarity"], 1), -p.get("_balance", 0)))
+        for p in fillers:
+            if len(team) >= 6:
+                break
+            cost = _RARITY_COST.get(p["rarity"], 1)
+            if total_cost + cost > _COST_LIMIT:
+                continue
+            if p["rarity"] == "ultra_legendary" and has_ultra:
+                continue
+            if p["rarity"] == "legendary" and has_legendary:
+                continue
+            if p["rarity"] in ("epic", "legendary", "ultra_legendary") and p["pokemon_id"] in epic_species:
+                continue
+            team.append(p)
+            total_cost += cost
+            if p["rarity"] == "ultra_legendary":
+                has_ultra = True
+            if p["rarity"] == "legendary":
+                has_legendary = True
+            if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
+                epic_species.add(p["pokemon_id"])
+
     # Re-sort by balance score
-    team.sort(key=lambda x: x["_balance"], reverse=True)
+    team.sort(key=lambda x: x.get("_balance", 0), reverse=True)
 
     for p in pokemon:
         p.pop("_balance", None)
