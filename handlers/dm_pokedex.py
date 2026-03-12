@@ -885,11 +885,10 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
         care_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))
     buttons.append(care_row)
 
-    # Row 2: info + settings
-    fav_label = "⭐ 즐찾해제" if p.get("is_favorite") else "☆ 즐찾"
+    # Row 2: info + team + release
     buttons.append([
         InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
-        InlineKeyboardButton(fav_label, callback_data=f"mypoke_fav_{user_id}_{idx}_{page}"),
+        InlineKeyboardButton("🔄 방생", callback_data=f"mypoke_relone_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{idx}_{page}"),
     ])
@@ -1164,6 +1163,67 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             filt_rel = _get_rel_filter(context)
             text, markup = _build_panel(user_id, filt_rel)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "relone":
+            # mypoke_relone_{user_id}_{idx}_{page} — 개별 방생 확인
+            idx = int(parts[3])
+            page = int(parts[4]) if len(parts) > 4 else 0
+            idx = max(0, min(idx, len(pokemon_list) - 1))
+            p = pokemon_list[idx]
+            shiny_mark = "이로치 " if p.get("is_shiny") else ""
+            rb_label = rarity_badge_label(p["rarity"])
+            text = (
+                f"🔄 <b>방생 확인</b>\n\n"
+                f"{shiny_mark}{rb_label} <b>{p['name_ko']}</b>을(를)\n"
+                f"정말 방생하시겠습니까?\n\n"
+                f"보상: 하이퍼볼 1개\n\n"
+                f"⚠️ <b>방생한 포켓몬은 되돌릴 수 없습니다!</b>"
+            )
+            markup = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("✅ 방생", callback_data=f"mypoke_relconf_{user_id}_{p['id']}_{page}"),
+                    InlineKeyboardButton("◀ 취소", callback_data=f"mypoke_v_{user_id}_{idx}_{page}"),
+                ],
+            ])
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "relconf":
+            # mypoke_relconf_{user_id}_{instance_id}_{page} — 개별 방생 실행
+            instance_id = int(parts[3])
+            page = int(parts[4]) if len(parts) > 4 else 0
+
+            # 즐겨찾기/팀 등록된 포켓몬은 방생 불가
+            target = None
+            for p in pokemon_list:
+                if p["id"] == instance_id:
+                    target = p
+                    break
+            if not target:
+                await query.answer("이미 방생된 포켓몬입니다!", show_alert=True)
+                return
+
+            if target.get("is_favorite"):
+                await query.answer("⭐ 즐겨찾기 포켓몬은 방생할 수 없습니다! 즐찾 해제 후 시도하세요.", show_alert=True)
+                return
+
+            if target.get("team_slot") is not None:
+                await query.answer("⚔️ 팀에 등록된 포켓몬은 방생할 수 없습니다! 팀에서 해제 후 시도하세요.", show_alert=True)
+                return
+
+            released = await queries.bulk_deactivate_pokemon([instance_id])
+            if released > 0:
+                await queries.add_hyper_ball(user_id, 1)
+
+            name = target.get("name_ko", "???")
+            await query.answer(f"🔄 {name}을(를) 방생했습니다! 하이퍼볼 +1", show_alert=True)
+
+            # 목록으로 복귀
+            pokemon_list = await queries.get_user_pokemon_list(user_id)
+            if pokemon_list:
+                text, markup = _build_list_view(user_id, pokemon_list, page, filt=filt)
+                await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+            else:
+                await query.edit_message_text("보유한 포켓몬이 없습니다.")
 
     except Exception:
         pass

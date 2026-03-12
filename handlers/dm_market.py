@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def _listing_line(ml: dict) -> str:
     """Single-line listing summary."""
-    shiny = "✨" if ml.get("is_shiny") else ""
+    shiny = " ✨이로치" if ml.get("is_shiny") else ""
     iv = _iv_tag(ml)
     return f"#{ml['id']} {ml['emoji']} {ml['pokemon_name']}{shiny}{iv} — {ml['price_bp']:,} BP"
 
@@ -91,7 +91,7 @@ def _build_listing_page(
 
     # Buy buttons
     for ml in listings:
-        shiny = "✨" if ml.get("is_shiny") else ""
+        shiny = " ✨이로치" if ml.get("is_shiny") else ""
         label = f"#{ml['id']} {ml['pokemon_name']}{shiny} {ml['price_bp']:,}BP 구매"
         buttons.append([InlineKeyboardButton(label, callback_data=f"mkt_buy_{ml['id']}")])
 
@@ -199,7 +199,7 @@ async def market_register_handler(update: Update, context: ContextTypes.DEFAULT_
         fee = calc_fee(price_bp)
         buttons = []
         for i, p in enumerate(duplicates, 1):
-            shiny = "✨" if p.get("is_shiny") else ""
+            shiny = " ✨이로치" if p.get("is_shiny") else ""
             iv = _iv_tag(p)
             label = f"#{i} {p['name_ko']}{shiny}{iv}"
             buttons.append([InlineKeyboardButton(
@@ -231,7 +231,7 @@ async def market_my_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = [f"🏪 내 매물 ({len(listings)}개)", ""]
     buttons = []
     for ml in listings:
-        shiny = "✨" if ml.get("is_shiny") else ""
+        shiny = " ✨이로치" if ml.get("is_shiny") else ""
         lines.append(f"#{ml['id']} {ml['emoji']} {ml['pokemon_name']}{shiny} — {ml['price_bp']:,} BP")
         buttons.append([InlineKeyboardButton(
             f"#{ml['id']} 취소", callback_data=f"mkt_cancel_{ml['id']}"
@@ -292,7 +292,7 @@ async def market_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("자신의 매물은 구매할 수 없습니다.")
         return
 
-    shiny = "✨" if listing.get("is_shiny") else ""
+    shiny = " ✨이로치" if listing.get("is_shiny") else ""
     iv = _iv_tag(listing)
     buttons = [
         [
@@ -476,7 +476,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 pass
             return
 
-        shiny = "✨" if listing.get("is_shiny") else ""
+        shiny = " ✨이로치" if listing.get("is_shiny") else ""
         iv = _iv_tag(listing)
         buttons = [
             [
@@ -517,7 +517,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         # Send DM notification to seller
         if success and info:
             try:
-                shiny_tag = "✨" if info["is_shiny"] else ""
+                shiny_tag = " ✨이로치" if info["is_shiny"] else ""
                 seller_msg = (
                     f"💰 거래소 판매 알림!\n\n"
                     f"{info['emoji']} {info['pokemon_name']}{shiny_tag}이(가) 판매되었습니다.\n"
@@ -528,7 +528,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 if remaining:
                     seller_msg += f"\n\n📋 남은 매물 ({len(remaining)}개):"
                     for ml in remaining[:5]:
-                        s = "✨" if ml.get("is_shiny") else ""
+                        s = " ✨이로치" if ml.get("is_shiny") else ""
                         seller_msg += f"\n  #{ml['id']} {ml['emoji']} {ml['pokemon_name']}{s} — {ml['price_bp']:,} BP"
                     if len(remaining) > 5:
                         seller_msg += f"\n  … 외 {len(remaining) - 5}개"
@@ -591,7 +591,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 return
 
             # Show confirmation
-            shiny = "✨" if pokemon.get("is_shiny") else ""
+            shiny = " ✨이로치" if pokemon.get("is_shiny") else ""
             iv = _iv_tag(pokemon)
             fee = calc_fee(price_bp)
             buttons = [
