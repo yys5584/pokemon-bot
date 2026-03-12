@@ -234,6 +234,11 @@ async def subscription_callback_handler(update: Update, context: ContextTypes.DE
     elif data == "sub_pshop_mb":
         await _handle_premium_shop_buy(query, user_id)
 
+    # 프리미엄상점: 하이퍼볼 묶음 구매
+    elif data in ("sub_pshop_hb5", "sub_pshop_hb10"):
+        qty = 5 if data == "sub_pshop_hb5" else 10
+        await _handle_premium_hyperball_buy(query, user_id, qty)
+
     # 채팅상점: 아케이드 속도 부스트
     elif data.startswith("sub_cshop_speed_"):
         chat_id = int(data.replace("sub_cshop_speed_", ""))
@@ -272,6 +277,8 @@ async def subscription_status_handler(update: Update, context: ContextTypes.DEFA
         benefit_lines.append(f"• 프리미엄상점 (마스터볼 {limit}개/일)")
     if benefits.get("catch_cooldown_bypass"):
         benefit_lines.append("• 연속포획 쿨다운 해제")
+    if benefits.get("daily_masterball"):
+        benefit_lines.append(f"• 일일 마스터볼 +{benefits['daily_masterball']}")
     if benefits.get("daily_hyperball"):
         benefit_lines.append(f"• 일일 하이퍼볼 +{benefits['daily_hyperball']}")
     if benefits.get("bp_multiplier"):
@@ -330,7 +337,7 @@ async def premium_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return
 
-    from database import battle_queries as bq
+    from database import queries, battle_queries as bq
 
     # 오늘 마스터볼 구매 횟수
     today = config.get_kst_today()
@@ -358,14 +365,38 @@ async def premium_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     else:
         lines.append("   오늘 구매 완료!")
 
-    lines.append("\n<i>(더 많은 상품이 추가될 예정입니다)</i>")
+    # 하이퍼볼 묶음 할인
+    hb_price = config.BP_HYPER_BALL_COST  # 20 BP
+    hb5_cost = int(hb_price * 5 * 0.9)   # 5개 10% 할인 → 90 BP
+    hb10_cost = int(hb_price * 10 * 0.8)  # 10개 20% 할인 → 160 BP
+    hyper_balls = await queries.get_hyper_balls(user_id)
+
+    lines.append("")
+    _E_HYPER = ball_emoji("hyperball")
+    lines.append(f"{_E_HYPER} 하이퍼볼 (보유: {hyper_balls}개)")
+    lines.append(f"   x5 — {hb5_cost} BP <b>(10% 할인)</b>")
+    lines.append(f"   x10 — {hb10_cost} BP <b>(20% 할인)</b>")
 
     keyboard = []
     if remaining > 0 and bp >= next_price:
         keyboard.append([InlineKeyboardButton(
             f"마스터볼 구매 ({next_price} BP)",
-            callback_data=f"sub_pshop_mb",
+            callback_data="sub_pshop_mb",
         )])
+
+    hb_row = []
+    if bp >= hb5_cost:
+        hb_row.append(InlineKeyboardButton(
+            f"🔵 하이퍼볼 x5 ({hb5_cost}BP)",
+            callback_data="sub_pshop_hb5",
+        ))
+    if bp >= hb10_cost:
+        hb_row.append(InlineKeyboardButton(
+            f"🔵 하이퍼볼 x10 ({hb10_cost}BP)",
+            callback_data="sub_pshop_hb10",
+        ))
+    if hb_row:
+        keyboard.append(hb_row)
 
     await update.message.reply_text(
         "\n".join(lines),
@@ -464,6 +495,40 @@ async def _handle_premium_shop_buy(query, user_id: int):
         f"🔴 남은 구매: {remaining}/{max_limit}"
     )
     await query.edit_message_text(text)
+
+
+async def _handle_premium_hyperball_buy(query, user_id: int, qty: int):
+    """프리미엄상점 하이퍼볼 묶음 구매 처리."""
+    if not await has_benefit(user_id, "premium_shop"):
+        await query.edit_message_text("🔒 프리미엄 상점은 구독자 전용입니다.")
+        return
+
+    from database import queries, battle_queries as bq
+
+    hb_price = config.BP_HYPER_BALL_COST  # 20 BP
+    if qty == 5:
+        cost = int(hb_price * 5 * 0.9)   # 90 BP
+    else:
+        cost = int(hb_price * 10 * 0.8)  # 160 BP
+
+    bp = await bq.get_bp(user_id)
+    if bp < cost:
+        await query.edit_message_text(f"❌ BP가 부족합니다. (필요: {cost} / 보유: {bp:,})")
+        return
+
+    # BP 차감 + 하이퍼볼 지급
+    await bq.add_bp(user_id, -cost)
+    await queries.add_hyper_ball(user_id, qty)
+
+    new_bp = bp - cost
+    hyper_balls = await queries.get_hyper_balls(user_id)
+
+    discount = "10%" if qty == 5 else "20%"
+    await query.edit_message_text(
+        f"✅ 하이퍼볼 x{qty} 구매 완료! ({discount} 할인)\n\n"
+        f"💰 {cost} BP 사용 (잔여: {new_bp:,} BP)\n"
+        f"🔵 보유 하이퍼볼: {hyper_balls}개"
+    )
 
 
 # ─── 채팅상점 콜백 ─────────────────────────────────

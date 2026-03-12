@@ -1370,7 +1370,7 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{ball_emoji('masterball')} 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
         f"{icon_emoji('bolt')} 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
         f"{ball_emoji('pokeball')} 포켓볼 충전 리셋 — {pb_label}",
-        f"{ball_emoji('hyperball')} 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
+        f"{ball_emoji('hyperball')} 하이퍼볼 x3 — {config.BP_HYPER_BALL_COST * 3} BP (보유: {hyper_balls}개, 포획률 3배)",
         f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
     ]
 
@@ -1381,7 +1381,7 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ],
         [
             InlineKeyboardButton(f"🔴 포켓볼 리셋", callback_data="shop_pokeball"),
-            InlineKeyboardButton(f"🔵 하이퍼볼", callback_data="shop_hyperball"),
+            InlineKeyboardButton(f"🔵 하이퍼볼 x3 ({config.BP_HYPER_BALL_COST * 3}BP)", callback_data="shop_hyperball3"),
         ],
         [
             InlineKeyboardButton(f"🎮 아케이드 티켓", callback_data="shop_arcade"),
@@ -1550,6 +1550,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "forcespawn": "강제스폰",
         "pokeball": "포켓볼",
         "hyperball": "하이퍼볼",
+        "hyperball3": "하이퍼볼3",
         "arcade": "아케이드",
     }
     item = item_map.get(item_key)
@@ -1600,18 +1601,19 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         bp = await bq.get_bp(user_id)
         await query.answer(f"🔴 충전 한도 리셋! 다시 충전 가능 (남은 BP: {bp})", show_alert=True)
 
-    elif item == "하이퍼볼":
-        cost = config.BP_HYPER_BALL_COST
+    elif item in ("하이퍼볼", "하이퍼볼3"):
+        qty = 3 if item == "하이퍼볼3" else 1
+        cost = config.BP_HYPER_BALL_COST * qty
         success = await bq.spend_bp(user_id, cost)
         if not success:
             bp = await bq.get_bp(user_id)
             await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
             return
-        await queries.add_hyper_ball(user_id, 1)
-        await bq.log_bp_purchase(user_id, "hyper_ball", 1)
+        await queries.add_hyper_ball(user_id, qty)
+        await bq.log_bp_purchase(user_id, "hyper_ball", qty)
         bp = await bq.get_bp(user_id)
         hyper_balls = await queries.get_hyper_balls(user_id)
-        await query.answer(f"🔵 하이퍼볼 구매! (보유: {hyper_balls}개, 남은 BP: {bp})", show_alert=True)
+        await query.answer(f"🔵 하이퍼볼 {qty}개 구매! (보유: {hyper_balls}개, 남은 BP: {bp})", show_alert=True)
 
     elif item == "아케이드":
         cost = config.ARCADE_PASS_COST
@@ -1645,7 +1647,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             f"{ball_emoji('masterball')} 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
             f"{icon_emoji('bolt')} 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
             f"{ball_emoji('pokeball')} 포켓볼 충전 리셋 — {pb_label}",
-            f"{ball_emoji('hyperball')} 하이퍼볼 x1 — {config.BP_HYPER_BALL_COST} BP (보유: {hyper_balls}개, 포획률 3배)",
+            f"{ball_emoji('hyperball')} 하이퍼볼 x3 — {config.BP_HYPER_BALL_COST * 3} BP (보유: {hyper_balls}개, 포획률 3배)",
             f"{icon_emoji('game')} 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
         ]
 
@@ -1656,7 +1658,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             ],
             [
                 InlineKeyboardButton(f"🔴 포켓볼 리셋", callback_data="shop_pokeball"),
-                InlineKeyboardButton(f"🔵 하이퍼볼", callback_data="shop_hyperball"),
+                InlineKeyboardButton(f"🔵 하이퍼볼 x3 ({config.BP_HYPER_BALL_COST * 3}BP)", callback_data="shop_hyperball3"),
             ],
             [
                 InlineKeyboardButton(f"🎮 아케이드 티켓", callback_data="shop_arcade"),
@@ -2332,8 +2334,8 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     season_id = season["season_id"]
 
     # 일일 랭크전 상한 체크
-    today_str = str(config.get_kst_now().date())
-    c_today_count = await rq.get_ranked_battles_today(challenger_id, today_str)
+    today_date = config.get_kst_now().date()
+    c_today_count = await rq.get_ranked_battles_today(challenger_id, today_date)
     if c_today_count >= config.RANKED_DAILY_CAP:
         await update.message.reply_text(f"오늘 랭크전 {config.RANKED_DAILY_CAP}회를 모두 소진했습니다.")
         return
@@ -2850,8 +2852,8 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     # 일일 상한 체크
-    today_str = str(config.get_kst_now().date())
-    today_count = await rq.get_ranked_battles_today(user_id, today_str)
+    today_date = config.get_kst_now().date()
+    today_count = await rq.get_ranked_battles_today(user_id, today_date)
     if today_count >= config.RANKED_DAILY_CAP:
         await update.message.reply_text(f"오늘 랭크전 {config.RANKED_DAILY_CAP}회를 모두 소진했습니다.")
         return
