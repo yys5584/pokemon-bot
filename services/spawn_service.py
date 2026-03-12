@@ -793,6 +793,11 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             activity = await queries.get_recent_activity(chat_id, hours=1)
             if activity < 1:
                 # No activity — retry later
+                # Cancel existing retry jobs for this chat to prevent accumulation
+                retry_name = f"spawn_retry_{chat_id}"
+                for job in context.job_queue.jobs():
+                    if job.name == retry_name:
+                        job.schedule_removal()
                 retry_delay = random.randint(
                     config.SPAWN_RETRY_MIN_SECONDS,
                     config.SPAWN_RETRY_MAX_SECONDS,
@@ -801,7 +806,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                     execute_spawn,
                     when=retry_delay,
                     data={"chat_id": chat_id},
-                    name=f"spawn_retry_{chat_id}",
+                    name=retry_name,
                 )
                 logger.info(f"No activity in {chat_id}, retrying in {retry_delay}s")
                 return
@@ -833,7 +838,19 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             if last_spawn:
                 elapsed = (datetime.now() - last_spawn).total_seconds()
                 if elapsed < 300:  # 5 minutes cooldown
-                    logger.debug(f"Spawn cooldown for {chat_id}: {elapsed:.0f}s since last spawn")
+                    # Re-schedule after remaining cooldown instead of dropping
+                    remaining = int(300 - elapsed) + 10  # +10s buffer
+                    retry_name = f"spawn_retry_{chat_id}"
+                    for job in context.job_queue.jobs():
+                        if job.name == retry_name:
+                            job.schedule_removal()
+                    context.job_queue.run_once(
+                        execute_spawn,
+                        when=remaining,
+                        data={"chat_id": chat_id},
+                        name=retry_name,
+                    )
+                    logger.debug(f"Spawn cooldown for {chat_id}: {elapsed:.0f}s elapsed, retrying in {remaining}s")
                     return
 
         # 3. Roll rarity with midnight bonus + event boosts + chat level boosts
