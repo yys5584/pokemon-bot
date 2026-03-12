@@ -3046,9 +3046,15 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         elif l_placement_result and loser_id == user_id:
             rp_lines.append(f"🎉 배치 완료! {l_placement_result['tier_display']} 배정!")
 
-        # --- RP 표시 (배치 중이면 미표시) ---
+        # --- RP / 배치 표시 ---
         if winner_id == user_id:
-            if not w_is_placement:
+            if w_is_placement:
+                # 배치 중: 진행 상태만 표시 (MMR 숨김)
+                pg = ranked_info.get("w_placement_games", placement_games + 1)
+                w_rec_after = ranked_info.get("w_wins_after", 0)
+                l_rec_after = ranked_info.get("w_losses_after", 0)
+                rp_lines.append(f"🎯 배치 {pg}/{config.PLACEMENT_GAMES_REQUIRED} — {w_rec_after}승 {l_rec_after}패")
+            else:
                 w_div = config.get_division_info(ranked_info['winner_rp_after'])
                 w_tier_str = config.tier_division_display(
                     w_div[0], w_div[1], w_div[2],
@@ -3057,13 +3063,14 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                     f"📈 RP +{ranked_info['winner_rp_gain']} "
                     f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']})")
                 rp_lines.append(f"   {w_tier_str}")
-            # MMR 표시 (DM)
-            rp_lines.append(
-                f"📊 MMR: {ranked_info['w_mmr_before']} → {ranked_info['w_mmr_after']} "
-                f"({'+' if ranked_info['w_mmr_after'] >= ranked_info['w_mmr_before'] else ''}"
-                f"{ranked_info['w_mmr_after'] - ranked_info['w_mmr_before']})")
         else:
-            if not l_is_placement:
+            if l_is_placement:
+                # 배치 중: 진행 상태만 표시 (MMR 숨김)
+                pg = ranked_info.get("l_placement_games", placement_games + 1)
+                w_rec_after = ranked_info.get("l_wins_after", 0)
+                l_rec_after = ranked_info.get("l_losses_after", 0)
+                rp_lines.append(f"🎯 배치 {pg}/{config.PLACEMENT_GAMES_REQUIRED} — {w_rec_after}승 {l_rec_after}패")
+            else:
                 l_div = config.get_division_info(ranked_info['loser_rp_after'])
                 l_tier_str = config.tier_division_display(
                     l_div[0], l_div[1], l_div[2],
@@ -3072,11 +3079,6 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                     f"📉 RP -{ranked_info['loser_rp_loss']} "
                     f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']})")
                 rp_lines.append(f"   {l_tier_str}")
-            # MMR 표시 (DM)
-            rp_lines.append(
-                f"📊 MMR: {ranked_info['l_mmr_before']} → {ranked_info['l_mmr_after']} "
-                f"({'+' if ranked_info['l_mmr_after'] >= ranked_info['l_mmr_before'] else ''}"
-                f"{ranked_info['l_mmr_after'] - ranked_info['l_mmr_before']})")
 
         # 윈트레이딩 감지
         pair_decay = ranked_info.get("pair_decay", 1.0)

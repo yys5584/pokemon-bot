@@ -452,7 +452,11 @@ async def process_ranked_result(winner_id: int, loser_id: int,
         w_tier_before, w_tier_after_key, l_tier_before, l_tier_after_key,
         w_mmr, new_w_mmr, l_mmr, new_l_mmr)
 
-    # 10. 반환
+    # 10. 최종 레코드 조회 (배치 진행 상태 반환용)
+    w_rec_final = await rq.get_season_record(winner_id, season_id) or {}
+    l_rec_final = await rq.get_season_record(loser_id, season_id) or {}
+
+    # 11. 반환
     return {
         "winner_rp_before": w_rp_before,
         "winner_rp_after": w_rp_after,
@@ -477,6 +481,12 @@ async def process_ranked_result(winner_id: int, loser_id: int,
         "l_is_placement": l_is_placement,
         "w_placement_result": w_placement_result,
         "l_placement_result": l_placement_result,
+        "w_placement_games": w_rec_final.get("placement_games", 0) if w_is_placement else 0,
+        "l_placement_games": l_rec_final.get("placement_games", 0) if l_is_placement else 0,
+        "w_wins_after": w_rec_final.get("ranked_wins", 0),
+        "w_losses_after": w_rec_final.get("ranked_losses", 0),
+        "l_wins_after": l_rec_final.get("ranked_wins", 0),
+        "l_losses_after": l_rec_final.get("ranked_losses", 0),
         # 승급/강등 정보
         "w_promoted": w_promoted,
         "l_demoted": l_demoted,
