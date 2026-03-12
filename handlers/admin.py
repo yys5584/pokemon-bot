@@ -821,3 +821,87 @@ async def force_tournament_run_handler(update: Update, context: ContextTypes.DEF
     from services.tournament_service import start_tournament
     await update.message.reply_text("⚔️ 대회 진행 시작!")
     await start_tournament(context)
+
+
+# ============================================================
+# 구독 수동 승인 (admin DM command)
+# ============================================================
+
+async def manual_subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 구독승인 {user_id} {tier} — RPC 장애 시 수동 승인."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+
+    text = (update.message.text or "").strip()
+    parts = text.split()
+    # 구독승인 {user_id} {tier?}
+    if len(parts) < 2:
+        await update.message.reply_text(
+            "사용법: 구독승인 {user_id} {tier}\n"
+            "tier: basic / channel_owner (기본: basic)"
+        )
+        return
+
+    try:
+        target_uid = int(parts[1])
+    except ValueError:
+        await update.message.reply_text("❌ user_id는 숫자여야 합니다.")
+        return
+
+    tier = parts[2] if len(parts) >= 3 else "basic"
+    if tier not in config.SUBSCRIPTION_TIERS:
+        await update.message.reply_text(f"❌ 알 수 없는 티어: {tier}\n사용 가능: {', '.join(config.SUBSCRIPTION_TIERS.keys())}")
+        return
+
+    from datetime import timezone
+    from database import subscription_queries as sq
+
+    tier_cfg = config.SUBSCRIPTION_TIERS[tier]
+    duration = tier_cfg.get("duration_days", 30)
+
+    # 기존 구독이 있으면 만료일부터 연장
+    existing = await sq.get_active_subscription(target_uid)
+    if existing and existing["tier"] == tier:
+        base_date = existing["expires_at"]
+    else:
+        base_date = datetime.now(timezone.utc)
+
+    expires_at = base_date + timedelta(days=duration)
+
+    # pending payment 없으면 더미 생성
+    pending = await sq.get_user_pending(target_uid)
+    if pending:
+        payment_id = pending["id"]
+        await sq.confirm_payment(payment_id, f"manual_{int(datetime.now().timestamp())}", "admin")
+    else:
+        payment_id = await sq.create_pending_payment(
+            target_uid, tier, 0, 0.0, "MANUAL", expires_at,
+        )
+        await sq.confirm_payment(payment_id, f"manual_{int(datetime.now().timestamp())}", "admin")
+
+    await sq.create_subscription(target_uid, tier, expires_at, payment_id)
+
+    tier_name = tier_cfg.get("name", tier)
+    exp_kst = expires_at.astimezone(config.KST).strftime("%Y-%m-%d %H:%M")
+
+    await update.message.reply_text(
+        f"✅ 구독 수동 승인 완료!\n\n"
+        f"유저: {target_uid}\n"
+        f"티어: {tier_name}\n"
+        f"만료: {exp_kst} (KST)"
+    )
+
+    # 유저에게 DM 알림
+    try:
+        await context.bot.send_message(
+            chat_id=target_uid,
+            text=(
+                f"✅ <b>구독이 활성화되었습니다!</b>\n\n"
+                f"💎 티어: {tier_name}\n"
+                f"📅 만료: {exp_kst} (KST)\n\n"
+                f"DM에서 '구독정보'로 혜택을 확인하세요!"
+            ),
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass

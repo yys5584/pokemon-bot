@@ -18,10 +18,10 @@ from telegram.ext import (
 
 from database.connection import get_db, close_db
 from database.schema import create_tables
-from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types, migrate_assign_ivs, migrate_rarity_v2, migrate_ultra_legendary, migrate_catch_rates_v3, migrate_add_nurture_locked
+from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types, migrate_assign_ivs, migrate_rarity_v2, migrate_ultra_legendary, migrate_catch_rates_v3, migrate_add_nurture_locked, migrate_trade_evo_fix
 from database import queries
 
-from handlers.start import start_handler, help_handler
+from handlers.start import start_handler, help_handler, help_callback_handler
 from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, my_pokemon_group_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, title_list_callback, title_page_callback, status_handler, appraisal_handler, type_chart_handler
 from handlers.battle import (
@@ -58,6 +58,7 @@ from handlers.admin import (
     event_start_handler, event_list_handler, event_end_handler, event_dm_callback,
     stats_handler, channel_list_handler, grant_masterball_handler,
     arcade_handler, tournament_chat_handler, force_tournament_reg_handler, force_tournament_run_handler,
+    manual_subscription_handler,
 )
 from handlers.dm_subscription import (
     subscription_handler, subscription_callback_handler,
@@ -113,7 +114,7 @@ async def post_init(application: Application):
     logger.info(f"[{time.monotonic()-t0:.1f}s] DB + schema + seed done")
 
     # Phase 2: 배틀데이터 시드 + 마이그레이션 (병렬)
-    migrated, iv_assigned, _, rarity_migrated, ultra_migrated, catch_migrated, nurture_locked = await asyncio.gather(
+    migrated, iv_assigned, _, rarity_migrated, ultra_migrated, catch_migrated, nurture_locked, trade_evo_fixed = await asyncio.gather(
         migrate_18_types(),
         migrate_assign_ivs(),
         seed_battle_data(),
@@ -121,6 +122,7 @@ async def post_init(application: Application):
         migrate_ultra_legendary(),
         migrate_catch_rates_v3(),
         migrate_add_nurture_locked(),
+        migrate_trade_evo_fix(),
     )
     if migrated:
         logger.info(f"18-type migration applied: {migrated} pokemon updated.")
@@ -134,6 +136,8 @@ async def post_init(application: Application):
         logger.info(f"Catch rate v3 migration: {catch_migrated} pokemon catch_rate unified by rarity.")
     if nurture_locked:
         logger.info("Nurture locked column added to user_pokemon.")
+    if trade_evo_fixed:
+        logger.info("Trade evolution routes fixed (롱스톤/시드라/스라크/폴리곤).")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready. 251 Pokemon seeded.")
 
     # Phase 3: 독립 작업 병렬 (cleanup + missed_reset)
@@ -319,6 +323,11 @@ async def _grant_subscription_daily(bot):
             uid = sub["user_id"]
             tier_cfg = config.SUBSCRIPTION_TIERS.get(sub["tier"], {})
             benefits = tier_cfg.get("benefits", {})
+
+            # 일일 마스터볼 +1
+            daily_master = benefits.get("daily_masterball", 0)
+            if daily_master:
+                await queries.add_master_ball(uid, daily_master)
 
             # 일일 하이퍼볼 +5
             daily_hyper = benefits.get("daily_hyperball", 0)
@@ -1031,6 +1040,7 @@ def main():
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회방(등록|해제)$"), tournament_chat_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회시작$"), force_tournament_reg_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회진행$"), force_tournament_run_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^구독승인"), manual_subscription_handler))
 
     # Group trade (reply with '교환')
     app.add_handler(MessageHandler(group & filters.Regex(r"^교환\s"), group_trade_handler))
@@ -1163,6 +1173,9 @@ def main():
     app.add_handler(CallbackQueryHandler(yacha_amount_callback, pattern=r"^ya_"))
     app.add_handler(CallbackQueryHandler(yacha_response_callback, pattern=r"^yacha_"))
     app.add_handler(CallbackQueryHandler(yacha_result_callback, pattern=r"^yres_"))
+
+    # Help navigation callbacks
+    app.add_handler(CallbackQueryHandler(help_callback_handler, pattern=r"^help_"))
 
     # Subscription callbacks (sub_tier_, sub_token_, sub_check_, sub_cancel_, sub_back, sub_status, sub_pshop_, sub_cshop_)
     app.add_handler(CallbackQueryHandler(subscription_callback_handler, pattern=r"^sub_"))

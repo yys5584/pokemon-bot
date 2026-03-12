@@ -17,19 +17,51 @@ _TRANSFER_TOPIC = None  # lazy init
 _w3 = None  # AsyncWeb3 singleton
 
 
+_BASE_RPC_FALLBACKS = [
+    "https://base.llamarpc.com",
+    "https://base-mainnet.public.blastapi.io",
+    "https://1rpc.io/base",
+    "https://mainnet.base.org",
+]
+
+
 async def _get_web3():
-    """AsyncWeb3 싱글턴."""
+    """AsyncWeb3 싱글턴 (RPC fallback 지원)."""
     global _w3
-    if _w3 is None:
+    if _w3 is not None:
+        # 기존 연결 확인
         try:
-            from web3 import AsyncWeb3
-            from web3.providers import AsyncHTTPProvider
-            _w3 = AsyncWeb3(AsyncHTTPProvider(config.BASE_RPC_URL))
-            logger.info(f"Web3 connected to {config.BASE_RPC_URL}")
-        except ImportError:
-            logger.error("web3 패키지 미설치! pip install web3")
-            return None
-    return _w3
+            await _w3.eth.block_number
+            return _w3
+        except Exception:
+            logger.warning("Web3 connection lost, reconnecting...")
+            _w3 = None
+
+    # 설정된 RPC + fallback 목록
+    rpc_list = [config.BASE_RPC_URL] + [
+        url for url in _BASE_RPC_FALLBACKS if url != config.BASE_RPC_URL
+    ]
+
+    try:
+        from web3 import AsyncWeb3
+        from web3.providers import AsyncHTTPProvider
+    except ImportError:
+        logger.error("web3 패키지 미설치! pip install web3")
+        return None
+
+    for url in rpc_list:
+        try:
+            w3 = AsyncWeb3(AsyncHTTPProvider(url))
+            await w3.eth.block_number  # 연결 테스트
+            _w3 = w3
+            logger.info(f"Web3 connected to {url}")
+            return _w3
+        except Exception as e:
+            logger.warning(f"Web3 RPC failed: {url} ({e})")
+            continue
+
+    logger.error("All RPC endpoints failed!")
+    return None
 
 
 def _get_transfer_topic() -> str:
@@ -229,7 +261,8 @@ async def _process_transfer(log, bot) -> None:
             f"💰 구독 자동 승인: user={matched['user_id']} "
             f"tier={tier_name} paid={amount_usd} {token}"
         )
-        await bot.send_message(chat_id=config.admin_id, text=admin_text)
+        for aid in config.ADMIN_IDS:
+            await bot.send_message(chat_id=aid, text=admin_text)
     except Exception:
         pass
 
