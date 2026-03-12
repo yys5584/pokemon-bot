@@ -251,7 +251,7 @@ async def get_pair_count_today(user_a: int, user_b: int, season_id: str) -> int:
         """SELECT COUNT(*) AS cnt FROM ranked_battle_log rbl
            JOIN battle_records br ON rbl.battle_record_id = br.id
            WHERE rbl.season_id = $1
-             AND br.battle_date::date = $2
+             AND br.created_at::date = $2
              AND (
                (br.winner_id = $3 AND br.loser_id = $4)
                OR (br.winner_id = $4 AND br.loser_id = $3)
