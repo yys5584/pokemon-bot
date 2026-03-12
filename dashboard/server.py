@@ -397,8 +397,10 @@ def _calc_synergy(stat_type: str, ivs: dict) -> tuple[int, str, str]:
     return score, label, emoji
 
 
-async def _build_pokemon_data(rows) -> list[dict]:
-    """Build full pokemon data list with stats + synergy from DB rows."""
+async def _build_pokemon_data(rows, battle_stats: dict | None = None) -> list[dict]:
+    """Build full pokemon data list with stats + synergy from DB rows.
+    battle_stats: optional {pokemon_id: {uses, win_rate, avg_damage, ...}} from _get_user_battle_stats().
+    """
     result = []
     for r in rows:
         pid = r["pokemon_id"]
@@ -445,7 +447,7 @@ async def _build_pokemon_data(rows) -> list[dict]:
         bs_entry = POKEMON_BASE_STATS.get(pid)
         types = bs_entry[6] if bs_entry else [r.get("pokemon_type", "normal")]
 
-        result.append({
+        entry = {
             "id": r["id"],  # instance id
             "pokemon_id": pid,
             "name_ko": r["name_ko"],
@@ -471,7 +473,16 @@ async def _build_pokemon_data(rows) -> list[dict]:
             "synergy_emoji": synergy_emoji,
             "team_num": r.get("team_num"),
             "team_slot": r.get("team_slot"),
-        })
+        }
+        # Attach battle stats if available
+        if battle_stats:
+            bs = battle_stats.get(pid)
+            if bs:
+                entry["battle_uses"] = int(bs["uses"])
+                entry["battle_win_rate"] = float(bs["win_rate"])
+                entry["battle_avg_damage"] = int(bs["avg_damage"])
+                entry["battle_avg_kills"] = float(bs["avg_kills"])
+        result.append(entry)
 
     return result
 
@@ -698,6 +709,26 @@ def _validate_team(team: list[dict]) -> bool:
 _RARITY_COST = {"common": 1, "rare": 2, "epic": 4, "legendary": 5, "ultra_legendary": 6}
 _COST_LIMIT = 18
 
+
+async def _get_user_battle_stats(user_id: int) -> dict:
+    """Fetch per-pokemon battle stats for a user (last 14 days, min 2 uses).
+    Returns {pokemon_id: {uses, win_rate, avg_damage, avg_kills, avg_deaths}}.
+    """
+    pool = await queries.get_db()
+    rows = await pool.fetch("""
+        SELECT pokemon_id,
+               COUNT(*) AS uses,
+               ROUND(100.0 * SUM(CASE WHEN won THEN 1 ELSE 0 END) / COUNT(*), 1) AS win_rate,
+               ROUND(AVG(damage_dealt)) AS avg_damage,
+               ROUND(AVG(kills)::numeric, 1) AS avg_kills,
+               ROUND(AVG(deaths)::numeric, 2) AS avg_deaths
+        FROM battle_pokemon_stats
+        WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '14 days'
+        GROUP BY pokemon_id
+        HAVING COUNT(*) >= 2
+    """, user_id)
+    return {r["pokemon_id"]: dict(r) for r in rows}
+
 def _pick_team(candidates: list[dict], max_size: int = 6) -> list[dict]:
     """Pick top candidates respecting team composition + cost rules.
     Rules: max 1 ultra_legendary, max 1 legendary, no duplicate epic/leg/ultra species,
@@ -759,16 +790,44 @@ def _pick_team(candidates: list[dict], max_size: int = 6) -> list[dict]:
     return team
 
 
+def _battle_bonus(p: dict) -> float:
+    """Return a multiplier based on recent battle win rate (1.0 ~ 1.15)."""
+    wr = p.get("battle_win_rate")
+    if wr is None:
+        return 1.0
+    if wr >= 60:
+        return 1.15
+    if wr >= 50:
+        return 1.05
+    return 1.0
+
+
+def _battle_summary(team: list[dict]) -> str:
+    """Return battle stats summary line for team members with battle records."""
+    with_stats = [p for p in team if p.get("battle_win_rate") is not None]
+    if not with_stats:
+        return ""
+    lines = []
+    for p in with_stats:
+        lines.append(f"{p['name_ko']}({p['battle_win_rate']}%/{p['battle_uses']}전)")
+    return "\n📊 최근 14일 배틀: " + ", ".join(lines)
+
+
 def _recommend_power(pokemon: list[dict]) -> tuple[list[dict], str]:
-    """Mode 1: Pure power — top 6 by real_power."""
-    sorted_p = sorted(pokemon, key=lambda x: x["real_power"], reverse=True)
+    """Mode 1: Pure power — top 6 by real_power, boosted by battle win rate."""
+    for p in pokemon:
+        p["_power_score"] = p["real_power"] * _battle_bonus(p)
+    sorted_p = sorted(pokemon, key=lambda x: x["_power_score"], reverse=True)
     team = _pick_team(sorted_p)
+    for p in pokemon:
+        p.pop("_power_score", None)
     total = sum(p["real_power"] for p in team)
     team_cost = sum(_RARITY_COST.get(p["rarity"], 1) for p in team)
     analysis = f"실전투력 TOP 6 구성입니다. 총 전투력 {total}. (코스트 {team_cost}/{_COST_LIMIT})"
     types = set(p["pokemon_type"] for p in team)
     if len(types) < 3:
         analysis += " 타입 다양성이 부족해 상성에 취약할 수 있습니다."
+    analysis += _battle_summary(team)
     return team, analysis
 
 
@@ -783,6 +842,7 @@ def _recommend_synergy(pokemon: list[dict]) -> tuple[list[dict], str]:
     if low:
         names = ", ".join(p["name_ko"] for p in low)
         analysis += f" {names}의 IV 배분이 아쉽습니다."
+    analysis += _battle_summary(team)
     return team, analysis
 
 
@@ -838,7 +898,7 @@ async def _recommend_counter(pokemon: list[dict]) -> tuple[list[dict], str]:
         counter_bonus = (best_counter / max_counter) * 0.5 if max_counter > 0 else 0
         # Power gate: heavily penalize weak Pokemon
         power_mult = 1.0 if p["real_power"] >= min_power else 0.3
-        p["_counter"] = p["real_power"] * (1 + counter_bonus) * power_mult
+        p["_counter"] = p["real_power"] * (1 + counter_bonus) * power_mult * _battle_bonus(p)
 
     sorted_p = sorted(pokemon, key=lambda x: x["_counter"], reverse=True)
 
@@ -863,6 +923,7 @@ async def _recommend_counter(pokemon: list[dict]) -> tuple[list[dict], str]:
         f"카운터 상성 + 높은 전투력 기준으로 팀을 구성했습니다.\n"
         f"팀 타입: {type_names} (코스트 {team_cost}/{_COST_LIMIT})"
     )
+    analysis += _battle_summary(team)
 
     return team, analysis
 
@@ -872,7 +933,13 @@ def _recommend_balance(pokemon: list[dict]) -> tuple[list[dict], str]:
     # Combined score
     max_power = max((p["real_power"] for p in pokemon), default=1)
     for p in pokemon:
-        p["_balance"] = (p["real_power"] / max_power * 50) + (p["synergy_score"] * 0.3)
+        # Battle bonus: win_rate above 50% adds up to +10 points
+        battle_bonus = 0
+        wr = p.get("battle_win_rate")
+        if wr is not None:
+            battle_bonus = (wr - 50) * 0.2  # 60% → +2, 70% → +4, 80% → +6
+            battle_bonus = max(battle_bonus, -5)  # cap penalty at -5
+        p["_balance"] = (p["real_power"] / max_power * 50) + (p["synergy_score"] * 0.3) + battle_bonus
 
     sorted_p = sorted(pokemon, key=lambda x: x["_balance"], reverse=True)
 
@@ -943,6 +1010,7 @@ def _recommend_balance(pokemon: list[dict]) -> tuple[list[dict], str]:
 
     team_cost = sum(_RARITY_COST.get(p["rarity"], 1) for p in team)
     analysis = f"전투력 + 시너지 + 타입 다양성을 균형있게 고려한 추천입니다. {len(used_types)}개 타입 커버. (코스트 {team_cost}/{_COST_LIMIT})"
+    analysis += _battle_summary(team)
     return team, analysis
 
 
@@ -979,7 +1047,8 @@ async def api_my_team_recommend(request):
         ORDER BY up.id DESC
     """, sess["user_id"])
 
-    pokemon = await _build_pokemon_data(rows)
+    battle_stats = await _get_user_battle_stats(sess["user_id"])
+    pokemon = await _build_pokemon_data(rows, battle_stats)
 
     if not pokemon:
         return pg_json_response({"team": [], "analysis": "보유한 포켓몬이 없습니다.", "warnings": []})
