@@ -110,8 +110,9 @@ async def subscription_callback_handler(update: Update, context: ContextTypes.DE
 
     # 토큰 선택 → 결제 안내
     elif data.startswith("sub_token_"):
-        parts = data.replace("sub_token_", "").split("_")
-        tier, token = parts[0], parts[1]
+        # sub_token_{tier}_{TOKEN} — tier에 _가 포함될 수 있으므로 마지막 _로 분리
+        rest = data.replace("sub_token_", "")
+        tier, token = rest.rsplit("_", 1)
 
         if not config.SUBSCRIPTION_WALLET:
             await query.edit_message_text("❌ 결제 지갑이 설정되지 않았습니다. 관리자에게 문의하세요.")
