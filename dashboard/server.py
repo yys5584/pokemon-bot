@@ -1565,16 +1565,36 @@ async def api_my_chat(request):
             # Extract team IDs if present
             team_ids = _parse_team_ids(ai_text)
             team = []
+            warnings = []
             if team_ids:
                 id_map = {p["id"]: p for p in pokemon}
                 team = [id_map[tid] for tid in team_ids if tid in id_map]
+
+                # 코스트 검증 — AI가 18 초과 추천하면 강제 조정
+                team_cost = sum(_RARITY_COST.get(p.get("rarity", "common"), 1) for p in team)
+                if team_cost > _COST_LIMIT:
+                    # 코스트 높은 순으로 제거하면서 18 이하로 맞춤
+                    team_sorted = sorted(team, key=lambda p: _RARITY_COST.get(p.get("rarity", "common"), 1))
+                    adjusted = []
+                    adj_cost = 0
+                    for p in team_sorted:
+                        c = _RARITY_COST.get(p.get("rarity", "common"), 1)
+                        if adj_cost + c <= _COST_LIMIT:
+                            adjusted.append(p)
+                            adj_cost += c
+                    warnings.append(
+                        f"⚠️ AI가 추천한 팀의 코스트({team_cost})가 제한({_COST_LIMIT})을 "
+                        f"초과하여 자동 조정되었습니다. (조정 후 코스트: {adj_cost})"
+                    )
+                    team = adjusted
+
             # Clean [TEAM:...] from display text
             import re
             clean_text = re.sub(r'\[TEAM:[\d,]+\]', '', ai_text).strip()
             resp = {
                 "analysis": clean_text,
                 "team": team,
-                "warnings": [],
+                "warnings": warnings,
                 "remaining": remaining_after,
                 "bonus_remaining": bonus_after,
             }
