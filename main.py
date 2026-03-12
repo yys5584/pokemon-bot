@@ -794,16 +794,15 @@ async def weather_update_job(context):
 # --- Ranked season jobs ---
 
 async def ranked_weekly_reset_job(context):
-    """격주 월요일 00:05 KST: 시즌 보상 → 소프트 리셋 → 새 시즌 → 아레나 공지.
-    매주 월요일마다 주간 법칙 갱신은 별도 처리."""
+    """매주 목요일 00:05 KST: 시즌 보상 → 소프트 리셋 → 새 시즌 공지."""
     try:
         from services import ranked_service as rs
         from database import ranked_queries as rq
 
-        # 현재 요일 확인 (월=0)
+        # 목요일(3)만 실행
         now = config.get_kst_now()
-        if now.weekday() != 0:
-            return  # 월요일만
+        if now.weekday() != config.SEASON_START_WEEKDAY:
+            return
 
         prev_season = await rq.get_current_season()
 
@@ -1317,7 +1316,7 @@ def main():
         name="weather_update",
     )
 
-    # Ranked season: weekly reset at Monday 00:05 KST
+    # Ranked season: weekly reset at Thursday 00:05 KST
     app.job_queue.run_daily(
         ranked_weekly_reset_job,
         time=dt_time(0, 5, 0, tzinfo=kst),

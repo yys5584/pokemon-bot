@@ -2575,6 +2575,7 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             chat_id=challenge["chat_id"],
             bot=context.bot,
             battle_type="ranked",
+            season_id=season["season_id"],
         )
 
         # 랭크전 결과 텍스트 조합
@@ -3016,6 +3017,7 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         chat_id=user_id,  # DM이므로 chat_id = user_id
         bot=context.bot,
         battle_type="ranked",
+        season_id=season_id,
     )
 
     # 결과 처리

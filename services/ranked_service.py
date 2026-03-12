@@ -14,27 +14,54 @@ logger = logging.getLogger(__name__)
 
 # ─── Season Management ───────────────────────────────────
 
+def _season_start_for_date(d: dt.datetime) -> dt.datetime:
+    """주어진 날짜가 속한 시즌의 시작 목요일 00:00 KST를 반환."""
+    weekday = d.weekday()  # 0=월 ... 3=목
+    start_wd = config.SEASON_START_WEEKDAY  # 3=목
+    # 이번 주 목요일 이전이면 지난 주 목요일이 시즌 시작
+    days_since = (weekday - start_wd) % 7
+    start = (d - dt.timedelta(days=days_since)).replace(
+        hour=0, minute=0, second=0, microsecond=0)
+    return start
+
+
+def _get_epoch() -> dt.datetime:
+    """시즌 1 기준점 (SEASON_EPOCH config)."""
+    return dt.datetime.strptime(config.SEASON_EPOCH, "%Y-%m-%d").replace(
+        hour=0, minute=0, second=0, tzinfo=config.KST)
+
+
 def current_season_id() -> str:
-    """현재 KST 기준 시즌 ID. 2주 시즌: '2026-S05' (연간 시즌 번호)."""
+    """현재 KST 기준 시즌 ID. 매주 목요일 전환.
+
+    네이밍: S01 → S01.5 → S02 → S02.5 → S03 ...
+    week_num 0=S01, 1=S01.5, 2=S02, 3=S02.5, ...
+    """
     now = config.get_kst_now()
-    iso = now.isocalendar()
-    # 2주 시즌: ISO week를 2로 나눠 시즌 번호 계산 (1-indexed)
-    duration = config.SEASON_DURATION_WEEKS
-    season_num = (iso[1] - 1) // duration + 1
-    return f"{iso[0]}-S{season_num:02d}"
+    start = _season_start_for_date(now)
+    epoch = _get_epoch()
+    week_num = int((start - epoch).days / 7)
+    major = week_num // 2 + 1
+    is_half = week_num % 2 == 1
+    suffix = f"{major:02d}.5" if is_half else f"{major:02d}"
+    return f"{start.year}-S{suffix}"
 
 
 def season_date_range(season_id: str) -> tuple[dt.datetime, dt.datetime]:
-    """시즌 ID로 시작/종료 datetime 계산."""
+    """시즌 ID로 시작/종료 datetime 계산.
+
+    S01 → week_num 0, S01.5 → week_num 1, S02 → week_num 2, ...
+    """
     year_str, s_part = season_id.split("-S")
-    year = int(year_str)
-    season_num = int(s_part)
-    duration = config.SEASON_DURATION_WEEKS
-    # 시즌 시작 ISO week
-    start_week = (season_num - 1) * duration + 1
-    start = dt.datetime.strptime(f"{year}-W{start_week}-1", "%G-W%V-%u")
-    start = start.replace(hour=0, minute=0, second=0, tzinfo=config.KST)
-    end = start + dt.timedelta(weeks=duration) - dt.timedelta(seconds=1)
+    if "." in s_part:
+        major = int(s_part.split(".")[0])
+        week_num = (major - 1) * 2 + 1  # .5 시즌
+    else:
+        major = int(s_part)
+        week_num = (major - 1) * 2  # 정규 시즌
+    epoch = _get_epoch()
+    start = epoch + dt.timedelta(weeks=week_num)
+    end = start + dt.timedelta(weeks=1) - dt.timedelta(seconds=1)
     return start, end
 
 

@@ -704,6 +704,7 @@ async def execute_battle(
     skip_bp: bool = False,
     bot=None,
     battle_type: str = "normal",
+    season_id: str | None = None,
 ) -> dict:
     """Execute a full battle and record results.
 
@@ -827,10 +828,10 @@ async def execute_battle(
 
     # Ranked: process RP changes
     ranked_info = None
-    if is_ranked:
-        from services.ranked_service import process_ranked_result, current_season_id
+    if is_ranked and season_id:
+        from services.ranked_service import process_ranked_result
         ranked_info = await process_ranked_result(
-            winner_id, loser_id, current_season_id(), battle_record_id,
+            winner_id, loser_id, season_id, battle_record_id,
         )
 
     # Get display names — challenger always LEFT, defender always RIGHT

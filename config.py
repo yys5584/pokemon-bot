@@ -693,7 +693,9 @@ DIVISION_NAMES = {2: "II", 1: "I"}  # II=하위, I=상위
 # 챌린저 티어는 RP 임계값이 아닌 마스터 Top 10에게 동적 부여
 CHALLENGER_TOP_N = 10
 
-SEASON_DURATION_WEEKS = 2  # 시즌 기간 (주)
+SEASON_DURATION_WEEKS = 1  # 시즌 기간 (주) — 매주 목요일 00:00 KST 전환
+SEASON_START_WEEKDAY = 3   # 시즌 시작 요일 (0=월, 3=목)
+SEASON_EPOCH = "2026-03-12"  # 시즌 1 시작일 (첫 번째 목요일)
 
 # --- 티어 조회 헬퍼 (하위호환 유지) ---
 
