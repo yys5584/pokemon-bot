@@ -274,6 +274,12 @@ EVENT_TEMPLATES = {
         "target": "ultra_legendary",
         "description": "🔴 초전설 출현! 초전설 포켓몬 출현률 5배",
     },
+    "초전설2배": {
+        "event_type": "rarity_boost",
+        "multiplier": 2.0,
+        "target": "ultra_legendary",
+        "description": "🔴 초전설 2배! 초전설 포켓몬 출현률 2배",
+    },
     "전설출현": {
         "event_type": "rarity_boost",
         "multiplier": 5.0,
