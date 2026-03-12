@@ -736,3 +736,391 @@ def generate_pokedex_card(
     buf.seek(0)
     buf.name = "pokedex.jpg"
     return buf
+
+
+# ── Battle Card (결승전 스킬 이펙트 이미지) ──────────────────────
+
+_BATTLE_TYPE_COLORS = {
+    "fire": ((255, 70, 20), (255, 140, 30), (255, 200, 60)),
+    "water": ((20, 80, 220), (50, 140, 255), (130, 210, 255)),
+    "electric": ((200, 170, 0), (255, 230, 30), (255, 255, 180)),
+    "grass": ((30, 140, 50), (60, 200, 80), (140, 240, 120)),
+    "psychic": ((180, 40, 120), (220, 80, 180), (255, 160, 220)),
+    "ice": ((40, 140, 200), (80, 200, 240), (180, 240, 255)),
+    "dragon": ((80, 40, 180), (120, 70, 220), (180, 130, 255)),
+    "dark": ((60, 40, 60), (100, 70, 100), (150, 120, 150)),
+    "normal": ((160, 160, 140), (200, 200, 180), (230, 230, 220)),
+    "fighting": ((160, 50, 20), (200, 80, 40), (240, 130, 70)),
+    "poison": ((120, 40, 160), (160, 70, 200), (200, 130, 240)),
+    "ground": ((160, 130, 50), (200, 170, 80), (230, 210, 130)),
+    "flying": ((100, 140, 210), (140, 180, 240), (190, 220, 255)),
+    "bug": ((120, 160, 20), (160, 200, 60), (200, 240, 110)),
+    "rock": ((140, 120, 80), (180, 160, 120), (210, 200, 170)),
+    "ghost": ((60, 40, 120), (100, 70, 170), (150, 120, 220)),
+    "steel": ((140, 150, 170), (180, 190, 200), (210, 220, 230)),
+    "fairy": ((210, 110, 160), (240, 150, 190), (255, 200, 225)),
+}
+
+
+def _draw_star4(draw: ImageDraw.Draw, cx: int, cy: int, size: int, color: tuple):
+    """Draw a 4-pointed star (sparkle)."""
+    pts = [
+        (cx, cy - size),
+        (cx + size // 4, cy - size // 4),
+        (cx + size, cy),
+        (cx + size // 4, cy + size // 4),
+        (cx, cy + size),
+        (cx - size // 4, cy + size // 4),
+        (cx - size, cy),
+        (cx - size // 4, cy - size // 4),
+    ]
+    draw.polygon(pts, fill=color)
+
+
+def _draw_shiny_effect(card: Image.Image, cx: int, cy: int, radius: int = 190) -> Image.Image:
+    """Shiny effect: radiant light rays + white sparkles."""
+    from PIL import ImageFilter as IF
+    layer = Image.new("RGBA", card.size, (0, 0, 0, 0))
+    ld = ImageDraw.Draw(layer)
+    rng = random.Random(77)
+
+    # Light rays
+    for _ in range(16):
+        angle = rng.uniform(0, 2 * math.pi)
+        length = rng.randint(int(radius * 0.7), int(radius * 1.3))
+        x1 = cx + int(20 * math.cos(angle))
+        y1 = cy + int(20 * math.sin(angle))
+        x2 = cx + int(length * math.cos(angle))
+        y2 = cy + int(length * math.sin(angle))
+        alpha = rng.randint(30, 70)
+        w = rng.randint(3, 8)
+        ld.line([(x1, y1), (x2, y2)], fill=(255, 255, 255, alpha), width=w)
+        ld.line([(x1, y1), (x2, y2)], fill=(255, 255, 255, alpha + 30), width=max(1, w - 2))
+
+    # Central glow
+    for i in range(25, 0, -1):
+        r = int(60 * (i / 25))
+        a = int(15 * (i / 25))
+        ld.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 255, 255, a))
+
+    # Small sparkles
+    for _ in range(40):
+        angle = rng.uniform(0, 2 * math.pi)
+        dist = rng.randint(int(radius * 0.15), radius)
+        px = cx + int(dist * math.cos(angle))
+        py = cy + int(dist * math.sin(angle))
+        size = rng.randint(3, 8)
+        _draw_star4(ld, px, py, size, (255, 255, 255, rng.randint(150, 255)))
+
+    # Medium sparkles
+    for _ in range(15):
+        angle = rng.uniform(0, 2 * math.pi)
+        dist = rng.randint(int(radius * 0.1), int(radius * 0.85))
+        px = cx + int(dist * math.cos(angle))
+        py = cy + int(dist * math.sin(angle))
+        size = rng.randint(10, 18)
+        alpha = rng.randint(180, 255)
+        _draw_star4(ld, px, py, size, (255, 255, 255, alpha))
+        ld.ellipse([px - size, py - size, px + size, py + size],
+                   fill=(255, 255, 255, alpha // 6))
+
+    # Big sparkles
+    for _ in range(4):
+        angle = rng.uniform(0, 2 * math.pi)
+        dist = rng.randint(int(radius * 0.2), int(radius * 0.5))
+        px = cx + int(dist * math.cos(angle))
+        py = cy + int(dist * math.sin(angle))
+        size = rng.randint(20, 28)
+        _draw_star4(ld, px, py, size, (255, 255, 255, 220))
+        ld.ellipse([px - size - 4, py - size - 4, px + size + 4, py + size + 4],
+                   fill=(255, 255, 255, 25))
+
+    glow_layer = layer.filter(IF.GaussianBlur(radius=3))
+    result = Image.alpha_composite(card, glow_layer)
+    return Image.alpha_composite(result, layer)
+
+
+# ── Type-specific FX ──
+
+def _battle_fx_fire(fd, sx, sy, ex, ey, colors):
+    deep, mid, bright = colors
+    rng = random.Random(101)
+    steps = 50
+    for s in range(steps):
+        t = s / steps
+        x = sx + (ex - sx) * t
+        y = sy + (ey - sy) * t + math.sin(t * math.pi * 3) * 18
+        base_r = int(22 * (1 - t * 0.5))
+        fd.ellipse([x - base_r - rng.randint(5, 14), y - base_r - 8, x + base_r + rng.randint(5, 14), y + base_r + 8],
+                   fill=(*deep, int(80 * (1 - t * 0.6))))
+        fd.ellipse([x - base_r - rng.randint(0, 5), y - base_r, x + base_r + rng.randint(0, 5), y + base_r],
+                   fill=(*mid, int(130 * (1 - t * 0.4))))
+        r_core = max(2, base_r - 6)
+        fd.ellipse([x - r_core, y - r_core, x + r_core, y + r_core],
+                   fill=(*bright, int(180 * (1 - t * 0.3))))
+    # Fireball at 65%
+    fb_x = sx + (ex - sx) * 0.65
+    fb_y = sy + (ey - sy) * 0.65
+    for i in range(40, 0, -1):
+        ratio = i / 40
+        r = int(50 * ratio)
+        c = bright if ratio > 0.7 else (mid if ratio > 0.4 else deep)
+        a = int((220 if ratio > 0.7 else (200 if ratio > 0.4 else 120)) * ratio)
+        fd.ellipse([fb_x - r, fb_y - r, fb_x + r, fb_y + r], fill=(*c, a))
+    # Embers
+    for _ in range(50):
+        t = rng.uniform(0.05, 1.05)
+        x = sx + (ex - sx) * t + rng.randint(-40, 40)
+        y = sy + (ey - sy) * t + rng.randint(-50, 30) - rng.randint(0, 20)
+        r = rng.randint(1, 5)
+        c = rng.choice([deep, mid, bright])
+        fd.ellipse([x - r, y - r, x + r, y + r], fill=(*c, rng.randint(80, 220)))
+
+
+def _battle_fx_electric(fd, sx, sy, ex, ey, colors):
+    deep, mid, bright = colors
+    rng = random.Random(202)
+    for bolt in range(4):
+        points = [(sx + rng.randint(-10, 10), sy + rng.randint(-15, 15))]
+        for s in range(1, rng.randint(10, 16) + 1):
+            t = s / 14
+            points.append((sx + (ex - sx) * t, sy + (ey - sy) * t + rng.randint(-45, 45)))
+        for w_layer, color, alpha in [(14, deep, 60), (6, mid, 160), (3, bright, 220)]:
+            for i in range(len(points) - 1):
+                fd.line([points[i], points[i + 1]], fill=(*color, alpha), width=w_layer)
+        if bolt < 2:
+            for _ in range(3):
+                bp = points[rng.randint(2, len(points) - 2)]
+                blen = rng.randint(30, 70)
+                ba = rng.uniform(-math.pi / 3, math.pi / 3)
+                bex, bey = bp[0] + blen * math.cos(ba), bp[1] + blen * math.sin(ba)
+                fd.line([bp, (bex, bey)], fill=(*mid, 120), width=2)
+    for _ in range(30):
+        px = rng.randint(int(sx - 20), int(ex + 40))
+        py = rng.randint(int(min(sy, ey) - 70), int(max(sy, ey) + 70))
+        pr = rng.randint(1, 4)
+        fd.ellipse([px - pr, py - pr, px + pr, py + pr], fill=(*bright, rng.randint(120, 255)))
+    for gx, gy, gr in [(sx, sy, 35), (ex, ey, 30)]:
+        for i in range(20, 0, -1):
+            r = int(gr * (i / 20))
+            fd.ellipse([gx - r, gy - r, gx + r, gy + r], fill=(*mid, int(40 * (i / 20))))
+
+
+def _battle_fx_water(fd, sx, sy, ex, ey, colors):
+    deep, mid, bright = colors
+    rng = random.Random(303)
+    for s in range(60):
+        t = s / 60
+        x = sx + (ex - sx) * t
+        y = sy + (ey - sy) * t + math.sin(t * math.pi * 5) * 22
+        bw = int(16 + 8 * math.sin(t * math.pi * 3))
+        fd.ellipse([x - bw - rng.randint(4, 10), y - bw - 4, x + bw + rng.randint(4, 10), y + bw + 4],
+                   fill=(*deep, 40))
+        fd.ellipse([x - bw, y - bw, x + bw, y + bw], fill=(*mid, 100))
+        rc = max(3, bw - 6)
+        fd.ellipse([x - rc, y - rc, x + rc, y + rc], fill=(*bright, 160))
+    for _ in range(45):
+        t = rng.uniform(0.1, 1.15)
+        x = sx + (ex - sx) * t + rng.randint(-50, 50)
+        y = sy + (ey - sy) * t + rng.randint(-60, 40)
+        r = rng.randint(2, 7)
+        fd.ellipse([x - r, y - r, x + r, y + r], fill=(*rng.choice([mid, bright]), rng.randint(80, 200)))
+
+
+def _battle_fx_psychic(fd, sx, sy, ex, ey, colors):
+    deep, mid, bright = colors
+    rng = random.Random(404)
+    for i in range(8):
+        t = i / 8
+        x = sx + (ex - sx) * t
+        y = sy + (ey - sy) * t
+        rr = int(20 + 15 * math.sin(t * math.pi))
+        alpha = int(160 - 80 * t)
+        fd.ellipse([x - rr, y - rr, x + rr, y + rr], outline=(*bright, alpha), width=2)
+        for w in range(4, 0, -1):
+            fd.ellipse([x - rr - w, y - rr - w, x + rr + w, y + rr + w],
+                       outline=(*mid, alpha // (5 - w)), width=2)
+    for s in range(40):
+        t = s / 40
+        x = sx + (ex - sx) * t
+        off = math.sin(t * math.pi * 4) * 25
+        r = int(5 + 3 * (1 - t))
+        alpha = int(120 - 50 * t)
+        fd.ellipse([x - r, sy + (ey - sy) * t + off - r, x + r, sy + (ey - sy) * t + off + r],
+                   fill=(*mid, alpha))
+        fd.ellipse([x - r, sy + (ey - sy) * t - off - r, x + r, sy + (ey - sy) * t - off + r],
+                   fill=(*deep, alpha))
+    for _ in range(25):
+        t = rng.uniform(0, 1)
+        x = sx + (ex - sx) * t + rng.randint(-40, 40)
+        y = sy + (ey - sy) * t + rng.randint(-40, 40)
+        r = rng.randint(2, 5)
+        fd.ellipse([x - r, y - r, x + r, y + r], fill=(*rng.choice([deep, mid, bright]), rng.randint(60, 180)))
+
+
+def _battle_fx_generic(fd, sx, sy, ex, ey, colors):
+    deep, mid, bright = colors
+    rng = random.Random(505)
+    for s in range(35):
+        t = s / 35
+        x = sx + (ex - sx) * t
+        y = sy + (ey - sy) * t + math.sin(t * math.pi * 2.5) * 15
+        r = int(14 * (1 - t * 0.4))
+        fd.ellipse([x - r - 4, y - r - 4, x + r + 4, y + r + 4], fill=(*deep, int(60 * (1 - t * 0.5))))
+        fd.ellipse([x - r, y - r, x + r, y + r], fill=(*mid, int(140 * (1 - t * 0.3))))
+        rc = max(2, r - 5)
+        fd.ellipse([x - rc, y - rc, x + rc, y + rc], fill=(*bright, int(180 * (1 - t * 0.3))))
+    for _ in range(35):
+        t = rng.uniform(0, 1.1)
+        x = sx + (ex - sx) * t + rng.randint(-35, 35)
+        y = sy + (ey - sy) * t + rng.randint(-35, 35)
+        r = rng.randint(2, 5)
+        fd.ellipse([x - r, y - r, x + r, y + r], fill=(*rng.choice([deep, mid, bright]), rng.randint(60, 180)))
+
+
+_BATTLE_FX = {
+    "fire": _battle_fx_fire,
+    "electric": _battle_fx_electric,
+    "water": _battle_fx_water,
+    "ice": _battle_fx_water,
+    "psychic": _battle_fx_psychic,
+    "ghost": _battle_fx_psychic,
+    "fairy": _battle_fx_psychic,
+    "dragon": _battle_fx_generic,
+}
+
+
+def _battle_impact(fd, cx, cy, colors):
+    deep, mid, bright = colors
+    rng = random.Random(666)
+    for i in range(3):
+        r = 40 + i * 25
+        fd.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(*mid, max(10, 80 - i * 25)), width=2)
+    for _ in range(18):
+        angle = rng.uniform(0, 2 * math.pi)
+        length = rng.randint(30, 90)
+        x1 = cx + int(12 * math.cos(angle))
+        y1 = cy + int(12 * math.sin(angle))
+        x2 = cx + int(length * math.cos(angle))
+        y2 = cy + int(length * math.sin(angle))
+        fd.line([(x1, y1), (x2, y2)], fill=(*rng.choice([mid, bright]), rng.randint(80, 180)),
+                width=rng.randint(1, 3))
+    for _ in range(12):
+        angle = rng.uniform(0, 2 * math.pi)
+        dist = rng.randint(15, 65)
+        px = cx + int(dist * math.cos(angle))
+        py = cy + int(dist * math.sin(angle))
+        pr = rng.randint(2, 5)
+        fd.ellipse([px - pr, py - pr, px + pr, py + pr], fill=(*bright, rng.randint(100, 220)))
+
+
+def generate_battle_card(
+    atk_id: int, atk_name: str, def_id: int, def_name: str,
+    skill_name: str, skill_type: str, damage: int,
+    atk_shiny: bool = False, def_shiny: bool = False,
+) -> io.BytesIO:
+    """Generate a battle scene image with type-specific effects.
+
+    Returns BytesIO (JPEG). Used in tournament finals.
+    """
+    from PIL import ImageFilter as IF
+
+    W, H = CARD_WIDTH, CARD_HEIGHT  # 960x540
+    colors = _BATTLE_TYPE_COLORS.get(skill_type, _BATTLE_TYPE_COLORS["normal"])
+
+    card = _make_gradient(W, H, (10, 12, 22), (4, 4, 10)).convert("RGBA")
+
+    ATK_CX, ATK_CY = 220, 255
+    DEF_CX, DEF_CY = 720, 265
+
+    # Attacker type glow
+    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    for i in range(30, 0, -1):
+        a = int(25 * (i / 30))
+        r = int(180 * (i / 30))
+        gd.ellipse([ATK_CX - r, ATK_CY - r, ATK_CX + r, ATK_CY + r], fill=(*colors[0], a))
+    for i in range(22, 0, -1):
+        a = int(10 * (i / 22))
+        r = int(140 * (i / 22))
+        gd.ellipse([DEF_CX - r, DEF_CY - r, DEF_CX + r, DEF_CY + r], fill=(120, 30, 30, a))
+    card = Image.alpha_composite(card, glow)
+
+    # Skill FX
+    fx = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    fx_draw = ImageDraw.Draw(fx)
+    fx_func = _BATTLE_FX.get(skill_type, _battle_fx_generic)
+    fx_func(fx_draw, ATK_CX + 80, ATK_CY, DEF_CX - 40, DEF_CY, colors)
+    _battle_impact(fx_draw, DEF_CX, DEF_CY, colors)
+    fx_glow = fx.filter(IF.GaussianBlur(radius=4))
+    card = Image.alpha_composite(card, fx_glow)
+    card = Image.alpha_composite(card, fx)
+
+    # Shiny sparkles
+    if atk_shiny:
+        card = _draw_shiny_effect(card, ATK_CX, ATK_CY, 180)
+    if def_shiny:
+        card = _draw_shiny_effect(card, DEF_CX, DEF_CY, 150)
+
+    # Attacker sprite
+    atk_sprite = _load_sprite(atk_id)
+    if atk_sprite:
+        ax = ATK_CX - atk_sprite.width // 2 + 15
+        ay = ATK_CY - atk_sprite.height // 2 - 15
+        card.paste(atk_sprite, (ax, ay), atk_sprite)
+
+    # Defender sprite (faded + red tint, no box)
+    def_sprite = _load_sprite(def_id)
+    if def_sprite:
+        # Scale to 230px
+        ratio = min(230 / def_sprite.width, 230 / def_sprite.height)
+        ds = def_sprite.resize((int(def_sprite.width * ratio), int(def_sprite.height * ratio)), Image.LANCZOS)
+        r, g, b, a = ds.split()
+        a = a.point(lambda x: int(x * 0.65))
+        ds = Image.merge("RGBA", (r, g, b, a))
+        tint = Image.new("RGBA", ds.size, (255, 30, 30, 25))
+        ds = Image.alpha_composite(ds, tint)
+        dx = DEF_CX - ds.width // 2
+        dy = DEF_CY - ds.height // 2 - 5
+        card.paste(ds, (dx, dy), ds)
+
+    # Text overlays
+    draw = ImageDraw.Draw(card)
+    font_big = _get_font(36, "bold")
+    font_name = _get_font(22, "bold")
+    font_dmg = _get_font(54, "bold")
+
+    # Skill banner
+    banner = Image.new("RGBA", (W, 56), (*colors[0], 140))
+    card.paste(banner, (0, 0), banner)
+    draw = ImageDraw.Draw(card)
+
+    skill_text = f"{atk_name}의 {skill_name}!"
+    bbox = draw.textbbox((0, 0), skill_text, font=font_big)
+    tw = bbox[2] - bbox[0]
+    draw.text(((W - tw) // 2 + 2, 10), skill_text, fill=(0, 0, 0, 100), font=font_big)
+    draw.text(((W - tw) // 2, 8), skill_text, fill=(255, 255, 255), font=font_big)
+
+    # Names
+    bbox = draw.textbbox((0, 0), atk_name, font=font_name)
+    nw = bbox[2] - bbox[0]
+    draw.text((ATK_CX - nw // 2 + 16, 416), atk_name, fill=(0, 0, 0, 120), font=font_name)
+    draw.text((ATK_CX - nw // 2 + 15, 415), atk_name, fill=(255, 255, 255), font=font_name)
+
+    bbox = draw.textbbox((0, 0), def_name, font=font_name)
+    nw = bbox[2] - bbox[0]
+    draw.text((DEF_CX - nw // 2 + 1, 426), def_name, fill=(0, 0, 0, 120), font=font_name)
+    draw.text((DEF_CX - nw // 2, 425), def_name, fill=(255, 150, 150), font=font_name)
+
+    # Damage
+    dmg_text = f"-{damage}"
+    bbox = draw.textbbox((0, 0), dmg_text, font=font_dmg)
+    dw = bbox[2] - bbox[0]
+    draw.text((DEF_CX - dw // 2 + 3, 461), dmg_text, fill=(0, 0, 0, 150), font=font_dmg)
+    draw.text((DEF_CX - dw // 2, 458), dmg_text, fill=(255, 65, 65), font=font_dmg)
+
+    buf = io.BytesIO()
+    card.convert("RGB").save(buf, format="JPEG", quality=90)
+    buf.seek(0)
+    buf.name = "battle.jpg"
+    return buf

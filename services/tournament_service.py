@@ -16,7 +16,7 @@ from database import queries
 from database import battle_queries as bq
 from database.connection import get_db
 from services.battle_service import _prepare_combatant, _resolve_battle, _hp_bar
-from utils.card_generator import generate_card, generate_lineup_card
+from utils.card_generator import generate_card, generate_lineup_card, generate_battle_card
 
 # ── Bracket Tree Renderer ──────────────────────────────────────
 import unicodedata
@@ -866,29 +866,56 @@ async def _run_match(
                     first_pid, first_rarity, first_shiny = td.get("d_pokemon_id"), td.get("d_rarity", "common"), td.get("d_shiny", False)
                     second_pid, second_rarity, second_shiny = td.get("c_pokemon_id"), td.get("c_rarity", "common"), td.get("c_shiny", False)
 
-                # First attack — card image only for skills
+                # First attack — battle scene image for skills
                 crit_label = " 크리티컬!" if first_crit else ""
                 skill_label = f" {first_eff}!" if first_eff else " 공격!"
                 bar = _hp_bar(first_target_hp, first_target_max)
                 caption1 = f"{td['turn_num']}턴 ─ {first_name}{skill_label}{crit_label}\n  → {first_target_name} {bar} {first_target_hp}/{first_target_max} (-{first_dmg})"
                 if first_eff and first_pid:
+                    # Extract skill name from eff string (e.g. "「화염방사」효과는..." → "화염방사")
+                    _skill_name = first_eff
+                    if "「" in _skill_name:
+                        _skill_name = _skill_name.split("「")[1].split("」")[0]
+                    # Get attacker type for FX
+                    from models.pokemon_battle_data import POKEMON_BATTLE_DATA
+                    _atk_type = POKEMON_BATTLE_DATA.get(first_pid, ("normal",))[0]
+                    # Target pokemon id
+                    _def_pid = td.get("d_pokemon_id") if td["first_is_challenger"] else td.get("c_pokemon_id")
+                    _def_shiny = td.get("d_shiny", False) if td["first_is_challenger"] else td.get("c_shiny", False)
                     loop = asyncio.get_event_loop()
-                    card_buf = await loop.run_in_executor(None, generate_card, first_pid, first_name, first_rarity, "", first_shiny)
+                    card_buf = await loop.run_in_executor(
+                        None, generate_battle_card,
+                        first_pid, first_name, _def_pid, first_target_name,
+                        _skill_name, _atk_type, first_dmg,
+                        first_shiny, _def_shiny,
+                    )
                     await _safe_send_photo(context.bot, chat_id, photo=card_buf, caption=caption1, parse_mode="HTML")
                     await asyncio.sleep(5)
                 else:
                     await _safe_send(context.bot, chat_id, text=caption1, parse_mode="HTML")
                     await asyncio.sleep(3)
 
-                # Counter attack — card image only for skills
+                # Counter attack — battle scene image for skills
                 if second_dmg > 0:
                     crit2_label = " 크리티컬!" if second_crit else ""
                     skill2_label = f" {second_eff}!" if second_eff else " 반격!"
                     bar2 = _hp_bar(second_target_hp, second_target_max)
                     caption2 = f"{second_name}{skill2_label}{crit2_label}\n  → {second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})"
                     if second_eff and second_pid:
+                        _skill_name2 = second_eff
+                        if "「" in _skill_name2:
+                            _skill_name2 = _skill_name2.split("「")[1].split("」")[0]
+                        from models.pokemon_battle_data import POKEMON_BATTLE_DATA
+                        _atk_type2 = POKEMON_BATTLE_DATA.get(second_pid, ("normal",))[0]
+                        _def_pid2 = td.get("c_pokemon_id") if td["first_is_challenger"] else td.get("d_pokemon_id")
+                        _def_shiny2 = td.get("c_shiny", False) if td["first_is_challenger"] else td.get("d_shiny", False)
                         loop = asyncio.get_event_loop()
-                        card_buf2 = await loop.run_in_executor(None, generate_card, second_pid, second_name, second_rarity, "", second_shiny)
+                        card_buf2 = await loop.run_in_executor(
+                            None, generate_battle_card,
+                            second_pid, second_name, _def_pid2, second_target_name,
+                            _skill_name2, _atk_type2, second_dmg,
+                            second_shiny, _def_shiny2,
+                        )
                         await _safe_send_photo(context.bot, chat_id, photo=card_buf2, caption=caption2, parse_mode="HTML")
                         await asyncio.sleep(5)
                     else:
