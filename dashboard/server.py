@@ -537,7 +537,7 @@ async def api_my_summary(request):
         import config as cfg
         try:
             season = await pool.fetchrow(
-                "SELECT season_id FROM seasons WHERE is_active = TRUE LIMIT 1"
+                "SELECT season_id FROM seasons WHERE NOW() BETWEEN starts_at AND ends_at ORDER BY id DESC LIMIT 1"
             )
             if season:
                 sr = await pool.fetchrow("""
