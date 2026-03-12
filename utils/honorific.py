@@ -26,12 +26,12 @@ def format_actor(name: str, verb_casual: str, tier: str | None) -> str:
     """행위자 존칭 포맷.
 
     Args:
-        name: 유저 이름 (예: "문유")
-        verb_casual: 반말 동사구 (예: "포케볼을 던졌다!")
+        name: 유저 이름 (decorated name, HTML 포함 가능)
+        verb_casual: 반말 동사구 (예: "포켓볼을 던졌다!")
         tier: 구독 티어 ("basic", "channel_owner", None)
 
     Returns:
-        "문유가 포케볼을 던졌다!" / "문유님이 ... 던졌습니다!" / "문유님께서 ... 던지셨습니다!"
+        "문유 포켓볼을 던졌다!" / "문유님이 포켓볼을 던졌습니다!" / "문유님께서 포켓볼을 던지셨습니다!"
     """
     honorific = _get_honorific(tier)
 
@@ -44,9 +44,8 @@ def format_actor(name: str, verb_casual: str, tier: str | None) -> str:
         polite_verb = _to_polite(verb_casual)
         return f"{name}님이 {polite_verb}"
     else:
-        # 일반: 반말 그대로
-        subj = _attach_subject_particle(name)
-        return f"{subj} {verb_casual}"
+        # 일반: 기존 형태 그대로 (조사 없이)
+        return f"{name} {verb_casual}"
 
 
 def format_target_action(
@@ -95,13 +94,22 @@ def honorific_catch_verb(verb: str, tier: str | None) -> str:
 
     "포획!" → "포획했습니다!" / "포획하셨습니다!"
     "확정 포획!" → "확정 포획했습니다!" / "확정 포획하셨습니다!"
+    "잡았다!" → "잡았습니다!" / "잡으셨습니다!"
     """
     honorific = _get_honorific(tier)
     if not honorific:
         return verb
 
-    # "포획!" → "포획했습니다!" / "포획하셨습니다!"
     v = verb.rstrip("!")
+
+    # "~았다" / "~었다" 패턴 (잡았다, 도망갔다 등) → _to_polite/_to_supreme 사용
+    if v.endswith("다"):
+        if honorific == "supreme":
+            return _to_supreme(verb)
+        elif honorific == "polite":
+            return _to_polite(verb)
+
+    # 명사형 (포획, 확정 포획 등) → ~했습니다 / ~하셨습니다
     if honorific == "supreme":
         return f"{v}하셨습니다!"
     elif honorific == "polite":

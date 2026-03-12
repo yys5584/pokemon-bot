@@ -1956,7 +1956,7 @@ async def api_ranked_season(request):
 
     rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
 
-    ranking = await rq.get_ranked_ranking(season_id, limit=20)
+    ranking = await rq.get_ranked_ranking(season_id, limit=100)
     for r in ranking:
         r["tier_display"] = tier_display(r["tier"])
         if r.get("title_emoji"):

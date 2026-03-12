@@ -637,7 +637,8 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
 
         if is_shiny:
             _se = shiny_emoji()
-            msg += f"\n\n{_se}{_se}{_se} 이로치 포켓몬을 잡았다!"
+            _shiny_verb = _hon_verb("잡았다!", _winner_tier) if _winner_tier else "잡았다!"
+            msg += f"\n\n{_se}{_se}{_se} 이로치 포켓몬을 {_shiny_verb}"
 
         # Track midnight catch for title
         hour = config.get_kst_hour()
@@ -1254,7 +1255,8 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Shiny catch announcement
         if is_shiny:
             _se = shiny_emoji()
-            msg += f"\n\n{_se}{_se}{_se} 이로치 포켓몬을 잡았다!"
+            _shiny_verb = _hon_verb("잡았다!", _winner_tier) if _winner_tier else "잡았다!"
+            msg += f"\n\n{_se}{_se}{_se} 이로치 포켓몬을 {_shiny_verb}"
 
         # Track midnight catch for title
         hour = config.get_kst_hour()

@@ -657,6 +657,9 @@
         .ranked-tbl{width:100%;border-collapse:collapse}
         .ranked-tbl th{text-align:left;padding:8px 6px;border-bottom:2px solid #F0F0F0;color:var(--muted);font-size:11px;font-weight:600;white-space:nowrap}
         .ranked-tbl td{padding:6px;border-bottom:1px solid #F8F8F8;font-size:13px;vertical-align:middle}
+        .ranked-tier-tip{position:relative;cursor:default}
+        .ranked-tier-tip:hover::after{content:attr(data-tip);position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 6px);background:#222;color:#fff;padding:4px 10px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:10;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+        .ranked-tier-tip:hover::before{content:'';position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 2px);border:4px solid transparent;border-top-color:#222;z-index:10;pointer-events:none}
         .ranked-tbl tr:hover td{background:#FAFAFA}
         .ranked-tbl .rk-medal{font-size:16px}
         .show-m{display:none}
@@ -2629,27 +2632,33 @@ async function loadBattleRank(){
         heroHtml+=`</div>`;
         document.getElementById("rankedHero").innerHTML=heroHtml;
 
-        // Ranked ranking table with visual tier badges
+        // Ranked ranking table with paging (12 per page), tier hover tooltip
         if(rk.length){
-            let h=`<table class="ranked-tbl"><thead><tr><th style="width:32px">#</th><th>이름</th><th>티어</th><th class="hide-m">RP 진행</th><th>RP</th><th>승률</th><th class="hide-m">연승</th></tr></thead><tbody>`;
-            rk.forEach((r,i)=>{
-                const placementDone=r.placement_done!==false;
-                const divDisp=r.division_display||r.tier_display;
-                let tierBadge;
-                if(!placementDone){
-                    tierBadge=`<span class="tb tb-placement hide-m-only">🎯 배치중 (${r.placement_games||0}/5)</span><span class="tb tb-placement show-m">🎯 ${r.placement_games||0}/5</span>`;
-                }else{
-                    tierBadge=`<span class="tb ${_tbClass(r.tier)} hide-m-only">${divDisp}</span><span class="tb ${_tbClass(r.tier)} show-m">${_tierShort(r.tier,r.division_display)}</span>`;
-                }
-                const rpProg=placementDone?_rpProgressHtml(r.rp,r.tier,r.division_rp):'-';
-                const totalG=r.ranked_wins+r.ranked_losses;
-                const winRate=totalG>0?Math.round(r.ranked_wins/totalG*100)+'%':'-';
-                const rpDisp=placementDone?`<b>${r.rp}</b>`:'-';
-                const rankDisp=i<3?`<span class="rk-medal">${medals[i]}</span>`:`${i+1}`;
-                h+=`<tr><td style="text-align:center">${rankDisp}</td><td style="font-weight:600;max-width:80px;overflow:hidden;text-overflow:ellipsis">${escHtml(stripEmoji(r.display_name))}</td><td style="white-space:nowrap">${tierBadge}</td><td class="hide-m">${rpProg}</td><td style="text-align:center">${rpDisp}</td><td style="text-align:center">${winRate}</td><td class="hide-m">🔥${r.best_ranked_streak}</td></tr>`;
+            renderPaged("rankedRanking",rk,12,function(slice,offset){
+                let h=`<table class="ranked-tbl"><thead><tr><th style="width:32px">#</th><th>이름</th><th>티어</th><th>승</th><th>패</th><th>승률</th><th class="hide-m">연승</th></tr></thead><tbody>`;
+                slice.forEach((r,i)=>{
+                    const idx=offset+i;
+                    const placementDone=r.placement_done!==false;
+                    const divDisp=r.division_display||r.tier_display;
+                    // 티어 배지 — 호버 시 세부 디비전 표시
+                    let tierBadge;
+                    if(!placementDone){
+                        tierBadge=`<span class="tb tb-placement hide-m-only">🎯 배치중 (${r.placement_games||0}/5)</span><span class="tb tb-placement show-m">🎯 ${r.placement_games||0}/5</span>`;
+                    }else if(r.tier==='master'||r.tier==='challenger'){
+                        // 마스터/챌린저: RP 포함 표시
+                        tierBadge=`<span class="tb ${_tbClass(r.tier)} ranked-tier-tip hide-m-only" data-tip="${r.rp} RP">${divDisp}</span><span class="tb ${_tbClass(r.tier)} show-m" data-tip="${r.rp} RP">${_tierShort(r.tier,r.division_display)}</span>`;
+                    }else{
+                        // 일반 티어: 티어명만 표시, 호버로 디비전 상세
+                        const tierName=r.tier_display||r.tier;
+                        tierBadge=`<span class="tb ${_tbClass(r.tier)} ranked-tier-tip hide-m-only" data-tip="${divDisp}">${tierName}</span><span class="tb ${_tbClass(r.tier)} show-m" data-tip="${divDisp}">${_tierShort(r.tier,r.division_display)}</span>`;
+                    }
+                    const totalG=r.ranked_wins+r.ranked_losses;
+                    const winRate=totalG>0?Math.round(r.ranked_wins/totalG*100)+'%':'-';
+                    const rankDisp=idx<3?`<span class="rk-medal">${medals[idx]}</span>`:`${idx+1}`;
+                    h+=`<tr><td style="text-align:center">${rankDisp}</td><td style="font-weight:600;max-width:100px;overflow:hidden;text-overflow:ellipsis">${escHtml(stripEmoji(r.display_name))}</td><td style="white-space:nowrap">${tierBadge}</td><td style="text-align:center;color:var(--green);font-weight:600">${r.ranked_wins}</td><td style="text-align:center;color:var(--red)">${r.ranked_losses}</td><td style="text-align:center">${winRate}</td><td class="hide-m">🔥${r.best_ranked_streak}</td></tr>`;
+                });
+                return h+"</tbody></table>";
             });
-            h+="</tbody></table>";
-            document.getElementById("rankedRanking").innerHTML=h;
         }else{document.getElementById("rankedRanking").innerHTML='<p class="empty-msg">아직 이번 시즌 기록이 없습니다</p>'}
 
         // Tier distribution chart

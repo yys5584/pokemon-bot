@@ -15,6 +15,7 @@ from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
 from services.tournament_service import is_tournament_active
 from utils.helpers import time_ago, get_decorated_name, truncate_name, schedule_delete, ball_emoji, shiny_emoji, icon_emoji, rarity_badge, type_badge
+from utils.honorific import format_actor
 from models.pokemon_data import ALL_POKEMON
 
 logger = logging.getLogger(__name__)
@@ -130,11 +131,13 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         _catch_locks.add(lock_key)
         try:
-            # Phase 2: has_attempted + can_attempt + get_user in parallel
-            already, (allowed, reason, remaining, max_today), user = await asyncio.gather(
+            # Phase 2: has_attempted + can_attempt + get_user + sub_tier in parallel
+            from services.subscription_service import get_user_tier
+            already, (allowed, reason, remaining, max_today), user, sub_tier = await asyncio.gather(
                 queries.has_attempted_session(session["id"], user_id),
                 can_attempt_catch(user_id),
                 queries.get_user(user_id),
+                get_user_tier(user_id),
             )
 
             if already:
@@ -163,9 +166,11 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 html=True,
             )
 
+            # 구독자 존칭 적용
+            throw_text = format_actor(decorated, "포켓볼을 던졌다!", sub_tier)
             attempt_msg = await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"{ball_emoji('pokeball')} {decorated} 포켓볼을 던졌다!{ball_count_tag}",
+                text=f"{ball_emoji('pokeball')} {throw_text}{ball_count_tag}",
                 parse_mode="HTML",
             )
             track_attempt_message(session["id"], chat_id, attempt_msg.message_id)
@@ -230,10 +235,12 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             if remaining is None:
                 return
 
-            # Phase 3: record attempt + get_user in parallel
-            _, user = await asyncio.gather(
+            # Phase 3: record attempt + get_user + sub_tier in parallel
+            from services.subscription_service import get_user_tier
+            _, user, sub_tier = await asyncio.gather(
                 queries.record_catch_attempt(session["id"], user_id, used_master_ball=True),
                 queries.get_user(user_id),
+                get_user_tier(user_id),
             )
             decorated = get_decorated_name(
                 display_name,
@@ -242,9 +249,10 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 username,
                 html=True,
             )
+            throw_text = format_actor(decorated, "마스터볼을 던졌다!", sub_tier)
             msg = await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"{ball_emoji('masterball')} {decorated} 마스터볼을 던졌다! (남은: {remaining}개)",
+                text=f"{ball_emoji('masterball')} {throw_text} (남은: {remaining}개)",
                 parse_mode="HTML",
             )
             track_attempt_message(session["id"], chat_id, msg.message_id)
@@ -306,11 +314,13 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 )
                 return
 
-            # Phase 3: record attempt + get_user + get remaining in parallel
-            _, user, remaining = await asyncio.gather(
+            # Phase 3: record attempt + get_user + get remaining + sub_tier in parallel
+            from services.subscription_service import get_user_tier
+            _, user, remaining, sub_tier = await asyncio.gather(
                 queries.record_catch_attempt(session["id"], user_id, used_hyper_ball=True),
                 queries.get_user(user_id),
                 queries.get_hyper_balls(user_id),
+                get_user_tier(user_id),
             )
             decorated = get_decorated_name(
                 display_name,
@@ -319,9 +329,10 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 username,
                 html=True,
             )
+            throw_text = format_actor(decorated, "하이퍼볼을 던졌다!", sub_tier)
             hyper_msg = await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"{ball_emoji('hyperball')} {decorated} 하이퍼볼을 던졌다! (남은: {remaining}개)",
+                text=f"{ball_emoji('hyperball')} {throw_text} (남은: {remaining}개)",
                 parse_mode="HTML",
             )
             track_attempt_message(session["id"], chat_id, hyper_msg.message_id)
