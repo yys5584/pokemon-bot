@@ -605,7 +605,7 @@ async def _handle_channel_shop_extend(query, user_id: int, chat_id: int, context
     # BP 차감 + 시간 연장
     await bq.add_bp(user_id, -cost)
     extend_minutes = config.ARCADE_EXTEND_MINUTES
-    extend_arcade_time(context.application, chat_id, extend_minutes)
+    await extend_arcade_time(context.application, chat_id, extend_minutes)
 
     await query.edit_message_text(
         f"⏱️ 아케이드 시간 연장 완료!\n\n"

@@ -359,8 +359,8 @@ def set_arcade_interval(app, chat_id: int, new_interval: int):
     logger.info(f"Arcade interval changed for {chat_id}: {new_interval}s")
 
 
-def extend_arcade_time(app, chat_id: int, extend_minutes: int):
-    """활성 아케이드 시간 연장 (만료 잡 재스케줄)."""
+async def extend_arcade_time(app, chat_id: int, extend_minutes: int):
+    """활성 아케이드 시간 연장 (만료 잡 재스케줄 + DB 업데이트)."""
     expire_name = f"arcade_expire_{chat_id}"
     remaining = 0
 
@@ -381,6 +381,11 @@ def extend_arcade_time(app, chat_id: int, extend_minutes: int):
         data={"chat_id": chat_id},
         name=expire_name,
     )
+
+    # DB expires_at도 함께 업데이트
+    from database.queries import extend_arcade_pass
+    await extend_arcade_pass(chat_id, extend_minutes)
+
     logger.info(f"Arcade extended for {chat_id}: +{extend_minutes}m (total remaining: {new_remaining}s)")
 
 

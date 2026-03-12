@@ -298,6 +298,17 @@ async def expire_arcade_passes():
     return [r["chat_id"] for r in rows]
 
 
+async def extend_arcade_pass(chat_id: int, extend_minutes: int):
+    """Extend active arcade pass expiry time in DB."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "UPDATE arcade_passes SET expires_at = expires_at + make_interval(mins => $2) "
+        "WHERE chat_id = $1 AND is_active = 1 AND expires_at > NOW() RETURNING expires_at",
+        chat_id, float(extend_minutes),
+    )
+    return dict(row) if row else None
+
+
 async def get_all_active_arcade_passes() -> list[dict]:
     """Get all currently active arcade passes (for startup recovery)."""
     pool = await get_db()

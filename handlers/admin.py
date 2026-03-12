@@ -120,6 +120,15 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return  # Another spawn is already in progress — silently ignore
 
     async with lock:
+        # Check if arcade is active — block force spawn
+        from services.spawn_service import get_arcade_state
+        is_permanent_arcade = chat_id in config.ARCADE_CHAT_IDS
+        arcade_state = get_arcade_state(context.application, chat_id)
+        if is_permanent_arcade or (arcade_state and arcade_state.get("active")):
+            resp = await update.message.reply_text("🎰 아케이드가 활성화되어 있어 강스를 사용할 수 없습니다.")
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            return
+
         # Check if there's already an active spawn
         active = await queries.get_active_spawn(chat_id)
         if active:
