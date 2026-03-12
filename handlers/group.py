@@ -710,7 +710,7 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
     matches = [p for p in pokemon_list if name_query in p["name_ko"]]
     if not matches:
         msg = await update.message.reply_text(f"'{name_query}' — 보유하지 않은 포켓몬입니다.")
-        schedule_delete(context, msg, delay=30)
+        schedule_delete(msg, 30)
         return
 
     rarity_labels = {
@@ -737,7 +737,7 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
         lines.append(f"...외 {len(matches) - 15}마리")
 
     msg = await update.message.reply_text("\n".join(lines), parse_mode="HTML")
-    schedule_delete(context, msg, delay=60)
+    schedule_delete(msg, 60)
 
 
 # --- Catch DM: Keep / Release callbacks ---

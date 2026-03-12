@@ -302,9 +302,11 @@ async def find_any_matchable_users(exclude_ids: list[int],
     """프리시즌 폴백: season_records가 비어있을 때, 유효 팀 보유 유저 직접 조회."""
     pool = await get_db()
     rows = await pool.fetch(
-        """SELECT DISTINCT bt.user_id
-           FROM battle_teams bt
-           WHERE bt.user_id != ALL($1)
+        """SELECT user_id FROM (
+               SELECT DISTINCT bt.user_id
+               FROM battle_teams bt
+               WHERE bt.user_id != ALL($1)
+           ) sub
            ORDER BY RANDOM()
            LIMIT $2""",
         exclude_ids, limit)
