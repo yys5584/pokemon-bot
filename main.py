@@ -967,7 +967,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^수신거부$"), _optout_handler))
 
     # Korean commands via MessageHandler + Regex (DM only)
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^도움말$"), help_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(❓\s*)?도움말$"), help_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^(📖\s*)?도감"), pokedex_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^날씨$"), weather_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📦\s*)?내포켓몬(\s+.+)?$"), my_pokemon_handler))

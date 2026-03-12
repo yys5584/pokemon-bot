@@ -739,6 +739,12 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     if nav_row:
         select_buttons.append(nav_row)
 
+    # Action row: 팀설정 + 방생
+    select_buttons.append([
+        InlineKeyboardButton("⚔️ 팀설정", callback_data=f"mypoke_team_{user_id}"),
+        InlineKeyboardButton("🔄 방생", callback_data=f"mypoke_rel_{user_id}"),
+    ])
+
     markup = InlineKeyboardMarkup(select_buttons)
     return "\n".join(lines), markup
 
@@ -1134,6 +1140,31 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
+        elif action == "team":
+            # mypoke_team_{user_id} — 통합 팀설정 메뉴
+            text, markup = await _build_team_settings(user_id)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "tact":
+            # mypoke_tact_{user_id}_{team_num} — 활성 팀 변경
+            team_num = int(parts[3])
+            from database import battle_queries as bq
+            team = await bq.get_battle_team(user_id, team_num)
+            if not team:
+                await query.answer(f"팀 {team_num}이(가) 비어있습니다!", show_alert=True)
+            else:
+                await bq.set_active_team(user_id, team_num)
+                await query.answer(f"✅ 팀 {team_num} 활성화!", show_alert=False)
+            text, markup = await _build_team_settings(user_id)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+        elif action == "rel":
+            # mypoke_rel_{user_id} — 방생 필터 패널 표시
+            from handlers.dm_release import _build_panel, _get_filter as _get_rel_filter
+            filt_rel = _get_rel_filter(context)
+            text, markup = _build_panel(user_id, filt_rel)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
     except Exception:
         pass
 
@@ -1205,6 +1236,51 @@ async def _do_play(p: dict, user_id: int) -> tuple[str, bool]:
         return "오류가 발생했습니다.", False
     remaining = config.PLAY_PER_DAY - p["played_today"] - 1
     return f"🎾 {p['name_ko']}와 놀기! 친밀도 {new_f}/{max_f} (남은: {remaining}회)", True
+
+
+async def _build_team_settings(user_id: int) -> tuple[str, InlineKeyboardMarkup]:
+    """Build unified team settings menu (팀설정)."""
+    from database import battle_queries as bq
+
+    team1 = await bq.get_battle_team(user_id, 1)
+    team2 = await bq.get_battle_team(user_id, 2)
+    active = await bq.get_active_team_number(user_id)
+
+    t1_info = f"({len(team1)}마리)" if team1 else "(비어있음)"
+    t2_info = f"({len(team2)}마리)" if team2 else "(비어있음)"
+    t1_active = f" {icon_emoji('check')}" if active == 1 else ""
+    t2_active = f" {icon_emoji('check')}" if active == 2 else ""
+
+    lines = [
+        f"{icon_emoji('battle')} <b>팀 설정</b>\n",
+        f"팀1 {t1_info}{t1_active}",
+        f"팀2 {t2_info}{t2_active}",
+    ]
+
+    buttons = [
+        [
+            InlineKeyboardButton("✏️ 팀1 편집", callback_data=f"tedit_{user_id}_1"),
+            InlineKeyboardButton("✏️ 팀2 편집", callback_data=f"tedit_{user_id}_2"),
+        ],
+        [
+            InlineKeyboardButton("🔀 팀1↔팀2 교환", callback_data=f"tswap_teams_{user_id}"),
+        ],
+    ]
+
+    # 활성 팀 전환 버튼 (비활성 팀만 표시)
+    active_row = []
+    if active != 1 and team1:
+        active_row.append(InlineKeyboardButton("✅ 팀1 활성", callback_data=f"mypoke_tact_{user_id}_1"))
+    if active != 2 and team2:
+        active_row.append(InlineKeyboardButton("✅ 팀2 활성", callback_data=f"mypoke_tact_{user_id}_2"))
+    if active_row:
+        buttons.append(active_row)
+
+    buttons.append([
+        InlineKeyboardButton("📋 내포켓몬으로", callback_data=f"mypoke_l_{user_id}_0"),
+    ])
+
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 
 async def _do_evolve(p: dict, user_id: int) -> str:
@@ -2284,10 +2360,10 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     menu_keyboard = ReplyKeyboardMarkup(
         [
             ["📋 상태창", "📦 내포켓몬"],
-            ["⚔️ 팀", "✏️ 팀편집"],
             ["🛒 거래소", "🏪 상점"],
-            ["🤝 파트너", "💪 친밀도강화"],
+            ["💎 구독", "🤝 파트너"],
             ["📖 도감", "🏷️ 칭호"],
+            ["❓ 도움말"],
         ],
         resize_keyboard=True,
         input_field_placeholder="명령어를 선택하세요",

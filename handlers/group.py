@@ -131,7 +131,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _catch_locks.add(lock_key)
         try:
             # Phase 2: has_attempted + can_attempt + get_user in parallel
-            already, (allowed, reason), user = await asyncio.gather(
+            already, (allowed, reason, remaining, max_today), user = await asyncio.gather(
                 queries.has_attempted_session(session["id"], user_id),
                 can_attempt_catch(user_id),
                 queries.get_user(user_id),
@@ -148,6 +148,13 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Phase 3: record attempt (sequential — must happen before message)
             await record_attempt(session["id"], user_id)
 
+            # 던진 후 남은 수량 = remaining - 1 (방금 1회 사용)
+            after_remaining = max(0, remaining - 1) if remaining >= 0 else -1
+            if after_remaining == -1:
+                ball_count_tag = " (∞)"
+            else:
+                ball_count_tag = f" ({after_remaining}/{max_today})"
+
             decorated = get_decorated_name(
                 display_name,
                 user.get("title", "") if user else "",
@@ -158,7 +165,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             attempt_msg = await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"{ball_emoji('pokeball')} {decorated} 포켓볼을 던졌다!",
+                text=f"{ball_emoji('pokeball')} {decorated} 포켓볼을 던졌다!{ball_count_tag}",
                 parse_mode="HTML",
             )
             track_attempt_message(session["id"], chat_id, attempt_msg.message_id)
