@@ -813,7 +813,77 @@ def _battle_summary(team: list[dict]) -> str:
     return "\n📊 최근 14일 배틀: " + ", ".join(lines)
 
 
-def _recommend_power(pokemon: list[dict]) -> tuple[list[dict], str]:
+def _format_team_detail(team: list[dict]) -> str:
+    """팀 멤버별 상세 분석 (전투력, 타입, 승률, 딜량)."""
+    lines = []
+    for p in team:
+        types = config.TYPE_NAME_KO.get(p["pokemon_type"], p["pokemon_type"])
+        if p.get("type2"):
+            types += "/" + config.TYPE_NAME_KO.get(p["type2"], p["type2"])
+        line = f"- {p['name_ko']}({types}): 전투력 {p['real_power']}"
+        if p.get("battle_win_rate") is not None:
+            line += f", 승률 {p['battle_win_rate']}%({p['battle_uses']}전)"
+        if p.get("battle_avg_damage"):
+            line += f", 평균딜 {p['battle_avg_damage']}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def _format_type_coverage(team: list[dict]) -> tuple[str, list[str]]:
+    """팀 타입 커버리지 분석. Returns (coverage_str, weak_types)."""
+    team_types = set()
+    for p in team:
+        team_types.add(p["pokemon_type"])
+        if p.get("type2"):
+            team_types.add(p["type2"])
+    type_names = [config.TYPE_NAME_KO.get(t, t) for t in team_types]
+
+    # 약점 분석
+    weak_types = []
+    for etype, advs in config.TYPE_ADVANTAGE.items():
+        hits = sum(1 for p in team if p["pokemon_type"] in advs or (p.get("type2") and p["type2"] in advs))
+        if hits >= 3:
+            weak_types.append(config.TYPE_NAME_KO.get(etype, etype))
+
+    return ", ".join(type_names), weak_types
+
+
+def _format_user_win_top(pokemon: list[dict], limit: int = 5) -> str:
+    """유저 보유 포켓몬 중 승률 TOP N."""
+    with_stats = [p for p in pokemon if p.get("battle_win_rate") is not None and p.get("battle_uses", 0) >= 3]
+    if not with_stats:
+        return ""
+    top = sorted(with_stats, key=lambda x: (x["battle_win_rate"], x["battle_uses"]), reverse=True)[:limit]
+    lines = ["📊 내 포켓몬 승률 TOP:"]
+    for p in top:
+        lines.append(f"- {p['name_ko']}: {p['battle_win_rate']}% ({p['battle_uses']}전), 평균딜 {p.get('battle_avg_damage', '?')}")
+    return "\n".join(lines)
+
+
+def _format_ranker_meta(meta: dict | None) -> str:
+    """랭커 메타 요약 텍스트."""
+    if not meta:
+        return ""
+    lines = []
+
+    # 랭커 팀 구성
+    rankers = meta.get("top_rankers", [])
+    if rankers:
+        lines.append("📈 상위 랭커:")
+        for r in rankers[:3]:
+            lines.append(f"- {r['name']}: {r['wins']}승/{r['losses']}패 (승률 {r['win_rate']}%)")
+
+    # 메타 포켓몬
+    meta_poke = meta.get("pokemon_meta", [])
+    if meta_poke:
+        lines.append("\n🔥 랭커 인기 포켓몬:")
+        for m in meta_poke[:6]:
+            lines.append(f"- {m['name']}({m['type']}): {m['usage']}명 사용, 승률 {m['win_rate']}%")
+
+    return "\n".join(lines)
+
+
+def _recommend_power(pokemon: list[dict], meta: dict | None = None) -> tuple[list[dict], str]:
     """Mode 1: Pure power — top 6 by real_power, boosted by battle win rate."""
     for p in pokemon:
         p["_power_score"] = p["real_power"] * _battle_bonus(p)
@@ -822,113 +892,170 @@ def _recommend_power(pokemon: list[dict]) -> tuple[list[dict], str]:
     for p in pokemon:
         p.pop("_power_score", None)
     total = sum(p["real_power"] for p in team)
+    avg_power = total // max(len(team), 1)
     team_cost = sum(_RARITY_COST.get(p["rarity"], 1) for p in team)
-    analysis = f"실전투력 TOP 6 구성입니다. 총 전투력 {total}. (코스트 {team_cost}/{_COST_LIMIT})"
-    types = set(p["pokemon_type"] for p in team)
-    if len(types) < 3:
-        analysis += " 타입 다양성이 부족해 상성에 취약할 수 있습니다."
-    analysis += _battle_summary(team)
-    return team, analysis
+    coverage, weak_types = _format_type_coverage(team)
+
+    parts = [f"🏆 전투력 기준 최강 팀\n총 전투력 {total} · 평균 {avg_power} (코스트 {team_cost}/{_COST_LIMIT})"]
+    parts.append(f"\n📋 팀원 분석:\n{_format_team_detail(team)}")
+    parts.append(f"\n💡 타입 커버: {coverage}")
+    if weak_types:
+        parts.append(f"⚠️ {', '.join(weak_types)} 타입에 취약")
+    win_top = _format_user_win_top(pokemon)
+    if win_top:
+        parts.append(f"\n{win_top}")
+    if meta:
+        ranker_info = _format_ranker_meta(meta)
+        if ranker_info:
+            parts.append(f"\n{ranker_info}")
+
+    return team, "\n".join(parts)
 
 
-def _recommend_synergy(pokemon: list[dict]) -> tuple[list[dict], str]:
+def _recommend_synergy(pokemon: list[dict], meta: dict | None = None) -> tuple[list[dict], str]:
     """Mode 2: Best IV synergy with base stats."""
     sorted_p = sorted(pokemon, key=lambda x: (x["synergy_score"], x["real_power"]), reverse=True)
     team = _pick_team(sorted_p)
     avg_syn = sum(p["synergy_score"] for p in team) // max(len(team), 1)
     team_cost = sum(_RARITY_COST.get(p["rarity"], 1) for p in team)
-    analysis = f"IV-종족값 시너지가 가장 좋은 6마리입니다. 평균 시너지 {avg_syn}점. (코스트 {team_cost}/{_COST_LIMIT})"
+    coverage, weak_types = _format_type_coverage(team)
+
+    parts = [f"🧬 IV 시너지 최적 팀\n평균 시너지 {avg_syn}점 (코스트 {team_cost}/{_COST_LIMIT})"]
+
+    # 팀원별 시너지 + 승률
+    detail_lines = []
+    for p in team:
+        line = f"- {p['name_ko']}: 시너지 {p['synergy_score']}점({p['synergy_label']}), 전투력 {p['real_power']}"
+        if p.get("battle_win_rate") is not None:
+            line += f", 승률 {p['battle_win_rate']}%"
+        detail_lines.append(line)
+    parts.append(f"\n📋 팀원 분석:\n" + "\n".join(detail_lines))
+
     low = [p for p in team if p["synergy_score"] < 50]
     if low:
         names = ", ".join(p["name_ko"] for p in low)
-        analysis += f" {names}의 IV 배분이 아쉽습니다."
-    analysis += _battle_summary(team)
-    return team, analysis
+        parts.append(f"💤 {names}의 IV 배분이 아쉬움")
+    parts.append(f"\n💡 타입 커버: {coverage}")
+    if weak_types:
+        parts.append(f"⚠️ {', '.join(weak_types)} 타입에 취약")
+
+    return team, "\n".join(parts)
 
 
-async def _recommend_counter(pokemon: list[dict]) -> tuple[list[dict], str]:
+async def _recommend_counter(pokemon: list[dict], meta: dict | None = None) -> tuple[list[dict], str]:
     """Mode 3: Counter top ranker teams — considers dual types, power threshold."""
     ranking = await bq.get_battle_ranking(10)
     pool = await queries.get_db()
 
-    # Collect enemy dual types from top ranker teams
+    # Collect enemy dual types + ranker team details
     from collections import Counter
     enemy_types = []
-    for r in ranking:
+    ranker_teams = []  # [(name, win_rate, [pokemon_names])]
+    for r in ranking[:5]:
         team_rows = await pool.fetch("""
-            SELECT pm.pokemon_type, pm.id as pokemon_id FROM battle_teams bt
+            SELECT pm.pokemon_type, pm.id as pokemon_id, pm.name_ko FROM battle_teams bt
             JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
             JOIN pokemon_master pm ON up.pokemon_id = pm.id
             WHERE bt.user_id = $1
         """, r["user_id"])
+        team_names = []
         for t in team_rows:
             enemy_types.append(t["pokemon_type"])
-            # Also count dual types from base stats
+            team_names.append(t["name_ko"])
             bs = POKEMON_BASE_STATS.get(t["pokemon_id"])
             if bs and len(bs[6]) > 1:
                 enemy_types.append(bs[6][1])
+        wins = r["battle_wins"]
+        losses = r["battle_losses"]
+        total = wins + losses
+        wr = round(wins / total * 100, 1) if total > 0 else 0
+        ranker_teams.append((r["display_name"], wr, team_names))
 
     if not enemy_types:
-        return _recommend_power(pokemon)
+        return _recommend_power(pokemon, meta)
 
     type_freq = Counter(enemy_types)
 
-    # Counter score per type: how many enemy types does this type beat?
+    # Counter score per type
     counter_scores = {}
     for ptype in config.TYPE_ADVANTAGE:
         score = sum(type_freq.get(weak, 0) for weak in config.TYPE_ADVANTAGE.get(ptype, []))
         counter_scores[ptype] = score
 
-    # Power threshold: only consider top 60% of user's Pokemon by power
+    # Power threshold
     if len(pokemon) > 6:
         power_sorted = sorted(pokemon, key=lambda x: x["real_power"], reverse=True)
         min_power = power_sorted[int(len(power_sorted) * 0.6)]["real_power"]
     else:
         min_power = 0
 
-    # Score: power-first with counter bonus multiplier
-    # counter_bonus = normalized counter score (0~1), gives up to 50% power boost
     max_counter = max(counter_scores.values()) if counter_scores else 1
     for p in pokemon:
-        # Use both types for counter calculation
         types = [p["pokemon_type"]]
         if p.get("type2"):
             types.append(p["type2"])
         best_counter = max(counter_scores.get(t, 0) for t in types)
         counter_bonus = (best_counter / max_counter) * 0.5 if max_counter > 0 else 0
-        # Power gate: heavily penalize weak Pokemon
         power_mult = 1.0 if p["real_power"] >= min_power else 0.3
         p["_counter"] = p["real_power"] * (1 + counter_bonus) * power_mult * _battle_bonus(p)
 
     sorted_p = sorted(pokemon, key=lambda x: x["_counter"], reverse=True)
-
-    # Greedy pick with type diversity + rarity rules
     team = _pick_team(sorted_p)
 
-    # Cleanup temp field
     for p in pokemon:
         p.pop("_counter", None)
 
-    top_enemy = type_freq.most_common(3)
-    enemy_str = ", ".join(f"{config.TYPE_NAME_KO.get(t, t)}({c})" for t, c in top_enemy)
-    team_types = set()
-    for p in team:
-        team_types.add(p["pokemon_type"])
-        if p.get("type2"):
-            team_types.add(p["type2"])
-    type_names = ", ".join(config.TYPE_NAME_KO.get(t, t) for t in team_types)
+    top_enemy = type_freq.most_common(5)
     team_cost = sum(_RARITY_COST.get(p["rarity"], 1) for p in team)
-    analysis = (
-        f"상위 랭커 팀에 {enemy_str} 타입이 많습니다.\n"
-        f"카운터 상성 + 높은 전투력 기준으로 팀을 구성했습니다.\n"
-        f"팀 타입: {type_names} (코스트 {team_cost}/{_COST_LIMIT})"
-    )
-    analysis += _battle_summary(team)
+    coverage, weak_types = _format_type_coverage(team)
 
-    return team, analysis
+    # Build rich analysis
+    parts = [f"🎯 랭커 카운터 팀 (코스트 {team_cost}/{_COST_LIMIT})"]
+
+    # 랭커 덱 정보
+    if ranker_teams:
+        parts.append("\n📈 상위 랭커 덱:")
+        for name, wr, pnames in ranker_teams[:3]:
+            parts.append(f"- {name} (승률 {wr}%): {'/'.join(pnames[:6])}")
+
+    # 적 타입 빈도
+    enemy_str = ", ".join(f"{config.TYPE_NAME_KO.get(t, t)}({c})" for t, c in top_enemy)
+    parts.append(f"\n⚔️ 주요 적 타입: {enemy_str}")
+
+    # 카운터 전략 — 팀원별 설명
+    parts.append(f"\n🛡️ 카운터 전략:")
+    for p in team:
+        types_str = config.TYPE_NAME_KO.get(p["pokemon_type"], p["pokemon_type"])
+        if p.get("type2"):
+            types_str += "/" + config.TYPE_NAME_KO.get(p["type2"], p["type2"])
+        # 이 포켓몬이 카운터하는 적 타입 찾기
+        counters = []
+        my_types = [p["pokemon_type"]]
+        if p.get("type2"):
+            my_types.append(p["type2"])
+        for mt in my_types:
+            for weak in config.TYPE_ADVANTAGE.get(mt, []):
+                if type_freq.get(weak, 0) > 0:
+                    counters.append(config.TYPE_NAME_KO.get(weak, weak))
+        line = f"- {p['name_ko']}({types_str}): 전투력 {p['real_power']}"
+        if counters:
+            line += f" → {', '.join(set(counters[:3]))} 카운터"
+        if p.get("battle_win_rate") is not None:
+            line += f", 승률 {p['battle_win_rate']}%"
+        parts.append(line)
+
+    # 내 포켓몬 승률 TOP
+    win_top = _format_user_win_top(pokemon)
+    if win_top:
+        parts.append(f"\n{win_top}")
+
+    if weak_types:
+        parts.append(f"\n⚠️ 팀 약점: {', '.join(weak_types)} 타입 주의")
+
+    return team, "\n".join(parts)
 
 
-def _recommend_balance(pokemon: list[dict]) -> tuple[list[dict], str]:
+def _recommend_balance(pokemon: list[dict], meta: dict | None = None) -> tuple[list[dict], str]:
     """Mode 4: Balanced — power + synergy + type coverage."""
     # Combined score
     max_power = max((p["real_power"] for p in pokemon), default=1)
@@ -1009,9 +1136,31 @@ def _recommend_balance(pokemon: list[dict]) -> tuple[list[dict], str]:
         p.pop("_balance", None)
 
     team_cost = sum(_RARITY_COST.get(p["rarity"], 1) for p in team)
-    analysis = f"전투력 + 시너지 + 타입 다양성을 균형있게 고려한 추천입니다. {len(used_types)}개 타입 커버. (코스트 {team_cost}/{_COST_LIMIT})"
-    analysis += _battle_summary(team)
-    return team, analysis
+    coverage, weak_types = _format_type_coverage(team)
+
+    parts = [f"⚖️ 밸런스 최적 팀\n{len(used_types)}개 타입 커버 (코스트 {team_cost}/{_COST_LIMIT})"]
+
+    # 팀원별 밸런스 점수 분해
+    detail_lines = []
+    for p in team:
+        types_str = config.TYPE_NAME_KO.get(p["pokemon_type"], p["pokemon_type"])
+        if p.get("type2"):
+            types_str += "/" + config.TYPE_NAME_KO.get(p["type2"], p["type2"])
+        line = f"- {p['name_ko']}({types_str}): 전투력 {p['real_power']}, 시너지 {p['synergy_score']}점"
+        if p.get("battle_win_rate") is not None:
+            line += f", 승률 {p['battle_win_rate']}%"
+        detail_lines.append(line)
+    parts.append(f"\n📋 팀원 분석:\n" + "\n".join(detail_lines))
+
+    parts.append(f"\n💡 타입 커버: {coverage}")
+    if weak_types:
+        parts.append(f"⚠️ {', '.join(weak_types)} 타입에 취약")
+
+    win_top = _format_user_win_top(pokemon)
+    if win_top:
+        parts.append(f"\n{win_top}")
+
+    return team, "\n".join(parts)
 
 
 async def api_my_team_recommend(request):
@@ -1053,20 +1202,23 @@ async def api_my_team_recommend(request):
     if not pokemon:
         return pg_json_response({"team": [], "analysis": "보유한 포켓몬이 없습니다.", "warnings": []})
 
+    # 메타 데이터 가져오기 (랭커 정보 + 배틀 통계)
+    meta = await _get_battle_meta()
+
     warnings = []
     if len(pokemon) < 6:
         warnings.append(f"보유 포켓몬이 {len(pokemon)}마리로 6마리 미만입니다.")
 
     if mode == "power":
-        team, analysis = _recommend_power(pokemon)
+        team, analysis = _recommend_power(pokemon, meta)
     elif mode == "synergy":
-        team, analysis = _recommend_synergy(pokemon)
+        team, analysis = _recommend_synergy(pokemon, meta)
     elif mode == "counter":
-        team, analysis = await _recommend_counter(pokemon)
+        team, analysis = await _recommend_counter(pokemon, meta)
     elif mode == "balance":
-        team, analysis = _recommend_balance(pokemon)
+        team, analysis = _recommend_balance(pokemon, meta)
     else:
-        team, analysis = _recommend_power(pokemon)
+        team, analysis = _recommend_power(pokemon, meta)
 
     # Check for type weaknesses
     team_types = set(p["pokemon_type"] for p in team)
