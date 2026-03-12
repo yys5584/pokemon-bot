@@ -3050,10 +3050,10 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         if winner_id == user_id:
             if w_is_placement:
                 # 배치 중: 진행 상태만 표시 (MMR 숨김)
-                pg = ranked_info.get("w_placement_games", placement_games + 1)
-                w_rec_after = ranked_info.get("w_wins_after", 0)
-                l_rec_after = ranked_info.get("w_losses_after", 0)
-                rp_lines.append(f"🎯 배치 {pg}/{config.PLACEMENT_GAMES_REQUIRED} — {w_rec_after}승 {l_rec_after}패")
+                pg = ranked_info.get("w_placement_games", 0)
+                wins_after = ranked_info.get("w_wins_after", 0)
+                losses_after = ranked_info.get("w_losses_after", 0)
+                rp_lines.append(f"🎯 배치 {pg}/{config.PLACEMENT_GAMES_REQUIRED} — {wins_after}승 {losses_after}패")
             else:
                 w_div = config.get_division_info(ranked_info['winner_rp_after'])
                 w_tier_str = config.tier_division_display(
@@ -3066,10 +3066,10 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         else:
             if l_is_placement:
                 # 배치 중: 진행 상태만 표시 (MMR 숨김)
-                pg = ranked_info.get("l_placement_games", placement_games + 1)
-                w_rec_after = ranked_info.get("l_wins_after", 0)
-                l_rec_after = ranked_info.get("l_losses_after", 0)
-                rp_lines.append(f"🎯 배치 {pg}/{config.PLACEMENT_GAMES_REQUIRED} — {w_rec_after}승 {l_rec_after}패")
+                pg = ranked_info.get("l_placement_games", 0)
+                wins_after = ranked_info.get("l_wins_after", 0)
+                losses_after = ranked_info.get("l_losses_after", 0)
+                rp_lines.append(f"🎯 배치 {pg}/{config.PLACEMENT_GAMES_REQUIRED} — {wins_after}승 {losses_after}패")
             else:
                 l_div = config.get_division_info(ranked_info['loser_rp_after'])
                 l_tier_str = config.tier_division_display(
