@@ -2139,6 +2139,7 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
         msg = random.choice(config.YACHA_TEABAG_MESSAGES).format(
             winner=w_name, loser=l_name,
         )
+        msg = msg.replace("님님", "님")  # 템플릿에 이미 님이 있는 경우 중복 방지
         msg = msg.replace("💀", icon_emoji("skull"))
         try:
             await context.bot.send_message(
@@ -3774,6 +3775,7 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
         msg = random.choice(config.YACHA_TEABAG_MESSAGES).format(
             winner=w_name, loser=l_name,
         )
+        msg = msg.replace("님님", "님")  # 템플릿에 이미 님이 있는 경우 중복 방지
         msg = msg.replace("💀", icon_emoji("skull"))
         try:
             await context.bot.send_message(
