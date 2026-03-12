@@ -330,13 +330,14 @@ def stop_arcade_for_chat(app, chat_id: int):
 
 
 def get_arcade_state(app, chat_id: int) -> dict | None:
-    """아케이드 상태 조회. active=True이면 interval 포함."""
+    """아케이드 상태 조회. active=True이면 interval, speed_boosted 포함."""
     for job in app.job_queue.jobs():
         if job.name == f"arcade_{chat_id}" and job.removed is False:
             data = job.data or {}
             return {
                 "active": True,
                 "interval": data.get("interval", config.ARCADE_SPAWN_INTERVAL),
+                "speed_boosted": data.get("speed_boosted", False),
             }
     return None
 
@@ -352,7 +353,7 @@ def set_arcade_interval(app, chat_id: int, new_interval: int):
         execute_spawn,
         interval=new_interval,
         first=new_interval,
-        data={"chat_id": chat_id, "force": True, "interval": new_interval},
+        data={"chat_id": chat_id, "force": True, "interval": new_interval, "speed_boosted": True},
         name=job_name,
     )
     logger.info(f"Arcade interval changed for {chat_id}: {new_interval}s")

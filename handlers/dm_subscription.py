@@ -555,6 +555,11 @@ async def _handle_channel_shop_speed(query, user_id: int, chat_id: int, context)
         await query.edit_message_text("❌ 이 채팅방에 활성 아케이드가 없습니다.")
         return
 
+    # 1회만 사용 가능
+    if arcade.get("speed_boosted"):
+        await query.edit_message_text("❌ 이미 속도 부스트를 사용했습니다! (아케이드당 1회)")
+        return
+
     current_interval = arcade.get("interval", config.ARCADE_SPAWN_INTERVAL)
     min_interval = 20
     if current_interval <= min_interval:

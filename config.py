@@ -577,8 +577,8 @@ PAYMENT_WINDOW = 1800                 # 결제 대기 시간 (30분)
 RENEWAL_REMINDER_DAYS = 3             # 만료 알림 (3일 전)
 
 # 채팅상점 가격
-CHANNEL_SHOP_ARCADE_SPEED_COST = 300   # BP — 아케이드 속도 부스트 (-10초)
-CHANNEL_SHOP_ARCADE_EXTEND_COST = 200  # BP — 아케이드 시간 연장 (+30분)
+CHANNEL_SHOP_ARCADE_SPEED_COST = 100   # BP — 아케이드 속도 부스트 (-10초, 1회만)
+CHANNEL_SHOP_ARCADE_EXTEND_COST = 100  # BP — 아케이드 시간 연장 (+30분, 중복 가능)
 ARCADE_SPEED_BOOST_REDUCTION = 10      # 초
 ARCADE_EXTEND_MINUTES = 30             # 분
 

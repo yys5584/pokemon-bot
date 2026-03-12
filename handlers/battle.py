@@ -2113,13 +2113,10 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
         l_name = loser_user["display_name"] if loser_user else "???"
 
         # 구독자 존칭 적용 (패배자가 구독자면 님 붙임)
-        try:
-            from utils.honorific import honorific_name as _hon_name
-            from services.subscription_service import get_user_tier
-            l_tier = await get_user_tier(loser_id)
-            l_name = _hon_name(l_name, l_tier)
-        except Exception:
-            pass
+        from utils.honorific import honorific_name as _hon_name
+        from services.subscription_service import get_user_tier
+        l_tier = await get_user_tier(loser_id)
+        l_name = _hon_name(l_name, l_tier)
 
         await query.answer()
 
@@ -3751,13 +3748,10 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
         l_name = loser_user["display_name"] if loser_user else "???"
 
         # 구독자 존칭 적용 (패배자가 구독자면 님 붙임)
-        try:
-            from utils.honorific import honorific_name as _hon_name
-            from services.subscription_service import get_user_tier
-            l_tier = await get_user_tier(loser_id)
-            l_name = _hon_name(l_name, l_tier)
-        except Exception:
-            pass
+        from utils.honorific import honorific_name as _hon_name
+        from services.subscription_service import get_user_tier
+        l_tier = await get_user_tier(loser_id)
+        l_name = _hon_name(l_name, l_tier)
 
         await query.answer()
 
@@ -3767,7 +3761,7 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
             if old_kb:
                 new_rows = []
                 for row in old_kb.inline_keyboard:
-                    new_btns = [b for b in row if not (b.callback_data and b.callback_data.startswith("btbag"))]
+                    new_btns = [b for b in row if not (b.callback_data and b.callback_data.startswith("yres_tbag"))]
                     if new_btns:
                         new_rows.append(new_btns)
                 await query.edit_message_reply_markup(
