@@ -86,7 +86,10 @@ def _token_name(contract_addr: str) -> str | None:
 # ─── 금액 계산 ────────────────────────────────────
 
 async def generate_unique_amount(tier: str, token: str) -> tuple[int, float]:
-    """티어 정가 반환 (jitter 없음, 관리자 수동 승인 방식).
+    """티어 정가 + jitter로 유저별 고유 금액 생성.
+
+    동시 결제 시에도 금액으로 유저를 구별할 수 있도록
+    $0.01~$0.49 범위의 센트를 추가. 기존 pending과 겹치지 않도록 재시도.
 
     Returns:
         (amount_raw, amount_usd): raw = 6 decimals int, usd = float
@@ -95,9 +98,24 @@ async def generate_unique_amount(tier: str, token: str) -> tuple[int, float]:
     if not tier_cfg:
         raise ValueError(f"Unknown tier: {tier}")
 
-    amount_usd = tier_cfg["price_usd"]
-    amount_raw = int(amount_usd * 1_000_000)  # 6 decimals
-    return amount_raw, amount_usd
+    base_usd = tier_cfg["price_usd"]
+    base_raw = int(base_usd * 1_000_000)
+
+    # 기존 pending 금액 수집 (겹침 방지)
+    from database import subscription_queries as sq
+    pending = await sq.get_all_pending_by_token(token)
+    used_amounts = {p["amount_raw"] for p in pending}
+
+    # jitter: $0.01 ~ $0.49 (1센트 단위, 49가지)
+    for _ in range(50):
+        jitter_cents = random.randint(1, 49)
+        amount_raw = base_raw + jitter_cents * 10_000  # 1 cent = 10,000 raw (6 decimals)
+        if amount_raw not in used_amounts:
+            amount_usd = amount_raw / 1_000_000
+            return amount_raw, amount_usd
+
+    # fallback: jitter 없이 정가
+    return base_raw, base_usd
 
 
 # ─── 결제 요청 생성 ───────────────────────────────
@@ -194,8 +212,8 @@ async def _process_transfer(log, bot) -> None:
     tx_hash = "0x" + log["transactionHash"].hex()
     amount_usd = amount_raw / 1_000_000
 
-    # pending 결제 중 금액 범위(±$0.50) 매칭
-    TOLERANCE_RAW = 500_000  # $0.50 in 6 decimals
+    # pending 결제 중 금액 매칭 (±$0.005 — jitter로 유저별 고유 금액)
+    TOLERANCE_RAW = 5_000  # $0.005 in 6 decimals
     pending_list = await sq.get_all_pending_by_token(token)
     matched = None
     for p in pending_list:
@@ -257,12 +275,20 @@ async def _process_transfer(log, bot) -> None:
 
     # 관리자에게도 알림
     try:
+        basescan_url = f"https://basescan.org/tx/{tx_hash}"
         admin_text = (
-            f"💰 구독 자동 승인: user={matched['user_id']} "
-            f"tier={tier_name} paid={amount_usd} {token}"
+            f"💰 <b>구독 자동 승인</b>\n"
+            f"👤 user: {matched['user_id']}\n"
+            f"💎 tier: {tier_name}\n"
+            f"💵 paid: {amount_usd} {token}\n"
+            f"🔗 from: <code>{from_addr}</code>\n"
+            f"📜 <a href=\"{basescan_url}\">tx: {tx_hash[:18]}...</a>"
         )
         for aid in config.ADMIN_IDS:
-            await bot.send_message(chat_id=aid, text=admin_text)
+            await bot.send_message(
+                chat_id=aid, text=admin_text,
+                parse_mode="HTML", disable_web_page_preview=True,
+            )
     except Exception:
         pass
 
