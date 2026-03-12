@@ -1,10 +1,12 @@
 """Send shiny+ultra 2x event DM to recently active users."""
 
 import asyncio
+import json
 import os
 import sys
+import urllib.request
+import urllib.parse
 from datetime import timedelta
-import aiohttp
 import asyncpg
 from dotenv import load_dotenv
 
@@ -46,15 +48,18 @@ TEXT = (
 )
 
 
-async def send_msg(session, bot_token, chat_id, text):
+def send_msg(bot_token, chat_id, text):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    async with session.post(url, json={
+    payload = json.dumps({
         "chat_id": chat_id,
         "text": text,
         "parse_mode": "HTML",
         "disable_web_page_preview": True,
-    }) as resp:
-        return await resp.json()
+    }).encode("utf-8")
+    req = urllib.request.Request(url, data=payload,
+                                headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 
 
 async def main():
@@ -62,12 +67,11 @@ async def main():
 
     if mode == "preview":
         print(f"[PREVIEW] Sending to admin {ADMIN_ID}...")
-        async with aiohttp.ClientSession() as session:
-            result = await send_msg(session, BOT_TOKEN, ADMIN_ID, TEXT)
-            if result.get("ok"):
-                print("[OK] Preview sent!")
-            else:
-                print(f"[FAIL] {result}")
+        result = send_msg(BOT_TOKEN, ADMIN_ID, TEXT)
+        if result.get("ok"):
+            print("[OK] Preview sent!")
+        else:
+            print(f"[FAIL] {result}")
         return
 
     if mode == "send":
@@ -89,19 +93,18 @@ async def main():
             return
 
         sent, failed = 0, 0
-        async with aiohttp.ClientSession() as session:
-            for uid in user_ids:
-                try:
-                    result = await send_msg(session, BOT_TOKEN, uid, TEXT)
-                    if result.get("ok"):
-                        sent += 1
-                    else:
-                        failed += 1
-                        print(f"  [FAIL] {uid}: {result.get('description','')}")
-                except Exception as e:
+        for uid in user_ids:
+            try:
+                result = send_msg(BOT_TOKEN, uid, TEXT)
+                if result.get("ok"):
+                    sent += 1
+                else:
                     failed += 1
-                    print(f"  [ERROR] {uid}: {e}")
-                await asyncio.sleep(0.05)
+                    print(f"  [FAIL] {uid}: {result.get('description','')}")
+            except Exception as e:
+                failed += 1
+                print(f"  [ERROR] {uid}: {e}")
+            await asyncio.sleep(0.05)
 
         print(f"[DONE] 발송: {sent}, 실패: {failed}")
         await pool.close()

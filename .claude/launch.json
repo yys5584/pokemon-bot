@@ -18,6 +18,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8787", "--directory", "docs"],
       "port": 8787
+    },
+    {
+      "name": "patch-note",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8099", "--directory", "scripts"],
+      "port": 8099
     }
   ]
 }
