@@ -22,6 +22,24 @@ from utils.card_generator import generate_card, generate_lineup_card
 import unicodedata
 
 
+import re as _re
+_EMOJI_RE = _re.compile(
+    "["
+    "\U0001F000-\U0001FFFF"  # SMP emoji (emoticons, symbols, flags, etc.)
+    "\u2600-\u27BF"          # misc symbols & dingbats
+    "\uFE00-\uFE0F"          # variation selectors
+    "\u200D"                 # ZWJ
+    "\u20E3"                 # combining enclosing keycap
+    "\u2B05-\u2B55"          # arrows, circles
+    "]+", _re.UNICODE
+)
+
+
+def _strip_emoji(s: str) -> str:
+    """Remove emoji from string for monospace-safe rendering."""
+    return _EMOJI_RE.sub("", s).strip()
+
+
 def _dw(s: str) -> int:
     """Display width: CJK/fullwidth chars count as 2."""
     return sum(2 if unicodedata.east_asian_width(c) in ('W', 'F') else 1 for c in s)
@@ -33,10 +51,13 @@ def _rpad(s: str, target: int) -> str:
 
 
 def _trunc(s: str, max_dw: int = 8) -> str:
-    """Truncate string to max display width, adding … if needed.
+    """Truncate emoji-stripped string to max display width, adding … if needed.
 
     max_dw=8 → 한글 4자(dw8) / 영어 7자+… / 혼합도 안전.
     """
+    s = _strip_emoji(s)
+    if not s:
+        s = "?"
     w = 0
     for i, c in enumerate(s):
         cw = 2 if unicodedata.east_asian_width(c) in ('W', 'F') else 1
