@@ -2112,11 +2112,21 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
         w_name = winner_user["display_name"] if winner_user else "???"
         l_name = loser_user["display_name"] if loser_user else "???"
 
-        # 구독자 존칭 적용 (패배자가 구독자면 님 붙임)
-        from utils.honorific import honorific_name as _hon_name
+        # 구독자 존칭 적용
+        from utils.honorific import honorific_name as _hon_name, _get_honorific
         from services.subscription_service import get_user_tier
+        w_tier = await get_user_tier(winner_id)
         l_tier = await get_user_tier(loser_id)
         l_name = _hon_name(l_name, l_tier)
+
+        # 승자 구독 티어에 따라 멘트풀 분기
+        w_honorific = _get_honorific(w_tier)
+        if w_honorific == "supreme":
+            pool = config.TEABAG_MESSAGES_SUPREME
+        elif w_honorific == "polite":
+            pool = config.TEABAG_MESSAGES_POLITE
+        else:
+            pool = config.YACHA_TEABAG_MESSAGES
 
         await query.answer()
 
@@ -2135,11 +2145,11 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
         except Exception:
             pass
 
-        # Send random teabag message (same pool as yacha)
-        msg = random.choice(config.YACHA_TEABAG_MESSAGES).format(
+        # Send random teabag message
+        msg = random.choice(pool).format(
             winner=w_name, loser=l_name,
         )
-        msg = msg.replace("님님", "님")  # 템플릿에 이미 님이 있는 경우 중복 방지
+        msg = msg.replace("님님", "님")
         msg = msg.replace("💀", icon_emoji("skull"))
         try:
             await context.bot.send_message(
@@ -3748,11 +3758,21 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
         w_name = winner_user["display_name"] if winner_user else "???"
         l_name = loser_user["display_name"] if loser_user else "???"
 
-        # 구독자 존칭 적용 (패배자가 구독자면 님 붙임)
-        from utils.honorific import honorific_name as _hon_name
+        # 구독자 존칭 적용
+        from utils.honorific import honorific_name as _hon_name, _get_honorific
         from services.subscription_service import get_user_tier
+        w_tier = await get_user_tier(winner_id)
         l_tier = await get_user_tier(loser_id)
         l_name = _hon_name(l_name, l_tier)
+
+        # 승자 구독 티어에 따라 멘트풀 분기
+        w_honorific = _get_honorific(w_tier)
+        if w_honorific == "supreme":
+            pool = config.TEABAG_MESSAGES_SUPREME
+        elif w_honorific == "polite":
+            pool = config.TEABAG_MESSAGES_POLITE
+        else:
+            pool = config.YACHA_TEABAG_MESSAGES
 
         await query.answer()
 
@@ -3772,10 +3792,10 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
             pass
 
         # Send random yacha teabag message
-        msg = random.choice(config.YACHA_TEABAG_MESSAGES).format(
+        msg = random.choice(pool).format(
             winner=w_name, loser=l_name,
         )
-        msg = msg.replace("님님", "님")  # 템플릿에 이미 님이 있는 경우 중복 방지
+        msg = msg.replace("님님", "님")
         msg = msg.replace("💀", icon_emoji("skull"))
         try:
             await context.bot.send_message(

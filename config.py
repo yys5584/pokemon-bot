@@ -1037,6 +1037,33 @@ YACHA_TEABAG_MESSAGES = [
     '💀 포켓몬센터 간호사: "{loser}님 이번 달 벌써 47번째예요"',
 ]
 
+# 구독자 전용 티배깅 멘트 (승자가 구독자일 때)
+TEABAG_MESSAGES_POLITE = [
+    '💀 {winner}님이 {loser}에게 배틀이 뭔지 알려주셨습니다',
+    '💀 {winner}님의 실력 앞에 {loser}의 포켓몬이 고개를 숙입니다',
+    '💀 {winner}님이 가볍게 손목 풀기만 하셨는데 {loser}가 날아갔습니다',
+    '💀 {loser}의 포켓몬이 {winner}님께 사인을 요청합니다',
+    '💀 {winner}님이 하품하시면서 이기셨습니다',
+    '💀 {winner}님의 포켓몬이 {loser} 전적을 보고 불쌍해합니다',
+    '💀 {winner}님 이번에도 BP 잘 받아가셨습니다 감사합니다',
+    '💀 {loser}는 {winner}님과 같은 리그가 아니었습니다',
+    '💀 {winner}님이 교육적 차원에서 한 수 가르쳐주셨습니다',
+    '💀 {winner}님의 포켓몬이 식사 시간에 잠깐 나와서 이기고 들어갑니다',
+]
+
+TEABAG_MESSAGES_SUPREME = [
+    '💀 {winner}님께서 친히 전장에 나서셨는데 {loser} 따위가 감당이 되겠습니까',
+    '💀 {winner}님의 포켓몬이 {loser}를 불쌍한 눈으로 내려다보십니다',
+    '💀 {loser}의 포켓몬이 {winner}님 앞에서 자발적으로 무릎을 꿇었습니다',
+    '💀 {winner}님께서 고개를 한 번 끄덕이시자 {loser}의 팀이 전멸했습니다',
+    '💀 감히 {winner}님께 도전장을 내밀다니.. {loser}의 용기만은 인정합니다',
+    '💀 {winner}님의 포켓몬이 전투가 아니라 산책이었다고 하십니다',
+    '💀 {winner}님 앞에서는 누구든 겸손해질 수밖에 없습니다 — {loser} 체험 완료',
+    '💀 {winner}님께서 {loser}의 BP를 정중하게 수거해 가셨습니다',
+    '💀 {loser}는 {winner}님과 배틀한 것만으로도 영광입니다 감사하십시오',
+    '💀 {winner}님의 위엄에 {loser}의 포켓몬이 전투 도중 박수를 쳤습니다',
+]
+
 
 # --- Custom Emoji IDs (Rarity Badges) ---
 RARITY_CUSTOM_EMOJI = {
