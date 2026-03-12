@@ -1309,15 +1309,18 @@ async def battle_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         if season:
             rec = await rq.get_season_record(user_id, season["season_id"])
             if rec:
-                tier_disp = rs.tier_display(rec["tier"])
+                tier_full = rs.tier_display_full(rec)
                 r_total = rec["ranked_wins"] + rec["ranked_losses"]
                 r_wr = round(rec["ranked_wins"] / r_total * 100, 1) if r_total > 0 else 0
                 lines.extend([
                     "",
                     f"🏟️ 시즌 {season['season_id']}",
-                    f"{tier_disp}  RP {rec['rp']}",
+                    f"{tier_full}",
                     f"랭크 {rec['ranked_wins']}승 {rec['ranked_losses']}패 ({r_wr}%)",
                 ])
+                # MMR 표시 (DM이므로 공개)
+                mmr_rec = await rq.get_user_mmr(user_id)
+                lines.append(f"📊 MMR: {mmr_rec['mmr']}")
     except Exception:
         pass
 
@@ -2582,14 +2585,32 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
         rp_lines = []
         if ranked_info:
-            w_tier_disp = rs.tier_display(ranked_info["winner_tier_after"])
-            l_tier_disp = rs.tier_display(ranked_info["loser_tier_after"])
-            rp_lines = [
-                f"📈 RP +{ranked_info['winner_rp_gain']} "
-                f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']} {w_tier_disp})",
-                f"📉 RP -{ranked_info['loser_rp_loss']} "
-                f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']} {l_tier_disp})",
-            ]
+            w_is_placement = ranked_info.get("w_is_placement", False)
+            l_is_placement = ranked_info.get("l_is_placement", False)
+
+            # 배치 완료 알림
+            if ranked_info.get("w_placement_result"):
+                rp_lines.append(f"🎉 {result['winner_name']} 배치 완료! {ranked_info['w_placement_result']['tier_display']}")
+            if ranked_info.get("l_placement_result"):
+                rp_lines.append(f"🎉 {result['loser_name']} 배치 완료! {ranked_info['l_placement_result']['tier_display']}")
+
+            # RP 표시 (배치 중이면 미표시, 그룹이므로 MMR 미표시)
+            if not w_is_placement:
+                w_div = config.get_division_info(ranked_info['winner_rp_after'])
+                w_tier_str = config.tier_division_display(
+                    w_div[0], w_div[1], w_div[2],
+                    placement_done=True, total_rp=ranked_info['winner_rp_after'])
+                rp_lines.append(
+                    f"📈 RP +{ranked_info['winner_rp_gain']} "
+                    f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']} {w_tier_str})")
+            if not l_is_placement:
+                l_div = config.get_division_info(ranked_info['loser_rp_after'])
+                l_tier_str = config.tier_division_display(
+                    l_div[0], l_div[1], l_div[2],
+                    placement_done=True, total_rp=ranked_info['loser_rp_after'])
+                rp_lines.append(
+                    f"📉 RP -{ranked_info['loser_rp_loss']} "
+                    f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']} {l_tier_str})")
 
             # 윈트레이딩 감지 경고
             pair_decay = ranked_info.get("pair_decay", 1.0)
@@ -2598,13 +2619,19 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             elif pair_decay == 0:
                 rp_lines.append("🚫 같은 상대 일일 한도 초과 — RP 미적용")
 
-            # 티어 변동 알림
-            if ranked_info["winner_tier_before"] != ranked_info["winner_tier_after"]:
-                new_t = rs.tier_display(ranked_info["winner_tier_after"])
+            # 승급/강등
+            if ranked_info.get("w_promoted"):
+                w_div_after = config.get_division_info(ranked_info["winner_rp_after"])
+                new_t = config.tier_division_display(
+                    w_div_after[0], w_div_after[1], w_div_after[2], placement_done=True)
                 rp_lines.append(f"🎉 승급! → {new_t}")
-            if ranked_info["loser_tier_before"] != ranked_info["loser_tier_after"]:
-                old_t = rs.tier_display(ranked_info["loser_tier_before"])
-                rp_lines.append(f"⬇️ 강등… → {rs.tier_display(ranked_info['loser_tier_after'])}")
+            if ranked_info.get("l_demoted") and not ranked_info.get("l_shield_protected"):
+                l_div_after = config.get_division_info(ranked_info["loser_rp_after"])
+                new_lt = config.tier_division_display(
+                    l_div_after[0], l_div_after[1], l_div_after[2], placement_done=True)
+                rp_lines.append(f"⬇️ 강등 → {new_lt}")
+            if ranked_info.get("l_shield_protected"):
+                rp_lines.append("🛡️ 승급 보호 발동!")
 
         # 법칙 헤더
         rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
@@ -2711,16 +2738,43 @@ async def season_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # 내 시즌 기록
     rec = await rq.get_season_record(user_id, season_id)
     if rec:
-        tier_disp = rs.tier_display(rec["tier"])
+        tier_full = rs.tier_display_full(rec)
         total = rec["ranked_wins"] + rec["ranked_losses"]
         wr = round(rec["ranked_wins"] / total * 100, 1) if total > 0 else 0
-        lines.extend([
-            f"── 나의 시즌 기록 ──",
-            f"{tier_disp}  RP {rec['rp']}",
-            f"🏆 {rec['ranked_wins']}승 {rec['ranked_losses']}패 ({wr}%)",
-            f"🔥 현재 연승: {rec['ranked_streak']}  |  최고: {rec['best_ranked_streak']}",
-            f"📈 피크: {rs.tier_display(rec['peak_tier'])} {rec['peak_rp']} RP",
-        ])
+
+        placement_done = rec.get("placement_done", False)
+
+        if not placement_done:
+            # 배치 중 or 언랭
+            pg = rec.get("placement_games", 0)
+            lines.extend([
+                f"── 나의 시즌 기록 ──",
+                f"{tier_full}",
+            ])
+            if pg > 0:
+                lines.append(f"🏆 {rec['ranked_wins']}승 {rec['ranked_losses']}패")
+            lines.append("배치 5판을 완료하면 티어가 배정됩니다!")
+        else:
+            # 배치 완료
+            lines.extend([
+                f"── 나의 시즌 기록 ──",
+                f"{tier_full}",
+                f"🏆 {rec['ranked_wins']}승 {rec['ranked_losses']}패 ({wr}%)",
+                f"🔥 현재 연승: {rec['ranked_streak']}  |  최고: {rec['best_ranked_streak']}",
+            ])
+            # 피크 티어 표시
+            peak_div = config.get_division_info(rec['peak_rp'])
+            peak_disp = config.tier_division_display(
+                peak_div[0], peak_div[1], peak_div[2],
+                placement_done=True, total_rp=rec['peak_rp'])
+            lines.append(f"📈 피크: {peak_disp}")
+
+            # MMR 표시 (DM이므로 공개)
+            try:
+                mmr_rec = await rq.get_user_mmr(user_id)
+                lines.append(f"📊 MMR: {mmr_rec['mmr']} (피크: {mmr_rec['peak_mmr']})")
+            except Exception:
+                pass
     else:
         lines.append("아직 이번 시즌 랭크전 기록이 없습니다.\nDM에서 '랭전'으로 도전하세요!")
 
@@ -2749,12 +2803,22 @@ async def ranked_ranking_handler(update: Update, context: ContextTypes.DEFAULT_T
     medals = ["🥇", "🥈", "🥉"]
     for i, r in enumerate(ranking):
         medal = medals[i] if i < 3 else f"{i+1}."
-        tier_d = rs.tier_display(r["tier"])
         te = r.get("title_emoji", "")
         te_str = f"{icon_emoji(te)} " if te and te in config.ICON_CUSTOM_EMOJI else ""
         name = escape_html(r["display_name"] or "???")
+
+        # 배치 중이면 "🎯 배치중" 표시, 아니면 디비전 표시
+        placement_done = r.get("placement_done", True)
+        if not placement_done:
+            tier_str = f"🎯 배치중"
+        else:
+            div = config.get_division_info(r["rp"])
+            tier_str = config.tier_division_display(
+                div[0], div[1], div[2],
+                placement_done=True, total_rp=r["rp"])
+
         lines.append(
-            f"{medal} {te_str}{name}  {tier_d} {r['rp']} RP  "
+            f"{medal} {te_str}{name}  {tier_str}  "
             f"({r['ranked_wins']}승 {r['ranked_losses']}패)"
         )
 
@@ -2875,8 +2939,30 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # 방어 패배 리셋 (유저가 직접 랭전을 걸었으므로)
     await rq.reset_defense_losses(user_id, season_id)
 
-    # 매칭 메시지
-    matching_msg = await update.message.reply_text("🔍 상대를 찾는 중...")
+    # 승급 보호 해제 (랭전 재진입 시)
+    await rq.clear_promo_shield(user_id, season_id)
+
+    # 시즌 기록 조회 (배치 상태 확인)
+    my_rec = await rq.get_season_record(user_id, season_id)
+    if not my_rec:
+        # 첫 랭전: 언랭으로 생성
+        await rq.upsert_season_record(user_id, season_id, 0, "unranked",
+                                       placement_done=False, placement_games=0)
+        my_rec = await rq.get_season_record(user_id, season_id)
+
+    placement_done = my_rec.get("placement_done", False)
+    placement_games = my_rec.get("placement_games", 0)
+
+    # 매칭 메시지 (배치 상태 반영)
+    if not placement_done:
+        if placement_games > 0:
+            status_txt = f"🎯 배치전 {placement_games}/{config.PLACEMENT_GAMES_REQUIRED}"
+        else:
+            status_txt = "❓ 언랭 — 배치 5판이 필요합니다!"
+        matching_msg = await update.message.reply_text(f"{status_txt}\n🔍 상대를 찾는 중...")
+    else:
+        tier_full = rs.tier_display_full(my_rec)
+        matching_msg = await update.message.reply_text(f"{tier_full}\n🔍 상대를 찾는 중...")
 
     # 상대 찾기
     opponent_id = await rs.find_ranked_opponent(user_id, season_id)
@@ -2949,31 +3035,48 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # RP 정보 조합
     rp_lines = []
     if ranked_info:
-        w_tier_disp = rs.tier_display(ranked_info["winner_tier_after"])
-        l_tier_disp = rs.tier_display(ranked_info["loser_tier_after"])
+        w_is_placement = ranked_info.get("w_is_placement", False)
+        l_is_placement = ranked_info.get("l_is_placement", False)
+        w_placement_result = ranked_info.get("w_placement_result")
+        l_placement_result = ranked_info.get("l_placement_result")
 
-        # 승자/패자가 누군지에 따라 표시
+        # --- 배치 완료 알림 ---
+        if w_placement_result and winner_id == user_id:
+            rp_lines.append(f"🎉 배치 완료! {w_placement_result['tier_display']} 배정!")
+        elif l_placement_result and loser_id == user_id:
+            rp_lines.append(f"🎉 배치 완료! {l_placement_result['tier_display']} 배정!")
+
+        # --- RP 표시 (배치 중이면 미표시) ---
         if winner_id == user_id:
-            my_rp_line = (
-                f"📈 RP +{ranked_info['winner_rp_gain']} "
-                f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']} {w_tier_disp})"
-            )
-            opp_rp_line = (
-                f"📉 상대: RP -{ranked_info['loser_rp_loss']} "
-                f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']} {l_tier_disp})"
-            )
+            if not w_is_placement:
+                w_div = config.get_division_info(ranked_info['winner_rp_after'])
+                w_tier_str = config.tier_division_display(
+                    w_div[0], w_div[1], w_div[2],
+                    placement_done=True, total_rp=ranked_info['winner_rp_after'])
+                rp_lines.append(
+                    f"📈 RP +{ranked_info['winner_rp_gain']} "
+                    f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']})")
+                rp_lines.append(f"   {w_tier_str}")
+            # MMR 표시 (DM)
+            rp_lines.append(
+                f"📊 MMR: {ranked_info['w_mmr_before']} → {ranked_info['w_mmr_after']} "
+                f"({'+' if ranked_info['w_mmr_after'] >= ranked_info['w_mmr_before'] else ''}"
+                f"{ranked_info['w_mmr_after'] - ranked_info['w_mmr_before']})")
         else:
-            my_rp_line = (
-                f"📉 RP -{ranked_info['loser_rp_loss']} "
-                f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']} {l_tier_disp})"
-            )
-            opp_rp_line = (
-                f"📈 상대: RP +{ranked_info['winner_rp_gain']} "
-                f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']} {w_tier_disp})"
-            )
-
-        rp_lines.append(my_rp_line)
-        rp_lines.append(opp_rp_line)
+            if not l_is_placement:
+                l_div = config.get_division_info(ranked_info['loser_rp_after'])
+                l_tier_str = config.tier_division_display(
+                    l_div[0], l_div[1], l_div[2],
+                    placement_done=True, total_rp=ranked_info['loser_rp_after'])
+                rp_lines.append(
+                    f"📉 RP -{ranked_info['loser_rp_loss']} "
+                    f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']})")
+                rp_lines.append(f"   {l_tier_str}")
+            # MMR 표시 (DM)
+            rp_lines.append(
+                f"📊 MMR: {ranked_info['l_mmr_before']} → {ranked_info['l_mmr_after']} "
+                f"({'+' if ranked_info['l_mmr_after'] >= ranked_info['l_mmr_before'] else ''}"
+                f"{ranked_info['l_mmr_after'] - ranked_info['l_mmr_before']})")
 
         # 윈트레이딩 감지
         pair_decay = ranked_info.get("pair_decay", 1.0)
@@ -2982,16 +3085,23 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         elif pair_decay == 0:
             rp_lines.append("🚫 같은 상대 한도 초과 — RP 미적용")
 
-        # 티어 변동
-        if ranked_info["winner_tier_before"] != ranked_info["winner_tier_after"]:
-            new_t = rs.tier_display(ranked_info["winner_tier_after"])
+        # 승급 보호
+        if ranked_info.get("l_shield_protected") and loser_id == user_id:
+            rp_lines.append("🛡️ 승급 보호로 강등이 방지되었습니다!")
+
+        # 승급/강등 (디비전 기준)
+        if ranked_info.get("w_promoted"):
+            w_div_after = config.get_division_info(ranked_info["winner_rp_after"])
+            new_t = config.tier_division_display(
+                w_div_after[0], w_div_after[1], w_div_after[2], placement_done=True)
             if winner_id == user_id:
-                rp_lines.append(f"🎉 승급! → {new_t}")
+                rp_lines.append(f"🎉 승급! → {new_t}  🛡️ {config.PROMO_SHIELD_HOURS}시간 보호 (랭전 시 해제)")
             else:
                 rp_lines.append(f"🎉 상대 승급! → {new_t}")
-        if ranked_info["loser_tier_before"] != ranked_info["loser_tier_after"]:
-            old_t = rs.tier_display(ranked_info["loser_tier_before"])
-            new_lt = rs.tier_display(ranked_info["loser_tier_after"])
+        if ranked_info.get("l_demoted") and not ranked_info.get("l_shield_protected"):
+            l_div_after = config.get_division_info(ranked_info["loser_rp_after"])
+            new_lt = config.tier_division_display(
+                l_div_after[0], l_div_after[1], l_div_after[2], placement_done=True)
             if loser_id == user_id:
                 rp_lines.append(f"⬇️ 강등 → {new_lt}")
             else:
@@ -3033,25 +3143,60 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         if is_win:
             opp_result = "패배"
             opp_icon = "📉"
-            opp_rp_txt = (
-                f"RP -{ranked_info['loser_rp_loss']} "
-                f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']} "
-                f"{rs.tier_display(ranked_info['loser_tier_after'])})"
-            ) if ranked_info else ""
+            if ranked_info and not ranked_info.get("l_is_placement"):
+                l_div = config.get_division_info(ranked_info['loser_rp_after'])
+                l_tier_str = config.tier_division_display(
+                    l_div[0], l_div[1], l_div[2],
+                    placement_done=True, total_rp=ranked_info['loser_rp_after'])
+                opp_rp_txt = (
+                    f"RP -{ranked_info['loser_rp_loss']} "
+                    f"({ranked_info['loser_rp_before']} → {ranked_info['loser_rp_after']})\n"
+                    f"{l_tier_str}"
+                )
+            else:
+                opp_rp_txt = ""
         else:
             opp_result = "승리"
             opp_icon = "📈"
-            opp_rp_txt = (
-                f"RP +{ranked_info['winner_rp_gain']} "
-                f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']} "
-                f"{rs.tier_display(ranked_info['winner_tier_after'])})"
-            ) if ranked_info else ""
+            if ranked_info and not ranked_info.get("w_is_placement"):
+                w_div = config.get_division_info(ranked_info['winner_rp_after'])
+                w_tier_str = config.tier_division_display(
+                    w_div[0], w_div[1], w_div[2],
+                    placement_done=True, total_rp=ranked_info['winner_rp_after'])
+                opp_rp_txt = (
+                    f"RP +{ranked_info['winner_rp_gain']} "
+                    f"({ranked_info['winner_rp_before']} → {ranked_info['winner_rp_after']})\n"
+                    f"{w_tier_str}"
+                )
+            else:
+                opp_rp_txt = ""
+
+        # 배치 완료 알림
+        opp_placement_txt = ""
+        if ranked_info:
+            if is_win and ranked_info.get("l_placement_result"):
+                opp_placement_txt = f"\n🎉 배치 완료! {ranked_info['l_placement_result']['tier_display']} 배정!"
+            elif not is_win and ranked_info.get("w_placement_result"):
+                opp_placement_txt = f"\n🎉 배치 완료! {ranked_info['w_placement_result']['tier_display']} 배정!"
+
+        # MMR 표시
+        opp_mmr_txt = ""
+        if ranked_info:
+            if is_win:
+                opp_mmr_txt = (
+                    f"\n📊 MMR: {ranked_info['l_mmr_before']} → {ranked_info['l_mmr_after']} "
+                    f"({ranked_info['l_mmr_after'] - ranked_info['l_mmr_before']:+d})")
+            else:
+                opp_mmr_txt = (
+                    f"\n📊 MMR: {ranked_info['w_mmr_before']} → {ranked_info['w_mmr_after']} "
+                    f"({ranked_info['w_mmr_after'] - ranked_info['w_mmr_before']:+d})")
 
         await context.bot.send_message(
             chat_id=opponent_id,
             text=(
                 f"🏟️ {escape_html(display_name)}님이 랭크전에서 도전했습니다!\n"
                 f"결과: {opp_result} {opp_icon} {opp_rp_txt}"
+                f"{opp_placement_txt}{opp_mmr_txt}"
             ),
             parse_mode="HTML",
         )

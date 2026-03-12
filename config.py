@@ -666,41 +666,124 @@ BUFF_TITLE_NAMES = [UNLOCKABLE_TITLES[tid][0] for tid in TITLE_BUFFS]
 
 # ─── 랭크전 (시즌 배틀) ─────────────────────────────────
 
-# --- Ranked Tiers ---
+# --- Ranked Tiers (LoL 스타일 디비전) ---
+# (tier_key, name, icon, division_count, base_rp)
+# 디비전: II(하위) → I(상위), 각 100 RP
 RANKED_TIERS = [
-    # (tier_key, name, icon, min_rp)
-    ("bronze",   "브론즈",     "🥉", 0),
-    ("silver",   "실버",       "🥈", 300),
-    ("gold",     "골드",       "🏅", 600),
-    ("platinum", "플래티넘",   "💎", 1000),
-    ("diamond",  "다이아",     "💠", 1500),
-    ("master",   "마스터",     "👑", 2000),
+    ("unranked",   "언랭",     "❓", 0, 0),
+    ("bronze",     "브론즈",   "🥉", 2, 0),
+    ("silver",     "실버",     "🥈", 2, 200),
+    ("gold",       "골드",     "🏅", 2, 400),
+    ("platinum",   "플래티넘", "💎", 2, 600),
+    ("diamond",    "다이아",   "💠", 2, 800),
+    ("master",     "마스터",   "👑", 0, 1000),
     # 챌린저: RP 기반이 아니라 마스터 Top 10 중 자동 부여
-    ("challenger", "챌린저",   "⚔️", 99999),
+    ("challenger", "챌린저",   "⚔️", 0, 99999),
 ]
+
+DIVISION_RP = 100               # 디비전당 RP
+DIVISION_NAMES = {2: "II", 1: "I"}  # II=하위, I=상위
+
 # 챌린저 티어는 RP 임계값이 아닌 마스터 Top 10에게 동적 부여
 CHALLENGER_TOP_N = 10
 
 SEASON_DURATION_WEEKS = 2  # 시즌 기간 (주)
 
+# --- 티어 조회 헬퍼 (하위호환 유지) ---
+
 def get_tier(rp: int) -> tuple:
-    """RP로 현재 티어 (key, name, icon) 반환. 챌린저는 별도 로직."""
-    result = RANKED_TIERS[0]
-    for t in RANKED_TIERS:
-        if t[0] == "challenger":
-            break  # 챌린저는 RP 기반이 아님
-        if rp >= t[3]:
-            result = t
-        else:
-            break
-    return result[0], result[1], result[2]
+    """RP로 현재 티어 (key, name, icon) 반환. 챌린저는 별도 로직.
+    하위호환: 기존 코드에서 (key, name, icon) 튜플 반환."""
+    if rp >= 1000:
+        return ("master", "마스터", "👑")
+    for t in reversed(RANKED_TIERS):
+        if t[0] in ("unranked", "master", "challenger"):
+            continue
+        if rp >= t[4]:  # base_rp
+            return (t[0], t[1], t[2])
+    return ("bronze", "브론즈", "🥉")
+
 
 def get_tier_index(tier_key: str) -> int:
-    """티어 키로 인덱스 반환 (bronze=0 ... challenger=6)."""
+    """티어 키로 인덱스 반환 (unranked=0, bronze=1 ... challenger=7)."""
     for i, t in enumerate(RANKED_TIERS):
         if t[0] == tier_key:
             return i
     return 0
+
+
+def get_tier_info(tier_key: str) -> tuple | None:
+    """티어 키로 (tier_key, name, icon, div_count, base_rp) 반환."""
+    for t in RANKED_TIERS:
+        if t[0] == tier_key:
+            return t
+    return None
+
+
+def get_division_info(total_rp: int) -> tuple:
+    """총 RP → (tier_key, division, display_rp)
+    예: 378 → ("silver", 1, 78)  → 실버 I, 78 RP
+    예: 45  → ("bronze", 2, 45)  → 브론즈 II, 45 RP
+    예: 1250 → ("master", 0, 1250) → 마스터, 1250 RP
+    """
+    if total_rp >= 1000:
+        return ("master", 0, total_rp)
+    for t in reversed(RANKED_TIERS):
+        if t[0] in ("unranked", "master", "challenger"):
+            continue
+        if total_rp >= t[4]:  # base_rp
+            offset = total_rp - t[4]
+            div = 2 if offset < DIVISION_RP else 1  # II=하위, I=상위
+            display_rp = offset % DIVISION_RP
+            return (t[0], div, display_rp)
+    return ("bronze", 2, 0)
+
+
+def get_division_base_rp(tier_key: str, division: int) -> int:
+    """특정 티어+디비전의 시작 RP (강등 보호용)."""
+    info = get_tier_info(tier_key)
+    if not info:
+        return 0
+    base = info[4]  # tier base_rp
+    if division == 1:
+        return base + DIVISION_RP
+    return base
+
+
+def tier_division_display(tier_key: str, division: int = 0, display_rp: int = 0,
+                           placement_done: bool = True, placement_games: int = 0,
+                           placement_wins: int = 0, placement_losses: int = 0,
+                           total_rp: int = -1) -> str:
+    """LoL 스타일 티어 표시.
+    언랭: ❓ 언랭
+    배치중: 🎯 배치중 (3/5)
+    일반: 🥈 실버 I — 78 RP
+    마스터: 👑 마스터 — 1250 RP
+    챌린저: ⚔️ 챌린저 — 1500 RP
+    """
+    # 배치 상태
+    if tier_key == "unranked" or not placement_done:
+        if placement_games > 0:
+            return f"🎯 배치중 ({placement_games}/{PLACEMENT_GAMES_REQUIRED})"
+        return "❓ 언랭"
+
+    # 챌린저
+    if tier_key == "challenger":
+        return f"⚔️ 챌린저 — {total_rp if total_rp >= 0 else display_rp} RP"
+
+    # 마스터
+    if tier_key == "master":
+        return f"👑 마스터 — {total_rp if total_rp >= 0 else display_rp} RP"
+
+    # 일반 티어 + 디비전
+    info = get_tier_info(tier_key)
+    if not info:
+        return f"{tier_key} — {display_rp} RP"
+    icon = info[2]
+    name = info[1]
+    div_str = DIVISION_NAMES.get(division, "")
+    return f"{icon} {name} {div_str} — {display_rp} RP"
+
 
 # --- RP (Rank Points) ---
 RP_WIN_BASE = 30                # 승리 기본 RP
@@ -711,6 +794,36 @@ RP_TIER_DIFF_PER = 5            # 티어 1단계당 보정
 RP_STREAK_PER = 2               # 연승 1회당 RP
 RP_STREAK_MAX = 10              # 연승 보너스 최대
 RP_SOFT_RESET_MULT = 0.4        # 시즌 소프트 리셋 배율 (2주 시즌)
+
+# --- MMR (숨겨진 Elo) ---
+MMR_DEFAULT = 1200              # 기본 MMR
+MMR_K_PLACEMENT = 40            # 배치전 K-factor
+MMR_K_NORMAL = 32               # 일반 K-factor
+MMR_SEASON_RESET_FACTOR = 0.25  # 시즌 리셋: 1200 방향 25% 축소
+
+# --- 배치전 ---
+PLACEMENT_GAMES_REQUIRED = 5    # 배치전 필요 판 수
+
+# --- 매칭 (MMR 기반) ---
+MMR_MATCH_RANGES = [200, 300, 400]  # 점진적 MMR 범위 확장
+
+# --- 티어별 기대 MMR (RP 영향 계산용) ---
+MMR_TIER_EXPECTED = {
+    "bronze": 900, "silver": 1050, "gold": 1200,
+    "platinum": 1350, "diamond": 1500,
+    "master": 1700, "challenger": 1900,
+}
+
+# --- 승급 보호 (Demotion Shield) ---
+PROMO_SHIELD_HOURS = 12         # 승급 후 12시간 강등 면역 (랭전 재진입 시 해제)
+
+# --- 디케이 (마스터+) ---
+DECAY_INACTIVE_DAYS = 3         # 3일 미플레이 시 디케이 시작
+DECAY_RP_PER_DAY = 30           # 하루당 RP 감소
+DECAY_MIN_RP = 1000             # 마스터 최소 RP (아래로 안 떨어짐)
+
+# --- 중간 리셋 ---
+RP_MID_SEASON_RESET_MULT = 0.6  # 7일차 RP 리셋 배율
 
 # --- Ranked Cost System (팀 편성 코스트) ---
 RANKED_COST = {

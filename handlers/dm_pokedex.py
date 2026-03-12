@@ -1934,8 +1934,10 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
     ]
 
     if evo_line:
-        # Bold the current pokemon in the chain
-        evo_display = evo_line.replace(pokemon['name_ko'], f"<b>[{pokemon['name_ko']}]</b>")
+        # Bold the current pokemon in the chain (토큰 단위로 정확히 매칭)
+        parts = evo_line.split(" → ")
+        evo_parts = [f"<b>[{p}]</b>" if p == pokemon['name_ko'] else p for p in parts]
+        evo_display = " → ".join(evo_parts)
         lines.append(f"\n📊 진화: {evo_display} ({stage_label})")
 
     if pokemon["evolution_method"] == "trade":

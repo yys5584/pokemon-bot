@@ -103,14 +103,36 @@ async def get_active_team_number(user_id: int) -> int:
 
 
 async def swap_teams(user_id: int):
-    """Swap team 1 and team 2 entirely, then flip active_team."""
+    """Swap team 1 and team 2 entirely, then flip active_team.
+
+    DELETE+INSERT 방식으로 unique index (user_id, team_number, slot) 충돌 회피.
+    """
     pool = await get_db()
-    # CASE문으로 한 번에 1↔2 스왑 (CHECK 제약 bt_team_number_check 우회)
-    await pool.execute(
-        """UPDATE battle_teams
-           SET team_number = CASE WHEN team_number = 1 THEN 2 ELSE 1 END
-           WHERE user_id = $1 AND team_number IN (1, 2)""",
-        user_id)
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            # 양쪽 팀 데이터 조회
+            t1 = await conn.fetch(
+                "SELECT slot, pokemon_instance_id FROM battle_teams "
+                "WHERE user_id = $1 AND team_number = 1", user_id)
+            t2 = await conn.fetch(
+                "SELECT slot, pokemon_instance_id FROM battle_teams "
+                "WHERE user_id = $1 AND team_number = 2", user_id)
+
+            # 삭제
+            await conn.execute(
+                "DELETE FROM battle_teams WHERE user_id = $1 AND team_number IN (1, 2)",
+                user_id)
+
+            # 재삽입: 팀1 → 팀2, 팀2 → 팀1
+            for row in t1:
+                await conn.execute(
+                    "INSERT INTO battle_teams (user_id, team_number, slot, pokemon_instance_id) "
+                    "VALUES ($1, 2, $2, $3)", user_id, row["slot"], row["pokemon_instance_id"])
+            for row in t2:
+                await conn.execute(
+                    "INSERT INTO battle_teams (user_id, team_number, slot, pokemon_instance_id) "
+                    "VALUES ($1, 1, $2, $3)", user_id, row["slot"], row["pokemon_instance_id"])
+
     # Flip active team
     active = await get_active_team_number(user_id)
     new_active = 2 if active == 1 else 1

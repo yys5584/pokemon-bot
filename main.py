@@ -908,6 +908,89 @@ async def ranked_weekly_reset_job(context):
         logger.error(f"Ranked weekly reset failed: {e}")
 
 
+async def ranked_mid_season_check_job(context):
+    """매일 00:10 KST: 7일차 중간 리셋 체크."""
+    try:
+        from services import ranked_service as rs
+        from database import ranked_queries as rq
+
+        season = await rq.get_current_season()
+        if not season:
+            return
+
+        # 시즌 시작 후 경과 일수 계산
+        starts_at = season["starts_at"]
+        if starts_at.tzinfo is None:
+            starts_at = starts_at.replace(tzinfo=config.KST)
+        now = config.get_kst_now()
+        days_elapsed = (now - starts_at).days
+
+        # 7일차에만 중간 리셋 실행
+        if days_elapsed == 7 and not season.get("mid_reset_done", False):
+            reset_count = await rs.process_mid_season_reset(season)
+            logger.info(f"Mid-season reset: {reset_count} users reset in {season['season_id']}")
+
+            # DM 알림 (배치 완료 유저)
+            records = await rq.get_all_placed_records(season["season_id"])
+            for rec in records:
+                try:
+                    div_info = config.get_division_info(rec["rp"])
+                    tier_disp = config.tier_division_display(
+                        div_info[0], div_info[1], div_info[2],
+                        placement_done=True, total_rp=rec["rp"])
+                    await context.bot.send_message(
+                        chat_id=rec["user_id"],
+                        text=(
+                            f"⚡ 중간 리셋!\n"
+                            f"RP가 60%로 조정되었습니다.\n"
+                            f"현재: {tier_disp}\n"
+                            f"연승이 초기화되었습니다."
+                        ),
+                        parse_mode="HTML",
+                    )
+                except Exception:
+                    pass
+                await asyncio.sleep(0.05)
+    except Exception as e:
+        logger.error(f"Mid-season check job failed: {e}")
+
+
+async def ranked_decay_job(context):
+    """매일 00:15 KST: 마스터+ 디케이 처리."""
+    try:
+        from services import ranked_service as rs
+        from database import ranked_queries as rq
+
+        season = await rq.get_current_season()
+        if not season:
+            return
+
+        results = await rs.process_ranked_decay(season["season_id"])
+
+        # 디케이된 유저에게 DM 알림
+        for r in results:
+            try:
+                decay_amount = r["rp_before"] - r["rp_after"]
+                div_info = config.get_division_info(r["rp_after"])
+                tier_disp = config.tier_division_display(
+                    div_info[0], div_info[1], div_info[2],
+                    placement_done=True, total_rp=r["rp_after"])
+                await context.bot.send_message(
+                    chat_id=r["user_id"],
+                    text=(
+                        f"⏰ 디케이 알림!\n"
+                        f"RP -{decay_amount} ({r['rp_before']} → {r['rp_after']})\n"
+                        f"현재: {tier_disp}\n"
+                        f"랭크전으로 디케이를 막으세요!"
+                    ),
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+    except Exception as e:
+        logger.error(f"Ranked decay job failed: {e}")
+
+
 # --- Weather command handler ---
 
 async def _optout_handler(update, context):
@@ -1239,6 +1322,20 @@ def main():
         ranked_weekly_reset_job,
         time=dt_time(0, 5, 0, tzinfo=kst),
         name="ranked_weekly_reset",
+    )
+
+    # Ranked: mid-season reset check (매일 00:10 KST)
+    app.job_queue.run_daily(
+        ranked_mid_season_check_job,
+        time=dt_time(0, 10, 0, tzinfo=kst),
+        name="ranked_mid_season_check",
+    )
+
+    # Ranked: decay (마스터+ 디케이, 매일 00:15 KST)
+    app.job_queue.run_daily(
+        ranked_decay_job,
+        time=dt_time(0, 15, 0, tzinfo=kst),
+        name="ranked_decay",
     )
 
     # Subscription: 만료 체크 + 갱신 알림 (매일 09:00 KST)

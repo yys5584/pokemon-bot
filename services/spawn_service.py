@@ -18,6 +18,15 @@ from utils.helpers import schedule_delete, close_button, rarity_badge, type_badg
 
 logger = logging.getLogger(__name__)
 
+# 채팅방별 스폰 락: 포획 메시지 전송 완료 전 다음 스폰 방지
+_chat_spawn_locks: dict[int, asyncio.Lock] = {}
+
+
+def _get_chat_lock(chat_id: int) -> asyncio.Lock:
+    if chat_id not in _chat_spawn_locks:
+        _chat_spawn_locks[chat_id] = asyncio.Lock()
+    return _chat_spawn_locks[chat_id]
+
 
 async def _add_cxp_bg(context, chat_id: int, amount: int, action: str, user_id: int | None = None):
     """Background: award CXP to a chat room and announce level-ups."""
@@ -927,6 +936,11 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             None, generate_card, pokemon["id"], pokemon["name_ko"], rarity, pokemon["emoji"], is_shiny
         )
 
+        # 이전 스폰의 포획 메시지가 완전히 전송될 때까지 대기
+        lock = _get_chat_lock(chat_id)
+        await asyncio.wait_for(lock.acquire(), timeout=10)
+        lock.release()
+
         # Send photo BEFORE creating session (so catch isn't possible without image)
         message = await context.bot.send_photo(
             chat_id=chat_id,
@@ -1016,6 +1030,10 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
     rarity = data["rarity"]
     is_shiny = data.get("is_shiny", False)
 
+    # 포획 메시지 전송 완료까지 다음 스폰 차단
+    lock = _get_chat_lock(chat_id)
+    await lock.acquire()
+
     try:
         # Check if session is already resolved (avoid duplicate resolution)
         from database.connection import get_db
@@ -1025,6 +1043,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         )
         if not row or row["is_resolved"] == 1:
             logger.debug(f"Session {session_id} already resolved, skipping")
+            lock.release()
             return
 
         # Mark as resolved FIRST to prevent race condition with catch/master ball handlers
@@ -1049,6 +1068,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 text=f"흔들흔들... {icon_emoji('windy')}{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
                 parse_mode="HTML",
             )
+            lock.release()  # 도망 메시지 전송 완료 → 다음 스폰 허용
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
@@ -1112,6 +1132,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 text=f"흔들흔들... {icon_emoji('windy')}{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
                 parse_mode="HTML",
             )
+            lock.release()  # 도망 메시지 전송 완료 → 다음 스폰 허용
             await queries.close_spawn_session(session_id)
             await queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
@@ -1262,7 +1283,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id, text=msg, parse_mode="HTML",
             reply_markup=close_button(),
         )
-        # catch result stays visible
+        lock.release()  # 포획 메시지 전송 완료 → 다음 스폰 허용
 
         # DM notification to catcher (with stats + power)
         try:
@@ -1374,6 +1395,10 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Spawn resolution failed for session {session_id}: {e}")
         await queries.close_spawn_session(session_id)
+    finally:
+        # 어떤 경로로든 락이 아직 잡혀있으면 해제
+        if lock.locked():
+            lock.release()
 
 
 async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:

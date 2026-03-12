@@ -632,6 +632,38 @@ RANKED_MIGRATIONS = [
     "ALTER TABLE season_records ADD COLUMN defense_losses INTEGER NOT NULL DEFAULT 0",
 ]
 
+# ─── MMR / 배치전 / 디비전 시스템 (2026-03-12) ─────────
+MMR_MIGRATIONS = [
+    # 1. user_mmr 테이블 (시즌 독립, 영구 Elo)
+    """CREATE TABLE IF NOT EXISTS user_mmr (
+        user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+        mmr INTEGER NOT NULL DEFAULT 1200,
+        peak_mmr INTEGER NOT NULL DEFAULT 1200,
+        games_played INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_user_mmr_mmr ON user_mmr(mmr DESC)",
+
+    # 2. season_records: 배치전 + 승급 보호 + 디케이
+    "ALTER TABLE season_records ADD COLUMN placement_games INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE season_records ADD COLUMN placement_done BOOLEAN NOT NULL DEFAULT FALSE",
+    "ALTER TABLE season_records ADD COLUMN mmr_at_start INTEGER NOT NULL DEFAULT 1200",
+    "ALTER TABLE season_records ADD COLUMN promo_shield_until TIMESTAMPTZ",
+    "ALTER TABLE season_records ADD COLUMN last_ranked_at TIMESTAMPTZ",
+
+    # 3. ranked_battle_log: MMR 기록
+    "ALTER TABLE ranked_battle_log ADD COLUMN winner_mmr_before INTEGER",
+    "ALTER TABLE ranked_battle_log ADD COLUMN winner_mmr_after INTEGER",
+    "ALTER TABLE ranked_battle_log ADD COLUMN loser_mmr_before INTEGER",
+    "ALTER TABLE ranked_battle_log ADD COLUMN loser_mmr_after INTEGER",
+
+    # 4. seasons: 중간 리셋
+    "ALTER TABLE seasons ADD COLUMN mid_reset_done BOOLEAN NOT NULL DEFAULT FALSE",
+
+    # 5. 하위호환: 기존 유저 배치 완료 처리
+    "UPDATE season_records SET placement_done = TRUE WHERE (ranked_wins + ranked_losses) > 0",
+]
+
 ULTRA_LEGENDARY_MIGRATIONS = [
     # CHECK 제약 업데이트 (ultra_legendary 추가)
     "ALTER TABLE pokemon_master DROP CONSTRAINT IF EXISTS pokemon_master_rarity_check",
@@ -815,6 +847,13 @@ async def create_tables():
         except Exception:
             pass
     for mig in RANKED_MIGRATIONS:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+
+    # MMR / 배치전 / 디비전 시스템 (2026-03-12)
+    for mig in MMR_MIGRATIONS:
         try:
             await pool.execute(mig)
         except Exception:

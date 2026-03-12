@@ -373,6 +373,9 @@
         .tc-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:8px;align-items:center}
         .tc-legend-item{display:flex;align-items:center;gap:4px}
 
+        @media(max-width:900px){
+            #page-battlerank > div:nth-child(2){grid-template-columns:1fr !important}
+        }
         @media(max-width:600px){
             .grid-2,.grid-3,.grid-battle{grid-template-columns:1fr}
             .grid-rank{grid-template-columns:1fr}
@@ -381,6 +384,7 @@
             .nav-tab{padding:8px 14px;font-size:12px}
             .header h1{font-size:15px}
             .hide-m{display:none}
+            #page-battlerank > div:nth-child(2){grid-template-columns:1fr !important}
             .team-tip .tip-content{left:auto;right:0}
             #page-admin .section table{display:block;overflow-x:auto}
             #page-admin div[style*="grid-template-columns:repeat(3"]{grid-template-columns:1fr!important}
@@ -601,6 +605,140 @@
         .mkt-view-toggle{display:flex;gap:4px;margin-left:auto}
         .mkt-view-btn{padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;font-size:12px;cursor:pointer;color:var(--dim)}
         .mkt-view-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+        /* ===== Ranked System ===== */
+        .ranked-hero{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);border-radius:16px;padding:22px 24px;color:#fff;margin-bottom:12px;position:relative;overflow:hidden}
+        .ranked-hero::before{content:'';position:absolute;top:-30%;right:-10%;width:200px;height:200px;background:radial-gradient(circle,rgba(255,215,0,.12),transparent 70%);pointer-events:none}
+        .ranked-hero::after{content:'';position:absolute;bottom:-40%;left:-10%;width:180px;height:180px;background:radial-gradient(circle,rgba(147,112,219,.1),transparent 70%);pointer-events:none}
+        .ranked-hero>*{position:relative;z-index:1}
+        .ranked-hero .rh-season{font-size:11px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:1.5px;font-weight:600}
+        .ranked-hero .rh-title{font-size:22px;font-weight:800;margin:4px 0 10px;background:linear-gradient(90deg,#FFD700,#FFA500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .ranked-hero .rh-rule{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);backdrop-filter:blur(4px);padding:6px 14px;border-radius:10px;font-size:12px;color:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.08)}
+        .ranked-hero .rh-dates{font-size:11px;color:rgba(255,255,255,.4);margin-top:10px}
+        .ranked-hero .rh-stats{display:flex;gap:20px;margin-top:14px}
+        .ranked-hero .rh-stat{text-align:center}
+        .ranked-hero .rh-stat-val{font-size:18px;font-weight:800;color:#fff}
+        .ranked-hero .rh-stat-label{font-size:10px;color:rgba(255,255,255,.5);margin-top:2px}
+
+        /* Tier badges */
+        .tb{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;line-height:1.4}
+        .tb-unranked{background:#555;color:#ccc}
+        .tb-bronze{background:linear-gradient(135deg,#6D4C2E,#CD7F32);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+        .tb-silver{background:linear-gradient(135deg,#6B7B8D,#B0BEC5);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+        .tb-gold{background:linear-gradient(135deg,#BF8C00,#FFD700);color:#2A1F00;text-shadow:0 1px 0 rgba(255,255,255,.3)}
+        .tb-platinum{background:linear-gradient(135deg,#00897B,#26A69A);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+        .tb-diamond{background:linear-gradient(135deg,#1565C0,#42A5F5);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+        .tb-master{background:linear-gradient(135deg,#6A1B9A,#AB47BC);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+        .tb-challenger{background:linear-gradient(135deg,#BF360C,#FF6D00,#FFD600);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3);animation:tbChGlow 2s ease-in-out infinite alternate}
+        @keyframes tbChGlow{0%{box-shadow:0 0 6px rgba(255,109,0,.3)}100%{box-shadow:0 0 14px rgba(255,214,0,.5)}}
+        .tb-placement{background:#FFF3E0;color:#E65100;border:1px solid rgba(230,81,0,.15);font-size:11px}
+
+        /* RP progress mini bar */
+        .rp-prog{display:flex;align-items:center;gap:6px}
+        .rp-prog-bar{width:70px;height:6px;background:rgba(0,0,0,.08);border-radius:3px;overflow:hidden}
+        .rp-prog-fill{height:100%;border-radius:3px;transition:width .4s ease}
+        .rp-fill-bronze{background:linear-gradient(90deg,#8B4513,#CD7F32)}
+        .rp-fill-silver{background:linear-gradient(90deg,#808080,#C0C0C0)}
+        .rp-fill-gold{background:linear-gradient(90deg,#BF8C00,#FFD700)}
+        .rp-fill-platinum{background:linear-gradient(90deg,#00897B,#26A69A)}
+        .rp-fill-diamond{background:linear-gradient(90deg,#1565C0,#42A5F5)}
+        .rp-fill-master{background:linear-gradient(90deg,#6A1B9A,#AB47BC)}
+        .rp-prog-text{font-size:10px;color:var(--muted);white-space:nowrap}
+
+        /* Tier distribution chart */
+        .ranked-dist{margin:8px 0}
+        .ranked-dist-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+        .ranked-dist-label{font-size:11px;font-weight:600;min-width:80px;text-align:right;white-space:nowrap}
+        .ranked-dist-bar-bg{flex:1;height:20px;background:rgba(0,0,0,.04);border-radius:5px;overflow:hidden;position:relative}
+        .ranked-dist-bar-fill{height:100%;border-radius:5px;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:2px}
+        .ranked-dist-count{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:700;color:var(--text)}
+
+        /* Ranked table */
+        .ranked-tbl{width:100%;border-collapse:collapse}
+        .ranked-tbl th{text-align:left;padding:8px 6px;border-bottom:2px solid #F0F0F0;color:var(--muted);font-size:11px;font-weight:600;white-space:nowrap}
+        .ranked-tbl td{padding:6px;border-bottom:1px solid #F8F8F8;font-size:13px;vertical-align:middle}
+        .ranked-tbl tr:hover td{background:#FAFAFA}
+        .ranked-tbl .rk-medal{font-size:16px}
+        .show-m{display:none}
+
+        /* My ranked profile card */
+        .my-rank-card{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);border-radius:14px;padding:16px 18px;color:#fff;margin-bottom:12px;position:relative;overflow:hidden}
+        .my-rank-card::before{content:'';position:absolute;top:-40%;right:-15%;width:160px;height:160px;background:radial-gradient(circle,rgba(255,215,0,.1),transparent 70%);pointer-events:none}
+        .my-rank-card>*{position:relative;z-index:1}
+        .my-rank-top{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+        .my-rank-tier{font-size:14px}
+        .my-rank-label{font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+        .my-rank-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+        .my-rank-stat{text-align:center;background:rgba(255,255,255,.07);border-radius:8px;padding:8px 4px}
+        .my-rank-stat-val{font-size:16px;font-weight:800;color:#fff}
+        .my-rank-stat-sub{font-size:9px;color:rgba(255,255,255,.5);margin-top:2px}
+        .my-rank-mmr{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 12px;background:rgba(255,255,255,.05);border-radius:8px;border:1px solid rgba(255,255,255,.08)}
+        .my-rank-mmr-label{font-size:10px;color:rgba(255,255,255,.4)}
+        .my-rank-mmr-val{font-size:15px;font-weight:800;color:#FFD700}
+        .my-rank-mmr-peak{font-size:10px;color:rgba(255,255,255,.4);margin-left:auto}
+        @media(max-width:600px){
+            .my-rank-grid{grid-template-columns:repeat(2,1fr)}
+        }
+
+        /* Guide tier ladder */
+        .rank-ladder{display:flex;flex-direction:column;gap:0;margin:16px 0;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+        .rank-ladder-row{display:grid;grid-template-columns:32px 120px 100px 1fr;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid rgba(0,0,0,.06);transition:background .15s}
+        .rank-ladder-row:last-child{border-bottom:none}
+        .rank-ladder-row:hover{background:rgba(0,0,0,.02)}
+        .rank-ladder-row.rl-top{background:linear-gradient(90deg,rgba(255,215,0,.06),transparent)}
+        .rank-ladder-icon{font-size:18px;text-align:center}
+        .rank-ladder-name{font-weight:700;font-size:13px}
+        .rank-ladder-rp{font-size:11px;color:var(--muted)}
+        .rank-ladder-reward{font-size:11px;color:var(--green)}
+
+        /* Guide flow diagram */
+        .flow-diagram{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:12px 0}
+        .flow-node{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;text-align:center;min-width:70px}
+        .flow-node-icon{font-size:20px}
+        .flow-node-text{font-size:11px;font-weight:700;color:var(--text)}
+        .flow-node-sub{font-size:9px;color:var(--muted)}
+        .flow-arrow{color:var(--dim);font-size:14px;padding:0 4px}
+
+        /* System feature cards */
+        .sys-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin:12px 0}
+        .sys-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;transition:transform .15s,box-shadow .15s}
+        .sys-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
+        .sys-card-icon{font-size:24px;margin-bottom:6px}
+        .sys-card h5{font-size:13px;font-weight:700;margin-bottom:4px;color:var(--text)}
+        .sys-card p{font-size:11px;color:var(--muted);line-height:1.6;margin:0}
+        .sys-card.sc-shield{border-left:3px solid #4CAF50}
+        .sys-card.sc-decay{border-left:3px solid #FF9800}
+        .sys-card.sc-reset{border-left:3px solid #2196F3}
+        .sys-card.sc-mmr{border-left:3px solid #9C27B0}
+
+        /* Season timeline */
+        .season-timeline{display:flex;align-items:center;gap:0;margin:12px 0;position:relative}
+        .stl-segment{flex:1;text-align:center;padding:10px 4px;position:relative}
+        .stl-segment::before{content:'';position:absolute;top:50%;left:0;right:0;height:3px;background:var(--border);z-index:0}
+        .stl-dot{width:12px;height:12px;border-radius:50%;background:var(--red);margin:0 auto 6px;position:relative;z-index:1}
+        .stl-dot.stl-minor{width:8px;height:8px;background:var(--muted)}
+        .stl-label{font-size:10px;font-weight:600;color:var(--text);position:relative;z-index:1}
+        .stl-sub{font-size:9px;color:var(--muted);position:relative;z-index:1}
+
+        @media(max-width:600px){
+            .rank-ladder-row{grid-template-columns:28px 90px 1fr;gap:4px;padding:8px 10px}
+            .rank-ladder-reward{display:none}
+            .ranked-hero{padding:14px 16px}
+            .ranked-hero .rh-title{font-size:18px}
+            .ranked-hero .rh-stats{gap:10px}
+            .flow-diagram{gap:2px}
+            .flow-node{padding:6px 8px;min-width:55px}
+            .flow-node-icon{font-size:16px}
+            .flow-node-text{font-size:9px}
+            .sys-cards{grid-template-columns:1fr}
+            .tb{font-size:10px;padding:2px 6px}
+            .ranked-tbl .hide-m{display:none}
+            .ranked-tbl th,.ranked-tbl td{padding:4px 3px;font-size:12px}
+            .show-m{display:inline}
+            .hide-m-only{display:none}
+            .season-timeline{flex-wrap:wrap}
+            .stl-segment{min-width:60px}
+        }
     </style>
 </head>
 <body>
@@ -838,14 +976,26 @@
 
         <!-- BATTLE & RANKING -->
         <div class="page" id="page-battlerank">
-            <div class="grid-rank">
+            <!-- Season Hero Card -->
+            <div id="rankedHero"><div class="loading" style="padding:40px;text-align:center">로딩 중...</div></div>
+
+            <!-- Ranked Ranking + Tier Distribution -->
+            <div style="display:grid;grid-template-columns:1fr 340px;gap:10px;margin-bottom:10px">
                 <div class="section" style="min-height:300px">
-                    <h2>🏟️ 시즌 랭크전</h2>
-                    <div id="rankedSeasonInfo" style="margin-bottom:12px"><div class="loading">로딩 중...</div></div>
-                    <div id="rankedRanking"></div>
+                    <h2>🏟️ 시즌 랭킹</h2>
+                    <div id="rankedRanking"><div class="loading">로딩 중...</div></div>
                 </div>
+                <div class="section">
+                    <h2>📊 티어 분포</h2>
+                    <div id="tierDistribution"><div class="loading">로딩 중...</div></div>
+                </div>
+            </div>
+
+            <!-- Battle Ranking -->
+            <div class="grid-rank">
                 <div class="section"><h2>⚔️ 배틀 랭킹</h2><div class="rank-filters" id="battleSortBtns"><button class="rank-filter active" data-sort="bp">BP</button><button class="rank-filter" data-sort="wr">승률</button><button class="rank-filter" data-sort="wins">승리</button><button class="rank-filter" data-sort="streak">연승</button></div><div id="battleRanking"><div class="loading">로딩 중...</div></div></div>
             </div>
+
             <div class="grid-3 grid-battle" style="margin-top:10px">
                 <div class="section"><h2>🏆 토너먼트 우승자</h2><div id="tournamentWinnersBR"><div class="loading">로딩 중...</div></div></div>
                 <div class="section"><h2>📖 도감 랭킹</h2><div id="fullUsersTable"><div class="loading">로딩 중...</div></div></div>
@@ -982,21 +1132,203 @@
                 <div class="guide-section" id="guide-ranked">
                     <div class="guide-card">
                         <h3>🏟️ 시즌 랭크전</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">2주 시즌제로 운영되는 랭크 PvP! RP를 쌓아 챌린저에 도전하세요.</p>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">LoL 스타일 랭크 시스템! 배치전을 치르고, 숨겨진 MMR 기반 매칭으로 실력에 맞는 상대와 대결하세요.</p>
 
-                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(255,215,0,.08),rgba(147,112,219,.08));border:1px solid rgba(255,215,0,.15);border-radius:10px;padding:16px;margin-bottom:16px">
-                            <h4 style="margin-top:0">📌 기본 시스템</h4>
+                        <!-- 시즌 진행 흐름 -->
+                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(255,215,0,.06),rgba(147,112,219,.06));border:1px solid rgba(255,215,0,.12);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <h4 style="margin-top:0">🎮 시즌 진행 흐름</h4>
+                            <div class="flow-diagram">
+                                <div class="flow-node"><div class="flow-node-icon">❓</div><div class="flow-node-text">언랭</div><div class="flow-node-sub">시즌 시작</div></div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node"><div class="flow-node-icon">🎯</div><div class="flow-node-text">배치 5판</div><div class="flow-node-sub">MMR 측정</div></div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node"><div class="flow-node-icon">🏅</div><div class="flow-node-text">티어 배정</div><div class="flow-node-sub">MMR→RP 변환</div></div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node"><div class="flow-node-icon">⚔️</div><div class="flow-node-text">랭크전</div><div class="flow-node-sub">승급 & 강등</div></div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node"><div class="flow-node-icon">🏆</div><div class="flow-node-text">시즌 보상</div><div class="flow-node-sub">피크 티어 기준</div></div>
+                            </div>
+                        </div>
+
+                        <!-- 기본 시스템 -->
+                        <div class="guide-block">
+                            <h4>📌 기본 시스템</h4>
                             <table class="guide-table" style="font-size:13px">
                                 <tr><th>항목</th><th>내용</th></tr>
                                 <tr><td>시즌</td><td>2주 단위 (격주 월요일 리셋)</td></tr>
-                                <tr><td>장소</td><td>지정 아레나 채팅방에서만 가능</td></tr>
-                                <tr><td>명령어</td><td>상대에게 답장 + <b>랭전</b></td></tr>
+                                <tr><td>참가 방법</td><td>DM으로 <b>랭전</b> 입력 (자동 매칭) 또는 아레나에서 답장 + <b>랭전</b></td></tr>
+                                <tr><td>배치전</td><td>시즌 시작 시 <b>5판</b> 배치 → MMR 기반 티어 배정</td></tr>
+                                <tr><td>매칭</td><td>숨겨진 MMR 기반 (유사 실력 매칭)</td></tr>
                                 <tr><td>쿨다운</td><td>같은 상대 30분 / 전체 2분</td></tr>
                                 <tr><td>일일 상한</td><td>20회/일</td></tr>
                             </table>
                         </div>
 
-                        <div class="guide-block" style="margin-bottom:16px">
+                        <!-- 티어 래더 -->
+                        <div class="guide-block">
+                            <h4>🏅 티어 & 디비전 (14단계)</h4>
+                            <p style="font-size:11px;color:var(--muted);margin-bottom:8px">각 티어에 II(하위)와 I(상위) 두 디비전이 있으며, 디비전당 100 RP입니다.</p>
+                            <div class="rank-ladder">
+                                <div class="rank-ladder-row rl-top">
+                                    <div class="rank-ladder-icon">🏆</div>
+                                    <div class="rank-ladder-name" style="color:#BF360C">시즌 챔피언</div>
+                                    <div class="rank-ladder-rp">시즌 1위</div>
+                                    <div class="rank-ladder-reward">전용 칭호 해금!</div>
+                                </div>
+                                <div class="rank-ladder-row rl-top">
+                                    <div class="rank-ladder-icon">⚔️</div>
+                                    <div class="rank-ladder-name" style="color:#FF6D00">챌린저</div>
+                                    <div class="rank-ladder-rp">마스터 Top 10</div>
+                                    <div class="rank-ladder-reward">마스터볼 5 + BP 800</div>
+                                </div>
+                                <div class="rank-ladder-row rl-top">
+                                    <div class="rank-ladder-icon">👑</div>
+                                    <div class="rank-ladder-name" style="color:#6A1B9A">마스터</div>
+                                    <div class="rank-ladder-rp">1000+ RP</div>
+                                    <div class="rank-ladder-reward">마스터볼 3 + BP 500</div>
+                                </div>
+                                <div class="rank-ladder-row">
+                                    <div class="rank-ladder-icon">💠</div>
+                                    <div class="rank-ladder-name" style="color:#1565C0">다이아 I</div>
+                                    <div class="rank-ladder-rp">900 ~ 999 RP</div>
+                                    <div class="rank-ladder-reward" rowspan="2">마스터볼 2 + BP 300</div>
+                                </div>
+                                <div class="rank-ladder-row">
+                                    <div class="rank-ladder-icon">💠</div>
+                                    <div class="rank-ladder-name" style="color:#1565C0">다이아 II</div>
+                                    <div class="rank-ladder-rp">800 ~ 899 RP</div>
+                                    <div class="rank-ladder-reward"></div>
+                                </div>
+                                <div class="rank-ladder-row">
+                                    <div class="rank-ladder-icon">💎</div>
+                                    <div class="rank-ladder-name" style="color:#00897B">플래티넘 I</div>
+                                    <div class="rank-ladder-rp">700 ~ 799 RP</div>
+                                    <div class="rank-ladder-reward">마스터볼 1 + BP 200</div>
+                                </div>
+                                <div class="rank-ladder-row">
+                                    <div class="rank-ladder-icon">💎</div>
+                                    <div class="rank-ladder-name" style="color:#00897B">플래티넘 II</div>
+                                    <div class="rank-ladder-rp">600 ~ 699 RP</div>
+                                    <div class="rank-ladder-reward"></div>
+                                </div>
+                                <div class="rank-ladder-row">
+                                    <div class="rank-ladder-icon">🏅</div>
+                                    <div class="rank-ladder-name" style="color:#BF8C00">골드 I</div>
+                                    <div class="rank-ladder-rp">500 ~ 599 RP</div>
+                                    <div class="rank-ladder-reward">BP 300</div>
+                                </div>
+                                <div class="rank-ladder-row">
+                                    <div class="rank-ladder-icon">🏅</div>
+                                    <div class="rank-ladder-name" style="color:#BF8C00">골드 II</div>
+                                    <div class="rank-ladder-rp">400 ~ 499 RP</div>
+                                    <div class="rank-ladder-reward"></div>
+                                </div>
+                                <div class="rank-ladder-row">
+                                    <div class="rank-ladder-icon">🥈</div>
+                                    <div class="rank-ladder-name" style="color:#6B7B8D">실버 I</div>
+                                    <div class="rank-ladder-rp">300 ~ 399 RP</div>
+                                    <div class="rank-ladder-reward">BP 150</div>
+                                </div>
+                                <div class="rank-ladder-row">
+                                    <div class="rank-ladder-icon">🥈</div>
+                                    <div class="rank-ladder-name" style="color:#6B7B8D">실버 II</div>
+                                    <div class="rank-ladder-rp">200 ~ 299 RP</div>
+                                    <div class="rank-ladder-reward"></div>
+                                </div>
+                                <div class="rank-ladder-row">
+                                    <div class="rank-ladder-icon">🥉</div>
+                                    <div class="rank-ladder-name" style="color:#6D4C2E">브론즈 I</div>
+                                    <div class="rank-ladder-rp">100 ~ 199 RP</div>
+                                    <div class="rank-ladder-reward">BP 50</div>
+                                </div>
+                                <div class="rank-ladder-row">
+                                    <div class="rank-ladder-icon">🥉</div>
+                                    <div class="rank-ladder-name" style="color:#6D4C2E">브론즈 II</div>
+                                    <div class="rank-ladder-rp">0 ~ 99 RP</div>
+                                    <div class="rank-ladder-reward"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 핵심 시스템 카드 -->
+                        <div class="guide-block">
+                            <h4>⚙️ 핵심 시스템</h4>
+                            <div class="sys-cards">
+                                <div class="sys-card sc-mmr">
+                                    <div class="sys-card-icon">📊</div>
+                                    <h5>숨겨진 MMR</h5>
+                                    <p>Elo 기반 숨겨진 레이팅. 매칭과 RP 증감에 영향을 줍니다. DM과 대시보드에서만 확인 가능.</p>
+                                </div>
+                                <div class="sys-card sc-shield">
+                                    <div class="sys-card-icon">🛡️</div>
+                                    <h5>승급 보호</h5>
+                                    <p>새 디비전/티어 진입 시 <b>12시간</b> 강등 면역. 다음 랭전 시작하면 보호 해제.</p>
+                                </div>
+                                <div class="sys-card sc-decay">
+                                    <div class="sys-card-icon">⏳</div>
+                                    <h5>디케이 (마스터+)</h5>
+                                    <p>마스터 이상에서 <b>3일</b> 미플레이 시 하루당 <b>-30 RP</b>. 마스터 아래로는 떨어지지 않음.</p>
+                                </div>
+                                <div class="sys-card sc-reset">
+                                    <div class="sys-card-icon">🔄</div>
+                                    <h5>중간 리셋 (7일차)</h5>
+                                    <p>시즌 7일차에 RP × 60% 리셋. MMR 기반 최소 티어 보장. 배치 재요구 없음.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RP & MMR -->
+                        <div class="guide-block" style="background:rgba(0,0,0,.03);border-radius:10px;padding:14px">
+                            <h4 style="margin-top:0">⚡ RP & MMR 계산</h4>
+                            <div style="font-size:12px;line-height:1.9">
+                                <b>RP 증감 (MMR 영향):</b><br>
+                                • 승리: +30 기본 + 티어차 보정(±10) + 연승보너스(연승×2, 최대+10)<br>
+                                • <span style="color:var(--green)">내 MMR > 티어 기대값</span> → RP 더 많이 획득 (최대 +50%)<br>
+                                • <span style="color:var(--red)">내 MMR < 티어 기대값</span> → RP 더 적게 획득<br>
+                                • 패배: -20 기본 (브론즈/실버: -15 보호)<br>
+                                • 같은 상대 반복 시 RP 감소 (3회부터 50%→25%→0%)<br>
+                                <br>
+                                <b>MMR (Elo):</b><br>
+                                • 배치전: K=40 (빠른 보정) / 일반전: K=32<br>
+                                • 시즌 리셋: MMR 25% 축소 (1200 방향)<br>
+                                • 매칭에 사용 (±200→300→400 범위 확장)
+                            </div>
+                        </div>
+
+                        <!-- 시즌 타임라인 -->
+                        <div class="guide-block">
+                            <h4>📅 시즌 타임라인 (2주)</h4>
+                            <div class="season-timeline">
+                                <div class="stl-segment">
+                                    <div class="stl-dot"></div>
+                                    <div class="stl-label">Day 0</div>
+                                    <div class="stl-sub">시즌 시작<br>전원 언랭</div>
+                                </div>
+                                <div class="stl-segment">
+                                    <div class="stl-dot stl-minor"></div>
+                                    <div class="stl-label">Day 1~6</div>
+                                    <div class="stl-sub">전반기<br>배치+랭전</div>
+                                </div>
+                                <div class="stl-segment">
+                                    <div class="stl-dot" style="background:#2196F3"></div>
+                                    <div class="stl-label">Day 7</div>
+                                    <div class="stl-sub">중간 리셋<br>RP×60%</div>
+                                </div>
+                                <div class="stl-segment">
+                                    <div class="stl-dot stl-minor"></div>
+                                    <div class="stl-label">Day 8~13</div>
+                                    <div class="stl-sub">후반기<br>최종 순위전</div>
+                                </div>
+                                <div class="stl-segment">
+                                    <div class="stl-dot" style="background:#FFD700"></div>
+                                    <div class="stl-label">Day 14</div>
+                                    <div class="stl-sub">시즌 종료<br>보상 지급</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 시즌 법칙 -->
+                        <div class="guide-block">
                             <h4>🔒 시즌 법칙 (2주 내내 고정)</h4>
                             <p style="font-size:11px;color:var(--muted);margin-bottom:8px">시즌 시작 시 법칙 발표</p>
                             <table class="guide-table" style="font-size:13px">
@@ -1009,7 +1341,8 @@
                             </table>
                         </div>
 
-                        <div class="guide-block" style="margin-bottom:16px">
+                        <!-- 일일 조건 -->
+                        <div class="guide-block">
                             <h4>📋 일일 조건 (매일 자정 변경)</h4>
                             <p style="font-size:11px;color:var(--muted);margin-bottom:8px">직전 2일과 겹치지 않음</p>
                             <table class="guide-table" style="font-size:13px">
@@ -1027,40 +1360,16 @@
                             </table>
                         </div>
 
-                        <div class="guide-block" style="margin-bottom:16px">
-                            <h4>📈 티어 & RP</h4>
-                            <table class="guide-table" style="font-size:13px">
-                                <tr><th>티어</th><th>RP 범위</th><th>시즌 보상</th></tr>
-                                <tr><td>🥉 브론즈</td><td>0 ~ 299</td><td>BP 50</td></tr>
-                                <tr><td>🥈 실버</td><td>300 ~ 599</td><td>BP 150</td></tr>
-                                <tr><td>🏅 골드</td><td>600 ~ 999</td><td>BP 300</td></tr>
-                                <tr><td>💎 플래티넘</td><td>1000 ~ 1499</td><td>마스터볼 1 + BP 200</td></tr>
-                                <tr><td>💠 다이아</td><td>1500 ~ 1999</td><td>마스터볼 2 + BP 300</td></tr>
-                                <tr><td>👑 마스터</td><td>2000+</td><td>마스터볼 3 + BP 500</td></tr>
-                                <tr style="background:rgba(255,215,0,.08)"><td>⚔️ 챌린저</td><td>마스터 Top 10</td><td>마스터볼 5 + BP 800</td></tr>
-                                <tr style="background:rgba(255,215,0,.15)"><td>🏆 시즌 챔피언</td><td>시즌 1위</td><td>전용 칭호 해금!</td></tr>
-                            </table>
-                        </div>
-
-                        <div class="guide-block" style="background:rgba(0,0,0,.03);border-radius:8px;padding:12px;margin-bottom:16px">
-                            <h4 style="margin-top:0">⚡ RP 계산</h4>
-                            <div style="font-size:12px;line-height:1.8">
-                                • 승리: +30 기본 + 티어차 보정(±10) + 연승보너스(연승×2, 최대+10)<br>
-                                • 패배: -20 기본 (브론즈/실버: -15 보호, 첫 10전 50% 감소)<br>
-                                • RP 최솟값: 0 (마이너스 불가)<br>
-                                • 같은 상대 반복 시 RP 감소 (3회부터 50%→25%→0%)<br>
-                                • 티어 3단계 이상 차이: 상위자 RP 최소화<br>
-                                • 시즌 소프트 리셋: 새 시즌 RP = 이전 RP × 40%
-                            </div>
-                        </div>
-
+                        <!-- 명령어 -->
                         <div class="guide-block">
                             <h4>💬 관련 명령어</h4>
                             <table class="guide-table" style="font-size:13px">
                                 <tr><th>명령어</th><th>위치</th><th>설명</th></tr>
-                                <tr><td><b>랭전</b></td><td>아레나 (답장)</td><td>랭크전 도전</td></tr>
-                                <tr><td><b>시즌</b></td><td>DM</td><td>시즌 법칙/조건 + 내 기록</td></tr>
+                                <tr><td><b>랭전</b></td><td>DM</td><td>자동 매칭 랭크전</td></tr>
+                                <tr><td><b>랭전</b></td><td>아레나 (답장)</td><td>지정 상대 랭크전</td></tr>
+                                <tr><td><b>시즌</b></td><td>DM</td><td>시즌 법칙/조건 + 내 기록 + MMR</td></tr>
                                 <tr><td><b>시즌랭킹</b></td><td>DM</td><td>시즌 랭킹 TOP 15</td></tr>
+                                <tr><td><b>배틀전적</b></td><td>DM</td><td>전적 + MMR 확인</td></tr>
                                 <tr><td><b>/아레나등록</b></td><td>그룹 (관리자)</td><td>채팅방을 아레나 후보로 등록</td></tr>
                             </table>
                         </div>
@@ -1481,6 +1790,7 @@
             <div class="section">
                 <h2>📦 내 푸키몬</h2>
                 <div class="poke-filters" id="pokeFilters">
+                    <input type="text" id="pokeSearchInput" placeholder="🔍 이름 검색" style="width:100px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;background:var(--card);outline:none" autocomplete="off">
                     <select class="poke-select" id="pokeRarityFilter">
                         <option value="all">등급 전체</option>
                         <option value="ultra_legendary">🔴 초전설</option>
@@ -2251,6 +2561,34 @@ async function loadChannelTop5(){
     }else{document.getElementById("topChannels").innerHTML='<p class="empty-msg">데이터가 없습니다</p>'}
 }
 
+// --- Ranked Helper Functions (global scope) ---
+function _tbClass(tier){
+    const m={unranked:'tb-unranked',bronze:'tb-bronze',silver:'tb-silver',gold:'tb-gold',platinum:'tb-platinum',diamond:'tb-diamond',master:'tb-master',challenger:'tb-challenger'};
+    return m[tier]||'tb-unranked';
+}
+function _rpFillClass(tier){
+    const m={bronze:'rp-fill-bronze',silver:'rp-fill-silver',gold:'rp-fill-gold',platinum:'rp-fill-platinum',diamond:'rp-fill-diamond',master:'rp-fill-master'};
+    return m[tier]||'rp-fill-bronze';
+}
+function _tierLabel(tier,divDisplay){
+    if(!divDisplay) return `<span class="tb ${_tbClass(tier)}">${tier}</span>`;
+    return `<span class="tb ${_tbClass(tier)}">${divDisplay}</span>`;
+}
+function _rpProgressHtml(rp,tier,divRp){
+    if(tier==='master'||tier==='challenger') return `<span style="font-weight:700;color:var(--gold)">${rp} RP</span>`;
+    const pct=Math.min((divRp||rp%100),100);
+    return `<div class="rp-prog"><div class="rp-prog-bar"><div class="rp-prog-fill ${_rpFillClass(tier)}" style="width:${pct}%"></div></div><span class="rp-prog-text">${divRp!==undefined?divRp:rp%100}/100</span></div>`;
+}
+function _tierShort(tier,divDisplay){
+    const shorts={bronze:'브',silver:'실',gold:'골',platinum:'플',diamond:'다',master:'마',challenger:'챌'};
+    if(tier==='master') return '👑 마';
+    if(tier==='challenger') return '⚔️ 챌';
+    const s=shorts[tier]||tier;
+    const m=divDisplay&&divDisplay.match(/(I{1,2})/);
+    const div=m?m[1]:'';
+    return `${s} ${div}`;
+}
+
 // --- BATTLE & RANKING ---
 async function loadBattleRank(){
     const[ranking,teams,users,kpi,tWinnersBR,ivRanking,rankedData]=await Promise.all([
@@ -2263,31 +2601,79 @@ async function loadBattleRank(){
         fetchJSON("/api/ranked/season"),
     ]);
 
-    // Ranked season info + ranking
+    // --- Ranked: Helper functions (see global scope above) ---
+    const _distColors={bronze:'linear-gradient(90deg,#8B4513,#CD7F32)',silver:'linear-gradient(90deg,#808080,#C0C0C0)',gold:'linear-gradient(90deg,#BF8C00,#FFD700)',platinum:'linear-gradient(90deg,#00897B,#26A69A)',diamond:'linear-gradient(90deg,#1565C0,#42A5F5)',master:'linear-gradient(90deg,#6A1B9A,#AB47BC)',challenger:'linear-gradient(90deg,#BF360C,#FFD600)',unranked:'#888',placement:'#FFA726'};
+    const _distLabels={challenger:'⚔️ 챌린저',master:'👑 마스터',diamond:'💠 다이아',platinum:'💎 플래티넘',gold:'🏅 골드',silver:'🥈 실버',bronze:'🥉 브론즈',placement:'🎯 배치중',unranked:'❓ 언랭'};
+
+    // --- Ranked: Season hero card ---
     if(rankedData&&rankedData.season){
         const s=rankedData.season;
-        let infoHtml=`<div style="background:linear-gradient(135deg,rgba(255,215,0,.06),rgba(147,112,219,.08));border:1px solid rgba(255,215,0,.15);border-radius:10px;padding:14px;margin-bottom:10px">`;
-        infoHtml+=`<div style="font-size:14px;font-weight:700;margin-bottom:8px">📅 시즌 ${s.season_id}</div>`;
-        infoHtml+=`<div style="font-size:12px">`;
-        infoHtml+=`<div>🔒 <b>${s.weekly_rule_name}</b></div>`;
-        infoHtml+=`<div style="color:var(--muted);margin-top:2px">${s.weekly_rule_desc}</div>`;
-        infoHtml+=`</div></div>`;
-        document.getElementById("rankedSeasonInfo").innerHTML=infoHtml;
-
         const rk=rankedData.ranking||[];
+        const totalPlayers=rankedData.total_players||rk.length;
+        const tierDist=rankedData.tier_distribution||{};
+
+        // Hero card
+        let heroHtml=`<div class="ranked-hero">`;
+        heroHtml+=`<div class="rh-season">SEASON ${s.season_id}</div>`;
+        heroHtml+=`<div class="rh-title">🏟️ 시즌 ${s.season_id} 랭크전</div>`;
+        heroHtml+=`<div class="rh-rule">🔒 ${escHtml(s.weekly_rule_name)} — ${escHtml(s.weekly_rule_desc)}</div>`;
+        heroHtml+=`<div class="rh-stats">`;
+        heroHtml+=`<div class="rh-stat"><div class="rh-stat-val">${totalPlayers}</div><div class="rh-stat-label">참여자</div></div>`;
+        const placedCount=Object.entries(tierDist).filter(([k])=>k!=='unranked'&&k!=='placement').reduce((a,[,v])=>a+v,0);
+        heroHtml+=`<div class="rh-stat"><div class="rh-stat-val">${placedCount}</div><div class="rh-stat-label">배치 완료</div></div>`;
+        if(rk.length>0){
+            const topName=stripEmoji(rk[0].display_name);
+            heroHtml+=`<div class="rh-stat"><div class="rh-stat-val" style="font-size:14px">${escHtml(topName)}</div><div class="rh-stat-label">현재 1위</div></div>`;
+        }
+        heroHtml+=`</div>`;
+        heroHtml+=`</div>`;
+        document.getElementById("rankedHero").innerHTML=heroHtml;
+
+        // Ranked ranking table with visual tier badges
         if(rk.length){
-            let h=`<table><thead><tr><th>#</th><th>이름</th><th>티어</th><th>RP</th><th>승</th><th>패</th><th>연승</th></tr></thead><tbody>`;
+            let h=`<table class="ranked-tbl"><thead><tr><th style="width:32px">#</th><th>이름</th><th>티어</th><th class="hide-m">RP 진행</th><th>RP</th><th>승률</th><th class="hide-m">연승</th></tr></thead><tbody>`;
             rk.forEach((r,i)=>{
-                const total=r.ranked_wins+r.ranked_losses;
-                const wr=total>0?Math.round(r.ranked_wins/total*100)+"%":"-";
-                h+=`<tr><td>${i<3?medals[i]:i+1}</td><td>${escHtml(stripEmoji(r.display_name))}</td><td style="white-space:nowrap">${r.tier_display}</td><td style="font-weight:700;color:var(--gold)">${r.rp}</td><td style="color:var(--green)">${r.ranked_wins}</td><td style="color:var(--red)">${r.ranked_losses}</td><td>🔥${r.best_ranked_streak}</td></tr>`;
+                const placementDone=r.placement_done!==false;
+                const divDisp=r.division_display||r.tier_display;
+                let tierBadge;
+                if(!placementDone){
+                    tierBadge=`<span class="tb tb-placement hide-m-only">🎯 배치중 (${r.placement_games||0}/5)</span><span class="tb tb-placement show-m">🎯 ${r.placement_games||0}/5</span>`;
+                }else{
+                    tierBadge=`<span class="tb ${_tbClass(r.tier)} hide-m-only">${divDisp}</span><span class="tb ${_tbClass(r.tier)} show-m">${_tierShort(r.tier,r.division_display)}</span>`;
+                }
+                const rpProg=placementDone?_rpProgressHtml(r.rp,r.tier,r.division_rp):'-';
+                const totalG=r.ranked_wins+r.ranked_losses;
+                const winRate=totalG>0?Math.round(r.ranked_wins/totalG*100)+'%':'-';
+                const rpDisp=placementDone?`<b>${r.rp}</b>`:'-';
+                const rankDisp=i<3?`<span class="rk-medal">${medals[i]}</span>`:`${i+1}`;
+                h+=`<tr><td style="text-align:center">${rankDisp}</td><td style="font-weight:600;max-width:80px;overflow:hidden;text-overflow:ellipsis">${escHtml(stripEmoji(r.display_name))}</td><td style="white-space:nowrap">${tierBadge}</td><td class="hide-m">${rpProg}</td><td style="text-align:center">${rpDisp}</td><td style="text-align:center">${winRate}</td><td class="hide-m">🔥${r.best_ranked_streak}</td></tr>`;
             });
             h+="</tbody></table>";
             document.getElementById("rankedRanking").innerHTML=h;
         }else{document.getElementById("rankedRanking").innerHTML='<p class="empty-msg">아직 이번 시즌 기록이 없습니다</p>'}
+
+        // Tier distribution chart
+        const distOrder=['challenger','master','diamond','platinum','gold','silver','bronze','placement','unranked'];
+        const maxCount=Math.max(1,...Object.values(tierDist));
+        if(Object.keys(tierDist).length>0){
+            let dh='<div class="ranked-dist">';
+            distOrder.forEach(tk=>{
+                const cnt=tierDist[tk]||0;
+                if(cnt===0) return;
+                const pct=Math.round(cnt/maxCount*100);
+                const bg=_distColors[tk]||'#888';
+                const label=_distLabels[tk]||tk;
+                dh+=`<div class="ranked-dist-row"><div class="ranked-dist-label">${label}</div><div class="ranked-dist-bar-bg"><div class="ranked-dist-bar-fill" style="width:${pct}%;background:${bg}"></div><span class="ranked-dist-count">${cnt}명</span></div></div>`;
+            });
+            dh+='</div>';
+            document.getElementById("tierDistribution").innerHTML=dh;
+        }else{
+            document.getElementById("tierDistribution").innerHTML='<p class="empty-msg">배치 완료된 유저가 없습니다</p>';
+        }
     }else{
-        document.getElementById("rankedSeasonInfo").innerHTML='<p class="empty-msg">현재 활성 시즌이 없습니다</p>';
+        document.getElementById("rankedHero").innerHTML=`<div class="ranked-hero" style="text-align:center"><div class="rh-title">현재 활성 시즌이 없습니다</div><div style="color:rgba(255,255,255,.5);font-size:12px">다음 시즌을 기다려주세요!</div></div>`;
         document.getElementById("rankedRanking").innerHTML='';
+        document.getElementById("tierDistribution").innerHTML='';
     }
 
     // Battle ranking with paging + team tooltip + sort
@@ -2677,6 +3063,7 @@ let _pokeSort="real_power";
 let _pokeSortAsc=false;
 let _pokeTypeFilter="";
 let _pokeGenFilter="";
+let _pokeSearchQuery="";
 
 const TYPE_NAMES={normal:"노말",fire:"불꽃",water:"물",grass:"풀",electric:"전기",ice:"얼음",fighting:"격투",poison:"독",ground:"땅",flying:"비행",psychic:"에스퍼",bug:"벌레",rock:"바위",ghost:"고스트",dragon:"드래곤",dark:"악",steel:"강철",fairy:"페어리"};
 const TYPE_EMOJI_MAP={normal:"⚪",fire:"🔥",water:"💧",grass:"🌿",electric:"⚡",ice:"❄️",fighting:"👊",poison:"☠️",ground:"🌍",flying:"🕊️",psychic:"🔮",bug:"🐛",rock:"🪨",ghost:"👻",dragon:"🐉",dark:"🌑",steel:"⚙️",fairy:"🧚"};
@@ -2847,7 +3234,7 @@ async function loadMyPokemon(){
 
     // Summary cards
     const wr=summary.battle_wins+summary.battle_losses>0?Math.round(summary.battle_wins/(summary.battle_wins+summary.battle_losses)*100):0;
-    document.getElementById("mySummary").innerHTML=`
+    let summaryHtml=`
         <div class="card" style="padding:6px 10px"><div class="label">보유</div><div class="value" style="font-size:18px;color:var(--red)">${summary.total_pokemon}</div></div>
         <div class="card" style="padding:6px 10px"><div class="label">✨이로치</div><div class="value" style="font-size:18px;color:var(--gold)">${summary.shiny_count}</div></div>
         <div class="card" style="padding:6px 10px"><div class="label">📖도감</div><div class="value" style="font-size:18px;color:var(--blue)">${summary.dex_count}/386</div></div>
@@ -2855,6 +3242,46 @@ async function loadMyPokemon(){
         <div class="card" style="padding:6px 10px"><div class="label">BP</div><div class="value" style="font-size:18px;color:var(--purple)">${summary.battle_points}</div></div>
         <div class="card" style="padding:6px 10px"><div class="label">🔥연승</div><div class="value" style="font-size:18px">${summary.best_streak}</div></div>
     `;
+    // Ranked profile card (본인만 볼 수 있는 MMR 포함)
+    if(summary.ranked){
+        const rk=summary.ranked;
+        const pd=rk.placement_done;
+        const rWins=rk.ranked_wins||0,rLosses=rk.ranked_losses||0;
+        const rTotal=rWins+rLosses;
+        const rWR=rTotal>0?Math.round(rWins/rTotal*100)+'%':'-';
+        let tierHtml;
+        if(!pd){
+            tierHtml=`<span class="tb tb-placement" style="font-size:14px">🎯 배치중 (${rk.placement_games||0}/5)</span>`;
+        }else{
+            tierHtml=`<span class="tb ${_tbClass(rk.tier)}" style="font-size:14px">${rk.division_display}</span>`;
+        }
+        // RP progress bar for placed users
+        let rpBar='';
+        if(pd && rk.tier!=='master' && rk.tier!=='challenger'){
+            const pct=Math.min(rk.division_rp||0,100);
+            rpBar=`<div style="margin-top:8px;width:100%"><div class="rp-prog" style="max-width:none"><div class="rp-prog-bar" style="height:8px"><div class="rp-prog-fill ${_rpFillClass(rk.tier)}" style="width:${pct}%"></div></div><span class="rp-prog-text" style="color:rgba(255,255,255,.7)">${rk.division_rp}/100</span></div></div>`;
+        }
+        summaryHtml+=`
+        <div class="my-rank-card" style="grid-column:1/-1">
+            <div class="my-rank-label">⚔️ 이번 시즌 랭크</div>
+            <div class="my-rank-top">
+                <div class="my-rank-tier">${tierHtml}</div>
+                ${pd?`<span style="font-size:11px;color:rgba(255,255,255,.4)">최고: ${rk.peak_display||''}</span>`:''}
+            </div>
+            ${rpBar}
+            <div class="my-rank-grid">
+                <div class="my-rank-stat"><div class="my-rank-stat-val">${pd?rk.rp:'-'}</div><div class="my-rank-stat-sub">RP</div></div>
+                <div class="my-rank-stat"><div class="my-rank-stat-val">${rWR}</div><div class="my-rank-stat-sub">승률 (${rWins}승 ${rLosses}패)</div></div>
+                <div class="my-rank-stat"><div class="my-rank-stat-val">🔥${rk.ranked_streak||0}</div><div class="my-rank-stat-sub">현재 연승</div></div>
+                <div class="my-rank-stat"><div class="my-rank-stat-val">${rk.best_ranked_streak||0}</div><div class="my-rank-stat-sub">최고 연승</div></div>
+            </div>
+            <div class="my-rank-mmr">
+                <div><div class="my-rank-mmr-label">숨겨진 MMR</div><div class="my-rank-mmr-val">${rk.mmr}</div></div>
+                <div class="my-rank-mmr-peak">피크 ${rk.peak_mmr} · ${rk.mmr_games}전</div>
+            </div>
+        </div>`;
+    }
+    document.getElementById("mySummary").innerHTML=summaryHtml;
 
     // Populate type filter
     const typeSelect=document.getElementById("pokeTypeFilter");
@@ -2877,6 +3304,15 @@ async function loadMyPokemon(){
     };
     document.getElementById("pokeGenFilter").onchange=function(){_pokeGenFilter=this.value;_pgState._pokePg=0;_pokeTablePg=0;renderMyPokemon()};
     document.getElementById("pokeTypeFilter").onchange=function(){_pokeTypeFilter=this.value;_pgState._pokePg=0;_pokeTablePg=0;renderMyPokemon()};
+    // 이름 검색 (입력 즉시 필터링, 디바운스 200ms)
+    let _searchTimer;
+    document.getElementById("pokeSearchInput").oninput=function(){
+        clearTimeout(_searchTimer);
+        _searchTimer=setTimeout(()=>{
+            _pokeSearchQuery=this.value.trim().toLowerCase();
+            _pgState._pokePg=0;_pokeTablePg=0;renderMyPokemon();
+        },200);
+    };
     document.getElementById("pokeSortBy").onchange=function(){_pokeSort=this.value;_pgState._pokePg=0;_pokeTablePg=0;renderMyPokemon()};
 
     renderMyPokemon();
@@ -2904,6 +3340,8 @@ function filterAndSortPokemon(){
     else if(_pokeGenFilter==="gen2") list=list.filter(p=>p.pokemon_id>=152&&p.pokemon_id<=251);
     else if(_pokeGenFilter==="gen3") list=list.filter(p=>p.pokemon_id>=252&&p.pokemon_id<=386);
     if(_pokeTypeFilter) list=list.filter(p=>p.pokemon_type===_pokeTypeFilter||p.type2===_pokeTypeFilter);
+    // 이름 검색
+    if(_pokeSearchQuery) list=list.filter(p=>p.name_ko.toLowerCase().includes(_pokeSearchQuery)||p.name_en?.toLowerCase().includes(_pokeSearchQuery)||(String(p.pokemon_id)===_pokeSearchQuery));
     // Sort
     const dir=_pokeSortAsc?1:-1;
     const RARITY_ORDER={ultra_legendary:5,legendary:4,epic:3,rare:2,common:1};

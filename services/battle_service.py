@@ -855,6 +855,7 @@ async def execute_battle(
     d_title_str = f"{icon_emoji(d_te)} " if d_te and d_te in config.ICON_CUSTOM_EMOJI else ""
 
     winner_name = c_name if result["winner"] == "challenger" else d_name
+    loser_name = d_name if result["winner"] == "challenger" else c_name
 
     # Get updated stats for display
     final_stats = await bq.get_battle_stats(winner_id)
@@ -906,6 +907,7 @@ async def execute_battle(
         "bp_earned": bp_won,
         "cache_key": cache_key,
         "winner_name": winner_name,
+        "loser_name": loser_name,
         "new_streak": new_streak,
         "perfect_win": result["perfect_win"],
         "battle_type": battle_type,

@@ -523,7 +523,7 @@ async def api_my_summary(request):
             """, uid),
         )
 
-        return pg_json_response({
+        result = {
             "total_pokemon": row["total"],
             "shiny_count": row["shiny_count"],
             "dex_count": row["dex_count"],
@@ -531,7 +531,58 @@ async def api_my_summary(request):
             "battle_wins": battle_row["battle_wins"] if battle_row else 0,
             "battle_losses": battle_row["battle_losses"] if battle_row else 0,
             "best_streak": battle_row["best_streak"] if battle_row else 0,
-        })
+        }
+
+        # --- 랭크 정보 (현재 시즌 + MMR) ---
+        import config as cfg
+        try:
+            season = await pool.fetchrow(
+                "SELECT season_id FROM seasons WHERE is_active = TRUE LIMIT 1"
+            )
+            if season:
+                sr = await pool.fetchrow("""
+                    SELECT rp, tier, ranked_wins, ranked_losses,
+                           ranked_streak, best_ranked_streak, peak_rp, peak_tier,
+                           placement_done, placement_games
+                    FROM season_records
+                    WHERE user_id = $1 AND season_id = $2
+                """, uid, season["season_id"])
+                mmr_row = await pool.fetchrow(
+                    "SELECT mmr, peak_mmr, games_played FROM user_mmr WHERE user_id = $1", uid
+                )
+                if sr:
+                    pd = sr.get("placement_done", True)
+                    rp = sr["rp"] or 0
+                    div = cfg.get_division_info(rp)
+                    result["ranked"] = {
+                        "rp": rp,
+                        "tier": div[0],
+                        "division": div[1],
+                        "division_rp": div[2],
+                        "division_display": cfg.tier_division_display(
+                            div[0], div[1], div[2],
+                            placement_done=pd, total_rp=rp),
+                        "ranked_wins": sr["ranked_wins"] or 0,
+                        "ranked_losses": sr["ranked_losses"] or 0,
+                        "ranked_streak": sr["ranked_streak"] or 0,
+                        "best_ranked_streak": sr["best_ranked_streak"] or 0,
+                        "peak_rp": sr["peak_rp"] or 0,
+                        "peak_tier": sr["peak_tier"] or "unranked",
+                        "placement_done": pd,
+                        "placement_games": sr.get("placement_games", 0),
+                        "mmr": mmr_row["mmr"] if mmr_row else 1200,
+                        "peak_mmr": mmr_row["peak_mmr"] if mmr_row else 1200,
+                        "mmr_games": mmr_row["games_played"] if mmr_row else 0,
+                    }
+                    # peak tier display
+                    peak_div = cfg.get_division_info(sr["peak_rp"] or 0)
+                    result["ranked"]["peak_display"] = cfg.tier_division_display(
+                        peak_div[0], peak_div[1], peak_div[2],
+                        placement_done=True, total_rp=sr["peak_rp"] or 0)
+        except Exception:
+            pass  # 랭크 정보 없으면 무시
+
+        return pg_json_response(result)
     except InterfaceError:
         return web.json_response({"error": "서버 재시작 중입니다"}, status=503)
 
@@ -1758,7 +1809,7 @@ async def api_ranked_season(request):
 
     season_id = season["season_id"]
 
-    from services.ranked_service import tier_display
+    from services.ranked_service import tier_display, tier_display_full
 
     rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
 
@@ -1767,6 +1818,52 @@ async def api_ranked_season(request):
         r["tier_display"] = tier_display(r["tier"])
         if r.get("title_emoji"):
             r["title_emoji"] = _web_emoji(r["title_emoji"])
+
+        # 디비전 정보 추가
+        placement_done = r.get("placement_done", True)
+        if not placement_done:
+            r["division_display"] = f"🎯 배치중 ({r.get('placement_games', 0)}/5)"
+        else:
+            div = config.get_division_info(r["rp"])
+            r["division_display"] = config.tier_division_display(
+                div[0], div[1], div[2],
+                placement_done=True, total_rp=r["rp"])
+            r["division"] = div[1]
+            r["division_rp"] = div[2]
+
+        # MMR 포함 (대시보드에서는 표시)
+        r["mmr"] = r.get("mmr", 1200)
+
+    # --- Tier distribution ---
+    try:
+        all_recs = await pool.fetch("""
+            SELECT rp, placement_done, placement_games
+            FROM season_records WHERE season_id = $1
+        """, season_id)
+    except Exception:
+        all_recs = []
+
+    tier_distribution = {}
+    total_players = len(all_recs)
+    for rec in all_recs:
+        pd = rec.get("placement_done", True)
+        if not pd:
+            pg = rec.get("placement_games", 0)
+            key = "placement" if pg and pg > 0 else "unranked"
+        else:
+            div_info = config.get_division_info(rec["rp"])
+            key = div_info[0]
+        tier_distribution[key] = tier_distribution.get(key, 0) + 1
+
+    # Challenger: top N masters
+    master_count = tier_distribution.get("master", 0)
+    if master_count > 0:
+        challenger_n = min(master_count, config.CHALLENGER_TOP_N)
+        # Count how many in ranking have tier="challenger"
+        ch_count = sum(1 for r in ranking if r.get("tier") == "challenger")
+        if ch_count > 0:
+            tier_distribution["challenger"] = ch_count
+            tier_distribution["master"] = max(0, master_count - ch_count)
 
     return pg_json_response({
         "season": {
@@ -1778,6 +1875,8 @@ async def api_ranked_season(request):
             "ends_at": str(season["ends_at"]),
         },
         "ranking": ranking,
+        "tier_distribution": tier_distribution,
+        "total_players": total_players,
     })
 
 
