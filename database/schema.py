@@ -660,8 +660,6 @@ MMR_MIGRATIONS = [
     # 4. seasons: 중간 리셋
     "ALTER TABLE seasons ADD COLUMN mid_reset_done BOOLEAN NOT NULL DEFAULT FALSE",
 
-    # 5. 하위호환: 기존 유저 배치 완료 처리
-    "UPDATE season_records SET placement_done = TRUE WHERE (ranked_wins + ranked_losses) > 0",
 ]
 
 ULTRA_LEGENDARY_MIGRATIONS = [
