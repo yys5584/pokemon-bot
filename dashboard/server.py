@@ -4439,14 +4439,12 @@ def create_app() -> web.Application:
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all: serve index.html for all non-API, non-static paths
-    SPA_PAGES = {"/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin", "/market"}
+    SPA_PAGES = {"/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin", "/market", "/camp"}
     for p in SPA_PAGES:
         app.router.add_get(p, index)
     # Board deep-link sub-routes
     app.router.add_get("/board/post/{id}", index)
     app.router.add_get("/board/{sub}", index)
-    # Guide deep-link sub-routes
-    app.router.add_get("/guide/{sub}", index)
     # Admin deep-link sub-routes
     app.router.add_get("/admin/{sub}", index)
     return app

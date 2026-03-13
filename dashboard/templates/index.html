@@ -534,17 +534,6 @@
         .skill-tip-divider{border-top:1px solid #333;margin:5px 0}
         .skill-tip-desc{font-size:10px;color:#aaa;margin-top:4px;line-height:1.5}
         .guide-card code{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid var(--border)}
-        .guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
-        .guide-grid-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 14px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
-        .guide-grid-card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.1);border-color:var(--red)}
-        .guide-grid-card:active{transform:translateY(-1px)}
-        .guide-grid-icon{font-size:32px;margin-bottom:6px}
-        .guide-grid-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px}
-        .guide-grid-desc{font-size:11px;color:var(--muted);line-height:1.4}
-        .guide-back-bar{margin-bottom:12px}
-        .guide-back-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;transition:all .15s}
-        .guide-back-btn:hover{background:var(--hover);border-color:#999}
-        @media(max-width:600px){.guide-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}.guide-grid-card{padding:14px 10px}.guide-grid-icon{font-size:26px}.guide-grid-title{font-size:12px}.guide-grid-desc{font-size:10px}}
         .board-side-item{padding:8px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;transition:background .15s}
         .board-side-item:hover{background:var(--border)}
         .board-side-item.active{background:#58a6ff22;color:#58a6ff}
@@ -775,6 +764,7 @@
         <div class="nav-tab" data-page="market">🏪 거래소</div>
         <div class="nav-tab" data-page="tier">푸키몬 티어</div>
         <div class="nav-tab" data-page="guide">📖 가이드</div>
+        <div class="nav-tab" data-page="camp">🏕️ 캠프</div>
         <div class="nav-tab" data-page="stats">통계</div>
         <div class="nav-tab" data-page="mypokemon"><img src="/static/icons/container.png" style="width:16px;height:16px;vertical-align:middle;margin-right:2px"> 내 푸키몬</div>
         <div class="nav-tab" data-page="pokedex">📖 도감</div>
@@ -1126,113 +1116,24 @@
         <!-- GUIDE -->
         <div class="page" id="page-guide">
             <div class="section">
-                <!-- 가이드 목차 (카드 그리드) -->
-                <div id="guideIndex">
-                    <h2>📖 푸키몬 가이드</h2>
-                    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">푸키몬 봇의 모든 시스템을 상세하게 안내합니다. 카테고리를 선택하세요!</p>
-                    <div class="guide-grid">
-                        <div class="guide-grid-card" onclick="openGuide('start')"><div class="guide-grid-icon">🎓</div><div class="guide-grid-title">시작하기</div><div class="guide-grid-desc">튜토리얼, 기본 플레이 사이클</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('catch')"><div class="guide-grid-icon">🔴</div><div class="guide-grid-title">포획</div><div class="guide-grid-desc">볼 종류, 포획률, 이로치</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('rarity')"><div class="guide-grid-icon">🎯</div><div class="guide-grid-title">등급 & 출현</div><div class="guide-grid-desc">5등급 시스템, 심야 보너스</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('nurture')"><div class="guide-grid-icon">💕</div><div class="guide-grid-title">육성</div><div class="guide-grid-desc">친밀도, IV, 진화</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('fusion')"><div class="guide-grid-icon">🔀</div><div class="guide-grid-title">합성</div><div class="guide-grid-desc">같은 종 합성, 이로치 특전</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('battle')"><div class="guide-grid-icon">⚔️</div><div class="guide-grid-title">배틀</div><div class="guide-grid-desc">데미지 공식, 상성, 보상</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('ranked')"><div class="guide-grid-icon">🏟️</div><div class="guide-grid-title">시즌 랭크전</div><div class="guide-grid-desc">티어, MMR, 시즌 법칙</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('typechart')"><div class="guide-grid-icon">🔥</div><div class="guide-grid-title">상성표</div><div class="guide-grid-desc">18타입 상성 차트</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('tournament')"><div class="guide-grid-icon">🏆</div><div class="guide-grid-title">대회</div><div class="guide-grid-desc">토너먼트 일정, 보상</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('trade')"><div class="guide-grid-icon">🔄</div><div class="guide-grid-title">거래 & 교환</div><div class="guide-grid-desc">거래소, 그룹 교환</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('shop')"><div class="guide-grid-icon">🛒</div><div class="guide-grid-title">BP 상점</div><div class="guide-grid-desc">아이템 가격, 아케이드</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('mission')"><div class="guide-grid-icon">📋</div><div class="guide-grid-title">일일 미션</div><div class="guide-grid-desc">4개 미션, 올클리어 보상</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('cxp')"><div class="guide-grid-icon">🏠</div><div class="guide-grid-title">채팅방</div><div class="guide-grid-desc">레벨, CXP, 채팅방 혜택</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('camp')"><div class="guide-grid-icon">🏕️</div><div class="guide-grid-title">캠프</div><div class="guide-grid-desc">월드맵, 지역 배치, 점수</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('titles')"><div class="guide-grid-icon">🎖️</div><div class="guide-grid-title">칭호</div><div class="guide-grid-desc">60종+ 칭호, 버프 효과</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('subscribe')"><div class="guide-grid-icon">💎</div><div class="guide-grid-title">구독</div><div class="guide-grid-desc">베이직, 채널장 플랜</div></div>
-                        <div class="guide-grid-card" onclick="openGuide('commands')"><div class="guide-grid-icon">💬</div><div class="guide-grid-title">명령어</div><div class="guide-grid-desc">그룹/DM 명령어 총정리</div></div>
-                    </div>
-                </div>
+                <h2>📖 푸키몬 가이드</h2>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:16px">푸키몬 봇의 모든 시스템을 한눈에! 카테고리를 클릭하면 상세 정보가 펼쳐집니다.</p>
 
-                <!-- ===== 시작하기 (튜토리얼) ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
-                    <div class="guide-card">
-                        <h3>🎓 시작하기</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">처음 오셨나요? 푸키몬 봇의 기본을 빠르게 알아보세요!</p>
-
-                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(76,175,80,.08),rgba(33,150,243,.08));border:1px solid rgba(76,175,80,.15);border-radius:12px;padding:16px;margin-bottom:16px">
-                            <h4 style="margin-top:0">🚀 시작 흐름</h4>
-                            <div class="flow-diagram">
-                                <div class="flow-node"><div class="flow-node-icon">💬</div><div class="flow-node-text">봇에 /start</div><div class="flow-node-sub">DM 시작</div></div>
-                                <span class="flow-arrow">→</span>
-                                <div class="flow-node"><div class="flow-node-icon">📚</div><div class="flow-node-text">튜토리얼</div><div class="flow-node-sub">포획 연습</div></div>
-                                <span class="flow-arrow">→</span>
-                                <div class="flow-node"><div class="flow-node-icon">🎁</div><div class="flow-node-text">졸업 보상</div><div class="flow-node-sub">마볼2 + 200BP</div></div>
-                                <span class="flow-arrow">→</span>
-                                <div class="flow-node"><div class="flow-node-icon">🌍</div><div class="flow-node-text">채팅방 참여</div><div class="flow-node-sub">본격 시작!</div></div>
-                            </div>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>📚 튜토리얼 단계</h4>
-                            <table class="guide-table">
-                                <tr><th>단계</th><th>내용</th><th>보상</th></tr>
-                                <tr><td>1단계</td><td>🔴 포켓볼로 <b>이브이</b>(레어) 포획</td><td>포획 체험</td></tr>
-                                <tr><td>2단계</td><td>🔵 하이퍼볼로 <b>미뇽</b>(레어) 포획</td><td>하이퍼볼 체험</td></tr>
-                                <tr><td>3단계</td><td>🟣 마스터볼로 <b>전설 포켓몬</b> 포획!</td><td>전설 1마리 확보</td></tr>
-                                <tr><td>졸업</td><td>튜토리얼 완료!</td><td>🟣 마스터볼 ×2 + 200 BP</td></tr>
-                            </table>
-                            <p style="font-size:11px;color:var(--muted);margin-top:6px">💡 3단계에서 받는 전설은 프리져, 썬더, 파이어, 뮤츠, 뮤 등 랜덤!</p>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>🎮 기본 플레이 사이클</h4>
-                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:8px">
-                                <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-                                    <div style="font-size:24px;margin-bottom:4px">🔴</div>
-                                    <div style="font-weight:700;font-size:12px;margin-bottom:2px">포획하기</div>
-                                    <div style="font-size:11px;color:var(--muted)">채팅방에 포켓몬 등장 → <code>ㅊ</code> 입력</div>
-                                </div>
-                                <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-                                    <div style="font-size:24px;margin-bottom:4px">💕</div>
-                                    <div style="font-weight:700;font-size:12px;margin-bottom:2px">육성하기</div>
-                                    <div style="font-size:11px;color:var(--muted)">DM에서 밥주기, 놀아주기 → 친밀도 UP</div>
-                                </div>
-                                <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-                                    <div style="font-size:24px;margin-bottom:4px">⚔️</div>
-                                    <div style="font-weight:700;font-size:12px;margin-bottom:2px">배틀하기</div>
-                                    <div style="font-size:11px;color:var(--muted)">팀 편성 후 다른 트레이너와 대전</div>
-                                </div>
-                                <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-                                    <div style="font-size:24px;margin-bottom:4px">📈</div>
-                                    <div style="font-weight:700;font-size:12px;margin-bottom:2px">성장하기</div>
-                                    <div style="font-size:11px;color:var(--muted)">도감 채우고, 칭호 해금, 랭크전 도전!</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>💡 초보자 꿀팁</h4>
-                            <ul class="guide-list">
-                                <li>💰 BP를 빨리 모으려면 <b>일일 미션</b>을 꼭 클리어하세요 (미션당 50 BP + 올클리어 시 마스터볼!)</li>
-                                <li>⚔️ 배틀에서 지더라도 <b>5 BP 참여 보상</b>이 있으니 적극 도전!</li>
-                                <li>🍖 매일 포켓몬에게 <b>밥주기 3회 + 놀아주기 2회</b> → 친밀도가 올라가면 능력치 UP + 진화</li>
-                                <li>🔵 <b>하이퍼볼</b>(포획률 3배)을 아껴두었다가 에픽/전설에 사용하세요</li>
-                                <li>📊 이 대시보드(tgpoke.com)에서 내 포켓몬, 도감, AI 팀 추천까지 확인 가능!</li>
-                            </ul>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>📍 어디서 플레이하나요?</h4>
-                            <table class="guide-table">
-                                <tr><th>장소</th><th>할 수 있는 것</th></tr>
-                                <tr><td><b>텔레그램 그룹 채팅방</b></td><td>포획, 배틀, 교환, 아케이드, 대회 참가</td></tr>
-                                <tr><td><b>텔레그램 봇 DM</b></td><td>상태창, 도감, 육성, 팀편성, 거래소, 합성, 랭크전, 미션</td></tr>
-                                <tr><td><b>tgpoke.com (여기!)</b></td><td>내 포켓몬 관리, 도감, AI 팀 추천, 순위표, 게시판</td></tr>
-                            </table>
-                        </div>
-                    </div>
+                <!-- 가이드 탭 네비게이션 -->
+                <div id="guideTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+                    <button class="guide-tab active" data-guide="battle" onclick="switchGuide('battle')">⚔️ 배틀</button>
+                    <button class="guide-tab" data-guide="ranked" onclick="switchGuide('ranked')">🏟️ 시즌 랭크전</button>
+                    <button class="guide-tab" data-guide="typechart" onclick="switchGuide('typechart')">🔥 상성표</button>
+                    <button class="guide-tab" data-guide="rarity" onclick="switchGuide('rarity')">🎯 등급 & 출현</button>
+                    <button class="guide-tab" data-guide="catch" onclick="switchGuide('catch')">🔴 포획</button>
+                    <button class="guide-tab" data-guide="nurture" onclick="switchGuide('nurture')">💕 육성</button>
+                    <button class="guide-tab" data-guide="trade" onclick="switchGuide('trade')">🔄 거래 & 교환</button>
+                    <button class="guide-tab" data-guide="mission" onclick="switchGuide('mission')">📋 일일 미션</button>
+                    <button class="guide-tab" data-guide="cxp" onclick="switchGuide('cxp')">🏠 채팅방</button>
                 </div>
 
                 <!-- ===== 시즌 랭크전 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
+                <div class="guide-section" id="guide-ranked">
                     <div class="guide-card">
                         <h3>🏟️ 시즌 랭크전</h3>
                         <p style="color:var(--muted);font-size:12px;margin-bottom:16px">LoL 스타일 랭크 시스템! 배치전을 치르고, 숨겨진 MMR 기반 매칭으로 실력에 맞는 상대와 대결하세요.</p>
@@ -1480,7 +1381,7 @@
                 </div>
 
                 <!-- ===== 상성표 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
+                <div class="guide-section" id="guide-typechart">
                     <div class="guide-card">
                         <h3>🔥 타입 상성표 (18타입)</h3>
 
@@ -1514,7 +1415,7 @@
                 </div>
 
                 <!-- ===== 배틀 시스템 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
+                <div class="guide-section active" id="guide-battle">
                     <div class="guide-card">
                         <h3>⚔️ 배틀 시스템</h3>
                         <p style="color:var(--muted);font-size:12px;margin-bottom:12px">그룹 채팅에서 <code>배틀 @상대</code>로 도전! 자동 턴제 6vs6 배틀입니다.</p>
@@ -1595,7 +1496,7 @@
                 </div>
 
                 <!-- ===== 등급 & 출현 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
+                <div class="guide-section" id="guide-rarity">
                     <div class="guide-card">
                         <h3>🎯 포켓몬 등급 & 출현률</h3>
                         <p style="color:var(--muted);font-size:12px;margin-bottom:12px">포켓몬은 5가지 등급으로 분류되며, 등급별 출현 확률이 다릅니다.</p>
@@ -1633,7 +1534,7 @@
                 </div>
 
                 <!-- ===== 포획 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
+                <div class="guide-section" id="guide-catch">
                     <div class="guide-card">
                         <h3>🔴 포획 가이드</h3>
                         <p style="color:var(--muted);font-size:12px;margin-bottom:12px">채팅방에 포켓몬이 출현하면 60초 안에 <code>ㅊ</code>을 입력해 포획!</p>
@@ -1669,10 +1570,9 @@
                             <h4>✨ 이로치 (색이 다른 포켓몬)</h4>
                             <table class="guide-table">
                                 <tr><th>스폰 종류</th><th>이로치 확률</th></tr>
-                                <tr><td>자연 스폰</td><td>0% (이벤트 한정)</td></tr>
+                                <tr><td>자연 스폰</td><td>10%</td></tr>
                                 <tr><td>강제 스폰</td><td>2%</td></tr>
                                 <tr><td>아케이드</td><td>1%</td></tr>
-                                <tr><td>Lv.4+ 일일 이로치</td><td>확정 1회/일</td></tr>
                             </table>
                             <p style="font-size:11px;color:var(--muted);margin-top:4px">이로치는 최소 IV 10 보장 + 최대 친밀도 7 (일반 5)</p>
                         </div>
@@ -1680,7 +1580,7 @@
                 </div>
 
                 <!-- ===== 육성 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
+                <div class="guide-section" id="guide-nurture">
                     <div class="guide-card">
                         <h3>💕 육성 가이드</h3>
                         <p style="color:var(--muted);font-size:12px;margin-bottom:12px">DM에서 포켓몬에게 밥을 주고 놀아주며 친밀도를 올려보세요!</p>
@@ -1731,69 +1631,8 @@
                     </div>
                 </div>
 
-                <!-- ===== 합성 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
-                    <div class="guide-card">
-                        <h3>🔀 합성 시스템</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">같은 종류의 포켓몬 2마리를 합성해 새로운 개체를 만드세요! DM에서 <code>합성</code> 입력.</p>
-
-                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(76,175,80,.06),rgba(139,195,74,.06));border:1px solid rgba(76,175,80,.12);border-radius:12px;padding:16px;margin-bottom:16px">
-                            <h4 style="margin-top:0">🔄 합성 흐름</h4>
-                            <div class="flow-diagram">
-                                <div class="flow-node"><div class="flow-node-icon">🐾</div><div class="flow-node-text">같은 종 2마리</div><div class="flow-node-sub">재료 선택</div></div>
-                                <span class="flow-arrow">→</span>
-                                <div class="flow-node"><div class="flow-node-icon">🔀</div><div class="flow-node-text">합성!</div><div class="flow-node-sub">재료 소멸</div></div>
-                                <span class="flow-arrow">→</span>
-                                <div class="flow-node"><div class="flow-node-icon">✨</div><div class="flow-node-text">새 개체 탄생</div><div class="flow-node-sub">IV 새로 결정</div></div>
-                            </div>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>📌 기본 규칙</h4>
-                            <table class="guide-table">
-                                <tr><th>항목</th><th>내용</th></tr>
-                                <tr><td>조건</td><td><b>같은 종</b>의 포켓몬 2마리 필요</td></tr>
-                                <tr><td>결과</td><td>같은 종의 새 포켓몬 1마리 (IV 새로 랜덤)</td></tr>
-                                <tr><td>재료</td><td>합성에 사용된 2마리는 <b>소멸</b></td></tr>
-                                <tr><td>비용</td><td>무료 (BP 소모 없음)</td></tr>
-                            </table>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>✨ 이로치 합성 특전</h4>
-                            <table class="guide-table">
-                                <tr><th>재료 조합</th><th>결과</th></tr>
-                                <tr><td>이로치 + 이로치</td><td>✨ 이로치 확정 + <b>IV A등급 이상</b> 보장 (120+)</td></tr>
-                                <tr><td>이로치 + 일반</td><td>✨ 이로치 확정, IV는 랜덤</td></tr>
-                                <tr><td>일반 + 일반</td><td>일반 개체, IV 랜덤</td></tr>
-                            </table>
-                            <p style="font-size:11px;color:var(--muted);margin-top:6px">💡 이로치 2마리 합성이 최고 효율! A등급 이상 이로치를 노려보세요.</p>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>🚫 합성 불가 조건</h4>
-                            <ul class="guide-list">
-                                <li>⭐ 즐겨찾기 등록된 포켓몬</li>
-                                <li>⚔️ 배틀 팀에 등록된 포켓몬</li>
-                                <li>🤝 파트너로 지정된 포켓몬</li>
-                                <li>🔒 보호 설정된 포켓몬</li>
-                            </ul>
-                            <p style="font-size:11px;color:var(--muted);margin-top:4px">합성 전에 해당 설정을 먼저 해제해야 합니다.</p>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>💡 합성 전략 팁</h4>
-                            <ul class="guide-list">
-                                <li>🎯 <b>IV 리롤</b> — 낮은 IV 포켓몬 2마리를 합성해 더 높은 IV를 노려보세요</li>
-                                <li>✨ <b>이로치 합성</b> — 이로치끼리 합성하면 A등급+ IV가 보장되어 전투에서 강력합니다</li>
-                                <li>📦 <b>중복 활용</b> — 같은 포켓몬이 여러 마리면 합성으로 최고 개체를 뽑아내세요</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- ===== 거래 & 교환 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
+                <div class="guide-section" id="guide-trade">
                     <div class="guide-card">
                         <h3>🔄 거래소 & 교환</h3>
 
@@ -1839,7 +1678,7 @@
                 </div>
 
                 <!-- ===== 일일 미션 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
+                <div class="guide-section" id="guide-mission">
                     <div class="guide-card">
                         <h3>📋 일일 미션</h3>
                         <p style="color:var(--muted);font-size:12px;margin-bottom:12px">매일 4개의 랜덤 미션! DM에서 <code>미션</code>으로 확인하세요.</p>
@@ -1869,7 +1708,7 @@
                 </div>
 
                 <!-- ===== 채팅방 레벨 (CXP) ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
+                <div class="guide-section" id="guide-cxp">
                     <div class="guide-card">
                         <h3>🏠 채팅방 레벨 시스템 (CXP)</h3>
                         <p style="color:var(--muted);font-size:12px;margin-bottom:12px">채팅방이 활발할수록 레벨이 올라가고, 모든 멤버가 혜택을 받아요!</p>
@@ -1920,324 +1759,237 @@
                     </div>
                 </div>
 
-                <!-- ===== 대회 (토너먼트) ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
-                    <div class="guide-card">
-                        <h3>🏆 토너먼트 (대회)</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">매일 밤 열리는 토너먼트에 참가해 마스터볼과 이로치 포켓몬을 획득하세요!</p>
+            </div>
+        </div>
 
-                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(255,215,0,.08),rgba(255,107,53,.08));border:1px solid rgba(255,215,0,.15);border-radius:12px;padding:16px;margin-bottom:16px">
-                            <h4 style="margin-top:0">🎮 대회 일정</h4>
-                            <div class="flow-diagram">
-                                <div class="flow-node"><div class="flow-node-icon">📢</div><div class="flow-node-text">21:00 접수</div><div class="flow-node-sub">채팅방에서 ㄷ</div></div>
-                                <span class="flow-arrow">→</span>
-                                <div class="flow-node"><div class="flow-node-icon">⚔️</div><div class="flow-node-text">22:00 시작</div><div class="flow-node-sub">자동 토너먼트</div></div>
-                                <span class="flow-arrow">→</span>
-                                <div class="flow-node"><div class="flow-node-icon">🏆</div><div class="flow-node-text">결승전</div><div class="flow-node-sub">1:1 배틀</div></div>
-                                <span class="flow-arrow">→</span>
-                                <div class="flow-node"><div class="flow-node-icon">🎁</div><div class="flow-node-text">보상 지급</div><div class="flow-node-sub">즉시 지급</div></div>
-                            </div>
-                        </div>
+        <!-- CAMP GUIDE -->
+        <div class="page" id="page-camp">
+            <div class="section">
+                <h2>🏕️ 캠프 시스템</h2>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:16px">채팅방 멤버들과 함께 캠프를 운영하세요! 포켓몬을 배치하고 조각을 모아 이로치를 만들 수 있습니다.</p>
 
-                        <div class="guide-block">
-                            <h4>📌 참가 방법</h4>
-                            <table class="guide-table">
-                                <tr><th>항목</th><th>내용</th></tr>
-                                <tr><td>참가 명령어</td><td>채팅방에서 <code>ㄷ</code> 입력 (21:00~22:00)</td></tr>
-                                <tr><td>최소 인원</td><td>4명 이상 참가해야 개최</td></tr>
-                                <tr><td>팀 구성</td><td>등록된 배틀 팀으로 자동 참가</td></tr>
-                                <tr><td>진행 방식</td><td>토너먼트 대진표 자동 생성 + 자동 배틀</td></tr>
-                            </table>
-                        </div>
+                <!-- 월드맵 -->
+                <div style="text-align:center;margin-bottom:20px">
+                    <img src="/camp-assets/map_base.png" alt="캠프 월드맵" style="max-width:100%;border-radius:14px;border:1px solid var(--border);box-shadow:0 4px 20px rgba(0,0,0,.12)">
+                    <p style="font-size:11px;color:var(--muted);margin-top:6px">🗺️ 6개의 필드에 포켓몬을 배치하고 조각을 모으세요!</p>
+                </div>
 
-                        <div class="guide-block">
-                            <h4>🎁 대회 보상</h4>
-                            <table class="guide-table">
-                                <tr><th>순위</th><th>보상</th></tr>
-                                <tr><td style="color:#FFD700;font-weight:700">🥇 우승</td><td>마스터볼 3개 + 보너스 BP</td></tr>
-                                <tr><td style="color:#C0C0C0;font-weight:700">🥈 준우승</td><td>마스터볼 2개 + BP</td></tr>
-                                <tr><td style="color:#CD7F32;font-weight:700">🥉 4강</td><td>마스터볼 2개</td></tr>
-                                <tr><td>🏅 4위 (특별상)</td><td>✨ 에픽 등급 이로치 포켓몬!</td></tr>
-                                <tr><td>참가자</td><td>마스터볼 1개 (참가 보상)</td></tr>
-                            </table>
-                            <p style="font-size:11px;color:var(--muted);margin-top:6px">💡 4위에게 이로치를 주는 독특한 보상 구조! 꼴찌를 응원하세요 😄</p>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>💡 대회 팁</h4>
-                            <ul class="guide-list">
-                                <li>⚔️ 대회 전에 <b>팀 편성</b>을 미리 해두세요 (DM에서 <code>팀</code> 입력)</li>
-                                <li>🔄 상성을 고려한 밸런스 좋은 팀이 유리합니다</li>
-                                <li>📅 매일 밤 열리므로 꾸준히 참가하면 마스터볼을 모을 수 있어요</li>
-                            </ul>
-                        </div>
+                <!-- 캠프 흐름 -->
+                <div class="guide-card" style="margin-bottom:16px;background:linear-gradient(135deg,rgba(76,175,80,.06),rgba(255,183,77,.06));border:1px solid rgba(76,175,80,.15)">
+                    <h3 style="margin-top:0">🎮 캠프 플레이 흐름</h3>
+                    <div class="flow-diagram">
+                        <div class="flow-node"><div class="flow-node-icon">🏕️</div><div class="flow-node-text">캠프 개설</div><div class="flow-node-sub">100명+ 방장</div></div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node"><div class="flow-node-icon">🐾</div><div class="flow-node-text">포켓몬 배치</div><div class="flow-node-sub">필드에 배치</div></div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node"><div class="flow-node-icon">⏳</div><div class="flow-node-text">라운드 정산</div><div class="flow-node-sub">3시간마다</div></div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node"><div class="flow-node-icon">💎</div><div class="flow-node-text">조각 획득</div><div class="flow-node-sub">필드별 조각</div></div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node"><div class="flow-node-icon">✨</div><div class="flow-node-text">이로치 전환</div><div class="flow-node-sub">조각 소모</div></div>
                     </div>
                 </div>
 
-                <!-- ===== BP 상점 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
-                    <div class="guide-card">
-                        <h3>🛒 BP 상점</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">배틀 포인트(BP)로 다양한 아이템을 구매하세요! DM에서 <code>상점</code> 입력.</p>
-
-                        <div class="guide-block">
-                            <h4>🏪 상점 품목</h4>
-                            <table class="guide-table">
-                                <tr><th>아이템</th><th>가격</th><th>설명</th></tr>
-                                <tr><td>🟣 마스터볼</td><td><b>200 BP</b> (1일 1개째)<br>300 BP (2개째)<br>500 BP (3개째)</td><td>100% 확정 포획. 하루 구매 횟수에 따라 가격 상승</td></tr>
-                                <tr><td>🔵 하이퍼볼</td><td><b>20 BP</b>/개</td><td>포획률 3배. 에픽/전설에 사용 추천</td></tr>
-                                <tr><td>🔴 포켓볼 충전</td><td><b>200 BP</b></td><td>포켓볼 100개 즉시 충전</td></tr>
-                                <tr><td>🎟️ 강제 소환권</td><td><b>500 BP</b></td><td>채팅방에 포켓몬 즉시 소환</td></tr>
-                                <tr><td>🎰 아케이드 패스</td><td><b>200 BP</b></td><td>1시간 동안 30초마다 포켓몬 출현!</td></tr>
-                            </table>
+                <!-- 6개 필드 -->
+                <div class="guide-card" style="margin-bottom:16px">
+                    <h3>🗺️ 6개 필드</h3>
+                    <p style="color:var(--muted);font-size:12px;margin-bottom:12px">각 필드에는 보너스 타입이 있습니다. 타입이 맞는 포켓몬을 배치하면 추가 점수!</p>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
+                        <div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border:1px solid #A5D6A7;border-radius:12px;padding:14px;text-align:center">
+                            <div style="font-size:28px">🌿</div>
+                            <div style="font-weight:700;font-size:14px;color:#2E7D32;margin:4px 0">숲</div>
+                            <div style="font-size:11px;color:#388E3C">풀 / 벌레 / 독</div>
                         </div>
-
-                        <div class="guide-block">
-                            <h4>💰 BP 획득 방법 총정리</h4>
-                            <table class="guide-table">
-                                <tr><th>활동</th><th>BP</th></tr>
-                                <tr><td>⚔️ 배틀 승리</td><td>20 BP + 상대 팀 수 × 2 BP</td></tr>
-                                <tr><td>⚔️ 배틀 패배</td><td>5 BP (참여 보상)</td></tr>
-                                <tr><td>🏆 무피해 완승</td><td>+50 BP 보너스</td></tr>
-                                <tr><td>🔥 3연승 보너스</td><td>3연승마다 +10 BP</td></tr>
-                                <tr><td>📋 일일 미션</td><td>미션당 50 BP</td></tr>
-                                <tr><td>🏆 대회 입상</td><td>순위에 따라 BP 지급</td></tr>
-                                <tr><td>🏟️ 랭크전 시즌 보상</td><td>티어별 시즌 종료 BP</td></tr>
-                            </table>
+                        <div style="background:linear-gradient(135deg,#FBE9E7,#FFCCBC);border:1px solid #FFAB91;border-radius:12px;padding:14px;text-align:center">
+                            <div style="font-size:28px">🔥</div>
+                            <div style="font-weight:700;font-size:14px;color:#BF360C;margin:4px 0">화산</div>
+                            <div style="font-size:11px;color:#D84315">불꽃 / 드래곤 / 격투</div>
                         </div>
-
-                        <div class="guide-block">
-                            <h4>🎰 아케이드 모드</h4>
-                            <ul class="guide-list">
-                                <li>아케이드 패스 사용 시 <b>1시간</b> 동안 채팅방에서 <b>30초마다</b> 포켓몬이 출현!</li>
-                                <li>포획 시간은 <b>25초</b>로 짧으니 빠르게 반응하세요</li>
-                                <li>Lv.8 이상 채팅방은 하루 1시간 <b>자동 아케이드</b> 혜택</li>
-                                <li>아케이드 등록에는 최소 <b>10명</b> 이상인 채팅방이어야 합니다</li>
-                            </ul>
+                        <div style="background:linear-gradient(135deg,#E3F2FD,#BBDEFB);border:1px solid #90CAF9;border-radius:12px;padding:14px;text-align:center">
+                            <div style="font-size:28px">💧</div>
+                            <div style="font-weight:700;font-size:14px;color:#1565C0;margin:4px 0">호수</div>
+                            <div style="font-size:11px;color:#1976D2">물 / 얼음 / 비행</div>
                         </div>
+                        <div style="background:linear-gradient(135deg,#FFF8E1,#FFECB3);border:1px solid #FFD54F;border-radius:12px;padding:14px;text-align:center">
+                            <div style="font-size:28px">⚡</div>
+                            <div style="font-weight:700;font-size:14px;color:#F57F17;margin:4px 0">도시</div>
+                            <div style="font-size:11px;color:#F9A825">전기 / 강철 / 노말</div>
+                        </div>
+                        <div style="background:linear-gradient(135deg,#EFEBE9,#D7CCC8);border:1px solid #BCAAA4;border-radius:12px;padding:14px;text-align:center">
+                            <div style="font-size:28px">🪨</div>
+                            <div style="font-weight:700;font-size:14px;color:#4E342E;margin:4px 0">동굴</div>
+                            <div style="font-size:11px;color:#5D4037">땅 / 바위 / 고스트</div>
+                        </div>
+                        <div style="background:linear-gradient(135deg,#F3E5F5,#E1BEE7);border:1px solid #CE93D8;border-radius:12px;padding:14px;text-align:center">
+                            <div style="font-size:28px">🔮</div>
+                            <div style="font-weight:700;font-size:14px;color:#6A1B9A;margin:4px 0">신전</div>
+                            <div style="font-size:11px;color:#7B1FA2">에스퍼 / 악 / 페어리</div>
+                        </div>
+                    </div>
+                    <p style="font-size:11px;color:var(--muted);margin-top:10px">💡 Lv.1은 1개 필드, 레벨업하면 최대 6개 필드까지 해금! 개설 시 숲/화산/호수 중 선택.</p>
+                </div>
+
+                <!-- 캠프 레벨 -->
+                <div class="guide-card" style="margin-bottom:16px">
+                    <h3>📈 캠프 레벨 (Lv.1~10)</h3>
+                    <p style="color:var(--muted);font-size:12px;margin-bottom:12px">라운드마다 쌓이는 XP로 캠프가 성장합니다. 레벨이 오르면 필드와 슬롯이 늘어나요!</p>
+                    <table class="guide-table">
+                        <tr><th>Lv</th><th>이름</th><th>필드 수</th><th>기본 슬롯</th><th>필드 캡</th><th>필요 XP</th></tr>
+                        <tr><td>1</td><td>🏜️ 빈 터</td><td>1</td><td>10</td><td>3</td><td>0</td></tr>
+                        <tr><td>2</td><td>⛺ 작은 텐트</td><td>2</td><td>10</td><td>3</td><td>48</td></tr>
+                        <tr><td>3</td><td>🔥 캠프파이어</td><td>2</td><td>12</td><td>4</td><td>96</td></tr>
+                        <tr><td>4</td><td>🎪 텐트 마을</td><td>3</td><td>12</td><td>4</td><td>250</td></tr>
+                        <tr><td>5</td><td>🏚️ 통나무집</td><td>3</td><td>14</td><td>5</td><td>400</td></tr>
+                        <tr><td>6</td><td>🌱 작은 정원</td><td>4</td><td>14</td><td>5</td><td>550</td></tr>
+                        <tr><td>7</td><td>🏡 울타리 집</td><td>4</td><td>16</td><td>6</td><td>700</td></tr>
+                        <tr><td>8</td><td>💧 물레방아</td><td>5</td><td>16</td><td>6</td><td>900</td></tr>
+                        <tr><td>9</td><td>🏘️ 작은 마을</td><td>5</td><td>18</td><td>7</td><td>1100</td></tr>
+                        <tr><td>10</td><td>🏛️ 마을 광장</td><td>6</td><td>18</td><td>8</td><td>1500</td></tr>
+                    </table>
+                    <p style="font-size:11px;color:var(--muted);margin-top:6px">💡 멤버 500명당 필드 슬롯 +1 추가 보너스!</p>
+                </div>
+
+                <!-- 라운드 시스템 -->
+                <div class="guide-card" style="margin-bottom:16px">
+                    <h3>⏰ 라운드 시스템</h3>
+                    <p style="color:var(--muted);font-size:12px;margin-bottom:12px">하루 6라운드, 3시간 간격으로 자동 진행됩니다.</p>
+
+                    <div class="guide-block">
+                        <h4>📅 라운드 시간표 (KST)</h4>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+                            <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9">09:00</span>
+                            <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7">12:00</span>
+                            <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#FFF3E0;color:#E65100;border:1px solid #FFCC80">15:00</span>
+                            <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#FCE4EC;color:#C62828;border:1px solid #F48FB1">18:00</span>
+                            <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#F3E5F5;color:#6A1B9A;border:1px solid #CE93D8">21:00</span>
+                            <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#E0E0E0;color:#424242;border:1px solid #BDBDBD">00:00</span>
+                        </div>
+                    </div>
+
+                    <div class="guide-block">
+                        <h4>🔄 라운드 진행 과정</h4>
+                        <table class="guide-table">
+                            <tr><th>단계</th><th>시간</th><th>설명</th></tr>
+                            <tr><td>📢 접수</td><td>30분</td><td>포켓몬 배치 접수 (선착순 or 승인제)</td></tr>
+                            <tr><td>⏳ 파밍</td><td>2시간 30분</td><td>배치된 포켓몬이 조각 생산</td></tr>
+                            <tr><td>💰 정산</td><td>라운드 종료 시</td><td>점수 계산 → 조각 지급 + XP 적립</td></tr>
+                        </table>
+                    </div>
+
+                    <div class="guide-block">
+                        <h4>🎯 보너스 포켓몬</h4>
+                        <p>매 라운드마다 각 필드에 <b>보너스 포켓몬</b>이 지정됩니다. 해당 포켓몬을 배치하면 추가 점수!</p>
+                        <table class="guide-table">
+                            <tr><th>조건</th><th>점수</th></tr>
+                            <tr><td>타입 매칭만</td><td>1점</td></tr>
+                            <tr><td><b style="color:#2E7D32">보너스 포켓몬</b> 배치</td><td><b>2점</b></td></tr>
+                            <tr><td>보너스 + IV 조건 충족</td><td><b>4점</b></td></tr>
+                            <tr><td>보너스 + 이로치</td><td><b>4점</b></td></tr>
+                            <tr><td><b style="color:#e74c3c">보너스 + IV + 이로치</b></td><td><b style="color:#e74c3c">7점</b></td></tr>
+                        </table>
                     </div>
                 </div>
 
-                <!-- ===== 캠프 시스템 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
-                    <div class="guide-card">
-                        <h3>🏕️ 캠프 시스템</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">채팅방 멤버들과 함께 캠프를 운영하세요! 포켓몬을 배치하고 점수를 올려 보상을 획득합니다.</p>
+                <!-- 배치 규칙 -->
+                <div class="guide-card" style="margin-bottom:16px">
+                    <h3>🐾 배치 규칙</h3>
 
-                        <div class="guide-block" style="text-align:center;padding:16px">
-                            <h4 style="margin-top:0">🗺️ 캠프 월드맵</h4>
-                            <img src="/camp-assets/map_base.png" alt="캠프 월드맵" style="max-width:100%;border-radius:12px;border:1px solid var(--border);margin:8px 0;box-shadow:0 4px 16px rgba(0,0,0,.1)">
-                            <p style="font-size:11px;color:var(--muted);margin-top:4px">🌍 5개의 지역에 포켓몬을 배치하고, 캠프 점수를 올려보세요!</p>
-                        </div>
+                    <div class="guide-block">
+                        <h4>📊 일일 배치 횟수 (도감 수 기준)</h4>
+                        <table class="guide-table">
+                            <tr><th>도감 수</th><th>일일 배치 횟수</th></tr>
+                            <tr><td>0~50</td><td>2회</td></tr>
+                            <tr><td>51~100</td><td>3회</td></tr>
+                            <tr><td>101~200</td><td>4회</td></tr>
+                            <tr><td>201~300</td><td>5회</td></tr>
+                            <tr><td>301+</td><td>6회</td></tr>
+                        </table>
+                        <p style="font-size:11px;color:var(--muted);margin-top:4px">매일 자정(KST) 초기화. 같은 필드에 교체 배치는 횟수 소모 없음.</p>
+                    </div>
 
-                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(76,175,80,.06),rgba(255,183,77,.06));border:1px solid rgba(76,175,80,.12);border-radius:12px;padding:16px;margin-bottom:16px">
-                            <h4 style="margin-top:0">🎮 캠프 흐름</h4>
-                            <div class="flow-diagram">
-                                <div class="flow-node"><div class="flow-node-icon">🏕️</div><div class="flow-node-text">캠프 참여</div><div class="flow-node-sub">채팅방 캠프</div></div>
-                                <span class="flow-arrow">→</span>
-                                <div class="flow-node"><div class="flow-node-icon">🐾</div><div class="flow-node-text">포켓몬 배치</div><div class="flow-node-sub">지역에 배치</div></div>
-                                <span class="flow-arrow">→</span>
-                                <div class="flow-node"><div class="flow-node-icon">⏳</div><div class="flow-node-text">점수 누적</div><div class="flow-node-sub">시간당 적립</div></div>
-                                <span class="flow-arrow">→</span>
-                                <div class="flow-node"><div class="flow-node-icon">🎁</div><div class="flow-node-text">보상 수령</div><div class="flow-node-sub">BP & 아이템</div></div>
-                            </div>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>🗺️ 5개 지역</h4>
-                            <table class="guide-table">
-                                <tr><th>지역</th><th>타입 보너스</th><th>설명</th></tr>
-                                <tr><td>🌲 <b>숲</b></td><td>풀, 벌레</td><td>풀/벌레 타입 포켓몬 배치 시 점수 보너스</td></tr>
-                                <tr><td>🌊 <b>바다</b></td><td>물, 얼음</td><td>물/얼음 타입 포켓몬 배치 시 점수 보너스</td></tr>
-                                <tr><td>🏔️ <b>산</b></td><td>바위, 땅, 강철</td><td>바위/땅/강철 타입 배치 시 점수 보너스</td></tr>
-                                <tr><td>🏙️ <b>도시</b></td><td>전기, 노말, 격투</td><td>전기/노말/격투 타입 배치 시 점수 보너스</td></tr>
-                                <tr><td>🌌 <b>신비</b></td><td>에스퍼, 고스트, 드래곤, 페어리</td><td>에스퍼/고스트/드래곤/페어리 타입 배치 시 점수 보너스</td></tr>
-                            </table>
-                            <p style="font-size:11px;color:var(--muted);margin-top:6px">💡 지역에 맞는 타입의 포켓몬을 배치하면 추가 점수를 받습니다!</p>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>📊 점수 시스템</h4>
-                            <ul class="guide-list">
-                                <li>배치된 포켓몬의 <b>전투력</b>에 비례해 시간당 점수 적립</li>
-                                <li>타입 보너스 지역에 배치 시 <b>추가 점수</b></li>
-                                <li>이로치 포켓몬 배치 시 <b>보너스 가산</b></li>
-                                <li>캠프 점수가 높을수록 더 좋은 보상 획득</li>
-                            </ul>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>💬 관련 명령어</h4>
-                            <table class="guide-table">
-                                <tr><th>명령어</th><th>위치</th><th>설명</th></tr>
-                                <tr><td><code>캠프</code></td><td>DM</td><td>캠프 현황 확인 및 관리</td></tr>
-                                <tr><td><code>캠프맵</code></td><td>그룹</td><td>캠프 월드맵 이미지 표시</td></tr>
-                                <tr><td><code>배치</code></td><td>DM</td><td>포켓몬 지역 배치</td></tr>
-                                <tr><td><code>회수</code></td><td>DM</td><td>배치된 포켓몬 회수</td></tr>
-                            </table>
-                        </div>
+                    <div class="guide-block">
+                        <h4>📌 배치 모드 (방장 설정)</h4>
+                        <ul class="guide-list">
+                            <li><b>자유 배치 (선착순)</b> — 누구나 빈 슬롯에 바로 배치</li>
+                            <li><b>승인제</b> — 방장이 승인해야 배치 완료 (30분 내 미응답 시 자동 승인)</li>
+                            <li>모드 변경 쿨다운: <b>3시간</b></li>
+                        </ul>
                     </div>
                 </div>
 
-                <!-- ===== 칭호 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
-                    <div class="guide-card">
-                        <h3>🎖️ 칭호 시스템</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">다양한 조건을 달성해 칭호를 해금하세요! 일부 칭호는 능력치 보너스도 줍니다. DM에서 <code>칭호</code> 입력.</p>
+                <!-- 조각 & 이로치 전환 -->
+                <div class="guide-card" style="margin-bottom:16px">
+                    <h3>💎 조각 시스템 & 이로치 전환</h3>
+                    <p style="color:var(--muted);font-size:12px;margin-bottom:12px">조각을 모아서 보유 포켓몬을 이로치로 전환할 수 있습니다!</p>
 
-                        <div class="guide-block">
-                            <h4>📊 자동 칭호 (도감 수 기준)</h4>
-                            <p style="font-size:11px;color:var(--muted);margin-bottom:8px">도감에 등록된 포켓몬 수에 따라 자동으로 부여됩니다.</p>
-                            <table class="guide-table">
-                                <tr><th>칭호</th><th>조건</th></tr>
-                                <tr><td>🌱 초보 트레이너</td><td>도감 6종 이상</td></tr>
-                                <tr><td>📦 포켓몬 수집가</td><td>도감 15종 이상</td></tr>
-                                <tr><td>🎒 포켓몬 트레이너</td><td>도감 45종 이상</td></tr>
-                                <tr><td>⭐ 포켓몬 마스터</td><td>도감 75종 이상</td></tr>
-                                <tr><td>🏆 챔피언</td><td>도감 120종 이상</td></tr>
-                                <tr><td>👑 그랜드마스터</td><td>도감 151종 (1세대 완성!)</td></tr>
-                            </table>
-                        </div>
+                    <div class="guide-block">
+                        <h4>✨ 이로치 전환 비용</h4>
+                        <table class="guide-table">
+                            <tr><th>등급</th><th>조각</th><th>크리스탈</th><th>무지개</th><th>쿨다운</th></tr>
+                            <tr><td>🟢 일반</td><td>12</td><td>-</td><td>-</td><td>6시간</td></tr>
+                            <tr><td>🔵 레어</td><td>24</td><td>-</td><td>-</td><td>12시간</td></tr>
+                            <tr><td>🟣 에픽</td><td>42</td><td>5</td><td>-</td><td>1일</td></tr>
+                            <tr><td>🟡 전설</td><td>60</td><td>15</td><td>-</td><td>2일</td></tr>
+                            <tr><td>🔴 초전설</td><td>84</td><td>25</td><td>3</td><td>3일</td></tr>
+                        </table>
+                        <p style="font-size:11px;color:var(--muted);margin-top:6px">💡 포켓몬 타입에 맞는 필드의 조각이 필요합니다. 듀얼 타입은 어느 쪽이든 OK!</p>
+                    </div>
 
-                        <div class="guide-block">
-                            <h4>🏅 해금 칭호 (업적)</h4>
-                            <p style="font-size:11px;color:var(--muted);margin-bottom:8px">특정 조건 달성 시 해금! 60종 이상의 칭호가 있습니다.</p>
-                            <table class="guide-table">
-                                <tr><th>카테고리</th><th>칭호 예시</th><th>조건</th></tr>
-                                <tr><td>⚔️ 배틀</td><td>배틀 파이터 / 배틀 챔피언 / 배틀 레전드</td><td>배틀 5승 / 20승 / 50승</td></tr>
-                                <tr><td>🔥 연승</td><td>연승 스트리커 / 무적의 전사</td><td>3연승 / 5연승 / 10연승</td></tr>
-                                <tr><td>🎯 포획</td><td>포획 마스터 / 도망 전문가</td><td>100회 포획 / 50회 도망</td></tr>
-                                <tr><td>🌙 특수</td><td>올빼미족 / 전설 사냥꾼</td><td>심야 10회 포획 / 전설 3마리</td></tr>
-                                <tr><td>📖 세대</td><td>1세대~3세대 도감 칭호</td><td>각 세대별 도감 수 달성</td></tr>
-                                <tr><td>🤝 교환</td><td>트레이더</td><td>교환 10회 완료</td></tr>
-                                <tr><td>🟣 소지</td><td>마스터볼 부자 / 결단력</td><td>마스터볼 5개 소지 / 1개 사용</td></tr>
-                            </table>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>💪 칭호 버프 (일부 칭호)</h4>
-                            <ul class="guide-list">
-                                <li>🏆 챔피언 계열 칭호: <b>전 능력치 +10~15%</b></li>
-                                <li>🐉 전설 사냥꾼: <b>HP +20%</b></li>
-                                <li>장착한 칭호의 버프만 적용됩니다</li>
-                                <li>DM에서 <code>칭호</code> → 원하는 칭호 장착</li>
-                            </ul>
-                        </div>
+                    <div class="guide-block">
+                        <h4>🔨 분해 (이로치 → 크리스탈)</h4>
+                        <p>이로치 포켓몬을 분해하면 일반으로 돌아가고 크리스탈을 얻습니다.</p>
+                        <table class="guide-table">
+                            <tr><th>분해 대상</th><th>크리스탈</th><th>무지개</th></tr>
+                            <tr><td>🟢 일반 이로치</td><td>+1</td><td>-</td></tr>
+                            <tr><td>🔵 레어 이로치</td><td>+2</td><td>-</td></tr>
+                            <tr><td>🟣 에픽 이로치</td><td>+3</td><td>-</td></tr>
+                            <tr><td>🟡 전설 이로치</td><td>+5</td><td>+1</td></tr>
+                            <tr><td>🔴 초전설 이로치</td><td>+15</td><td>+2</td></tr>
+                        </table>
                     </div>
                 </div>
 
-                <!-- ===== 구독 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
-                    <div class="guide-card">
-                        <h3>💎 구독 시스템</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">구독하면 다양한 프리미엄 혜택을 받을 수 있습니다!</p>
+                <!-- 명령어 -->
+                <div class="guide-card" style="margin-bottom:16px">
+                    <h3>💬 캠프 명령어</h3>
+                    <table class="guide-table">
+                        <tr><th>명령어</th><th>위치</th><th>대상</th><th>설명</th></tr>
+                        <tr><td><b>캠프</b></td><td>그룹</td><td>전체</td><td>필드 선택 → 포켓몬 배치</td></tr>
+                        <tr><td><b>캠프맵</b></td><td>그룹</td><td>전체</td><td>월드맵 이미지 표시</td></tr>
+                        <tr><td><b>캠프개설</b></td><td>그룹</td><td>방장</td><td>캠프 생성 (100명+)</td></tr>
+                        <tr><td><b>캠프설정</b></td><td>그룹</td><td>방장</td><td>필드 관리, 승인 모드, 승인 처리</td></tr>
+                        <tr><td><b>내캠프</b></td><td>DM</td><td>전체</td><td>조각/크리스탈 현황, 배치 상태</td></tr>
+                        <tr><td><b>이로치전환</b></td><td>DM</td><td>전체</td><td>조각으로 이로치 전환</td></tr>
+                        <tr><td><b>분해</b></td><td>DM</td><td>전체</td><td>이로치 분해 → 크리스탈 획득</td></tr>
+                    </table>
+                </div>
 
-                        <div class="guide-block">
-                            <h4>💳 구독 플랜</h4>
-                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:8px">
-                                <div style="background:linear-gradient(135deg,#E3F2FD,#BBDEFB);border:2px solid #42A5F5;border-radius:14px;padding:18px;text-align:center">
-                                    <div style="font-size:22px;margin-bottom:4px">⭐</div>
-                                    <div style="font-weight:800;font-size:16px;color:#1565C0">베이직</div>
-                                    <div style="font-weight:700;font-size:20px;color:#0D47A1;margin:6px 0">$3.90<span style="font-size:12px;font-weight:400">/월</span></div>
-                                    <ul style="text-align:left;font-size:12px;list-style:none;padding:0;margin:10px 0 0 0;line-height:2">
-                                        <li>✅ 포켓볼 <b>무제한</b> (충전 쿨다운 없음)</li>
-                                        <li>✅ 마스터볼 <b>+1개/일</b> 지급</li>
-                                        <li>✅ 하이퍼볼 <b>+5개/일</b> 지급</li>
-                                        <li>✅ BP 획득량 <b>1.5배</b></li>
-                                        <li>✅ 미션 보상 <b>1.5배</b></li>
-                                        <li>✅ 프리미엄 상점 해금</li>
-                                        <li>✅ 쿨다운 단축</li>
-                                    </ul>
-                                </div>
-                                <div style="background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border:2px solid #FF9800;border-radius:14px;padding:18px;text-align:center">
-                                    <div style="font-size:22px;margin-bottom:4px">👑</div>
-                                    <div style="font-weight:800;font-size:16px;color:#E65100">채널장</div>
-                                    <div style="font-weight:700;font-size:20px;color:#BF360C;margin:6px 0">$9.90<span style="font-size:12px;font-weight:400">/월</span></div>
-                                    <ul style="text-align:left;font-size:12px;list-style:none;padding:0;margin:10px 0 0 0;line-height:2">
-                                        <li>✅ 베이직 혜택 <b>전부 포함</b></li>
-                                        <li>✅ 채팅방 CXP 획득량 <b>부스트</b></li>
-                                        <li>✅ 추가 프리미엄 보너스</li>
-                                        <li>✅ 채널 운영에 최적화</li>
-                                    </ul>
-                                </div>
-                            </div>
+                <!-- 전략 팁 -->
+                <div class="guide-card">
+                    <h3>💡 캠프 전략 팁</h3>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                            <div style="font-size:18px;margin-bottom:4px">🎯</div>
+                            <div style="font-weight:700;font-size:13px;margin-bottom:4px">보너스 포켓몬 노리기</div>
+                            <div style="font-size:11px;color:var(--muted)">매 라운드 보너스 포켓몬을 확인하고 배치하면 점수 2~7배! IV 조건까지 맞추면 최고 점수.</div>
                         </div>
-
-                        <div class="guide-block">
-                            <h4>💰 결제 방법</h4>
-                            <ul class="guide-list">
-                                <li>Base 체인의 <b>USDC / USDT</b> 암호화폐로 결제</li>
-                                <li>DM에서 <code>구독</code> 입력 → 결제 안내 확인</li>
-                                <li>월 단위 자동 갱신 (해지 시 DM에서 해지)</li>
-                            </ul>
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                            <div style="font-size:18px;margin-bottom:4px">📖</div>
+                            <div style="font-weight:700;font-size:13px;margin-bottom:4px">도감 채우기 = 배치 횟수 UP</div>
+                            <div style="font-size:11px;color:var(--muted)">도감 300종 이상이면 하루 6회 배치 가능! 도감을 열심히 채우면 캠프에서도 유리합니다.</div>
+                        </div>
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                            <div style="font-size:18px;margin-bottom:4px">🔄</div>
+                            <div style="font-weight:700;font-size:13px;margin-bottom:4px">분해 → 전환 사이클</div>
+                            <div style="font-size:11px;color:var(--muted)">낮은 등급 이로치를 분해해서 크리스탈을 모으고, 높은 등급 이로치 전환에 투자하세요.</div>
+                        </div>
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                            <div style="font-size:18px;margin-bottom:4px">🏕️</div>
+                            <div style="font-weight:700;font-size:13px;margin-bottom:4px">여러 캠프 참여</div>
+                            <div style="font-size:11px;color:var(--muted)">여러 채팅방 캠프에 참여하면 다양한 필드 조각을 모을 수 있어 전환 선택지가 넓어집니다.</div>
                         </div>
                     </div>
                 </div>
-
-                <!-- ===== 명령어 총정리 ===== -->
-                <div class="guide-back-bar"><button class="guide-back-btn" onclick="closeGuide()">← 가이드 목록</button></div>
-                    <div class="guide-card">
-                        <h3>💬 명령어 총정리</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">그룹 채팅방과 DM에서 사용할 수 있는 모든 명령어입니다.</p>
-
-                        <div class="guide-block">
-                            <h4>🏠 그룹 채팅방 명령어</h4>
-                            <table class="guide-table">
-                                <tr><th>명령어</th><th>설명</th></tr>
-                                <tr><td><code>ㅊ</code></td><td>포켓볼로 포획 시도</td></tr>
-                                <tr><td><code>ㅊㅊ</code></td><td>포획 + 더블 포인트 (포획률 동일)</td></tr>
-                                <tr><td><code>ㅎ</code></td><td>하이퍼볼로 포획 (3배 확률)</td></tr>
-                                <tr><td><code>ㅁ</code></td><td>마스터볼로 포획 (100% 확정)</td></tr>
-                                <tr><td><code>포켓볼충전</code></td><td>포켓볼 +10개 충전 (5분 쿨다운)</td></tr>
-                                <tr><td><code>배틀 @상대</code></td><td>상대에게 배틀 도전</td></tr>
-                                <tr><td><code>교환 포켓몬명</code></td><td>답장한 상대와 교환 (100 BP)</td></tr>
-                                <tr><td><code>ㄷ</code></td><td>대회(토너먼트) 참가 신청</td></tr>
-                                <tr><td><code>방정보</code></td><td>채팅방 레벨, CXP, 혜택 확인</td></tr>
-                                <tr><td><code>순위</code></td><td>랭킹 보드</td></tr>
-                                <tr><td><code>기록</code></td><td>채팅 기록</td></tr>
-                                <tr><td><code>내포켓몬</code></td><td>내 포켓몬 목록</td></tr>
-                                <tr><td><code>출석</code></td><td>출석 체크</td></tr>
-                                <tr><td><code>캠프맵</code></td><td>캠프 월드맵 표시</td></tr>
-                                <tr><td><code>대시보드</code></td><td>대시보드 링크</td></tr>
-                            </table>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>📱 DM (봇과 1:1 대화) 명령어</h4>
-                            <table class="guide-table">
-                                <tr><th>카테고리</th><th>명령어</th><th>설명</th></tr>
-                                <tr><td rowspan="4" style="font-weight:700">📊 정보</td><td><code>/start</code></td><td>봇 시작 / 튜토리얼</td></tr>
-                                <tr><td><code>상태창</code></td><td>프로필, BP, 보유 아이템 확인</td></tr>
-                                <tr><td><code>도감</code></td><td>포켓몬 도감 (필터 검색)</td></tr>
-                                <tr><td><code>내포켓몬</code></td><td>보유 포켓몬 목록</td></tr>
-                                <tr><td rowspan="5" style="font-weight:700">💕 육성</td><td><code>강화</code></td><td>육성 메뉴 (밥주기/놀아주기)</td></tr>
-                                <tr><td><code>밥주기 포켓몬명</code></td><td>특정 포켓몬에게 밥주기</td></tr>
-                                <tr><td><code>놀아주기 포켓몬명</code></td><td>특정 포켓몬과 놀아주기</td></tr>
-                                <tr><td><code>진화</code></td><td>진화 가능한 포켓몬 목록</td></tr>
-                                <tr><td><code>파트너</code></td><td>파트너 포켓몬 지정 (ATK +5%)</td></tr>
-                                <tr><td rowspan="3" style="font-weight:700">⚔️ 전투</td><td><code>팀</code></td><td>배틀 팀 편성 (최대 6마리)</td></tr>
-                                <tr><td><code>랭전</code></td><td>랭크전 자동 매칭</td></tr>
-                                <tr><td><code>시즌</code></td><td>시즌 정보 + 내 기록</td></tr>
-                                <tr><td rowspan="3" style="font-weight:700">💰 거래</td><td><code>거래소</code></td><td>BP 거래소 (매물 보기/등록/구매)</td></tr>
-                                <tr><td><code>합성</code></td><td>같은 종 포켓몬 합성</td></tr>
-                                <tr><td><code>상점</code></td><td>BP 상점 (아이템 구매)</td></tr>
-                                <tr><td rowspan="3" style="font-weight:700">🎖️ 기타</td><td><code>칭호</code></td><td>칭호 확인 및 장착</td></tr>
-                                <tr><td><code>미션</code></td><td>일일 미션 확인</td></tr>
-                                <tr><td><code>캠프</code></td><td>캠프 현황 및 관리</td></tr>
-                            </table>
-                        </div>
-
-                        <div class="guide-block">
-                            <h4>⌨️ 단축 표기</h4>
-                            <ul class="guide-list">
-                                <li><code>ㅊ</code> = 포획, <code>ㅎ</code> = 하이퍼볼, <code>ㅁ</code> = 마스터볼, <code>ㄷ</code> = 대회</li>
-                                <li>모든 명령어는 한국어로만 동작합니다</li>
-                                <li>대소문자 구분 없음</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
             </div>
         </div>
 
@@ -2780,31 +2532,15 @@ function updateQuotaBadge(remaining,bonus){
 }
 
 // --- Tab Navigation with URL routing ---
-const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",market:"/market",tier:"/tier",typechart:"/types",guide:"/guide",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",admin:"/admin"};
+const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",market:"/market",tier:"/tier",typechart:"/types",guide:"/guide",camp:"/camp",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",admin:"/admin"};
 const ADMIN_CATS=["manage","db","kpi","battle"];
-const GUIDE_CATS=["start","catch","rarity","nurture","fusion","battle","ranked","typechart","tournament","trade","shop","mission","cxp","camp","titles","subscribe","commands"];
-function openGuide(id,pushState=true){
-    document.getElementById('guideIndex').style.display='none';
-    document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));
-    const sec=document.getElementById('guide-'+id);
-    if(sec)sec.classList.add('active');
-    if(pushState)history.pushState({page:"guide",guideSub:id},"","/guide/"+id);
-    if(id==='typechart'){const src=document.getElementById('typeChartGrid');const dst=document.getElementById('typeChartGuide');if(src&&dst&&src.innerHTML&&!src.innerHTML.includes('로딩')){dst.innerHTML=src.innerHTML}else{loadTypeChart().then(()=>{const s2=document.getElementById('typeChartGrid');if(s2&&dst)dst.innerHTML=s2.innerHTML})}}
-    window.scrollTo(0,0);
-}
-function closeGuide(pushState=true){
-    document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));
-    document.getElementById('guideIndex').style.display='';
-    if(pushState)history.pushState({page:"guide"},"","/guide");
-    window.scrollTo(0,0);
-}
-function switchGuide(id){openGuide(id)}
+function switchGuide(id){document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));document.getElementById('guide-'+id).classList.add('active');document.querySelector('.guide-tab[data-guide="'+id+'"]').classList.add('active');if(id==='typechart'){const src=document.getElementById('typeChartGrid');const dst=document.getElementById('typeChartGuide');if(src&&dst&&src.innerHTML&&!src.innerHTML.includes('로딩')){dst.innerHTML=src.innerHTML}else{loadTypeChart().then(()=>{const s2=document.getElementById('typeChartGrid');if(s2)dst.innerHTML=s2.innerHTML})}}}
 const PATH_PAGES=Object.fromEntries(Object.entries(PAGE_PATHS).map(([k,v])=>[v,k]));
 let currentPage="home";
 
 function navigateTo(page,pushState=true){
-    // 상성표 → 가이드/typechart 별도 페이지로 리다이렉트
-    if(page==="typechart"){navigateTo("guide",false);setTimeout(()=>openGuide("typechart",pushState),50);return}
+    // 상성표 → 가이드 상성표 탭으로 리다이렉트
+    if(page==="typechart"){navigateTo("guide",pushState);setTimeout(()=>switchGuide("typechart"),100);return}
     const tab=document.querySelector(`.nav-tab[data-page="${page}"]`);
     if(!tab)return;
     // Admin page: admin-only
@@ -2841,8 +2577,6 @@ function navigateTo(page,pushState=true){
     if(aw){aw.remove();Array.from(pgEl.children).forEach(c=>c.style.display="")}
     currentPage=page;
     if(pushState)history.pushState({page},"",(PAGE_PATHS[page]||"/"));
-    // Guide: reset to index when navigating to guide page directly
-    if(page==="guide"){closeGuide(false)}
     loadPage(page);
     _trackPageview(page);
 }
@@ -2867,17 +2601,6 @@ window.addEventListener("popstate",(e)=>{
         if(el) boardSideNav(el,false);
         return;
     }
-    // Guide deep-link: sub-page
-    if(st&&st.page==="guide"&&st.guideSub){
-        navigateTo("guide",false);
-        openGuide(st.guideSub,false);
-        return;
-    }
-    if(st&&st.page==="guide"&&!st.guideSub){
-        navigateTo("guide",false);
-        closeGuide(false);
-        return;
-    }
     // Admin deep-link: sub-tab
     if(st&&st.page==="admin"&&st.adminCat){
         navigateTo("admin",false);
@@ -2886,9 +2609,6 @@ window.addEventListener("popstate",(e)=>{
     }
     // Fallback: parse from pathname for board sub-paths
     const path=location.pathname;
-    // Guide sub-path fallback
-    const guideMatch=path.match(/^\/guide\/(\w+)$/);
-    if(guideMatch&&GUIDE_CATS.includes(guideMatch[1])){navigateTo("guide",false);openGuide(guideMatch[1],false);return}
     const postMatch=path.match(/^\/board\/post\/(\d+)$/);
     if(postMatch){navigateTo("board",false);boardOpenPost(parseInt(postMatch[1]),false);return}
     const boardMatch=path.match(/^\/board\/(notice|community)$/);
@@ -6142,17 +5862,6 @@ function _escHtml(s) {
         navigateTo("admin",false);
         history.replaceState({page:"admin",adminCat:cat},"",path);
         admCatSwitch(cat,false);
-    }
-    // Guide deep-link: sub-page (/guide/battle, /guide/camp, etc.)
-    else if(/^\/guide\/(\w+)$/.test(path)){
-        const sub=path.split("/")[2];
-        if(GUIDE_CATS.includes(sub)){
-            navigateTo("guide",false);
-            history.replaceState({page:"guide",guideSub:sub},"",path);
-            openGuide(sub,false);
-        }else{
-            navigateTo("guide",false);
-        }
     }
     else{
         const initPage=PATH_PAGES[path]||"home";
