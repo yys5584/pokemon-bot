@@ -26,8 +26,8 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [
                 ["📋 상태창", "📦 내포켓몬"],
                 ["📌 미션", "🏪 상점"],
-                ["💎 구독", "🤝 파트너"],
                 ["🏷️ 칭호", "⚔️ 랭크전"],
+                ["💎 구독", "🤝 파트너"],
                 ["🛒 거래소", "❓ 도움말"],
             ],
             resize_keyboard=True,
