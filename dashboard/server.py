@@ -4445,6 +4445,8 @@ def create_app() -> web.Application:
     # Board deep-link sub-routes
     app.router.add_get("/board/post/{id}", index)
     app.router.add_get("/board/{sub}", index)
+    # Guide deep-link sub-routes
+    app.router.add_get("/guide/{sub}", index)
     # Admin deep-link sub-routes
     app.router.add_get("/admin/{sub}", index)
     return app
