@@ -681,6 +681,126 @@ TRADE_EVO_FIX_MIGRATIONS = [
 
 
 
+# ─── 캠프 v2 시스템 (2026-03-13) ─────────
+CAMP_TABLES = [
+    # 캠프 설정 (채팅방당 1개)
+    """CREATE TABLE IF NOT EXISTS camps (
+        chat_id BIGINT PRIMARY KEY,
+        level INTEGER NOT NULL DEFAULT 1,
+        xp INTEGER NOT NULL DEFAULT 0,
+        created_by BIGINT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+
+    # 캠프 필드 (소유자가 선택한 타입 필드)
+    """CREATE TABLE IF NOT EXISTS camp_fields (
+        id SERIAL PRIMARY KEY,
+        chat_id BIGINT NOT NULL REFERENCES camps(chat_id),
+        field_type VARCHAR(20) NOT NULL,
+        unlock_order INTEGER NOT NULL DEFAULT 1,
+        unlocked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(chat_id, field_type)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_camp_fields_chat ON camp_fields(chat_id)",
+
+    # 캠프 슬롯 배치
+    """CREATE TABLE IF NOT EXISTS camp_placements (
+        id SERIAL PRIMARY KEY,
+        chat_id BIGINT NOT NULL,
+        field_id INTEGER NOT NULL REFERENCES camp_fields(id),
+        user_id BIGINT NOT NULL,
+        pokemon_id INTEGER NOT NULL,
+        slot_type VARCHAR(10) NOT NULL DEFAULT 'free',
+        score INTEGER NOT NULL DEFAULT 1,
+        placed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(chat_id, field_id, user_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_camp_place_chat ON camp_placements(chat_id)",
+    "CREATE INDEX IF NOT EXISTS idx_camp_place_user ON camp_placements(user_id)",
+
+    # 라운드 보너스 포켓몬
+    """CREATE TABLE IF NOT EXISTS camp_round_bonus (
+        id SERIAL PRIMARY KEY,
+        chat_id BIGINT NOT NULL,
+        field_id INTEGER NOT NULL REFERENCES camp_fields(id),
+        pokemon_id INTEGER NOT NULL,
+        stat_type VARCHAR(10) NOT NULL,
+        stat_value INTEGER NOT NULL,
+        round_time TIMESTAMPTZ NOT NULL,
+        UNIQUE(chat_id, field_id, round_time)
+    )""",
+
+    # 유저 조각 (필드 타입별 귀속)
+    """CREATE TABLE IF NOT EXISTS camp_fragments (
+        user_id BIGINT NOT NULL,
+        field_type VARCHAR(20) NOT NULL,
+        amount INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(user_id, field_type)
+    )""",
+
+    # 조각 획득 로그
+    """CREATE TABLE IF NOT EXISTS camp_fragment_log (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        chat_id BIGINT NOT NULL,
+        field_type VARCHAR(20) NOT NULL,
+        amount INTEGER NOT NULL,
+        source VARCHAR(30) NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_cflog_user ON camp_fragment_log(user_id, created_at)",
+
+    # 분해 결정 보유
+    """CREATE TABLE IF NOT EXISTS camp_crystals (
+        user_id BIGINT PRIMARY KEY,
+        crystal INTEGER NOT NULL DEFAULT 0,
+        rainbow INTEGER NOT NULL DEFAULT 0
+    )""",
+
+    # 이로치 전환 쿨타임
+    """CREATE TABLE IF NOT EXISTS camp_shiny_cooldown (
+        user_id BIGINT PRIMARY KEY,
+        last_convert_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+
+    # 유저 캠프 설정 (거점 등)
+    """CREATE TABLE IF NOT EXISTS camp_user_settings (
+        user_id BIGINT PRIMARY KEY,
+        home_chat_id BIGINT,
+        home_changed_date DATE
+    )""",
+
+    # 소유자 캠프 설정 (승인제 등)
+    """CREATE TABLE IF NOT EXISTS camp_chat_settings (
+        chat_id BIGINT PRIMARY KEY REFERENCES camps(chat_id),
+        approval_mode BOOLEAN NOT NULL DEFAULT FALSE,
+        approval_slots INTEGER NOT NULL DEFAULT 0,
+        last_mode_change TIMESTAMPTZ,
+        last_field_change TIMESTAMPTZ
+    )""",
+
+    # 배치 일일 횟수 추적
+    """CREATE TABLE IF NOT EXISTS camp_daily_placements (
+        user_id BIGINT NOT NULL,
+        date DATE NOT NULL DEFAULT CURRENT_DATE,
+        count INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(user_id, date)
+    )""",
+
+    # 승인 대기열
+    """CREATE TABLE IF NOT EXISTS camp_approval_queue (
+        id SERIAL PRIMARY KEY,
+        chat_id BIGINT NOT NULL,
+        field_id INTEGER NOT NULL,
+        user_id BIGINT NOT NULL,
+        pokemon_id INTEGER NOT NULL,
+        requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        status VARCHAR(10) NOT NULL DEFAULT 'pending',
+        UNIQUE(chat_id, field_id, user_id)
+    )""",
+]
+
+
 async def create_tables():
     """Create all tables."""
     pool = await get_db()
@@ -890,6 +1010,13 @@ async def create_tables():
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     """)
+
+    # Camp v2 system (2026-03-13)
+    for sql in CAMP_TABLES:
+        try:
+            await pool.execute(sql)
+        except Exception:
+            pass
 
     # ── Performance indexes (idempotent) ──
     perf_indexes = [

@@ -70,8 +70,8 @@ from services.weather_service import update_weather, get_current_weather, WEATHE
 from services.tournament_service import start_registration, start_tournament, snapshot_teams
 from handlers.tournament import tournament_join_handler
 try:
-    from handlers.camp import camp_handler, camp_callback_handler, camp_mission_job, camp_news_job, camp_event_job
-    from handlers.dm_camp import my_camp_handler, shiny_convert_handler, camp_dm_callback_handler
+    from handlers.camp import camp_handler, camp_callback_handler, camp_round_job, camp_create_handler, camp_settings_handler
+    from handlers.dm_camp import my_camp_handler, shiny_convert_handler, decompose_handler, camp_dm_callback_handler
     HAS_CAMP = True
 except ImportError:
     HAS_CAMP = False
@@ -1090,10 +1090,11 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?칭호$"), title_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?상태창$"), status_handler))
 
-    # Camp system (DM)
+    # Camp system v2 (DM)
     if HAS_CAMP:
         app.add_handler(MessageHandler(dm & filters.Regex(r"^내캠프$"), my_camp_handler))
         app.add_handler(MessageHandler(dm & filters.Regex(r"^이로치전환$"), shiny_convert_handler))
+        app.add_handler(MessageHandler(dm & filters.Regex(r"^분해$"), decompose_handler))
 
     # Battle system (DM)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🤝\s*)?파트너(\s+.+)?$"), partner_handler))
@@ -1145,9 +1146,11 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^방정보$"), room_info_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^내포켓몬\s+.+"), my_pokemon_group_handler))
 
-    # Camp system (Group)
+    # Camp system v2 (Group)
     if HAS_CAMP:
         app.add_handler(MessageHandler(group & filters.Regex(r"^캠프$"), camp_handler))
+        app.add_handler(MessageHandler(group & filters.Regex(r"^캠프개설$"), camp_create_handler))
+        app.add_handler(MessageHandler(group & filters.Regex(r"^캠프설정$"), camp_settings_handler))
 
     # Battle system (Group)
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀$"), battle_challenge_handler))
@@ -1369,25 +1372,14 @@ def main():
         name="tournament_start",
     )
 
-    # Camp system schedulers
+    # Camp v2 — 라운드 스케줄러 (3시간 간격, KST 09/12/15/18/21/00시)
     if HAS_CAMP:
-        app.job_queue.run_daily(
-            camp_mission_job,
-            time=dt_time(0, 1, 0, tzinfo=kst),
-            name="camp_mission",
-        )
-        app.job_queue.run_repeating(
-            camp_news_job,
-            interval=config.CAMP_NEWS_INTERVAL,
-            first=7200,
-            name="camp_news",
-        )
-        app.job_queue.run_repeating(
-            camp_event_job,
-            interval=config.CAMP_EVENT_INTERVAL,
-            first=10800,
-            name="camp_event",
-        )
+        for hour in config.CAMP_ROUND_HOURS:
+            app.job_queue.run_daily(
+                camp_round_job,
+                time=dt_time(hour, 0, 0, tzinfo=kst),
+                name=f"camp_round_{hour:02d}",
+            )
 
     # --- Start polling ---
     logger.info("Starting bot...")

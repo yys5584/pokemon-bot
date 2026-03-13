@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>포켓몬 캠프 시스템 v2</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e4e4e7;
+    --muted: #9ca3af;
+    --accent: #f59e0b;
+    --green: #22c55e;
+    --blue: #3b82f6;
+    --red: #ef4444;
+    --purple: #a855f7;
+    --pink: #ec4899;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, 'Pretendard', 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+
+  .hero {
+    background: linear-gradient(135deg, #1a1d27 0%, #2d1f3d 50%, #1a2d3d 100%);
+    padding: 80px 40px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hero h1 {
+    font-size: 2.8em;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero .meta {
+    color: var(--muted);
+    font-size: 0.95em;
+    margin-bottom: 24px;
+  }
+
+  .hero .badges {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: 600;
+  }
+
+  .badge.yellow { background: rgba(245,158,11,0.15); color: var(--accent); border: 1px solid rgba(245,158,11,0.3); }
+  .badge.green { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .badge.blue { background: rgba(59,130,246,0.15); color: var(--blue); border: 1px solid rgba(59,130,246,0.3); }
+  .badge.purple { background: rgba(168,85,247,0.15); color: var(--purple); border: 1px solid rgba(168,85,247,0.3); }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 48px;
+  }
+
+  .toc h2 {
+    font-size: 1.2em;
+    margin-bottom: 16px;
+    color: var(--accent);
+  }
+
+  .toc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 32px;
+  }
+
+  .toc a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.92em;
+    padding: 4px 0;
+    display: block;
+    transition: color 0.2s;
+  }
+
+  .toc a:hover { color: var(--accent); }
+
+  section {
+    margin-bottom: 56px;
+  }
+
+  h2 {
+    font-size: 1.6em;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--accent);
+    color: var(--accent);
+  }
+
+  h3 {
+    font-size: 1.15em;
+    margin: 28px 0 12px;
+    color: var(--text);
+  }
+
+  p {
+    margin-bottom: 12px;
+    color: var(--muted);
+  }
+
+  strong { color: var(--text); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 0.92em;
+  }
+
+  thead th {
+    background: rgba(245,158,11,0.1);
+    color: var(--accent);
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+  .highlight-row td { background: rgba(245,158,11,0.06); }
+
+  code, .code-block {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .code-block {
+    background: #12141c;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 12px 0 20px;
+    font-size: 0.88em;
+    line-height: 1.8;
+    overflow-x: auto;
+    color: var(--muted);
+    white-space: pre-wrap;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 26px;
+    margin: 16px 0;
+  }
+
+  .card-accent {
+    border-left: 3px solid var(--accent);
+  }
+
+  .card-green {
+    border-left: 3px solid var(--green);
+  }
+
+  .card-red {
+    border-left: 3px solid var(--red);
+  }
+
+  .card-blue {
+    border-left: 3px solid var(--blue);
+  }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .field-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    text-align: center;
+  }
+
+  .field-card .icon {
+    font-size: 2em;
+    margin-bottom: 8px;
+  }
+
+  .field-card .name {
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .field-card .types {
+    font-size: 0.82em;
+    color: var(--muted);
+  }
+
+  .flow-chart {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+    padding: 20px;
+    background: var(--card);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .flow-step {
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 0.88em;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .flow-arrow {
+    color: var(--muted);
+    font-size: 1.2em;
+  }
+
+  .timeline {
+    position: relative;
+    margin: 20px 0;
+    padding-left: 24px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .timeline-item {
+    position: relative;
+    margin-bottom: 16px;
+    padding: 12px 18px;
+    background: var(--card);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-left: 16px;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 18px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .timeline-item .time {
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 0.9em;
+  }
+
+  .timeline-item .desc {
+    color: var(--muted);
+    font-size: 0.88em;
+    margin-top: 2px;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    text-align: center;
+  }
+
+  .stat-card .value {
+    font-size: 1.8em;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .stat-card .label {
+    font-size: 0.82em;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .change-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+
+  .tag-new { background: rgba(34,197,94,0.15); color: var(--green); }
+  .tag-changed { background: rgba(245,158,11,0.15); color: var(--accent); }
+  .tag-removed { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 48px 0;
+  }
+
+  ul {
+    padding-left: 20px;
+    margin: 8px 0 16px;
+  }
+
+  li {
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-size: 0.92em;
+  }
+
+  li strong { color: var(--text); }
+
+  @media (max-width: 640px) {
+    .hero { padding: 48px 20px; }
+    .hero h1 { font-size: 1.8em; }
+    .toc-grid { grid-template-columns: 1fr; }
+    .field-grid { grid-template-columns: 1fr 1fr; }
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+    table { font-size: 0.82em; }
+    thead th, tbody td { padding: 7px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>포켓몬 캠프 시스템 v2</h1>
+  <div class="meta">작성: 2026-03-11 &nbsp;|&nbsp; v2 갱신: 2026-03-13 &nbsp;|&nbsp; TGPoke Bot</div>
+  <div class="badges">
+    <span class="badge yellow">Phase 1 재설계</span>
+    <span class="badge green">10레벨 시스템</span>
+    <span class="badge blue">엔빵 분배</span>
+    <span class="badge purple">이로치 전환</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- TOC -->
+  <div class="toc">
+    <h2>목차</h2>
+    <div class="toc-grid">
+      <a href="#why">1. 왜 필요한가</a>
+      <a href="#principles">2. 디자인 원칙</a>
+      <a href="#condition">3. 참여 조건</a>
+      <a href="#field">4. 필드 시스템</a>
+      <a href="#level">5. 캠프 레벨 & 슬롯</a>
+      <a href="#round">6. 라운드 구조</a>
+      <a href="#score">7. 점수 & 생산</a>
+      <a href="#placement">8. 배치 제한</a>
+      <a href="#shiny">9. 이로치 전환</a>
+      <a href="#decompose">10. 분해 시스템</a>
+      <a href="#levelup">11. 캠프 레벨업</a>
+      <a href="#cooldown">12. 전환 쿨타임</a>
+      <a href="#authority">13. 권한 체계</a>
+      <a href="#dashboard">14. 대시보드</a>
+      <a href="#ux">15. UX 요약</a>
+      <a href="#roadmap">16. 구현 우선순위</a>
+      <a href="#kpi">17. 성공 지표</a>
+      <a href="#changelog">18. v1 → v2 변경점</a>
+    </div>
+  </div>
+
+  <!-- 1. 왜 필요한가 -->
+  <section id="why">
+    <h2>1. 왜 필요한가</h2>
+    <div class="code-block">허슬형: ㅊ → 팀구성 → 배틀 → 토너먼트 → 랭크전 (엔드컨텐츠 ✅)
+라이트형: ㅊ → 도감작 → ... → 현타 ("이걸 왜 모으지?") (엔드컨텐츠 ❌)</div>
+    <div class="card card-accent">
+      <p><strong>핵심 문제:</strong> 라이트 유저는 포켓몬을 모으지만, 모은 포켓몬으로 할 수 있는 게 배틀밖에 없다.</p>
+      <p><strong>해결:</strong> 모은 포켓몬이 살아 움직이는 공간을 만든다. 캠프가 있는 채팅방 = "도시" → 유저 유입 + 바이럴 엔진.</p>
+    </div>
+  </section>
+
+  <!-- 2. 디자인 원칙 -->
+  <section id="principles">
+    <h2>2. 디자인 원칙</h2>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="value" style="font-size:1.4em">🐱</div>
+        <div class="label"><strong>버튼 하나</strong><br>네코 아츠메</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" style="font-size:1.4em">🟩</div>
+        <div class="label"><strong>같은 문제, 같은 대화</strong><br>워들</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" style="font-size:1.4em">🏝️</div>
+        <div class="label"><strong>벌주지 않기</strong><br>동물의 숲</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" style="font-size:1.4em">🌾</div>
+        <div class="label"><strong>흔한 게 귀해지는</strong><br>스타듀밸리</div>
+      </div>
+    </div>
+    <ul>
+      <li><strong>"포켓몬 배치"가 유일한 능동적 행동.</strong> 나머지는 전부 자동.</li>
+      <li>라운드마다 보너스 포켓몬이 전 유저에게 동일 → 대화 유도.</li>
+      <li>안 하면 조각을 못 모을 뿐, 기존 것이 사라지지 않음. 압박 없음.</li>
+      <li>하루 캠프 메시지 최대 6~7개. 자동 삭제. 짧고 깔끔.</li>
+    </ul>
+  </section>
+
+  <!-- 3. 참여 조건 -->
+  <section id="condition">
+    <h2>3. 참여 조건</h2>
+    <table>
+      <thead><tr><th>항목</th><th>조건</th></tr></thead>
+      <tbody>
+        <tr><td>최소 멤버</td><td><strong>100명+</strong></td></tr>
+        <tr><td>개설 권한</td><td>채팅방 소유자 (creator)</td></tr>
+        <tr><td>구독 혜택</td><td>$9.9 → 필드당 소유자 슬롯 +1</td></tr>
+        <tr><td>프리미엄</td><td>$19.9 → +2~3 (추후)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 4. 필드 시스템 -->
+  <section id="field">
+    <h2>4. 필드 시스템</h2>
+    <h3>필드-타입 그룹 (6종)</h3>
+    <div class="field-grid">
+      <div class="field-card">
+        <div class="icon">🌿</div>
+        <div class="name">숲</div>
+        <div class="types">풀 / 벌레 / 독</div>
+      </div>
+      <div class="field-card">
+        <div class="icon">🔥</div>
+        <div class="name">화산</div>
+        <div class="types">불 / 드래곤 / 격투</div>
+      </div>
+      <div class="field-card">
+        <div class="icon">💧</div>
+        <div class="name">호수</div>
+        <div class="types">물 / 얼음 / 비행</div>
+      </div>
+      <div class="field-card">
+        <div class="icon">⚡</div>
+        <div class="name">도시</div>
+        <div class="types">전기 / 강철 / 노말</div>
+      </div>
+      <div class="field-card">
+        <div class="icon">🪨</div>
+        <div class="name">동굴</div>
+        <div class="types">땅 / 바위 / 고스트</div>
+      </div>
+      <div class="field-card">
+        <div class="icon">🔮</div>
+        <div class="name">신전</div>
+        <div class="types">에스퍼 / 악 / 페어리</div>
+      </div>
+    </div>
+    <div class="card card-accent">
+      <p><strong>소유자가 레벨업 시 어떤 필드를 열지 선택.</strong> 변경 시 쿨타임 3시간.</p>
+      <p>채널 특색 생김 → "저 방은 불/드래곤 특화야"</p>
+    </div>
+    <h3>조각 = 필드 귀속</h3>
+    <ul>
+      <li>숲 필드 → <strong>숲 조각</strong> 획득 → 풀/벌레/독 이로치 전환</li>
+      <li>리자몽(불) 이로치 만들려면 <strong>화산 조각</strong> 필요</li>
+      <li>듀얼타입은 둘 중 하나 선택 가능</li>
+    </ul>
+  </section>
+
+  <!-- 5. 캠프 레벨 & 슬롯 -->
+  <section id="level">
+    <h2>5. 캠프 레벨 & 슬롯</h2>
+    <table>
+      <thead>
+        <tr><th>Lv</th><th>필드 수</th><th>기본슬롯</th><th>소유자</th><th>구독</th><th>필드당 총</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>1</td><td>10</td><td>1</td><td>+1</td><td>11~12</td></tr>
+        <tr><td>2</td><td>2</td><td>10</td><td>1</td><td>+1</td><td>11~12</td></tr>
+        <tr><td>3</td><td>2</td><td>12</td><td>1</td><td>+1</td><td>13~14</td></tr>
+        <tr><td>4</td><td>3</td><td>12</td><td>1</td><td>+1</td><td>13~14</td></tr>
+        <tr><td>5</td><td>3</td><td>14</td><td>1</td><td>+1</td><td>15~16</td></tr>
+        <tr><td>6</td><td>4</td><td>14</td><td>1</td><td>+1</td><td>15~16</td></tr>
+        <tr><td>7</td><td>4</td><td>16</td><td>1</td><td>+1</td><td>17~18</td></tr>
+        <tr><td>8</td><td>5</td><td>16</td><td>1</td><td>+1</td><td>17~18</td></tr>
+        <tr><td>9</td><td>5</td><td>18</td><td>1</td><td>+1</td><td>19~20</td></tr>
+        <tr class="highlight-row"><td>10</td><td>6</td><td>18</td><td>1</td><td>+1</td><td>19~20</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li><strong>500명당 기본슬롯 +1/필드</strong> (대형 채널 보너스)</li>
+      <li>기본슬롯: 선착순 (FCFS)</li>
+      <li>소유자슬롯 / 구독슬롯: 소유자가 유저 지정</li>
+    </ul>
+
+    <h3>소유자 관리 옵션</h3>
+    <table>
+      <thead><tr><th>설정</th><th>옵션</th><th>쿨타임</th></tr></thead>
+      <tbody>
+        <tr><td>배치 모드</td><td>자유(FCFS) / 승인제</td><td>변경 시 3시간</td></tr>
+        <tr><td>승인제 슬롯 수</td><td>1~N칸 선택</td><td>변경 시 3시간</td></tr>
+        <tr><td>필드 타입 변경</td><td>숲→화산 등</td><td>변경 시 3시간</td></tr>
+      </tbody>
+    </table>
+    <div class="card card-green">
+      <p>승인제 시 소유자에게 DM 알림. <strong>30분 내 미응답 → 자동 승인</strong> (접수 순서대로)</p>
+    </div>
+  </section>
+
+  <!-- 6. 라운드 구조 -->
+  <section id="round">
+    <h2>6. 라운드 구조</h2>
+    <h3>소식 스케줄 (3시간 간격, 하루 6회)</h3>
+    <div class="flow-chart">
+      <span class="flow-step">09:00</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">12:00</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">15:00</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">18:00</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">21:00</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">00:00</span>
+    </div>
+    <div class="card card-blue">
+      <p>대회 접수 알림은 <strong>09:10</strong> (캠프와 10분 간격으로 DM 충돌 방지)</p>
+    </div>
+
+    <h3>1라운드 = 3시간</h3>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="time">00:00~00:30 접수 타임 (30분)</div>
+        <div class="desc">자유슬롯: 선착순 배치 / 승인슬롯: 소유자 알림 → 30분 미응답 시 자동 승인</div>
+      </div>
+      <div class="timeline-item">
+        <div class="time">00:30~03:00 파밍 타임 (2시간 30분)</div>
+        <div class="desc">배치된 포켓몬 조각 생산</div>
+      </div>
+      <div class="timeline-item">
+        <div class="time">03:00 정산 + 다음 라운드</div>
+        <div class="desc">조각 지급 + 새 보너스 포켓몬 + 접수 시작</div>
+      </div>
+    </div>
+
+    <h3>라운드 보너스 포켓몬</h3>
+    <div class="code-block">[09:00 라운드]
+🌿 숲: 이상해꽃 (특공 15↑)
+🔥 화산: 리자몽 (공격 14↑)
+💧 호수: 갸라도스 (방어 13↑)
+
+→ 해당 포켓몬 배치 시 점수 2배
+→ 없으면 타입 맞는 아무거나 OK
+→ 라운드마다 변경</div>
+  </section>
+
+  <!-- 7. 점수 & 생산 -->
+  <section id="score">
+    <h2>7. 점수 & 생산 시스템</h2>
+    <h3>배치 포켓몬 점수</h3>
+    <table>
+      <thead><tr><th>조건</th><th>점수</th></tr></thead>
+      <tbody>
+        <tr><td>타입만 맞음</td><td>1점</td></tr>
+        <tr><td><strong>보너스 포켓몬</strong></td><td><strong>2점</strong></td></tr>
+        <tr><td><strong>보너스 + 개체값 충족</strong></td><td><strong>4점</strong></td></tr>
+        <tr><td><strong>보너스 + 이로치</strong></td><td><strong>4점</strong></td></tr>
+        <tr class="highlight-row"><td><strong>보너스 + 개체값 + 이로치</strong></td><td><strong>7점</strong></td></tr>
+      </tbody>
+    </table>
+
+    <h3>생산 공식</h3>
+    <div class="card card-accent">
+      <p><code>필드 생산(소식당) = min(필드 총점, 캠프캡) → 배치자 전원 엔빵</code></p>
+    </div>
+
+    <h3>캠프 레벨별 캡</h3>
+    <table>
+      <thead><tr><th>Lv</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th></tr></thead>
+      <tbody>
+        <tr><td><strong>캡</strong></td><td>3</td><td>3</td><td>4</td><td>4</td><td>5</td><td>5</td><td>6</td><td>6</td><td>7</td><td>8</td></tr>
+      </tbody>
+    </table>
+
+    <h3>수입 계산 (4점 평균)</h3>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="value">6</div>
+        <div class="label">Lv.1 뉴비<br>1필드/일</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">12</div>
+        <div class="label">Lv.2 풀배치<br>2필드/일</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">36</div>
+        <div class="label">Lv.10 고인물<br>6필드/일</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">108</div>
+        <div class="label">3캠프 Lv.10<br>18필드/일</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. 배치 제한 -->
+  <section id="placement">
+    <h2>8. 배치 제한 (도감 기반)</h2>
+    <table>
+      <thead><tr><th>도감 수</th><th>일일 배치 횟수</th></tr></thead>
+      <tbody>
+        <tr><td>0~50</td><td>2회</td></tr>
+        <tr><td>51~100</td><td>3회</td></tr>
+        <tr><td>101~200</td><td>4회</td></tr>
+        <tr><td>201~300</td><td>5회</td></tr>
+        <tr class="highlight-row"><td>301+</td><td>6회</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>"배치 횟수" = 하루 동안 슬롯에 포켓몬을 넣는 행위 횟수</li>
+      <li>한번 넣으면 로테이션으로 빠질 때까지 유지</li>
+      <li>자정 리셋</li>
+      <li>FCFS 어뷰징 방지 + 도감작 보상</li>
+    </ul>
+  </section>
+
+  <!-- 9. 이로치 전환 -->
+  <section id="shiny">
+    <h2>9. 이로치 전환</h2>
+    <div class="card card-accent">
+      <p><strong>커먼 = 고인물 2필드 풀가동(12/일) 기준 1일 컷.</strong> S급 확정 전환.</p>
+    </div>
+    <table>
+      <thead>
+        <tr><th>등급</th><th>조각</th><th>결정</th><th>무지개</th><th>쿨타임</th><th>2필드</th><th>Lv.10</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>커먼</td><td>12</td><td>-</td><td>-</td><td>6h</td><td><strong>1일</strong></td><td>8시간</td></tr>
+        <tr><td>레어</td><td>24</td><td>-</td><td>-</td><td>12h</td><td><strong>2일</strong></td><td>16시간</td></tr>
+        <tr><td>에픽</td><td>42</td><td>x5</td><td>-</td><td>1일</td><td><strong>3.5일</strong></td><td>1.2일</td></tr>
+        <tr><td>전설</td><td>60</td><td>x15</td><td>-</td><td>2일</td><td><strong>5일</strong></td><td>1.7일</td></tr>
+        <tr class="highlight-row"><td>초전설</td><td>84</td><td>x25</td><td>x3</td><td>3일</td><td><strong>7일</strong></td><td>2.3일</td></tr>
+      </tbody>
+    </table>
+
+    <h3>3캠프 고인물 (108/일) 실질 소요</h3>
+    <table>
+      <thead><tr><th>등급</th><th>조각 모으기</th><th>+ 쿨타임</th><th>+ 결정</th></tr></thead>
+      <tbody>
+        <tr><td>커먼</td><td>3시간</td><td>+6h</td><td>-</td></tr>
+        <tr><td>레어</td><td>5시간</td><td>+12h</td><td>-</td></tr>
+        <tr><td>에픽</td><td>9시간</td><td>+1일</td><td>이로치 5마리 분해</td></tr>
+        <tr><td>전설</td><td>13시간</td><td>+2일</td><td>이로치 15마리 분해</td></tr>
+        <tr><td>초전설</td><td>19시간</td><td>+3일</td><td>이로치 25마리 + 무지개 3</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 10. 분해 시스템 -->
+  <section id="decompose">
+    <h2>10. 분해 시스템</h2>
+    <div class="card card-red">
+      <p><strong>이로치를 갈아야 이로치를 만드는</strong> 순환 구조.</p>
+    </div>
+    <table>
+      <thead><tr><th>분해 대상</th><th>결정</th><th>무지개 결정</th></tr></thead>
+      <tbody>
+        <tr><td>커먼 이로치</td><td>1</td><td>-</td></tr>
+        <tr><td>레어 이로치</td><td>2</td><td>-</td></tr>
+        <tr><td>에픽 이로치</td><td>3</td><td>-</td></tr>
+        <tr><td>전설 이로치</td><td>5</td><td>1</td></tr>
+        <tr class="highlight-row"><td>초전설 이로치</td><td>15</td><td>2</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li><strong>무지개 결정</strong>: 전설/초전설 이로치를 분해해야만 획득</li>
+      <li>초전설 전환에 무지개 3개 → <strong>전설 이로치 최소 3마리 분해</strong> 필수</li>
+    </ul>
+  </section>
+
+  <!-- 11. 캠프 레벨업 -->
+  <section id="levelup">
+    <h2>11. 캠프 레벨업</h2>
+    <div class="card card-accent">
+      <p><strong>경험치 = 소식마다 필드 생산량 누적.</strong> 풀가동 기준 만렙 ~24일 (여유 잡으면 ~1달)</p>
+    </div>
+    <table>
+      <thead><tr><th>Lv→</th><th>필요 XP</th><th>일일 XP</th><th>소요</th><th>누적</th></tr></thead>
+      <tbody>
+        <tr><td>1→2</td><td>48</td><td>48</td><td>1일</td><td><strong>1일</strong></td></tr>
+        <tr><td>2→3</td><td>96</td><td>96</td><td>1일</td><td><strong>2일</strong></td></tr>
+        <tr><td>3→4</td><td>250</td><td>108</td><td>2.3일</td><td><strong>4일</strong></td></tr>
+        <tr><td>4→5</td><td>400</td><td>162</td><td>2.5일</td><td><strong>6.5일</strong></td></tr>
+        <tr><td>5→6</td><td>550</td><td>168</td><td>3.3일</td><td><strong>10일</strong></td></tr>
+        <tr><td>6→7</td><td>700</td><td>224</td><td>3.1일</td><td><strong>13일</strong></td></tr>
+        <tr><td>7→8</td><td>900</td><td>256</td><td>3.5일</td><td><strong>16.5일</strong></td></tr>
+        <tr><td>8→9</td><td>1100</td><td>320</td><td>3.4일</td><td><strong>20일</strong></td></tr>
+        <tr class="highlight-row"><td>9→10</td><td>1500</td><td>360</td><td>4.2일</td><td><strong>24일</strong></td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>100명 방은 약 <strong>2달</strong></li>
+      <li>Lv.3까지 이틀 → 초반 빠르게 맛보기</li>
+      <li>점진적으로 소요 증가</li>
+    </ul>
+  </section>
+
+  <!-- 12. 전환 쿨타임 -->
+  <section id="cooldown">
+    <h2>12. 전환 쿨타임</h2>
+    <table>
+      <thead><tr><th>등급</th><th>쿨타임</th></tr></thead>
+      <tbody>
+        <tr><td>커먼</td><td>6시간</td></tr>
+        <tr><td>레어</td><td>12시간</td></tr>
+        <tr><td>에픽</td><td>1일</td></tr>
+        <tr><td>전설</td><td>2일</td></tr>
+        <tr><td>초전설</td><td>3일</td></tr>
+      </tbody>
+    </table>
+    <div class="card card-accent">
+      <p>S급 확정 전환이므로 <strong>쿨타임이 핵심 속도 제어 장치</strong>. 3캠프 고인물도 초전설은 쿨타임(3일)이 병목.</p>
+    </div>
+  </section>
+
+  <!-- 13. 권한 체계 -->
+  <section id="authority">
+    <h2>13. 권한 체계</h2>
+    <table>
+      <thead><tr><th>직급</th><th>캠프 권한</th></tr></thead>
+      <tbody>
+        <tr><td><strong>소유자 (creator)</strong></td><td>캠프 개설, 필드 선택, 배치 모드, 슬롯 지정, 블랙리스트</td></tr>
+        <tr><td>관리자 (admin)</td><td>없음</td></tr>
+        <tr><td>일반 유저</td><td>배치 신청</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>구독은 <strong>채팅방 단위</strong> 적용</li>
+      <li>소유자 확인: <code>chat.get_member(user_id).status == "creator"</code></li>
+    </ul>
+  </section>
+
+  <!-- 14. 대시보드 -->
+  <section id="dashboard">
+    <h2>14. 대시보드 캠프 탭</h2>
+    <ul>
+      <li>각 채팅방 캠프 레벨 / 필드 / 배치 현황 공개</li>
+      <li>캠프 랭킹 (레벨 순위) → 경쟁심 자극</li>
+      <li>방문자가 구경 → "저 방 가고 싶다" → 유입</li>
+    </ul>
+  </section>
+
+  <!-- 15. UX -->
+  <section id="ux">
+    <h2>15. UX 요약</h2>
+    <div class="card card-green">
+      <p><strong>유저가 배워야 할 것:</strong></p>
+      <p>1. 소식 뜨면 접수 타임에 배치한다 (30분)</p>
+      <p>2. 보너스 포켓몬 맞추면 점수 높다</p>
+      <p>3. 조각 모으면 이로치 된다</p>
+    </div>
+
+    <h3>하루 일과</h3>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="time">09:00</div>
+        <div class="desc">소식 + 보너스 포켓몬 확인 → 배치 (30초)</div>
+      </div>
+      <div class="timeline-item">
+        <div class="time">12:00</div>
+        <div class="desc">소식, 필요시 재배치</div>
+      </div>
+      <div class="timeline-item">
+        <div class="time">15:00 / 18:00</div>
+        <div class="desc">소식 (읽기만)</div>
+      </div>
+      <div class="timeline-item">
+        <div class="time">21:00</div>
+        <div class="desc">소식</div>
+      </div>
+      <div class="timeline-item">
+        <div class="time">00:00</div>
+        <div class="desc">마지막 소식 + 정산</div>
+      </div>
+    </div>
+    <p><strong>총 능동 행동: 배치 1~2회 (30초씩). 나머지 전부 패시브.</strong></p>
+  </section>
+
+  <!-- 16. 구현 우선순위 -->
+  <section id="roadmap">
+    <h2>16. 구현 우선순위</h2>
+
+    <h3>Phase 1 — 코어 <span class="change-tag tag-new">재설계</span></h3>
+    <ul>
+      <li>DB 테이블 재설계 (필드/슬롯/점수/라운드)</li>
+      <li>필드 시스템 (6종 타입 그룹)</li>
+      <li>소유자 필드 선택 + 변경 (쿨 3시간)</li>
+      <li>슬롯 시스템 (기본/소유자/구독 + 500명당 보너스)</li>
+      <li>라운드 구조 (3시간, 접수 30분 + 파밍 2:30)</li>
+      <li>라운드 보너스 포켓몬 + 개체값 조건 랜덤</li>
+      <li>점수 시스템 (1/2/4/4/7)</li>
+      <li>엔빵 분배 + 캠프 레벨 캡</li>
+      <li>필드 귀속 조각</li>
+      <li>배치 제한 (도감 기반 일일 횟수)</li>
+      <li>소유자 배치 모드 (자유/승인제, 쿨 3시간)</li>
+      <li>승인 30분 미응답 → 자동 승인</li>
+      <li>이로치 전환 (타입 조각 + 결정 + 무지개 + 쿨타임)</li>
+      <li>분해 시스템 (이로치 → 결정/무지개)</li>
+      <li>캠프 레벨 10단계</li>
+      <li>DM 현황 (내캠프, 이로치전환)</li>
+      <li>대시보드 캠프 탭</li>
+    </ul>
+
+    <h3>Phase 2 — 안정화</h3>
+    <ul>
+      <li>참여형 이벤트 (30초 반응, 도와주기)</li>
+      <li>포켓몬 친밀도</li>
+      <li>이로치 전환 축하 메시지</li>
+      <li>교환/방생 시 배치 자동 해제</li>
+    </ul>
+
+    <h3>Phase 3 — 확장</h3>
+    <ul>
+      <li>Lv.11~20 확장</li>
+      <li>프리미엄 구독 ($19.9) 슬롯 +2~3</li>
+      <li>캠프 날씨 / 주간 번들 / 캠프 방문자</li>
+      <li>계절 이벤트 / 캠프 방문</li>
+    </ul>
+  </section>
+
+  <!-- 17. KPI -->
+  <section id="kpi">
+    <h2>17. 성공 지표</h2>
+    <table>
+      <thead><tr><th>지표</th><th>목표</th></tr></thead>
+      <tbody>
+        <tr><td>캠프 참여율</td><td>도감 10종+ 유저 중 50%+</td></tr>
+        <tr><td>라운드 배치 변경</td><td>보너스 포켓몬 매칭 시 30%+</td></tr>
+        <tr><td>첫 이로치 전환</td><td>2필드 풀가동 기준 1일 (커먼)</td></tr>
+        <tr><td>채팅방 대화 증가</td><td>캠프 관련 대화 하루 5건+</td></tr>
+        <tr><td>채널 유입</td><td>캠프 있는 방으로 신규 유저 이동</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 18. 변경점 -->
+  <section id="changelog">
+    <h2>18. v1 → v2 변경점</h2>
+    <table>
+      <thead><tr><th>항목</th><th>v1</th><th>v2</th></tr></thead>
+      <tbody>
+        <tr><td>참여 조건</td><td>제한 없음</td><td><strong>100명+</strong> <span class="change-tag tag-changed">변경</span></td></tr>
+        <tr><td>필드</td><td>타입별 자동 해금 7종</td><td><strong>소유자 선택 6종</strong> <span class="change-tag tag-changed">변경</span></td></tr>
+        <tr><td>슬롯</td><td>유저당 3~6 (개인)</td><td><strong>필드당 10~18 (공유)</strong> <span class="change-tag tag-changed">변경</span></td></tr>
+        <tr><td>조각 분배</td><td>개인별 배수</td><td><strong>필드 점수 → 엔빵</strong> <span class="change-tag tag-changed">변경</span></td></tr>
+        <tr><td>임무</td><td>일일 1회</td><td><strong>라운드마다 보너스 (6회/일)</strong> <span class="change-tag tag-changed">변경</span></td></tr>
+        <tr><td>레벨</td><td>20단계</td><td><strong>10단계 (Phase 1)</strong> <span class="change-tag tag-changed">변경</span></td></tr>
+        <tr><td>소식 주기</td><td>4시간</td><td><strong>3시간</strong> <span class="change-tag tag-changed">변경</span></td></tr>
+        <tr><td>배치 모드</td><td>자유만</td><td><strong>자유/승인제</strong> <span class="change-tag tag-new">신규</span></td></tr>
+        <tr><td>조각 타입</td><td>색상별 7종</td><td><strong>필드 귀속 6종</strong> <span class="change-tag tag-changed">변경</span></td></tr>
+        <tr><td>전환 비용</td><td>30~250</td><td><strong>12~84</strong> <span class="change-tag tag-changed">변경</span></td></tr>
+        <tr><td>분해 시스템</td><td>없음</td><td><strong>결정 + 무지개</strong> <span class="change-tag tag-new">신규</span></td></tr>
+        <tr><td>대시보드</td><td>없음</td><td><strong>캠프 탭</strong> <span class="change-tag tag-new">신규</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</div>
+
+</body>
+</html>
