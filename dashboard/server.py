@@ -4359,6 +4359,10 @@ def create_app() -> web.Application:
     sprite_dir = Path(__file__).resolve().parent.parent / "assets" / "pokemon"
     if sprite_dir.exists():
         app.router.add_static("/sprites", sprite_dir, show_index=False)
+    # Camp assets (map images etc.)
+    camp_dir = Path(__file__).resolve().parent.parent / "assets" / "camp"
+    if camp_dir.exists():
+        app.router.add_static("/camp-assets", camp_dir, show_index=False)
     # Auth
     app.router.add_post("/api/auth/telegram", api_auth_telegram)
     app.router.add_get("/api/auth/me", api_auth_me)
