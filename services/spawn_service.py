@@ -895,6 +895,24 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 shiny_rate = config.SHINY_RATE_FORCE
             else:
                 shiny_rate = config.SHINY_RATE_NATURAL
+
+            # Anti-abuse: 강스/아케이드 이로치 차단 조건
+            # 1) 최근 10분간 포획 참여자 1명 이하
+            # 2) 최근 10회 스폰 전부 미포획(도망)
+            if (force or arcade) and shiny_rate > 0:
+                try:
+                    catch_users = await queries.get_recent_catch_user_count(chat_id, minutes=10)
+                    if catch_users <= 1:
+                        shiny_rate = 0.0
+                        logger.info(f"Shiny blocked in {chat_id}: only {catch_users} catcher(s) in last 10min")
+                    else:
+                        caught, total = await queries.get_recent_spawn_catch_rate(chat_id, limit=10)
+                        if total >= 10 and caught == 0:
+                            shiny_rate = 0.0
+                            logger.info(f"Shiny blocked in {chat_id}: 0/{total} caught in last {total} spawns")
+                except Exception as e:
+                    logger.warning(f"Anti-abuse check failed for {chat_id}: {e}")
+
             # Chat level shiny boost (강스/아케이드에만 의미 있음)
             level_shiny_add = 0.0
             try:

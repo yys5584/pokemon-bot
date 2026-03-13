@@ -1231,6 +1231,34 @@ async def get_recent_activity(chat_id: int, hours: int = 1) -> int:
     return row["total"] if row else 0
 
 
+async def get_recent_catch_user_count(chat_id: int, minutes: int = 10) -> int:
+    """최근 N분간 포획에 참여한 고유 유저 수 (포켓볼을 던진 유저)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT COUNT(DISTINCT ca.user_id) as cnt
+           FROM catch_attempts ca
+           JOIN spawn_sessions ss ON ss.id = ca.session_id
+           WHERE ss.chat_id = $1
+             AND ca.attempted_at > NOW() - make_interval(mins => $2)""",
+        chat_id, minutes,
+    )
+    return row["cnt"] if row else 0
+
+
+async def get_recent_spawn_catch_rate(chat_id: int, limit: int = 10) -> tuple[int, int]:
+    """최근 N회 스폰 중 포획된 수 반환. (caught, total)"""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT caught_by_user_id FROM spawn_sessions
+           WHERE chat_id = $1 AND is_resolved = 1
+           ORDER BY spawned_at DESC LIMIT $2""",
+        chat_id, limit,
+    )
+    total = len(rows)
+    caught = sum(1 for r in rows if r["caught_by_user_id"] is not None)
+    return caught, total
+
+
 async def cleanup_old_activity(days: int = 7):
     """Remove activity records older than N days."""
     pool = await get_db()
