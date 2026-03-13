@@ -70,7 +70,7 @@ from services.weather_service import update_weather, get_current_weather, WEATHE
 from services.tournament_service import start_registration, start_tournament, snapshot_teams
 from handlers.tournament import tournament_join_handler
 try:
-    from handlers.camp import camp_handler, camp_callback_handler, camp_round_job, camp_create_handler, camp_settings_handler
+    from handlers.camp import camp_handler, camp_callback_handler, camp_round_job, camp_create_handler, camp_settings_handler, camp_map_handler
     from handlers.dm_camp import my_camp_handler, shiny_convert_handler, decompose_handler, camp_dm_callback_handler
     HAS_CAMP = True
 except ImportError:
@@ -1151,6 +1151,7 @@ def main():
         app.add_handler(MessageHandler(group & filters.Regex(r"^캠프$"), camp_handler))
         app.add_handler(MessageHandler(group & filters.Regex(r"^캠프개설$"), camp_create_handler))
         app.add_handler(MessageHandler(group & filters.Regex(r"^캠프설정$"), camp_settings_handler))
+        app.add_handler(MessageHandler(group & filters.Regex(r"^캠프맵$"), camp_map_handler))
 
     # Battle system (Group)
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀$"), battle_challenge_handler))
