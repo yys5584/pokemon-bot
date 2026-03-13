@@ -682,6 +682,7 @@ async def _run_match(
     is_final: bool = False,
     is_semi: bool = False,
     is_quarter: bool = False,
+    match_label: str = "",
 ) -> tuple[int, dict]:
     """Run a single match between two players.
 
@@ -1045,8 +1046,8 @@ async def _run_match(
         await _safe_send(context.bot, chat_id, text=win_text)
 
     else:
-        # ── Lower rounds: one-line summary ──
-        win_text = f"⚔️ {p1_data['name']} vs {p2_data['name']} → {winner_data['name']} 승리!"
+        # ── Lower rounds: one-line summary (match_label + result combined) ──
+        win_text = f"{match_label}⚔️ {p1_data['name']} vs {p2_data['name']} → {winner_data['name']} 승리!"
         if mvp_line:
             win_text += f"\n{mvp_line}"
         await _safe_send(context.bot, chat_id, text=win_text, parse_mode="HTML")
@@ -1199,23 +1200,25 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                     round_winner_names.append("")
                     continue
                 match_num += 1
-                match_label = f"\n[ {match_num}번째 매치 ]" if match_count > 1 and not is_final else ""
+                match_label = f"[ {match_num}번째 매치 ] " if match_count > 1 and not is_final else ""
                 if p1 is None:
                     # p2 gets bye
                     uid2, data2 = p2
                     await _safe_send(context.bot, chat_id,
-                        text=f"{match_label}\n🏃 {data2['name']} — 부전승!" if match_label else f"🏃 {data2['name']} — 부전승!",
+                        text=f"{match_label}🏃 {data2['name']} — 부전승!",
                     )
                     winners.append(p2)
                     round_winner_names.append(data2['name'])
+                    await asyncio.sleep(3)
                 elif p2 is None:
                     # p1 gets bye
                     uid1, data1 = p1
                     await _safe_send(context.bot, chat_id,
-                        text=f"{match_label}\n🏃 {data1['name']} — 부전승!" if match_label else f"🏃 {data1['name']} — 부전승!",
+                        text=f"{match_label}🏃 {data1['name']} — 부전승!",
                     )
                     winners.append(p1)
                     round_winner_names.append(data1['name'])
+                    await asyncio.sleep(3)
                 else:
                     uid1, data1 = p1
                     uid2, data2 = p2
@@ -1225,21 +1228,17 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                         semi_finalists.add(uid1)
                         semi_finalists.add(uid2)
 
-                    # Match label (e.g. "[ 1번째 매치 ]")
-                    if match_label:
-                        await _safe_send(context.bot, chat_id, text=match_label)
-                        await asyncio.sleep(1)
-
                     winner_id, winner_data = await _run_match(
                         context, chat_id,
                         uid1, data1, uid2, data2,
                         is_final=is_final,
                         is_semi=is_semi,
                         is_quarter=is_quarter,
+                        match_label=match_label,
                     )
                     winners.append((winner_id, winner_data))
                     round_winner_names.append(winner_data['name'])
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(3)
 
             round_results[current_round] = round_winner_names
 
