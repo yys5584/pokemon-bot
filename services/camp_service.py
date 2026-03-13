@@ -347,7 +347,7 @@ def build_round_announcement(round_result: dict, camp_level: int) -> str:
         new_fields = new_info[1]
         old_info = get_level_info(round_result["level_up"] - 1)
         if new_fields > old_info[1]:
-            lines.append("🆕 새 필드를 열 수 있습니다! 소유자가 `/캠프설정`에서 선택하세요.")
+            lines.append("🆕 새 필드를 열 수 있습니다! 소유자가 '캠프설정'에서 선택하세요.")
 
     lines.append("━━━━━━━━━━━━━")
     return "\n".join(lines)
@@ -502,6 +502,43 @@ def _get_current_round_time(now: datetime) -> datetime:
         round_hour = 0
 
     return now.replace(hour=round_hour, minute=0, second=0, microsecond=0)
+
+
+def get_previous_round_time(now: datetime) -> datetime:
+    """현재 시각 기준 이전 라운드의 시작 시각 (정산용).
+
+    CAMP_ROUND_HOURS=[9,12,15,18,21,0] 기준:
+      now=09:00 → 이전 라운드 = 당일 00:00
+      now=12:00 → 이전 라운드 = 당일 09:00
+      now=00:00 → 이전 라운드 = 당일 21:00
+    """
+    from datetime import timedelta
+
+    # 시간순 정렬 (0, 9, 12, 15, 18, 21)
+    sorted_hours = sorted(config.CAMP_ROUND_HOURS)
+    current_hour = now.hour
+
+    # 현재 시각의 인덱스 찾기 → 한 칸 앞이 이전 라운드
+    if current_hour in sorted_hours:
+        idx = sorted_hours.index(current_hour)
+        prev_hour = sorted_hours[idx - 1]  # idx=0이면 [-1] → 마지막 원소(21)
+    else:
+        # 라운드 시각이 아닌 시간대 (일반적으론 잡이 정시에만 호출)
+        prev_hour = sorted_hours[0]
+        for h in sorted_hours:
+            if h < current_hour:
+                prev_hour = h
+
+    result = now.replace(hour=prev_hour, minute=0, second=0, microsecond=0)
+    # 이전 라운드가 현재보다 큰 시각이면 전날 (예: now=00시, prev=21시)
+    if prev_hour > current_hour:
+        result -= timedelta(days=1)
+    return result
+
+
+def normalize_round_time(now: datetime) -> datetime:
+    """시각을 라운드 시각으로 정규화 (초/분 제거)."""
+    return now.replace(minute=0, second=0, microsecond=0)
 
 
 # ═══════════════════════════════════════════════════════
@@ -747,7 +784,10 @@ async def change_field_type(chat_id: int, field_id: int, new_type: str) -> tuple
             mins = int(remaining // 60)
             return False, f"필드 변경 쿨타임 중입니다. ({mins}분 남음)"
 
-    # 변경 (기존 배치 삭제됨 — 핸들러에서 경고)
+    # 기존 배치 삭제 후 필드 타입 변경
+    from database.connection import get_db
+    pool = await get_db()
+    await pool.execute("DELETE FROM camp_placements WHERE field_id = $1", field_id)
     await cq.change_field_type(field_id, new_type)
     await cq.update_chat_camp_settings(
         chat_id, last_field_change=config.get_kst_now(),
@@ -763,11 +803,16 @@ async def change_field_type(chat_id: int, field_id: int, new_type: str) -> tuple
 # ═══════════════════════════════════════════════════════
 
 async def process_approval(request_id: int, member_count: int) -> tuple[bool, str]:
-    """승인 요청 처리 → 실제 배치."""
+    """승인 요청 처리 → 실제 배치 (수동 승인)."""
     req = await cq.approve_request(request_id)
     if not req:
         return False, "이미 처리된 요청입니다."
 
+    return await _execute_placement(req, member_count)
+
+
+async def _execute_placement(req: dict, member_count: int) -> tuple[bool, str]:
+    """승인된 요청을 실제 배치로 변환."""
     camp = await cq.get_camp(req["chat_id"])
     if not camp:
         return False, "캠프가 없습니다."
@@ -777,7 +822,6 @@ async def process_approval(request_id: int, member_count: int) -> tuple[bool, st
     if current >= total_slots:
         return False, "슬롯이 가득 찼습니다."
 
-    # 점수 계산
     pokemon = await queries.get_user_pokemon_by_id(req["instance_id"])
     if not pokemon or pokemon.get("user_id") != req["user_id"]:
         return False, "포켓몬을 찾을 수 없습니다."
@@ -796,7 +840,9 @@ async def process_auto_approvals(chat_id: int, member_count: int) -> list[str]:
     approved = await cq.auto_approve_expired(chat_id, config.CAMP_APPROVAL_TIMEOUT)
     results = []
     for req in approved:
-        ok, msg = await process_approval(req["id"], member_count)
+        # auto_approve_expired가 이미 status='approved'로 변경했으므로
+        # approve_request를 거치지 않고 바로 배치 실행
+        ok, msg = await _execute_placement(req, member_count)
         if ok:
             pname = _pokemon_name(req["pokemon_id"])
             results.append(f"⏰ {pname} 자동 승인 (30분 초과)")
