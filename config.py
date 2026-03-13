@@ -1191,6 +1191,9 @@ CAMP_FIELDS = {
     "temple":  {"name": "신전", "emoji": "🔮", "types": ["psychic", "dark", "fairy"]},
 }
 
+# 캠프 개설 시 초기 선택 가능 필드 (풀/불/물)
+CAMP_STARTER_FIELDS = {"forest", "volcano", "lake"}
+
 # ── 캠프 레벨 테이블 (Lv.1~10) ──
 # (레벨, 필드수, 기본슬롯/필드, 캡/필드/소식, 필요XP, 레벨명)
 CAMP_LEVEL_TABLE = [

@@ -9,13 +9,14 @@
 import time
 import logging
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 
 import config
 from database import camp_queries as cq
 from database import queries
 from services import camp_service as cs
 from utils.helpers import schedule_delete
+from utils.camp_map_generator import generate_camp_map
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +208,70 @@ async def camp_handler(update, context):
 
 
 # ═══════════════════════════════════════════════════════
+# 그룹 명령: 캠프맵
+# ═══════════════════════════════════════════════════════
+
+async def camp_map_handler(update, context):
+    """그룹에서 '캠프맵' 입력 시 — 캠프 월드맵 이미지 전송."""
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+
+    user = await queries.get_user(user_id)
+    if not user:
+        resp = await update.message.reply_text("먼저 포켓몬을 잡아보세요!")
+        schedule_delete(resp, 5)
+        schedule_delete(update.message, 3)
+        return
+
+    camp = await cq.get_camp(chat_id)
+    if not camp:
+        resp = await update.message.reply_text("이 채팅방에는 캠프가 없습니다.")
+        schedule_delete(resp, 10)
+        schedule_delete(update.message, 3)
+        return
+
+    fields = await cq.get_fields(chat_id)
+    if not fields:
+        resp = await update.message.reply_text("캠프에 열린 필드가 없습니다.")
+        schedule_delete(resp, 10)
+        schedule_delete(update.message, 3)
+        return
+
+    # 필드별 배치 데이터 수집
+    active_fields = []
+    field_placements = {}
+    for f in fields:
+        active_fields.append({"id": f["id"], "field_type": f["field_type"]})
+        placements = await cq.get_field_placements(f["id"])
+        field_placements[f["id"]] = [
+            {
+                "pokemon_id": p["pokemon_id"],
+                "is_shiny": p.get("is_shiny", False),
+                "score": p.get("score", 0),
+            }
+            for p in placements
+        ]
+
+    # 맵 이미지 생성
+    try:
+        buf = generate_camp_map(
+            camp_name=camp.get("name", "캠프"),
+            camp_level=camp["level"],
+            active_fields=active_fields,
+            field_placements=field_placements,
+            field_bonuses={},
+        )
+        resp = await update.message.reply_photo(photo=buf)
+        schedule_delete(update.message, 3)
+        schedule_delete(resp, 120)
+    except Exception:
+        logger.exception("[Camp] Map generation failed")
+        resp = await update.message.reply_text("맵 생성에 실패했습니다.")
+        schedule_delete(resp, 10)
+        schedule_delete(update.message, 3)
+
+
+# ═══════════════════════════════════════════════════════
 # 그룹 명령: 캠프개설
 # ═══════════════════════════════════════════════════════
 
@@ -250,24 +315,23 @@ async def camp_create_handler(update, context):
         schedule_delete(update.message, 3)
         return
 
-    # 필드 선택 UI
+    # 필드 선택 UI (초기: 풀/불/물 3택)
     buttons = []
     row = []
     for fkey, finfo in config.CAMP_FIELDS.items():
+        if fkey not in config.CAMP_STARTER_FIELDS:
+            continue
         label = f"{finfo['emoji']} {finfo['name']}"
         row.append(InlineKeyboardButton(label, callback_data=f"camp_create_{user_id}_{fkey}"))
-        if len(row) == 3:
-            buttons.append(row)
-            row = []
-    if row:
-        buttons.append(row)
+    buttons.append(row)
 
     text = (
         "🏕 캠프 개설\n"
         "━━━━━━━━━━━━━\n"
         "첫 번째 필드를 선택하세요!\n"
+        "🌿 숲 / 🔥 화산 / 💧 호수\n"
         "━━━━━━━━━━━━━\n"
-        "💡 필드는 캠프 레벨업 시 추가로 열 수 있습니다."
+        "💡 도시·동굴·신전은 레벨업 시 해금됩니다."
     )
     resp = await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
     schedule_delete(update.message, 3)
