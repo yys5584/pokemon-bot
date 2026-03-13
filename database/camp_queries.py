@@ -107,20 +107,22 @@ async def get_field_by_id(field_id: int) -> dict | None:
 # ═══════════════════════════════════════════════════════
 
 async def place_pokemon(chat_id: int, field_id: int, user_id: int,
-                        pokemon_id: int, slot_type: str, score: int) -> int:
+                        pokemon_id: int, instance_id: int,
+                        slot_type: str, score: int) -> int:
     """Place a pokemon in a field. UPSERT on (chat_id, field_id, user_id).
     Returns placement id."""
     pool = await get_db()
     row = await pool.fetchrow(
-        """INSERT INTO camp_placements (chat_id, field_id, user_id, pokemon_id, slot_type, score, placed_at)
-           VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        """INSERT INTO camp_placements (chat_id, field_id, user_id, pokemon_id, instance_id, slot_type, score, placed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
            ON CONFLICT (chat_id, field_id, user_id) DO UPDATE SET
                pokemon_id = EXCLUDED.pokemon_id,
+               instance_id = EXCLUDED.instance_id,
                slot_type = EXCLUDED.slot_type,
                score = EXCLUDED.score,
                placed_at = NOW()
            RETURNING id""",
-        chat_id, field_id, user_id, pokemon_id, slot_type, score,
+        chat_id, field_id, user_id, pokemon_id, instance_id, slot_type, score,
     )
     return row["id"]
 
@@ -209,12 +211,12 @@ async def count_field_placements(field_id: int) -> int:
     return val or 0
 
 
-async def remove_user_pokemon_placements(user_id: int, pokemon_id: int):
-    """Remove all placements of a specific pokemon (e.g. on trade/release)."""
+async def remove_user_pokemon_placements(user_id: int, instance_id: int):
+    """Remove all placements of a specific pokemon instance (e.g. on trade/release)."""
     pool = await get_db()
     await pool.execute(
-        "DELETE FROM camp_placements WHERE user_id = $1 AND pokemon_id = $2",
-        user_id, pokemon_id,
+        "DELETE FROM camp_placements WHERE user_id = $1 AND instance_id = $2",
+        user_id, instance_id,
     )
 
 
@@ -472,14 +474,15 @@ async def increment_daily_placement(user_id: int):
 # Approval Queue
 # ═══════════════════════════════════════════════════════
 
-async def add_approval_request(chat_id: int, field_id: int, user_id: int, pokemon_id: int) -> int:
+async def add_approval_request(chat_id: int, field_id: int, user_id: int,
+                               pokemon_id: int, instance_id: int) -> int:
     """Add an approval request. Returns request id."""
     pool = await get_db()
     row = await pool.fetchrow(
-        """INSERT INTO camp_approval_queue (chat_id, field_id, user_id, pokemon_id, requested_at, status)
-           VALUES ($1, $2, $3, $4, NOW(), 'pending')
+        """INSERT INTO camp_approval_queue (chat_id, field_id, user_id, pokemon_id, instance_id, requested_at, status)
+           VALUES ($1, $2, $3, $4, $5, NOW(), 'pending')
            RETURNING id""",
-        chat_id, field_id, user_id, pokemon_id,
+        chat_id, field_id, user_id, pokemon_id, instance_id,
     )
     return row["id"]
 
@@ -488,7 +491,7 @@ async def get_pending_approvals(chat_id: int) -> list[dict]:
     """Get all pending approval requests for a chat."""
     pool = await get_db()
     rows = await pool.fetch(
-        """SELECT aq.id, aq.chat_id, aq.field_id, aq.user_id, aq.pokemon_id,
+        """SELECT aq.id, aq.chat_id, aq.field_id, aq.user_id, aq.pokemon_id, aq.instance_id,
                   aq.requested_at, aq.status,
                   cf.field_type,
                   pm.name_ko, pm.rarity,
@@ -511,7 +514,7 @@ async def approve_request(request_id: int) -> dict | None:
         """UPDATE camp_approval_queue
            SET status = 'approved'
            WHERE id = $1 AND status = 'pending'
-           RETURNING id, chat_id, field_id, user_id, pokemon_id""",
+           RETURNING id, chat_id, field_id, user_id, pokemon_id, instance_id""",
         request_id,
     )
     return dict(row) if row else None
@@ -535,7 +538,7 @@ async def auto_approve_expired(chat_id: int, timeout_seconds: int) -> list[dict]
            SET status = 'approved'
            WHERE chat_id = $1 AND status = 'pending'
              AND requested_at < NOW() - INTERVAL '1 second' * $2
-           RETURNING id, chat_id, field_id, user_id, pokemon_id""",
+           RETURNING id, chat_id, field_id, user_id, pokemon_id, instance_id""",
         chat_id, timeout_seconds,
     )
     return [dict(r) for r in rows]

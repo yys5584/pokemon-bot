@@ -445,7 +445,7 @@ async def try_place_pokemon(
         if approval_slots > 0 and not already_in_field:
             free_slots = total_slots - approval_slots
             if current_count >= free_slots:
-                req_id = await cq.add_approval_request(chat_id, field_id, user_id, pokemon_id)
+                req_id = await cq.add_approval_request(chat_id, field_id, user_id, pokemon_id, instance_id)
                 return False, f"승인대기|{req_id}"  # 핸들러가 이 패턴 감지
 
     # 8) 점수 계산 (현재 라운드 보너스 기준)
@@ -476,7 +476,7 @@ async def try_place_pokemon(
     )
 
     # 9) 배치 (upsert)
-    await cq.place_pokemon(chat_id, field_id, user_id, pokemon_id, "free", score)
+    await cq.place_pokemon(chat_id, field_id, user_id, pokemon_id, instance_id, "free", score)
     await cq.increment_daily_placement(user_id)
 
     pname = _pokemon_name(pokemon_id)
@@ -650,7 +650,7 @@ async def decompose_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
     await cq.add_crystals(user_id, crystal_gain, rainbow_gain)
 
     # 캠프 배치에서 제거 (이로치 해제됐으므로 점수 변동)
-    await cq.remove_user_pokemon_placements(user_id, pokemon_id)
+    await cq.remove_user_pokemon_placements(user_id, instance_id)
 
     parts = [f"💎 결정 +{crystal_gain}"]
     if rainbow_gain > 0:
@@ -778,13 +778,13 @@ async def process_approval(request_id: int, member_count: int) -> tuple[bool, st
         return False, "슬롯이 가득 찼습니다."
 
     # 점수 계산
-    pokemon = await queries.get_user_pokemon_by_id(req["user_id"], req["pokemon_id"])
-    if not pokemon:
+    pokemon = await queries.get_user_pokemon_by_id(req["instance_id"])
+    if not pokemon or pokemon.get("user_id") != req["user_id"]:
         return False, "포켓몬을 찾을 수 없습니다."
 
     await cq.place_pokemon(
         req["chat_id"], req["field_id"], req["user_id"],
-        req["pokemon_id"], "approved", 1,
+        req["pokemon_id"], req["instance_id"], "approved", 1,
     )
 
     pname = _pokemon_name(req["pokemon_id"])

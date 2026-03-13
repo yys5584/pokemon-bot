@@ -579,7 +579,7 @@ async def bulk_deactivate_pokemon(instance_ids: list[int]) -> int:
 
 
 async def get_protected_pokemon_ids(user_id: int) -> set[int]:
-    """Get instance IDs that cannot be released (team, partner, market, trade)."""
+    """Get instance IDs that cannot be released (team, partner, market, trade, camp)."""
     pool = await get_db()
     rows = await pool.fetch(
         """
@@ -590,6 +590,8 @@ async def get_protected_pokemon_ids(user_id: int) -> set[int]:
         SELECT pokemon_instance_id FROM market_listings WHERE seller_id = $1 AND status = 'active'
         UNION
         SELECT offer_pokemon_instance_id FROM trades WHERE from_user_id = $1 AND status = 'pending'
+        UNION
+        SELECT instance_id FROM camp_placements WHERE user_id = $1
         """,
         user_id,
     )
@@ -1706,7 +1708,7 @@ async def get_pending_listing_for_pokemon(instance_id: int) -> dict | None:
 
 
 async def is_pokemon_locked(instance_id: int) -> tuple[bool, str]:
-    """Check if a Pokemon is locked (in trade or market).
+    """Check if a Pokemon is locked (in trade, market, or camp).
     Returns (is_locked, reason_message)."""
     pending_trade = await get_pending_trade_for_pokemon(instance_id)
     if pending_trade:
@@ -1714,6 +1716,14 @@ async def is_pokemon_locked(instance_id: int) -> tuple[bool, str]:
     pending_listing = await get_pending_listing_for_pokemon(instance_id)
     if pending_listing:
         return True, "이 포켓몬은 거래소에 등록되어 있습니다."
+    # 캠프 배치 체크
+    pool = await get_db()
+    camp_row = await pool.fetchval(
+        "SELECT 1 FROM camp_placements WHERE instance_id = $1 LIMIT 1",
+        instance_id,
+    )
+    if camp_row:
+        return True, "🏕 이 포켓몬은 캠프에 배치되어 있습니다. 배치 해제 후 시도하세요."
     return False, ""
 
 

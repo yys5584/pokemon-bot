@@ -710,6 +710,7 @@ CAMP_TABLES = [
         field_id INTEGER NOT NULL REFERENCES camp_fields(id),
         user_id BIGINT NOT NULL,
         pokemon_id INTEGER NOT NULL,
+        instance_id INTEGER NOT NULL,
         slot_type VARCHAR(10) NOT NULL DEFAULT 'free',
         score INTEGER NOT NULL DEFAULT 1,
         placed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -794,6 +795,7 @@ CAMP_TABLES = [
         field_id INTEGER NOT NULL,
         user_id BIGINT NOT NULL,
         pokemon_id INTEGER NOT NULL,
+        instance_id INTEGER NOT NULL,
         requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         status VARCHAR(10) NOT NULL DEFAULT 'pending',
         UNIQUE(chat_id, field_id, user_id)

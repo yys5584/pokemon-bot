@@ -1210,6 +1210,12 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await query.answer("⚔️ 팀에 등록된 포켓몬은 방생할 수 없습니다! 팀에서 해제 후 시도하세요.", show_alert=True)
                 return
 
+            # 캠프/교환/거래소 잠금 체크
+            locked, lock_reason = await queries.is_pokemon_locked(instance_id)
+            if locked:
+                await query.answer(lock_reason, show_alert=True)
+                return
+
             released = await queries.bulk_deactivate_pokemon([instance_id])
             if released > 0:
                 await queries.add_hyper_ball(user_id, 1)
