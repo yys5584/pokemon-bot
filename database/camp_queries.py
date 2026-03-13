@@ -142,13 +142,13 @@ async def get_field_placements(field_id: int) -> list[dict]:
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT cp.id, cp.chat_id, cp.field_id, cp.user_id, cp.pokemon_id,
-                  cp.slot_type, cp.score, cp.placed_at,
-                  up.id AS instance_id, up.is_shiny,
+                  cp.instance_id, cp.slot_type, cp.score, cp.placed_at,
+                  up.is_shiny,
                   up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd,
                   pm.name_ko, pm.rarity,
                   u.display_name
            FROM camp_placements cp
-           JOIN user_pokemon up ON up.user_id = cp.user_id AND up.pokemon_id = cp.pokemon_id AND up.is_active = 1
+           JOIN user_pokemon up ON up.id = cp.instance_id
            JOIN pokemon_master pm ON pm.id = cp.pokemon_id
            JOIN users u ON u.user_id = cp.user_id
            WHERE cp.field_id = $1
@@ -163,15 +163,15 @@ async def get_user_placements(user_id: int) -> list[dict]:
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT cp.id, cp.chat_id, cp.field_id, cp.pokemon_id,
-                  cp.slot_type, cp.score, cp.placed_at,
+                  cp.instance_id, cp.slot_type, cp.score, cp.placed_at,
                   cf.field_type, cf.unlock_order,
                   c.level AS camp_level,
-                  up.id AS instance_id, up.is_shiny,
+                  up.is_shiny,
                   pm.name_ko, pm.rarity
            FROM camp_placements cp
            JOIN camp_fields cf ON cf.id = cp.field_id
            JOIN camps c ON c.chat_id = cp.chat_id
-           JOIN user_pokemon up ON up.user_id = cp.user_id AND up.pokemon_id = cp.pokemon_id AND up.is_active = 1
+           JOIN user_pokemon up ON up.id = cp.instance_id
            JOIN pokemon_master pm ON pm.id = cp.pokemon_id
            WHERE cp.user_id = $1
            ORDER BY cp.placed_at""",
@@ -185,14 +185,14 @@ async def get_user_placements_in_chat(chat_id: int, user_id: int) -> list[dict]:
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT cp.id, cp.field_id, cp.pokemon_id,
-                  cp.slot_type, cp.score, cp.placed_at,
+                  cp.instance_id, cp.slot_type, cp.score, cp.placed_at,
                   cf.field_type, cf.unlock_order,
-                  up.id AS instance_id, up.is_shiny,
+                  up.is_shiny,
                   up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd,
                   pm.name_ko, pm.rarity
            FROM camp_placements cp
            JOIN camp_fields cf ON cf.id = cp.field_id
-           JOIN user_pokemon up ON up.user_id = cp.user_id AND up.pokemon_id = cp.pokemon_id AND up.is_active = 1
+           JOIN user_pokemon up ON up.id = cp.instance_id
            JOIN pokemon_master pm ON pm.id = cp.pokemon_id
            WHERE cp.chat_id = $1 AND cp.user_id = $2
            ORDER BY cf.unlock_order, cp.placed_at""",
