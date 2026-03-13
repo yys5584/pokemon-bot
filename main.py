@@ -1079,7 +1079,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소"), market_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^방생$"), release_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^합성$"), fusion_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?미션$"), mission_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*|📌\s*)?미션$"), mission_handler))
 
     # Subscription system (DM + Group)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(💎\s*)?구독$"), subscription_handler))
@@ -1104,6 +1104,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^팀스왑$"), team_swap_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(⚔️\s*)?팀[12]?$"), team_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏆\s*)?배틀전적$"), battle_stats_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(⚔️\s*)?랭크전$"), battle_stats_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(bp)?구매"), bp_buy_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🏪\s*)?(bp)?상점$"), bp_shop_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp$"), bp_handler))
