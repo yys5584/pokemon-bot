@@ -360,13 +360,16 @@ def set_arcade_interval(app, chat_id: int, new_interval: int):
 
 
 async def extend_arcade_time(app, chat_id: int, extend_minutes: int):
-    """활성 아케이드 시간 연장 (만료 잡 재스케줄 + DB 업데이트)."""
+    """활성 아케이드 시간 연장 (DB 업데이트 → 만료 잡 재스케줄)."""
+    # DB 먼저 업데이트 — 실패 시 잡 스케줄 변경 방지
+    from database.queries import extend_arcade_pass
+    await extend_arcade_pass(chat_id, extend_minutes)
+
     expire_name = f"arcade_expire_{chat_id}"
     remaining = 0
 
     for job in app.job_queue.jobs():
         if job.name == expire_name and job.removed is False:
-            # 기존 만료까지 남은 시간 계산
             if job.next_t:
                 from datetime import datetime, timezone as tz
                 now = datetime.now(tz.utc)
@@ -381,10 +384,6 @@ async def extend_arcade_time(app, chat_id: int, extend_minutes: int):
         data={"chat_id": chat_id},
         name=expire_name,
     )
-
-    # DB expires_at도 함께 업데이트
-    from database.queries import extend_arcade_pass
-    await extend_arcade_pass(chat_id, extend_minutes)
 
     logger.info(f"Arcade extended for {chat_id}: +{extend_minutes}m (total remaining: {new_remaining}s)")
 
@@ -897,19 +896,18 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 shiny_rate = config.SHINY_RATE_NATURAL
 
             # Anti-abuse: 강스/아케이드 이로치 차단 조건
-            # 1) 최근 10분간 포획 참여자 1명 이하
+            # 1) 최근 10분간 포획 참여자 1명 이하 (단, 최소 2회 이상 스폰 이력 필요)
             # 2) 최근 10회 스폰 전부 미포획(도망)
             if (force or arcade) and shiny_rate > 0:
                 try:
                     catch_users = await queries.get_recent_catch_user_count(chat_id, minutes=10)
-                    if catch_users <= 1:
+                    caught, total = await queries.get_recent_spawn_catch_rate(chat_id, limit=10)
+                    if total >= 2 and catch_users <= 1:
                         shiny_rate = 0.0
                         logger.info(f"Shiny blocked in {chat_id}: only {catch_users} catcher(s) in last 10min")
-                    else:
-                        caught, total = await queries.get_recent_spawn_catch_rate(chat_id, limit=10)
-                        if total >= 10 and caught == 0:
-                            shiny_rate = 0.0
-                            logger.info(f"Shiny blocked in {chat_id}: 0/{total} caught in last {total} spawns")
+                    elif total >= 10 and caught == 0:
+                        shiny_rate = 0.0
+                        logger.info(f"Shiny blocked in {chat_id}: 0/{total} caught in last {total} spawns")
                 except Exception as e:
                     logger.warning(f"Anti-abuse check failed for {chat_id}: {e}")
 
