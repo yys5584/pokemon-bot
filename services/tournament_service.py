@@ -332,30 +332,39 @@ def _extract_mvp(turn_data: list[dict], winner_side: str) -> str | None:
 
 
 async def _safe_send(bot, chat_id, text, **kwargs):
-    """send_message with RetryAfter auto-retry."""
-    for attempt in range(3):
+    """send_message with RetryAfter/TimedOut/NetworkError auto-retry."""
+    from telegram.error import TimedOut, NetworkError
+    for attempt in range(5):
         try:
             return await bot.send_message(chat_id=chat_id, text=text, **kwargs)
         except RetryAfter as e:
             wait = e.retry_after + 1
             logger.warning(f"Flood control, waiting {wait}s (attempt {attempt+1})")
             await asyncio.sleep(wait)
+        except (TimedOut, NetworkError) as e:
+            wait = 3 * (attempt + 1)
+            logger.warning(f"Network error in _safe_send: {e}, retry in {wait}s (attempt {attempt+1})")
+            await asyncio.sleep(wait)
     # last attempt without catch
     return await bot.send_message(chat_id=chat_id, text=text, **kwargs)
 
 
 async def _safe_send_photo(bot, chat_id, photo, caption="", **kwargs):
-    """send_photo with RetryAfter auto-retry. Falls back to text on failure."""
-    for attempt in range(3):
+    """send_photo with RetryAfter/TimedOut/NetworkError auto-retry. Falls back to text on failure."""
+    from telegram.error import TimedOut, NetworkError
+    for attempt in range(5):
         try:
             return await bot.send_photo(chat_id=chat_id, photo=photo, caption=caption, **kwargs)
         except RetryAfter as e:
             wait = e.retry_after + 1
             logger.warning(f"Flood control (photo), waiting {wait}s (attempt {attempt+1})")
             await asyncio.sleep(wait)
+        except (TimedOut, NetworkError) as e:
+            wait = 3 * (attempt + 1)
+            logger.warning(f"Network error in _safe_send_photo: {e}, retry in {wait}s (attempt {attempt+1})")
+            await asyncio.sleep(wait)
         except Exception as e:
             logger.warning(f"send_photo failed (attempt {attempt+1}): {e}")
-            # Fallback to text message on photo failure
             return await _safe_send(bot, chat_id, caption, **kwargs)
     # last attempt — fallback to text if photo still fails
     try:
@@ -1285,9 +1294,12 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Tournament error: {e}", exc_info=True)
-        await _safe_send(context.bot, chat_id,
-            text="⚠️ 토너먼트 진행 중 오류가 발생했습니다.",
-        )
+        try:
+            await _safe_send(context.bot, chat_id,
+                text="⚠️ 토너먼트 진행 중 오류가 발생했습니다.",
+            )
+        except Exception:
+            logger.error("Failed to send tournament error message")
 
     # Cleanup
     _reset_state()
