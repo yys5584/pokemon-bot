@@ -1122,7 +1122,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🏪\s*)?(bp)?상점$"), bp_shop_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp$"), bp_handler))
     # 가챠 (뽑기) + 아이템
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🎰\s*)?뽑기$"), gacha_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🎰\s*)?(뽑기|가챠)$"), gacha_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🎒\s*)?아이템$"), item_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^티어$"), tier_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^시즌$"), season_info_handler))
