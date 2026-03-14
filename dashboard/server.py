@@ -407,7 +407,8 @@ async def _build_pokemon_data(rows, battle_stats: dict | None = None) -> list[di
         rarity = r["rarity"]
         stat_type = r["stat_type"]
         friendship = r["friendship"]
-        evo_stage = EVO_STAGE_MAP.get(pid, 3)
+        base_raw = get_normalized_base_stats(pid)
+        evo_stage = 3 if base_raw else EVO_STAGE_MAP.get(pid, 3)
 
         ivs = {
             "iv_hp": r.get("iv_hp"), "iv_atk": r.get("iv_atk"),
@@ -415,8 +416,6 @@ async def _build_pokemon_data(rows, battle_stats: dict | None = None) -> list[di
             "iv_spdef": r.get("iv_spdef"), "iv_spd": r.get("iv_spd"),
         }
 
-        # Get normalized base stats
-        base_raw = get_normalized_base_stats(pid)
         base_kw = base_raw if base_raw else {}
 
         # Stats WITH IV
@@ -2366,7 +2365,7 @@ async def api_battle_tiers(request):
     scored = []
     for r in rows:
         base = get_normalized_base_stats(r["id"])
-        evo_stage = EVO_STAGE_MAP.get(r["id"], 3)
+        evo_stage = 3 if base else EVO_STAGE_MAP.get(r["id"], 3)
         stats = calc_battle_stats(
             r["rarity"], r["stat_type"], 5,
             evo_stage=evo_stage,

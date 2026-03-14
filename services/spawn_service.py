@@ -685,12 +685,10 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         # DM notification
         try:
             from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, EVO_STAGE_MAP, get_normalized_base_stats
-            evo_stage = EVO_STAGE_MAP.get(pokemon_id, 3)
             stat_type = pokemon.get("stat_type", "balanced") or "balanced"
-            base_kwargs = {}
             norm = get_normalized_base_stats(pokemon_id)
-            if norm:
-                base_kwargs = norm
+            evo_stage = 3 if norm else EVO_STAGE_MAP.get(pokemon_id, 3)
+            base_kwargs = norm or {}
             stats_with_iv = calc_battle_stats(
                 rarity, stat_type, 0, evo_stage=evo_stage,
                 iv_hp=caught_ivs["iv_hp"], iv_atk=caught_ivs["iv_atk"],
@@ -1329,14 +1327,12 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # DM notification to catcher (with stats + power)
         try:
             from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, EVO_STAGE_MAP, get_normalized_base_stats
-            evo_stage = EVO_STAGE_MAP.get(pokemon_id, 3)
             stat_type = pokemon.get("stat_type", "balanced") if pokemon else "balanced"
 
             # Base stats (without IV)
-            base_kwargs = {}
             norm = get_normalized_base_stats(pokemon_id)
-            if norm:
-                base_kwargs = norm
+            evo_stage = 3 if norm else EVO_STAGE_MAP.get(pokemon_id, 3)
+            base_kwargs = norm or {}
 
             stats_with_iv = calc_battle_stats(
                 rarity, stat_type, 0, evo_stage=evo_stage,
