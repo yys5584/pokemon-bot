@@ -58,10 +58,10 @@ def _build_field_buttons(user_id: int, fields: list[dict], placements: list[dict
 
     text = (
         f"🏕 포켓몬 캠프 — {level_name}\n"
-        f"━━━━━━━━━━━━━\n"
+        f"\n"
         f"필드: {' '.join(field_lines)}\n"
         f"내 배치: {len(placements)}마리\n"
-        f"━━━━━━━━━━━━━\n"
+        f"\n"
         f"필드를 선택하세요!"
     )
 
@@ -188,7 +188,7 @@ async def _build_my_placements(chat_id: int, user_id: int) -> tuple[str, InlineK
         buttons = [[InlineKeyboardButton("◀ 돌아가기", callback_data=f"camp_back_{user_id}")]]
         return text, InlineKeyboardMarkup(buttons)
 
-    lines = ["🏕 내 배치 현황", "━━━━━━━━━━━━━"]
+    lines = ["🏕 내 배치 현황", ""]
     buttons = []
 
     for p in placements:
@@ -378,10 +378,10 @@ async def camp_create_handler(update, context):
 
     text = (
         "🏕 캠프 개설\n"
-        "━━━━━━━━━━━━━\n"
+        "\n"
         "첫 번째 필드를 선택하세요!\n"
         "🌿 숲 / 🔥 화산 / 💧 호수\n"
-        "━━━━━━━━━━━━━\n"
+        "\n"
         "💡 도시·동굴·신전은 레벨업 시 해금됩니다."
     )
     resp = await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
@@ -435,11 +435,11 @@ async def camp_settings_handler(update, context):
 
     text = (
         f"🏕 캠프 설정 — Lv.{camp['level']} {level_info[5]}\n"
-        f"━━━━━━━━━━━━━\n"
+        f"\n"
         f"필드: {' '.join(field_lines)} ({len(fields)}/{max_fields})\n"
         f"배치 모드: {mode}\n"
         f"{'승인 슬롯: ' + str(approval_slots) + '칸' if approval_slots else ''}\n"
-        f"━━━━━━━━━━━━━"
+        f""
     )
 
     buttons = []
@@ -803,7 +803,7 @@ async def camp_callback_handler(update, context):
             await query.answer("대기 중인 요청이 없습니다.")
             return
 
-        lines = ["📋 승인 대기 목록", "━━━━━━━━━━━━━"]
+        lines = ["📋 승인 대기 목록", ""]
         buttons = []
         for req in pending:
             fi = config.CAMP_FIELDS.get(req["field_type"], {})
@@ -840,7 +840,7 @@ async def camp_callback_handler(update, context):
         # 승인 목록 갱신
         pending = await cq.get_pending_approvals(chat_id)
         if pending:
-            lines = ["📋 승인 대기 목록", "━━━━━━━━━━━━━"]
+            lines = ["📋 승인 대기 목록", ""]
             buttons = []
             for req in pending:
                 fi = config.CAMP_FIELDS.get(req["field_type"], {})
@@ -875,7 +875,7 @@ async def camp_callback_handler(update, context):
         chat_id = query.message.chat_id
         pending = await cq.get_pending_approvals(chat_id)
         if pending:
-            lines = ["📋 승인 대기 목록", "━━━━━━━━━━━━━"]
+            lines = ["📋 승인 대기 목록", ""]
             buttons = []
             for req in pending:
                 fi = config.CAMP_FIELDS.get(req["field_type"], {})
@@ -908,7 +908,7 @@ def _build_settlement_dm(result: dict, chat_title: str, camp_level: int) -> str:
     lines = [
         f"🏕 정산 알림 — {chat_title}",
         f"📊 Lv.{camp_level} {level_name}",
-        "━━━━━━━━━━━━━",
+        "",
     ]
 
     for f in result["fields"]:
@@ -924,7 +924,7 @@ def _build_settlement_dm(result: dict, chat_title: str, camp_level: int) -> str:
     if result.get("level_up"):
         lines.append(f"\n🎉 캠프 레벨업! → Lv.{result['level_up']}")
 
-    lines.append("━━━━━━━━━━━━━")
+    lines.append("")
     lines.append(f"📋 다음 정산: {_next_round_countdown()}")
     lines.append("💡 '캠프알림'으로 알림 on/off")
 
@@ -951,17 +951,41 @@ async def camp_round_job(context):
             if not fields:
                 continue
 
-            # 1) 이전 라운드 정산 (이전 라운드 보너스 기준)
+            # 1) 이전 라운드 정산
             prev_round = cs.get_previous_round_time(now)
             result = await cs.settle_round(chat_id, prev_round)
 
-            # 2) 정산 결과 소식 발송
+            # 2) 배치 초기화 (매 라운드 리셋)
+            cleared = await cq.clear_chat_placements(chat_id)
+            if cleared:
+                logger.info(f"[Camp] Cleared {cleared} placements for chat {chat_id}")
+
+            # 3) 자동 승인 처리
+            try:
+                member_count = await context.bot.get_chat_member_count(chat_id)
+            except Exception:
+                member_count = 100
+            await cs.process_auto_approvals(chat_id, member_count)
+
+            # 4) 새 라운드 날씨 갱신
+            cs.set_camp_weather(chat_id, cs.roll_weather())
+
+            # 5) 다음 라운드 보너스 생성
+            current_round = cs.normalize_round_time(now)
+            await cs.generate_round_bonus(chat_id, fields, current_round)
+            bonuses = await cq.get_round_bonus(chat_id, current_round)
+
+            # 6) 통합 메시지 1개 발송 (정산 결과 + 새 보너스 + 날씨)
             if result["fields"]:
-                text = cs.build_round_announcement(result, camp["level"], chat_id=chat_id)
-                msg = await context.bot.send_message(chat_id=chat_id, text=text)
+                text = cs.build_combined_announcement(
+                    result, camp["level"], fields, bonuses, chat_id=chat_id,
+                )
+                msg = await context.bot.send_message(
+                    chat_id=chat_id, text=text, parse_mode="HTML",
+                )
                 schedule_delete(msg, config.CAMP_MSG_DELETE_DELAY)
 
-                # 2-1) 거점캠프 유저에게 정산 DM
+                # 거점캠프 유저에게 정산 DM
                 try:
                     home_users = await cq.get_home_camp_users(chat_id)
                     if home_users:
@@ -972,28 +996,30 @@ async def camp_round_job(context):
                             try:
                                 await context.bot.send_message(chat_id=uid, text=dm_text)
                             except Exception:
-                                pass  # 유저가 봇 차단 등
+                                pass
                 except Exception:
                     logger.exception(f"[Camp] Settlement DM failed for chat {chat_id}")
+            else:
+                # 정산 결과 없어도 보너스 안내는 발송
+                text = cs.build_bonus_announcement(fields, bonuses, chat_id=chat_id)
+                msg = await context.bot.send_message(
+                    chat_id=chat_id, text=text, parse_mode="HTML",
+                )
+                schedule_delete(msg, config.CAMP_MSG_DELETE_DELAY)
 
-            # 3) 배치 초기화 (매 라운드 리셋)
-            cleared = await cq.clear_chat_placements(chat_id)
-            if cleared:
-                logger.info(f"[Camp] Cleared {cleared} placements for chat {chat_id}")
-
-            # 3-1) 슬롯 빈자리 알림 + 대기 목록 초기화
+            # 7) 슬롯 빈자리 알림 + 대기 목록 초기화
             try:
                 waitlist = await cq.get_slot_waitlist_users(chat_id)
                 if waitlist:
-                    chat_room = await queries.get_chat_room(chat_id)
-                    c_title = (chat_room.get("chat_title") if chat_room else None) or "캠프"
+                    chat_room_data = await queries.get_chat_room(chat_id)
+                    c_title = (chat_room_data.get("chat_title") if chat_room_data else None) or "캠프"
                     for w in waitlist:
                         try:
                             await context.bot.send_message(
                                 chat_id=w["user_id"],
                                 text=(
-                                    f"🔔 <b>{c_title}</b> 캠프 슬롯이 초기화되었습니다!\n"
-                                    f"지금 배치하면 이번 라운드에 참여할 수 있어요."
+                                    f"🔔 <b>{c_title}</b> 새 라운드가 시작되었습니다!\n"
+                                    f"배치 슬롯이 초기화되었어요. 지금 배치해보세요."
                                 ),
                                 parse_mode="HTML",
                             )
@@ -1002,26 +1028,6 @@ async def camp_round_job(context):
                     await cq.clear_slot_waitlist(chat_id)
             except Exception:
                 logger.exception(f"[Camp] Slot waitlist notify failed for {chat_id}")
-
-            # 3-2) 자동 승인 처리
-            try:
-                member_count = await context.bot.get_chat_member_count(chat_id)
-            except Exception:
-                member_count = 100
-            auto_msgs = await cs.process_auto_approvals(chat_id, member_count)
-
-            # 4) 새 라운드 날씨 갱신
-            cs.set_camp_weather(chat_id, cs.roll_weather())
-
-            # 4-1) 다음 라운드 보너스 생성 (현재 라운드 시각으로 정규화)
-            current_round = cs.normalize_round_time(now)
-            await cs.generate_round_bonus(chat_id, fields, current_round)
-
-            # 5) 접수 시작 안내
-            bonuses = await cq.get_round_bonus(chat_id, current_round)
-            announce = cs.build_bonus_announcement(fields, bonuses, chat_id=chat_id)
-            amsg = await context.bot.send_message(chat_id=chat_id, text=announce)
-            schedule_delete(amsg, config.CAMP_MSG_DELETE_DELAY)
 
         except Exception:
             logger.exception(f"[Camp] Round job failed for chat {chat_id}")

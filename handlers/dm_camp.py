@@ -86,7 +86,7 @@ async def camp_hub_handler(update, context):
     # 거점 정보 요약
     lines = [
         f"{icon_emoji('pokecenter')} <b>캠프</b>",
-        "━━━━━━━━━━━━━",
+        "",
     ]
 
     if has_home:
@@ -113,7 +113,7 @@ async def camp_hub_handler(update, context):
 
     lines.append("")
     lines.append(f"{icon_emoji('bookmark')} 다음 정산: {_next_round_countdown()}")
-    lines.append("━━━━━━━━━━━━━")
+    lines.append("")
 
     # 서브메뉴 버튼
     buttons = []
@@ -158,9 +158,9 @@ def _build_camp_list_page(camps: list[dict], user_id: int, page: int,
     page_items = filtered[start:start + CAMP_LIST_PAGE_SIZE]
 
     if is_change:
-        lines = ["🔄 거점 변경", "━━━━━━━━━━━━━", "⚠️ 변경 후 7일간 재변경 불가!", ""]
+        lines = ["🔄 거점 변경", "", "⚠️ 변경 후 7일간 재변경 불가!", ""]
     else:
-        lines = ["🏕 거점캠프를 설정하세요!", "━━━━━━━━━━━━━",
+        lines = ["🏕 거점캠프를 설정하세요!", "",
                  "거점을 설정하면 DM으로 정산 결과를 받을 수 있어요.", ""]
 
     for c in page_items:
@@ -171,7 +171,7 @@ def _build_camp_list_page(camps: list[dict], user_id: int, page: int,
 
     if total_pages > 1:
         lines.append(f"\n📄 {page + 1}/{total_pages} 페이지")
-    lines.append("━━━━━━━━━━━━━")
+    lines.append("")
 
     buttons = []
     for c in page_items:
@@ -215,7 +215,7 @@ async def home_camp_handler(update, context):
         camps = await cq.get_available_camps()
         if not camps:
             await update.message.reply_text(
-                "🏕 거점캠프\n━━━━━━━━━━━━━\n"
+                "🏕 거점캠프\n\n"
                 "활성화된 캠프가 없습니다.\n"
                 "채팅방에서 '캠프개설'로 캠프를 만들어보세요!"
             )
@@ -256,7 +256,7 @@ async def home_camp_handler(update, context):
     if chat_room and chat_room.get("invite_link"):
         lines.append(f"👉 {chat_room['invite_link']}")
 
-    lines.append("━━━━━━━━━━━━━")
+    lines.append("")
     lines.append(f"{icon_emoji('stationery')} 캠프 레벨: Lv.{camp['level']} {level_info[5]}")
 
     for f in fields:
@@ -271,7 +271,7 @@ async def home_camp_handler(update, context):
         else:
             lines.append(f"{emoji} {name} — 비어있음")
 
-    lines.append("━━━━━━━━━━━━━")
+    lines.append("")
     lines.append(f"{icon_emoji('bookmark')} 다음 정산: {_next_round_countdown()}")
 
     # 보너스 조건
@@ -288,7 +288,7 @@ async def home_camp_handler(update, context):
                 stat_name = config.CAMP_IV_STAT_NAMES.get(bonus["stat_type"], "")
                 lines.append(f"  {emoji} {name}: {pname} ({stat_name} {bonus['stat_value']}↑) → 7점")
 
-    lines.append("━━━━━━━━━━━━━")
+    lines.append("")
 
     # 버튼
     buttons = []
@@ -460,7 +460,7 @@ async def _build_dm_field_buttons(user_id: int, chat_id: int, fields: list[dict]
     lines = [
         f"🏕 배치하기 — {chat_title}",
         f"{icon_emoji('stationery')} Lv.{camp['level']} {level_name}",
-        "━━━━━━━━━━━━━",
+        "",
     ]
 
     for f in fields:
@@ -477,7 +477,7 @@ async def _build_dm_field_buttons(user_id: int, chat_id: int, fields: list[dict]
         else:
             lines.append(f"{emoji} {name}{mark}")
 
-    lines.append("━━━━━━━━━━━━━")
+    lines.append("")
     lines.append("배치할 필드를 선택하세요!")
 
     # 배치 중인 포켓몬 해제 버튼
@@ -630,7 +630,7 @@ async def my_camp_handler(update, context):
 
     summary = await cs.get_user_camp_summary(user_id)
 
-    lines = ["🏕 내 캠프 현황", "━━━━━━━━━━━━━"]
+    lines = ["🏕 내 캠프 현황", ""]
 
     # 거점 캠프
     if summary["home_camp"]:
@@ -665,7 +665,7 @@ async def my_camp_handler(update, context):
         mins = int((summary["cooldown_remaining"] % 3600) // 60)
         lines.append(f"\n⏰ 전환 쿨타임: {hours}시간 {mins}분 남음")
 
-    lines.append("\n━━━━━━━━━━━━━")
+    lines.append("\n")
 
     # 배치 현황
     placements = summary["placements"]
@@ -678,7 +678,7 @@ async def my_camp_handler(update, context):
     else:
         lines.append(f"{icon_emoji('bookmark')} 배치: 없음")
 
-    lines.append("━━━━━━━━━━━━━")
+    lines.append("")
 
     # 힌트
     hints = []
@@ -753,7 +753,7 @@ async def shiny_convert_handler(update, context):
     total_frags = sum(frags.values())
     lines = [
         f"{shiny_emoji()} 이로치 전환",
-        "━━━━━━━━━━━━━",
+        "",
         f"🧩 보유 조각: {total_frags}개",
         f"💎 결정: {crystals['crystal']}개 | 🌈 무지개: {crystals['rainbow']}개",
         "",
@@ -784,7 +784,7 @@ async def shiny_convert_handler(update, context):
             rarity_tag = rarity_badge(e.get("rarity", ""))
             lines.append(f"❌ {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
 
-    lines.append("━━━━━━━━━━━━━")
+    lines.append("")
 
     markup = InlineKeyboardMarkup(buttons) if buttons else None
     await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
@@ -813,7 +813,7 @@ async def decompose_handler(update, context):
 
     lines = [
         "🔨 이로치 분해",
-        "━━━━━━━━━━━━━",
+        "",
         f"💎 결정: {crystals['crystal']}개 | 🌈 무지개: {crystals['rainbow']}개",
         "",
         "⚠️ 분해하면 이로치가 해제됩니다!",
@@ -837,7 +837,7 @@ async def decompose_handler(update, context):
             callback_data=f"cdm_dec_{user_id}_{p['id']}",
         )])
 
-    lines.append("━━━━━━━━━━━━━")
+    lines.append("")
 
     await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 
@@ -1276,7 +1276,7 @@ async def camp_dm_callback_handler(update, context):
         await query.answer()
         summary = await cs.get_user_camp_summary(uid)
 
-        lines = [f"{icon_emoji('pokecenter')} <b>내 캠프 현황</b>", "━━━━━━━━━━━━━"]
+        lines = [f"{icon_emoji('pokecenter')} <b>내 캠프 현황</b>", ""]
 
         if summary["home_camp"]:
             chat_room = await queries.get_chat_room(summary["home_camp"])
@@ -1330,7 +1330,7 @@ async def camp_dm_callback_handler(update, context):
             lines.append(f"\n⏰ 전환 쿨타임: {hours}시간 {mins}분 남음")
 
         placements = summary["placements"]
-        lines.append("\n━━━━━━━━━━━━━")
+        lines.append("\n")
         if placements:
             lines.append(f"{icon_emoji('bookmark')} 배치 ({len(placements)}마리)")
             for p in placements:
@@ -1342,7 +1342,7 @@ async def camp_dm_callback_handler(update, context):
 
         lines.append(f"\n⏰ 다음 정산: {_next_round_countdown()}")
         lines.append("ℹ️ 배치는 매 라운드(3시간) 초기화됩니다.")
-        lines.append("━━━━━━━━━━━━━")
+        lines.append("")
 
         try:
             await query.edit_message_text("\n".join(lines), parse_mode="HTML")
@@ -1393,7 +1393,7 @@ async def camp_dm_callback_handler(update, context):
         affordable = [e for e in eligible if e["can_afford"]][:10]
         total_frags = sum(frags.values())
         lines = [
-            f"{shiny_emoji()} 이로치 전환", "━━━━━━━━━━━━━",
+            f"{shiny_emoji()} 이로치 전환", "",
             f"{icon_emoji('gotcha')} 보유 조각: {total_frags}개",
             f"{icon_emoji('crystal')} 결정: {crystals_data['crystal']}개 | 🌈 무지개: {crystals_data['rainbow']}개", "",
         ]
@@ -1410,7 +1410,7 @@ async def camp_dm_callback_handler(update, context):
                     f"✨ {e['name_ko']} 전환",
                     callback_data=f"cdm_conv_{uid}_{e['instance_id']}",
                 )])
-        lines.append("━━━━━━━━━━━━━")
+        lines.append("")
         markup = InlineKeyboardMarkup(buttons) if buttons else None
         try:
             await query.edit_message_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
@@ -1437,7 +1437,7 @@ async def camp_dm_callback_handler(update, context):
 
         crystals_data = await cq.get_crystals(uid)
         lines = [
-            "🔨 이로치 분해", "━━━━━━━━━━━━━",
+            "🔨 이로치 분해", "",
             f"{icon_emoji('crystal')} 결정: {crystals_data['crystal']}개 | 🌈 무지개: {crystals_data['rainbow']}개",
             "", "⚠️ 분해하면 이로치가 해제됩니다!", "",
         ]
@@ -1455,7 +1455,7 @@ async def camp_dm_callback_handler(update, context):
                 f"🔨 {p['name_ko']} 분해",
                 callback_data=f"cdm_dec_{uid}_{p['id']}",
             )])
-        lines.append("━━━━━━━━━━━━━")
+        lines.append("")
         try:
             await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
         except Exception:
@@ -1476,7 +1476,7 @@ async def camp_dm_callback_handler(update, context):
             if not camps:
                 try:
                     await query.edit_message_text(
-                        "🏕 거점캠프\n━━━━━━━━━━━━━\n"
+                        "🏕 거점캠프\n\n"
                         "활성화된 캠프가 없습니다.\n"
                         "채팅방에서 '캠프개설'로 캠프를 만들어보세요!"
                     )
@@ -1526,7 +1526,7 @@ async def camp_dm_callback_handler(update, context):
         hlines = [
             f"🏕 <b>{chat_title}</b>",
             f"Lv.{camp['level']} {level_info[5]} — XP {camp['xp']}/{xp_needed}",
-            "━━━━━━━━━━━━━",
+            "",
         ]
 
         any_full = False
@@ -1546,7 +1546,7 @@ async def camp_dm_callback_handler(update, context):
             else:
                 hlines.append(f"{emoji} 비어있음{slot_tag}{bonus_tag}")
 
-        hlines.append(f"━━━━━━━━━━━━━")
+        hlines.append(f"")
         hlines.append(f"⏰ 다음 정산: {_next_round_countdown()}")
         hlines.append("ℹ️ 배치는 매 라운드 초기화됩니다.")
 
@@ -1707,7 +1707,7 @@ async def camp_dm_callback_handler(update, context):
         lines = [
             f"{icon_emoji('pokecenter')} <b>주간 MVP 랭킹</b>",
             f"📍 {title}",
-            "━━━━━━━━━━━━━",
+            "",
         ]
         if not mvp_list:
             lines.append("")
@@ -1723,7 +1723,7 @@ async def camp_dm_callback_handler(update, context):
                 lines.append(f"{medal} <b>{name}</b> — {total}조각{me_tag}")
 
         lines.append("")
-        lines.append("━━━━━━━━━━━━━")
+        lines.append("")
         lines.append(f"최근 7일 기준 | {icon_emoji('gotcha')} 정산 조각 합계")
 
         buttons = [[InlineKeyboardButton("◀ 캠프 메뉴", callback_data=f"cdm_hub_back_{uid}")]]
@@ -1749,7 +1749,7 @@ async def camp_dm_callback_handler(update, context):
 
         hub_lines = [
             f"{icon_emoji('pokecenter')} <b>캠프</b>",
-            "━━━━━━━━━━━━━",
+            "",
         ]
         if has_home:
             chat_room = await queries.get_chat_room(settings["home_chat_id"])
@@ -1767,7 +1767,7 @@ async def camp_dm_callback_handler(update, context):
         else:
             hub_lines += ["", "아직 거점캠프가 없습니다!", "아래 버튼으로 시작하세요."]
 
-        hub_lines += ["", f"{icon_emoji('bookmark')} 다음 정산: {_next_round_countdown()}", "━━━━━━━━━━━━━"]
+        hub_lines += ["", f"{icon_emoji('bookmark')} 다음 정산: {_next_round_countdown()}", ""]
 
         btns = []
         if has_home:
