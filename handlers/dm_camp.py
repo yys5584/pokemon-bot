@@ -10,6 +10,7 @@ import config
 from database import camp_queries as cq
 from database import queries
 from services import camp_service as cs
+from utils.helpers import rarity_badge, shiny_emoji, icon_emoji, _type_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +180,7 @@ async def home_camp_handler(update, context):
         lines.append(f"👉 {chat_room['invite_link']}")
 
     lines.append("━━━━━━━━━━━━━")
-    lines.append(f"📊 캠프 레벨: Lv.{camp['level']} {level_info[5]}")
+    lines.append(f"{icon_emoji('stationery')} 캠프 레벨: Lv.{camp['level']} {level_info[5]}")
 
     for f in fields:
         fi = config.CAMP_FIELDS.get(f["field_type"], {})
@@ -188,13 +189,13 @@ async def home_camp_handler(update, context):
 
         placed = placed_map.get(f["id"])
         if placed:
-            shiny = "✨" if placed.get("is_shiny") else ""
+            shiny = shiny_emoji() if placed.get("is_shiny") else ""
             lines.append(f"{emoji} {name} — {shiny}{placed['name_ko']} 배치 중 ({placed['score']}점)")
         else:
             lines.append(f"{emoji} {name} — 비어있음")
 
     lines.append("━━━━━━━━━━━━━")
-    lines.append(f"📋 다음 정산: {_next_round_countdown()}")
+    lines.append(f"{icon_emoji('bookmark')} 다음 정산: {_next_round_countdown()}")
 
     # 보너스 조건
     if bonuses:
@@ -381,7 +382,7 @@ async def _build_dm_field_buttons(user_id: int, chat_id: int, fields: list[dict]
 
     lines = [
         f"🏕 배치하기 — {chat_title}",
-        f"📊 Lv.{camp['level']} {level_name}",
+        f"{icon_emoji('stationery')} Lv.{camp['level']} {level_name}",
         "━━━━━━━━━━━━━",
     ]
 
@@ -389,7 +390,7 @@ async def _build_dm_field_buttons(user_id: int, chat_id: int, fields: list[dict]
         fi = config.CAMP_FIELDS.get(f["field_type"], {})
         emoji = fi.get("emoji", "🏕")
         name = fi.get("name", f["field_type"])
-        mark = " ✅" if f["id"] in placed_fields else ""
+        mark = f" {icon_emoji('check')}" if f["id"] in placed_fields else ""
 
         bonus = bonus_map.get(f["id"])
         if bonus:
@@ -491,9 +492,9 @@ async def _build_dm_pokemon_list(user_id: int, field_id: int, field_type: str, c
 
     for i, p in enumerate(page_items):
         num = start + i + 1
-        shiny = "✨" if p.get("is_shiny") else ""
-        rarity_tag = {"ultra_legendary": "🌟", "legendary": "⭐", "epic": "💎"}.get(p.get("rarity"), "")
-        score_tag = f" ({p['_score']}점)" if p["_score"] > 1 else ""
+        shiny = shiny_emoji() if p.get("is_shiny") else ""
+        rarity_tag = rarity_badge(p.get("rarity", ""))
+        score_tag = f" ({p['_desc']})" if p["_score"] > 1 else ""
         lines.append(f"{num}. {shiny}{rarity_tag}{p['name_ko']}{score_tag}")
 
     buttons = []
@@ -592,13 +593,13 @@ async def my_camp_handler(update, context):
     # 배치 현황
     placements = summary["placements"]
     if placements:
-        lines.append(f"📋 배치 현황 ({len(placements)}마리)")
+        lines.append(f"{icon_emoji('bookmark')} 배치 현황 ({len(placements)}마리)")
         for p in placements:
             fi = config.CAMP_FIELDS.get(p.get("field_type", ""), {})
-            shiny = "✨" if p.get("is_shiny") else ""
+            shiny = shiny_emoji() if p.get("is_shiny") else ""
             lines.append(f"  {fi.get('emoji', '🏕')} {shiny}{p['name_ko']} ({p['score']}점)")
     else:
-        lines.append("📋 배치: 없음")
+        lines.append(f"{icon_emoji('bookmark')} 배치: 없음")
 
     lines.append("━━━━━━━━━━━━━")
 
@@ -606,7 +607,7 @@ async def my_camp_handler(update, context):
     hints = []
     total_frags = sum(frags.values()) if frags else 0
     if total_frags >= 12:
-        hints.append("✨ '이로치전환'으로 이로치 변환!")
+        hints.append(f"{shiny_emoji()} '이로치전환'으로 이로치 변환!")
     if crystals["crystal"] == 0 and total_frags > 0:
         hints.append("🔨 '분해'로 이로치를 결정으로!")
     if hints:
@@ -663,7 +664,7 @@ async def shiny_convert_handler(update, context):
 
     if not eligible:
         await update.message.reply_text(
-            "✨ 이로치 전환 가능한 포켓몬이 없습니다.\n"
+            f"{shiny_emoji()} 이로치 전환 가능한 포켓몬이 없습니다.\n"
             "조각이 부족하거나, 보유 포켓몬이 모두 이로치입니다."
         )
         return
@@ -673,7 +674,7 @@ async def shiny_convert_handler(update, context):
 
     total_frags = sum(frags.values())
     lines = [
-        "✨ 이로치 전환",
+        f"{shiny_emoji()} 이로치 전환",
         "━━━━━━━━━━━━━",
         f"🧩 보유 조각: {total_frags}개",
         f"💎 결정: {crystals['crystal']}개 | 🌈 무지개: {crystals['rainbow']}개",
@@ -689,8 +690,8 @@ async def shiny_convert_handler(update, context):
                 cost_parts.append(f"결정{e['crystal_cost']}")
             if e["rainbow_cost"]:
                 cost_parts.append(f"무지개{e['rainbow_cost']}")
-            rarity_tag = {"ultra_legendary": "🌟", "legendary": "⭐", "epic": "💎"}.get(e["rarity"], "")
-            lines.append(f"✅ {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
+            rarity_tag = rarity_badge(e.get("rarity", ""))
+            lines.append(f"{icon_emoji('check')} {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
             buttons.append([InlineKeyboardButton(
                 f"✨ {e['name_ko']} 전환",
                 callback_data=f"cdm_conv_{user_id}_{e['instance_id']}",
@@ -702,7 +703,7 @@ async def shiny_convert_handler(update, context):
             cost_parts = [f"{e['frag_cost']}조각"]
             if e["crystal_cost"]:
                 cost_parts.append(f"결정{e['crystal_cost']}")
-            rarity_tag = {"ultra_legendary": "🌟", "legendary": "⭐", "epic": "💎"}.get(e["rarity"], "")
+            rarity_tag = rarity_badge(e.get("rarity", ""))
             lines.append(f"❌ {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
 
     lines.append("━━━━━━━━━━━━━")
@@ -751,8 +752,8 @@ async def decompose_handler(update, context):
         if rainbow_gain:
             gain_parts.append(f"🌈+{rainbow_gain}")
 
-        rarity_tag = {"ultra_legendary": "🌟", "legendary": "⭐", "epic": "💎"}.get(rarity, "")
-        lines.append(f"✨ {rarity_tag}{p['name_ko']} → {' '.join(gain_parts)}")
+        rarity_tag = rarity_badge(rarity or "")
+        lines.append(f"{shiny_emoji()} {rarity_tag}{p['name_ko']} → {' '.join(gain_parts)}")
         buttons.append([InlineKeyboardButton(
             f"🔨 {p['name_ko']} 분해",
             callback_data=f"cdm_dec_{user_id}_{p['id']}",

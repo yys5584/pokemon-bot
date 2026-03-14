@@ -1350,8 +1350,8 @@ CAMP_NEWS_TEMPLATES = {
 }
 
 # ─── 포획 BP 보상 ─────────────────────────────────────────
-CATCH_BP_MIN = 20
-CATCH_BP_MAX = 50
+CATCH_BP_MIN = 5
+CATCH_BP_MAX = 30
 
 # ─── 가챠 (BP 뽑기) ──────────────────────────────────────
 GACHA_COST = 100  # 1회 뽑기 비용

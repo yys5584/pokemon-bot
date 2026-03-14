@@ -16,6 +16,7 @@ from database import camp_queries as cq
 from database import queries
 from models.pokemon_base_stats import POKEMON_BASE_STATS
 from models.pokemon_data import ALL_POKEMON
+from utils.helpers import shiny_emoji, icon_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -347,7 +348,7 @@ def build_round_announcement(round_result: dict, camp_level: int) -> str:
             lines.append(f"  ⭐ 보너스: {pname} ({stat_name} {f['bonus']['stat_value']}↑)")
 
     if round_result["total_xp"] > 0:
-        lines.append(f"\n📊 캠프 경험치 +{round_result['total_xp']}")
+        lines.append(f"\n{icon_emoji('stationery')} 캠프 경험치 +{round_result['total_xp']}")
 
     if round_result["level_up"]:
         new_info = get_level_info(round_result["level_up"])
@@ -678,7 +679,7 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
         cost_parts.append(f"무지개결정 {rainbow_cost}개")
     cost_str = " + ".join(cost_parts)
 
-    return True, f"✨ {pname}(이/가) 이로치로 변했습니다! 🎉\n소모: {cost_str}"
+    return True, f"{shiny_emoji()} {pname}(이/가) 이로치로 변했습니다! 🎉\n소모: {cost_str}"
 
 
 # ═══════════════════════════════════════════════════════

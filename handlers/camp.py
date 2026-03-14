@@ -16,7 +16,7 @@ from database import camp_queries as cq
 from database import queries
 from services import camp_service as cs
 from handlers.dm_camp import _next_round_countdown
-from utils.helpers import schedule_delete
+from utils.helpers import schedule_delete, rarity_badge
 from utils.camp_map_generator import generate_camp_map
 
 logger = logging.getLogger(__name__)
@@ -145,8 +145,8 @@ async def _build_pokemon_list(user_id: int, field_id: int, field_type: str, page
     for i, p in enumerate(page_items):
         num = start + i + 1
         shiny = "✨" if p.get("is_shiny") else ""
-        rarity_tag = {"ultra_legendary": "🌟", "legendary": "⭐", "epic": "💎"}.get(p.get("rarity"), "")
-        score_tag = f" ({p['_score']}점)" if p["_score"] > 1 else ""
+        rarity_tag = rarity_badge(p.get("rarity", ""))
+        score_tag = f" ({p['_desc']})" if p["_score"] > 1 else ""
         lines.append(f"{num}. {shiny}{rarity_tag}{p['name_ko']}{score_tag}")
 
     buttons = []
@@ -224,6 +224,22 @@ async def camp_handler(update, context):
     camp = await cq.get_camp(chat_id)
     if not camp:
         resp = await update.message.reply_text("이 채팅방에는 캠프가 없습니다.\n소유자가 '캠프개설'로 개설하세요!")
+        schedule_delete(resp, 10)
+        schedule_delete(update.message, 3)
+        return
+
+    # 거점캠프 확인
+    settings = await cq.get_user_camp_settings(user_id)
+    if not settings or settings.get("home_chat_id") != chat_id:
+        home_title = ""
+        if settings and settings.get("home_chat_id"):
+            home_room = await queries.get_chat_room(settings["home_chat_id"])
+            if home_room:
+                home_title = f"\n현재 거점: {home_room.get('chat_title', '알 수 없음')}"
+        resp = await update.message.reply_text(
+            f"여기는 내 거점캠프가 아닙니다!{home_title}\n"
+            "DM에서 '거점캠프'로 거점을 설정/변경하세요."
+        )
         schedule_delete(resp, 10)
         schedule_delete(update.message, 3)
         return
