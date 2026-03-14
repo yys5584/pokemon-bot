@@ -219,53 +219,111 @@ async def camp_notify_handler(update, context):
 # ═══════════════════════════════════════════════════════
 
 _GUIDE_STEPS = [
+    # 1/8 — 전체 흐름
     (
-        "🏕 【캠프 가이드 1/4】\n\n"
-        "캠프는 채팅방에 포켓몬을 배치해서\n"
-        "조각을 모으는 시스템이에요!\n\n"
+        "🏕 【캠프 가이드 1/8】전체 흐름\n\n"
+        "캠프는 포켓몬을 배치해서 조각을 모으고,\n"
+        "조각으로 이로치를 만드는 시스템이에요!\n\n"
         "📋 흐름:\n"
-        "1️⃣ 거점캠프 설정\n"
-        "2️⃣ 필드에 포켓몬 배치\n"
+        "1️⃣ 거점캠프 설정 (DM: '거점캠프')\n"
+        "2️⃣ 필드에 포켓몬 배치 (DM: '캠프')\n"
         "3️⃣ 3시간마다 자동 정산 → 조각 획득\n"
-        "4️⃣ 조각을 모아 분해결정 교환\n"
-        "5️⃣ 분해결정으로 이로치 전환!"
+        "4️⃣ 조각으로 이로치 전환 (DM: '이로치전환')\n"
+        "5️⃣ 이로치 분해 → 결정 획득 (DM: '분해')\n"
+        "6️⃣ 결정으로 에픽+ 이로치 전환!"
     ),
+    # 2/8 — 필드와 타입
     (
-        "🏕 【포켓몬 배치 2/4】\n\n"
-        "캠프에는 여러 필드가 있어요:\n"
-        "🌿 숲 — 풀/벌레/독 타입\n"
-        "🔥 화산 — 불/땅/바위 타입\n"
-        "💧 호수 — 물/얼음/비행 타입\n"
-        "🏙 도시 — 노말/격투/강철 타입\n"
-        "🕳 동굴 — 고스트/악/드래곤 타입\n"
-        "⛩ 신전 — 에스퍼/페어리/전기 타입\n\n"
-        "💡 보너스 조건에 맞는 포켓몬을 배치하면\n"
-        "   점수가 훨씬 높아요! (최대 7점)"
+        "🏕 【캠프 가이드 2/8】필드와 타입\n\n"
+        "캠프에는 6가지 필드가 있고,\n"
+        "각 필드에 맞는 타입의 포켓몬만 배치 가능!\n\n"
+        "🌿 숲 — 풀/벌레/독\n"
+        "🔥 화산 — 불/드래곤/격투\n"
+        "💧 호수 — 물/얼음/비행\n"
+        "⚡ 도시 — 전기/강철/노말\n"
+        "🪨 동굴 — 땅/바위/고스트\n"
+        "🔮 신전 — 에스퍼/악/페어리\n\n"
+        "💡 배치할 때 타입이 맞는 포켓몬이\n"
+        "자동으로 추천돼요!"
     ),
+    # 3/8 — 보너스 조건
     (
-        "🏕 【점수 시스템 3/4】\n\n"
-        "포켓몬 배치 시 점수:\n"
+        "🏕 【캠프 가이드 3/8】보너스 조건\n\n"
+        "매 라운드 필드별로 보너스 포켓몬이 지정돼요.\n"
+        "예) 🌿숲: 이상해씨 (공격 12↑)\n\n"
+        "이 포켓몬을 갖고 있으면 점수가 높아져요!\n\n"
+        "⭐ 핵심: 보너스에 나온 포켓몬을\n"
+        "미리 잡아두거나 합성으로 만들어두세요.\n"
+        "이로치 + 높은 개체값이면 최대 7점!\n\n"
+        "💡 보너스 조건은 '거점캠프'에서 확인"
+    ),
+    # 4/8 — 점수 시스템
+    (
+        "🏕 【캠프 가이드 4/8】점수 시스템\n\n"
+        "점수가 높을수록 조각을 더 많이 받아요!\n\n"
         "  ✅ 타입만 맞음 → 1점\n"
         "  ⭐ 보너스 포켓몬 → 2점\n"
-        "  ⭐ 보너스 + 개체값 충족 → 4점\n"
-        "  ⭐ 보너스 + 이로치 → 4점\n"
+        "  ⭐ + 개체값 충족 → 4점\n"
+        "  ⭐ + 이로치 → 4점\n"
         "  🌟 보너스 + 개체값 + 이로치 → 7점\n\n"
-        "📋 정산 시간 (매일 6회):\n"
-        "  09:00 / 12:00 / 15:00 / 18:00 / 21:00 / 00:00\n\n"
-        "💡 배치 후 1시간 이상 유지해야 정산에 반영돼요!"
+        "💡 배치 후 1시간 이상 유지해야 정산 반영!"
     ),
+    # 5/8 — 정산과 조각
     (
-        "🏕 【조각 → 이로치 전환 4/4】\n\n"
-        "정산 시 점수에 따라 조각을 받아요.\n"
-        "조각을 모으면:\n\n"
-        "✨ 이로치 전환:\n"
-        "  조각으로 보유 포켓몬을 이로치로!\n"
-        "  DM에서 '이로치전환' 입력\n\n"
-        "🔨 분해:\n"
-        "  이로치를 분해하면 결정 획득!\n"
-        "  에픽+ 전환에 결정이 필요해요.\n\n"
-        "지금 '거점캠프'를 입력해서\n"
-        "보너스 조건을 확인하고 배치해보세요! 🎉"
+        "🏕 【캠프 가이드 5/8】정산과 조각\n\n"
+        "📋 정산 시간 (매일 6회):\n"
+        "09:00 / 12:00 / 15:00 / 18:00 / 21:00 / 00:00\n\n"
+        "정산 때 점수만큼 해당 필드 조각을 받아요.\n"
+        "예) 🌿숲에 3점 배치 → 🌿숲 조각 3개\n\n"
+        "⚠️ 중요: 조각은 필드별로 따로 쌓여요!\n"
+        "🌿숲 조각은 풀/벌레/독 포켓몬 전환에,\n"
+        "🔥화산 조각은 불/드래곤/격투 전환에 사용!\n\n"
+        "💡 '내캠프'로 보유 조각 현황 확인"
+    ),
+    # 6/8 — 이로치 전환
+    (
+        "🏕 【캠프 가이드 6/8】이로치 전환\n\n"
+        "조각이 모이면 보유 포켓몬을 이로치로!\n"
+        "DM에서 '이로치전환' 입력\n\n"
+        "📋 등급별 전환 비용:\n"
+        "  ⬜ 커먼: 조각 12개\n"
+        "  🟦 레어: 조각 24개\n"
+        "  🟪 에픽: 조각 42개 + 💎결정 5개\n"
+        "  🟨 전설: 조각 60개 + 💎결정 15개\n"
+        "  🌟 초전설: 조각 84개 + 💎결정 25개 + 🌈무지개 3개\n\n"
+        "💡 에픽 이상은 결정이 필요해요 → 다음 단계!"
+    ),
+    # 7/8 — 이로치 분해
+    (
+        "🏕 【캠프 가이드 7/8】이로치 분해\n\n"
+        "이로치를 분해하면 결정을 얻어요!\n"
+        "DM에서 '분해' 입력\n\n"
+        "📋 분해 결과 (이로치 → 결정):\n"
+        "  ⬜ 커먼: 💎×1\n"
+        "  🟦 레어: 💎×2\n"
+        "  🟪 에픽: 💎×3\n"
+        "  🟨 전설: 💎×5 + 🌈×1\n"
+        "  🌟 초전설: 💎×15 + 🌈×2\n\n"
+        "⚠️ 분해하면 이로치가 일반으로 돌아가요!\n"
+        "💡 커먼/레어 이로치를 분해해서\n"
+        "   에픽+ 전환에 필요한 결정을 모으세요."
+    ),
+    # 8/8 — DM 명령어 정리
+    (
+        "🏕 【캠프 가이드 8/8】명령어 정리\n\n"
+        "📋 DM 명령어 한눈에:\n"
+        "  '거점캠프' — 거점 설정 + 보너스 확인\n"
+        "  '캠프' — 포켓몬 배치하기\n"
+        "  '내캠프' — 조각/결정/배치 현황\n"
+        "  '이로치전환' — 조각으로 이로치 만들기\n"
+        "  '분해' — 이로치 → 결정 획득\n"
+        "  '캠프알림' — 정산 DM 알림 on/off\n\n"
+        "💡 전략 팁:\n"
+        "• 보너스 포켓몬을 미리 잡아두세요\n"
+        "• 개체값 높은 포켓몬일수록 유리\n"
+        "• 커먼 이로치 분해 → 결정 모으기\n"
+        "• 결정이 모이면 에픽+ 전환 도전!\n\n"
+        "지금 '거점캠프'를 입력해서 시작하세요! 🎉"
     ),
 ]
 
@@ -313,6 +371,9 @@ async def _build_dm_field_buttons(user_id: int, chat_id: int, fields: list[dict]
     lines.append("━━━━━━━━━━━━━")
     lines.append("배치할 필드를 선택하세요!")
 
+    # 배치 중인 포켓몬 해제 버튼
+    placed_map = {p["field_id"]: p for p in placements}
+
     buttons = []
     row = []
     for f in fields:
@@ -324,6 +385,17 @@ async def _build_dm_field_buttons(user_id: int, chat_id: int, fields: list[dict]
             row = []
     if row:
         buttons.append(row)
+
+    # 배치 해제 버튼 (배치 중인 필드가 있으면)
+    for f in fields:
+        p = placed_map.get(f["id"])
+        if p:
+            fi = config.CAMP_FIELDS.get(f["field_type"], {})
+            shiny = "✨" if p.get("is_shiny") else ""
+            buttons.append([InlineKeyboardButton(
+                f"🔓 {fi.get('emoji', '')} {shiny}{p['name_ko']} 해제",
+                callback_data=f"cdm_rm_{user_id}_{p['id']}",
+            )])
 
     buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{user_id}")])
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
@@ -767,6 +839,35 @@ async def camp_dm_callback_handler(update, context):
             await query.edit_message_text(text, reply_markup=markup)
         except Exception:
             pass
+
+    # ── cdm_rm_{uid}_{placement_id} — DM 배치 해제 ──
+    elif data.startswith("cdm_rm_"):
+        uid = int(parts[2])
+        placement_id = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        removed = await cq.remove_placement(placement_id, uid)
+        if removed:
+            # 일일 배치 횟수 복구
+            await cq.decrement_daily_placement(uid)
+            await query.answer("배치를 해제했습니다!")
+        else:
+            await query.answer("이미 해제되었습니다.", show_alert=True)
+
+        # 필드 선택 화면 새로고침
+        settings = await cq.get_user_camp_settings(uid)
+        if settings and settings.get("home_chat_id"):
+            chat_id = settings["home_chat_id"]
+            camp = await cq.get_camp(chat_id)
+            if camp:
+                fields = await cq.get_fields(chat_id)
+                text, markup = await _build_dm_field_buttons(uid, chat_id, fields, camp)
+                try:
+                    await query.edit_message_text(text, reply_markup=markup)
+                except Exception:
+                    pass
 
     # ── cdm_fd_{uid}_{field_id} — DM 필드 선택 → 포켓몬 리스트 ──
     elif data.startswith("cdm_fd_"):

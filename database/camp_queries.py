@@ -498,6 +498,17 @@ async def increment_daily_placement(user_id: int):
     )
 
 
+async def decrement_daily_placement(user_id: int):
+    """Decrement user's daily placement count (배치 해제 시 횟수 복구)."""
+    pool = await get_db()
+    await pool.execute(
+        """UPDATE camp_daily_placements
+           SET count = GREATEST(count - 1, 0)
+           WHERE user_id = $1 AND date = (NOW() AT TIME ZONE 'Asia/Seoul')::date""",
+        user_id,
+    )
+
+
 # ═══════════════════════════════════════════════════════
 # Approval Queue
 # ═══════════════════════════════════════════════════════
