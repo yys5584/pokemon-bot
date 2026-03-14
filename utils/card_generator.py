@@ -525,6 +525,152 @@ def generate_lineup_card(
     return buf
 
 
+# ── Champion Card (우승자 팀 표시) ──────────────────────────────
+
+def generate_champion_card(
+    winner_name: str,
+    team: list[dict],
+    date_str: str = "",
+) -> io.BytesIO:
+    """Generate a champion card showing the winner's team.
+
+    Each team entry: {"pokemon_id": int, "name": str, "rarity": str, "is_shiny": bool}
+    Returns BytesIO (JPEG).
+    """
+    W, H = 1200, 500
+
+    if not date_str:
+        import config as _cfg
+        date_str = _cfg.get_kst_now().strftime("%Y.%m.%d")
+
+    # ── Background: dark with gold accents ──
+    card = Image.new("RGBA", (W, H), (15, 15, 25, 255))
+    draw = ImageDraw.Draw(card)
+
+    # Gold gradient strip at top
+    for y in range(6):
+        alpha = int(200 * (1 - y / 6))
+        draw.line([(0, y), (W, y)], fill=(255, 215, 0, alpha))
+
+    # Subtle radial glow behind team
+    cx, cy = W // 2, H // 2 + 30
+    for r in range(280, 0, -4):
+        a = int(15 * (r / 280))
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 200, 50, a))
+
+    # ── Fonts ──
+    font_title = _get_font(40, "bold")
+    font_name = _get_font(36, "bold")
+    font_poke = _get_font(16, "bold")
+    font_rarity = _get_font(12, "bold")
+    font_date = _get_font(14, "bold")
+
+    # ── "🏆 CHAMPION" title ──
+    title_text = "CHAMPION"
+    t_bbox = draw.textbbox((0, 0), title_text, font=font_title)
+    t_w = t_bbox[2] - t_bbox[0]
+    tx = cx - t_w // 2
+    ty = 18
+    # Gold outline
+    for dx in (-2, -1, 0, 1, 2):
+        for dy in (-2, -1, 0, 1, 2):
+            if dx or dy:
+                draw.text((tx + dx, ty + dy), title_text, fill=(120, 90, 0, 255), font=font_title)
+    draw.text((tx, ty), title_text, fill=(255, 215, 0, 255), font=font_title)
+
+    # ── Winner name ──
+    n_bbox = draw.textbbox((0, 0), winner_name, font=font_name)
+    n_w = n_bbox[2] - n_bbox[0]
+    nx = cx - n_w // 2
+    ny = 68
+    draw.text((nx + 2, ny + 2), winner_name, fill=(0, 0, 0, 180), font=font_name)
+    draw.text((nx, ny), winner_name, fill=(255, 255, 255, 255), font=font_name)
+
+    # Gold line under name
+    draw.line([(cx - 180, 115), (cx + 180, 115)], fill=(255, 215, 0, 150), width=2)
+
+    # ── Draw 6 Pokemon in a row ──
+    slot_w, slot_h = 170, 200
+    gap = 12
+    total_w = 6 * slot_w + 5 * gap
+    start_x = (W - total_w) // 2
+    start_y = 135
+
+    for i, mon in enumerate(team[:6]):
+        sx = start_x + i * (slot_w + gap)
+        sy = start_y
+
+        pid = mon.get("pokemon_id", 0)
+        name = mon.get("name", "???")
+        rarity = mon.get("rarity", "common")
+        is_shiny = mon.get("is_shiny", False)
+        accent = RARITY_ACCENT.get(rarity, RARITY_ACCENT["common"])
+
+        # Slot background
+        draw.rounded_rectangle(
+            [sx, sy, sx + slot_w, sy + slot_h],
+            radius=10,
+            fill=(10, 12, 18, 210),
+            outline=(*accent, 140),
+            width=2,
+        )
+
+        # Shiny gold border
+        if is_shiny:
+            draw.rounded_rectangle(
+                [sx - 1, sy - 1, sx + slot_w + 1, sy + slot_h + 1],
+                radius=11, outline=(255, 215, 0, 220), width=2,
+            )
+
+        # Mini glow
+        gcx, gcy = sx + slot_w // 2, sy + 80
+        for r in range(50, 0, -3):
+            a = int(20 * (r / 50))
+            draw.ellipse([gcx - r, gcy - r, gcx + r, gcy + r], fill=(*accent, a))
+
+        # Sprite
+        sprite = _load_sprite_small(pid)
+        if sprite:
+            spx = sx + (slot_w - sprite.width) // 2
+            spy = sy + 10 + (130 - sprite.height) // 2
+            card.paste(sprite, (spx, spy), sprite)
+
+        # Pokemon name
+        p_bbox = draw.textbbox((0, 0), name, font=font_poke)
+        p_w = p_bbox[2] - p_bbox[0]
+        px = sx + (slot_w - p_w) // 2
+        py = sy + slot_h - 35
+        draw.text((px + 1, py + 1), name, fill=(0, 0, 0, 200), font=font_poke)
+        draw.text((px, py), name, fill=(255, 255, 255, 240), font=font_poke)
+
+        # Shiny sparkle
+        if is_shiny:
+            font_sparkle = _get_font(18, "bold")
+            draw.text((sx + slot_w - 22, sy + 4), "*", fill=(255, 215, 0, 255), font=font_sparkle)
+            draw.text((sx + slot_w - 14, sy + 12), "*", fill=(255, 255, 180, 200), font=_get_font(12, "bold"))
+
+    # Date at bottom
+    d_bbox = draw.textbbox((0, 0), date_str, font=font_date)
+    d_w = d_bbox[2] - d_bbox[0]
+    dx = cx - d_w // 2
+    dy = H - 30
+    draw.text((dx + 1, dy + 1), date_str, fill=(0, 0, 0, 200), font=font_date)
+    draw.text((dx, dy), date_str, fill=(180, 180, 180, 240), font=font_date)
+
+    # Bottom gold bar
+    for y in range(H - 4, H):
+        alpha = int(200 * ((H - y) / 4))
+        draw.line([(0, y), (W, y)], fill=(255, 215, 0, alpha))
+
+    # Output
+    buf = io.BytesIO()
+    card_rgb = card.convert("RGB")
+    card_rgb.save(buf, format="JPEG", quality=92)
+    buf.seek(0)
+    buf.name = "champion.jpg"
+    return buf
+
+
 # ── Pokedex Device Card (도감 전용) ─────────────────────────────
 
 # Rarity → circle glow color (brighter version of accent)

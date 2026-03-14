@@ -1525,6 +1525,29 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         parse_mode="HTML",
     )
 
+    # ── Champion card image ──
+    try:
+        winner_team = await bq.get_battle_team(winner_id)
+        if winner_team:
+            from utils.card_generator import generate_champion_card
+            team_data = [
+                {
+                    "pokemon_id": p["pokemon_id"],
+                    "name": p["name_ko"],
+                    "rarity": p["rarity"],
+                    "is_shiny": bool(p.get("is_shiny")),
+                }
+                for p in winner_team
+            ]
+            champion_img = generate_champion_card(winner_data["name"], team_data)
+            await context.bot.send_photo(
+                chat_id=chat_id,
+                photo=champion_img,
+                caption=f"🏆 {winner_data['name']}의 우승 팀",
+            )
+    except Exception:
+        logger.error(f"Failed to send champion card for {winner_id}", exc_info=True)
+
     # ── Send DMs with detailed prize info ──
     # Winner DM
     winner_dm = (
