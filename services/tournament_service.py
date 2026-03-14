@@ -257,6 +257,82 @@ _DRAMATIC_SERIOUS = [
 ]
 _DRAMATIC_JOKE = []
 
+# ── KO 도발 멘트 (상대 포켓몬 쓰러뜨렸을 때, 4강/결승 전용) ────────
+_KO_TAUNTS = [
+    "{trainer}: ㅋㅋ {dead} 수고~",
+    "{trainer}: {dead}? 이게 최선이었어?",
+    "{trainer}: 다음은 좀 센 애 데려와",
+    "{trainer}: 아 그래도 잘 싸웠다 {dead}",
+    "{trainer}: 바이바이~ {dead}",
+    "{trainer}: {dead} 고생했어 쉬어~",
+    "{trainer}: 약하네.. 다음!",
+    "{trainer}: {dead} 별거 없었는데?",
+]
+
+# ── 우승 소감 ────────────────────────────────────────
+_WINNER_SPEECHES = [
+    "\"중요한 것은 꺾이지 않는 마음입니다.\"\n— {trainer}",
+    "\"다 계획이 있었습니다.\"\n— {trainer}",
+    "\"{mvp}는 노력하는 천재입니다.\"\n— {trainer}",
+    "\"연습은 거짓말을 하지 않습니다.\"\n— {trainer}",
+    "\"나보다 더 땀 흘린 트레이너가 있다면 우승컵 가져가도 좋다.\"\n— {trainer}",
+    "\"99도까지 올려놓아도 마지막 1도를 못 넘기면 물은 안 끓습니다.\"\n— {trainer}",
+    "\"9000번 넘게 졌지만, 그게 제가 우승한 이유입니다.\"\n— {trainer}",
+]
+# 날짜 고정 소감 (특별 이벤트용)
+_WINNER_SPEECH_OVERRIDE: dict[str, str] = {
+    "2026-03-15": "\"우리 {mvp} 월클 아닙니다. 하지만 오늘만큼은 월클입니다.\"\n— {trainer}",
+}
+
+
+def _get_mvp_name(turn_data: list[dict], winner_side: str) -> str:
+    """MVP 포켓몬 이름만 반환."""
+    dmg_by_name: dict[str, int] = {}
+    kills_by_name: dict[str, int] = {}
+    for td in turn_data:
+        if td["type"] == "turn":
+            if winner_side == "challenger":
+                name, dmg = td["c_name"], td["c_dmg"]
+            else:
+                name, dmg = td["d_name"], td["d_dmg"]
+            dmg_by_name[name] = dmg_by_name.get(name, 0) + dmg
+        elif td["type"] == "ko" and td["side"] != winner_side:
+            if winner_side == "challenger":
+                cur = None
+                for prev in turn_data:
+                    if prev is td:
+                        break
+                    if prev["type"] == "matchup":
+                        cur = prev["c_name"]
+                if cur:
+                    kills_by_name[cur] = kills_by_name.get(cur, 0) + 1
+            else:
+                cur = None
+                for prev in turn_data:
+                    if prev is td:
+                        break
+                    if prev["type"] == "matchup":
+                        cur = prev["d_name"]
+                if cur:
+                    kills_by_name[cur] = kills_by_name.get(cur, 0) + 1
+    if not dmg_by_name:
+        return "???"
+    return max(dmg_by_name, key=lambda n: (dmg_by_name[n], kills_by_name.get(n, 0)))
+
+
+def _winner_speech(trainer: str, mvp_name: str) -> str:
+    """우승 소감 생성. 날짜 고정 있으면 우선."""
+    today = config.get_kst_now().strftime("%Y-%m-%d")
+    template = _WINNER_SPEECH_OVERRIDE.get(today)
+    if not template:
+        template = random.choice(_WINNER_SPEECHES)
+    return template.format(trainer=trainer, mvp=mvp_name)
+
+
+def _ko_taunt(trainer: str, dead: str) -> str:
+    """KO 도발 멘트 (확률적으로 출력)."""
+    return random.choice(_KO_TAUNTS).format(trainer=trainer, dead=dead)
+
 
 def _switch_line(trainer: str, dead: str, next_name: str,
                  next_rarity: str = "", dramatic: str = "") -> str:
@@ -936,13 +1012,17 @@ async def _run_match(
 
             elif td["type"] == "ko":
                 m = _mark(td["side"])
-                trainer = p1_name if td["side"] == "challenger" else p2_name
+                ko_side_trainer = p1_name if td["side"] == "challenger" else p2_name
+                kill_side_trainer = p2_name if td["side"] == "challenger" else p1_name
                 if td["next_name"]:
                     dm = "full" if (_i == _last_switch_idx[td["side"]]) else ""
-                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=dm)
+                    switch = _switch_line(ko_side_trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=dm)
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n{switch}"
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
+                # 결승전 KO 도발 (40% 확률)
+                if random.random() < 0.4:
+                    text += f"\n{_ko_taunt(kill_side_trainer, td['dead_name'])}"
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
                 await asyncio.sleep(3)
 
@@ -950,6 +1030,15 @@ async def _run_match(
         if mvp_line:
             win_text += f"\n{mvp_line}"
         await _safe_send(context.bot, chat_id, text=win_text)
+
+        # 🎤 우승 인터뷰
+        await asyncio.sleep(3)
+        mvp_n = _get_mvp_name(result["turn_data"], winner_side)
+        speech = _winner_speech(winner_data['name'], mvp_n)
+        await _safe_send(context.bot, chat_id,
+            text=f"🎤 <b>우승 인터뷰</b>\n\n{speech}",
+            parse_mode="HTML",
+        )
 
     elif is_semi:
         # ── Semi-finals: turn-by-turn, one message per turn (3s delay) ──
@@ -1009,13 +1098,17 @@ async def _run_match(
 
             elif td["type"] == "ko":
                 m = _mark(td["side"])
-                trainer = p1_name if td["side"] == "challenger" else p2_name
+                ko_side_trainer = p1_name if td["side"] == "challenger" else p2_name
+                kill_side_trainer = p2_name if td["side"] == "challenger" else p1_name
                 if td["next_name"]:
                     dm = "full" if (_i == _last_switch_idx[td["side"]]) else ""
-                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=dm)
+                    switch = _switch_line(ko_side_trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=dm)
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n{switch}"
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
+                # 준결승 KO 도발 (30% 확률)
+                if random.random() < 0.3:
+                    text += f"\n{_ko_taunt(kill_side_trainer, td['dead_name'])}"
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
                 await asyncio.sleep(3)
 
