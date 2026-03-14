@@ -54,7 +54,9 @@ def _build_battle_detail_dm(
         if td["type"] == "matchup":
             ci, di = td["c_idx"] + 1, td["d_idx"] + 1
             ct, dt = td["c_total"], td["d_total"]
-            lines.append(f"── ({ci}/{ct}) {td['c_tb']}{td['c_name']} vs ({di}/{dt}) {td['d_tb']}{td['d_name']} ──")
+            c_shiny_mark = f"{shiny_emoji()}" if td.get("c_shiny") else ""
+            d_shiny_mark = f"{shiny_emoji()}" if td.get("d_shiny") else ""
+            lines.append(f"<b>── ({ci}/{ct}) {td['c_tb']}{c_shiny_mark}{td['c_name']} vs ({di}/{dt}) {td['d_tb']}{d_shiny_mark}{td['d_name']} ──</b>")
         elif td["type"] == "turn":
             tn = td["turn_num"]
             c_part = f"→{td['c_dmg']}{td['c_crit']}{td['c_eff']}" if td["c_dmg"] else ""
@@ -133,10 +135,9 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
     dual_types = bs[-1] if bs else [pokemon.get("pokemon_type", "normal")]
 
     is_shiny = bool(pokemon.get("is_shiny"))
-    display_name = f"{shiny_emoji()}{pokemon['name_ko']}" if is_shiny else pokemon["name_ko"]
 
     return {
-        "name": display_name,
+        "name": pokemon["name_ko"],
         "emoji": pokemon["emoji"],
         "type": dual_types,
         "rarity": pokemon["rarity"],
@@ -480,6 +481,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
                         "c_total": c_total, "d_total": d_total,
                         "c_hp": c_mon["current_hp"], "d_hp": d_mon["current_hp"],
                         "c_max_hp": c_mon["stats"]["hp"], "d_max_hp": d_mon["stats"]["hp"],
+                        "c_shiny": c_mon.get("is_shiny", False), "d_shiny": d_mon.get("is_shiny", False),
                     })
             else:
                 log_lines.append(f" {SKULL}{dead_name} 쓰러짐!")
@@ -509,6 +511,7 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
                         "c_total": c_total, "d_total": d_total,
                         "c_hp": challenger_team[c_idx]["current_hp"], "d_hp": d_mon["current_hp"],
                         "c_max_hp": challenger_team[c_idx]["stats"]["hp"], "d_max_hp": d_mon["stats"]["hp"],
+                        "c_shiny": challenger_team[c_idx].get("is_shiny", False), "d_shiny": d_mon.get("is_shiny", False),
                     })
             else:
                 log_lines.append(f" {SKULL}{dead_name} 쓰러짐!")

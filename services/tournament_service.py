@@ -758,7 +758,9 @@ async def _run_match(
         for j, td in enumerate(section):
             global_idx = offset + j
             if td["type"] == "matchup":
-                lines.append(f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})")
+                c_sh = f"{shiny_emoji()}" if td.get("c_shiny") else ""
+                d_sh = f"{shiny_emoji()}" if td.get("d_shiny") else ""
+                lines.append(f"<b>⚔ {C}{td['c_tb']}{c_sh}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{d_sh}{td['d_name']}({td['d_idx']+1}/{td['d_total']})</b>")
             elif td["type"] == "turn":
                 if td["first_is_challenger"]:
                     first_mark, second_mark = C, D
