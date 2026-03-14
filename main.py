@@ -63,6 +63,7 @@ from handlers.admin import (
 from handlers.dm_subscription import (
     subscription_handler, subscription_callback_handler,
     subscription_status_handler, premium_shop_handler, channel_shop_handler,
+    premium_hub_handler, premium_hub_callback_handler,
 )
 
 from services.spawn_service import schedule_all_chats
@@ -1112,7 +1113,8 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^합성$"), fusion_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*|📌\s*)?미션$"), mission_handler))
 
-    # Subscription system (DM + Group)
+    # Subscription / Premium system (DM + Group)
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(💎\s*)?프리미엄$"), premium_hub_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(💎\s*)?구독$"), subscription_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^구독정보$"), subscription_status_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(💎\s*)?프리미엄상점$"), premium_shop_handler))
@@ -1306,6 +1308,9 @@ def main():
 
     # Help navigation callbacks
     app.add_handler(CallbackQueryHandler(help_callback_handler, pattern=r"^help_"))
+
+    # Premium hub callbacks (pmenu_subscribe, pmenu_shop, pmenu_guide, pmenu_status)
+    app.add_handler(CallbackQueryHandler(premium_hub_callback_handler, pattern=r"^pmenu_"))
 
     # Subscription callbacks (sub_tier_, sub_token_, sub_check_, sub_cancel_, sub_back, sub_status, sub_pshop_, sub_cshop_)
     app.add_handler(CallbackQueryHandler(subscription_callback_handler, pattern=r"^sub_"))

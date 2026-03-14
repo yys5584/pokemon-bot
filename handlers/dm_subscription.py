@@ -30,6 +30,55 @@ _E_MASTER = ball_emoji("masterball")     # 마스터볼
 _E_POKE = icon_emoji("pokecenter")       # 포케센터
 
 
+# ─── 프리미엄 허브 (DM: "프리미엄") ──────────────────
+
+async def premium_hub_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """프리미엄 허브 — 구독/프리미엄상점/가이드 세부 메뉴."""
+    user_id = update.effective_user.id
+    sub = await get_user_subscription(user_id)
+
+    status_line = ""
+    if sub:
+        tier_name = config.SUBSCRIPTION_TIERS.get(sub["tier"], {}).get("name", sub["tier"])
+        exp = sub["expires_at"].astimezone(config.KST).strftime("%Y-%m-%d")
+        status_line = f"\n{_E_CHECK} 현재 구독: <b>{tier_name}</b> (~ {exp})\n"
+
+    lines = [
+        f"{_E_CRYSTAL} <b>프리미엄</b>",
+        "",
+    ]
+    if status_line:
+        lines.append(status_line)
+
+    lines.extend([
+        "아래에서 원하는 메뉴를 선택하세요.",
+    ])
+
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("💎 구독", callback_data="pmenu_subscribe"),
+            InlineKeyboardButton("🏪 프리미엄상점", callback_data="pmenu_shop"),
+        ],
+        [
+            InlineKeyboardButton("📖 가이드", callback_data="pmenu_guide"),
+        ],
+    ])
+    if sub:
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("💎 구독정보", callback_data="pmenu_status"),
+                InlineKeyboardButton("🏪 프리미엄상점", callback_data="pmenu_shop"),
+            ],
+            [
+                InlineKeyboardButton("📖 가이드", callback_data="pmenu_guide"),
+            ],
+        ])
+
+    await update.message.reply_text(
+        "\n".join(lines), parse_mode="HTML", reply_markup=keyboard,
+    )
+
+
 # ─── 구독 메인 (DM: "구독") ──────────────────────
 
 async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -253,6 +302,166 @@ async def subscription_callback_handler(update: Update, context: ContextTypes.DE
     elif data.startswith("sub_cshop_extend_"):
         chat_id = int(data.replace("sub_cshop_extend_", ""))
         await _handle_channel_shop_extend(query, user_id, chat_id, context)
+
+
+# ─── 프리미엄 허브 콜백 ──────────────────────────
+
+_PREMIUM_GUIDE_TEXT = (
+    "💎 <b>프리미엄 가이드</b>\n"
+    "━━━━━━━━━━━━━━━\n\n"
+    "📍 <b>베이직</b> ($3.90/월)\n"
+    "  포케볼 무제한 · 쿨다운 해제\n"
+    "  마스터볼+1/일 · 하이퍼볼+5/일\n"
+    "  BP 1.5배 · 미션 1.5배 · 프리미엄상점\n\n"
+    "📍 <b>채널장</b> ($9.90/월)\n"
+    "  베이직 전부 + 강제스폰 무제한\n"
+    "  스폰률 +50% · 채팅상점 · 채널XP 1.5배\n\n"
+    "💳 결제: Base 체인 USDC/USDT"
+)
+
+
+async def premium_hub_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """프리미엄 허브 인라인 버튼 콜백."""
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    user_id = update.effective_user.id
+
+    if data == "pmenu_subscribe":
+        # 구독 화면으로 전환 — subscription_handler와 동일 로직
+        await query.delete_message()
+        sub = await get_user_subscription(user_id)
+        status_line = ""
+        if sub:
+            tier_name = config.SUBSCRIPTION_TIERS.get(sub["tier"], {}).get("name", sub["tier"])
+            exp = sub["expires_at"].astimezone(config.KST).strftime("%Y-%m-%d")
+            status_line = f"\n{_E_CHECK} 현재 구독: <b>{tier_name}</b> (~ {exp})\n"
+
+        lines = [f"{_E_CRYSTAL} <b>TG포켓 구독 서비스</b>\n"]
+        if status_line:
+            lines.append(status_line)
+
+        _TIER_EMOJI = {"basic": _E_PIKACHU, "channel_owner": _E_CROWN}
+        buttons = []
+        for key, tier in config.SUBSCRIPTION_TIERS.items():
+            emoji = _TIER_EMOJI.get(key, _E_POKE)
+            current = f" {_E_CHECK}" if sub and sub["tier"] == key else ""
+            lines.append(
+                f"{emoji} <b>{tier['name']}</b> — ${tier['price_usd']}/월{current}\n"
+                f"  {tier['description']}\n"
+            )
+            buttons.append(InlineKeyboardButton(f"{tier['name']} ${tier['price_usd']}", callback_data=f"sub_tier_{key}"))
+
+        for key, info in config.SUBSCRIPTION_COMING_SOON.items():
+            lines.append(f"🔒 <b>{info['name']}</b> — Coming Soon\n  {info['description']}\n")
+
+        keyboard = [buttons]
+        if sub:
+            keyboard.append([InlineKeyboardButton("구독정보", callback_data="sub_status")])
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="\n".join(lines),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
+
+    elif data == "pmenu_status":
+        # 구독 정보 표시
+        await _show_status(query, user_id)
+
+    elif data == "pmenu_shop":
+        # 프리미엄 상점으로 전환
+        await query.delete_message()
+        if not await has_benefit(user_id, "premium_shop"):
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="🔒 프리미엄 상점은 구독자 전용입니다.\n\nDM에서 '구독'으로 구독하세요!",
+            )
+            return
+        await _send_premium_shop(user_id, context)
+
+    elif data == "pmenu_guide":
+        await query.edit_message_text(
+            _PREMIUM_GUIDE_TEXT, parse_mode="HTML",
+        )
+
+
+async def _send_premium_shop(user_id: int, context):
+    """프리미엄 상점 화면 전송 (콜백에서 호출 — premium_shop_handler와 동일 로직)."""
+    from database import queries, battle_queries as bq
+
+    today = config.get_kst_today()
+    purchases_today = await bq.get_bp_purchases_today(user_id, "masterball")
+    sub = await get_user_subscription(user_id)
+    max_limit = sub["benefits"].get("masterball_daily_limit", 5) if sub else 5
+    remaining = max(0, max_limit - purchases_today)
+
+    prices = list(config.BP_MASTERBALL_PRICES)
+    while len(prices) < max_limit:
+        prices.append(500)
+
+    bp = await bq.get_bp(user_id)
+    next_price = prices[purchases_today] if purchases_today < max_limit else None
+
+    lines = [
+        f"{_E_CRYSTAL} <b>프리미엄 상점</b>\n",
+        f"{_E_MASTER} 마스터볼 ({purchases_today}/{max_limit})",
+    ]
+
+    if next_price:
+        lines.append(f"   다음 가격: {next_price} BP")
+        lines.append(f"   보유 BP: {bp:,}")
+    else:
+        lines.append("   오늘 구매 완료!")
+
+    hb_price = config.BP_HYPER_BALL_COST
+    hb5_cost = int(hb_price * 5 * 0.9)
+    hb10_cost = int(hb_price * 10 * 0.8)
+    hyper_balls = await queries.get_hyper_balls(user_id)
+
+    lines.append("")
+    _E_HYPER = ball_emoji("hyperball")
+    lines.append(f"{_E_HYPER} 하이퍼볼 (보유: {hyper_balls}개)")
+    lines.append(f"   x5 — {hb5_cost} BP <b>(10% 할인)</b>")
+    lines.append(f"   x10 — {hb10_cost} BP <b>(20% 할인)</b>")
+
+    gacha_ticket_cost = config.GACHA_MULTI_TICKET_COST
+    gacha_ticket_daily = config.GACHA_MULTI_TICKET_DAILY
+    gacha_ticket_bought = await bq.get_bp_purchases_today(user_id, "gacha_ticket_5")
+    gacha_ticket_remaining = max(0, gacha_ticket_daily - gacha_ticket_bought)
+
+    lines.append("")
+    lines.append(f"🎰 5연뽑기권 ({gacha_ticket_bought}/{gacha_ticket_daily})")
+    lines.append(f"   {gacha_ticket_cost} BP — 뽑기 5회 (BP 차감 없이!)")
+    if gacha_ticket_remaining <= 0:
+        lines.append("   오늘 구매 완료!")
+
+    keyboard = []
+    if remaining > 0 and next_price and bp >= next_price:
+        keyboard.append([InlineKeyboardButton(
+            f"마스터볼 구매 ({next_price} BP)", callback_data="sub_pshop_mb",
+        )])
+
+    hb_row = []
+    if bp >= hb5_cost:
+        hb_row.append(InlineKeyboardButton(f"🔵 하이퍼볼 x5 ({hb5_cost}BP)", callback_data="sub_pshop_hb5"))
+    if bp >= hb10_cost:
+        hb_row.append(InlineKeyboardButton(f"🔵 하이퍼볼 x10 ({hb10_cost}BP)", callback_data="sub_pshop_hb10"))
+    if hb_row:
+        keyboard.append(hb_row)
+
+    if gacha_ticket_remaining > 0 and bp >= gacha_ticket_cost:
+        keyboard.append([InlineKeyboardButton(
+            f"🎰 5연뽑기권 ({gacha_ticket_cost} BP)", callback_data="sub_pshop_gacha5",
+        )])
+
+    await context.bot.send_message(
+        chat_id=user_id,
+        text="\n".join(lines),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None,
+    )
 
 
 # ─── 구독정보 (DM: "구독정보") ────────────────────

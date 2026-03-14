@@ -399,67 +399,109 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def _use_gacha_ticket_5(query, user_id: int):
-    """5연뽑기권 사용 — BP 차감 없이 가챠 5회."""
+    """5연뽑기권 사용 — BP 차감 없이 가챠 5회. 일반 뽑기와 동일한 연출."""
+    import time as _time
     from services.gacha_service import roll_gacha
 
-    qty = await queries.get_user_item(user_id, "gacha_ticket_5")
-    if qty <= 0:
-        await query.edit_message_text("❌ 5연뽑기권이 없습니다.")
+    # 중복 사용 방지
+    now = _time.monotonic()
+    last = _gacha_lock.get(user_id)
+    if last is not None and (now - last) < _GACHA_LOCK_DURATION:
+        try:
+            await query.answer("뽑기 결과를 확인 중입니다! 잠시만 기다려주세요.", show_alert=True)
+        except Exception:
+            pass
         return
+    _gacha_lock[user_id] = now
 
-    # 아이템 차감
-    ok = await queries.use_user_item(user_id, "gacha_ticket_5", 1)
-    if not ok:
-        await query.edit_message_text("❌ 아이템 사용에 실패했습니다.")
-        return
-
-    # 버튼 제거
+    result_sent = False
     try:
-        await query.edit_message_reply_markup(reply_markup=None)
-    except Exception:
-        pass
+        qty = await queries.get_user_item(user_id, "gacha_ticket_5")
+        if qty <= 0:
+            await query.edit_message_text("❌ 5연뽑기권이 없습니다.")
+            return
 
-    # 힌트 멘트
-    try:
-        await query.message.reply_text("🎰 <b>5연뽑기권 사용!</b>\n결과를 뽑는 중...", parse_mode="HTML")
-    except Exception:
-        pass
+        # 아이템 차감
+        ok = await queries.use_user_item(user_id, "gacha_ticket_5", 1)
+        if not ok:
+            await query.edit_message_text("❌ 아이템 사용에 실패했습니다.")
+            return
 
-    await asyncio.sleep(3)
+        # ① 버튼 제거
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
 
-    # 5회 뽑기 (free=True)
-    results = []
-    for _ in range(config.GACHA_MULTI_TICKET_PULLS):
-        r = await roll_gacha(user_id, free=True)
-        if r["success"]:
-            results.append(r)
+        # ② 5회 뽑기 (free=True) — 결과 먼저 확보
+        results = []
+        for _ in range(config.GACHA_MULTI_TICKET_PULLS):
+            r = await roll_gacha(user_id, free=True)
+            if r["success"]:
+                results.append(r)
 
-    if not results:
-        await query.message.reply_text("⚠️ 뽑기 처리 중 오류가 발생했습니다.")
-        return
+        if not results:
+            await query.message.reply_text("⚠️ 뽑기 처리 중 오류가 발생했습니다.")
+            return
 
-    bp_after = await get_bp(user_id)
+        # ③ 대박 여부 판정 → 이미지 + 힌트 멘트
+        is_jackpot = any(r["result_key"] in _JACKPOT_TIERS for r in results)
+        img_path = _IMG_GOLDEN if is_jackpot else _IMG_NORMAL
+        hint = random.choice(_HINT_JACKPOT if is_jackpot else _HINT_NORMAL)
 
-    lines = [f"🎰 <b>5연뽑기권 결과!</b> (무료)", ""]
-    guides = []
-    for i, r in enumerate(results, 1):
-        emo = r["emoji"]
-        lines.append(f"  {i}. {emo} {r['display_name']} — {r['detail']}")
-        guide = _ITEM_GUIDE.get(r["result_key"], "")
-        if guide and guide not in guides:
-            guides.append(guide)
-    lines.append("")
-    if guides:
-        for g in guides:
-            lines.append(f"  {g}")
+        try:
+            with open(img_path, "rb") as f:
+                await query.message.reply_photo(
+                    photo=InputFile(f),
+                    caption=f"<b>{hint}</b>",
+                    parse_mode="HTML",
+                )
+        except Exception:
+            logger.warning("5연뽑기권 힌트 이미지 전송 실패")
+            try:
+                await query.message.reply_text(f"<b>{hint}</b>", parse_mode="HTML")
+            except Exception:
+                pass
+
+        # ④ 10초 대기 — 긴장감 연출
+        await asyncio.sleep(_GACHA_DELAY)
+
+        # ⑤ 상세 결과
+        bp_after = await get_bp(user_id)
+
+        lines = [f"🎰 <b>5연뽑기권 결과!</b> (무료)", ""]
+        guides = []
+        for i, r in enumerate(results, 1):
+            emo = r["emoji"]
+            lines.append(f"  {i}. {emo} {r['display_name']} — {r['detail']}")
+            guide = _ITEM_GUIDE.get(r["result_key"], "")
+            if guide and guide not in guides:
+                guides.append(guide)
         lines.append("")
+        if guides:
+            for g in guides:
+                lines.append(f"  {g}")
+            lines.append("")
 
-    remaining_tickets = await queries.get_user_item(user_id, "gacha_ticket_5")
-    lines.append(f"{icon_emoji('coin')} 남은 BP: <b>{bp_after:,}</b>")
-    if remaining_tickets > 0:
-        lines.append(f"🎰 남은 5연뽑기권: {remaining_tickets}개")
+        remaining_tickets = await queries.get_user_item(user_id, "gacha_ticket_5")
+        lines.append(f"{icon_emoji('coin')} 남은 BP: <b>{bp_after:,}</b>")
+        if remaining_tickets > 0:
+            lines.append(f"🎰 남은 5연뽑기권: {remaining_tickets}개")
 
-    await query.message.reply_text("\n".join(lines), parse_mode="HTML")
+        await query.message.reply_text("\n".join(lines), parse_mode="HTML")
+        result_sent = True
+    except Exception:
+        logger.exception(f"[Gacha] 5연뽑기권 예외 (user={user_id})")
+        if not result_sent:
+            try:
+                await query.message.reply_text(
+                    "⚠️ 뽑기 처리 중 오류가 발생했습니다.\n"
+                    "보상은 정상 지급되었을 수 있습니다. '아이템'과 '상태창'을 확인해주세요."
+                )
+            except Exception:
+                pass
+    finally:
+        _gacha_lock.pop(user_id, None)
 
 
 PAGE_SIZE = 8
