@@ -64,6 +64,19 @@ def set_camp_weather(chat_id: int, weather: tuple[str, str, list[str]]):
     _camp_weather[chat_id] = weather
 
 
+def _weather_line(weather: tuple[str, str, list[str]]) -> str:
+    """날씨 표시 한 줄 생성 (실제 온도 포함)."""
+    temp_str = ""
+    try:
+        from services.weather_service import get_current_weather
+        w = get_current_weather()
+        if w.get("temp") is not None:
+            temp_str = f" {w['temp']}°C"
+    except Exception:
+        pass
+    return f"{weather[1]} 날씨: {weather[0]}{temp_str}"
+
+
 # ── 포켓몬 이름 캐시 ──
 _POKE_NAME: dict[int, str] = {}
 
@@ -374,7 +387,7 @@ def build_round_announcement(round_result: dict, camp_level: int, chat_id: int =
 
     if chat_id:
         weather = get_camp_weather(chat_id)
-        lines.append(f"{weather[1]} 날씨: {weather[0]}")
+        lines.append(_weather_line(weather))
         boosted_names = [config.CAMP_FIELDS[ft]["name"] for ft in weather[2] if ft in config.CAMP_FIELDS]
         if boosted_names:
             lines.append(f"  → {'/'.join(boosted_names)} 조각 ×{config.CAMP_WEATHER_MULTIPLIER}")
@@ -424,7 +437,7 @@ def build_combined_announcement(
     # 새 라운드 날씨
     if chat_id:
         weather = get_camp_weather(chat_id)
-        lines.append(f"{weather[1]} 날씨: {weather[0]}")
+        lines.append(_weather_line(weather))
         boosted_names = [config.CAMP_FIELDS[ft]["name"] for ft in weather[2] if ft in config.CAMP_FIELDS]
         if boosted_names:
             lines.append(f"  → {'/'.join(boosted_names)} 조각 ×{config.CAMP_WEATHER_MULTIPLIER}")
@@ -484,7 +497,7 @@ def build_bonus_announcement(fields: list[dict], bonuses: list[dict], chat_id: i
 
     if chat_id:
         weather = get_camp_weather(chat_id)
-        lines.append(f"{weather[1]} 날씨: {weather[0]}")
+        lines.append(_weather_line(weather))
         boosted_names = [config.CAMP_FIELDS[ft]["name"] for ft in weather[2] if ft in config.CAMP_FIELDS]
         if boosted_names:
             lines.append(f"  → {'/'.join(boosted_names)} 조각 ×{config.CAMP_WEATHER_MULTIPLIER}")
