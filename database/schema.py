@@ -1032,6 +1032,50 @@ async def create_tables():
         except Exception:
             pass
 
+    # Gacha system tables (2026-03-14)
+    gacha_tables = [
+        # 유저 아이템 인벤토리
+        """CREATE TABLE IF NOT EXISTS user_items (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL REFERENCES users(user_id),
+            item_type TEXT NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 1,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (user_id, item_type)
+        )""",
+        # 이로치 알
+        """CREATE TABLE IF NOT EXISTS shiny_eggs (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL REFERENCES users(user_id),
+            pokemon_id INTEGER NOT NULL,
+            rarity TEXT NOT NULL,
+            is_shiny BOOLEAN NOT NULL DEFAULT TRUE,
+            hatches_at TIMESTAMPTZ NOT NULL,
+            hatched BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_shiny_eggs_hatch ON shiny_eggs(hatched, hatches_at)",
+        # 가챠 로그
+        """CREATE TABLE IF NOT EXISTS gacha_log (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            result_key TEXT NOT NULL,
+            bp_spent INTEGER NOT NULL DEFAULT 100,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+    ]
+    for sql in gacha_tables:
+        try:
+            await pool.execute(sql)
+        except Exception:
+            pass
+
+    # 이로치 강스권: users 테이블에 플래그 추가
+    try:
+        await pool.execute("ALTER TABLE users ADD COLUMN shiny_spawn_tickets INTEGER NOT NULL DEFAULT 0")
+    except Exception:
+        pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

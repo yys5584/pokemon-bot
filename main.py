@@ -75,6 +75,8 @@ try:
     HAS_CAMP = True
 except ImportError:
     HAS_CAMP = False
+
+from handlers.dm_gacha import gacha_handler, gacha_callback_handler, item_handler, item_callback_handler
 # Dashboard now runs as separate process (pokemon-dashboard.service)
 # from dashboard.server import start_dashboard
 
@@ -1119,6 +1121,9 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(bp)?구매"), bp_buy_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🏪\s*)?(bp)?상점$"), bp_shop_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp$"), bp_handler))
+    # 가챠 (뽑기) + 아이템
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🎰\s*)?뽑기$"), gacha_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🎒\s*)?아이템$"), item_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^티어$"), tier_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^시즌$"), season_info_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(시즌)?랭킹$"), ranked_ranking_handler))
@@ -1249,6 +1254,11 @@ def main():
 
     # Shop purchase callback
     app.add_handler(CallbackQueryHandler(shop_callback_handler, pattern=r"^shop_"))
+
+    # 가챠 (뽑기) callbacks
+    app.add_handler(CallbackQueryHandler(gacha_callback_handler, pattern=r"^gacha_"))
+    # 아이템 사용 callbacks
+    app.add_handler(CallbackQueryHandler(item_callback_handler, pattern=r"^(item_|ivr_)"))
 
     # Nurture (feed/play/evolve) duplicate selection callbacks
     app.add_handler(CallbackQueryHandler(nurture_callback_handler, pattern=r"^nurt_"))
@@ -1391,6 +1401,40 @@ def main():
                 time=dt_time(hour, 0, 0, tzinfo=kst),
                 name=f"camp_round_{hour:02d}",
             )
+
+    # 이로치 알 부화 체크 (10분마다)
+    async def _egg_hatch_job(context):
+        try:
+            from services.gacha_service import hatch_ready_eggs
+            hatched = await hatch_ready_eggs(context.bot)
+            for h in hatched:
+                try:
+                    rarity_labels = {"common": "일반", "rare": "레어", "epic": "에픽",
+                                     "legendary": "전설", "ultra_legendary": "초전설"}
+                    rarity_name = rarity_labels.get(h["rarity"], h["rarity"])
+                    iv_sum = sum(h["ivs"].values())
+                    await context.bot.send_message(
+                        chat_id=h["user_id"],
+                        text=(
+                            f"🥚✨ <b>알이 부화했습니다!</b>\n\n"
+                            f"✨ <b>{h['name_ko']}</b> (이로치)\n"
+                            f"등급: {rarity_name}\n"
+                            f"IV 합계: {iv_sum}/186\n\n"
+                            f"🎉 도감에 자동 등록되었습니다!"
+                        ),
+                        parse_mode="HTML",
+                    )
+                except Exception as e:
+                    logger.error(f"Egg hatch DM failed for {h['user_id']}: {e}")
+        except Exception as e:
+            logger.error(f"Egg hatch job failed: {e}")
+
+    app.job_queue.run_repeating(
+        _egg_hatch_job,
+        interval=600,  # 10분마다
+        first=60,
+        name="egg_hatch_check",
+    )
 
     # --- Start polling ---
     logger.info("Starting bot...")

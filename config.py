@@ -1349,6 +1349,35 @@ CAMP_NEWS_TEMPLATES = {
     ],
 }
 
+# ─── 가챠 (BP 뽑기) ──────────────────────────────────────
+GACHA_COST = 100  # 1회 뽑기 비용
+
+# (확률, 아이템키, 표시명, 이모지)
+GACHA_TABLE = [
+    (0.35, "bp_refund",     "BP 환급",          "💰"),
+    (0.20, "hyperball",     "하이퍼볼 ×2",       "🔵"),
+    (0.15, "masterball",    "마스터볼 ×1",       "🟣"),
+    (0.12, "iv_reroll_all", "개체값 재설정권 ×1", "🔄"),
+    (0.08, "bp_jackpot",    "BP 잭팟 +300",      "💎"),
+    (0.05, "iv_reroll_one", "IV 선택 리롤 ×1",   "🎯"),
+    (0.03, "shiny_egg",     "이로치 알 ×1",      "🥚"),
+    (0.02, "shiny_spawn",   "이로치 강스권 ×1",   "✨"),
+]
+
+GACHA_BP_REFUND_MIN = 10
+GACHA_BP_REFUND_MAX = 30
+GACHA_BP_JACKPOT = 300
+
+# 이로치 알 부화 시간 (초)
+SHINY_EGG_HATCH_SECONDS = 24 * 3600  # 24시간
+
+# IV 리롤 스탯 키 목록
+IV_STAT_KEYS = ["iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"]
+IV_STAT_NAMES = {
+    "iv_hp": "HP", "iv_atk": "공격", "iv_def": "방어",
+    "iv_spa": "특공", "iv_spdef": "특방", "iv_spd": "스피드",
+}
+
 # 유저간 인터랙션 템플릿
 CAMP_INTERACTION_TEMPLATES = [
     "{name1}의 {p1}(이/가) {name2}의 {p2}에게 장난을 쳤다 😆",
