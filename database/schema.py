@@ -804,219 +804,233 @@ CAMP_TABLES = [
 
 
 async def create_tables():
-    """Create all tables."""
+    """Create all tables. DDL failures are non-fatal (tables already exist in prod)."""
+    import logging
+    _log = logging.getLogger(__name__)
     pool = await get_db()
     for sql in TABLES:
-        await pool.execute(sql)
+        try:
+            await pool.execute(sql, timeout=15)
+        except Exception as e:
+            _log.warning(f"create_tables TABLES skip: {e.__class__.__name__}")
     # Battle tables
     for sql in BATTLE_TABLES:
-        await pool.execute(sql)
+        try:
+            await pool.execute(sql, timeout=15)
+        except Exception as e:
+            _log.warning(f"create_tables BATTLE skip: {e.__class__.__name__}")
     # Run battle migrations (ignore if already applied)
     for mig in BATTLE_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     # Run tournament migrations (ignore if already applied)
     for mig in TOURNAMENT_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     # Run shop migrations
     for mig in SHOP_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     # Run hyper ball migrations
     for mig in HYPER_BALL_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     # Arcade ticket migrations (drop old table + add user column)
     for mig in ARCADE_TICKET_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     # Arcade pass tables (chat-based, recreated after drop)
     for sql in ARCADE_PASS_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=15)
         except Exception:
             pass
     # Run shiny migrations
     for mig in SHINY_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     # Run team slot migrations
     for mig in TEAM_SLOT_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     # Run IV system migrations
     for mig in IV_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     # Favorite column
     try:
-        await pool.execute("ALTER TABLE user_pokemon ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0")
+        await pool.execute("ALTER TABLE user_pokemon ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0", timeout=15)
     except Exception:
         pass
     # LLM bonus quota migration
     for mig in LLM_QUOTA_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     # Shiny boost event type migration
     for mig in SHINY_BOOST_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     # Tutorial migration
     for mig in TUTORIAL_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     # Bot settings table
-    await pool.execute(BOT_SETTINGS_TABLE)
+    try:
+        await pool.execute(BOT_SETTINGS_TABLE, timeout=15)
+    except Exception:
+        pass
 
     # Marketplace tables
     for sql in MARKET_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=15)
         except Exception:
             pass
 
     # Daily missions tables
     for sql in MISSION_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=15)
         except Exception:
             pass
     # Patch note opt-out migration
     for mig in PATCH_OPTOUT_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
 
     # Group trade migrations
     for mig in GROUP_TRADE_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
 
     # Ultra-legendary rarity migration
     for mig in ULTRA_LEGENDARY_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
 
     # Journey system migrations
     for mig in JOURNEY_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
 
     # Rarity fix: 3-stage evolution final forms → epic
     for mig in RARITY_FIX_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
 
     # Tournament registrations table
     try:
-        await pool.execute(TOURNAMENT_REG_TABLE)
+        await pool.execute(TOURNAMENT_REG_TABLE, timeout=15)
     except Exception:
         pass
 
     # Chat level system migrations
     for mig in CHAT_LEVEL_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
     try:
-        await pool.execute(CHAT_CXP_LOG_TABLE)
+        await pool.execute(CHAT_CXP_LOG_TABLE, timeout=15)
     except Exception:
         pass
     try:
-        await pool.execute("CREATE INDEX IF NOT EXISTS idx_cxp_log_chat ON chat_cxp_log(chat_id, created_at)")
+        await pool.execute("CREATE INDEX IF NOT EXISTS idx_cxp_log_chat ON chat_cxp_log(chat_id, created_at)", timeout=15)
     except Exception:
         pass
 
     # Ranked (season) battle tables
     for sql in RANKED_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=15)
         except Exception:
             pass
     for mig in RANKED_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
 
     # MMR / 배치전 / 디비전 시스템 (2026-03-12)
     for mig in MMR_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
 
     # Rarity balance adjustments (2026-03-11)
     for mig in RARITY_BALANCE_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
 
     # Subscription system tables
     for sql in SUBSCRIPTION_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=15)
         except Exception:
             pass
 
     # KPI daily snapshots table
-    await pool.execute("""
-        CREATE TABLE IF NOT EXISTS kpi_daily_snapshots (
-            id SERIAL PRIMARY KEY,
-            date DATE NOT NULL UNIQUE,
-            dau INTEGER NOT NULL DEFAULT 0,
-            new_users INTEGER NOT NULL DEFAULT 0,
-            spawns INTEGER NOT NULL DEFAULT 0,
-            catches INTEGER NOT NULL DEFAULT 0,
-            shiny_caught INTEGER NOT NULL DEFAULT 0,
-            battles INTEGER NOT NULL DEFAULT 0,
-            ranked_battles INTEGER NOT NULL DEFAULT 0,
-            bp_earned INTEGER NOT NULL DEFAULT 0,
-            active_user_ids BIGINT[] NOT NULL DEFAULT '{}',
-            d1_retention REAL,
-            d7_retention REAL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    """)
+    try:
+        await pool.execute("""
+            CREATE TABLE IF NOT EXISTS kpi_daily_snapshots (
+                id SERIAL PRIMARY KEY,
+                date DATE NOT NULL UNIQUE,
+                dau INTEGER NOT NULL DEFAULT 0,
+                new_users INTEGER NOT NULL DEFAULT 0,
+                spawns INTEGER NOT NULL DEFAULT 0,
+                catches INTEGER NOT NULL DEFAULT 0,
+                shiny_caught INTEGER NOT NULL DEFAULT 0,
+                battles INTEGER NOT NULL DEFAULT 0,
+                ranked_battles INTEGER NOT NULL DEFAULT 0,
+                bp_earned INTEGER NOT NULL DEFAULT 0,
+                active_user_ids BIGINT[] NOT NULL DEFAULT '{}',
+                d1_retention REAL,
+                d7_retention REAL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """, timeout=15)
+    except Exception:
+        pass
 
     # Camp v2 system (2026-03-13)
     for sql in CAMP_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=15)
         except Exception:
             pass
 
@@ -1028,7 +1042,7 @@ async def create_tables():
     ]
     for mig in camp_renewal_migs:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
 
@@ -1066,13 +1080,13 @@ async def create_tables():
     ]
     for sql in gacha_tables:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=15)
         except Exception:
             pass
 
     # 이로치 강스권: users 테이블에 플래그 추가
     try:
-        await pool.execute("ALTER TABLE users ADD COLUMN shiny_spawn_tickets INTEGER NOT NULL DEFAULT 0")
+        await pool.execute("ALTER TABLE users ADD COLUMN shiny_spawn_tickets INTEGER NOT NULL DEFAULT 0", timeout=15)
     except Exception:
         pass
 
@@ -1088,7 +1102,7 @@ async def create_tables():
     ]
     for sql in camp_slot_tables:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=15)
         except Exception:
             pass
 
@@ -1099,7 +1113,7 @@ async def create_tables():
     ]
     for mig in dual_home_migs:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=15)
         except Exception:
             pass
 
@@ -1113,6 +1127,6 @@ async def create_tables():
     ]
     for idx_sql in perf_indexes:
         try:
-            await pool.execute(idx_sql)
+            await pool.execute(idx_sql, timeout=15)
         except Exception:
             pass
