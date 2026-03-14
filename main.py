@@ -476,7 +476,7 @@ def _bp_daily_chart(bp_daily: list[dict]) -> str:
 
 
 def _get_today_patches() -> list[str]:
-    """오늘 날짜의 git 커밋 메시지 목록 (feat/fix만)."""
+    """오늘 날짜의 git 커밋 메시지 목록 (feat/fix만), 주요 패치 우선 정렬."""
     import subprocess
     try:
         today_str = config.get_kst_now().strftime("%Y-%m-%d")
@@ -486,7 +486,20 @@ def _get_today_patches() -> list[str]:
             capture_output=True, text=True, timeout=5, cwd="/home/ubuntu/pokemon-bot",
         )
         lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
-        return [l for l in lines if any(l.startswith(p) for p in ("feat:", "fix:", "refactor:"))]
+        patches = [l for l in lines if any(l.startswith(p) for p in ("feat:", "fix:", "refactor:"))]
+        # 주요 패치 우선 정렬: feat > fix > refactor, 내용이 긴 것(상세한 것) 우선
+        def _patch_priority(p: str) -> tuple:
+            prefix = p.split(":")[0]
+            type_score = {"feat": 0, "fix": 1, "refactor": 2}.get(prefix, 3)
+            msg = p.split(":", 1)[1].strip() if ":" in p else p
+            # 주요 키워드 부스트
+            boost = 0
+            for kw in ("시스템", "추가", "도입", "신규", "개편", "리뉴얼", "엔진"):
+                if kw in msg:
+                    boost -= 1
+            return (type_score + boost, -len(msg))
+        patches.sort(key=_patch_priority)
+        return patches
     except Exception:
         return []
 
@@ -530,13 +543,25 @@ async def _send_daily_kpi_report(context):
             patch_items = ""
             feat_count = sum(1 for p in patches if p.startswith("feat:"))
             fix_count = sum(1 for p in patches if p.startswith("fix:"))
-            for p in patches[:8]:  # 최대 8개
+            # 중복 메시지 제거 (같은 기능 반복 커밋 시)
+            seen_msgs = set()
+            unique_patches = []
+            for p in patches:
+                msg = p.split(":", 1)[1].strip() if ":" in p else p
+                # 핵심 키워드로 중복 판별 (앞 10자 기준)
+                key = msg[:10]
+                if key not in seen_msgs:
+                    seen_msgs.add(key)
+                    unique_patches.append(p)
+            max_show = 5
+            for p in unique_patches[:max_show]:
                 prefix = p.split(":")[0]
                 emoji = "🆕" if prefix == "feat" else "🔧" if prefix == "fix" else "♻️"
                 msg = p.split(":", 1)[1].strip() if ":" in p else p
                 patch_items += f'<div style="display:flex;gap:6px;align-items:start;margin-bottom:6px;font-size:13px"><span>{emoji}</span><span>{msg}</span></div>'
-            if len(patches) > 8:
-                patch_items += f'<div style="font-size:12px;color:#888">외 {len(patches) - 8}건</div>'
+            remaining = len(patches) - max_show
+            if remaining > 0:
+                patch_items += f'<div style="font-size:12px;color:#888;margin-top:4px">외 {remaining}건</div>'
             patch_html = f"""
 <div class="section">
 <div class="section-title">🛠️ 오늘 패치 ({feat_count} feat / {fix_count} fix)</div>
@@ -574,55 +599,135 @@ async def _send_daily_kpi_report(context):
             tag_emoji = {"content": "🎮", "system": "⚙️", "balance": "⚖️", "monetization": "💎", "event": "🎪"}.get(ms["tag"], "📌")
             insights.append(f"{tag_emoji} <b>오늘 마일스톤:</b> {ms['title']}")
 
-        # 최근 마일스톤 영향 분석
-        if prev and milestones_recent:
+        # ── 1. 유저 활성도 분석 ──
+        if prev:
             dau_diff = d["dau"] - prev.get("dau", 0)
-            recent_titles = [ms["title"] for ms in milestones_recent[:3]]
-            context_str = " / ".join(recent_titles)
-            if dau_diff > 0:
-                insights.append(f"DAU +{dau_diff}명 증가. 최근 주요 업데이트({context_str}) 영향 가능성.")
-            elif dau_diff < 0:
-                insights.append(f"DAU {dau_diff}명 감소. 최근 업데이트({context_str}) 후 안정화 구간 또는 추가 조치 필요.")
-        elif prev:
-            dau_diff = d["dau"] - prev.get("dau", 0)
-            if dau_diff > 0 and patches:
-                insights.append(f"DAU +{dau_diff}명 증가. 오늘 패치({len(patches)}건)의 긍정적 영향 가능성.")
-            elif dau_diff < 0:
-                insights.append(f"DAU {dau_diff}명 감소. 자연 이탈 또는 콘텐츠 소진 모니터링 필요.")
+            dau_pct = round(dau_diff / max(prev.get("dau", 1), 1) * 100, 1)
+            new_users = d.get("new_users", 0)
+            prev_new = prev.get("new_users", 0)
 
+            # 최근 마일스톤 영향 분석
+            if milestones_recent:
+                recent_titles = [ms["title"] for ms in milestones_recent[:3]]
+                context_str = " / ".join(recent_titles)
+                if dau_diff > 0:
+                    insights.append(
+                        f"📈 <b>DAU +{dau_diff}명({dau_pct:+.1f}%)</b>. "
+                        f"최근 업데이트({context_str}) 영향. "
+                        f"신규 {new_users}명 유입, 복귀 유저 확인 필요.")
+                elif dau_diff < 0:
+                    insights.append(
+                        f"📉 <b>DAU {dau_diff}명({dau_pct:+.1f}%)</b>. "
+                        f"최근 업데이트({context_str}) 이후 안정화 구간. "
+                        f"신규 {new_users}명(전일 {prev_new}명).")
+            elif patches:
+                if dau_diff > 0:
+                    insights.append(
+                        f"📈 <b>DAU +{dau_diff}명({dau_pct:+.1f}%)</b>. "
+                        f"오늘 패치 {len(patches)}건 영향 가능. "
+                        f"신규 {new_users}명 유입.")
+                elif dau_diff < 0:
+                    insights.append(
+                        f"📉 <b>DAU {dau_diff}명({dau_pct:+.1f}%)</b>. "
+                        f"자연 이탈 또는 콘텐츠 소진 구간. "
+                        f"신규 {new_users}명(전일 {prev_new}명), 활성 유저 유지 전략 필요.")
+                else:
+                    insights.append(f"📊 DAU 전일 동일({d['dau']}명). 안정 구간.")
+            else:
+                if dau_diff != 0:
+                    direction = "증가" if dau_diff > 0 else "감소"
+                    insights.append(f"📊 DAU {dau_diff:+d}명 {direction}({dau_pct:+.1f}%). 신규 {new_users}명.")
+
+        # ── 2. 리텐션 분석 ──
+        if d1_ret is not None or d7_ret is not None:
+            ret_parts = []
+            if d1_ret is not None:
+                d1_status = "🟢 양호" if d1_ret >= 70 else "🟡 보통" if d1_ret >= 50 else "🔴 주의"
+                ret_parts.append(f"D+1 {d1_ret}%({d1_status})")
+            if d7_ret is not None:
+                d7_status = "🟢 양호" if d7_ret >= 40 else "🟡 보통" if d7_ret >= 25 else "🔴 주의"
+                ret_parts.append(f"D+7 {d7_ret}%({d7_status})")
+            ret_str = " / ".join(ret_parts)
+            insights.append(f"🔄 <b>리텐션:</b> {ret_str}")
+            if d1_ret is not None and d1_ret < 50:
+                insights.append("  └ D+1 50% 미만 — 첫날 경험 개선 또는 복귀 인센티브 검토.")
+            if d7_ret is not None and d7_ret >= 40:
+                insights.append("  └ D+7 40%+ — 핵심 루프가 잘 작동하는 신호. 장기 콘텐츠 준비 시점.")
+
+        # ── 3. 포획/배틀 활성도 ──
         if prev:
             catch_prev = prev.get("catches", 0)
+            battle_prev = prev.get("battles", 0)
+
+            # 포획률 변동
             if catch_prev and d["catches"]:
                 prev_rate = round(catch_prev / max(prev.get("spawns", 1), 1) * 100, 1)
-                if abs(catch_rate - prev_rate) > 3:
-                    insights.append(f"포획률 {prev_rate}% → {catch_rate}% ({'상승' if catch_rate > prev_rate else '하락'}). 밸런스 패치 영향 확인.")
-        if d1_ret is not None:
-            if d1_ret >= 70:
-                insights.append(f"D+1 리텐션 {d1_ret}%로 양호. 핵심 루프 건강.")
-            elif d1_ret < 50:
-                insights.append(f"D+1 리텐션 {d1_ret}%로 주의. 복귀 동기 강화 필요.")
-        if d["battles"] == 0 and d["dau"] > 0:
-            insights.append("배틀 0건 — 매칭 시스템 또는 동기 부여 점검 필요.")
+                rate_diff = round(catch_rate - prev_rate, 1)
+                if abs(rate_diff) > 2:
+                    direction = "상승" if rate_diff > 0 else "하락"
+                    insights.append(
+                        f"🎯 <b>포획률 {prev_rate}% → {catch_rate}%({rate_diff:+.1f}%p {direction})</b>. "
+                        f"스폰 {d['spawns']}회 중 {d['catches']}회 포획.")
 
-        # 뽑기 BP 소비 인사이트
+            # 배틀 활성도
+            if d["battles"] > 0:
+                if battle_prev:
+                    bt_diff = d["battles"] - battle_prev
+                    bt_pct = round(bt_diff / max(battle_prev, 1) * 100, 1)
+                    if abs(bt_pct) > 20:
+                        insights.append(
+                            f"⚔️ 배틀 {battle_prev} → {d['battles']}건({bt_pct:+.1f}%). "
+                            f"{'배틀 수요 증가 — 보상/콘텐츠 효과.' if bt_diff > 0 else '배틀 감소 — 매칭 소요시간 또는 보상 점검.'}")
+            elif d["dau"] > 0:
+                insights.append("⚔️ <b>배틀 0건</b> — 매칭 시스템 점검 또는 배틀 동기 부여 필요.")
+
+            # 1인당 활동량
+            if d["dau"] > 0 and prev.get("dau", 0) > 0:
+                actions_per_user = round((d["catches"] + d["battles"]) / d["dau"], 1)
+                prev_actions = round((catch_prev + battle_prev) / max(prev.get("dau", 1), 1), 1)
+                if abs(actions_per_user - prev_actions) > 1:
+                    insights.append(
+                        f"👤 1인당 활동량 {prev_actions} → {actions_per_user}회/일 "
+                        f"({'참여도 상승' if actions_per_user > prev_actions else '참여도 하락'}).")
+
+        # ── 4. BP 경제 분석 ──
+        bp_earned = d.get("bp_earned", 0)
         gacha_spent = d.get("gacha_bp_spent", 0)
         gacha_pulls = d.get("gacha_pulls", 0)
-        bp_earned = d.get("bp_earned", 0)
-        if gacha_spent > 0:
+        bp_circulation = eco.get("bp_circulation", 0)
+        bp_avg = eco.get("bp_avg", 0)
+
+        if bp_earned > 0 or gacha_spent > 0:
             bp_net = bp_earned - gacha_spent
-            if gacha_spent > bp_earned * 1.5:
-                insights.append(
-                    f"🎰 <b>BP 뽑기 소비 급증!</b> 뽑기 -{gacha_spent:,}BP vs 배틀 획득 +{bp_earned:,}BP. "
-                    f"BP 순유출 {bp_net:,}BP — 뽑기가 주요 BP 싱크로 작동 중. "
-                    f"총 {gacha_pulls}회 뽑기, 회당 평균 {gacha_spent // max(gacha_pulls, 1)}BP 소비.")
-            elif gacha_spent > bp_earned:
-                insights.append(
-                    f"🎰 뽑기 BP 소비({gacha_spent:,}) > 배틀 획득({bp_earned:,}). "
-                    f"BP 순유출 {bp_net:,} — 뽑기 시스템이 BP 싱크 역할 수행 중.")
-            else:
-                insights.append(
-                    f"🎰 뽑기 {gacha_pulls}회, BP 소비 -{gacha_spent:,}. "
-                    f"배틀 대비 {round(gacha_spent / max(bp_earned, 1) * 100)}% 수준.")
+            insights.append(
+                f"💰 <b>BP 경제:</b> 생성 +{bp_earned:,} / 뽑기 소각 -{gacha_spent:,} / "
+                f"순변동 {bp_net:+,}BP")
+            insights.append(
+                f"  └ 총 유통량 {bp_circulation:,}BP, 보유자 평균 {bp_avg:,}BP")
+
+            if gacha_spent > 0:
+                sink_ratio = round(gacha_spent / max(bp_earned, 1) * 100, 1)
+                if sink_ratio > 150:
+                    insights.append(
+                        f"  └ 🔴 <b>뽑기가 배틀생성의 {sink_ratio}%를 소각</b> — BP 디플레이션 위험. "
+                        f"{gacha_pulls}회 뽑기, 회당 {gacha_spent // max(gacha_pulls, 1)}BP. "
+                        f"소각 속도 지속 시 유저 BP 고갈 → 활동 저하 우려.")
+                elif sink_ratio > 100:
+                    insights.append(
+                        f"  └ 🟡 뽑기 소각({sink_ratio}%) > 생성 — 건전한 BP 싱크 작동 중. "
+                        f"인플레 억제 효과 ✓. 유저 BP 잔고 모니터링 계속.")
+                else:
+                    insights.append(
+                        f"  └ 🟢 뽑기 소각 {sink_ratio}% — 아직 생성이 우세. "
+                        f"추가 싱크(상점/이벤트) 검토 가능.")
+
+        # BP 건전성 평가
+        if bp_circulation > 0 and d["dau"] > 0:
+            bp_per_dau = round(bp_circulation / d["dau"], 0)
+            if bp_per_dau > 2000:
+                insights.append(f"  └ DAU당 유통 BP {bp_per_dau:,.0f} — 고인플레 구간. 추가 싱크 필요.")
+            elif bp_per_dau < 300:
+                insights.append(f"  └ DAU당 유통 BP {bp_per_dau:,.0f} — BP 부족 우려. 획득 경로 확인.")
 
         # 뽑기 분포 인사이트
         gacha_dist = d.get("gacha_distribution", {})
@@ -632,7 +737,9 @@ async def _send_daily_kpi_report(context):
             rare_items = {k: v for k, v in gacha_dist.items() if k in ("shiny_ticket", "shiny_egg", "bp_jackpot", "iv_reroll_one")}
             if rare_items:
                 rare_str = ", ".join(f"{k}({v})" for k, v in rare_items.items())
-                insights.append(f"🎰 뽑기 TOP: {dist_str}. 레어 아이템: {rare_str}")
+                insights.append(f"🎰 뽑기 TOP: {dist_str}. 레어: {rare_str}")
+            else:
+                insights.append(f"🎰 뽑기 TOP: {dist_str}")
 
         insight_html = ""
         if insights:
