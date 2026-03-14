@@ -27,7 +27,28 @@ _camp_weather: dict[int, tuple] = {}  # chat_id → (name, emoji, boosted_fields
 
 
 def roll_weather() -> tuple[str, str, list[str]]:
-    """날씨를 랜덤 결정. (name, emoji, boosted_fields) 반환."""
+    """실제 날씨 기반으로 캠프 날씨 결정. fallback: 랜덤."""
+    try:
+        from services.weather_service import get_current_weather
+        w = get_current_weather()
+        condition = w.get("condition")
+        if condition:
+            # 실제 날씨 → 캠프 날씨 매핑
+            _REAL_TO_CAMP = {
+                "rain":        ("비",   "🌧️", ["lake", "forest"]),
+                "snow":        ("눈",   "❄️", ["lake", "temple"]),
+                "thunder":     ("폭풍", "⛈️", ["city", "cave"]),
+                "fog":         ("안개", "🌫️", ["temple", "cave"]),
+                "clear_hot":   ("화창", "🔥", ["volcano", "forest"]),
+                "clear_night": ("맑은 밤", "🌙", ["temple", "cave"]),
+                "wind":        ("바람", "💨", ["lake", "volcano"]),
+                "clear":       ("맑음", "☀️", ["forest", "city"]),
+            }
+            camp_weather = _REAL_TO_CAMP.get(condition)
+            if camp_weather:
+                return camp_weather
+    except Exception:
+        pass
     return random.choice(config.CAMP_WEATHER_TABLE)
 
 
