@@ -156,102 +156,126 @@ async def _do_pull(query, user_id: int, count: int):
         return
     _gacha_lock[user_id] = now
 
-    results = []
-    for _ in range(count):
-        r = await roll_gacha(user_id)
-        if not r["success"]:
-            if results:
-                break
-            try:
-                await query.edit_message_text(f"❌ {r['error']}")
-            except Exception:
-                await query.message.reply_text(f"❌ {r['error']}")
-            _gacha_lock.pop(user_id, None)
+    try:
+        results = []
+        for _ in range(count):
+            r = await roll_gacha(user_id)
+            if not r["success"]:
+                if results:
+                    break  # 이전 결과는 표시
+                try:
+                    await query.edit_message_text(f"❌ {r['error']}")
+                except Exception:
+                    try:
+                        await query.message.reply_text(f"❌ {r['error']}")
+                    except Exception:
+                        pass
+                return
+            results.append(r)
+
+        if not results:
             return
-        results.append(r)
 
-    if not results:
-        _gacha_lock.pop(user_id, None)
-        return
+        # ① 기존 메시지 버튼 제거
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
 
-    # ① 기존 메시지 버튼 제거
-    try:
-        await query.edit_message_reply_markup(reply_markup=None)
-    except Exception:
-        pass
+        # ② 대박 여부 판정
+        is_jackpot = any(r["result_key"] in _JACKPOT_TIERS for r in results)
+        img_path = _IMG_GOLDEN if is_jackpot else _IMG_NORMAL
+        hint = random.choice(_HINT_JACKPOT if is_jackpot else _HINT_NORMAL)
 
-    # ② 대박 여부 판정
-    is_jackpot = any(r["result_key"] in _JACKPOT_TIERS for r in results)
-    img_path = _IMG_GOLDEN if is_jackpot else _IMG_NORMAL
-    hint = random.choice(_HINT_JACKPOT if is_jackpot else _HINT_NORMAL)
+        # ③ 힌트 멘트 + 이미지 전송
+        try:
+            with open(img_path, "rb") as f:
+                await query.message.reply_photo(
+                    photo=InputFile(f),
+                    caption=f"<b>{hint}</b>",
+                    parse_mode="HTML",
+                )
+        except Exception:
+            logger.warning("가챠 힌트 이미지 전송 실패")
+            try:
+                await query.message.reply_text(f"<b>{hint}</b>", parse_mode="HTML")
+            except Exception:
+                pass
 
-    # ③ 힌트 멘트 + 이미지 전송
-    try:
-        with open(img_path, "rb") as f:
-            await query.message.reply_photo(
-                photo=InputFile(f),
-                caption=f"<b>{hint}</b>",
-                parse_mode="HTML",
-            )
-    except Exception:
-        logger.warning("가챠 힌트 이미지 전송 실패")
-        await query.message.reply_text(f"<b>{hint}</b>", parse_mode="HTML")
+        # 10초 대기 — 긴장감 연출
+        await asyncio.sleep(_GACHA_DELAY)
 
-    # 10초 대기 — 긴장감 연출
-    await asyncio.sleep(_GACHA_DELAY)
+        # ④ 상세 결과 텍스트
+        bp_after = await get_bp(user_id)  # 최신 BP 조회 (중간 실패 대비)
 
-    # ④ 상세 결과 텍스트
-    bp_after = results[-1]["bp_after"]
-
-    if count == 1:
-        r = results[0]
-        emo, reaction = _TIER_EFFECT.get(r["result_key"], ("🎁", "!"))
-        stars = _TIER_STARS.get(r["result_key"], "⭐")
-        guide = _ITEM_GUIDE.get(r["result_key"], "")
-
-        lines = [
-            f"🎰 <b>뽑기 결과!</b>",
-            "",
-            f"  {stars}",
-            f"  {emo} <b>{r['display_name']}</b>",
-            f"  {reaction}",
-            "",
-            f"  📝 {r['detail']}",
-        ]
-        if guide:
-            lines.append("")
-            lines.append(f"  {guide}")
-        lines.append("")
-        lines.append(f"{icon_emoji('coin')} 남은 BP: <b>{bp_after}</b>")
-    else:
-        lines = [f"🎰 <b>{len(results)}연차 뽑기 결과!</b>", ""]
-        guides = []
-        for i, r in enumerate(results, 1):
-            emo = r["emoji"]
-            lines.append(f"  {i}. {emo} {r['display_name']} — {r['detail']}")
+        if len(results) == 1 and count == 1:
+            r = results[0]
+            emo, reaction = _TIER_EFFECT.get(r["result_key"], ("🎁", "!"))
+            stars = _TIER_STARS.get(r["result_key"], "⭐")
             guide = _ITEM_GUIDE.get(r["result_key"], "")
-            if guide and guide not in guides:
-                guides.append(guide)
-        lines.append("")
-        if guides:
-            for g in guides:
-                lines.append(f"  {g}")
+
+            lines = [
+                f"🎰 <b>뽑기 결과!</b>",
+                "",
+                f"  {stars}",
+                f"  {emo} <b>{r['display_name']}</b>",
+                f"  {reaction}",
+                "",
+                f"  📝 {r['detail']}",
+            ]
+            if guide:
+                lines.append("")
+                lines.append(f"  {guide}")
             lines.append("")
-        lines.append(f"{icon_emoji('coin')} 남은 BP: <b>{bp_after}</b>")
+            lines.append(f"{icon_emoji('coin')} 남은 BP: <b>{bp_after}</b>")
+        else:
+            pulled = len(results)
+            failed = count - pulled
+            lines = [f"🎰 <b>{pulled}연차 뽑기 결과!</b>", ""]
+            if failed > 0:
+                lines.append(f"⚠️ {count}회 중 {pulled}회만 성공 (BP 부족으로 {failed}회 중단)")
+                lines.append("")
+            guides = []
+            for i, r in enumerate(results, 1):
+                emo = r["emoji"]
+                lines.append(f"  {i}. {emo} {r['display_name']} — {r['detail']}")
+                guide = _ITEM_GUIDE.get(r["result_key"], "")
+                if guide and guide not in guides:
+                    guides.append(guide)
+            lines.append("")
+            if guides:
+                for g in guides:
+                    lines.append(f"  {g}")
+                lines.append("")
+            lines.append(f"{icon_emoji('coin')} 남은 BP: <b>{bp_after}</b>")
 
-    # ⑤ 다시 뽑기 버튼
-    buttons = []
-    if bp_after >= config.GACHA_COST:
-        row = [InlineKeyboardButton("🎰 1회 더!", callback_data="gacha_again_1")]
-        if bp_after >= config.GACHA_COST * 5:
-            row.append(InlineKeyboardButton("🎰 5연차!", callback_data="gacha_again_5"))
-        buttons.append(row)
+        # ⑤ 다시 뽑기 버튼
+        buttons = []
+        if bp_after >= config.GACHA_COST:
+            row = [InlineKeyboardButton("🎰 1회 더!", callback_data="gacha_again_1")]
+            if bp_after >= config.GACHA_COST * 5:
+                row.append(InlineKeyboardButton("🎰 5연차!", callback_data="gacha_again_5"))
+            buttons.append(row)
 
-    markup = InlineKeyboardMarkup(buttons) if buttons else None
-    await query.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
-
-    # 락 해제
-    _gacha_lock.pop(user_id, None)
+        markup = InlineKeyboardMarkup(buttons) if buttons else None
+        try:
+            await query.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            try:
+                await query.message.reply_text("\n".join(lines), reply_markup=markup)
+            except Exception:
+                logger.exception(f"[Gacha] 결과 메시지 전송 실패 (user={user_id})")
+    except Exception:
+        logger.exception(f"[Gacha] _do_pull 전체 예외 (user={user_id}, count={count})")
+        try:
+            await query.message.reply_text(
+                "⚠️ 뽑기 처리 중 오류가 발생했습니다.\n"
+                "보상은 정상 지급되었을 수 있습니다. '아이템'과 '상태창'을 확인해주세요."
+            )
+        except Exception:
+            pass
+    finally:
+        _gacha_lock.pop(user_id, None)
 
 
 # ─── 아이템 목록/사용 ────────────────────────────────────
