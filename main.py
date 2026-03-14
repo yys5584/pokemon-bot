@@ -113,46 +113,56 @@ async def post_init(application: Application):
     logger.info("Initializing database...")
     await get_db()
     try:
-        await asyncio.wait_for(create_tables(), timeout=60)
+        await asyncio.wait_for(create_tables(), timeout=30)
     except Exception as e:
         logger.warning(f"create_tables skipped ({e.__class__.__name__}) — tables already exist in prod")
-    await seed_pokemon_data()
+    try:
+        await asyncio.wait_for(seed_pokemon_data(), timeout=30)
+    except Exception as e:
+        logger.warning(f"seed_pokemon_data skipped ({e.__class__.__name__})")
     logger.info(f"[{time.monotonic()-t0:.1f}s] DB + schema + seed done")
 
-    # Phase 2: 배틀데이터 시드 + 마이그레이션 (병렬)
-    migrated, iv_assigned, _, rarity_migrated, ultra_migrated, catch_migrated, nurture_locked, trade_evo_fixed = await asyncio.gather(
-        migrate_18_types(),
-        migrate_assign_ivs(),
-        seed_battle_data(),
-        migrate_rarity_v2(),
-        migrate_ultra_legendary(),
-        migrate_catch_rates_v3(),
-        migrate_add_nurture_locked(),
-        migrate_trade_evo_fix(),
-    )
-    if migrated:
-        logger.info(f"18-type migration applied: {migrated} pokemon updated.")
-    if iv_assigned:
-        logger.info(f"IV migration: {iv_assigned} pokemon received random IVs.")
-    if rarity_migrated:
-        logger.info(f"Rarity v2 migration: {rarity_migrated} pokemon rarity updated (종족값 기반).")
-    if ultra_migrated:
-        logger.info(f"Ultra-legendary migration: {ultra_migrated} pokemon promoted to ultra_legendary.")
-    if catch_migrated:
-        logger.info(f"Catch rate v3 migration: {catch_migrated} pokemon catch_rate unified by rarity.")
-    if nurture_locked:
-        logger.info("Nurture locked column added to user_pokemon.")
-    if trade_evo_fixed:
-        logger.info("Trade evolution routes fixed (롱스톤/시드라/스라크/폴리곤).")
-    logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready. 251 Pokemon seeded.")
+    # Phase 2: 배틀데이터 시드 + 마이그레이션 (병렬, 전체 타임아웃)
+    try:
+        results = await asyncio.wait_for(asyncio.gather(
+            migrate_18_types(),
+            migrate_assign_ivs(),
+            seed_battle_data(),
+            migrate_rarity_v2(),
+            migrate_ultra_legendary(),
+            migrate_catch_rates_v3(),
+            migrate_add_nurture_locked(),
+            migrate_trade_evo_fix(),
+        ), timeout=60)
+        migrated, iv_assigned, _, rarity_migrated, ultra_migrated, catch_migrated, nurture_locked, trade_evo_fixed = results
+        if migrated:
+            logger.info(f"18-type migration applied: {migrated} pokemon updated.")
+        if iv_assigned:
+            logger.info(f"IV migration: {iv_assigned} pokemon received random IVs.")
+        if rarity_migrated:
+            logger.info(f"Rarity v2 migration: {rarity_migrated} pokemon rarity updated (종족값 기반).")
+        if ultra_migrated:
+            logger.info(f"Ultra-legendary migration: {ultra_migrated} pokemon promoted to ultra_legendary.")
+        if catch_migrated:
+            logger.info(f"Catch rate v3 migration: {catch_migrated} pokemon catch_rate unified by rarity.")
+        if nurture_locked:
+            logger.info("Nurture locked column added to user_pokemon.")
+        if trade_evo_fixed:
+            logger.info("Trade evolution routes fixed (롱스톤/시드라/스라크/폴리곤).")
+    except Exception as e:
+        logger.warning(f"Phase 2 migrations skipped ({e.__class__.__name__}) — already applied in prod")
+    logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready.")
 
     # Phase 3: 독립 작업 병렬 (cleanup + missed_reset)
     # NOTE: resolve_unresolved_sessions는 bot HTTP가 초기화된 후 실행해야 하므로
     # job_queue.run_once로 지연 실행 (post_init 시점에선 bot HTTP 미초기화)
-    await asyncio.gather(
-        queries.cleanup_expired_events(),
-        _check_missed_reset(),
-    )
+    try:
+        await asyncio.wait_for(asyncio.gather(
+            queries.cleanup_expired_events(),
+            _check_missed_reset(),
+        ), timeout=30)
+    except Exception as e:
+        logger.warning(f"Phase 3 cleanup skipped ({e.__class__.__name__})")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Cleanup done")
 
     # 봇 시작 후 5초 뒤 미해결 세션 resolve (HTTP 초기화 보장)

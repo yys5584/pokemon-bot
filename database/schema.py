@@ -812,14 +812,16 @@ async def create_tables():
     # 운영 DB에 핵심 테이블이 이미 있으면 DDL 전체 스킵 (Supabase pgbouncer DDL 느림 방지)
     try:
         exists = await pool.fetchval(
-            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='users')",
+            "SELECT 1 FROM users LIMIT 0",
             timeout=10
         )
-        if exists:
-            _log.info("create_tables: core tables exist, skipping DDL")
-            return
+        _log.info("create_tables: core tables exist, skipping DDL")
+        return
+    except asyncpg.UndefinedTableError:
+        _log.info("create_tables: users table missing, running DDL")
     except Exception as e:
-        _log.warning(f"create_tables: existence check failed ({e.__class__.__name__}), running DDL")
+        _log.warning(f"create_tables: check failed ({e.__class__.__name__}), skipping DDL for safety")
+        return
 
     for sql in TABLES:
         try:
