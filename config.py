@@ -979,12 +979,7 @@ RANKED_REWARDS = {
 # --- Ranked Titles ---
 RANKED_TITLES = {
     "ranked_first":    ("첫 랭크전",     "squirtle",   "랭크전 1회 참여",    "ranked_total", 1),
-    "ranked_silver":   ("실버 도달",     "wartortle",  "실버 티어 달성",     "ranked_tier", "silver"),
-    "ranked_gold":     ("골드 도달",     "charmander", "골드 티어 달성",     "ranked_tier", "gold"),
-    "ranked_platinum": ("플래티넘 도달", "charmeleon", "플래티넘 티어 달성", "ranked_tier", "platinum"),
-    "ranked_diamond":  ("다이아 도달",   "charizard",  "다이아 티어 달성",   "ranked_tier", "diamond"),
-    "ranked_master":   ("랭크 마스터",   "crown",      "마스터 티어 달성",   "ranked_tier", "master"),
-    "ranked_challenger": ("챌린저",      "crown",      "챌린저 티어 달성",   "ranked_tier", "challenger"),
+    # 티어 도달 칭호는 뱃지 자동표시로 대체 → 삭제
     "ranked_champion": ("시즌 챔피언",   "champion",   "시즌 1위 달성",      "ranked_rank", 1),
     "ranked_streak5":  ("랭크 5연승",    "moltres",    "랭크전 5연승",       "ranked_streak", 5),
     "ranked_streak10": ("랭크 10연승",   "moltres",    "랭크전 10연승",      "ranked_streak", 10),

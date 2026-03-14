@@ -2699,12 +2699,7 @@ async def _check_ranked_titles(user_id: int, ranked_info: dict, is_winner: bool)
     best_streak = rec.get("best_ranked_streak", 0)
     checks = [
         ("ranked_first", total >= 1),
-        ("ranked_silver", tier in ("silver", "gold", "platinum", "diamond", "master", "challenger")),
-        ("ranked_gold", tier in ("gold", "platinum", "diamond", "master", "challenger")),
-        ("ranked_platinum", tier in ("platinum", "diamond", "master", "challenger")),
-        ("ranked_diamond", tier in ("diamond", "master", "challenger")),
-        ("ranked_master", tier in ("master", "challenger")),
-        ("ranked_challenger", tier == "challenger"),
+        # 티어 도달 칭호는 뱃지 자동표시로 대체 → 삭제
         ("ranked_streak5", best_streak >= 5),
         ("ranked_streak10", best_streak >= 10),
     ]
