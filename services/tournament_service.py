@@ -1626,19 +1626,19 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         w_name = winner_data['name']
         notice_lines = [
             f"🥇 우승: <b>{w_name}</b>",
-            f"   마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치 {shiny_1st_name}",
+            f"   마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP:,}BP + ✨이로치 {shiny_1st_name}",
         ]
         if runner_up_id:
             r_user = await queries.get_user(runner_up_id)
             r_name = r_user["display_name"] if r_user else "???"
             notice_lines.append(f"🥈 준우승: <b>{r_name}</b>")
-            notice_lines.append(f"   마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + ✨이로치 {shiny_2nd_name}")
+            notice_lines.append(f"   마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {config.TOURNAMENT_PRIZE_2ND_BP:,}BP + ✨이로치 {shiny_2nd_name}")
         for uid in fourth_placers:
             u = await queries.get_user(uid)
             u_name = u["display_name"] if u else "???"
             u_shiny = shiny_semi_awards.get(uid, ("???", {}))[0]
             notice_lines.append(f"🏅 4강: <b>{u_name}</b>")
-            notice_lines.append(f"   마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치 {u_shiny}")
+            notice_lines.append(f"   마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + ✨이로치 {u_shiny}")
 
         if quarter_losers:
             q_names = []
