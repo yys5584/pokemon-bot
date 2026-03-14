@@ -180,6 +180,16 @@ async def get_user_placements(user_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+async def get_user_placed_instance_ids(user_id: int) -> set[int]:
+    """캠프에 배치된 포켓몬 instance_id 세트 (배틀 보너스 체크용)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        "SELECT instance_id FROM camp_placements WHERE user_id = $1",
+        user_id,
+    )
+    return {r["instance_id"] for r in rows}
+
+
 async def get_user_placements_in_chat(chat_id: int, user_id: int) -> list[dict]:
     """Get placements for a user in a specific chat."""
     pool = await get_db()
@@ -300,6 +310,30 @@ async def log_fragment(user_id: int, chat_id: int, field_type: str, amount: int,
            VALUES ($1, $2, $3, $4, $5)""",
         user_id, chat_id, field_type, amount, source,
     )
+
+
+# ═══════════════════════════════════════════════════════
+# Weekly MVP (주간 기여도 랭킹)
+# ═══════════════════════════════════════════════════════
+
+async def get_weekly_top_contributors(chat_id: int, days: int = 7, limit: int = 10) -> list[dict]:
+    """최근 N일간 조각 획득 기준 상위 기여자 목록."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT fl.user_id, SUM(fl.amount) AS total,
+                  u.first_name, u.username
+           FROM camp_fragment_log fl
+           LEFT JOIN users u ON u.user_id = fl.user_id
+           WHERE fl.chat_id = $1
+             AND fl.source = 'round'
+             AND fl.amount > 0
+             AND fl.created_at >= NOW() - ($2 || ' days')::INTERVAL
+           GROUP BY fl.user_id, u.first_name, u.username
+           ORDER BY total DESC
+           LIMIT $3""",
+        chat_id, str(days), limit,
+    )
+    return [dict(r) for r in rows]
 
 
 # ═══════════════════════════════════════════════════════

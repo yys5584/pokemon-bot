@@ -90,7 +90,7 @@ def _build_battle_detail_dm(
     return "\n".join(lines)
 
 
-def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
+def _prepare_combatant(pokemon: dict, is_partner: bool = False, camp_placed: bool = False) -> dict:
     """Prepare a single pokemon for battle with computed stats."""
     pid = pokemon.get("pokemon_id") or pokemon.get("id")
     base = get_normalized_base_stats(pid)
@@ -111,6 +111,12 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
     # Partner bonus: ATK +5%
     if is_partner:
         stats["atk"] = int(stats["atk"] * 1.05)
+
+    # Camp placement bonus: all stats +3%
+    if camp_placed:
+        bonus = config.CAMP_BATTLE_BONUS
+        for key in ("hp", "atk", "def", "spa", "spdef", "spd"):
+            stats[key] = int(stats[key] * (1 + bonus))
 
     # Skill data — 이중 속성 포켓몬은 [("name",pow), ("name",pow)] 리스트
     pid = pokemon.get("pokemon_id") or pokemon.get("id")
@@ -724,13 +730,28 @@ async def execute_battle(
     c_partner_inst = c_partner["instance_id"] if c_partner else None
     d_partner_inst = d_partner["instance_id"] if d_partner else None
 
+    # Camp placement bonus
+    from database import camp_queries as _cq
+    c_camp_ids, d_camp_ids = await asyncio.gather(
+        _cq.get_user_placed_instance_ids(challenger_id),
+        _cq.get_user_placed_instance_ids(defender_id),
+    )
+
     # Prepare combatants
     c_combatants = [
-        _prepare_combatant(p, is_partner=(p["pokemon_instance_id"] == c_partner_inst))
+        _prepare_combatant(
+            p,
+            is_partner=(p["pokemon_instance_id"] == c_partner_inst),
+            camp_placed=(p["pokemon_instance_id"] in c_camp_ids),
+        )
         for p in challenger_team
     ]
     d_combatants = [
-        _prepare_combatant(p, is_partner=(p["pokemon_instance_id"] == d_partner_inst))
+        _prepare_combatant(
+            p,
+            is_partner=(p["pokemon_instance_id"] == d_partner_inst),
+            camp_placed=(p["pokemon_instance_id"] in d_camp_ids),
+        )
         for p in defender_team
     ]
 

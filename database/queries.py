@@ -59,6 +59,19 @@ async def get_user(user_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+async def get_last_catch_time(user_id: int):
+    """유저의 가장 최근 포획 시간 (현재 포획 제외, 2번째 최근)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT caught_at FROM user_pokemon
+           WHERE user_id = $1
+           ORDER BY caught_at DESC
+           OFFSET 1 LIMIT 1""",
+        user_id,
+    )
+    return row["caught_at"] if row else None
+
+
 async def get_all_user_ids() -> list[int]:
     """Get all registered user IDs."""
     pool = await get_db()

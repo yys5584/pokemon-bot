@@ -1227,6 +1227,9 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # CXP: +1 for catch
         asyncio.create_task(_add_cxp_bg(context, chat_id, config.CXP_PER_CATCH, "catch", winner_id))
 
+        # 복귀 유저 환영
+        asyncio.create_task(_check_returning_user(context, chat_id, winner_id, winner_name))
+
         # Check if first catch in chat (for rare+ announcement)
         is_first = await queries.is_first_catch_in_chat(chat_id, pokemon_id)
 
@@ -1662,3 +1665,38 @@ async def _notify_mission(context, user_id: int, mission_key: str):
             )
     except Exception:
         pass
+
+
+async def _check_returning_user(context, chat_id: int, user_id: int, display_name: str):
+    """7일+ 미포획 후 복귀한 유저를 캠프 채팅방에 환영."""
+    try:
+        last_catch = await queries.get_last_catch_time(user_id)
+        if not last_catch:
+            return  # 첫 포획이거나 데이터 없음
+
+        import datetime as dt
+        now = config.get_kst_now()
+        if last_catch.tzinfo is None:
+            last_catch = last_catch.replace(tzinfo=dt.timezone.utc)
+
+        days_away = (now - last_catch).days
+        if days_away < config.CAMP_RETURN_DAYS:
+            return
+
+        # 캠프가 있는 채팅방인지 확인
+        from database import camp_queries as cq
+        camp = await cq.get_camp(chat_id)
+        if not camp:
+            return
+
+        from utils.helpers import icon_emoji
+        msg = (
+            f"{icon_emoji('pokecenter')} <b>복귀 트레이너 환영!</b>\n\n"
+            f"{display_name}님이 {days_away}일 만에 돌아왔습니다!\n"
+            f"다시 만나서 반갑습니다 {icon_emoji('heart')}"
+        )
+        await context.bot.send_message(
+            chat_id=chat_id, text=msg, parse_mode="HTML",
+        )
+    except Exception:
+        logger.debug(f"Returning user check failed for {user_id}", exc_info=True)

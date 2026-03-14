@@ -1328,6 +1328,8 @@ CAMP_WEATHER_TABLE = [
     ("무더위", "🥵", ["volcano", "city"]),
 ]
 CAMP_WEATHER_MULTIPLIER = 1.5  # 날씨 부스트 배수
+CAMP_RETURN_DAYS = 7  # N일 이상 미포획 → 복귀 유저
+CAMP_BATTLE_BONUS = 0.03  # 캠프 배치 포켓몬 배틀 스탯 +3%
 
 # ── 소식 템플릿 ──
 CAMP_NEWS_TEMPLATES = {

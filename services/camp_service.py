@@ -939,6 +939,14 @@ async def process_auto_approvals(chat_id: int, member_count: int) -> list[str]:
 # DM 현황
 # ═══════════════════════════════════════════════════════
 
+async def get_weekly_mvp(chat_id: int, days: int = 7) -> list[dict]:
+    """주간 MVP 랭킹 조회. [{user_id, total, first_name, username, rank}, ...]"""
+    rows = await cq.get_weekly_top_contributors(chat_id, days=days, limit=10)
+    for i, r in enumerate(rows, 1):
+        r["rank"] = i
+    return rows
+
+
 async def get_user_camp_summary(user_id: int) -> dict:
     """DM '내캠프' 현황 데이터 생성.
 
