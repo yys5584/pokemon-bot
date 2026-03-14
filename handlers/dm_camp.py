@@ -1287,8 +1287,23 @@ async def camp_dm_callback_handler(update, context):
                 lv = camp["level"]
                 xp = camp["xp"]
                 level_info = cs.get_level_info(lv)
-                xp_needed = level_info[4]  # 다음 레벨 필요 XP
+                xp_needed = level_info[4]
                 lines.append(f"{icon_emoji('stationery')} Lv.{lv} {level_info[5]} — XP {xp}/{xp_needed}")
+
+                # 필드별 슬롯 현황
+                slot_info = await cq.get_field_slot_info(summary["home_camp"])
+                if slot_info:
+                    try:
+                        member_count = await context.bot.get_chat_member_count(summary["home_camp"])
+                    except Exception:
+                        member_count = 100
+                    total_slots = cs.calc_total_slots(lv, member_count)
+                    lines.append("")
+                    for si in slot_info:
+                        fi = config.CAMP_FIELDS.get(si["field_type"], {})
+                        cnt = si["placed_count"]
+                        status = "🔴 풀방" if cnt >= total_slots else f"🟢 {total_slots - cnt}자리"
+                        lines.append(f"  {fi.get('emoji', '🏕')} {fi.get('name', '')}: {cnt}/{total_slots} ({status})")
         else:
             lines.append("🏠 거점: 미설정")
 
@@ -1325,6 +1340,8 @@ async def camp_dm_callback_handler(update, context):
         else:
             lines.append(f"{icon_emoji('bookmark')} 배치: 없음")
 
+        lines.append(f"\n⏰ 다음 정산: {_next_round_countdown()}")
+        lines.append("ℹ️ 배치는 매 라운드(3시간) 초기화됩니다.")
         lines.append("━━━━━━━━━━━━━")
 
         try:
@@ -1496,37 +1513,159 @@ async def camp_dm_callback_handler(update, context):
         placed_map = {p["field_id"]: p for p in user_placements}
 
         xp_needed = level_info[4]
+        try:
+            member_count = await context.bot.get_chat_member_count(chat_id)
+        except Exception:
+            member_count = 100
+        total_slots = cs.calc_total_slots(camp["level"], member_count)
+
+        # 필드별 배치 수 조회
+        slot_info = await cq.get_field_slot_info(chat_id)
+        slot_count_map = {si["field_id"]: si["placed_count"] for si in slot_info}
+
         hlines = [
             f"🏕 <b>{chat_title}</b>",
             f"Lv.{camp['level']} {level_info[5]} — XP {camp['xp']}/{xp_needed}",
             "━━━━━━━━━━━━━",
         ]
 
-        # 내 배치 현황 (필드별 한 줄)
+        any_full = False
         for f in fields:
             fi = config.CAMP_FIELDS.get(f["field_type"], {})
             emoji = fi.get("emoji", "🏕")
             placed = placed_map.get(f["id"])
             bonus = bonus_map.get(f["id"])
             bonus_tag = " 🔥" if bonus else ""
+            cnt = slot_count_map.get(f["id"], 0)
+            slot_tag = f" [{cnt}/{total_slots}]"
+            if cnt >= total_slots:
+                any_full = True
             if placed:
                 shiny = shiny_emoji() if placed.get("is_shiny") else ""
-                hlines.append(f"{emoji} {shiny}{placed['name_ko']} ({placed['score']}점){bonus_tag}")
+                hlines.append(f"{emoji} {shiny}{placed['name_ko']} ({placed['score']}점){slot_tag}{bonus_tag}")
             else:
-                hlines.append(f"{emoji} 비어있음{bonus_tag}")
+                hlines.append(f"{emoji} 비어있음{slot_tag}{bonus_tag}")
 
         hlines.append(f"━━━━━━━━━━━━━")
         hlines.append(f"⏰ 다음 정산: {_next_round_countdown()}")
+        hlines.append("ℹ️ 배치는 매 라운드 초기화됩니다.")
 
         hbuttons = []
         hbuttons.append([
             InlineKeyboardButton("🏕 배치하기", callback_data=f"cdm_place_{uid}"),
             InlineKeyboardButton("🔄 거점변경", callback_data=f"cdm_chghome_{uid}"),
         ])
+        # 풀방인 필드가 있으면 알림 버튼
+        if any_full:
+            hbuttons.append([InlineKeyboardButton("🔔 빈자리 알림 설정", callback_data=f"cdm_waitlist_{uid}")])
         hbuttons.append([InlineKeyboardButton("◀ 캠프 메뉴", callback_data=f"cdm_hub_back_{uid}")])
 
         try:
             await query.edit_message_text("\n".join(hlines), reply_markup=InlineKeyboardMarkup(hbuttons), parse_mode="HTML")
+        except Exception:
+            pass
+
+    # ── cdm_waitlist_{uid} — 빈자리 알림 필드 선택 ──
+    elif data.startswith("cdm_waitlist_"):
+        uid = int(parts[2])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        await query.answer()
+        settings = await cq.get_user_camp_settings(uid)
+        if not settings or not settings.get("home_chat_id"):
+            return
+
+        chat_id = settings["home_chat_id"]
+        fields = await cq.get_fields(chat_id)
+        camp = await cq.get_camp(chat_id)
+        if not camp or not fields:
+            return
+
+        try:
+            member_count = await context.bot.get_chat_member_count(chat_id)
+        except Exception:
+            member_count = 100
+        total_slots = cs.calc_total_slots(camp["level"], member_count)
+        slot_info = await cq.get_field_slot_info(chat_id)
+        slot_count_map = {si["field_id"]: si["placed_count"] for si in slot_info}
+
+        wlines = ["🔔 <b>빈자리 알림 설정</b>", "다음 라운드 시작 시 알림을 받습니다.", ""]
+        wbuttons = []
+        for f in fields:
+            fi = config.CAMP_FIELDS.get(f["field_type"], {})
+            cnt = slot_count_map.get(f["id"], 0)
+            on_wl = await cq.is_on_waitlist(uid, f["id"])
+            icon = "🔔" if on_wl else "🔕"
+            label = f"{icon} {fi.get('name', '')} [{cnt}/{total_slots}]"
+            wbuttons.append([InlineKeyboardButton(label, callback_data=f"cdm_wl_{uid}_{f['id']}")])
+
+        wbuttons.append([InlineKeyboardButton("◀ 거점캠프", callback_data=f"cdm_hub_home_{uid}")])
+
+        try:
+            await query.edit_message_text(
+                "\n".join(wlines),
+                reply_markup=InlineKeyboardMarkup(wbuttons),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    # ── cdm_wl_{uid}_{field_id} — 필드별 알림 토글 ──
+    elif data.startswith("cdm_wl_"):
+        uid = int(parts[2])
+        field_id = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        settings = await cq.get_user_camp_settings(uid)
+        if not settings or not settings.get("home_chat_id"):
+            await query.answer("거점 캠프를 먼저 설정하세요!", show_alert=True)
+            return
+        chat_id = settings["home_chat_id"]
+
+        on_wl = await cq.is_on_waitlist(uid, field_id)
+        if on_wl:
+            await cq.remove_slot_waitlist(uid, field_id)
+            await query.answer("🔕 알림을 해제했습니다.")
+        else:
+            await cq.add_slot_waitlist(uid, chat_id, field_id)
+            await query.answer("🔔 빈자리 알림을 설정했습니다!")
+
+        # 화면 갱신 — waitlist 화면 다시 그리기
+        fields = await cq.get_fields(chat_id)
+        camp = await cq.get_camp(chat_id)
+        if not camp or not fields:
+            return
+
+        try:
+            member_count = await context.bot.get_chat_member_count(chat_id)
+        except Exception:
+            member_count = 100
+        total_slots = cs.calc_total_slots(camp["level"], member_count)
+        slot_info = await cq.get_field_slot_info(chat_id)
+        slot_count_map = {si["field_id"]: si["placed_count"] for si in slot_info}
+
+        wlines = ["🔔 <b>빈자리 알림 설정</b>", "다음 라운드 시작 시 알림을 받습니다.", ""]
+        wbuttons = []
+        for f in fields:
+            fi = config.CAMP_FIELDS.get(f["field_type"], {})
+            cnt = slot_count_map.get(f["id"], 0)
+            is_on = await cq.is_on_waitlist(uid, f["id"])
+            icon = "🔔" if is_on else "🔕"
+            label = f"{icon} {fi.get('name', '')} [{cnt}/{total_slots}]"
+            wbuttons.append([InlineKeyboardButton(label, callback_data=f"cdm_wl_{uid}_{f['id']}")])
+
+        wbuttons.append([InlineKeyboardButton("◀ 거점캠프", callback_data=f"cdm_hub_home_{uid}")])
+
+        try:
+            await query.edit_message_text(
+                "\n".join(wlines),
+                reply_markup=InlineKeyboardMarkup(wbuttons),
+                parse_mode="HTML",
+            )
         except Exception:
             pass
 

@@ -976,13 +976,39 @@ async def camp_round_job(context):
                 except Exception:
                     logger.exception(f"[Camp] Settlement DM failed for chat {chat_id}")
 
-            # 3) 자동 승인 처리
+            # 3) 배치 초기화 (매 라운드 리셋)
+            cleared = await cq.clear_chat_placements(chat_id)
+            if cleared:
+                logger.info(f"[Camp] Cleared {cleared} placements for chat {chat_id}")
+
+            # 3-1) 슬롯 빈자리 알림 + 대기 목록 초기화
+            try:
+                waitlist = await cq.get_slot_waitlist_users(chat_id)
+                if waitlist:
+                    chat_room = await queries.get_chat_room(chat_id)
+                    c_title = (chat_room.get("chat_title") if chat_room else None) or "캠프"
+                    for w in waitlist:
+                        try:
+                            await context.bot.send_message(
+                                chat_id=w["user_id"],
+                                text=(
+                                    f"🔔 <b>{c_title}</b> 캠프 슬롯이 초기화되었습니다!\n"
+                                    f"지금 배치하면 이번 라운드에 참여할 수 있어요."
+                                ),
+                                parse_mode="HTML",
+                            )
+                        except Exception:
+                            pass
+                    await cq.clear_slot_waitlist(chat_id)
+            except Exception:
+                logger.exception(f"[Camp] Slot waitlist notify failed for {chat_id}")
+
+            # 3-2) 자동 승인 처리
             try:
                 member_count = await context.bot.get_chat_member_count(chat_id)
             except Exception:
                 member_count = 100
             auto_msgs = await cs.process_auto_approvals(chat_id, member_count)
-            # (자동 승인 메시지는 별도 발송 안 함)
 
             # 4) 새 라운드 날씨 갱신
             cs.set_camp_weather(chat_id, cs.roll_weather())

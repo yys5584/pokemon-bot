@@ -1076,6 +1076,22 @@ async def create_tables():
     except Exception:
         pass
 
+    # 캠프 슬롯 대기 알림 (2026-03-14)
+    camp_slot_tables = [
+        """CREATE TABLE IF NOT EXISTS camp_slot_waitlist (
+            user_id BIGINT NOT NULL,
+            chat_id BIGINT NOT NULL,
+            field_id INTEGER NOT NULL REFERENCES camp_fields(id),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY(user_id, field_id)
+        )""",
+    ]
+    for sql in camp_slot_tables:
+        try:
+            await pool.execute(sql)
+        except Exception:
+            pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

@@ -240,6 +240,83 @@ async def remove_user_pokemon_placements(user_id: int, instance_id: int):
     )
 
 
+async def clear_chat_placements(chat_id: int) -> int:
+    """라운드 정산 후 해당 캠프의 전체 배치 초기화. Returns deleted count."""
+    pool = await get_db()
+    result = await pool.execute(
+        "DELETE FROM camp_placements WHERE chat_id = $1",
+        chat_id,
+    )
+    return int(result.split()[-1]) if result else 0
+
+
+async def get_field_slot_info(chat_id: int) -> list[dict]:
+    """필드별 배치 현황 (현재 인원수)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT f.id AS field_id, f.field_type,
+                  COUNT(p.id) AS placed_count
+           FROM camp_fields f
+           LEFT JOIN camp_placements p ON p.field_id = f.id
+           WHERE f.chat_id = $1
+           GROUP BY f.id, f.field_type
+           ORDER BY f.unlock_order""",
+        chat_id,
+    )
+    return [dict(r) for r in rows]
+
+
+# ── 슬롯 대기 알림 ──
+
+async def add_slot_waitlist(user_id: int, chat_id: int, field_id: int):
+    """슬롯 빈자리 알림 등록."""
+    pool = await get_db()
+    await pool.execute(
+        """INSERT INTO camp_slot_waitlist (user_id, chat_id, field_id)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (user_id, field_id) DO NOTHING""",
+        user_id, chat_id, field_id,
+    )
+
+
+async def remove_slot_waitlist(user_id: int, field_id: int):
+    """슬롯 알림 해제."""
+    pool = await get_db()
+    await pool.execute(
+        "DELETE FROM camp_slot_waitlist WHERE user_id = $1 AND field_id = $2",
+        user_id, field_id,
+    )
+
+
+async def get_slot_waitlist_users(chat_id: int) -> list[dict]:
+    """캠프의 슬롯 대기 유저 목록."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        "SELECT user_id, field_id FROM camp_slot_waitlist WHERE chat_id = $1",
+        chat_id,
+    )
+    return [dict(r) for r in rows]
+
+
+async def clear_slot_waitlist(chat_id: int):
+    """정산 후 대기 목록 전체 삭제 (알림 발송 후)."""
+    pool = await get_db()
+    await pool.execute(
+        "DELETE FROM camp_slot_waitlist WHERE chat_id = $1",
+        chat_id,
+    )
+
+
+async def is_on_waitlist(user_id: int, field_id: int) -> bool:
+    """유저가 해당 필드 대기 중인지."""
+    pool = await get_db()
+    val = await pool.fetchval(
+        "SELECT 1 FROM camp_slot_waitlist WHERE user_id = $1 AND field_id = $2",
+        user_id, field_id,
+    )
+    return val is not None
+
+
 # ═══════════════════════════════════════════════════════
 # Round Bonus
 # ═══════════════════════════════════════════════════════
