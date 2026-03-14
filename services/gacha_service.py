@@ -12,27 +12,21 @@ from database.connection import get_db
 logger = logging.getLogger(__name__)
 
 
-async def roll_gacha(user_id: int) -> dict:
+async def roll_gacha(user_id: int, free: bool = False) -> dict:
     """가챠 1회 실행. BP 차감 → 확률 뽑기 → 보상 지급 → 결과 반환.
 
-    Returns dict:
-        success: bool
-        error: str | None
-        result_key: str          (config.GACHA_TABLE의 item key)
-        display_name: str        (한국어 표시명)
-        emoji: str
-        detail: str              (추가 설명 텍스트)
-        bp_before: int
-        bp_after: int
+    Args:
+        free: True이면 BP 차감 없이 뽑기만 실행 (5연뽑기권 등)
     """
     bp = await get_bp(user_id)
-    if bp < config.GACHA_COST:
-        return {"success": False, "error": f"BP가 부족합니다. (보유: {bp} / 필요: {config.GACHA_COST})"}
 
-    # BP 차감
-    ok = await spend_bp(user_id, config.GACHA_COST)
-    if not ok:
-        return {"success": False, "error": "BP 차감에 실패했습니다."}
+    if not free:
+        if bp < config.GACHA_COST:
+            return {"success": False, "error": f"BP가 부족합니다. (보유: {bp} / 필요: {config.GACHA_COST})"}
+
+        ok = await spend_bp(user_id, config.GACHA_COST)
+        if not ok:
+            return {"success": False, "error": "BP 차감에 실패했습니다."}
 
     bp_after = await get_bp(user_id)
 
@@ -55,7 +49,7 @@ async def roll_gacha(user_id: int) -> dict:
     detail = await _grant_reward(user_id, result_key)
 
     # 로그
-    await queries.log_gacha(user_id, result_key, config.GACHA_COST)
+    await queries.log_gacha(user_id, result_key, 0 if free else config.GACHA_COST)
 
     return {
         "success": True,

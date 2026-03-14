@@ -240,6 +240,10 @@ async def subscription_callback_handler(update: Update, context: ContextTypes.DE
         qty = 5 if data == "sub_pshop_hb5" else 10
         await _handle_premium_hyperball_buy(query, user_id, qty)
 
+    # 프리미엄상점: 5연뽑기권 구매
+    elif data == "sub_pshop_gacha5":
+        await _handle_premium_gacha_ticket_buy(query, user_id)
+
     # 채팅상점: 아케이드 속도 부스트
     elif data.startswith("sub_cshop_speed_"):
         chat_id = int(data.replace("sub_cshop_speed_", ""))
@@ -378,6 +382,18 @@ async def premium_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     lines.append(f"   x5 — {hb5_cost} BP <b>(10% 할인)</b>")
     lines.append(f"   x10 — {hb10_cost} BP <b>(20% 할인)</b>")
 
+    # 5연뽑기권
+    gacha_ticket_cost = config.GACHA_MULTI_TICKET_COST
+    gacha_ticket_daily = config.GACHA_MULTI_TICKET_DAILY
+    gacha_ticket_bought = await bq.get_bp_purchases_today(user_id, "gacha_ticket_5")
+    gacha_ticket_remaining = max(0, gacha_ticket_daily - gacha_ticket_bought)
+
+    lines.append("")
+    lines.append(f"🎰 5연뽑기권 ({gacha_ticket_bought}/{gacha_ticket_daily})")
+    lines.append(f"   {gacha_ticket_cost} BP — 뽑기 5회 (BP 차감 없이!)")
+    if gacha_ticket_remaining <= 0:
+        lines.append("   오늘 구매 완료!")
+
     keyboard = []
     if remaining > 0 and bp >= next_price:
         keyboard.append([InlineKeyboardButton(
@@ -398,6 +414,12 @@ async def premium_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         ))
     if hb_row:
         keyboard.append(hb_row)
+
+    if gacha_ticket_remaining > 0 and bp >= gacha_ticket_cost:
+        keyboard.append([InlineKeyboardButton(
+            f"🎰 5연뽑기권 ({gacha_ticket_cost} BP)",
+            callback_data="sub_pshop_gacha5",
+        )])
 
     await update.message.reply_text(
         "\n".join(lines),
@@ -529,6 +551,45 @@ async def _handle_premium_hyperball_buy(query, user_id: int, qty: int):
         f"✅ 하이퍼볼 x{qty} 구매 완료! ({discount} 할인)\n\n"
         f"💰 {cost} BP 사용 (잔여: {new_bp:,} BP)\n"
         f"🔵 보유 하이퍼볼: {hyper_balls}개"
+    )
+
+
+async def _handle_premium_gacha_ticket_buy(query, user_id: int):
+    """프리미엄상점 5연뽑기권 구매 처리."""
+    if not await has_benefit(user_id, "premium_shop"):
+        await query.edit_message_text("🔒 프리미엄 상점은 구독자 전용입니다.")
+        return
+
+    from database import queries, battle_queries as bq
+
+    # 일일 한도 체크
+    bought = await bq.get_bp_purchases_today(user_id, "gacha_ticket_5")
+    if bought >= config.GACHA_MULTI_TICKET_DAILY:
+        await query.edit_message_text(
+            f"❌ 오늘 구매 한도({config.GACHA_MULTI_TICKET_DAILY}회)를 초과했습니다."
+        )
+        return
+
+    cost = config.GACHA_MULTI_TICKET_COST
+    bp = await bq.get_bp(user_id)
+    if bp < cost:
+        await query.edit_message_text(f"❌ BP가 부족합니다. (필요: {cost} / 보유: {bp:,})")
+        return
+
+    # BP 차감 + 아이템 지급 + 로그
+    await bq.add_bp(user_id, -cost)
+    await queries.add_user_item(user_id, "gacha_ticket_5", 1)
+    await bq.log_bp_purchase(user_id, "gacha_ticket_5", 1)
+
+    new_bp = bp - cost
+    qty = await queries.get_user_item(user_id, "gacha_ticket_5")
+
+    await query.edit_message_text(
+        f"✅ 5연뽑기권 구매 완료!\n\n"
+        f"💰 {cost} BP 사용 (잔여: {new_bp:,} BP)\n"
+        f"🎰 보유 5연뽑기권: {qty}개\n\n"
+        f"💡 DM에서 '아이템'을 입력해서 사용하세요!",
+        parse_mode="HTML",
     )
 
 
