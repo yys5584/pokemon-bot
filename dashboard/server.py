@@ -2164,19 +2164,18 @@ async def api_iv_ranking(request):
     import config
     pool = await queries.get_db()
     rows = await pool.fetch("""
-        SELECT DISTINCT ON (up.user_id)
-               up.user_id, u.display_name,
+        SELECT up.user_id, u.display_name,
                pm.name_ko, pm.emoji, up.is_shiny,
                (COALESCE(up.iv_hp,0) + COALESCE(up.iv_atk,0) + COALESCE(up.iv_def,0)
                 + COALESCE(up.iv_spa,0) + COALESCE(up.iv_spdef,0) + COALESCE(up.iv_spd,0)) as iv_total
         FROM user_pokemon up
         JOIN users u ON up.user_id = u.user_id
         JOIN pokemon_master pm ON up.pokemon_id = pm.id
-        WHERE up.iv_hp IS NOT NULL
-        ORDER BY up.user_id, iv_total DESC
+        WHERE up.iv_hp IS NOT NULL AND up.is_active = 1
+        ORDER BY iv_total DESC
+        LIMIT 10
     """)
-    # Sort by iv_total desc, take top 10
-    result = sorted([dict(r) for r in rows], key=lambda x: x["iv_total"], reverse=True)[:10]
+    result = [dict(r) for r in rows]
     # Add grade + strip tg-emoji from display fields
     for r in result:
         grade, _ = config.get_iv_grade(r["iv_total"])
