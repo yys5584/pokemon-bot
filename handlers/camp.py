@@ -957,7 +957,7 @@ async def camp_round_job(context):
 
             # 2) 정산 결과 소식 발송
             if result["fields"]:
-                text = cs.build_round_announcement(result, camp["level"])
+                text = cs.build_round_announcement(result, camp["level"], chat_id=chat_id)
                 msg = await context.bot.send_message(chat_id=chat_id, text=text)
                 schedule_delete(msg, config.CAMP_MSG_DELETE_DELAY)
 
@@ -984,13 +984,16 @@ async def camp_round_job(context):
             auto_msgs = await cs.process_auto_approvals(chat_id, member_count)
             # (자동 승인 메시지는 별도 발송 안 함)
 
-            # 4) 다음 라운드 보너스 생성 (현재 라운드 시각으로 정규화)
+            # 4) 새 라운드 날씨 갱신
+            cs.set_camp_weather(chat_id, cs.roll_weather())
+
+            # 4-1) 다음 라운드 보너스 생성 (현재 라운드 시각으로 정규화)
             current_round = cs.normalize_round_time(now)
             await cs.generate_round_bonus(chat_id, fields, current_round)
 
             # 5) 접수 시작 안내
             bonuses = await cq.get_round_bonus(chat_id, current_round)
-            announce = cs.build_bonus_announcement(fields, bonuses)
+            announce = cs.build_bonus_announcement(fields, bonuses, chat_id=chat_id)
             amsg = await context.bot.send_message(chat_id=chat_id, text=announce)
             schedule_delete(amsg, config.CAMP_MSG_DELETE_DELAY)
 

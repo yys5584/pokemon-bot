@@ -18,7 +18,30 @@ from models.pokemon_base_stats import POKEMON_BASE_STATS
 from models.pokemon_data import ALL_POKEMON
 from utils.helpers import shiny_emoji, icon_emoji
 
+import math
+
 logger = logging.getLogger(__name__)
+
+# ── 캠프 날씨 (라운드별) ──
+_camp_weather: dict[int, tuple] = {}  # chat_id → (name, emoji, boosted_fields)
+
+
+def roll_weather() -> tuple[str, str, list[str]]:
+    """날씨를 랜덤 결정. (name, emoji, boosted_fields) 반환."""
+    return random.choice(config.CAMP_WEATHER_TABLE)
+
+
+def get_camp_weather(chat_id: int) -> tuple[str, str, list[str]]:
+    """현재 캠프 날씨 반환. 없으면 새로 굴림."""
+    if chat_id not in _camp_weather:
+        _camp_weather[chat_id] = roll_weather()
+    return _camp_weather[chat_id]
+
+
+def set_camp_weather(chat_id: int, weather: tuple[str, str, list[str]]):
+    """캠프 날씨 설정 (라운드 시작 시 호출)."""
+    _camp_weather[chat_id] = weather
+
 
 # ── 포켓몬 이름 캐시 ──
 _POKE_NAME: dict[int, str] = {}
@@ -272,6 +295,12 @@ async def settle_round(chat_id: int, round_time: datetime) -> dict:
         unique_users = list(set(user_ids))
         per_user = max(1, capped // len(unique_users)) if unique_users else 0
 
+        # 날씨 부스트 적용
+        weather = get_camp_weather(chat_id)
+        weather_boosted = field["field_type"] in weather[2]
+        if weather_boosted and per_user > 0:
+            per_user = math.ceil(per_user * config.CAMP_WEATHER_MULTIPLIER)
+
         # 조각 분배 (필드 타입 귀속)
         frag_type = field["field_type"]
         for uid in unique_users:
@@ -287,6 +316,7 @@ async def settle_round(chat_id: int, round_time: datetime) -> dict:
             "capped": capped,
             "users": unique_users,
             "per_user": per_user,
+            "weather_boosted": weather_boosted,
             "bonus": {
                 "pokemon_id": bonus["pokemon_id"],
                 "stat_type": bonus["stat_type"],
@@ -314,12 +344,21 @@ async def settle_round(chat_id: int, round_time: datetime) -> dict:
 # 소식 메시지 빌드
 # ═══════════════════════════════════════════════════════
 
-def build_round_announcement(round_result: dict, camp_level: int) -> str:
+def build_round_announcement(round_result: dict, camp_level: int, chat_id: int = 0) -> str:
     """정산 결과로 소식 메시지 생성."""
     level_info = get_level_info(camp_level)
     level_name = level_info[5]
 
     lines = [f"🏕 캠프 소식 ({level_name})"]
+
+    # 날씨 표시
+    if chat_id:
+        weather = get_camp_weather(chat_id)
+        lines.append(f"{weather[1]} 날씨: {weather[0]}")
+        boosted_names = [config.CAMP_FIELDS[ft]["name"] for ft in weather[2] if ft in config.CAMP_FIELDS]
+        if boosted_names:
+            lines.append(f"  → {'/'.join(boosted_names)} 조각 ×{config.CAMP_WEATHER_MULTIPLIER}")
+
     lines.append("━━━━━━━━━━━━━")
 
     for f in round_result["fields"]:
@@ -331,15 +370,8 @@ def build_round_announcement(round_result: dict, camp_level: int) -> str:
             lines.append(f"{emoji} {name}: 비어있음")
             continue
 
-        # 소식 템플릿 (랜덤 1개)
-        templates = config.CAMP_NEWS_TEMPLATES.get(f["field_type"], [])
-        if templates:
-            template = random.choice(templates)
-            # 랜덤 유저 하나 뽑아서 소식
-            # (정산 결과에는 user_id만 있으므로 이름은 핸들러에서 주입)
-            lines.append(f"{emoji} {name}: +{f['per_user']}조각/인 ({f['capped']}/{f['total_score']}점)")
-        else:
-            lines.append(f"{emoji} {name}: +{f['per_user']}조각/인")
+        weather_tag = " 🌤" if f.get("weather_boosted") else ""
+        lines.append(f"{emoji} {name}: +{f['per_user']}조각/인 ({f['capped']}/{f['total_score']}점){weather_tag}")
 
         # 보너스 포켓몬 표시
         if f["bonus"]:
@@ -362,11 +394,20 @@ def build_round_announcement(round_result: dict, camp_level: int) -> str:
     return "\n".join(lines)
 
 
-def build_bonus_announcement(fields: list[dict], bonuses: list[dict]) -> str:
+def build_bonus_announcement(fields: list[dict], bonuses: list[dict], chat_id: int = 0) -> str:
     """접수 타임 시작 시 보너스 포켓몬 안내 메시지."""
     bonus_map = {b["field_id"]: b for b in bonuses}
 
     lines = ["🏕 캠프 라운드 시작!"]
+
+    # 새 라운드 날씨 표시
+    if chat_id:
+        weather = get_camp_weather(chat_id)
+        lines.append(f"{weather[1]} 날씨: {weather[0]}")
+        boosted_names = [config.CAMP_FIELDS[ft]["name"] for ft in weather[2] if ft in config.CAMP_FIELDS]
+        if boosted_names:
+            lines.append(f"  → {'/'.join(boosted_names)} 조각 ×{config.CAMP_WEATHER_MULTIPLIER}")
+
     lines.append("━━━━━━━━━━━━━")
 
     for field in fields:

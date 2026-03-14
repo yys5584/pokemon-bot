@@ -1314,6 +1314,21 @@ CAMP_SETTING_COOLDOWN = 10800  # 설정 변경 쿨타임 3시간 (초)
 CAMP_APPROVAL_TIMEOUT = 1800   # 승인 미응답 시 자동승인 30분 (초)
 CAMP_MAX_APPROVAL_SLOTS = 10   # 최대 승인 슬롯 수
 
+# ── 캠프 날씨 시스템 ──
+# 날씨마다 특정 필드 조각 ×1.5 배수
+CAMP_WEATHER_TABLE = [
+    # (이름, 이모지, 부스트 필드 리스트)
+    ("맑음",   "☀️", ["forest", "city"]),
+    ("비",     "🌧️", ["lake", "forest"]),
+    ("폭풍",   "⛈️", ["city", "cave"]),
+    ("안개",   "🌫️", ["temple", "cave"]),
+    ("눈",     "❄️", ["lake", "temple"]),
+    ("화창",   "🔥", ["volcano", "forest"]),
+    ("바람",   "💨", ["lake", "volcano"]),
+    ("무더위", "🥵", ["volcano", "city"]),
+]
+CAMP_WEATHER_MULTIPLIER = 1.5  # 날씨 부스트 배수
+
 # ── 소식 템플릿 ──
 CAMP_NEWS_TEMPLATES = {
     "forest": [
