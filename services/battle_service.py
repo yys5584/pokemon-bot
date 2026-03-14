@@ -755,15 +755,27 @@ async def execute_battle(
     winner_stats = await bq.get_battle_stats(winner_id)
     new_streak = winner_stats["battle_streak"] + 1
 
-    # Calculate BP (skip for yacha/ranked — they handle own payouts)
-    if skip_bp or is_ranked:
+    # Calculate BP
+    if skip_bp:
         bp_won = 0
         bp_lose = 0
+    elif is_ranked:
+        # 랭크전: 도전자(challenger)에게만 2배 BP 지급
+        base_bp = _calculate_bp(winner_team_size, loser_team_size, result["perfect_win"], new_streak)
+        ranked_bp = base_bp * 2
+        ranked_lose_bp = config.BP_LOSE * 2
+        if winner_id == challenger_id:
+            bp_won = ranked_bp
+            bp_lose = 0  # 수비자(패배) — BP 없음
+        else:
+            bp_won = 0   # 수비자(승리) — BP 없음
+            bp_lose = ranked_lose_bp  # 도전자(패배)도 2배
     else:
         bp_won = _calculate_bp(winner_team_size, loser_team_size, result["perfect_win"], new_streak)
         bp_lose = config.BP_LOSE
 
-        # 구독자 BP 배율 적용
+    # 구독자 BP 배율 적용 (일반 + 랭크전 모두)
+    if bp_won > 0:
         try:
             from services.subscription_service import get_benefit_value
             multiplier = await get_benefit_value(winner_id, "bp_multiplier", 1.0)

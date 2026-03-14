@@ -410,7 +410,7 @@ async def process_ranked_result(winner_id: int, loser_id: int,
         if pair_count < len(decay_list):
             pair_decay = decay_list[pair_count]
         else:
-            pair_decay = 0.0
+            pair_decay = decay_list[-1]  # 최소 배율 유지 (0.15)
         rp_gain = max(1, int(rp_gain * pair_decay)) if pair_decay > 0 else 0
 
         # MMR 갭 페널티 (기존 티어갭→MMR갭 교체)

@@ -885,7 +885,7 @@ RANKED_ARENA_CXP_BONUS = 5     # 아레나 채팅방 CXP 보너스
 
 # --- Win-trading / Abuse Prevention ---
 RANKED_SAME_PAIR_DAILY_MAX = 5  # 같은 상대 일일 최대 대전 횟수
-RANKED_SAME_PAIR_RP_DECAY = [1.0, 1.0, 0.5, 0.25, 0.0]  # 1~5회차 RP 배율
+RANKED_SAME_PAIR_RP_DECAY = [1.0, 1.0, 0.5, 0.25, 0.15]  # 1~5회차 RP 배율 (최소 15%)
 RANKED_TIER_GAP_PENALTY = 3     # 티어 3단계 이상 차이 시 상위자 RP 감소
 RANKED_TIER_GAP_RP_MIN = 5      # 티어 갭 패널티 시 최소 RP 획득
 RANKED_NEWBIE_PROTECTION = 10   # 첫 N전 RP 손실 50% 감소
