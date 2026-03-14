@@ -127,6 +127,16 @@ async def place_pokemon(chat_id: int, field_id: int, user_id: int,
     return row["id"]
 
 
+async def remove_placement_by_instance(instance_id: int) -> int:
+    """instance_id로 캠프 배치 삭제 (교환/합성/방생 시 호출). Returns deleted count."""
+    pool = await get_db()
+    result = await pool.execute(
+        "DELETE FROM camp_placements WHERE instance_id = $1",
+        instance_id,
+    )
+    return int(result.split()[-1]) if result else 0
+
+
 async def remove_placement(placement_id: int, user_id: int) -> bool:
     """Remove a placement. Returns True if deleted."""
     pool = await get_db()

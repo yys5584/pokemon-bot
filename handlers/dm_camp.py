@@ -1164,12 +1164,32 @@ async def camp_dm_callback_handler(update, context):
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
             return
 
-        success, msg = await cs.convert_to_shiny(uid, instance_id)
+        success, msg, info = await cs.convert_to_shiny(uid, instance_id)
         await query.answer(msg[:200], show_alert=True)
         try:
             await query.edit_message_text(msg, parse_mode="HTML")
         except Exception:
             pass
+
+        # 성공 시 거점캠프 채팅방에 축하 공지
+        if success and info:
+            try:
+                settings = await cq.get_user_camp_settings(uid)
+                if settings and settings.get("home_chat_id"):
+                    user = await queries.get_user(uid)
+                    uname = (user.get("display_name") if user else None) or "트레이너"
+                    announce = (
+                        f"{shiny_emoji()} <b>이로치 전환 성공!</b>\n\n"
+                        f"{uname}님이 캠프에서 {rarity_badge(info['rarity'])}"
+                        f"{info['name']}을(를) 이로치로 전환했습니다! 🎉"
+                    )
+                    await context.bot.send_message(
+                        chat_id=settings["home_chat_id"],
+                        text=announce,
+                        parse_mode="HTML",
+                    )
+            except Exception:
+                pass
 
     # ── cdm_dec_{uid}_{instance_id} — 분해 확인 ──
     elif data.startswith("cdm_dec_"):
@@ -1256,12 +1276,19 @@ async def camp_dm_callback_handler(update, context):
         await query.answer()
         summary = await cs.get_user_camp_summary(uid)
 
-        lines = [f"{icon_emoji('pokecenter')} 내 캠프 현황", "━━━━━━━━━━━━━"]
+        lines = [f"{icon_emoji('pokecenter')} <b>내 캠프 현황</b>", "━━━━━━━━━━━━━"]
 
         if summary["home_camp"]:
             chat_room = await queries.get_chat_room(summary["home_camp"])
+            camp = await cq.get_camp(summary["home_camp"])
             title = (chat_room.get("chat_title") if chat_room else None) or "알 수 없음"
             lines.append(f"🏠 거점: {title}")
+            if camp:
+                lv = camp["level"]
+                xp = camp["xp"]
+                level_info = cs.get_level_info(lv)
+                xp_needed = level_info[4]  # 다음 레벨 필요 XP
+                lines.append(f"{icon_emoji('stationery')} Lv.{lv} {level_info[5]} — XP {xp}/{xp_needed}")
         else:
             lines.append("🏠 거점: 미설정")
 
@@ -1468,50 +1495,35 @@ async def camp_dm_callback_handler(update, context):
         user_placements = await cq.get_user_placements_in_chat(chat_id, uid)
         placed_map = {p["field_id"]: p for p in user_placements}
 
-        hlines = [f"🏕 거점캠프 — {chat_title}"]
-        if chat_room and chat_room.get("invite_link"):
-            hlines.append(f"👉 {chat_room['invite_link']}")
-        hlines.append("━━━━━━━━━━━━━")
-        hlines.append(f"{icon_emoji('stationery')} 캠프 레벨: Lv.{camp['level']} {level_info[5]}")
+        xp_needed = level_info[4]
+        hlines = [
+            f"🏕 <b>{chat_title}</b>",
+            f"Lv.{camp['level']} {level_info[5]} — XP {camp['xp']}/{xp_needed}",
+            "━━━━━━━━━━━━━",
+        ]
 
+        # 내 배치 현황 (필드별 한 줄)
         for f in fields:
             fi = config.CAMP_FIELDS.get(f["field_type"], {})
             emoji = fi.get("emoji", "🏕")
-            name = fi.get("name", f["field_type"])
             placed = placed_map.get(f["id"])
+            bonus = bonus_map.get(f["id"])
+            bonus_tag = " 🔥" if bonus else ""
             if placed:
                 shiny = shiny_emoji() if placed.get("is_shiny") else ""
-                hlines.append(f"{emoji} {name} — {shiny}{placed['name_ko']} ({placed['score']}점)")
+                hlines.append(f"{emoji} {shiny}{placed['name_ko']} ({placed['score']}점){bonus_tag}")
             else:
-                hlines.append(f"{emoji} {name} — 비어있음")
+                hlines.append(f"{emoji} 비어있음{bonus_tag}")
 
-        hlines.append("━━━━━━━━━━━━━")
-        hlines.append(f"{icon_emoji('bookmark')} 다음 정산: {_next_round_countdown()}")
-
-        if bonuses:
-            hlines.append("")
-            hlines.append("🔄 라운드 보너스 조건:")
-            for f in fields:
-                bonus = bonus_map.get(f["id"])
-                if bonus:
-                    fi = config.CAMP_FIELDS.get(f["field_type"], {})
-                    pname = _pokemon_name(bonus["pokemon_id"])
-                    stat_name = config.CAMP_IV_STAT_NAMES.get(bonus["stat_type"], "")
-                    hlines.append(f"  {fi.get('emoji', '🏕')} {fi.get('name', '')}: {pname} ({stat_name} {bonus['stat_value']}↑)")
-
-        hlines.append("━━━━━━━━━━━━━")
+        hlines.append(f"━━━━━━━━━━━━━")
+        hlines.append(f"⏰ 다음 정산: {_next_round_countdown()}")
 
         hbuttons = []
-        hbuttons.append([InlineKeyboardButton("🏕 배치하기", callback_data=f"cdm_place_{uid}")])
-        if settings.get("home_camp_set_at"):
-            elapsed = (now - settings["home_camp_set_at"]).total_seconds()
-            if elapsed >= config.CAMP_HOME_COOLDOWN:
-                hbuttons.append([InlineKeyboardButton("🔄 거점변경", callback_data=f"cdm_chghome_{uid}")])
-            else:
-                change_date = (settings["home_camp_set_at"] + timedelta(days=7)).strftime("%m/%d")
-                hbuttons.append([InlineKeyboardButton(f"🔒 거점변경 ({change_date} 이후)", callback_data=f"cdm_noop_{uid}")])
-        else:
-            hbuttons.append([InlineKeyboardButton("🔄 거점변경", callback_data=f"cdm_chghome_{uid}")])
+        hbuttons.append([
+            InlineKeyboardButton("🏕 배치하기", callback_data=f"cdm_place_{uid}"),
+            InlineKeyboardButton("🔄 거점변경", callback_data=f"cdm_chghome_{uid}"),
+        ])
+        hbuttons.append([InlineKeyboardButton("◀ 캠프 메뉴", callback_data=f"cdm_hub_back_{uid}")])
 
         try:
             await query.edit_message_text("\n".join(hlines), reply_markup=InlineKeyboardMarkup(hbuttons), parse_mode="HTML")

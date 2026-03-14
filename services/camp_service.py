@@ -595,22 +595,23 @@ def normalize_round_time(now: datetime) -> datetime:
 # 이로치 전환
 # ═══════════════════════════════════════════════════════
 
-async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
+async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, dict | None]:
     """이로치 전환 시도.
 
     Args:
         instance_id: user_pokemon 테이블 PK
 
     Returns:
-        (success, message)
+        (success, message, info_dict | None)
+        info_dict: {"pokemon_id", "name", "rarity"} on success
     """
     # 포켓몬 정보
     pokemon = await queries.get_user_pokemon_by_id(instance_id)
     if not pokemon or pokemon.get("user_id") != user_id:
-        return False, "소유하지 않은 포켓몬입니다."
+        return False, "소유하지 않은 포켓몬입니다.", None
 
     if pokemon.get("is_shiny"):
-        return False, "이미 이로치입니다."
+        return False, "이미 이로치입니다.", None
 
     pokemon_id = pokemon["pokemon_id"]
     rarity = pokemon.get("rarity") or _pokemon_rarity(pokemon_id)
@@ -626,12 +627,12 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
             remaining = cooldown_sec - elapsed
             hours = int(remaining // 3600)
             mins = int((remaining % 3600) // 60)
-            return False, f"전환 쿨타임 중입니다. ({hours}시간 {mins}분 남음)"
+            return False, f"전환 쿨타임 중입니다. ({hours}시간 {mins}분 남음)", None
 
     # 2) 필드 귀속 조각 확인 (듀얼타입은 어느 필드든 가능)
     matching_fields = get_matching_fields(pokemon_id)
     if not matching_fields:
-        return False, "이 포켓몬은 어떤 필드에도 맞지 않습니다."
+        return False, "이 포켓몬은 어떤 필드에도 맞지 않습니다.", None
 
     frag_cost = config.CAMP_SHINY_COST.get(rarity, 12)
     user_frags = await cq.get_user_fragments(user_id)
@@ -648,7 +649,7 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
             config.CAMP_FIELDS[f]["name"] for f in matching_fields
         )
         best = max((user_frags.get(f, 0) for f in matching_fields), default=0)
-        return False, f"{field_names} 조각이 부족합니다. ({best}/{frag_cost})"
+        return False, f"{field_names} 조각이 부족합니다. ({best}/{frag_cost})", None
 
     # 3) 결정 확인
     crystal_cost = config.CAMP_CRYSTAL_COST.get(rarity, 0)
@@ -658,9 +659,9 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
     if crystal_cost > 0 or rainbow_cost > 0:
         crystals = await cq.get_crystals(user_id)
         if crystals["crystal"] < crystal_cost:
-            return False, f"결정이 부족합니다. ({crystals['crystal']}/{crystal_cost})"
+            return False, f"결정이 부족합니다. ({crystals['crystal']}/{crystal_cost})", None
         if crystals["rainbow"] < rainbow_cost:
-            return False, f"무지개 결정이 부족합니다. ({crystals['rainbow']}/{rainbow_cost})"
+            return False, f"무지개 결정이 부족합니다. ({crystals['rainbow']}/{rainbow_cost})", None
 
     from database.connection import get_db
     pool = await get_db()
@@ -677,7 +678,7 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
                         user_id, crystal_cost, rainbow_cost,
                     )
                     if not row:
-                        return False, "결정 소모에 실패했습니다."
+                        return False, "결정 소모에 실패했습니다.", None
 
                 # 조각 소모
                 row = await conn.fetchrow(
@@ -688,7 +689,7 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
                     user_id, chosen_field, frag_cost,
                 )
                 if not row:
-                    return False, "조각 소모에 실패했습니다."
+                    return False, "조각 소모에 실패했습니다.", None
 
                 # 이로치 전환
                 row = await conn.fetchrow(
@@ -696,7 +697,7 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
                     instance_id,
                 )
                 if not row:
-                    return False, "전환에 실패했습니다."
+                    return False, "전환에 실패했습니다.", None
 
                 # 쿨타임 기록
                 await conn.execute(
@@ -707,7 +708,7 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
                 )
     except Exception as e:
         logger.error("이로치 전환 트랜잭션 실패: %s", e)
-        return False, "전환 처리 중 오류가 발생했습니다."
+        return False, "전환 처리 중 오류가 발생했습니다.", None
 
     # 7) 로그
     field_name = config.CAMP_FIELDS[chosen_field]["name"]
@@ -720,7 +721,8 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
         cost_parts.append(f"무지개결정 {rainbow_cost}개")
     cost_str = " + ".join(cost_parts)
 
-    return True, f"{shiny_emoji()} {pname}(이/가) 이로치로 변했습니다! 🎉\n소모: {cost_str}"
+    info = {"pokemon_id": pokemon_id, "name": pname, "rarity": rarity}
+    return True, f"{shiny_emoji()} {pname}(이/가) 이로치로 변했습니다! 🎉\n소모: {cost_str}", info
 
 
 # ═══════════════════════════════════════════════════════

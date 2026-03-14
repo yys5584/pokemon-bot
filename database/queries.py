@@ -570,12 +570,18 @@ async def evolve_pokemon(instance_id: int, new_pokemon_id: int):
 
 
 async def deactivate_pokemon(instance_id: int):
-    """Mark a Pokemon as inactive (traded away)."""
+    """Mark a Pokemon as inactive (traded away). Also removes camp placement."""
     pool = await get_db()
     await pool.execute(
         "UPDATE user_pokemon SET is_active = 0 WHERE id = $1",
         instance_id,
     )
+    # 캠프 배치 자동 해제
+    try:
+        from database.camp_queries import remove_placement_by_instance
+        await remove_placement_by_instance(instance_id)
+    except Exception:
+        pass
 
 
 async def bulk_deactivate_pokemon(instance_ids: list[int]) -> int:
@@ -587,6 +593,13 @@ async def bulk_deactivate_pokemon(instance_ids: list[int]) -> int:
         "UPDATE user_pokemon SET is_active = 0 WHERE id = ANY($1) AND is_active = 1",
         instance_ids,
     )
+    # 캠프 배치 자동 해제
+    try:
+        for iid in instance_ids:
+            from database.camp_queries import remove_placement_by_instance
+            await remove_placement_by_instance(iid)
+    except Exception:
+        pass
     # result like "UPDATE 23"
     return int(result.split()[-1]) if result else 0
 
@@ -1787,9 +1800,13 @@ async def complete_market_purchase(
                 seller_gets, seller_id,
             )
 
-            # 6. Deactivate pokemon from seller
+            # 6. Deactivate pokemon from seller + camp placement removal
             await conn.execute(
                 "UPDATE user_pokemon SET is_active = 0 WHERE id = $1",
+                pokemon_instance_id,
+            )
+            await conn.execute(
+                "DELETE FROM camp_placements WHERE instance_id = $1",
                 pokemon_instance_id,
             )
 
