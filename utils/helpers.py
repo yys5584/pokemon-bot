@@ -235,7 +235,7 @@ def time_ago(timestamp_str) -> str:
             ts = timestamp_str.replace(tzinfo=None)
         else:
             ts = datetime.fromisoformat(str(timestamp_str))
-        diff = datetime.now() - ts
+        diff = config.get_kst_now().replace(tzinfo=None) - ts
         seconds = int(diff.total_seconds())
 
         if seconds < 60:

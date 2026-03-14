@@ -161,7 +161,7 @@ async def _ensure_analytics_table():
 async def _check_llm_limit(user_id: int, cost: int = 1) -> tuple[bool, int, int]:
     """Check if user can use LLM. Returns (allowed, remaining_total, bonus_remaining)."""
     pool = await queries.get_db()
-    today = datetime.now().date()
+    today = config.get_kst_now().date()
     count = await pool.fetchval(
         "SELECT count FROM llm_daily_usage WHERE user_id = $1 AND usage_date = $2",
         user_id, today,
@@ -179,7 +179,7 @@ async def _check_llm_limit(user_id: int, cost: int = 1) -> tuple[bool, int, int]
 async def _record_llm_usage(user_id: int, cost: int = 1):
     """Record LLM usage. Uses free quota first, then bonus."""
     pool = await queries.get_db()
-    today = datetime.now().date()
+    today = config.get_kst_now().date()
     count = await pool.fetchval(
         "SELECT count FROM llm_daily_usage WHERE user_id = $1 AND usage_date = $2",
         user_id, today,
@@ -206,7 +206,7 @@ async def _record_llm_usage(user_id: int, cost: int = 1):
 async def _refund_llm_usage(user_id: int, cost: int = 1):
     """Refund LLM tokens on error. Reverses _record_llm_usage."""
     pool = await queries.get_db()
-    today = datetime.now().date()
+    today = config.get_kst_now().date()
     count = await pool.fetchval(
         "SELECT count FROM llm_daily_usage WHERE user_id = $1 AND usage_date = $2",
         user_id, today,
@@ -2660,7 +2660,7 @@ async def api_admin_fulfill_order(request):
     await pool.execute(
         "UPDATE bot_settings SET value = $2 WHERE key = $1",
         order_key,
-        json.dumps({**order, "fulfilled": True, "fulfilled_at": datetime.now().isoformat()}),
+        json.dumps({**order, "fulfilled": True, "fulfilled_at": config.get_kst_now().isoformat()}),
     )
     # DM
     dm_ok = await _admin_send_dm(
@@ -3080,7 +3080,7 @@ async def _fetch_cloudflare_analytics(days: int = 7) -> list[dict]:
         return []
 
     from datetime import timedelta
-    today = datetime.utcnow().date()
+    today = config.get_kst_now().date()
     date_start = str(today - timedelta(days=days - 1))
     date_end = str(today)
 
@@ -3382,8 +3382,8 @@ async def api_market_listings(request):
         sort=sort,
     )
 
-    from datetime import datetime, timezone, timedelta
-    now = datetime.now(timezone.utc)
+    from datetime import timedelta
+    now = config.get_kst_now()
     expire_days = config.MARKET_LISTING_EXPIRE_DAYS
 
     listings = []
@@ -3844,7 +3844,7 @@ async def api_payment_webhook(request):
     await pool.execute(
         "UPDATE bot_settings SET value = $2 WHERE key = $1",
         f"order_{order_id}",
-        json.dumps({**order, "fulfilled": True, "fulfilled_at": datetime.now().isoformat()}),
+        json.dumps({**order, "fulfilled": True, "fulfilled_at": config.get_kst_now().isoformat()}),
     )
 
     logger.info(f"Payment fulfilled: user={user_id} llm=+{llm_quota} masterball=+{master_balls} ${price_usd}")
@@ -3934,10 +3934,9 @@ BOARD_UPLOAD_DIR = Path(__file__).parent.parent / "uploads" / "board"
 
 def _board_time_ago(dt) -> str:
     """Convert datetime to Korean relative time string."""
-    import datetime as _dt
-    now = _dt.datetime.now(_dt.timezone.utc)
+    now = config.get_kst_now()
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=_dt.timezone.utc)
+        dt = dt.replace(tzinfo=config.KST)
     diff = now - dt
     secs = int(diff.total_seconds())
     if secs < 60:

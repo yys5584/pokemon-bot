@@ -2453,7 +2453,7 @@ async def get_retention_d1() -> dict:
     pool = await get_db()
     from datetime import date as dt_date
     launch = dt_date(2026, 3, 1)
-    yesterday = datetime.now().date() - __import__('datetime').timedelta(days=1)
+    yesterday = _cfg.get_kst_now().date() - timedelta(days=1)
     row = await pool.fetchrow(
         """WITH new_users AS (
                SELECT user_id, registered_at::date as reg_date

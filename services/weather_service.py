@@ -3,6 +3,7 @@
 import logging
 import httpx
 from datetime import datetime, timedelta
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +168,7 @@ def classify_weather(weather_data: dict) -> str:
     code = weather_data["weather_code"]
     temp = weather_data["temp_c"]
     wind = weather_data["wind_speed"]
-    hour = datetime.now().hour
+    hour = config.get_kst_now().hour
 
     # Thunder: codes 200, 201, 202, 210, 211, 212, 221, 230, 231, 232
     if code in (200, 201, 202, 210, 211, 212, 221, 230, 231, 232, 386, 389, 392, 395):
@@ -217,7 +218,7 @@ async def update_weather(city: str):
     _cache["temp"] = weather_data["temp_c"]
     _cache["description"] = boost_info["label"]
     _cache["emoji"] = boost_info["emoji"]
-    _cache["updated_at"] = datetime.now()
+    _cache["updated_at"] = config.get_kst_now()
 
     logger.info(
         f"Weather updated: {condition} ({weather_data['temp_c']}°C) "
@@ -265,7 +266,7 @@ def get_weather_display() -> str:
         return ""
 
     # Don't show if weather data is stale (>2 hours)
-    if datetime.now() - _cache["updated_at"] > timedelta(hours=2):
+    if config.get_kst_now() - _cache["updated_at"] > timedelta(hours=2):
         return ""
 
     from utils.helpers import _type_emoji

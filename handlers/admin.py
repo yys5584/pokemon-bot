@@ -873,7 +873,7 @@ async def manual_subscription_handler(update: Update, context: ContextTypes.DEFA
     if existing and existing["tier"] == tier:
         base_date = existing["expires_at"]
     else:
-        base_date = datetime.now(timezone.utc)
+        base_date = config.get_kst_now()
 
     expires_at = base_date + timedelta(days=duration)
 
@@ -881,12 +881,12 @@ async def manual_subscription_handler(update: Update, context: ContextTypes.DEFA
     pending = await sq.get_user_pending(target_uid)
     if pending:
         payment_id = pending["id"]
-        await sq.confirm_payment(payment_id, f"manual_{int(datetime.now().timestamp())}", "admin")
+        await sq.confirm_payment(payment_id, f"manual_{int(config.get_kst_now().timestamp())}", "admin")
     else:
         payment_id = await sq.create_pending_payment(
             target_uid, tier, 0, 0.0, "MANUAL", expires_at,
         )
-        await sq.confirm_payment(payment_id, f"manual_{int(datetime.now().timestamp())}", "admin")
+        await sq.confirm_payment(payment_id, f"manual_{int(config.get_kst_now().timestamp())}", "admin")
 
     await sq.create_subscription(target_uid, tier, expires_at, payment_id)
 

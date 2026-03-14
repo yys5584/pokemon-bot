@@ -1588,8 +1588,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
 
     # ── Post tournament result to homepage notice board ──
     try:
-        from datetime import datetime
-        now = datetime.now()
+        now = config.get_kst_now()
         today = f"{now.month}/{now.day}"
         notice_title = f"{today} 토너먼트 결과"
 

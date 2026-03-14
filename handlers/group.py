@@ -354,7 +354,7 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
     display_name = update.effective_user.first_name or "트레이너"
-    now = datetime.now()
+    now = config.get_kst_now()
 
     # 포켓볼 충전 쿨다운 (구독자는 면제)
     cooldown_sec = config.POKEBALL_RECHARGE_COOLDOWN
@@ -464,7 +464,7 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     user_id = update.effective_user.id
     display_name = update.effective_user.first_name or "트레이너"
-    now = datetime.now()
+    now = config.get_kst_now()
 
     # 30 second cooldown (prevent spam from blocking bot)
     last_used = _love_hidden_cooldown.get(user_id)

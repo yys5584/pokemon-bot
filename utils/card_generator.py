@@ -342,7 +342,8 @@ def generate_lineup_card(
 
     W, H = 1200, 680
     if not date_str:
-        date_str = datetime.now().strftime("%Y.%m.%d")
+        import config as _cfg
+        date_str = _cfg.get_kst_now().strftime("%Y.%m.%d")
 
     # ── Background: bold red / black diagonal split ──
     card = Image.new("RGBA", (W, H), (0, 0, 0, 255))

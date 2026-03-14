@@ -186,7 +186,7 @@ async def schedule_spawns_for_chat(app, chat_id: int, member_count: int):
 
     await queries.update_chat_spawn_info(chat_id, num_spawns)
 
-    now = datetime.now()
+    now = config.get_kst_now()
     end_of_day = now.replace(hour=23, minute=59, second=59)
 
     remaining_seconds = (end_of_day - now).total_seconds()
@@ -421,11 +421,10 @@ async def restore_temp_arcades(app):
         if chat_id in config.ARCADE_CHAT_IDS:
             continue  # Skip permanent arcades
 
-        from datetime import datetime, timezone
         expires = ap["expires_at"]
         if hasattr(expires, 'tzinfo') and expires.tzinfo is None:
-            expires = expires.replace(tzinfo=timezone.utc)
-        remaining = max(0, int((expires - datetime.now(timezone.utc)).total_seconds()))
+            expires = expires.replace(tzinfo=config.KST)
+        remaining = max(0, int((expires - config.get_kst_now()).total_seconds()))
 
         if remaining > 30:  # At least 30 seconds left
             start_temp_arcade(app, chat_id, remaining, interval=config.ARCADE_TICKET_SPAWN_INTERVAL)
@@ -851,7 +850,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         if not arcade and not force:
             last_spawn = await queries.get_last_spawn_time(chat_id)
             if last_spawn:
-                elapsed = (datetime.now() - last_spawn).total_seconds()
+                elapsed = (config.get_kst_now() - last_spawn).total_seconds()
                 if elapsed < 300:  # 5 minutes cooldown
                     # Re-schedule after remaining cooldown instead of dropping
                     remaining = int(300 - elapsed) + 10  # +10s buffer
@@ -976,7 +975,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         schedule_delete(message, 3600)
 
         # 6. Create spawn session AFTER image is sent
-        expires = (datetime.now() + timedelta(seconds=window))
+        expires = (config.get_kst_now() + timedelta(seconds=window))
 
         session_id = await queries.create_spawn_session(
             chat_id, pokemon["id"], expires, is_shiny=is_shiny,
