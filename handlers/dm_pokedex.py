@@ -2306,10 +2306,10 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines.append(f"{icon_emoji('coin')} BP: {bp}")
     lines.append(f"{icon_emoji('container')} 보유 포켓몬: {len(pokemon_list)}마리")
 
-    # 도감 수
-    unique_ids = {p["pokemon_id"] for p in pokemon_list}
+    # 도감 수 (pokedex 테이블 기준 — 방생해도 유지)
+    pokedex_count = await queries.count_pokedex(user_id)
     shiny_count = sum(1 for p in pokemon_list if p.get("is_shiny"))
-    lines.append(f"{icon_emoji('pokedex')} 도감: {len(unique_ids)}/386종")
+    lines.append(f"{icon_emoji('pokedex')} 도감: {pokedex_count}/386종")
     if shiny_count > 0:
         lines.append(f"{shiny_emoji()} 이로치: {shiny_count}마리")
 
