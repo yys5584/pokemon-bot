@@ -466,10 +466,10 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
             "📋 참가 방법: ㄷ 입력\n"
             "⚔️ 배틀팀이 등록되어 있어야 참가 가능!\n\n"
             "🏆 보상\n"
-            f"  🥇 우승: 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치(초전설+일반) + 챔피언 칭호\n"
-            f"  🥈 준우승: 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + ✨이로치(전설+일반)\n"
-            f"  🏅 4강: 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치(에픽)\n"
-            f"  🎟️ 참가: 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개\n\n"
+            f"  🥇 우승: 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP:,}BP + ✨이로치(초전설+일반) + 챔피언 칭호\n"
+            f"  🥈 준우승: 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {config.TOURNAMENT_PRIZE_2ND_BP:,}BP + ✨이로치(전설+일반)\n"
+            f"  🏅 4강: 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + ✨이로치(에픽)\n"
+            f"  🎟️ 참가: 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 + {config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP\n\n"
             "스폰은 대회 종료 후 재개됩니다."
         ),
     )
@@ -498,10 +498,10 @@ async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
             f"{icon_emoji('bookmark')} 아래 채널에서 ㄷ 입력으로 참가!\n"
             f"👉 {config.BOT_CHANNEL_URL}\n\n"
             f"{_bt} 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
-            f"{icon_emoji('crown')} 우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {_se}이로치(초전설+일반) + 챔피언 칭호\n"
-            f"🥈 준우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {_se}이로치(전설+일반)\n"
-            f"{icon_emoji('champion')} 4강: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {_se}이로치(에픽)\n"
-            f"{icon_emoji('gotcha')} 참가: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개"
+            f"{icon_emoji('crown')} 우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + 💰{config.TOURNAMENT_PRIZE_1ST_BP:,}BP + {_se}이로치(초전설+일반) + 챔피언 칭호\n"
+            f"🥈 준우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + 💰{config.TOURNAMENT_PRIZE_2ND_BP:,}BP + {_se}이로치(전설+일반)\n"
+            f"{icon_emoji('champion')} 4강: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + 💰{config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + {_se}이로치(에픽)\n"
+            f"{icon_emoji('gotcha')} 참가: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 + 💰{config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP"
         )
 
         sent = 0
@@ -1326,11 +1326,15 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     if eliminated is None:
         eliminated = {}
 
-    # ── 1st place: master balls + shiny legendary + shiny common + title ──
+    # ── 1st place: master balls + BP + shiny legendary + shiny common + title ──
     try:
         await queries.add_master_ball(winner_id, config.TOURNAMENT_PRIZE_1ST_MB)
     except Exception:
         logger.error(f"Failed to give master balls to winner {winner_id}")
+    try:
+        await bq.add_bp(winner_id, config.TOURNAMENT_PRIZE_1ST_BP)
+    except Exception:
+        logger.error(f"Failed to give BP to winner {winner_id}")
     await queries.increment_title_stat(winner_id, "tournament_wins")
     shiny_1st_id, shiny_1st_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_1ST_SHINY)
     shiny_1st_ivs = {}
@@ -1365,6 +1369,10 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             await queries.add_master_ball(runner_up_id, config.TOURNAMENT_PRIZE_2ND_MB)
         except Exception:
             logger.error(f"Failed to give master balls to runner-up {runner_up_id}")
+        try:
+            await bq.add_bp(runner_up_id, config.TOURNAMENT_PRIZE_2ND_BP)
+        except Exception:
+            logger.error(f"Failed to give BP to runner-up {runner_up_id}")
         s2_id, s2_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_2ND_SHINY)
         try:
             _, shiny_2nd_ivs = await queries.give_pokemon_to_user(runner_up_id, s2_id, chat_id, is_shiny=True)
@@ -1391,6 +1399,10 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_SEMI_MB)
         except Exception:
             logger.error(f"Failed to give master balls to semi-finalist {uid}")
+        try:
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_SEMI_BP)
+        except Exception:
+            logger.error(f"Failed to give BP to semi-finalist {uid}")
         s_id, s_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_SEMI_SHINY)
         try:
             _, s_ivs = await queries.give_pokemon_to_user(uid, s_id, chat_id, is_shiny=True)
@@ -1407,6 +1419,10 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_QUARTER_MB)
         except Exception:
             logger.error(f"Failed to give master ball to quarter-finalist {uid}")
+        try:
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_QUARTER_BP)
+        except Exception:
+            logger.error(f"Failed to give BP to quarter-finalist {uid}")
     already_rewarded |= quarter_losers
 
     # ── 16강 탈락: master balls ──
@@ -1416,15 +1432,23 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_R16_MB)
         except Exception:
             logger.error(f"Failed to give master ball to R16 participant {uid}")
+        try:
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_R16_BP)
+        except Exception:
+            logger.error(f"Failed to give BP to R16 participant {uid}")
     already_rewarded |= r16_losers
 
-    # ── Participation reward: master ball for the rest ──
+    # ── Participation reward: master ball + BP for the rest ──
     participant_only = all_participants - already_rewarded
     for uid in participant_only:
         try:
             await queries.add_master_ball(uid, config.TOURNAMENT_PRIZE_PARTICIPANT_MB)
         except Exception:
             logger.error(f"Failed to give master ball to participant {uid}")
+        try:
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_PARTICIPANT_BP)
+        except Exception:
+            logger.error(f"Failed to give BP to participant {uid}")
 
     # Check & unlock titles for winner
     from utils.title_checker import check_and_unlock_titles
@@ -1452,14 +1476,14 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         "\n🏆 토너먼트 결과",
         "━━━━━━━━━━━━━━━",
         f"🥇 {winner_data['name']}",
-        f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + ✨이로치 {shiny_1st_name} + ✨이로치 {bonus_1st_name} + 🎖️ 챔피언 칭호",
+        f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + 💰{config.TOURNAMENT_PRIZE_1ST_BP:,}BP + ✨이로치 {shiny_1st_name} + ✨이로치 {bonus_1st_name} + 🎖️ 챔피언 칭호",
     ]
 
     if runner_up_id:
         runner_up_user = await queries.get_user(runner_up_id)
         r_name = runner_up_user["display_name"] if runner_up_user else "???"
         lines.append(f"🥈 {r_name}")
-        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + ✨이로치 {shiny_2nd_name} + ✨이로치 {bonus_2nd_name}")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + 💰{config.TOURNAMENT_PRIZE_2ND_BP:,}BP + ✨이로치 {shiny_2nd_name} + ✨이로치 {bonus_2nd_name}")
 
     fourth_placers = semi_reward_targets
     if fourth_placers:
@@ -1468,7 +1492,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             u_name = u["display_name"] if u else "???"
             u_shiny_name = shiny_semi_awards.get(uid, ("???", {}))[0]
             lines.append(f"🏅 {u_name} (4강)")
-            lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + ✨이로치 {u_shiny_name}")
+            lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + 💰{config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + ✨이로치 {u_shiny_name}")
 
     if quarter_losers:
         q_names = []
@@ -1476,15 +1500,15 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             u = await queries.get_user(uid)
             q_names.append(u["display_name"] if u else "???")
         lines.append(f"\n⚔️ 8강 ({len(quarter_losers)}명): {', '.join(q_names)}")
-        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_QUARTER_MB}개씩 지급!")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_QUARTER_MB}개 + 💰{config.TOURNAMENT_PRIZE_QUARTER_BP:,}BP")
 
     if r16_losers:
         lines.append(f"\n🎯 16강 탈락 ({len(r16_losers)}명)")
-        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_R16_MB}개씩 지급!")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_R16_MB}개 + 💰{config.TOURNAMENT_PRIZE_R16_BP:,}BP")
 
     if participant_only:
         lines.append(f"\n🎟️ 참가 보상 ({len(participant_only)}명)")
-        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개씩 지급!")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 + 💰{config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP")
 
     # Title unlocks
     if new_titles:
@@ -1507,6 +1531,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         "🏆 토너먼트 우승을 축하합니다!\n"
         "━━━━━━━━━━━━━━━\n\n"
         f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 지급!\n"
+        f"💰 {config.TOURNAMENT_PRIZE_1ST_BP:,}BP 지급!\n"
         f"🎖️ 챔피언 칭호 획득!\n\n"
         f"{_iv_detail(shiny_1st_name, config.TOURNAMENT_PRIZE_1ST_SHINY, shiny_1st_ivs)}\n\n"
         f"{_iv_detail(bonus_1st_name, 'common', bonus_1st_ivs)}"
@@ -1525,7 +1550,8 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         dm_text = (
             "🥈 토너먼트 준우승을 축하합니다!\n"
             "━━━━━━━━━━━━━━━\n\n"
-            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 지급!\n\n"
+            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 지급!\n"
+            f"💰 {config.TOURNAMENT_PRIZE_2ND_BP:,}BP 지급!\n\n"
             f"{_iv_detail(shiny_2nd_name, config.TOURNAMENT_PRIZE_2ND_SHINY, shiny_2nd_ivs)}\n\n"
             f"{_iv_detail(bonus_2nd_name, 'common', bonus_2nd_ivs)}"
         )
@@ -1539,7 +1565,8 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         dm_text = (
             "🏅 토너먼트 4강을 축하합니다!\n"
             "━━━━━━━━━━━━━━━\n\n"
-            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 지급!\n\n"
+            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 지급!\n"
+            f"💰 {config.TOURNAMENT_PRIZE_SEMI_BP:,}BP 지급!\n\n"
             f"{_iv_detail(s_name, config.TOURNAMENT_PRIZE_SEMI_SHINY, s_ivs)}"
         )
         try:
@@ -1552,7 +1579,8 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         dm_text = (
             "⚔️ 토너먼트 8강에서 아쉽게 탈락했습니다!\n"
             "━━━━━━━━━━━━━━━\n\n"
-            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_QUARTER_MB}개 지급!\n\n"
+            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_QUARTER_MB}개 지급!\n"
+            f"💰 {config.TOURNAMENT_PRIZE_QUARTER_BP:,}BP 지급!\n\n"
             "다음엔 4강을 노려보세요! 💪"
         )
         try:
@@ -1565,7 +1593,8 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         dm_text = (
             "🎯 토너먼트 16강에서 탈락했습니다!\n"
             "━━━━━━━━━━━━━━━\n\n"
-            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_R16_MB}개 지급!\n\n"
+            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_R16_MB}개 지급!\n"
+            f"💰 {config.TOURNAMENT_PRIZE_R16_BP:,}BP 지급!\n\n"
             "다음엔 8강을 노려보세요! 💪"
         )
         try:
@@ -1578,7 +1607,8 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         dm_text = (
             "🎟️ 토너먼트 참가 보상!\n"
             "━━━━━━━━━━━━━━━\n\n"
-            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 지급!\n\n"
+            f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 지급!\n"
+            f"💰 {config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP 지급!\n\n"
             "다음 대회도 기대해 주세요!"
         )
         try:
