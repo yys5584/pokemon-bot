@@ -189,7 +189,6 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 username,
                 html=True,
                 ranked_badge=r_badge,
-                sub_tier=sub_tier,
             )
 
             # 구독자 존칭 적용
@@ -286,7 +285,6 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 username,
                 html=True,
                 ranked_badge=r_badge,
-                sub_tier=sub_tier,
             )
             throw_text = format_actor(decorated, "마스터볼을 던졌다!", sub_tier)
             msg = await context.bot.send_message(
@@ -379,7 +377,6 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 username,
                 html=True,
                 ranked_badge=r_badge,
-                sub_tier=sub_tier,
             )
             throw_text = format_actor(decorated, "하이퍼볼을 던졌다!", sub_tier)
             hyper_msg = await context.bot.send_message(
