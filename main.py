@@ -144,25 +144,32 @@ async def post_init(application: Application):
     logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready. 251 Pokemon seeded.")
 
     # Phase 3: 독립 작업 병렬 (cleanup + missed_reset)
-    from services.spawn_service import resolve_unresolved_sessions
-    refunded_balls, *_ = await asyncio.gather(
-        resolve_unresolved_sessions(application.bot),
+    # NOTE: resolve_unresolved_sessions는 bot HTTP가 초기화된 후 실행해야 하므로
+    # job_queue.run_once로 지연 실행 (post_init 시점에선 bot HTTP 미초기화)
+    await asyncio.gather(
         queries.cleanup_expired_events(),
         _check_missed_reset(),
     )
-    # 환불된 마볼/하이퍼볼 DM 알림
-    if refunded_balls:
-        for uid, ball_type in refunded_balls:
-            try:
-                from utils.helpers import ball_emoji
-                be = ball_emoji("masterball") if ball_type == "master" else ball_emoji("hyperball")
-                bname = "마스터볼" if ball_type == "master" else "하이퍼볼"
-                msg = f"{be} 서버 점검으로 인해 {bname}이 환불되었습니다."
-                await application.bot.send_message(chat_id=uid, text=msg, parse_mode="HTML")
-            except Exception:
-                pass
-        logger.info(f"Sent {len(refunded_balls)} ball refund DMs")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Cleanup done")
+
+    # 봇 시작 후 5초 뒤 미해결 세션 resolve (HTTP 초기화 보장)
+    async def _delayed_resolve(context):
+        from services.spawn_service import resolve_unresolved_sessions
+        refunded_balls = await resolve_unresolved_sessions(context.bot)
+        if refunded_balls:
+            from utils.helpers import ball_emoji
+            for uid, ball_type in refunded_balls:
+                try:
+                    be = ball_emoji("masterball") if ball_type == "master" else ball_emoji("hyperball")
+                    bname = "마스터볼" if ball_type == "master" else "하이퍼볼"
+                    msg = f"{be} 서버 점검으로 인해 {bname}이 환불되었습니다."
+                    await context.bot.send_message(chat_id=uid, text=msg, parse_mode="HTML")
+                except Exception:
+                    pass
+            logger.info(f"Sent {len(refunded_balls)} ball refund DMs")
+        logger.info(f"[startup resolve] Done: {len(refunded_balls) if refunded_balls else 0} refunds")
+
+    application.job_queue.run_once(_delayed_resolve, when=5, name="startup_resolve")
 
     # 가챠 미전달 보상 복구 — 재시작 직전 2분 이내 뽑기 기록이 있으면 DM 발송
     try:
