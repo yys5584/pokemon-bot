@@ -185,7 +185,7 @@ async def find_ranked_opponent(user_id: int, season_id: str) -> int | None:
             defense_shield_limit=DEFENSE_SHIELD_LIMIT, limit=10)
         for c in candidates:
             team = await bq.get_battle_team(c["user_id"])
-            if team and len(team) >= 1:
+            if team and len(team) >= config.RANKED_TEAM_SIZE:
                 return c["user_id"]
 
     # 폴백: 기존 티어 기반 (프리시즌/유저 부족 시)
