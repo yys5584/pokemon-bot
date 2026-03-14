@@ -1,9 +1,10 @@
 """DM 가챠 (뽑기) + 아이템 사용 핸들러."""
 
+import os
 import random
 import logging
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import ContextTypes
 
 import config
@@ -12,6 +13,14 @@ from database.battle_queries import get_bp
 from utils.helpers import icon_emoji
 
 logger = logging.getLogger(__name__)
+
+# 가챠 이미지 경로
+_GACHA_IMG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "gacha")
+_IMG_NORMAL = os.path.join(_GACHA_IMG_DIR, "nomal-gacha.jpg")
+_IMG_GOLDEN = os.path.join(_GACHA_IMG_DIR, "golden-gacha.jpg")
+
+# 대박 등급 (골든 이미지 사용)
+_JACKPOT_TIERS = {"bp_jackpot", "iv_reroll_one", "shiny_egg", "shiny_spawn"}
 
 # 등급별 연출 텍스트
 _TIER_EFFECT = {
@@ -68,7 +77,17 @@ async def gacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append("⚠️ BP가 부족합니다!")
 
     markup = InlineKeyboardMarkup(buttons) if buttons else None
-    await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+    try:
+        with open(_IMG_NORMAL, "rb") as f:
+            await update.message.reply_photo(
+                photo=InputFile(f),
+                caption="\n".join(lines),
+                reply_markup=markup,
+                parse_mode="HTML",
+            )
+    except Exception:
+        logger.warning("가챠 이미지 전송 실패, 텍스트로 대체")
+        await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
 
 
 async def gacha_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -136,6 +155,10 @@ async def _do_pull(query, user_id: int, count: int):
         lines.append("")
         lines.append(f"{icon_emoji('coin')} 남은 BP: <b>{bp_after}</b>")
 
+    # 대박 여부 판정
+    is_jackpot = any(r["result_key"] in _JACKPOT_TIERS for r in results)
+    img_path = _IMG_GOLDEN if is_jackpot else _IMG_NORMAL
+
     # 다시 뽑기 버튼
     buttons = []
     if bp_after >= config.GACHA_COST:
@@ -146,9 +169,22 @@ async def _do_pull(query, user_id: int, count: int):
 
     markup = InlineKeyboardMarkup(buttons) if buttons else None
 
+    # 기존 메시지 버튼 제거 후 새 사진 메시지 전송
     try:
-        await query.edit_message_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+        await query.edit_message_reply_markup(reply_markup=None)
     except Exception:
+        pass
+
+    try:
+        with open(img_path, "rb") as f:
+            await query.message.reply_photo(
+                photo=InputFile(f),
+                caption="\n".join(lines),
+                reply_markup=markup,
+                parse_mode="HTML",
+            )
+    except Exception:
+        logger.warning("가챠 결과 이미지 전송 실패, 텍스트로 대체")
         await query.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
 
 
