@@ -257,18 +257,6 @@ _DRAMATIC_SERIOUS = [
 ]
 _DRAMATIC_JOKE = []
 
-# ── KO 도발 멘트 (상대 포켓몬 쓰러뜨렸을 때, 4강/결승 전용) ────────
-_KO_TAUNTS = [
-    "{trainer}: ㅋㅋ {dead} 수고~",
-    "{trainer}: {dead}? 이게 최선이었어?",
-    "{trainer}: 다음은 좀 센 애 데려와",
-    "{trainer}: 아 그래도 잘 싸웠다 {dead}",
-    "{trainer}: 바이바이~ {dead}",
-    "{trainer}: {dead} 고생했어 쉬어~",
-    "{trainer}: 약하네.. 다음!",
-    "{trainer}: {dead} 별거 없었는데?",
-]
-
 # ── 우승 소감 ────────────────────────────────────────
 _WINNER_SPEECHES = [
     "\"중요한 것은 꺾이지 않는 마음입니다.\"\n— {trainer}",
@@ -327,11 +315,6 @@ def _winner_speech(trainer: str, mvp_name: str) -> str:
     if not template:
         template = random.choice(_WINNER_SPEECHES)
     return template.format(trainer=trainer, mvp=mvp_name)
-
-
-def _ko_taunt(trainer: str, dead: str) -> str:
-    """KO 도발 멘트 (확률적으로 출력)."""
-    return random.choice(_KO_TAUNTS).format(trainer=trainer, dead=dead)
 
 
 def _switch_line(trainer: str, dead: str, next_name: str,
@@ -1012,17 +995,13 @@ async def _run_match(
 
             elif td["type"] == "ko":
                 m = _mark(td["side"])
-                ko_side_trainer = p1_name if td["side"] == "challenger" else p2_name
-                kill_side_trainer = p2_name if td["side"] == "challenger" else p1_name
+                trainer = p1_name if td["side"] == "challenger" else p2_name
                 if td["next_name"]:
                     dm = "full" if (_i == _last_switch_idx[td["side"]]) else ""
-                    switch = _switch_line(ko_side_trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=dm)
+                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=dm)
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n{switch}"
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
-                # 결승전 KO 도발 (40% 확률)
-                if random.random() < 0.4:
-                    text += f"\n{_ko_taunt(kill_side_trainer, td['dead_name'])}"
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
                 await asyncio.sleep(3)
 
@@ -1098,17 +1077,13 @@ async def _run_match(
 
             elif td["type"] == "ko":
                 m = _mark(td["side"])
-                ko_side_trainer = p1_name if td["side"] == "challenger" else p2_name
-                kill_side_trainer = p2_name if td["side"] == "challenger" else p1_name
+                trainer = p1_name if td["side"] == "challenger" else p2_name
                 if td["next_name"]:
                     dm = "full" if (_i == _last_switch_idx[td["side"]]) else ""
-                    switch = _switch_line(ko_side_trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=dm)
+                    switch = _switch_line(trainer, td['dead_name'], td['next_name'], td.get('next_rarity', ''), dramatic=dm)
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!\n{switch}"
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
-                # 준결승 KO 도발 (30% 확률)
-                if random.random() < 0.3:
-                    text += f"\n{_ko_taunt(kill_side_trainer, td['dead_name'])}"
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
                 await asyncio.sleep(3)
 
