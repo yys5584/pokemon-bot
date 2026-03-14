@@ -155,7 +155,7 @@ async def hatch_ready_eggs(bot) -> list[dict]:
         # 이로치 확정으로 포켓몬 추가
         from utils.battle_calc import generate_ivs
         ivs = generate_ivs(is_shiny=True)
-        instance_id, final_ivs = await queries.add_pokemon_to_user(
+        instance_id, final_ivs = await queries.give_pokemon_to_user(
             user_id, pokemon_id, chat_id=None, is_shiny=True, ivs=ivs)
 
         # 도감 등록
