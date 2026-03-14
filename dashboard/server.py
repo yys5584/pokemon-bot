@@ -1950,6 +1950,112 @@ def pg_json_response(data, **kwargs):
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 
+# --- Camp API ---
+
+async def api_my_camp(request):
+    """GET /api/my/camp — user's camp status: home camp, fragments, crystals, placements."""
+    sess = await _get_session(request)
+    if not sess:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+    try:
+        pool = await queries.get_db()
+        uid = sess["user_id"]
+
+        # 거점 캠프 정보
+        settings_row = await pool.fetchrow(
+            """SELECT home_chat_id, home_camp_set_at,
+                      COALESCE(camp_notify, TRUE) AS camp_notify
+               FROM camp_user_settings WHERE user_id = $1""", uid)
+
+        home_camp = None
+        if settings_row and settings_row["home_chat_id"]:
+            hc = settings_row["home_chat_id"]
+            camp_row, chat_row = await asyncio.gather(
+                pool.fetchrow("SELECT level, xp FROM camps WHERE chat_id = $1", hc),
+                pool.fetchrow("SELECT chat_title, invite_link FROM chat_rooms WHERE chat_id = $1", hc),
+            )
+            if camp_row:
+                home_camp = {
+                    "chat_id": hc,
+                    "chat_title": chat_row["chat_title"] if chat_row else None,
+                    "invite_link": chat_row["invite_link"] if chat_row else None,
+                    "level": camp_row["level"],
+                    "xp": camp_row["xp"],
+                    "set_at": settings_row["home_camp_set_at"].isoformat() if settings_row["home_camp_set_at"] else None,
+                    "notify": settings_row["camp_notify"],
+                }
+
+        # 조각
+        frag_rows = await pool.fetch(
+            "SELECT field_type, amount FROM camp_fragments WHERE user_id = $1 AND amount > 0", uid)
+        fragments = {r["field_type"]: r["amount"] for r in frag_rows}
+
+        # 결정
+        crystal_row = await pool.fetchrow(
+            "SELECT COALESCE(crystal, 0) AS crystal, COALESCE(rainbow, 0) AS rainbow FROM camp_crystals WHERE user_id = $1", uid)
+        crystals = {"crystal": crystal_row["crystal"] if crystal_row else 0,
+                    "rainbow": crystal_row["rainbow"] if crystal_row else 0}
+
+        # 배치 현황
+        placement_rows = await pool.fetch("""
+            SELECT cp.field_id, cf.field_type, cp.pokemon_id, cp.score, cp.placed_at,
+                   pm.name_ko, pm.rarity, up.is_shiny,
+                   cr.chat_title
+            FROM camp_placements cp
+            JOIN camp_fields cf ON cf.id = cp.field_id
+            JOIN user_pokemon up ON up.id = cp.instance_id
+            JOIN pokemon_master pm ON pm.id = cp.pokemon_id
+            LEFT JOIN chat_rooms cr ON cr.chat_id = cp.chat_id
+            WHERE cp.user_id = $1
+            ORDER BY cp.placed_at
+        """, uid)
+        placements = [{
+            "field_type": r["field_type"],
+            "pokemon_id": r["pokemon_id"],
+            "name_ko": r["name_ko"],
+            "rarity": r["rarity"],
+            "score": r["score"],
+            "is_shiny": bool(r["is_shiny"]),
+            "chat_title": r["chat_title"],
+        } for r in placement_rows]
+
+        return pg_json_response({
+            "home_camp": home_camp,
+            "fragments": fragments,
+            "crystals": crystals,
+            "placements": placements,
+        })
+    except InterfaceError:
+        return web.json_response({"error": "서버 재시작 중입니다"}, status=503)
+
+
+async def api_camp_list(request):
+    """GET /api/camps — public list of active camps."""
+    try:
+        pool = await queries.get_db()
+        rows = await pool.fetch("""
+            SELECT c.chat_id, c.level, c.xp, cr.chat_title, cr.member_count, cr.invite_link,
+                   (SELECT COUNT(*) FROM camp_placements cp WHERE cp.chat_id = c.chat_id) AS total_placements,
+                   (SELECT COUNT(DISTINCT cp.user_id) FROM camp_placements cp WHERE cp.chat_id = c.chat_id) AS active_users
+            FROM camps c
+            JOIN chat_rooms cr ON cr.chat_id = c.chat_id
+            WHERE cr.is_active = TRUE
+            ORDER BY c.level DESC, c.xp DESC
+        """)
+        camps = [{
+            "chat_title": r["chat_title"],
+            "level": r["level"],
+            "xp": r["xp"],
+            "member_count": r["member_count"] or 0,
+            "invite_link": r["invite_link"],
+            "total_placements": r["total_placements"],
+            "active_users": r["active_users"],
+        } for r in rows]
+        return pg_json_response({"camps": camps})
+    except InterfaceError:
+        return web.json_response({"error": "서버 재시작 중입니다"}, status=503)
+
+
 # --- API Handlers ---
 
 async def api_overview(request):
@@ -4373,6 +4479,9 @@ def create_app() -> web.Application:
     app.router.add_post("/api/my/chat", api_my_chat)
     app.router.add_get("/api/my/quota", api_my_quota)
     app.router.add_post("/api/my/fusion", api_my_fusion)
+    app.router.add_get("/api/my/camp", api_my_camp)
+    # Camp (public)
+    app.router.add_get("/api/camps", api_camp_list)
     # Donation, Payment & Admin
     app.router.add_get("/api/donation", api_donation)
     app.router.add_post("/api/payment/create", api_payment_create)

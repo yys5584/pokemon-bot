@@ -72,7 +72,18 @@ async def on_chat_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     hour_bucket = config.get_kst_now().strftime("%Y-%m-%d-%H")
 
     async def _bg_track():
+        nonlocal invite_link
         try:
+            # invite_link 없으면 Telegram API로 수집 시도
+            if not invite_link:
+                try:
+                    chat_info = await context.bot.get_chat(chat_id)
+                    if chat_info.invite_link:
+                        invite_link = chat_info.invite_link
+                    else:
+                        invite_link = await context.bot.export_chat_invite_link(chat_id)
+                except Exception:
+                    pass  # 봇이 관리자가 아니면 실패 — 무시
             await queries.increment_activity(chat_id, hour_bucket)
             await queries.ensure_chat_room(chat_id, title=chat_title,
                                            invite_link=invite_link)

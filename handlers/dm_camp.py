@@ -269,6 +269,157 @@ _GUIDE_STEPS = [
 ]
 
 
+DM_PAGE_SIZE = 8
+
+
+async def _build_dm_field_buttons(user_id: int, chat_id: int, fields: list[dict], camp: dict) -> tuple[str, InlineKeyboardMarkup]:
+    """DM 배치: 필드 선택 화면 빌드."""
+    level_info = cs.get_level_info(camp["level"])
+    level_name = level_info[5]
+
+    placements = await cq.get_user_placements_in_chat(chat_id, user_id)
+    placed_fields = {p["field_id"] for p in placements}
+
+    # 현재 라운드 보너스
+    now = config.get_kst_now()
+    current_round = cs._get_current_round_time(now)
+    bonuses = await cq.get_round_bonus(chat_id, current_round)
+    bonus_map = {b["field_id"]: b for b in bonuses}
+
+    chat_room = await queries.get_chat_room(chat_id)
+    chat_title = (chat_room.get("chat_title") if chat_room else None) or "캠프"
+
+    lines = [
+        f"🏕 배치하기 — {chat_title}",
+        f"📊 Lv.{camp['level']} {level_name}",
+        "━━━━━━━━━━━━━",
+    ]
+
+    for f in fields:
+        fi = config.CAMP_FIELDS.get(f["field_type"], {})
+        emoji = fi.get("emoji", "🏕")
+        name = fi.get("name", f["field_type"])
+        mark = " ✅" if f["id"] in placed_fields else ""
+
+        bonus = bonus_map.get(f["id"])
+        if bonus:
+            pname = _pokemon_name(bonus["pokemon_id"])
+            stat_name = config.CAMP_IV_STAT_NAMES.get(bonus["stat_type"], "")
+            lines.append(f"{emoji} {name}{mark} — ⭐{pname} ({stat_name}{bonus['stat_value']}↑)")
+        else:
+            lines.append(f"{emoji} {name}{mark}")
+
+    lines.append("━━━━━━━━━━━━━")
+    lines.append("배치할 필드를 선택하세요!")
+
+    buttons = []
+    row = []
+    for f in fields:
+        fi = config.CAMP_FIELDS.get(f["field_type"], {})
+        label = f"{fi.get('emoji', '🏕')} {fi.get('name', f['field_type'])}"
+        row.append(InlineKeyboardButton(label, callback_data=f"cdm_fd_{user_id}_{f['id']}"))
+        if len(row) == 3:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{user_id}")])
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
+
+async def _build_dm_pokemon_list(user_id: int, field_id: int, field_type: str, chat_id: int, page: int) -> tuple[str, InlineKeyboardMarkup]:
+    """DM 배치: 필드에 배치 가능한 포켓몬 리스트 (보너스 추천순 정렬)."""
+    pokemon_list = await queries.get_user_pokemon_list(user_id)
+    fi = config.CAMP_FIELDS.get(field_type, {})
+
+    # 타입 매칭 필터
+    matching = [p for p in pokemon_list if cs.pokemon_matches_field(p["pokemon_id"], field_type)]
+
+    if not matching:
+        text = f"{fi.get('emoji', '🏕')} {fi.get('name', field_type)} — 배치 가능한 포켓몬이 없습니다."
+        buttons = [[InlineKeyboardButton("◀ 돌아가기", callback_data=f"cdm_fback_{user_id}")]]
+        return text, InlineKeyboardMarkup(buttons)
+
+    # 현재 라운드 보너스로 점수 미리보기 + 정렬
+    now = config.get_kst_now()
+    current_round = cs._get_current_round_time(now)
+    bonuses = await cq.get_round_bonus(chat_id, current_round)
+    bonus = None
+    for b in bonuses:
+        if b["field_id"] == field_id:
+            bonus = b
+            break
+
+    scored = []
+    for p in matching:
+        ivs = {
+            "iv_hp": p.get("iv_hp", 0), "iv_atk": p.get("iv_atk", 0),
+            "iv_def": p.get("iv_def", 0), "iv_spa": p.get("iv_spa", 0),
+            "iv_spdef": p.get("iv_spdef", 0), "iv_spd": p.get("iv_spd", 0),
+        }
+        score, desc = cs.calc_placement_score(
+            p["pokemon_id"], bool(p.get("is_shiny")), ivs,
+            bonus["pokemon_id"] if bonus else None,
+            bonus["stat_type"] if bonus else None,
+            bonus["stat_value"] if bonus else None,
+        )
+        scored.append({**p, "_score": score, "_desc": desc})
+
+    scored.sort(key=lambda x: (-x["_score"], x["name_ko"]))
+
+    total_pages = max(1, (len(scored) + DM_PAGE_SIZE - 1) // DM_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * DM_PAGE_SIZE
+    end = min(start + DM_PAGE_SIZE, len(scored))
+    page_items = scored[start:end]
+
+    lines = [
+        f"{fi.get('emoji', '🏕')} {fi.get('name', field_type)} — 포켓몬 선택 [{page + 1}/{total_pages}]",
+        f"타입: {'/'.join(fi.get('types', []))}",
+    ]
+
+    if bonus:
+        pname = _pokemon_name(bonus["pokemon_id"])
+        stat_name = config.CAMP_IV_STAT_NAMES.get(bonus["stat_type"], "")
+        lines.append(f"⭐ 보너스: {pname} ({stat_name} {bonus['stat_value']}↑)")
+    lines.append("")
+
+    for i, p in enumerate(page_items):
+        num = start + i + 1
+        shiny = "✨" if p.get("is_shiny") else ""
+        rarity_tag = {"ultra_legendary": "🌟", "legendary": "⭐", "epic": "💎"}.get(p.get("rarity"), "")
+        score_tag = f" ({p['_score']}점)" if p["_score"] > 1 else ""
+        lines.append(f"{num}. {shiny}{rarity_tag}{p['name_ko']}{score_tag}")
+
+    buttons = []
+    row = []
+    for i, p in enumerate(page_items):
+        idx = start + i
+        label = f"{idx + 1}. {p['name_ko']}"
+        row.append(InlineKeyboardButton(
+            label,
+            callback_data=f"cdm_pk_{user_id}_{field_id}_{p['id']}",
+        ))
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+
+    # 페이지네이션
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_pp_{user_id}_{field_id}_{page - 1}"))
+    if page < total_pages - 1:
+        nav_row.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_pp_{user_id}_{field_id}_{page + 1}"))
+    if nav_row:
+        buttons.append(nav_row)
+
+    buttons.append([InlineKeyboardButton("◀ 필드 선택", callback_data=f"cdm_fback_{user_id}")])
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
+
 async def camp_guide_handler(update, context):
     """DM '캠프가이드' — 캠프 튜토리얼 시작."""
     user_id = update.effective_user.id
@@ -586,13 +737,142 @@ async def camp_dm_callback_handler(update, context):
         except Exception:
             pass
 
-    # ── cdm_place_{uid} — DM에서 거점캠프 배치 안내 ──
+    # ── cdm_place_{uid} — DM에서 거점캠프 필드 선택 ──
     elif data.startswith("cdm_place_"):
         uid = int(parts[2])
         if query.from_user.id != uid:
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
             return
-        await query.answer("그룹 채팅방에서 '캠프'를 입력해 배치하세요!", show_alert=True)
+
+        settings = await cq.get_user_camp_settings(uid)
+        if not settings or not settings.get("home_chat_id"):
+            await query.answer("먼저 거점캠프를 설정하세요!", show_alert=True)
+            return
+
+        chat_id = settings["home_chat_id"]
+        camp = await cq.get_camp(chat_id)
+        if not camp:
+            await query.answer("거점 캠프가 삭제되었습니다.", show_alert=True)
+            return
+
+        fields = await cq.get_fields(chat_id)
+        if not fields:
+            await query.answer("캠프에 열린 필드가 없습니다.", show_alert=True)
+            return
+
+        await query.answer()
+        text, markup = await _build_dm_field_buttons(uid, chat_id, fields, camp)
+        try:
+            await query.edit_message_text(text, reply_markup=markup)
+        except Exception:
+            pass
+
+    # ── cdm_fd_{uid}_{field_id} — DM 필드 선택 → 포켓몬 리스트 ──
+    elif data.startswith("cdm_fd_"):
+        uid = int(parts[2])
+        field_id = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        field = await cq.get_field_by_id(field_id)
+        if not field:
+            await query.answer("필드를 찾을 수 없습니다.", show_alert=True)
+            return
+
+        await query.answer()
+        text, markup = await _build_dm_pokemon_list(uid, field_id, field["field_type"], field["chat_id"], 0)
+        try:
+            await query.edit_message_text(text, reply_markup=markup)
+        except Exception:
+            pass
+
+    # ── cdm_pk_{uid}_{field_id}_{instance_id} — DM에서 포켓몬 배치 ──
+    elif data.startswith("cdm_pk_"):
+        uid = int(parts[2])
+        field_id = int(parts[3])
+        instance_id = int(parts[4])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        field = await cq.get_field_by_id(field_id)
+        if not field:
+            await query.answer("필드를 찾을 수 없습니다.", show_alert=True)
+            return
+        chat_id = field["chat_id"]
+
+        dex_count = await queries.count_pokedex(uid)
+        try:
+            member_count = await context.bot.get_chat_member_count(chat_id)
+        except Exception:
+            member_count = 100
+
+        success, msg = await cs.try_place_pokemon(
+            chat_id, field_id, uid, instance_id, member_count, dex_count,
+        )
+
+        if success:
+            await query.answer(msg)
+        else:
+            await query.answer(msg, show_alert=True)
+
+        # 필드 선택 화면으로 복귀
+        camp = await cq.get_camp(chat_id)
+        if camp:
+            fields = await cq.get_fields(chat_id)
+            text, markup = await _build_dm_field_buttons(uid, chat_id, fields, camp)
+            try:
+                await query.edit_message_text(text, reply_markup=markup)
+            except Exception:
+                pass
+
+    # ── cdm_pp_{uid}_{field_id}_{page} — DM 포켓몬 리스트 페이지네이션 ──
+    elif data.startswith("cdm_pp_"):
+        uid = int(parts[2])
+        field_id = int(parts[3])
+        page = int(parts[4])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        field = await cq.get_field_by_id(field_id)
+        if not field:
+            await query.answer("필드를 찾을 수 없습니다.", show_alert=True)
+            return
+
+        await query.answer()
+        text, markup = await _build_dm_pokemon_list(uid, field_id, field["field_type"], field["chat_id"], page)
+        try:
+            await query.edit_message_text(text, reply_markup=markup)
+        except Exception:
+            pass
+
+    # ── cdm_fback_{uid} — DM 필드 선택으로 복귀 ──
+    elif data.startswith("cdm_fback_"):
+        uid = int(parts[2])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        settings = await cq.get_user_camp_settings(uid)
+        if not settings or not settings.get("home_chat_id"):
+            await query.answer()
+            return
+
+        chat_id = settings["home_chat_id"]
+        camp = await cq.get_camp(chat_id)
+        if not camp:
+            await query.answer()
+            return
+
+        fields = await cq.get_fields(chat_id)
+        await query.answer()
+        text, markup = await _build_dm_field_buttons(uid, chat_id, fields, camp)
+        try:
+            await query.edit_message_text(text, reply_markup=markup)
+        except Exception:
+            pass
 
     # ── cdm_guide_{uid}_{step} — 캠프 가이드 페이지 ──
     elif data.startswith("cdm_guide_"):

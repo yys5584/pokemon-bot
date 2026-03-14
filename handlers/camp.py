@@ -85,8 +85,8 @@ def _build_field_buttons(user_id: int, fields: list[dict], placements: list[dict
     return text, InlineKeyboardMarkup(buttons)
 
 
-async def _build_pokemon_list(user_id: int, field_id: int, field_type: str, page: int) -> tuple[str, InlineKeyboardMarkup]:
-    """필드에 배치 가능한 포켓몬 리스트 빌드."""
+async def _build_pokemon_list(user_id: int, field_id: int, field_type: str, page: int, chat_id: int = 0) -> tuple[str, InlineKeyboardMarkup]:
+    """필드에 배치 가능한 포켓몬 리스트 빌드 (보너스 추천순 정렬)."""
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     fi = config.CAMP_FIELDS.get(field_type, {})
 
@@ -98,22 +98,56 @@ async def _build_pokemon_list(user_id: int, field_id: int, field_type: str, page
         buttons = [[InlineKeyboardButton("◀ 돌아가기", callback_data=f"camp_back_{user_id}")]]
         return text, InlineKeyboardMarkup(buttons)
 
-    total_pages = max(1, (len(matching) + CAMP_PAGE_SIZE - 1) // CAMP_PAGE_SIZE)
+    # 보너스 기반 점수 계산 + 추천순 정렬
+    bonus = None
+    if chat_id:
+        now = config.get_kst_now()
+        current_round = cs._get_current_round_time(now)
+        bonuses = await cq.get_round_bonus(chat_id, current_round)
+        for b in bonuses:
+            if b["field_id"] == field_id:
+                bonus = b
+                break
+
+    scored = []
+    for p in matching:
+        ivs = {
+            "iv_hp": p.get("iv_hp", 0), "iv_atk": p.get("iv_atk", 0),
+            "iv_def": p.get("iv_def", 0), "iv_spa": p.get("iv_spa", 0),
+            "iv_spdef": p.get("iv_spdef", 0), "iv_spd": p.get("iv_spd", 0),
+        }
+        score, desc = cs.calc_placement_score(
+            p["pokemon_id"], bool(p.get("is_shiny")), ivs,
+            bonus["pokemon_id"] if bonus else None,
+            bonus["stat_type"] if bonus else None,
+            bonus["stat_value"] if bonus else None,
+        )
+        scored.append({**p, "_score": score, "_desc": desc})
+
+    scored.sort(key=lambda x: (-x["_score"], x["name_ko"]))
+
+    total_pages = max(1, (len(scored) + CAMP_PAGE_SIZE - 1) // CAMP_PAGE_SIZE)
     page = max(0, min(page, total_pages - 1))
     start = page * CAMP_PAGE_SIZE
-    end = min(start + CAMP_PAGE_SIZE, len(matching))
-    page_items = matching[start:end]
+    end = min(start + CAMP_PAGE_SIZE, len(scored))
+    page_items = scored[start:end]
 
     lines = [
         f"{fi.get('emoji', '🏕')} {fi.get('name', field_type)} — 포켓몬 선택 [{page + 1}/{total_pages}]",
         f"타입: {'/'.join(fi.get('types', []))}",
-        "",
     ]
+    if bonus:
+        pname = cs._pokemon_name(bonus["pokemon_id"])
+        stat_name = config.CAMP_IV_STAT_NAMES.get(bonus["stat_type"], "")
+        lines.append(f"⭐ 보너스: {pname} ({stat_name} {bonus['stat_value']}↑)")
+    lines.append("")
+
     for i, p in enumerate(page_items):
         num = start + i + 1
         shiny = "✨" if p.get("is_shiny") else ""
         rarity_tag = {"ultra_legendary": "🌟", "legendary": "⭐", "epic": "💎"}.get(p.get("rarity"), "")
-        lines.append(f"{num}. {shiny}{rarity_tag}{p['name_ko']}")
+        score_tag = f" ({p['_score']}점)" if p["_score"] > 1 else ""
+        lines.append(f"{num}. {shiny}{rarity_tag}{p['name_ko']}{score_tag}")
 
     buttons = []
     row = []
@@ -451,7 +485,7 @@ async def camp_callback_handler(update, context):
             return
 
         await query.answer()
-        text, markup = await _build_pokemon_list(uid, field_id, field["field_type"], 0)
+        text, markup = await _build_pokemon_list(uid, field_id, field["field_type"], 0, field["chat_id"])
         try:
             await query.edit_message_text(text, reply_markup=markup)
         except Exception:
@@ -514,7 +548,7 @@ async def camp_callback_handler(update, context):
             return
 
         await query.answer()
-        text, markup = await _build_pokemon_list(uid, field_id, field["field_type"], page)
+        text, markup = await _build_pokemon_list(uid, field_id, field["field_type"], page, field["chat_id"])
         try:
             await query.edit_message_text(text, reply_markup=markup)
         except Exception:
