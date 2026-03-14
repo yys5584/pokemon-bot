@@ -860,7 +860,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
 
     lines = [
         f"내 포켓몬 상세 ({num}/{total})\n",
-        f"{shiny_mark}{tb} {p['name_ko']}{shiny_text}",
+        f"{shiny_mark}{tb} {p['name_ko']}{shiny_text}{'  ⭐' if p.get('is_favorite') else ''}",
         f"등급: {rarity_text}{type_display}",
         f"친밀도: {hearts} ({p['friendship']}/{max_f}){evo_text}{iv_line}{stats_line}",
     ]
@@ -885,15 +885,21 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
         care_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))
     buttons.append(care_row)
 
-    # Row 2: info + team + release
+    # Row 2: info + fav + team + release
+    fav_label = "⭐ 즐찾해제" if p.get("is_favorite") else "☆ 즐겨찾기"
     buttons.append([
         InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
+        InlineKeyboardButton(fav_label, callback_data=f"mypoke_fav_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("🔄 방생", callback_data=f"mypoke_relone_{user_id}_{idx}_{page}"),
+    ])
+
+    # Row 3: team buttons
+    buttons.append([
         InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{idx}_{page}"),
     ])
 
-    # Row 3: navigation
+    # Row 4: navigation
     detail_nav = []
     if idx > 0:
         detail_nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"mypoke_v_{user_id}_{idx - 1}_{page}"))

@@ -103,9 +103,10 @@ async def get_active_team_number(user_id: int) -> int:
 
 
 async def swap_teams(user_id: int):
-    """Swap team 1 and team 2 entirely, then flip active_team.
+    """Swap team 1 and team 2 contents (active_team은 유지).
 
     DELETE+INSERT 방식으로 unique index (user_id, team_number, slot) 충돌 회피.
+    팀 내용만 바꾸고 활성 팀 번호는 그대로 → 실제 배틀에 사용되는 포켓몬이 바뀜.
     """
     pool = await get_db()
     async with pool.acquire() as conn:
@@ -132,11 +133,6 @@ async def swap_teams(user_id: int):
                 await conn.execute(
                     "INSERT INTO battle_teams (user_id, team_number, slot, pokemon_instance_id) "
                     "VALUES ($1, 1, $2, $3)", user_id, row["slot"], row["pokemon_instance_id"])
-
-    # Flip active team
-    active = await get_active_team_number(user_id)
-    new_active = 2 if active == 1 else 1
-    await set_active_team(user_id, new_active)
 
 
 async def validate_team_pokemon(user_id: int, instance_ids: list[int]) -> list[dict]:
