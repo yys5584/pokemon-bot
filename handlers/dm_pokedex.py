@@ -802,7 +802,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
     shiny_text = f"  {shiny_emoji()}이로치" if p.get("is_shiny") else ""
 
     # IV information
-    from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, iv_total, EVO_STAGE_MAP
+    from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, iv_total, EVO_STAGE_MAP, get_normalized_base_stats
     iv_hp = p.get("iv_hp")
     iv_atk = p.get("iv_atk")
     iv_def = p.get("iv_def")
@@ -818,18 +818,21 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
         grade, _stars = config.get_iv_grade(total_iv)
         iv_line = f"\nIV: {iv_hp}/{iv_atk}/{iv_def}/{iv_spa}/{iv_spdef}/{iv_spd} ({total_iv}/186) [{grade}]"
 
-        # Calculate battle stats with IVs
+        # Calculate battle stats with IVs (배틀 엔진과 동일하게 종족값 반영)
         pid = p["pokemon_id"]
-        evo_stage = EVO_STAGE_MAP.get(pid, 3)
+        _base_stats = get_normalized_base_stats(pid)
+        evo_stage = 3 if _base_stats else EVO_STAGE_MAP.get(pid, 3)
         stats = calc_battle_stats(
             p["rarity"], p.get("stat_type", "balanced"), p["friendship"],
             evo_stage=evo_stage,
             iv_hp=iv_hp, iv_atk=iv_atk, iv_def=iv_def,
             iv_spa=iv_spa, iv_spdef=iv_spdef, iv_spd=iv_spd,
+            **(_base_stats or {}),
         )
         base = calc_battle_stats(
             p["rarity"], p.get("stat_type", "balanced"), p["friendship"],
             evo_stage=evo_stage,
+            **(_base_stats or {}),
         )
         stats_line = (
             f"\n{icon_emoji('bolt')} 전투력: {format_power(stats, base)}"
@@ -2277,7 +2280,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
     from database import battle_queries as bq
-    from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, calc_power, EVO_STAGE_MAP
+    from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, calc_power, EVO_STAGE_MAP, get_normalized_base_stats
     from models.pokemon_skills import POKEMON_SKILLS
     from models.pokemon_base_stats import POKEMON_BASE_STATS
 
@@ -2326,14 +2329,16 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 파트너
     lines.append("")
     if partner:
-        evo = EVO_STAGE_MAP.get(partner["pokemon_id"], 3)
+        _p_base = get_normalized_base_stats(partner["pokemon_id"])
+        evo = 3 if _p_base else EVO_STAGE_MAP.get(partner["pokemon_id"], 3)
         stats = calc_battle_stats(
             partner["rarity"], partner["stat_type"], partner["friendship"], evo_stage=evo,
             iv_hp=partner.get("iv_hp"), iv_atk=partner.get("iv_atk"),
             iv_def=partner.get("iv_def"), iv_spa=partner.get("iv_spa"),
             iv_spdef=partner.get("iv_spdef"), iv_spd=partner.get("iv_spd"),
+            **(_p_base or {}),
         )
-        base = calc_battle_stats(partner["rarity"], partner["stat_type"], partner["friendship"], evo_stage=evo)
+        base = calc_battle_stats(partner["rarity"], partner["stat_type"], partner["friendship"], evo_stage=evo, **(_p_base or {}))
         tb = type_badge(partner["pokemon_id"], partner["pokemon_type"])
         pbs = POKEMON_BASE_STATS.get(partner["pokemon_id"])
         if pbs:
@@ -2358,14 +2363,16 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         total_power = 0
         total_base_power = 0
         for i, t in enumerate(team, 1):
-            evo = EVO_STAGE_MAP.get(t["pokemon_id"], 3)
+            _t_base = get_normalized_base_stats(t["pokemon_id"])
+            evo = 3 if _t_base else EVO_STAGE_MAP.get(t["pokemon_id"], 3)
             stats = calc_battle_stats(
                 t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo,
                 iv_hp=t.get("iv_hp"), iv_atk=t.get("iv_atk"),
                 iv_def=t.get("iv_def"), iv_spa=t.get("iv_spa"),
                 iv_spdef=t.get("iv_spdef"), iv_spd=t.get("iv_spd"),
+                **(_t_base or {}),
             )
-            tbase = calc_battle_stats(t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo)
+            tbase = calc_battle_stats(t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo, **(_t_base or {}))
             total_power += calc_power(stats)
             total_base_power += calc_power(tbase)
             from models.pokemon_skills import get_skill_display

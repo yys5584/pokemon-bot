@@ -11,7 +11,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from database import battle_queries as bq
-from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, EVO_STAGE_MAP, iv_total
+from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, EVO_STAGE_MAP, iv_total, get_normalized_base_stats
 from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge, icon_emoji, ball_emoji, iv_grade_tag
 
 logger = logging.getLogger(__name__)
@@ -123,17 +123,19 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
             return
 
-        evo_stage = EVO_STAGE_MAP.get(partner["pokemon_id"], 3)
+        _p_base = get_normalized_base_stats(partner["pokemon_id"])
+        evo_stage = 3 if _p_base else EVO_STAGE_MAP.get(partner["pokemon_id"], 3)
         stats = calc_battle_stats(
             partner["rarity"], partner["stat_type"], partner["friendship"],
             evo_stage=evo_stage,
             iv_hp=partner.get("iv_hp"), iv_atk=partner.get("iv_atk"),
             iv_def=partner.get("iv_def"), iv_spa=partner.get("iv_spa"),
             iv_spdef=partner.get("iv_spdef"), iv_spd=partner.get("iv_spd"),
+            **(_p_base or {}),
         )
         base = calc_battle_stats(
             partner["rarity"], partner["stat_type"], partner["friendship"],
-            evo_stage=evo_stage,
+            evo_stage=evo_stage, **(_p_base or {}),
         )
         tb = type_badge(partner["pokemon_id"], partner["pokemon_type"])
         from models.pokemon_base_stats import POKEMON_BASE_STATS
@@ -281,17 +283,19 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
             await queries.unlock_title(owner_id, "partner_set")
 
         tb = type_badge(chosen["pokemon_id"], chosen.get("pokemon_type"))
-        evo_stage = EVO_STAGE_MAP.get(chosen["pokemon_id"], 3)
+        _c_base = get_normalized_base_stats(chosen["pokemon_id"])
+        evo_stage = 3 if _c_base else EVO_STAGE_MAP.get(chosen["pokemon_id"], 3)
         stats = calc_battle_stats(
             chosen["rarity"], chosen.get("stat_type", "balanced"), chosen["friendship"],
             evo_stage=evo_stage,
             iv_hp=chosen.get("iv_hp"), iv_atk=chosen.get("iv_atk"),
             iv_def=chosen.get("iv_def"), iv_spa=chosen.get("iv_spa"),
             iv_spdef=chosen.get("iv_spdef"), iv_spd=chosen.get("iv_spd"),
+            **(_c_base or {}),
         )
         base = calc_battle_stats(
             chosen["rarity"], chosen.get("stat_type", "balanced"), chosen["friendship"],
-            evo_stage=evo_stage,
+            evo_stage=evo_stage, **(_c_base or {}),
         )
         try:
             await query.edit_message_text(
@@ -569,17 +573,19 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_base_power = 0
     total_cost = 0
     for i, p in enumerate(team):
-        evo_stage = EVO_STAGE_MAP.get(p["pokemon_id"], 3)
+        _t_base = get_normalized_base_stats(p["pokemon_id"])
+        evo_stage = 3 if _t_base else EVO_STAGE_MAP.get(p["pokemon_id"], 3)
         stats = calc_battle_stats(
             p["rarity"], p["stat_type"], p["friendship"],
             evo_stage=evo_stage,
             iv_hp=p.get("iv_hp"), iv_atk=p.get("iv_atk"),
             iv_def=p.get("iv_def"), iv_spa=p.get("iv_spa"),
             iv_spdef=p.get("iv_spdef"), iv_spd=p.get("iv_spd"),
+            **(_t_base or {}),
         )
         base = calc_battle_stats(
             p["rarity"], p["stat_type"], p["friendship"],
-            evo_stage=evo_stage,
+            evo_stage=evo_stage, **(_t_base or {}),
         )
         total_power += calc_power(stats)
         total_base_power += calc_power(base)
