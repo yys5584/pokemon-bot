@@ -9,7 +9,8 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from services.market_service import create_listing, buy_listing, cancel_listing_for_user, calc_fee
-from utils.helpers import iv_grade_tag as _iv_tag
+from utils.helpers import iv_grade_tag as _iv_tag, iv_grade
+from utils.battle_calc import iv_total, calc_battle_stats, format_power, EVO_STAGE_MAP, get_normalized_base_stats
 
 logger = logging.getLogger(__name__)
 
@@ -505,10 +506,54 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             return
 
         success, msg, info = await buy_listing(user_id, listing_id)
-        try:
-            await query.edit_message_text(msg)
-        except Exception:
-            pass
+
+        # 구매자에게 스펙 포함 메시지 표시
+        if success and info:
+            try:
+                ivs = info.get("ivs", {})
+                iv_hp = ivs.get("iv_hp")
+                iv_atk = ivs.get("iv_atk")
+                iv_def = ivs.get("iv_def")
+                iv_spa = ivs.get("iv_spa")
+                iv_spdef = ivs.get("iv_spdef")
+                iv_spd = ivs.get("iv_spd")
+                total_iv = iv_total(iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd)
+                grade = iv_grade(total_iv)
+                shiny_tag = " ✨이로치" if info["is_shiny"] else ""
+
+                # 전투력 계산
+                pid = info["pokemon_id"]
+                norm = get_normalized_base_stats(pid)
+                evo_stage = 3 if norm else EVO_STAGE_MAP.get(pid, 3)
+                base_kwargs = norm or {}
+                stats = calc_battle_stats(
+                    pokemon_id=pid, level=1, evo_stage=evo_stage,
+                    iv_hp=iv_hp, iv_atk=iv_atk, iv_def=iv_def,
+                    iv_spa=iv_spa, iv_spdef=iv_spdef, iv_spd=iv_spd,
+                    **base_kwargs,
+                )
+                power = stats.get("power", 0)
+
+                spec_msg = (
+                    f"🎉 거래소 구매 완료!\n\n"
+                    f"{info['emoji']} <b>{info['pokemon_name']}{shiny_tag}</b>\n"
+                    f"💰 {info['price']:,} BP 지불\n\n"
+                    f"📊 IV: {total_iv}/186 [{grade}]\n"
+                    f"  HP {iv_hp or 0} / ATK {iv_atk or 0} / DEF {iv_def or 0}\n"
+                    f"  SPA {iv_spa or 0} / SPDEF {iv_spdef or 0} / SPD {iv_spd or 0}\n"
+                    f"⚔️ 전투력: {format_power(power)}"
+                )
+                await query.edit_message_text(spec_msg, parse_mode="HTML")
+            except Exception:
+                try:
+                    await query.edit_message_text(msg)
+                except Exception:
+                    pass
+        else:
+            try:
+                await query.edit_message_text(msg)
+            except Exception:
+                pass
 
         # Mission: trade (buyer)
         if success:

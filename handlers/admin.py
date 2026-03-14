@@ -854,7 +854,7 @@ async def grant_subscription_handler(update: Update, context: ContextTypes.DEFAU
     else:
         new_expires = datetime.utcnow() + timedelta(days=days)
 
-    await sq.create_subscription(target_user_id, tier, new_expires, payment_id=0)
+    await sq.create_subscription(target_user_id, tier, new_expires, payment_id=None)
 
     tier_name = config.SUBSCRIPTION_TIERS[tier]["name"]
     exp_kst = (new_expires + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M")

@@ -871,7 +871,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
         InlineKeyboardButton("🍖 밥", callback_data=f"mypoke_feed_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("🎮 놀기", callback_data=f"mypoke_play_{user_id}_{idx}_{page}"),
     ]
-    can_evo_friendship = p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP
+    can_evo_friendship = p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.get_max_friendship(p)
     can_evo_trade = p["evolves_to"] and p["evolution_method"] == "trade"
     if can_evo_friendship:
         care_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))

@@ -163,12 +163,15 @@ async def buy_listing(
         "seller_name": listing.get("seller_name", ""),
         "buyer_id": buyer_id,
         "pokemon_name": listing["pokemon_name"],
+        "pokemon_id": listing["pokemon_id"],
         "emoji": listing["emoji"],
         "price": price,
         "fee": fee,
         "seller_gets": seller_gets,
         "is_shiny": is_shiny,
         "pending_evo": pending_evo,
+        "new_instance_id": new_instance_id,
+        "ivs": ivs,
     }
 
 
