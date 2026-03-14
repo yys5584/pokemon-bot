@@ -1255,8 +1255,9 @@ CAMP_SCORE_BONUS_FULL = 7       # 보너스 + 개체값 + 이로치
 # ── 라운드 스케줄 (KST) ──
 CAMP_ROUND_HOURS = [9, 12, 15, 18, 21, 0]  # 6회/일
 CAMP_ROUND_INTERVAL = 10800  # 3시간 (초)
-CAMP_ACCEPT_WINDOW = 1800    # 접수 30분 (초)
+CAMP_MIN_HOLD_SECONDS = 3600  # 정산 인정 최소 유지 시간 (1시간)
 CAMP_MSG_DELETE_DELAY = 3600  # 메시지 자동삭제 (1시간)
+CAMP_HOME_COOLDOWN = 7 * 86400  # 거점 변경 쿨다운 (7일)
 
 # 대회 알림은 09:10 (캠프와 10분 간격)
 CAMP_TOURNAMENT_ALARM_DELAY = 600  # 초

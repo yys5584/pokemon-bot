@@ -15,6 +15,7 @@ import config
 from database import camp_queries as cq
 from database import queries
 from services import camp_service as cs
+from handlers.dm_camp import _next_round_countdown
 from utils.helpers import schedule_delete
 from utils.camp_map_generator import generate_camp_map
 
@@ -846,6 +847,41 @@ async def camp_callback_handler(update, context):
 
 
 # ═══════════════════════════════════════════════════════
+# 정산 DM 메시지 빌더
+# ═══════════════════════════════════════════════════════
+
+def _build_settlement_dm(result: dict, chat_title: str, camp_level: int) -> str:
+    """정산 결과 DM 메시지 생성."""
+    level_info = cs.get_level_info(camp_level)
+    level_name = level_info[5]
+
+    lines = [
+        f"🏕 정산 알림 — {chat_title}",
+        f"📊 Lv.{camp_level} {level_name}",
+        "━━━━━━━━━━━━━",
+    ]
+
+    for f in result["fields"]:
+        fi = config.CAMP_FIELDS.get(f["field_type"], {})
+        emoji = fi.get("emoji", "🏕")
+        name = fi.get("name", f["field_type"])
+
+        if not f["users"]:
+            lines.append(f"{emoji} {name}: 비어있음")
+        else:
+            lines.append(f"{emoji} {name}: +{f['per_user']}조각 ({f['capped']}/{f['total_score']}점)")
+
+    if result.get("level_up"):
+        lines.append(f"\n🎉 캠프 레벨업! → Lv.{result['level_up']}")
+
+    lines.append("━━━━━━━━━━━━━")
+    lines.append(f"📋 다음 정산: {_next_round_countdown()}")
+    lines.append("💡 '캠프알림'으로 알림 on/off")
+
+    return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════
 # 스케줄러 Jobs
 # ═══════════════════════════════════════════════════════
 
@@ -874,6 +910,21 @@ async def camp_round_job(context):
                 text = cs.build_round_announcement(result, camp["level"])
                 msg = await context.bot.send_message(chat_id=chat_id, text=text)
                 schedule_delete(msg, config.CAMP_MSG_DELETE_DELAY)
+
+                # 2-1) 거점캠프 유저에게 정산 DM
+                try:
+                    home_users = await cq.get_home_camp_users(chat_id)
+                    if home_users:
+                        chat_room = await queries.get_chat_room(chat_id)
+                        chat_title = (chat_room.get("chat_title") if chat_room else None) or "캠프"
+                        dm_text = _build_settlement_dm(result, chat_title, camp["level"])
+                        for uid in home_users:
+                            try:
+                                await context.bot.send_message(chat_id=uid, text=dm_text)
+                            except Exception:
+                                pass  # 유저가 봇 차단 등
+                except Exception:
+                    logger.exception(f"[Camp] Settlement DM failed for chat {chat_id}")
 
             # 3) 자동 승인 처리
             try:

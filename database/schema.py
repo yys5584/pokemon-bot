@@ -1020,6 +1020,18 @@ async def create_tables():
         except Exception:
             pass
 
+    # Camp renewal migrations (2026-03-14)
+    camp_renewal_migs = [
+        "ALTER TABLE camp_user_settings ADD COLUMN home_camp_set_at TIMESTAMPTZ",
+        "ALTER TABLE camp_user_settings ADD COLUMN camp_notify BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE chat_rooms ADD COLUMN invite_link TEXT",
+    ]
+    for mig in camp_renewal_migs:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

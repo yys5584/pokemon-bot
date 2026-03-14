@@ -236,9 +236,15 @@ async def settle_round(chat_id: int, round_time: datetime) -> dict:
         bonus = bonus_map.get(field["id"])
 
         # 각 배치 점수 재계산 (라운드 보너스 기준)
+        now = config.get_kst_now()
         total_score = 0
         user_ids = []
         for p in placements:
+            # 상시 배치 어뷰징 방지: 1시간 미만 유지 시 점수 미인정
+            placed_at = p.get("placed_at")
+            if placed_at and (now - placed_at).total_seconds() < config.CAMP_MIN_HOLD_SECONDS:
+                continue
+
             ivs = {
                 "iv_hp": p.get("iv_hp", 0),
                 "iv_atk": p.get("iv_atk", 0),
@@ -359,7 +365,7 @@ def build_bonus_announcement(fields: list[dict], bonuses: list[dict]) -> str:
     """접수 타임 시작 시 보너스 포켓몬 안내 메시지."""
     bonus_map = {b["field_id"]: b for b in bonuses}
 
-    lines = ["🏕 캠프 라운드 시작! (30분 접수)"]
+    lines = ["🏕 캠프 라운드 시작!"]
     lines.append("━━━━━━━━━━━━━")
 
     for field in fields:
@@ -376,7 +382,7 @@ def build_bonus_announcement(fields: list[dict], bonuses: list[dict]) -> str:
             lines.append(f"{emoji} {name}: 타입 맞는 포켓몬 배치")
 
     lines.append("━━━━━━━━━━━━━")
-    lines.append("💡 배치: 그룹에서 `캠프` 또는 DM에서 `내캠프`")
+    lines.append("💡 배치: 그룹에서 `캠프` 또는 DM에서 `거점캠프`")
     return "\n".join(lines)
 
 
@@ -932,20 +938,34 @@ async def get_user_camp_summary(user_id: int) -> dict:
 
 
 async def set_home_camp(user_id: int, chat_id: int) -> tuple[bool, str]:
-    """거점 캠프 설정 (하루 1회 변경)."""
+    """거점 캠프 설정 (7일 쿨다운)."""
     settings = await cq.get_user_camp_settings(user_id)
-    if settings and settings.get("home_changed_date"):
-        from datetime import date
-        today = config.get_kst_now().date()
-        if settings["home_changed_date"] == today:
-            return False, "거점 캠프는 하루에 한 번만 변경할 수 있습니다."
+
+    # 기존 거점이 같은 방이면 무시
+    if settings and settings.get("home_chat_id") == chat_id:
+        return False, "이미 이 채팅방이 거점 캠프입니다."
+
+    # 7일 쿨다운 체크
+    if settings and settings.get("home_camp_set_at"):
+        now = config.get_kst_now()
+        elapsed = (now - settings["home_camp_set_at"]).total_seconds()
+        cooldown = 7 * 86400  # 7일
+        if elapsed < cooldown:
+            remaining = cooldown - elapsed
+            days = int(remaining // 86400)
+            hours = int((remaining % 86400) // 3600)
+            return False, f"거점 변경 쿨다운 중입니다. ({days}일 {hours}시간 남음)"
 
     camp = await cq.get_camp(chat_id)
     if not camp:
         return False, "해당 채팅방에 캠프가 없습니다."
 
+    is_first = settings is None or settings.get("home_chat_id") is None
     await cq.set_home_camp(user_id, chat_id)
-    return True, "🏠 거점 캠프가 설정되었습니다!"
+
+    if is_first:
+        return True, "FIRST_HOME"  # 핸들러에서 튜토리얼 트리거
+    return True, "🏠 거점 캠프가 변경되었습니다!"
 
 
 # ═══════════════════════════════════════════════════════

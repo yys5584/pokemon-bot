@@ -379,24 +379,52 @@ async def get_user_camp_settings(user_id: int) -> dict | None:
     """Get user's camp settings (home camp, etc.)."""
     pool = await get_db()
     row = await pool.fetchrow(
-        "SELECT home_chat_id, home_changed_date FROM camp_user_settings WHERE user_id = $1",
+        """SELECT home_chat_id, home_changed_date, home_camp_set_at,
+                  COALESCE(camp_notify, TRUE) AS camp_notify
+           FROM camp_user_settings WHERE user_id = $1""",
         user_id,
     )
     return dict(row) if row else None
 
 
 async def set_home_camp(user_id: int, chat_id: int):
-    """Set user's home camp. Records today's date for daily change limit."""
+    """Set user's home camp. Records timestamp for 7-day change cooldown."""
     pool = await get_db()
     await pool.execute(
-        """INSERT INTO camp_user_settings (user_id, home_chat_id, home_changed_date)
-           VALUES ($1, $2, CURRENT_DATE)
+        """INSERT INTO camp_user_settings (user_id, home_chat_id, home_changed_date, home_camp_set_at)
+           VALUES ($1, $2, CURRENT_DATE, NOW())
            ON CONFLICT (user_id)
            DO UPDATE SET
                home_chat_id = $2,
-               home_changed_date = CURRENT_DATE""",
+               home_changed_date = CURRENT_DATE,
+               home_camp_set_at = NOW()""",
         user_id, chat_id,
     )
+
+
+async def toggle_camp_notify(user_id: int) -> bool:
+    """Toggle camp notification. Returns new state."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """INSERT INTO camp_user_settings (user_id, camp_notify)
+           VALUES ($1, FALSE)
+           ON CONFLICT (user_id)
+           DO UPDATE SET camp_notify = NOT COALESCE(camp_user_settings.camp_notify, TRUE)
+           RETURNING camp_notify""",
+        user_id,
+    )
+    return row["camp_notify"] if row else True
+
+
+async def get_home_camp_users(chat_id: int) -> list[int]:
+    """Get all user IDs who have this chat as home camp and notify enabled."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT user_id FROM camp_user_settings
+           WHERE home_chat_id = $1 AND COALESCE(camp_notify, TRUE) = TRUE""",
+        chat_id,
+    )
+    return [r["user_id"] for r in rows]
 
 
 # ═══════════════════════════════════════════════════════
@@ -567,3 +595,17 @@ async def get_camp_enabled_chats() -> list[int]:
     pool = await get_db()
     rows = await pool.fetch("SELECT chat_id FROM camps")
     return [r["chat_id"] for r in rows]
+
+
+async def get_available_camps() -> list[dict]:
+    """Get all active camps with chat info for home camp selection."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT c.chat_id, c.level, cr.chat_title, cr.member_count, cr.invite_link
+           FROM camps c
+           JOIN chat_rooms cr ON cr.chat_id = c.chat_id
+           WHERE cr.is_active = 1
+           ORDER BY cr.member_count DESC NULLS LAST
+           LIMIT 50""",
+    )
+    return [dict(r) for r in rows]

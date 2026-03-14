@@ -71,7 +71,7 @@ from services.tournament_service import start_registration, start_tournament, sn
 from handlers.tournament import tournament_join_handler
 try:
     from handlers.camp import camp_handler, camp_callback_handler, camp_round_job, camp_create_handler, camp_settings_handler, camp_map_handler
-    from handlers.dm_camp import my_camp_handler, shiny_convert_handler, decompose_handler, camp_dm_callback_handler
+    from handlers.dm_camp import my_camp_handler, shiny_convert_handler, decompose_handler, camp_dm_callback_handler, home_camp_handler, camp_notify_handler, camp_guide_handler
     HAS_CAMP = True
 except ImportError:
     HAS_CAMP = False
@@ -1100,6 +1100,9 @@ def main():
     # Camp system v2 (DM)
     if HAS_CAMP:
         app.add_handler(MessageHandler(dm & filters.Regex(r"^내캠프$"), my_camp_handler))
+        app.add_handler(MessageHandler(dm & filters.Regex(r"^거점캠프$"), home_camp_handler))
+        app.add_handler(MessageHandler(dm & filters.Regex(r"^캠프알림$"), camp_notify_handler))
+        app.add_handler(MessageHandler(dm & filters.Regex(r"^캠프가이드$"), camp_guide_handler))
         app.add_handler(MessageHandler(dm & filters.Regex(r"^이로치전환$"), shiny_convert_handler))
         app.add_handler(MessageHandler(dm & filters.Regex(r"^분해$"), decompose_handler))
 

@@ -1,7 +1,8 @@
-"""Camp v2 DM handlers — 내캠프, 이로치전환, 분해, 거점설정."""
+"""Camp v2 DM handlers — 거점캠프, 내캠프, 이로치전환, 분해, 캠프알림, 캠프가이드."""
 
 import time
 import logging
+from datetime import timedelta
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -30,6 +31,258 @@ def _is_duplicate_callback(query) -> bool:
     return False
 
 
+def _pokemon_name(pid: int) -> str:
+    """포켓몬 ID → 이름 (camp_service 캐시 활용)."""
+    return cs._pokemon_name(pid)
+
+
+def _next_round_countdown() -> str:
+    """다음 정산까지 남은 시간 문자열."""
+    now = config.get_kst_now()
+    hours = sorted(config.CAMP_ROUND_HOURS)
+    current_h = now.hour
+    current_m = now.minute
+
+    next_hour = None
+    for h in hours:
+        if h > current_h or (h == current_h and current_m == 0):
+            next_hour = h
+            break
+    if next_hour is None:
+        next_hour = hours[0]  # 내일 첫 라운드
+
+    if next_hour > current_h:
+        remain_min = (next_hour - current_h) * 60 - current_m
+    elif next_hour == current_h:
+        remain_min = 0
+    else:
+        remain_min = (24 - current_h + next_hour) * 60 - current_m
+
+    h = remain_min // 60
+    m = remain_min % 60
+    next_time = f"{next_hour:02d}:00"
+    if h > 0:
+        return f"{next_time} ({h}시간 {m}분 후)"
+    return f"{next_time} ({m}분 후)"
+
+
+# ═══════════════════════════════════════════════════════
+# DM 명령: 거점캠프
+# ═══════════════════════════════════════════════════════
+
+async def home_camp_handler(update, context):
+    """DM '거점캠프' — 거점 상세 현황 + 보너스 조건 표시."""
+    user_id = update.effective_user.id
+    user = await queries.get_user(user_id)
+    if not user:
+        await update.message.reply_text("먼저 포켓몬을 잡아보세요!")
+        return
+
+    settings = await cq.get_user_camp_settings(user_id)
+
+    # 거점 미설정 → 캠프 목록 표시
+    if not settings or not settings.get("home_chat_id"):
+        camps = await cq.get_available_camps()
+        if not camps:
+            await update.message.reply_text(
+                "🏕 거점캠프\n━━━━━━━━━━━━━\n"
+                "활성화된 캠프가 없습니다.\n"
+                "채팅방에서 '캠프개설'로 캠프를 만들어보세요!"
+            )
+            return
+
+        lines = [
+            "🏕 거점캠프를 설정하세요!",
+            "━━━━━━━━━━━━━",
+            "거점을 설정하면 DM으로 정산 결과를 받을 수 있어요.",
+            "",
+        ]
+        buttons = []
+        for c in camps[:15]:
+            title = c.get("chat_title") or f"채팅방 {c['chat_id']}"
+            lv = c.get("level", 1)
+            members = c.get("member_count") or 0
+            lines.append(f"🏕 {title} (Lv.{lv}, {members}명)")
+            buttons.append([InlineKeyboardButton(
+                f"🏕 {title}",
+                callback_data=f"cdm_home_{user_id}_{c['chat_id']}",
+            )])
+
+        lines.append("━━━━━━━━━━━━━")
+        await update.message.reply_text(
+            "\n".join(lines),
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+        return
+
+    # 거점 설정됨 → 상세 현황 표시
+    chat_id = settings["home_chat_id"]
+    camp = await cq.get_camp(chat_id)
+    if not camp:
+        await update.message.reply_text("거점 캠프가 삭제되었습니다. 새 거점을 설정해주세요.")
+        return
+
+    chat_room = await queries.get_chat_room(chat_id)
+    chat_title = (chat_room.get("chat_title") if chat_room else None) or "채팅방"
+
+    fields = await cq.get_fields(chat_id)
+    level_info = cs.get_level_info(camp["level"])
+
+    # 현재 라운드 보너스
+    now = config.get_kst_now()
+    current_round = cs._get_current_round_time(now)
+    bonuses = await cq.get_round_bonus(chat_id, current_round)
+    bonus_map = {b["field_id"]: b for b in bonuses}
+
+    # 유저 배치 현황
+    placements = await cq.get_user_placements_in_chat(chat_id, user_id)
+    placed_map = {p["field_id"]: p for p in placements}
+
+    lines = [
+        f"🏕 거점캠프 — {chat_title}",
+    ]
+
+    # invite link
+    if chat_room and chat_room.get("invite_link"):
+        lines.append(f"👉 {chat_room['invite_link']}")
+
+    lines.append("━━━━━━━━━━━━━")
+    lines.append(f"📊 캠프 레벨: Lv.{camp['level']} {level_info[5]}")
+
+    for f in fields:
+        fi = config.CAMP_FIELDS.get(f["field_type"], {})
+        emoji = fi.get("emoji", "🏕")
+        name = fi.get("name", f["field_type"])
+
+        placed = placed_map.get(f["id"])
+        if placed:
+            shiny = "✨" if placed.get("is_shiny") else ""
+            lines.append(f"{emoji} {name} — {shiny}{placed['name_ko']} 배치 중 ({placed['score']}점)")
+        else:
+            lines.append(f"{emoji} {name} — 비어있음")
+
+    lines.append("━━━━━━━━━━━━━")
+    lines.append(f"📋 다음 정산: {_next_round_countdown()}")
+
+    # 보너스 조건
+    if bonuses:
+        lines.append("")
+        lines.append("🔄 라운드 보너스 조건:")
+        for f in fields:
+            bonus = bonus_map.get(f["id"])
+            if bonus:
+                fi = config.CAMP_FIELDS.get(f["field_type"], {})
+                emoji = fi.get("emoji", "🏕")
+                name = fi.get("name", f["field_type"])
+                pname = _pokemon_name(bonus["pokemon_id"])
+                stat_name = config.CAMP_IV_STAT_NAMES.get(bonus["stat_type"], "")
+                lines.append(f"  {emoji} {name}: {pname} ({stat_name} {bonus['stat_value']}↑) → 7점")
+
+    lines.append("━━━━━━━━━━━━━")
+
+    # 버튼
+    buttons = []
+    buttons.append([InlineKeyboardButton("🏕 배치하기", callback_data=f"cdm_place_{user_id}")])
+
+    # 거점 변경 가능 여부
+    if settings.get("home_camp_set_at"):
+        elapsed = (now - settings["home_camp_set_at"]).total_seconds()
+        cooldown = config.CAMP_HOME_COOLDOWN
+        if elapsed >= cooldown:
+            buttons.append([InlineKeyboardButton("🔄 거점변경", callback_data=f"cdm_chghome_{user_id}")])
+        else:
+            change_date = (settings["home_camp_set_at"] + timedelta(days=7)).strftime("%m/%d")
+            buttons.append([InlineKeyboardButton(f"🔒 거점변경 ({change_date} 이후)", callback_data=f"cdm_noop_{user_id}")])
+    else:
+        buttons.append([InlineKeyboardButton("🔄 거점변경", callback_data=f"cdm_chghome_{user_id}")])
+
+    await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons))
+
+
+# ═══════════════════════════════════════════════════════
+# DM 명령: 캠프알림
+# ═══════════════════════════════════════════════════════
+
+async def camp_notify_handler(update, context):
+    """DM '캠프알림' — 정산 DM 알림 on/off 토글."""
+    user_id = update.effective_user.id
+    new_state = await cq.toggle_camp_notify(user_id)
+    if new_state:
+        await update.message.reply_text("🔔 캠프 정산 알림이 켜졌습니다.")
+    else:
+        await update.message.reply_text("🔕 캠프 정산 알림이 꺼졌습니다.")
+
+
+# ═══════════════════════════════════════════════════════
+# DM 명령: 캠프가이드
+# ═══════════════════════════════════════════════════════
+
+_GUIDE_STEPS = [
+    (
+        "🏕 【캠프 가이드 1/4】\n\n"
+        "캠프는 채팅방에 포켓몬을 배치해서\n"
+        "조각을 모으는 시스템이에요!\n\n"
+        "📋 흐름:\n"
+        "1️⃣ 거점캠프 설정\n"
+        "2️⃣ 필드에 포켓몬 배치\n"
+        "3️⃣ 3시간마다 자동 정산 → 조각 획득\n"
+        "4️⃣ 조각을 모아 분해결정 교환\n"
+        "5️⃣ 분해결정으로 이로치 전환!"
+    ),
+    (
+        "🏕 【포켓몬 배치 2/4】\n\n"
+        "캠프에는 여러 필드가 있어요:\n"
+        "🌿 숲 — 풀/벌레/독 타입\n"
+        "🔥 화산 — 불/땅/바위 타입\n"
+        "💧 호수 — 물/얼음/비행 타입\n"
+        "🏙 도시 — 노말/격투/강철 타입\n"
+        "🕳 동굴 — 고스트/악/드래곤 타입\n"
+        "⛩ 신전 — 에스퍼/페어리/전기 타입\n\n"
+        "💡 보너스 조건에 맞는 포켓몬을 배치하면\n"
+        "   점수가 훨씬 높아요! (최대 7점)"
+    ),
+    (
+        "🏕 【점수 시스템 3/4】\n\n"
+        "포켓몬 배치 시 점수:\n"
+        "  ✅ 타입만 맞음 → 1점\n"
+        "  ⭐ 보너스 포켓몬 → 2점\n"
+        "  ⭐ 보너스 + 개체값 충족 → 4점\n"
+        "  ⭐ 보너스 + 이로치 → 4점\n"
+        "  🌟 보너스 + 개체값 + 이로치 → 7점\n\n"
+        "📋 정산 시간 (매일 6회):\n"
+        "  09:00 / 12:00 / 15:00 / 18:00 / 21:00 / 00:00\n\n"
+        "💡 배치 후 1시간 이상 유지해야 정산에 반영돼요!"
+    ),
+    (
+        "🏕 【조각 → 이로치 전환 4/4】\n\n"
+        "정산 시 점수에 따라 조각을 받아요.\n"
+        "조각을 모으면:\n\n"
+        "✨ 이로치 전환:\n"
+        "  조각으로 보유 포켓몬을 이로치로!\n"
+        "  DM에서 '이로치전환' 입력\n\n"
+        "🔨 분해:\n"
+        "  이로치를 분해하면 결정 획득!\n"
+        "  에픽+ 전환에 결정이 필요해요.\n\n"
+        "지금 '거점캠프'를 입력해서\n"
+        "보너스 조건을 확인하고 배치해보세요! 🎉"
+    ),
+]
+
+
+async def camp_guide_handler(update, context):
+    """DM '캠프가이드' — 캠프 튜토리얼 시작."""
+    user_id = update.effective_user.id
+
+    buttons = [[
+        InlineKeyboardButton("다음 ▶", callback_data=f"cdm_guide_{user_id}_1"),
+        InlineKeyboardButton("건너뛰기", callback_data=f"cdm_cancel_{user_id}"),
+    ]]
+    await update.message.reply_text(
+        _GUIDE_STEPS[0],
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
+
+
 # ═══════════════════════════════════════════════════════
 # DM 명령: 내캠프
 # ═══════════════════════════════════════════════════════
@@ -48,9 +301,11 @@ async def my_camp_handler(update, context):
 
     # 거점 캠프
     if summary["home_camp"]:
-        lines.append(f"🏠 거점 캠프: {summary['home_camp']}")
+        chat_room = await queries.get_chat_room(summary["home_camp"])
+        title = (chat_room.get("chat_title") if chat_room else None) or "알 수 없음"
+        lines.append(f"🏠 거점: {title}")
     else:
-        lines.append("🏠 거점 캠프: 미설정 (그룹에서 '거점설정')")
+        lines.append("🏠 거점: 미설정 ('거점캠프' 입력)")
 
     # 조각
     frags = summary["fragments"]
@@ -117,11 +372,9 @@ async def shiny_convert_handler(update, context):
         await update.message.reply_text("먼저 포켓몬을 잡아보세요!")
         return
 
-    # 보유 자원
     frags = await cq.get_user_fragments(user_id)
     crystals = await cq.get_crystals(user_id)
 
-    # 비이로치 포켓몬 중 타입이 매칭되는 것들
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     eligible = []
     for p in pokemon_list:
@@ -136,7 +389,6 @@ async def shiny_convert_handler(update, context):
         crystal_cost = config.CAMP_CRYSTAL_COST.get(rarity, 0)
         rainbow_cost = config.CAMP_RAINBOW_COST.get(rarity, 0)
 
-        # 어느 필드든 조각 충분한지
         can_afford_frags = any(frags.get(f, 0) >= frag_cost for f in matching_fields)
         can_afford_crystal = crystals["crystal"] >= crystal_cost
         can_afford_rainbow = crystals["rainbow"] >= rainbow_cost
@@ -161,7 +413,6 @@ async def shiny_convert_handler(update, context):
         )
         return
 
-    # 전환 가능한 것만 상위 표시
     affordable = [e for e in eligible if e["can_afford"]][:10]
     unaffordable = [e for e in eligible if not e["can_afford"]][:5]
 
@@ -274,8 +525,113 @@ async def camp_dm_callback_handler(update, context):
     data = query.data
     parts = data.split("_")
 
+    # ── cdm_home_{uid}_{chat_id} — 거점 설정 ──
+    if data.startswith("cdm_home_"):
+        uid = int(parts[2])
+        target_chat_id = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        success, msg = await cs.set_home_camp(uid, target_chat_id)
+        if success and msg == "FIRST_HOME":
+            # 첫 거점 설정 → 캠프 가이드 시작
+            await query.answer("거점 캠프가 설정되었습니다!")
+            buttons = [[
+                InlineKeyboardButton("다음 ▶", callback_data=f"cdm_guide_{uid}_1"),
+                InlineKeyboardButton("건너뛰기", callback_data=f"cdm_cancel_{uid}"),
+            ]]
+            text = "🏠 거점 캠프가 설정되었습니다!\n\n" + _GUIDE_STEPS[0]
+            try:
+                await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+            except Exception:
+                pass
+        elif success:
+            await query.answer(msg)
+            try:
+                await query.edit_message_text(msg)
+            except Exception:
+                pass
+        else:
+            await query.answer(msg, show_alert=True)
+
+    # ── cdm_chghome_{uid} — 거점 변경 목록 ──
+    elif data.startswith("cdm_chghome_"):
+        uid = int(parts[2])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        camps = await cq.get_available_camps()
+        settings = await cq.get_user_camp_settings(uid)
+        current_home = settings.get("home_chat_id") if settings else None
+
+        buttons = []
+        lines = ["🔄 거점 변경", "━━━━━━━━━━━━━", "⚠️ 변경 후 7일간 재변경 불가!", ""]
+        for c in camps[:15]:
+            if c["chat_id"] == current_home:
+                continue
+            title = c.get("chat_title") or f"채팅방 {c['chat_id']}"
+            lv = c.get("level", 1)
+            lines.append(f"🏕 {title} (Lv.{lv})")
+            buttons.append([InlineKeyboardButton(
+                f"🏕 {title}",
+                callback_data=f"cdm_home_{uid}_{c['chat_id']}",
+            )])
+        buttons.append([InlineKeyboardButton("❌ 취소", callback_data=f"cdm_cancel_{uid}")])
+
+        await query.answer()
+        try:
+            await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons))
+        except Exception:
+            pass
+
+    # ── cdm_place_{uid} — DM에서 거점캠프 배치 안내 ──
+    elif data.startswith("cdm_place_"):
+        uid = int(parts[2])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer("그룹 채팅방에서 '캠프'를 입력해 배치하세요!", show_alert=True)
+
+    # ── cdm_guide_{uid}_{step} — 캠프 가이드 페이지 ──
+    elif data.startswith("cdm_guide_"):
+        uid = int(parts[2])
+        step = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        if step >= len(_GUIDE_STEPS):
+            await query.answer()
+            try:
+                await query.edit_message_text(_GUIDE_STEPS[-1])
+            except Exception:
+                pass
+            return
+
+        await query.answer()
+        buttons = []
+        if step < len(_GUIDE_STEPS) - 1:
+            buttons.append([
+                InlineKeyboardButton("다음 ▶", callback_data=f"cdm_guide_{uid}_{step + 1}"),
+                InlineKeyboardButton("건너뛰기", callback_data=f"cdm_cancel_{uid}"),
+            ])
+
+        try:
+            await query.edit_message_text(
+                _GUIDE_STEPS[step],
+                reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
+            )
+        except Exception:
+            pass
+
+    # ── cdm_noop_{uid} — 아무 동작 없음 ──
+    elif data.startswith("cdm_noop_"):
+        await query.answer("거점 변경 쿨다운 중입니다.", show_alert=True)
+
     # ── cdm_conv_{uid}_{instance_id} — 전환 확인 ──
-    if data.startswith("cdm_conv_"):
+    elif data.startswith("cdm_conv_"):
         uid = int(parts[2])
         instance_id = int(parts[3])
         if query.from_user.id != uid:
