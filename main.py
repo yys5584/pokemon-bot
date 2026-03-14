@@ -1016,9 +1016,16 @@ async def weather_handler(update, context):
     temp = weather.get("temp")
     temp_text = f" ({temp}°C)" if temp is not None else ""
 
+    # 캐시가 2시간 이상 오래되면 안내
+    from datetime import timedelta
+    stale_text = ""
+    updated_at = weather.get("updated_at")
+    if updated_at and config.get_kst_now() - updated_at > timedelta(hours=2):
+        stale_text = "\n⚠️ 날씨 데이터가 오래되었습니다. 곧 업데이트됩니다."
+
     await update.message.reply_text(
         f"🌍 현재 날씨{temp_text}\n"
-        f"{emoji} {label}"
+        f"{emoji} {label}{stale_text}"
     )
 
 

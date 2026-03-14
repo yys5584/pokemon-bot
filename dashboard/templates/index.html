@@ -1883,62 +1883,163 @@
                 <!-- ===== 캠프 ===== -->
                 <div class="guide-section" id="guide-camp">
 
-                    <!-- 인트로 -->
-                    <div class="guide-card" style="margin-bottom:16px">
-                        <h3>🏕️ 캠프 시스템</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">포켓몬을 수집만 하면 재미없잖아요. 일하게 합시다. 캠프는 포켓몬에게 일자리를 주고, 그 대가로 이로치라는 보상을 받는 시스템입니다.</p>
-                        <div style="text-align:center;margin-bottom:16px">
-                            <img src="/camp-assets/map_base.png" alt="캠프 월드맵" style="max-width:100%;border-radius:14px;border:1px solid var(--border);box-shadow:0 4px 20px rgba(0,0,0,.12)">
-                            <p style="font-size:11px;color:var(--muted);margin-top:6px">6개의 필드에 포켓몬을 배치하고 조각을 모으세요!</p>
+                    <!-- 인트로 배너 -->
+                    <div class="guide-card" style="margin-bottom:20px;background:linear-gradient(135deg,#1a472a,#2d5a3f);color:#fff;border:none;position:relative;overflow:hidden">
+                        <div style="position:absolute;right:-20px;top:-20px;font-size:120px;opacity:.1;transform:rotate(-15deg)">🏕️</div>
+                        <h2 style="margin:0 0 8px;font-size:22px;color:#fff">캠프 완전 정복 가이드</h2>
+                        <p style="font-size:13px;color:rgba(255,255,255,.8);margin:0 0 16px;max-width:80%">포켓몬을 채팅방 캠프에 배치하면 3시간마다 <b style="color:#FFD54F">조각</b>을 벌어옵니다. 조각을 모아서 보유 포켓몬을 <b style="color:#FFD54F">이로치</b>로 만드는 것이 최종 목표.</p>
+                        <div style="display:flex;gap:12px;flex-wrap:wrap">
+                            <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 14px;font-size:12px">
+                                <div style="font-size:18px">📖</div>총 10단계 튜토리얼
+                            </div>
+                            <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 14px;font-size:12px">
+                                <div style="font-size:18px">💬</div>실제 봇 대화 예시 포함
+                            </div>
+                            <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:8px 14px;font-size:12px">
+                                <div style="font-size:18px">🎯</div>고수 전략 팁까지
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Step 1: 한눈에 보는 흐름 -->
-                    <div class="guide-card" style="margin-bottom:16px;background:linear-gradient(135deg,rgba(76,175,80,.06),rgba(255,183,77,.06));border:1px solid rgba(76,175,80,.15)">
-                        <h3 style="margin-top:0">🧭 Step 1: 전체 흐름 한눈에</h3>
-                        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">캠프의 핵심 사이클은 딱 5단계입니다. 포켓몬을 배치하면 알아서 일하고, 3시간마다 월급(조각)을 줍니다.</p>
-                        <div class="flow-diagram">
-                            <div class="flow-node"><div class="flow-node-icon">🏕️</div><div class="flow-node-text">캠프 참여</div><div class="flow-node-sub">거점캠프 설정</div></div>
+                    <!-- ========== Step 1: 캠프가 뭔지부터 ========== -->
+                    <div class="guide-card" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#E8F5E9;color:#2E7D32;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">STEP 1</span>
+                            <h3 style="margin:0">캠프가 뭔가요?</h3>
+                        </div>
+                        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">한 줄 요약: <b>포켓몬을 채팅방에 파견해서 조각을 모으는 시스템</b>입니다.</p>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin-bottom:10px">왜 하는 건데?</p>
+                            <p style="font-size:12px;color:var(--muted);margin:0">포켓몬을 수집만 하면 끝인 게임이 되잖아요. 캠프는 보유 포켓몬에게 <b>일자리</b>를 줍니다. 포켓몬이 캠프에서 일하면 <b>조각</b>이라는 재화를 벌어오고, 이 조각을 모으면 보유 포켓몬을 <b>이로치(색이 다른 레어 버전)</b>로 만들 수 있습니다. 이로치를 만드는 유일한 방법 중 하나이기 때문에, 진지하게 플레이한다면 반드시 해야 합니다.</p>
+                        </div>
+
+                        <p style="font-size:12px;font-weight:700;margin-bottom:10px">전체 흐름을 먼저 그림으로 보세요:</p>
+                        <div class="flow-diagram" style="margin-bottom:8px">
+                            <div class="flow-node"><div class="flow-node-icon">🏠</div><div class="flow-node-text">거점 설정</div><div class="flow-node-sub">내 캠프 선택</div></div>
                             <span class="flow-arrow">→</span>
                             <div class="flow-node"><div class="flow-node-icon">🐾</div><div class="flow-node-text">포켓몬 배치</div><div class="flow-node-sub">필드에 파견</div></div>
                             <span class="flow-arrow">→</span>
-                            <div class="flow-node"><div class="flow-node-icon">⏳</div><div class="flow-node-text">자동 정산</div><div class="flow-node-sub">3시간마다</div></div>
+                            <div class="flow-node"><div class="flow-node-icon">⏳</div><div class="flow-node-text">3시간 대기</div><div class="flow-node-sub">자동으로 일함</div></div>
                             <span class="flow-arrow">→</span>
-                            <div class="flow-node"><div class="flow-node-icon">💎</div><div class="flow-node-text">조각 획득</div><div class="flow-node-sub">필드별 조각</div></div>
+                            <div class="flow-node"><div class="flow-node-icon">💎</div><div class="flow-node-text">조각 획득</div><div class="flow-node-sub">자동 정산</div></div>
                             <span class="flow-arrow">→</span>
-                            <div class="flow-node"><div class="flow-node-icon">✨</div><div class="flow-node-text">이로치 전환</div><div class="flow-node-sub">최종 보상</div></div>
+                            <div class="flow-node"><div class="flow-node-icon">✨</div><div class="flow-node-text">이로치 전환</div><div class="flow-node-sub">조각 소모</div></div>
                         </div>
-                        <p style="font-size:11px;color:var(--muted);margin-top:12px;text-align:center">이 사이클을 반복하면서 이로치 컬렉션을 늘려가는 것이 캠프의 목표입니다.</p>
+                        <p style="font-size:11px;color:var(--muted);text-align:center;margin:0">이 5단계를 매일 반복하는 게 캠프의 전부입니다. 어렵지 않아요.</p>
                     </div>
 
-                    <!-- Step 2: 거점캠프 -->
-                    <div class="guide-card" style="margin-bottom:16px">
-                        <h3>🏠 Step 2: 거점캠프 설정</h3>
-                        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">캠프에 참여하려면 먼저 '거점'을 정해야 합니다. 본거지 같은 개념이에요. 채팅방 하나를 골라서 내 거점으로 등록하면 됩니다.</p>
-                        <div class="guide-block">
-                            <h4>어떻게 설정하나요?</h4>
-                            <ul class="guide-list">
-                                <li><b>채팅방에서</b>: 캠프가 있는 그룹에서 <code>캠프등록</code> 입력</li>
-                                <li><b>DM에서</b>: <code>거점캠프</code> 입력 → 참여 가능한 채팅방 목록에서 선택</li>
+                    <!-- ========== Step 2: 거점캠프 설정 ========== -->
+                    <div class="guide-card" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#E3F2FD;color:#1565C0;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">STEP 2</span>
+                            <h3 style="margin:0">거점캠프 설정하기</h3>
+                        </div>
+                        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">캠프에 참여하려면 먼저 <b>"내가 어느 채팅방 캠프에서 활동할 것인지"</b> 정해야 합니다. 이걸 <b>거점캠프</b>라고 부릅니다.</p>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin-bottom:8px">방법 A: 채팅방에서 설정</p>
+                            <div style="background:#1a1a2e;border-radius:10px;padding:14px;margin-bottom:8px;font-family:monospace;font-size:12px;color:#e0e0e0;line-height:1.8">
+                                <div style="color:#90CAF9">나:</div>
+                                <div style="margin-left:12px">캠프등록</div>
+                                <div style="color:#FFD54F;margin-top:8px">봇:</div>
+                                <div style="margin-left:12px">🏕 [크립토라운지] 캠프를 거점으로 설정합니다.</div>
+                                <div style="margin-left:12px">✅ 거점 설정 완료! (변경: 3/21 이후 가능)</div>
+                            </div>
+                            <p style="font-size:11px;color:var(--muted);margin:0">캠프가 개설된 채팅방에서 <code>캠프등록</code>을 입력하면 바로 거점이 설정됩니다.</p>
+                        </div>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin-bottom:8px">방법 B: DM에서 설정</p>
+                            <div style="background:#1a1a2e;border-radius:10px;padding:14px;margin-bottom:8px;font-family:monospace;font-size:12px;color:#e0e0e0;line-height:1.8">
+                                <div style="color:#90CAF9">나 (DM):</div>
+                                <div style="margin-left:12px">거점캠프</div>
+                                <div style="color:#FFD54F;margin-top:8px">봇:</div>
+                                <div style="margin-left:12px">🏕 거점캠프를 설정하세요!</div>
+                                <div style="margin-left:12px">참여 가능한 캠프 목록:</div>
+                                <div style="margin-left:12px;margin-top:4px">
+                                    <span style="background:#2E7D32;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">1</span> 크립토라운지 (Lv.3, 참여자 24명)
+                                </div>
+                                <div style="margin-left:12px;margin-top:2px">
+                                    <span style="background:#1565C0;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">2</span> 포켓몬마스터즈 (Lv.5, 참여자 48명)
+                                </div>
+                                <div style="margin-left:12px;margin-top:2px">
+                                    <span style="background:#6A1B9A;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">3</span> 코인충모임 (Lv.1, 참여자 8명)
+                                </div>
+                            </div>
+                            <p style="font-size:11px;color:var(--muted);margin:0">내가 속한 채팅방 중 캠프가 개설된 곳이 목록으로 뜹니다. 번호를 누르면 거점이 설정됩니다.</p>
+                        </div>
+
+                        <div style="background:#FFF8E1;border:1px solid #FFD54F;border-radius:10px;padding:14px;margin-bottom:12px">
+                            <p style="font-size:12px;font-weight:700;color:#F57F17;margin:0 0 6px">주의사항</p>
+                            <ul style="margin:0;padding-left:18px;font-size:12px;color:#5D4037;line-height:1.8">
+                                <li>거점은 한 번 정하면 <b>7일간 변경 불가</b>입니다. 신중하게 고르세요.</li>
+                                <li>일반 유저: 거점 <b>1개</b> / 구독자: 거점 <b>2개</b>까지 가능</li>
+                                <li>거점이 2개면 두 채팅방에서 동시에 조각을 모을 수 있어서 2배 효율!</li>
                             </ul>
                         </div>
-                        <div class="guide-block">
-                            <h4>알아둘 것</h4>
-                            <table class="guide-table">
-                                <tr><th>항목</th><th>내용</th></tr>
-                                <tr><td>거점 수</td><td>일반: <b>1개</b> / 구독자: <b style="color:#e74c3c">2개</b></td></tr>
-                                <tr><td>변경 쿨다운</td><td>한 번 정하면 <b>7일간</b> 변경 불가</td></tr>
-                                <tr><td>확인</td><td>DM에서 <code>거점캠프</code> 입력하면 현재 거점 + 보너스 조건 확인 가능</td></tr>
-                            </table>
-                            <p style="font-size:11px;color:var(--muted);margin-top:8px">거점 선택은 신중하게. 일주일은 같이 살아야 합니다. 동거 시작 전 잘 고르세요.</p>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 6px">Q. 어떤 채팅방을 거점으로 골라야 하나요?</p>
+                            <ul style="margin:0;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.8">
+                                <li><b>캠프 레벨이 높은 곳</b> — 필드가 많아서 다양한 조각을 모을 수 있음</li>
+                                <li><b>참여자가 적당한 곳</b> — 너무 많으면 조각이 나눠지고, 너무 적으면 캠프 성장이 느림</li>
+                                <li><b>내가 자주 가는 채팅방</b> — 채팅방에서 직접 배치할 때 편함</li>
+                            </ul>
                         </div>
                     </div>
 
-                    <!-- Step 3: 필드 이해하기 -->
-                    <div class="guide-card" style="margin-bottom:16px">
-                        <h3>🗺️ Step 3: 6개 필드 이해하기</h3>
-                        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">캠프에는 6개의 필드가 있고, 각 필드마다 받아주는 포켓몬 타입이 정해져 있습니다. 불 타입을 호수에 보내면 당연히 거절당합니다.</p>
-                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:12px">
+                    <!-- ========== Step 3: 거점캠프 확인하기 ========== -->
+                    <div class="guide-card" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#F3E5F5;color:#6A1B9A;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">STEP 3</span>
+                            <h3 style="margin:0">거점캠프 현황 확인하기</h3>
+                        </div>
+                        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">거점을 설정한 후, DM에서 <code>거점캠프</code>를 다시 입력하면 현재 상태를 볼 수 있습니다. 이게 캠프의 <b>만능 명령어</b>입니다.</p>
+
+                        <div style="background:#1a1a2e;border-radius:10px;padding:16px;margin-bottom:16px;font-family:monospace;font-size:12px;color:#e0e0e0;line-height:1.8">
+                            <div style="color:#FFD54F;font-weight:700;margin-bottom:4px">봇 응답 예시:</div>
+                            <div>🏕 거점캠프 — <b style="color:#90CAF9">[크립토라운지]</b></div>
+                            <div>👉 t.me/crypto_lounge</div>
+                            <div style="color:#555;margin:4px 0">━━━━━━━━━━━━━━━</div>
+                            <div>📊 캠프 레벨: Lv.3</div>
+                            <div>🌿 숲 — <span style="color:#A5D6A7">이상해꽃 배치 중</span> (4점)</div>
+                            <div>🔥 화산 — <span style="color:#666">비어있음</span></div>
+                            <div>💧 호수 — <span style="color:#90CAF9">갸라도스 배치 중</span> (2점)</div>
+                            <div style="color:#555;margin:4px 0">━━━━━━━━━━━━━━━</div>
+                            <div>📋 다음 정산: <b>15:00</b> (1시간 23분 후)</div>
+                            <div style="margin-top:6px">🔄 라운드 보너스 조건:</div>
+                            <div style="margin-left:12px">🌿 숲: <b>이상해씨</b> (특공 15↑) → <span style="color:#FFD54F">7점</span></div>
+                            <div style="margin-left:12px">🔥 화산: <b>리자몽</b> (공격 14↑) → <span style="color:#FFD54F">7점</span></div>
+                            <div style="margin-left:12px">💧 호수: <b>갸라도스</b> (방어 13↑) → <span style="color:#FFD54F">7점</span></div>
+                            <div style="color:#555;margin:4px 0">━━━━━━━━━━━━━━━</div>
+                            <div style="display:flex;gap:8px;margin-top:4px">
+                                <span style="background:#2E7D32;color:#fff;padding:4px 12px;border-radius:6px;font-size:11px">[배치하기]</span>
+                                <span style="background:#555;color:#fff;padding:4px 12px;border-radius:6px;font-size:11px">[거점변경] 3/21 이후</span>
+                            </div>
+                        </div>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 8px">이 화면에서 알 수 있는 것:</p>
+                            <table class="guide-table" style="font-size:12px">
+                                <tr><td style="white-space:nowrap">🏕 거점캠프</td><td>내가 어느 채팅방에 소속되어 있는지 + 입장 링크</td></tr>
+                                <tr><td style="white-space:nowrap">📊 캠프 레벨</td><td>이 캠프의 레벨 (높을수록 필드가 많음)</td></tr>
+                                <tr><td style="white-space:nowrap">🌿🔥💧 필드</td><td>각 필드에 내가 뭘 배치했는지, 몇 점인지</td></tr>
+                                <tr><td style="white-space:nowrap">📋 다음 정산</td><td>다음 정산까지 남은 시간</td></tr>
+                                <tr><td style="white-space:nowrap">🔄 보너스 조건</td><td>이번 라운드에 어떤 포켓몬을 배치하면 고득점인지</td></tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ========== Step 4: 필드 이해하기 ========== -->
+                    <div class="guide-card" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#FBE9E7;color:#BF360C;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">STEP 4</span>
+                            <h3 style="margin:0">6개 필드 완전 이해</h3>
+                        </div>
+                        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">캠프에는 6개의 필드가 있고, 각 필드는 특정 타입의 포켓몬만 받아줍니다. 불 타입 포켓몬을 호수에 보낼 수는 없겠죠?</p>
+
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px">
                             <div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border:1px solid #A5D6A7;border-radius:12px;padding:14px;text-align:center">
                                 <div style="font-size:28px">🌿</div>
                                 <div style="font-weight:700;font-size:14px;color:#2E7D32;margin:4px 0">숲</div>
@@ -1970,156 +2071,291 @@
                                 <div style="font-size:11px;color:#7B1FA2">에스퍼 / 악 / 페어리</div>
                             </div>
                         </div>
-                        <div class="guide-block">
-                            <h4>듀얼 타입 포켓몬은?</h4>
-                            <p style="font-size:12px">타입이 2개인 포켓몬은 어느 쪽 필드든 배치 가능합니다. 예를 들어 갸라도스(물/비행)는 호수에도 갈 수 있고, 비행이라 호수에 딱입니다. 어디에 보내야 점수가 높은지가 포인트.</p>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 6px">Q. 듀얼 타입은 어디에 배치하나요?</p>
+                            <p style="font-size:12px;color:var(--muted);margin:0">타입이 2개인 포켓몬은 <b>둘 중 아무 필드나</b> 배치할 수 있습니다. 예를 들어 갸라도스(물/비행)는 호수(물)에도 갈 수 있어요. 보너스 조건에 따라 점수가 높은 쪽을 고르면 됩니다.</p>
                         </div>
-                        <div class="guide-block">
-                            <h4>필드 해금</h4>
-                            <p style="font-size:12px;color:var(--muted)">Lv.1에서는 필드 1개만 사용 가능. 캠프 레벨이 오르면 최대 6개까지 열립니다. 개설 시 숲/화산/호수 중 하나를 선택하고, 이후 레벨업으로 추가 해금.</p>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 6px">Q. 필드가 6개나 되는데, 처음부터 다 쓸 수 있나요?</p>
+                            <p style="font-size:12px;color:var(--muted);margin:0"><b>아닙니다.</b> 캠프 Lv.1에서는 필드 1개만 사용 가능합니다. 캠프 레벨이 오르면 최대 6개까지 열려요. 자세한 건 Step 10(캠프 레벨)에서 설명합니다.</p>
                         </div>
                     </div>
 
-                    <!-- Step 4: 배치하기 -->
-                    <div class="guide-card" style="margin-bottom:16px">
-                        <h3>🐾 Step 4: 포켓몬 배치하기</h3>
-                        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">이제 실전입니다. 보유 포켓몬 중 타입이 맞는 친구를 필드에 파견하세요. 채팅방에서 <code>캠프</code>를 입력하거나, DM에서 거점캠프를 통해 배치할 수 있습니다.</p>
+                    <!-- ========== Step 5: 포켓몬 배치 ========== -->
+                    <div class="guide-card" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#E8F5E9;color:#2E7D32;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">STEP 5</span>
+                            <h3 style="margin:0">포켓몬 배치하기 (실전)</h3>
+                        </div>
+                        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">거점을 설정했으면 이제 포켓몬을 배치할 차례입니다. 배치 방법은 <b>2가지</b>입니다.</p>
 
-                        <div class="guide-block">
-                            <h4>배치 방법 (2가지)</h4>
-                            <table class="guide-table">
-                                <tr><th>방법</th><th>명령어</th><th>설명</th></tr>
-                                <tr><td>채팅방</td><td><code>캠프</code></td><td>필드 선택 → 포켓몬 선택 → 배치 완료</td></tr>
-                                <tr><td>DM</td><td><code>거점캠프</code> → 배치하기</td><td>거점캠프 기준으로 배치 (보너스 조건 + 추천 포켓몬 표시)</td></tr>
-                            </table>
-                            <p style="font-size:11px;color:var(--muted);margin-top:6px">DM 배치가 더 편합니다. 보너스 조건과 점수 미리보기가 같이 뜨거든요.</p>
+                        <!-- 방법 1: 채팅방 -->
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:13px;font-weight:700;margin:0 0 10px">방법 1: 채팅방에서 배치</p>
+                            <div style="background:#1a1a2e;border-radius:10px;padding:14px;margin-bottom:10px;font-family:monospace;font-size:12px;color:#e0e0e0;line-height:1.8">
+                                <div style="color:#90CAF9">나 (채팅방):</div>
+                                <div style="margin-left:12px">캠프</div>
+                                <div style="color:#FFD54F;margin-top:8px">봇:</div>
+                                <div style="margin-left:12px">🏕 [크립토라운지] 캠프</div>
+                                <div style="margin-left:12px">필드를 선택하세요:</div>
+                                <div style="display:flex;gap:6px;margin:6px 0 0 12px;flex-wrap:wrap">
+                                    <span style="background:#2E7D32;color:#fff;padding:3px 10px;border-radius:5px;font-size:11px">🌿 숲 (2/3)</span>
+                                    <span style="background:#BF360C;color:#fff;padding:3px 10px;border-radius:5px;font-size:11px">🔥 화산 (1/3)</span>
+                                    <span style="background:#1565C0;color:#fff;padding:3px 10px;border-radius:5px;font-size:11px">💧 호수 (0/3)</span>
+                                </div>
+                            </div>
+                            <div style="background:#1a1a2e;border-radius:10px;padding:14px;margin-bottom:10px;font-family:monospace;font-size:12px;color:#e0e0e0;line-height:1.8">
+                                <div style="color:#90CAF9">→ 숲을 선택하면:</div>
+                                <div style="color:#FFD54F;margin-top:4px">봇:</div>
+                                <div style="margin-left:12px">🌿 숲 — 배치할 포켓몬을 선택하세요</div>
+                                <div style="margin-left:12px;margin-top:4px">🔄 보너스: <b>이상해씨</b> (특공 15↑)</div>
+                                <div style="margin-left:12px;margin-top:4px">
+                                    <span style="color:#FFD54F">⭐</span> 이상해씨 [특공:17] → 7점
+                                </div>
+                                <div style="margin-left:12px">
+                                    <span style="color:#FFD54F">⭐</span> 이상해꽃 [특공:12] → 2점
+                                </div>
+                                <div style="margin-left:12px">
+                                    &nbsp;&nbsp; 벌바사우르 [—] → 1점
+                                </div>
+                            </div>
+                            <p style="font-size:11px;color:var(--muted);margin:0">별표(⭐)가 붙은 포켓몬이 보너스 조건에 맞는 포켓몬입니다. 점수가 높은 순서로 정렬되니, 위에 있는 걸 고르면 됩니다.</p>
                         </div>
 
-                        <div class="guide-block">
-                            <h4>일일 배치 횟수</h4>
-                            <p style="font-size:12px;color:var(--muted);margin-bottom:8px">배치는 무한정 할 수 없습니다. 도감을 많이 채울수록 하루 배치 횟수가 늘어납니다.</p>
-                            <table class="guide-table">
-                                <tr><th>도감 수</th><th>일일 배치</th><th>비고</th></tr>
-                                <tr><td>0~50</td><td>2회</td><td>초보 트레이너</td></tr>
-                                <tr><td>51~100</td><td>3회</td><td></td></tr>
-                                <tr><td>101~200</td><td>4회</td><td></td></tr>
-                                <tr><td>201~300</td><td>5회</td><td></td></tr>
-                                <tr><td>301+</td><td>6회</td><td>도감 마스터</td></tr>
-                            </table>
-                            <p style="font-size:11px;color:var(--muted);margin-top:4px">매일 자정(KST) 초기화. 도감을 열심히 채워야 캠프에서도 유리합니다.</p>
+                        <!-- 방법 2: DM -->
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:13px;font-weight:700;margin:0 0 10px">방법 2: DM에서 배치 (추천!)</p>
+                            <div style="background:#1a1a2e;border-radius:10px;padding:14px;margin-bottom:10px;font-family:monospace;font-size:12px;color:#e0e0e0;line-height:1.8">
+                                <div style="color:#90CAF9">나 (DM):</div>
+                                <div style="margin-left:12px">거점캠프</div>
+                                <div style="color:#FFD54F;margin-top:8px">봇:</div>
+                                <div style="margin-left:12px">(거점 현황이 나옴 — Step 3에서 본 화면)</div>
+                                <div style="margin-left:12px;margin-top:4px">→ <span style="background:#2E7D32;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">[배치하기]</span> 버튼 클릭</div>
+                                <div style="margin-left:12px;margin-top:8px">→ 필드 선택 → 포켓몬 선택 → 배치 완료!</div>
+                            </div>
+                            <p style="font-size:11px;color:var(--muted);margin:0">DM이 더 편한 이유: 보너스 조건, 추천 포켓몬, 점수 미리보기가 한 화면에 다 나옵니다. 채팅방에서는 다른 사람 메시지에 밀려서 놓칠 수 있거든요.</p>
                         </div>
 
-                        <div class="guide-block">
-                            <h4>배치 모드</h4>
-                            <ul class="guide-list">
-                                <li><b>자유 배치</b> — 빈 슬롯이 있으면 누구나 바로 배치. 선착순의 묘미.</li>
-                                <li><b>승인제</b> — 방장이 OK 해야 배치 완료. 30분 내 미응답 시 자동 승인. 빡센 방장 밑에서 일하는 기분.</li>
-                                <li>모드 변경 쿨다운: <b>3시간</b></li>
+                        <!-- 상시 배치 강조 -->
+                        <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:14px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;color:#2E7D32;margin:0 0 6px">언제든 배치/교체 가능!</p>
+                            <p style="font-size:12px;color:#2E7D32;margin:0">예전에는 30분 접수 시간에만 배치할 수 있었지만, 지금은 <b>아무 때나</b> 배치하고 교체할 수 있습니다. 단, 교체도 배치 횟수 1회로 카운트됩니다.</p>
+                        </div>
+
+                        <!-- 일일 배치 횟수 -->
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 10px">일일 배치 횟수</p>
+                            <p style="font-size:12px;color:var(--muted);margin-bottom:10px">하루에 배치할 수 있는 횟수는 도감 수에 따라 달라집니다. 매일 자정(KST) 초기화.</p>
+                            <table class="guide-table" style="font-size:12px">
+                                <tr><th>도감 수</th><th>일일 배치</th></tr>
+                                <tr><td>0~50</td><td><b>2회</b></td></tr>
+                                <tr><td>51~100</td><td><b>3회</b></td></tr>
+                                <tr><td>101~200</td><td><b>4회</b></td></tr>
+                                <tr><td>201~300</td><td><b>5회</b></td></tr>
+                                <tr><td>301+</td><td><b>6회</b></td></tr>
+                            </table>
+                            <p style="font-size:11px;color:var(--muted);margin:8px 0 0">도감을 많이 채울수록 캠프에서도 유리합니다. 수집과 캠프는 연결되어 있어요.</p>
+                        </div>
+
+                        <!-- 배치 모드 -->
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 8px">배치 모드 (방장이 설정)</p>
+                            <ul style="margin:0;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.8">
+                                <li><b>자유 배치 (선착순)</b> — 빈 슬롯이 있으면 누구나 바로 배치됩니다</li>
+                                <li><b>승인제</b> — 방장이 승인해야 배치 완료. 30분 내 미응답 시 자동 승인</li>
                             </ul>
                         </div>
                     </div>
 
-                    <!-- Step 5: 보너스 점수 -->
-                    <div class="guide-card" style="margin-bottom:16px">
-                        <h3>🎯 Step 5: 보너스 시스템 (점수의 핵심)</h3>
-                        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">매 라운드마다 각 필드에 <b>보너스 포켓몬</b>이 지정됩니다. "이번 숲 필드에는 이상해씨(특공 15 이상)을 원합니다" 같은 식으로요. 이 조건을 맞추면 점수가 훨씬 높아집니다.</p>
+                    <!-- ========== Step 6: 보너스 시스템 ========== -->
+                    <div class="guide-card" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#FFF3E0;color:#E65100;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">STEP 6</span>
+                            <h3 style="margin:0">보너스 시스템 (점수의 핵심!)</h3>
+                        </div>
+                        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">캠프에서 가장 중요한 개념입니다. 같은 필드에 배치해도 <b>점수가 1점일 수도, 7점일 수도</b> 있습니다.</p>
 
-                        <div class="guide-block">
-                            <h4>점수표</h4>
-                            <p style="font-size:12px;color:var(--muted);margin-bottom:6px">점수가 높을수록 정산 시 더 많은 조각을 받습니다.</p>
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 8px">보너스 조건이란?</p>
+                            <p style="font-size:12px;color:var(--muted);margin:0 0 12px">매 라운드(3시간)마다 각 필드에 <b>"이번에는 이 포켓몬을 원합니다"</b>라는 조건이 붙습니다.</p>
+                            <div style="background:#1a1a2e;border-radius:10px;padding:14px;font-family:monospace;font-size:12px;color:#e0e0e0;line-height:1.8">
+                                <div>🔄 이번 라운드 보너스:</div>
+                                <div style="margin-left:12px">🌿 숲: <b style="color:#A5D6A7">이상해씨</b> (특공 15↑)</div>
+                                <div style="margin-left:12px">🔥 화산: <b style="color:#FFAB91">리자몽</b> (공격 14↑)</div>
+                                <div style="margin-left:12px">💧 호수: <b style="color:#90CAF9">갸라도스</b> (방어 13↑)</div>
+                            </div>
+                            <p style="font-size:11px;color:var(--muted);margin:8px 0 0">이 조건은 <code>거점캠프</code> 명령어로 확인할 수 있고, 정산 후 다음 라운드 조건이 공개됩니다.</p>
+                        </div>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 10px">점수표 — 이것만 기억하세요</p>
                             <table class="guide-table" style="font-size:13px">
-                                <tr><th>조건</th><th>점수</th><th>설명</th></tr>
-                                <tr><td>타입만 맞음</td><td>1점</td><td>풀 타입을 숲에 보냈을 뿐</td></tr>
-                                <tr><td style="color:#2E7D32"><b>보너스 포켓몬</b></td><td><b>2점</b></td><td>지정된 포켓몬이지만 IV 조건 미충족</td></tr>
-                                <tr><td><b>보너스 + IV 충족</b></td><td><b>4점</b></td><td>포켓몬도 맞고 개체값도 맞음</td></tr>
-                                <tr><td><b>보너스 + 이로치</b></td><td><b>4점</b></td><td>이로치라는 것 자체가 가산점</td></tr>
-                                <tr><td style="color:#e74c3c"><b>보너스 + IV + 이로치</b></td><td style="color:#e74c3c"><b>7점</b></td><td>완벽한 파견. 이게 가능하면 당신은 프로.</td></tr>
+                                <tr><th>상황</th><th>점수</th><th>예시</th></tr>
+                                <tr><td>타입만 맞음</td><td>1점</td><td>숲 필드에 아무 풀 타입이나 배치</td></tr>
+                                <tr style="background:rgba(46,125,50,.05)"><td style="color:#2E7D32"><b>보너스 포켓몬</b></td><td><b>2점</b></td><td>보너스가 이상해씨인데 이상해씨를 배치 (IV 미충족)</td></tr>
+                                <tr style="background:rgba(46,125,50,.08)"><td><b>보너스 + IV 충족</b></td><td><b>4점</b></td><td>이상해씨 배치 + 특공 15 이상</td></tr>
+                                <tr style="background:rgba(46,125,50,.08)"><td><b>보너스 + 이로치</b></td><td><b>4점</b></td><td>이로치 이상해씨 배치 (IV 무관)</td></tr>
+                                <tr style="background:rgba(231,76,60,.08)"><td style="color:#e74c3c"><b>보너스 + IV + 이로치</b></td><td style="color:#e74c3c"><b>7점</b></td><td>이로치 이상해씨 + 특공 15 이상 (완벽)</td></tr>
                             </table>
                         </div>
 
-                        <div class="guide-block">
-                            <h4>보너스 조건 확인하기</h4>
-                            <ul class="guide-list">
-                                <li>DM에서 <code>거점캠프</code> 입력하면 현재 라운드의 보너스 조건이 표시됩니다</li>
-                                <li>각 필드별로 "어떤 포켓몬 + 어떤 IV가 필요한지" 알 수 있어요</li>
-                                <li>보너스 조건은 라운드마다 바뀌니까, 정산 후 다음 조건을 확인하는 습관을 들이세요</li>
-                            </ul>
+                        <div style="background:#FFF8E1;border:1px solid #FFD54F;border-radius:10px;padding:14px">
+                            <p style="font-size:12px;font-weight:700;color:#F57F17;margin:0 0 6px">핵심 포인트</p>
+                            <p style="font-size:12px;color:#5D4037;margin:0">타입만 맞추면 1점, 보너스까지 맞추면 최대 7점. <b>7배 차이</b>입니다. 정산 후 바로 다음 보너스 조건을 확인하고, 조건에 맞는 포켓몬을 배치하는 습관을 들이세요.</p>
                         </div>
                     </div>
 
-                    <!-- Step 6: 라운드 정산 -->
-                    <div class="guide-card" style="margin-bottom:16px">
-                        <h3>⏰ Step 6: 라운드와 정산</h3>
-                        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">캠프는 하루 6번, 3시간 간격으로 자동 정산됩니다. 여러분이 자고 있어도 포켓몬은 일하고 있습니다. 부지런한 직원들.</p>
+                    <!-- ========== Step 7: 라운드와 정산 ========== -->
+                    <div class="guide-card" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#FCE4EC;color:#C62828;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">STEP 7</span>
+                            <h3 style="margin:0">라운드와 정산</h3>
+                        </div>
+                        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">캠프는 하루 6번, 3시간 간격으로 자동 정산됩니다. 여러분이 자고 있어도 포켓몬은 일하고 있습니다.</p>
 
-                        <div class="guide-block">
-                            <h4>정산 시간표 (KST)</h4>
-                            <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
-                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9">09:00</span>
-                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7">12:00</span>
-                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#FFF3E0;color:#E65100;border:1px solid #FFCC80">15:00</span>
-                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#FCE4EC;color:#C62828;border:1px solid #F48FB1">18:00</span>
-                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#F3E5F5;color:#6A1B9A;border:1px solid #CE93D8">21:00</span>
-                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#E0E0E0;color:#424242;border:1px solid #BDBDBD">00:00</span>
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 10px">정산 시간표 (KST)</p>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+                                <span style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9">09:00</span>
+                                <span style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7">12:00</span>
+                                <span style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;background:#FFF3E0;color:#E65100;border:1px solid #FFCC80">15:00</span>
+                                <span style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;background:#FCE4EC;color:#C62828;border:1px solid #F48FB1">18:00</span>
+                                <span style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;background:#F3E5F5;color:#6A1B9A;border:1px solid #CE93D8">21:00</span>
+                                <span style="padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;background:#E0E0E0;color:#424242;border:1px solid #BDBDBD">00:00</span>
                             </div>
                         </div>
 
-                        <div class="guide-block">
-                            <h4>정산되면 뭐가 생기나요?</h4>
-                            <ul class="guide-list">
-                                <li>배치된 포켓몬의 <b>점수에 비례</b>해서 필드 조각을 받습니다</li>
-                                <li>같은 필드에 여러 유저가 참여하면 조각이 나눠집니다 (인원 비례 분배)</li>
-                                <li>캠프 XP도 쌓여서 캠프 레벨업에 기여합니다</li>
-                                <li>정산 결과는 DM 알림으로도 받을 수 있습니다 (<code>캠프알림</code>으로 on/off)</li>
-                            </ul>
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 8px">정산되면 이런 DM이 옵니다:</p>
+                            <div style="background:#1a1a2e;border-radius:10px;padding:14px;margin-bottom:8px;font-family:monospace;font-size:12px;color:#e0e0e0;line-height:1.8">
+                                <div>🏕 캠프 정산 — <b style="color:#90CAF9">[크립토라운지]</b></div>
+                                <div style="color:#555;margin:4px 0">━━━━━━━━━━━━━━━</div>
+                                <div>🌿 숲: <span style="color:#A5D6A7">+3 조각</span> (4점, 참여자 2명)</div>
+                                <div>🔥 화산: <span style="color:#666">미배치</span></div>
+                                <div>💧 호수: <span style="color:#90CAF9">+2 조각</span> (2점, 참여자 3명)</div>
+                                <div style="color:#555;margin:4px 0">━━━━━━━━━━━━━━━</div>
+                                <div>📋 다음 보너스 조건:</div>
+                                <div style="margin-left:12px">🌿 숲: 나시 (특방 14↑)</div>
+                                <div style="margin-left:12px">🔥 화산: 마그마 (공격 16↑)</div>
+                                <div style="margin-left:12px">💧 호수: 라프라스 (HP 15↑)</div>
+                            </div>
+                            <p style="font-size:11px;color:var(--muted);margin:0"><code>캠프알림</code> 명령어로 이 DM 알림을 on/off 할 수 있습니다. 기본값은 on.</p>
                         </div>
 
-                        <div class="guide-block">
-                            <h4>최소 유지 시간</h4>
-                            <p style="font-size:12px">배치 후 <b>1시간 이상</b> 유지해야 정산 점수로 인정됩니다. 정산 직전에 몰래 바꿔치기하는 건 안 됩니다. 세상에 공짜는 없어요.</p>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                            <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                                <p style="font-size:12px;font-weight:700;margin:0 0 6px">조각 분배 방식</p>
+                                <p style="font-size:11px;color:var(--muted);margin:0">같은 필드에 여러 유저가 배치했으면 점수에 비례해서 조각이 나눠집니다. 점수가 높을수록 더 많은 조각을 가져갑니다.</p>
+                            </div>
+                            <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                                <p style="font-size:12px;font-weight:700;margin:0 0 6px">캠프 XP</p>
+                                <p style="font-size:11px;color:var(--muted);margin:0">정산 때마다 캠프에도 XP가 쌓입니다. 참여자가 열심히 배치할수록 캠프가 빨리 레벨업합니다.</p>
+                            </div>
+                        </div>
+
+                        <div style="background:#FFEBEE;border:1px solid #EF9A9A;border-radius:10px;padding:14px">
+                            <p style="font-size:12px;font-weight:700;color:#C62828;margin:0 0 6px">최소 유지 시간: 1시간</p>
+                            <p style="font-size:12px;color:#C62828;margin:0">배치 후 <b>1시간 이상</b> 유지해야 정산 점수로 인정됩니다. 정산 5분 전에 급하게 바꿔치기하는 건 안 됩니다.</p>
                         </div>
                     </div>
 
-                    <!-- Step 7: 조각 → 이로치 -->
-                    <div class="guide-card" style="margin-bottom:16px">
-                        <h3>💎 Step 7: 조각 모아서 이로치 만들기</h3>
-                        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">캠프의 최종 목표입니다. 조각을 모아서 보유 포켓몬을 이로치로 전환할 수 있습니다. 조각은 필드별로 다르게 쌓이고, 포켓몬 타입에 맞는 조각이 필요합니다.</p>
+                    <!-- ========== Step 8: 조각으로 이로치 만들기 ========== -->
+                    <div class="guide-card" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#E3F2FD;color:#1565C0;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">STEP 8</span>
+                            <h3 style="margin:0">조각 모아서 이로치 만들기</h3>
+                        </div>
+                        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">캠프의 최종 보상입니다. 조각을 모아서 보유 포켓몬을 이로치로 전환합니다.</p>
 
-                        <div class="guide-block">
-                            <h4>이로치 전환 비용</h4>
-                            <p style="font-size:12px;color:var(--muted);margin-bottom:6px">DM에서 <code>이로치전환</code>을 입력하면 전환 가능한 포켓몬 목록이 나옵니다.</p>
-                            <table class="guide-table" style="font-size:13px">
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 8px">이로치 전환 방법</p>
+                            <div style="background:#1a1a2e;border-radius:10px;padding:14px;margin-bottom:10px;font-family:monospace;font-size:12px;color:#e0e0e0;line-height:1.8">
+                                <div style="color:#90CAF9">나 (DM):</div>
+                                <div style="margin-left:12px">이로치전환</div>
+                                <div style="color:#FFD54F;margin-top:8px">봇:</div>
+                                <div style="margin-left:12px">✨ 이로치 전환 가능한 포켓몬:</div>
+                                <div style="margin-left:12px;margin-top:4px">1. 이상해씨 (풀) — 숲 조각 12개 필요 (보유: 15)</div>
+                                <div style="margin-left:12px">2. 피카츄 (전기) — 도시 조각 12개 필요 (보유: 8)</div>
+                                <div style="margin-left:12px;margin-top:4px;color:#666">→ 전환할 포켓몬 번호를 선택하세요</div>
+                            </div>
+                            <p style="font-size:11px;color:var(--muted);margin:0">전환하면 해당 포켓몬이 이로치 버전으로 바뀝니다. 조각은 소모됩니다.</p>
+                        </div>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 10px">등급별 전환 비용</p>
+                            <table class="guide-table" style="font-size:12px">
                                 <tr><th>등급</th><th>조각</th><th>크리스탈</th><th>무지개</th><th>쿨다운</th></tr>
-                                <tr><td>🟢 일반</td><td>12</td><td>-</td><td>-</td><td>6시간</td></tr>
-                                <tr><td>🔵 레어</td><td>24</td><td>-</td><td>-</td><td>12시간</td></tr>
-                                <tr><td>🟣 에픽</td><td>42</td><td>5</td><td>-</td><td>1일</td></tr>
-                                <tr><td>🟡 전설</td><td>60</td><td>15</td><td>-</td><td>2일</td></tr>
-                                <tr><td>🔴 초전설</td><td>84</td><td>25</td><td>3</td><td>3일</td></tr>
+                                <tr><td>🟢 일반</td><td><b>12</b></td><td>-</td><td>-</td><td>6시간</td></tr>
+                                <tr><td>🔵 레어</td><td><b>24</b></td><td>-</td><td>-</td><td>12시간</td></tr>
+                                <tr><td>🟣 에픽</td><td><b>42</b></td><td><b>5</b></td><td>-</td><td>1일</td></tr>
+                                <tr><td>🟡 전설</td><td><b>60</b></td><td><b>15</b></td><td>-</td><td>2일</td></tr>
+                                <tr><td>🔴 초전설</td><td><b>84</b></td><td><b>25</b></td><td><b>3</b></td><td>3일</td></tr>
                             </table>
-                            <p style="font-size:11px;color:var(--muted);margin-top:6px">듀얼 타입 포켓몬은 어느 필드 조각이든 사용 가능. 선택지가 넓어서 유리합니다.</p>
+                            <p style="font-size:11px;color:var(--muted);margin:8px 0 0">듀얼 타입 포켓몬은 어느 필드 조각이든 사용 가능합니다. 여러 필드에서 조각을 모으면 유리!</p>
                         </div>
 
-                        <div class="guide-block">
-                            <h4>크리스탈은 어디서?</h4>
-                            <p style="font-size:12px;margin-bottom:8px">에픽 이상 등급 전환에는 크리스탈이 필요합니다. 크리스탈은 이로치를 <b>분해</b>해서 얻습니다.</p>
-                            <table class="guide-table" style="font-size:13px">
-                                <tr><th>분해 대상</th><th>크리스탈</th><th>무지개</th></tr>
-                                <tr><td>🟢 일반 이로치</td><td>+1</td><td>-</td></tr>
-                                <tr><td>🔵 레어 이로치</td><td>+2</td><td>-</td></tr>
-                                <tr><td>🟣 에픽 이로치</td><td>+3</td><td>-</td></tr>
-                                <tr><td>🟡 전설 이로치</td><td>+5</td><td>+1</td></tr>
-                                <tr><td>🔴 초전설 이로치</td><td>+15</td><td>+2</td></tr>
-                            </table>
-                            <p style="font-size:11px;color:var(--muted);margin-top:6px">DM에서 <code>분해</code> 입력. 분해하면 이로치가 일반으로 돌아갑니다. 눈물을 참고 분해하는 것도 전략입니다.</p>
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 6px">Q. "조각"은 필드별로 다른 건가요?</p>
+                            <p style="font-size:12px;color:var(--muted);margin:0"><b>네.</b> 숲 조각, 화산 조각, 호수 조각... 이렇게 필드별로 따로 쌓입니다. 풀 타입 포켓몬을 이로치로 만들려면 <b>숲 조각</b>이 필요하고, 물 타입은 <b>호수 조각</b>이 필요합니다.</p>
+                        </div>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 6px">Q. "크리스탈"은 뭔가요?</p>
+                            <p style="font-size:12px;color:var(--muted);margin:0">에픽 이상 등급을 전환하려면 크리스탈이라는 추가 재료가 필요합니다. 크리스탈은 <b>이로치를 분해</b>해서 얻습니다. 다음 단계에서 자세히 설명합니다.</p>
                         </div>
                     </div>
 
-                    <!-- Step 8: 캠프 레벨 -->
-                    <div class="guide-card" style="margin-bottom:16px">
-                        <h3>📈 Step 8: 캠프 레벨 (방장 & 참여자 모두 해당)</h3>
-                        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">캠프 자체도 성장합니다. 라운드 정산 때마다 XP가 쌓이고, 레벨이 오르면 필드와 슬롯이 늘어납니다. 참여자가 열심히 배치할수록 캠프가 성장하는 구조.</p>
-                        <table class="guide-table">
-                            <tr><th>Lv</th><th>이름</th><th>필드</th><th>슬롯</th><th>필드 캡</th><th>필요 XP</th></tr>
+                    <!-- ========== Step 9: 분해 시스템 ========== -->
+                    <div class="guide-card" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#EFEBE9;color:#4E342E;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">STEP 9</span>
+                            <h3 style="margin:0">이로치 분해 (크리스탈 획득)</h3>
+                        </div>
+                        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">이로치를 분해하면 일반으로 돌아가지만, 대신 <b>크리스탈</b>과 <b>무지개 결정</b>을 얻습니다.</p>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 8px">분해 방법</p>
+                            <div style="background:#1a1a2e;border-radius:10px;padding:14px;margin-bottom:10px;font-family:monospace;font-size:12px;color:#e0e0e0;line-height:1.8">
+                                <div style="color:#90CAF9">나 (DM):</div>
+                                <div style="margin-left:12px">분해</div>
+                                <div style="color:#FFD54F;margin-top:8px">봇:</div>
+                                <div style="margin-left:12px">🔧 분해 가능한 이로치 목록:</div>
+                                <div style="margin-left:12px;margin-top:4px">1. ✨파이리 (🟢 일반) → 크리스탈 +1</div>
+                                <div style="margin-left:12px">2. ✨꼬부기 (🔵 레어) → 크리스탈 +2</div>
+                                <div style="margin-left:12px;margin-top:4px;color:#EF9A9A">⚠ 분해하면 이로치가 일반으로 돌아갑니다!</div>
+                            </div>
+                        </div>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 10px">등급별 분해 보상</p>
+                            <table class="guide-table" style="font-size:12px">
+                                <tr><th>분해 대상</th><th>크리스탈</th><th>무지개</th></tr>
+                                <tr><td>🟢 일반 이로치</td><td><b>+1</b></td><td>-</td></tr>
+                                <tr><td>🔵 레어 이로치</td><td><b>+2</b></td><td>-</td></tr>
+                                <tr><td>🟣 에픽 이로치</td><td><b>+3</b></td><td>-</td></tr>
+                                <tr><td>🟡 전설 이로치</td><td><b>+5</b></td><td><b>+1</b></td></tr>
+                                <tr><td>🔴 초전설 이로치</td><td><b>+15</b></td><td><b>+2</b></td></tr>
+                            </table>
+                        </div>
+
+                        <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:14px">
+                            <p style="font-size:12px;font-weight:700;color:#2E7D32;margin:0 0 6px">전략: 분해 → 전환 사이클</p>
+                            <p style="font-size:12px;color:#2E7D32;margin:0">낮은 등급 이로치를 여러 개 만들어서 분해하면 크리스탈이 쌓입니다. 이걸로 높은 등급 포켓몬을 이로치로 전환하는 게 효율적인 루트입니다. 예: 일반 이로치 5마리 분해 → 크리스탈 5개 → 에픽 이로치 전환에 투자.</p>
+                        </div>
+                    </div>
+
+                    <!-- ========== Step 10: 캠프 레벨 ========== -->
+                    <div class="guide-card" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#F3E5F5;color:#6A1B9A;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">STEP 10</span>
+                            <h3 style="margin:0">캠프 레벨 시스템</h3>
+                        </div>
+                        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">캠프 자체도 성장합니다. 참여자들이 열심히 배치할수록 캠프에 XP가 쌓이고, 레벨이 오르면 필드와 슬롯이 늘어납니다.</p>
+
+                        <table class="guide-table" style="font-size:12px;margin-bottom:12px">
+                            <tr><th>Lv</th><th>이름</th><th>필드 수</th><th>슬롯</th><th>필드 캡</th><th>필요 XP</th></tr>
                             <tr><td>1</td><td>🏜️ 빈 터</td><td>1</td><td>10</td><td>3</td><td>0</td></tr>
                             <tr><td>2</td><td>⛺ 작은 텐트</td><td>2</td><td>10</td><td>3</td><td>48</td></tr>
                             <tr><td>3</td><td>🔥 캠프파이어</td><td>2</td><td>12</td><td>4</td><td>96</td></tr>
@@ -2131,71 +2367,98 @@
                             <tr><td>9</td><td>🏘️ 작은 마을</td><td>5</td><td>18</td><td>7</td><td>1100</td></tr>
                             <tr><td>10</td><td>🏛️ 마을 광장</td><td>6</td><td>18</td><td>8</td><td>1500</td></tr>
                         </table>
-                        <p style="font-size:11px;color:var(--muted);margin-top:6px">멤버 500명당 필드 슬롯 +1 추가 보너스! 대형 채팅방일수록 캠프가 유리합니다.</p>
-                    </div>
 
-                    <!-- 명령어 총정리 -->
-                    <div class="guide-card" style="margin-bottom:16px">
-                        <h3>💬 캠프 명령어 총정리</h3>
-                        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">외울 필요 없습니다. 자주 쓰는 건 3개뿐이에요: <code>캠프</code>, <code>거점캠프</code>, <code>내캠프</code></p>
-                        <div class="guide-block">
-                            <h4>참여자용</h4>
-                            <table class="guide-table" style="font-size:13px">
-                                <tr><th>명령어</th><th>위치</th><th>설명</th></tr>
-                                <tr><td><b>캠프</b></td><td>채팅방</td><td>필드 선택 → 포켓몬 배치. 가장 기본.</td></tr>
-                                <tr><td><b>캠프맵</b></td><td>채팅방</td><td>월드맵 이미지 표시. 구경용.</td></tr>
-                                <tr><td><b>거점캠프</b></td><td>DM</td><td>거점 정보 + 보너스 조건 + 배치. 만능 명령어.</td></tr>
-                                <tr><td><b>내캠프</b></td><td>DM</td><td>조각/크리스탈 현황, 배치 상태 확인.</td></tr>
-                                <tr><td><b>이로치전환</b></td><td>DM</td><td>조각으로 이로치 전환.</td></tr>
-                                <tr><td><b>분해</b></td><td>DM</td><td>이로치 분해 → 크리스탈 획득.</td></tr>
-                                <tr><td><b>캠프알림</b></td><td>DM</td><td>정산 알림 on/off 토글.</td></tr>
-                                <tr><td><b>캠프가이드</b></td><td>DM</td><td>봇 안에서 단계별 튜토리얼 진행.</td></tr>
-                            </table>
-                        </div>
-                        <div class="guide-block">
-                            <h4>방장용</h4>
-                            <table class="guide-table" style="font-size:13px">
-                                <tr><th>명령어</th><th>설명</th></tr>
-                                <tr><td><b>캠프개설</b></td><td>캠프 생성. 멤버 100명 이상 필요.</td></tr>
-                                <tr><td><b>캠프설정</b></td><td>필드 타입 변경, 승인 모드 전환, 승인 처리.</td></tr>
-                            </table>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                            <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                                <p style="font-size:12px;font-weight:700;margin:0 0 6px">필드 수란?</p>
+                                <p style="font-size:11px;color:var(--muted);margin:0">사용 가능한 필드 개수. Lv.1은 1개, Lv.10은 6개 전부 사용 가능.</p>
+                            </div>
+                            <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                                <p style="font-size:12px;font-weight:700;margin:0 0 6px">슬롯이란?</p>
+                                <p style="font-size:11px;color:var(--muted);margin:0">전체 캠프에 동시 배치 가능한 포켓몬 수. Lv.10이면 18마리까지.</p>
+                            </div>
+                            <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                                <p style="font-size:12px;font-weight:700;margin:0 0 6px">필드 캡이란?</p>
+                                <p style="font-size:11px;color:var(--muted);margin:0">한 필드에 배치 가능한 최대 포켓몬 수. 캡이 3이면 한 필드에 3마리까지.</p>
+                            </div>
+                            <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                                <p style="font-size:12px;font-weight:700;margin:0 0 6px">대형 채팅방 보너스</p>
+                                <p style="font-size:11px;color:var(--muted);margin:0">멤버 500명당 필드 슬롯 +1 추가! 대형 방일수록 더 많이 배치 가능.</p>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- 전략 팁 -->
+                    <!-- ========== 명령어 총정리 ========== -->
+                    <div class="guide-card" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#E0E0E0;color:#424242;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">부록</span>
+                            <h3 style="margin:0">캠프 명령어 총정리</h3>
+                        </div>
+                        <p style="font-size:12px;color:var(--muted);margin-bottom:16px">외울 필요 없습니다. 자주 쓰는 건 3개: <code>캠프</code>, <code>거점캠프</code>, <code>내캠프</code></p>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 10px">참여자 명령어</p>
+                            <table class="guide-table" style="font-size:12px">
+                                <tr><th style="width:90px">명령어</th><th style="width:50px">위치</th><th>설명</th></tr>
+                                <tr><td><b>캠프</b></td><td>채팅방</td><td>필드 선택 → 포켓몬 배치. 가장 기본이 되는 명령어.</td></tr>
+                                <tr><td><b>캠프맵</b></td><td>채팅방</td><td>월드맵 이미지를 표시합니다.</td></tr>
+                                <tr><td><b>캠프등록</b></td><td>채팅방</td><td>현재 채팅방을 거점캠프로 설정합니다.</td></tr>
+                                <tr><td><b>거점캠프</b></td><td>DM</td><td>거점 현황 + 보너스 조건 + 배치까지 한 번에. 만능 명령어.</td></tr>
+                                <tr><td><b>내캠프</b></td><td>DM</td><td>내 조각/크리스탈 보유량, 배치 상태를 확인합니다.</td></tr>
+                                <tr><td><b>이로치전환</b></td><td>DM</td><td>모은 조각으로 포켓몬을 이로치로 전환합니다.</td></tr>
+                                <tr><td><b>분해</b></td><td>DM</td><td>이로치를 분해해서 크리스탈을 얻습니다.</td></tr>
+                                <tr><td><b>캠프알림</b></td><td>DM</td><td>정산 결과 DM 알림을 on/off 합니다.</td></tr>
+                                <tr><td><b>캠프가이드</b></td><td>DM</td><td>봇 안에서 단계별 튜토리얼을 진행합니다.</td></tr>
+                            </table>
+                        </div>
+
+                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px">
+                            <p style="font-size:12px;font-weight:700;margin:0 0 10px">방장 명령어</p>
+                            <table class="guide-table" style="font-size:12px">
+                                <tr><th style="width:90px">명령어</th><th>설명</th></tr>
+                                <tr><td><b>캠프개설</b></td><td>캠프를 만듭니다. 채팅방 멤버 100명 이상 필요.</td></tr>
+                                <tr><td><b>캠프설정</b></td><td>필드 타입 변경, 배치 모드(자유/승인) 전환, 승인 처리 등.</td></tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ========== 고수 전략 ========== -->
                     <div class="guide-card">
-                        <h3>💡 고수들의 캠프 운영 전략</h3>
-                        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">기본을 익혔다면 이제 효율을 따질 차례입니다.</p>
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span style="background:#FFF8E1;color:#F57F17;font-weight:800;font-size:13px;padding:4px 10px;border-radius:6px">PRO</span>
+                            <h3 style="margin:0">고수들의 캠프 전략</h3>
+                        </div>
+                        <p style="font-size:12px;color:var(--muted);margin-bottom:16px">기본을 다 읽었으면 이제 효율 플레이를 시작할 차례입니다.</p>
                         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
                             <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
                                 <div style="font-size:18px;margin-bottom:4px">🎯</div>
                                 <div style="font-weight:700;font-size:13px;margin-bottom:4px">보너스 포켓몬을 노려라</div>
-                                <div style="font-size:11px;color:var(--muted)">타입만 맞추면 1점, 보너스까지 맞추면 최대 7점. 7배 차이는 무시할 수 없습니다. 정산 후 바로 다음 조건을 확인하세요.</div>
+                                <div style="font-size:11px;color:var(--muted)">1점 vs 7점, 7배 차이입니다. 정산 후 <code>거점캠프</code>로 다음 조건을 바로 확인하고, 보유 포켓몬 중 조건에 맞는 걸 배치하세요.</div>
                             </div>
                             <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
                                 <div style="font-size:18px;margin-bottom:4px">📖</div>
-                                <div style="font-weight:700;font-size:13px;margin-bottom:4px">도감 = 배치 횟수</div>
-                                <div style="font-size:11px;color:var(--muted)">도감 300종이면 하루 6회 배치. 51종이면 3회. 도감이 곧 경쟁력입니다. 수집이 게으르면 캠프에서도 밀립니다.</div>
+                                <div style="font-weight:700;font-size:13px;margin-bottom:4px">도감 채우기 = 배치 횟수 UP</div>
+                                <div style="font-size:11px;color:var(--muted)">도감 301종 이상이면 하루 6회 배치. 수집을 게을리하면 캠프에서도 불리합니다.</div>
                             </div>
                             <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
                                 <div style="font-size:18px;margin-bottom:4px">🔄</div>
-                                <div style="font-weight:700;font-size:13px;margin-bottom:4px">분해 → 전환 사이클</div>
-                                <div style="font-size:11px;color:var(--muted)">일반 이로치 12마리를 분해하면 크리스탈 12개. 이걸로 에픽 1마리를 이로치로 만들 수 있습니다. 수확 → 투자의 반복.</div>
+                                <div style="font-weight:700;font-size:13px;margin-bottom:4px">분해 → 전환 사이클 돌리기</div>
+                                <div style="font-size:11px;color:var(--muted)">일반 이로치를 대량 생산해서 분해 → 크리스탈 확보 → 에픽/전설 이로치 전환. 캠프 고수의 기본 루프.</div>
                             </div>
                             <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
                                 <div style="font-size:18px;margin-bottom:4px">🏕️</div>
-                                <div style="font-weight:700;font-size:13px;margin-bottom:4px">구독자는 거점 2개</div>
-                                <div style="font-size:11px;color:var(--muted)">구독하면 거점을 2개 운영할 수 있어서 조각 수급이 2배. 두 채팅방에서 다른 필드 조각을 모으면 전환 선택지가 넓어집니다.</div>
+                                <div style="font-weight:700;font-size:13px;margin-bottom:4px">구독자 거점 2개 활용</div>
+                                <div style="font-size:11px;color:var(--muted)">거점 2개 = 조각 수급 2배. 서로 다른 필드의 조각을 모으면 다양한 타입의 포켓몬을 이로치로 만들 수 있습니다.</div>
                             </div>
                             <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
                                 <div style="font-size:18px;margin-bottom:4px">⏰</div>
-                                <div style="font-weight:700;font-size:13px;margin-bottom:4px">정산 전에 배치 확인</div>
-                                <div style="font-size:11px;color:var(--muted)">09/12/15/18/21/00시 직전에 배치 상태를 확인하세요. 빈 슬롯 = 0조각. 매 라운드 놓치면 하루에 조각 6라운드분 손해.</div>
+                                <div style="font-weight:700;font-size:13px;margin-bottom:4px">정산 전 배치 체크</div>
+                                <div style="font-size:11px;color:var(--muted)">09/12/15/18/21/00시 전에 배치 상태 확인. 빈 슬롯은 곧 조각 0개. 하루 6라운드를 다 챙기세요.</div>
                             </div>
                             <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
                                 <div style="font-size:18px;margin-bottom:4px">🌈</div>
-                                <div style="font-weight:700;font-size:13px;margin-bottom:4px">무지개 결정 루트</div>
-                                <div style="font-size:11px;color:var(--muted)">초전설 이로치 전환에는 무지개 결정이 필요합니다. 전설 이로치 분해(+1무지개) 또는 장기 크리스탈 축적으로 확보. 장기전 각오.</div>
+                                <div style="font-weight:700;font-size:13px;margin-bottom:4px">무지개 결정 장기 투자</div>
+                                <div style="font-size:11px;color:var(--muted)">초전설 이로치에는 무지개 결정 3개 필요. 전설 이로치 분해(+1무지개)로 모으세요. 인내의 게임.</div>
                             </div>
                         </div>
                     </div>

@@ -227,8 +227,24 @@ async def update_weather(city: str):
 
 
 def get_current_weather() -> dict:
-    """Get cached weather state."""
-    return dict(_cache)
+    """Get cached weather state, re-classifying if time-dependent condition may have changed."""
+    result = dict(_cache)
+
+    # 시간 기반 조건(clear_night/clear/clear_hot)은 조회 시점 기준으로 재판정
+    if result.get("condition") in ("clear_night", "clear", "clear_hot") and result.get("temp") is not None:
+        hour = config.get_kst_now().hour
+        is_night = hour >= 21 or hour < 6
+
+        if is_night and result["condition"] != "clear_night":
+            result["condition"] = "clear_night"
+        elif not is_night and result["condition"] == "clear_night":
+            result["condition"] = "clear_hot" if result["temp"] >= 30 else "clear"
+
+        boost_info = WEATHER_BOOSTS.get(result["condition"], WEATHER_BOOSTS["clear"])
+        result["description"] = boost_info["label"]
+        result["emoji"] = boost_info["emoji"]
+
+    return result
 
 
 def get_weather_pokemon_boost(pokemon_id: int) -> float:
