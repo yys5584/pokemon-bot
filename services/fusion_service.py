@@ -20,8 +20,6 @@ async def get_fusable_species(user_id: int) -> list[dict]:
     for p in all_pokemon:
         if p["id"] in protected:
             continue
-        if p.get("is_favorite"):
-            continue
         pid = p["pokemon_id"]
         if pid not in species:
             species[pid] = {
@@ -51,8 +49,6 @@ async def get_fusable_copies(user_id: int, pokemon_id: int) -> list[dict]:
         if p["pokemon_id"] != pokemon_id:
             continue
         if p["id"] in protected:
-            continue
-        if p.get("is_favorite"):
             continue
         total = sum(p.get(f"iv_{s}", 0) or 0 for s in ("hp", "atk", "def", "spa", "spdef", "spd"))
         grade, _ = config.get_iv_grade(total)
@@ -98,8 +94,6 @@ async def execute_fusion(
     )
     if instance_id_a in protected or instance_id_b in protected:
         return False, "보호 중인 포켓몬은 합성할 수 없습니다. (팀/파트너/거래소)", None
-    if pa.get("is_favorite") or pb.get("is_favorite"):
-        return False, "즐겨찾기 포켓몬은 합성할 수 없습니다.", None
     if locked_a:
         return False, reason_a, None
     if locked_b:

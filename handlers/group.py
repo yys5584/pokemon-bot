@@ -740,9 +740,8 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
             grade, _ = config.get_iv_grade(iv_sum)
             iv_tag = f" [{grade}]"
         team_tag = f" 🎯팀{p['team_num']}" if p.get("team_num") else ""
-        fav = " ⭐" if p.get("is_favorite") else ""
         rl = rarity_labels.get(p.get("rarity", ""), "")
-        lines.append(f"{i+1}. {rb}{tb}{s} {p['name_ko']} ({rl}){iv_tag}{team_tag}{fav}")
+        lines.append(f"{i+1}. {rb}{tb}{s} {p['name_ko']} ({rl}){iv_tag}{team_tag}")
 
     if len(matches) > 15:
         lines.append(f"...외 {len(matches) - 15}마리")

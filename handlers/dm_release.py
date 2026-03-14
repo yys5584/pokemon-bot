@@ -103,9 +103,6 @@ async def _get_candidates(user_id: int, filt: dict) -> list[dict]:
         # Skip protected
         if p["id"] in protected:
             continue
-        # Skip favorites
-        if p.get("is_favorite"):
-            continue
         # Skip shiny
         if p.get("is_shiny"):
             continue

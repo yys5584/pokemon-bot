@@ -3530,7 +3530,6 @@ async def api_market_my_sellable(request):
         LEFT JOIN battle_teams bt ON bt.pokemon_instance_id = up.id
         WHERE up.user_id = $1 AND up.is_active = 1
           AND bt.slot IS NULL
-          AND up.is_favorite = 0
           AND up.id NOT IN (
               SELECT offer_pokemon_instance_id FROM trades
               WHERE status = 'pending'

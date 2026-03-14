@@ -59,7 +59,7 @@ def _build_species_panel(user_id: int, species: list[dict], page: int, rarity_fi
 
     text = "🔀 <b>포켓몬 합성</b>\n\n"
     text += "같은 종류의 포켓몬 2마리를 합성하면\n새로운 개체값의 포켓몬 1마리가 탄생합니다!\n\n"
-    text += "⚠️ 팀/파트너/거래소/즐겨찾기 포켓몬은 제외됩니다.\n\n"
+    text += "⚠️ 팀/파트너/거래소 포켓몬은 제외됩니다.\n\n"
 
     # Current filter label
     filter_label = next((label for key, label in RARITY_FILTERS if key == rarity_filter), "전체")
@@ -182,7 +182,7 @@ async def fusion_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "🔀 합성 가능한 포켓몬이 없습니다.\n\n"
             "같은 종류의 포켓몬을 2마리 이상 보유해야 합니다.\n"
-            "⚠️ 팀/파트너/거래소/즐겨찾기 포켓몬은 제외됩니다.",
+            "⚠️ 팀/파트너/거래소 포켓몬은 제외됩니다.",
             parse_mode="HTML",
         )
         return

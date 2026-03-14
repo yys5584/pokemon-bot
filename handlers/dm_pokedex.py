@@ -453,7 +453,7 @@ def _get_filter(context) -> dict:
     """Get current filter state from user_data."""
     filt = context.user_data.setdefault("mypoke_filter", {
         "sort": "default",  # default / iv / rarity
-        "fav": False,       # 즐겨찾기만 보기
+        "fav": False,       # (미사용, 하위호환)
         "type": None,       # None = 전체, "fire" = 특정 타입
         "gen": None,        # None = 전체, 1/2/3 = 세대 필터
         "shiny": False,     # 이로치만 보기
@@ -499,9 +499,6 @@ def _apply_filters(pokemon_list: list, filt: dict) -> list:
     if filt.get("shiny"):
         filtered = [p for p in filtered if p.get("is_shiny")]
 
-    # Favorite filter
-    if filt.get("fav"):
-        filtered = [p for p in filtered if p.get("is_favorite")]
 
     # Sort
     sort_mode = filt.get("sort", "default")
@@ -525,7 +522,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     # Apply filters if provided
     if filt is None:
         filt = {"sort": "default", "fav": False, "type": None, "gen": None, "shiny": False}
-    has_filter = filt.get("sort") != "default" or filt.get("fav") or filt.get("type") or filt.get("gen") or filt.get("shiny")
+    has_filter = filt.get("sort") != "default" or filt.get("type") or filt.get("gen") or filt.get("shiny")
 
     if has_filter:
         filtered = _apply_filters(pokemon_list, filt)
@@ -578,8 +575,6 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
         filter_tags.append("IV순")
     elif filt.get("sort") == "rarity":
         filter_tags.append("등급순")
-    if filt.get("fav"):
-        filter_tags.append("⭐즐찾")
     if filt.get("shiny"):
         filter_tags.append("✨이로치")
     if filt.get("type"):
@@ -624,7 +619,6 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 max_f = config.get_max_friendship(p)
                 hearts = hearts_display(p["friendship"], max_f)
                 shiny = shiny_emoji() if p.get("is_shiny") else ""
-                fav = "⭐" if p.get("is_favorite") else ""
                 evo_mark = ""
                 if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
                     evo_mark = " ⭐"
@@ -640,7 +634,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 rb = rarity_badge(p.get("rarity", ""))
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
                 team_tag = f" 🎯{p['team_num']}" if p.get("team_num") else ""
-                lines.append(f"{item_num}. {rb}{tb}{shiny}{fav} {p['name_ko']}{iv_tag}  {hearts}{evo_mark}{team_tag}")
+                lines.append(f"{item_num}. {rb}{tb}{shiny} {p['name_ko']}{iv_tag}  {hearts}{evo_mark}{team_tag}")
             else:  # group
                 _, pid, indices, first, count = item
                 rb = rarity_badge(first.get("rarity", ""))
@@ -653,7 +647,6 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
 
     # Filter/sort row (above pokemon list for easy access)
     sort_mode = filt.get("sort", "default")
-    fav_on = filt.get("fav", False)
     type_on = filt.get("type")
     filter_row = [
         InlineKeyboardButton(
@@ -663,10 +656,6 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
         InlineKeyboardButton(
             f"{'✓' if sort_mode == 'rarity' else ''}💎등급",
             callback_data=f"mypoke_sort_{user_id}_rarity",
-        ),
-        InlineKeyboardButton(
-            f"{'✓' if fav_on else ''}⭐즐찾",
-            callback_data=f"mypoke_favf_{user_id}",
         ),
     ]
     select_buttons.append(filter_row)
@@ -860,7 +849,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
 
     lines = [
         f"내 포켓몬 상세 ({num}/{total})\n",
-        f"{shiny_mark}{tb} {p['name_ko']}{shiny_text}{'  ⭐' if p.get('is_favorite') else ''}",
+        f"{shiny_mark}{tb} {p['name_ko']}{shiny_text}",
         f"등급: {rarity_text}{type_display}",
         f"친밀도: {hearts} ({p['friendship']}/{max_f}){evo_text}{iv_line}{stats_line}",
     ]
@@ -885,16 +874,10 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
         care_row.append(InlineKeyboardButton("⭐ 진화", callback_data=f"mypoke_evo_{user_id}_{idx}_{page}"))
     buttons.append(care_row)
 
-    # Row 2: info + fav + team + release
-    fav_label = "⭐ 즐찾해제" if p.get("is_favorite") else "☆ 즐겨찾기"
+    # Row 2: info + team + release
     buttons.append([
         InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
-        InlineKeyboardButton(fav_label, callback_data=f"mypoke_fav_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("🔄 방생", callback_data=f"mypoke_relone_{user_id}_{idx}_{page}"),
-    ])
-
-    # Row 3: team buttons
-    buttons.append([
         InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{idx}_{page}"),
     ])
@@ -982,25 +965,6 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
-        elif action == "favf":
-            # mypoke_favf_{user_id} — toggle fav filter
-            filt["fav"] = not filt["fav"]
-            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
-            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
-
-        elif action == "fav":
-            # mypoke_fav_{user_id}_{idx}_{page} — toggle favorite on a pokemon
-            idx = int(parts[3])
-            page = int(parts[4]) if len(parts) > 4 else 0
-            idx = max(0, min(idx, len(pokemon_list) - 1))
-            p = pokemon_list[idx]
-            new_state = await queries.toggle_favorite(p["id"])
-            emoji = "⭐ 즐겨찾기 등록!" if new_state else "즐겨찾기 해제"
-            await query.answer(emoji, show_alert=False)
-            pokemon_list = await queries.get_user_pokemon_list(user_id)
-            idx = max(0, min(idx, len(pokemon_list) - 1))
-            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
-            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "tf":
             # mypoke_tf_{user_id}_{type_key} — set type filter
@@ -1198,7 +1162,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             instance_id = int(parts[3])
             page = int(parts[4]) if len(parts) > 4 else 0
 
-            # 즐겨찾기/팀 등록된 포켓몬은 방생 불가
+            # 팀 등록된 포켓몬은 방생 불가
             target = None
             for p in pokemon_list:
                 if p["id"] == instance_id:
@@ -1206,10 +1170,6 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                     break
             if not target:
                 await query.answer("이미 방생된 포켓몬입니다!", show_alert=True)
-                return
-
-            if target.get("is_favorite"):
-                await query.answer("⭐ 즐겨찾기 포켓몬은 방생할 수 없습니다! 즐찾 해제 후 시도하세요.", show_alert=True)
                 return
 
             if target.get("team_slot") is not None:

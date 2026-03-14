@@ -64,10 +64,6 @@ async def create_listing(
     if pokemon.get("team_slot") is not None:
         return False, "배틀 팀에 등록된 포켓몬은 거래소에 올릴 수 없습니다.\n팀해제 후 다시 시도하세요.", None, None
 
-    # Check not favorited
-    if pokemon.get("is_favorite"):
-        return False, "즐겨찾기 포켓몬은 거래소에 올릴 수 없습니다.\n즐겨찾기 해제 후 다시 시도하세요.", None, None
-
     # Create listing
     listing_id = await queries.create_market_listing(
         seller_id=user_id,
