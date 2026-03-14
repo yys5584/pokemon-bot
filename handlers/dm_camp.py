@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 _callback_dedup: dict[str, float] = {}
 
 
-def _is_duplicate_callback(query) -> bool:
+def _is_duplicate_callback(query, cooldown: float = 1.5) -> bool:
     key = f"{query.message.message_id}:{query.data}:{query.from_user.id}"
     now = time.monotonic()
     if len(_callback_dedup) > 200:
@@ -25,7 +25,8 @@ def _is_duplicate_callback(query) -> bool:
         stale = [k for k, v in _callback_dedup.items() if v < cutoff]
         for k in stale:
             del _callback_dedup[k]
-    if key in _callback_dedup:
+    prev = _callback_dedup.get(key)
+    if prev is not None and (now - prev) < cooldown:
         return True
     _callback_dedup[key] = now
     return False
