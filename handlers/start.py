@@ -25,10 +25,11 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         menu_keyboard = ReplyKeyboardMarkup(
             [
                 ["📋 상태창", "📦 내포켓몬"],
+                ["🏕 캠프", "🎰 뽑기"],
                 ["📌 미션", "🏪 상점"],
                 ["🏷️ 칭호", "⚔️ 랭크전"],
-                ["🏕 캠프", "🤝 파트너"],
-                ["🛒 거래소", "❓ 도움말"],
+                ["🤝 파트너", "🛒 거래소"],
+                ["❓ 도움말"],
             ],
             resize_keyboard=True,
             input_field_placeholder="명령어를 선택하세요",

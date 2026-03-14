@@ -3086,6 +3086,22 @@ async def log_gacha(user_id: int, result_key: str, bp_spent: int):
         user_id, result_key, bp_spent)
 
 
+async def get_recent_gacha_by_user(minutes: int = 2) -> dict[int, list[str]]:
+    """최근 N분 내 가챠 기록을 유저별로 그룹핑."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT user_id, result_key
+           FROM gacha_log
+           WHERE created_at >= NOW() - ($1 || ' minutes')::INTERVAL
+           ORDER BY created_at""",
+        str(minutes),
+    )
+    result: dict[int, list[str]] = {}
+    for r in rows:
+        result.setdefault(r["user_id"], []).append(r["result_key"])
+    return result
+
+
 async def create_shiny_egg(user_id: int, pokemon_id: int, rarity: str, hatches_at) -> int:
     """이로치 알 생성."""
     pool = await get_db()

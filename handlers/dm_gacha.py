@@ -156,6 +156,7 @@ async def _do_pull(query, user_id: int, count: int):
         return
     _gacha_lock[user_id] = now
 
+    result_sent = False
     try:
         results = []
         for _ in range(count):
@@ -260,20 +261,23 @@ async def _do_pull(query, user_id: int, count: int):
         markup = InlineKeyboardMarkup(buttons) if buttons else None
         try:
             await query.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+            result_sent = True
         except Exception:
             try:
                 await query.message.reply_text("\n".join(lines), reply_markup=markup)
+                result_sent = True
             except Exception:
                 logger.exception(f"[Gacha] 결과 메시지 전송 실패 (user={user_id})")
     except Exception:
         logger.exception(f"[Gacha] _do_pull 전체 예외 (user={user_id}, count={count})")
-        try:
-            await query.message.reply_text(
-                "⚠️ 뽑기 처리 중 오류가 발생했습니다.\n"
-                "보상은 정상 지급되었을 수 있습니다. '아이템'과 '상태창'을 확인해주세요."
-            )
-        except Exception:
-            pass
+        if not result_sent:
+            try:
+                await query.message.reply_text(
+                    "⚠️ 뽑기 처리 중 오류가 발생했습니다.\n"
+                    "보상은 정상 지급되었을 수 있습니다. '아이템'과 '상태창'을 확인해주세요."
+                )
+            except Exception:
+                pass
     finally:
         _gacha_lock.pop(user_id, None)
 

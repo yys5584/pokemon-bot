@@ -163,6 +163,28 @@ async def post_init(application: Application):
         logger.info(f"Sent {len(refunded_balls)} ball refund DMs")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Cleanup done")
 
+    # 가챠 미전달 보상 복구 — 재시작 직전 2분 이내 뽑기 기록이 있으면 DM 발송
+    try:
+        recent_gacha = await queries.get_recent_gacha_by_user(minutes=2)
+        if recent_gacha:
+            _GACHA_NAMES = {item[1]: item[2] for item in config.GACHA_TABLE}
+            for uid, keys in recent_gacha.items():
+                items = ", ".join(_GACHA_NAMES.get(k, k) for k in keys)
+                try:
+                    await application.bot.send_message(
+                        chat_id=uid,
+                        text=(
+                            f"🔔 서버 점검 중 뽑기 결과를 전달하지 못했을 수 있습니다.\n\n"
+                            f"최근 뽑기 결과: {items}\n"
+                            f"보상은 정상 지급되어 있습니다. '아이템'과 '상태창'을 확인해주세요."
+                        ),
+                    )
+                except Exception:
+                    pass
+            logger.info(f"Sent gacha recovery DMs to {len(recent_gacha)} users")
+    except Exception:
+        logger.warning("Gacha recovery check failed", exc_info=True)
+
     # Weather는 느릴 수 있으므로 백그라운드로 (시작 차단 안 함)
     weather_city = os.getenv("WEATHER_CITY", "Seoul")
     asyncio.create_task(update_weather(weather_city))
