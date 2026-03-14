@@ -44,11 +44,11 @@ def _pokemon_rarity(pid: int) -> str:
 # ═══════════════════════════════════════════════════════
 
 def get_pokemon_types(pokemon_id: int) -> list[str]:
-    """포켓몬 타입 리스트 반환."""
+    """포켓몬 타입 리스트 반환. 없으면 빈 리스트."""
     stats = POKEMON_BASE_STATS.get(pokemon_id)
     if stats:
         return stats[-1]
-    return ["normal"]
+    return []
 
 
 def pokemon_matches_field(pokemon_id: int, field_type: str) -> bool:
@@ -57,6 +57,8 @@ def pokemon_matches_field(pokemon_id: int, field_type: str) -> bool:
     if not field_info:
         return False
     ptypes = get_pokemon_types(pokemon_id)
+    if not ptypes:
+        return False
     return any(t in field_info["types"] for t in ptypes)
 
 
@@ -604,29 +606,60 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str]:
     crystal_cost = config.CAMP_CRYSTAL_COST.get(rarity, 0)
     rainbow_cost = config.CAMP_RAINBOW_COST.get(rarity, 0)
 
+    # 3~6) 결정 + 조각 소모 + 이로치 전환을 트랜잭션으로 원자 처리
     if crystal_cost > 0 or rainbow_cost > 0:
         crystals = await cq.get_crystals(user_id)
         if crystals["crystal"] < crystal_cost:
             return False, f"결정이 부족합니다. ({crystals['crystal']}/{crystal_cost})"
         if crystals["rainbow"] < rainbow_cost:
             return False, f"무지개 결정이 부족합니다. ({crystals['rainbow']}/{rainbow_cost})"
-        # 결정 소모
-        ok = await cq.consume_crystals(user_id, crystal_cost, rainbow_cost)
-        if not ok:
-            return False, "결정 소모에 실패했습니다."
 
-    # 4) 조각 소모
-    ok = await cq.consume_fragments(user_id, chosen_field, frag_cost)
-    if not ok:
-        return False, "조각 소모에 실패했습니다."
+    from database.connection import get_db
+    pool = await get_db()
+    try:
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                # 결정 소모
+                if crystal_cost > 0 or rainbow_cost > 0:
+                    row = await conn.fetchrow(
+                        """UPDATE camp_crystals
+                           SET crystal = crystal - $2, rainbow = rainbow - $3
+                           WHERE user_id = $1 AND crystal >= $2 AND rainbow >= $3
+                           RETURNING crystal""",
+                        user_id, crystal_cost, rainbow_cost,
+                    )
+                    if not row:
+                        return False, "결정 소모에 실패했습니다."
 
-    # 5) 이로치 전환
-    success = await cq.make_pokemon_shiny(instance_id)
-    if not success:
-        return False, "전환에 실패했습니다."
+                # 조각 소모
+                row = await conn.fetchrow(
+                    """UPDATE camp_fragments
+                       SET amount = amount - $3
+                       WHERE user_id = $1 AND field_type = $2 AND amount >= $3
+                       RETURNING amount""",
+                    user_id, chosen_field, frag_cost,
+                )
+                if not row:
+                    return False, "조각 소모에 실패했습니다."
 
-    # 6) 쿨타임 기록
-    await cq.set_shiny_cooldown(user_id)
+                # 이로치 전환
+                row = await conn.fetchrow(
+                    "UPDATE user_pokemon SET is_shiny = TRUE WHERE id = $1 RETURNING id",
+                    instance_id,
+                )
+                if not row:
+                    return False, "전환에 실패했습니다."
+
+                # 쿨타임 기록
+                await conn.execute(
+                    """INSERT INTO camp_shiny_cooldown (user_id, last_convert)
+                       VALUES ($1, NOW())
+                       ON CONFLICT (user_id) DO UPDATE SET last_convert = NOW()""",
+                    user_id,
+                )
+    except Exception as e:
+        logger.error("이로치 전환 트랜잭션 실패: %s", e)
+        return False, "전환 처리 중 오류가 발생했습니다."
 
     # 7) 로그
     field_name = config.CAMP_FIELDS[chosen_field]["name"]
@@ -784,11 +817,16 @@ async def change_field_type(chat_id: int, field_id: int, new_type: str) -> tuple
             mins = int(remaining // 60)
             return False, f"필드 변경 쿨타임 중입니다. ({mins}분 남음)"
 
-    # 기존 배치 삭제 후 필드 타입 변경
+    # 기존 배치 삭제 + 필드 타입 변경을 트랜잭션으로 처리
     from database.connection import get_db
     pool = await get_db()
-    await pool.execute("DELETE FROM camp_placements WHERE field_id = $1", field_id)
-    await cq.change_field_type(field_id, new_type)
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("DELETE FROM camp_placements WHERE field_id = $1", field_id)
+            await conn.execute(
+                "UPDATE camp_fields SET field_type = $1 WHERE id = $2",
+                new_type, field_id,
+            )
     await cq.update_chat_camp_settings(
         chat_id, last_field_change=config.get_kst_now(),
     )
@@ -928,7 +966,7 @@ async def toggle_approval_mode(chat_id: int, enable: bool, slots: int = 0) -> tu
     await cq.update_chat_camp_settings(
         chat_id,
         approval_mode=enable,
-        approval_slots=min(slots, config.CAMP_MAX_APPROVAL_SLOTS) if enable else 0,
+        approval_slots=max(0, min(slots, config.CAMP_MAX_APPROVAL_SLOTS)) if enable else 0,
         last_mode_change=config.get_kst_now(),
     )
 

@@ -449,21 +449,21 @@ async def update_chat_camp_settings(chat_id: int, **kwargs):
 # ═══════════════════════════════════════════════════════
 
 async def get_daily_placement_count(user_id: int) -> int:
-    """Get user's placement count for today."""
+    """Get user's placement count for today (KST)."""
     pool = await get_db()
     val = await pool.fetchval(
-        "SELECT count FROM camp_daily_placements WHERE user_id = $1 AND date = CURRENT_DATE",
+        "SELECT count FROM camp_daily_placements WHERE user_id = $1 AND date = (NOW() AT TIME ZONE 'Asia/Seoul')::date",
         user_id,
     )
     return val or 0
 
 
 async def increment_daily_placement(user_id: int):
-    """Increment user's daily placement count. Upsert."""
+    """Increment user's daily placement count (KST). Upsert."""
     pool = await get_db()
     await pool.execute(
         """INSERT INTO camp_daily_placements (user_id, date, count)
-           VALUES ($1, CURRENT_DATE, 1)
+           VALUES ($1, (NOW() AT TIME ZONE 'Asia/Seoul')::date, 1)
            ON CONFLICT (user_id, date)
            DO UPDATE SET count = camp_daily_placements.count + 1""",
         user_id,
