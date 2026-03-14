@@ -1091,6 +1091,10 @@ async def set_home_camp(user_id: int, chat_id: int) -> tuple[bool, str]:
     if settings and settings.get("home_chat_id") == chat_id:
         return False, "이미 이 채팅방이 거점 캠프입니다."
 
+    # 2번째 거점과도 같은지 확인
+    if settings and settings.get("home_chat_id_2") == chat_id:
+        return False, "이미 이 채팅방이 2번째 거점 캠프입니다."
+
     # 7일 쿨다운 체크
     if settings and settings.get("home_camp_set_at"):
         now = config.get_kst_now()
@@ -1112,6 +1116,52 @@ async def set_home_camp(user_id: int, chat_id: int) -> tuple[bool, str]:
     if is_first:
         return True, "FIRST_HOME"  # 핸들러에서 튜토리얼 트리거
     return True, "🏠 거점 캠프가 변경되었습니다!"
+
+
+async def set_home_camp_2(user_id: int, chat_id: int) -> tuple[bool, str]:
+    """2번째 거점 캠프 설정 (구독자 전용, 7일 쿨다운)."""
+    from services.subscription_service import get_user_tier
+    tier = await get_user_tier(user_id)
+    has_dual = config.SUBSCRIPTION_TIERS.get(tier, {}).get("benefits", {}).get("dual_home_camp")
+    if not has_dual:
+        return False, "2번째 거점캠프는 구독자 전용 혜택입니다."
+
+    settings = await cq.get_user_camp_settings(user_id)
+
+    # 기존 거점과 같은지 확인
+    if settings and settings.get("home_chat_id") == chat_id:
+        return False, "이미 1번째 거점과 같은 캠프입니다."
+
+    # 2번째 거점이 같은 방이면 무시
+    if settings and settings.get("home_chat_id_2") == chat_id:
+        return False, "이미 이 채팅방이 2번째 거점 캠프입니다."
+
+    # 7일 쿨다운 체크 (2번째 거점 별도 쿨다운)
+    if settings and settings.get("home_camp_set_at_2"):
+        now = config.get_kst_now()
+        elapsed = (now - settings["home_camp_set_at_2"]).total_seconds()
+        cooldown = 7 * 86400  # 7일
+        if elapsed < cooldown:
+            remaining = cooldown - elapsed
+            days = int(remaining // 86400)
+            hours = int((remaining % 86400) // 3600)
+            return False, f"2번째 거점 변경 쿨다운 중입니다. ({days}일 {hours}시간 남음)"
+
+    camp = await cq.get_camp(chat_id)
+    if not camp:
+        return False, "해당 채팅방에 캠프가 없습니다."
+
+    await cq.set_home_camp_2(user_id, chat_id)
+    return True, "🏠 2번째 거점 캠프가 설정되었습니다!"
+
+
+async def remove_home_camp_2(user_id: int) -> tuple[bool, str]:
+    """2번째 거점 캠프 해제."""
+    settings = await cq.get_user_camp_settings(user_id)
+    if not settings or not settings.get("home_chat_id_2"):
+        return False, "2번째 거점 캠프가 설정되어 있지 않습니다."
+    await cq.remove_home_camp_2(user_id)
+    return True, "🏠 2번째 거점 캠프가 해제되었습니다."
 
 
 # ═══════════════════════════════════════════════════════

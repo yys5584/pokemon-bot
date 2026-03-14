@@ -1092,6 +1092,17 @@ async def create_tables():
         except Exception:
             pass
 
+    # 듀얼 거점캠프 (구독자 전용, 2026-03-14)
+    dual_home_migs = [
+        "ALTER TABLE camp_user_settings ADD COLUMN home_chat_id_2 BIGINT",
+        "ALTER TABLE camp_user_settings ADD COLUMN home_camp_set_at_2 TIMESTAMPTZ",
+    ]
+    for mig in dual_home_migs:
+        try:
+            await pool.execute(mig)
+        except Exception:
+            pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

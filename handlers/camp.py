@@ -228,9 +228,10 @@ async def camp_handler(update, context):
         schedule_delete(update.message, 3)
         return
 
-    # 거점캠프 확인
+    # 거점캠프 확인 (1번째 또는 2번째 거점 모두 허용)
     settings = await cq.get_user_camp_settings(user_id)
-    if not settings or settings.get("home_chat_id") != chat_id:
+    is_home = (settings and (settings.get("home_chat_id") == chat_id or settings.get("home_chat_id_2") == chat_id))
+    if not is_home:
         home_title = ""
         if settings and settings.get("home_chat_id"):
             home_room = await queries.get_chat_room(settings["home_chat_id"])

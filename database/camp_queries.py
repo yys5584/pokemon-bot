@@ -501,7 +501,8 @@ async def get_user_camp_settings(user_id: int) -> dict | None:
     pool = await get_db()
     row = await pool.fetchrow(
         """SELECT home_chat_id, home_changed_date, home_camp_set_at,
-                  COALESCE(camp_notify, TRUE) AS camp_notify
+                  COALESCE(camp_notify, TRUE) AS camp_notify,
+                  home_chat_id_2, home_camp_set_at_2
            FROM camp_user_settings WHERE user_id = $1""",
         user_id,
     )
@@ -523,6 +524,31 @@ async def set_home_camp(user_id: int, chat_id: int):
     )
 
 
+async def set_home_camp_2(user_id: int, chat_id: int):
+    """Set user's 2nd home camp (subscribers only). Records timestamp for 7-day change cooldown."""
+    pool = await get_db()
+    await pool.execute(
+        """INSERT INTO camp_user_settings (user_id, home_chat_id_2, home_camp_set_at_2)
+           VALUES ($1, $2, NOW())
+           ON CONFLICT (user_id)
+           DO UPDATE SET
+               home_chat_id_2 = $2,
+               home_camp_set_at_2 = NOW()""",
+        user_id, chat_id,
+    )
+
+
+async def remove_home_camp_2(user_id: int):
+    """Remove user's 2nd home camp."""
+    pool = await get_db()
+    await pool.execute(
+        """UPDATE camp_user_settings
+           SET home_chat_id_2 = NULL, home_camp_set_at_2 = NULL
+           WHERE user_id = $1""",
+        user_id,
+    )
+
+
 async def toggle_camp_notify(user_id: int) -> bool:
     """Toggle camp notification. Returns new state."""
     pool = await get_db()
@@ -538,11 +564,12 @@ async def toggle_camp_notify(user_id: int) -> bool:
 
 
 async def get_home_camp_users(chat_id: int) -> list[int]:
-    """Get all user IDs who have this chat as home camp and notify enabled."""
+    """Get all user IDs who have this chat as home camp (slot 1 or 2) and notify enabled."""
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT user_id FROM camp_user_settings
-           WHERE home_chat_id = $1 AND COALESCE(camp_notify, TRUE) = TRUE""",
+           WHERE (home_chat_id = $1 OR home_chat_id_2 = $1)
+             AND COALESCE(camp_notify, TRUE) = TRUE""",
         chat_id,
     )
     return [r["user_id"] for r in rows]
