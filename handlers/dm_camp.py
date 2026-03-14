@@ -67,6 +67,57 @@ def _next_round_countdown() -> str:
     return f"{next_time} ({m}분 후)"
 
 
+CAMP_LIST_PAGE_SIZE = 5
+
+
+def _build_camp_list_page(camps: list[dict], user_id: int, page: int,
+                          is_change: bool = False, exclude_chat_id: int | None = None) -> tuple[str, InlineKeyboardMarkup]:
+    """캠프 목록 페이지 빌드 (거점 설정 / 거점 변경 공용)."""
+    filtered = [c for c in camps if c["chat_id"] != exclude_chat_id] if exclude_chat_id else camps
+    total_pages = max(1, (len(filtered) + CAMP_LIST_PAGE_SIZE - 1) // CAMP_LIST_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * CAMP_LIST_PAGE_SIZE
+    page_items = filtered[start:start + CAMP_LIST_PAGE_SIZE]
+
+    if is_change:
+        lines = ["🔄 거점 변경", "━━━━━━━━━━━━━", "⚠️ 변경 후 7일간 재변경 불가!", ""]
+    else:
+        lines = ["🏕 거점캠프를 설정하세요!", "━━━━━━━━━━━━━",
+                 "거점을 설정하면 DM으로 정산 결과를 받을 수 있어요.", ""]
+
+    for c in page_items:
+        title = c.get("chat_title") or f"채팅방 {c['chat_id']}"
+        lv = c.get("level", 1)
+        members = c.get("member_count") or 0
+        lines.append(f"🏕 {title} (Lv.{lv}, {members}명)")
+
+    if total_pages > 1:
+        lines.append(f"\n📄 {page + 1}/{total_pages} 페이지")
+    lines.append("━━━━━━━━━━━━━")
+
+    buttons = []
+    for c in page_items:
+        title = c.get("chat_title") or f"채팅방 {c['chat_id']}"
+        buttons.append([InlineKeyboardButton(
+            f"🏕 {title}",
+            callback_data=f"cdm_home_{user_id}_{c['chat_id']}",
+        )])
+
+    # 페이지네이션 버튼
+    nav = []
+    mode = "chg" if is_change else "set"
+    if page > 0:
+        nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_clp_{user_id}_{mode}_{page - 1}"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_clp_{user_id}_{mode}_{page + 1}"))
+    if nav:
+        buttons.append(nav)
+
+    buttons.append([InlineKeyboardButton("❌ 닫기" if not is_change else "❌ 취소",
+                                         callback_data=f"cdm_cancel_{user_id}")])
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
+
 # ═══════════════════════════════════════════════════════
 # DM 명령: 거점캠프
 # ═══════════════════════════════════════════════════════
@@ -92,28 +143,8 @@ async def home_camp_handler(update, context):
             )
             return
 
-        lines = [
-            "🏕 거점캠프를 설정하세요!",
-            "━━━━━━━━━━━━━",
-            "거점을 설정하면 DM으로 정산 결과를 받을 수 있어요.",
-            "",
-        ]
-        buttons = []
-        for c in camps[:15]:
-            title = c.get("chat_title") or f"채팅방 {c['chat_id']}"
-            lv = c.get("level", 1)
-            members = c.get("member_count") or 0
-            lines.append(f"🏕 {title} (Lv.{lv}, {members}명)")
-            buttons.append([InlineKeyboardButton(
-                f"🏕 {title}",
-                callback_data=f"cdm_home_{user_id}_{c['chat_id']}",
-            )])
-
-        lines.append("━━━━━━━━━━━━━")
-        await update.message.reply_text(
-            "\n".join(lines),
-            reply_markup=InlineKeyboardMarkup(buttons),
-        )
+        text, markup = _build_camp_list_page(camps, user_id, 0, is_change=False)
+        await update.message.reply_text(text, reply_markup=markup)
         return
 
     # 거점 설정됨 → 상세 현황 표시
@@ -790,23 +821,10 @@ async def camp_dm_callback_handler(update, context):
         settings = await cq.get_user_camp_settings(uid)
         current_home = settings.get("home_chat_id") if settings else None
 
-        buttons = []
-        lines = ["🔄 거점 변경", "━━━━━━━━━━━━━", "⚠️ 변경 후 7일간 재변경 불가!", ""]
-        for c in camps[:15]:
-            if c["chat_id"] == current_home:
-                continue
-            title = c.get("chat_title") or f"채팅방 {c['chat_id']}"
-            lv = c.get("level", 1)
-            lines.append(f"🏕 {title} (Lv.{lv})")
-            buttons.append([InlineKeyboardButton(
-                f"🏕 {title}",
-                callback_data=f"cdm_home_{uid}_{c['chat_id']}",
-            )])
-        buttons.append([InlineKeyboardButton("❌ 취소", callback_data=f"cdm_cancel_{uid}")])
-
+        text, markup = _build_camp_list_page(camps, uid, 0, is_change=True, exclude_chat_id=current_home)
         await query.answer()
         try:
-            await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons))
+            await query.edit_message_text(text, reply_markup=markup)
         except Exception:
             pass
 
@@ -1122,6 +1140,29 @@ async def camp_dm_callback_handler(update, context):
         await query.answer(msg[:200], show_alert=True)
         try:
             await query.edit_message_text(msg)
+        except Exception:
+            pass
+
+    # ── cdm_clp_{uid}_{mode}_{page} — 캠프 목록 페이지네이션 ──
+    elif data.startswith("cdm_clp_"):
+        uid = int(parts[2])
+        mode = parts[3]  # "set" or "chg"
+        page = int(parts[4])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        camps = await cq.get_available_camps()
+        if mode == "chg":
+            settings = await cq.get_user_camp_settings(uid)
+            current_home = settings.get("home_chat_id") if settings else None
+            text, markup = _build_camp_list_page(camps, uid, page, is_change=True, exclude_chat_id=current_home)
+        else:
+            text, markup = _build_camp_list_page(camps, uid, page, is_change=False)
+
+        await query.answer()
+        try:
+            await query.edit_message_text(text, reply_markup=markup)
         except Exception:
             pass
 
