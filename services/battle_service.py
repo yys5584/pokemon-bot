@@ -59,8 +59,8 @@ def _build_battle_detail_dm(
             lines.append(f"<b>── ({ci}/{ct}) {td['c_tb']}{c_shiny_mark}{td['c_name']} vs ({di}/{dt}) {td['d_tb']}{d_shiny_mark}{td['d_name']} ──</b>")
         elif td["type"] == "turn":
             tn = td["turn_num"]
-            c_part = f"→{td['c_dmg']}{td['c_crit']}{td['c_eff']}" if td["c_dmg"] else ""
-            d_part = f"←{td['d_dmg']}{td['d_crit']}{td['d_eff']}" if td["d_dmg"] else ""
+            c_part = f"→{td['c_dmg']}{td['c_crit']}{td['c_eff']}" if td["c_dmg"] else (td['c_eff'].strip() if td['c_eff'].strip() else "")
+            d_part = f"←{td['d_dmg']}{td['d_crit']}{td['d_eff']}" if td["d_dmg"] else (td['d_eff'].strip() if td['d_eff'].strip() else "")
             lines.append(f" {tn}턴: {td['c_name']} {c_part} | {td['d_name']} {d_part}")
         elif td["type"] == "ko":
             if td["next_name"]:
