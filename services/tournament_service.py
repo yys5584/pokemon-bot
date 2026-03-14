@@ -905,7 +905,7 @@ async def _run_match(
                 ),
                 parse_mode="HTML",
             )
-        await asyncio.sleep(3)
+        await asyncio.sleep(2)
 
         for _i, td in enumerate(result["turn_data"]):
             if td["type"] == "matchup":
@@ -913,7 +913,7 @@ async def _run_match(
                     text=f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})!",
                     parse_mode="HTML",
                 )
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
 
             elif td["type"] == "turn":
                 if td["first_is_challenger"]:
@@ -961,10 +961,10 @@ async def _run_match(
                         first_shiny, _def_shiny,
                     )
                     await _safe_send_photo(context.bot, chat_id, photo=card_buf, caption=caption1, parse_mode="HTML")
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(3)
                 else:
                     await _safe_send(context.bot, chat_id, text=caption1, parse_mode="HTML")
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(2)
 
                 # Counter attack — battle scene image for skills
                 if second_dmg > 0:
@@ -988,10 +988,10 @@ async def _run_match(
                             second_shiny, _def_shiny2,
                         )
                         await _safe_send_photo(context.bot, chat_id, photo=card_buf2, caption=caption2, parse_mode="HTML")
-                        await asyncio.sleep(5)
+                        await asyncio.sleep(3)
                     else:
                         await _safe_send(context.bot, chat_id, text=caption2, parse_mode="HTML")
-                        await asyncio.sleep(3)
+                        await asyncio.sleep(2)
 
             elif td["type"] == "ko":
                 m = _mark(td["side"])
@@ -1003,7 +1003,7 @@ async def _run_match(
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
 
         win_text = f"\n🎉 {winner_data['name']} 우승! (남은 {remaining}마리)"
         if mvp_line:
@@ -1030,7 +1030,7 @@ async def _run_match(
             ),
             parse_mode="HTML",
         )
-        await asyncio.sleep(3)
+        await asyncio.sleep(2)
 
         for _i, td in enumerate(result["turn_data"]):
             if td["type"] == "matchup":
@@ -1038,7 +1038,7 @@ async def _run_match(
                     text=f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})!",
                     parse_mode="HTML",
                 )
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
 
             elif td["type"] == "turn":
                 lines = []
@@ -1073,7 +1073,7 @@ async def _run_match(
                     lines.append(f"  {second_target_mark}{second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})")
 
                 await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
 
             elif td["type"] == "ko":
                 m = _mark(td["side"])
@@ -1085,7 +1085,7 @@ async def _run_match(
                 else:
                     text = f"{SKULL} {m}{td['dead_name']} 쓰러짐!"
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
 
         win_text = f"→ {winner_data['name']} 승리! (남은 {remaining}마리)"
         if mvp_line:
