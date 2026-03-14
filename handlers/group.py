@@ -189,6 +189,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 username,
                 html=True,
                 ranked_badge=r_badge,
+                sub_tier=sub_tier,
             )
 
             # 구독자 존칭 적용
@@ -260,19 +261,32 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             if remaining is None:
                 return
 
-            # Phase 3: record attempt + get_user + sub_tier in parallel
+            # Phase 3: record attempt + get_user + sub_tier + ranked in parallel
             from services.subscription_service import get_user_tier
-            _, user, sub_tier = await asyncio.gather(
+            from services.ranked_service import current_season_id
+            from database import ranked_queries as rq
+            _, user, sub_tier, season_rec = await asyncio.gather(
                 queries.record_catch_attempt(session["id"], user_id, used_master_ball=True),
                 queries.get_user(user_id),
                 get_user_tier(user_id),
+                rq.get_season_record(user_id, current_season_id()),
             )
+            if season_rec and season_rec.get("rp") is not None:
+                _tk, _dv, _ = config.get_division_info(season_rec["rp"])
+                if season_rec.get("tier") == "challenger":
+                    _tk = "challenger"
+                    _dv = 0
+                r_badge = config.get_ranked_badge_html(_tk, _dv)
+            else:
+                r_badge = config.get_ranked_badge_html("bronze", 2)
             decorated = get_decorated_name(
                 display_name,
                 user.get("title", "") if user else "",
                 user.get("title_emoji", "") if user else "",
                 username,
                 html=True,
+                ranked_badge=r_badge,
+                sub_tier=sub_tier,
             )
             throw_text = format_actor(decorated, "마스터볼을 던졌다!", sub_tier)
             msg = await context.bot.send_message(
@@ -339,20 +353,33 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 )
                 return
 
-            # Phase 3: record attempt + get_user + get remaining + sub_tier in parallel
+            # Phase 3: record attempt + get_user + get remaining + sub_tier + ranked in parallel
             from services.subscription_service import get_user_tier
-            _, user, remaining, sub_tier = await asyncio.gather(
+            from services.ranked_service import current_season_id
+            from database import ranked_queries as rq
+            _, user, remaining, sub_tier, season_rec = await asyncio.gather(
                 queries.record_catch_attempt(session["id"], user_id, used_hyper_ball=True),
                 queries.get_user(user_id),
                 queries.get_hyper_balls(user_id),
                 get_user_tier(user_id),
+                rq.get_season_record(user_id, current_season_id()),
             )
+            if season_rec and season_rec.get("rp") is not None:
+                _tk, _dv, _ = config.get_division_info(season_rec["rp"])
+                if season_rec.get("tier") == "challenger":
+                    _tk = "challenger"
+                    _dv = 0
+                r_badge = config.get_ranked_badge_html(_tk, _dv)
+            else:
+                r_badge = config.get_ranked_badge_html("bronze", 2)
             decorated = get_decorated_name(
                 display_name,
                 user.get("title", "") if user else "",
                 user.get("title_emoji", "") if user else "",
                 username,
                 html=True,
+                ranked_badge=r_badge,
+                sub_tier=sub_tier,
             )
             throw_text = format_actor(decorated, "하이퍼볼을 던졌다!", sub_tier)
             hyper_msg = await context.bot.send_message(

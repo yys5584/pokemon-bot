@@ -275,16 +275,28 @@ def resolve_title_badge(title_emoji_raw: str, title_name: str = "") -> str:
     return icon_emoji(ek) if ek in ICON_CUSTOM_EMOJI else ek
 
 
+def _sub_tier_badge(sub_tier: str | None) -> str:
+    """구독 티어 배지 문자열 반환."""
+    if sub_tier == "channel_owner":
+        return "👑"
+    elif sub_tier == "basic":
+        return "⭐"
+    return ""
+
+
 def get_decorated_name(display_name: str, title: str = "", title_emoji: str = "",
                        username: str = None, html: bool = False,
-                       ranked_badge: str = "") -> str:
-    """Format a display name with ranked badge + title for chat messages.
+                       ranked_badge: str = "", sub_tier: str = None) -> str:
+    """Format a display name with sub badge + ranked badge + title for chat messages.
 
     ranked_badge: 랭크 뱃지 HTML (config.get_ranked_badge_html() 결과)
-    - With badge+title: <b>「🐉 레전드 헌터」<badge> 문유</b>
+    sub_tier: 구독 티어 ("basic", "channel_owner", None)
+    - With badge+title: <b>👑「🐉 레전드 헌터」<badge> 문유</b>
     - With badge only:  <b><badge> 문유</b>
     - Without badge/title: 문유
     """
+    sub_badge = _sub_tier_badge(sub_tier)
+
     if username:
         name = f"@{username}"
     else:
@@ -294,14 +306,16 @@ def get_decorated_name(display_name: str, title: str = "", title_emoji: str = ""
         ek = title_emoji if title_emoji in ICON_CUSTOM_EMOJI else _TITLE_NAME_TO_ICON.get(title, title_emoji)
         badge = icon_emoji(ek) if ek in ICON_CUSTOM_EMOJI else ek
         if html and ranked_badge:
-            return f"<b>「{badge} {title}」{ranked_badge}{name}</b>"
+            return f"<b>{sub_badge}「{badge} {title}」{ranked_badge}{name}</b>"
         if html:
-            return f"<b>「{badge} {title}」{name}</b>"
-        return f"「{badge} {title}」{name}"
+            return f"<b>{sub_badge}「{badge} {title}」{name}</b>"
+        return f"{sub_badge}「{badge} {title}」{name}"
 
     # 칭호 없어도 랭크 뱃지가 있으면 표시
     if html and ranked_badge:
-        return f"<b>{ranked_badge} {name}</b>"
+        return f"<b>{sub_badge}{ranked_badge} {name}</b>"
+    if sub_badge:
+        return f"<b>{sub_badge}{name}</b>" if html else f"{sub_badge}{name}"
     return name
 
 
