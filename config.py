@@ -687,6 +687,38 @@ RANKED_TIERS = [
     ("challenger", "챌린저",   "⚔️", 0, 99999),
 ]
 
+# 티어별 커스텀 이모지 뱃지 ID (tier_key + division → emoji_id)
+RANKED_BADGE_EMOJI = {
+    "bronze_2":    "6172535820226928536",
+    "bronze_1":    "6172529334826311658",
+    "silver_2":    "6172315784757386500",
+    "silver_1":    "6172366357997297005",
+    "gold_2":      "6172278976887659764",
+    "gold_1":      "6172215720609324809",
+    "platinum_2":  "6172555675860736562",
+    "platinum_1":  "6172226247574165903",
+    "diamond_2":   "6172353786628022280",
+    "diamond_1":   "6172618532707114386",
+    "master":      "6172441421140729267",
+    "challenger":  "6172377417538084864",
+}
+
+
+def get_ranked_badge_html(tier_key: str, division: int = 0) -> str:
+    """티어+디비전으로 커스텀 이모지 뱃지 HTML 반환.
+    division=0이면 마스터/챌린저 (디비전 없음).
+    랭크전 안 한 유저는 bronze_2 기본."""
+    if tier_key in ("master", "challenger"):
+        key = tier_key
+    elif division:
+        key = f"{tier_key}_{division}"
+    else:
+        key = f"{tier_key}_2"  # 기본 하위 디비전
+
+    eid = RANKED_BADGE_EMOJI.get(key, RANKED_BADGE_EMOJI["bronze_2"])
+    fallback = "🏅"
+    return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji>'
+
 DIVISION_RP = 100               # 디비전당 RP
 DIVISION_NAMES = {2: "II", 1: "I"}  # II=하위, I=상위
 

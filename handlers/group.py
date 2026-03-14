@@ -131,13 +131,16 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         _catch_locks.add(lock_key)
         try:
-            # Phase 2: has_attempted + can_attempt + get_user + sub_tier in parallel
+            # Phase 2: has_attempted + can_attempt + get_user + sub_tier + ranked in parallel
             from services.subscription_service import get_user_tier
-            already, (allowed, reason, remaining, max_today), user, sub_tier = await asyncio.gather(
+            from services.ranked_service import current_season_id
+            from database import ranked_queries as rq
+            already, (allowed, reason, remaining, max_today), user, sub_tier, season_rec = await asyncio.gather(
                 queries.has_attempted_session(session["id"], user_id),
                 can_attempt_catch(user_id),
                 queries.get_user(user_id),
                 get_user_tier(user_id),
+                rq.get_season_record(user_id, current_season_id()),
             )
 
             if already:
@@ -158,12 +161,23 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 ball_count_tag = f" ({after_remaining}/{max_today})"
 
+            # 랭크 뱃지: 시즌 레코드에서 티어+디비전 조회, 없으면 브론즈 2
+            if season_rec and season_rec.get("rp") is not None:
+                _tk, _dv, _ = config.get_division_info(season_rec["rp"])
+                if season_rec.get("tier") == "challenger":
+                    _tk = "challenger"
+                    _dv = 0
+                r_badge = config.get_ranked_badge_html(_tk, _dv)
+            else:
+                r_badge = config.get_ranked_badge_html("bronze", 2)
+
             decorated = get_decorated_name(
                 display_name,
                 user.get("title", "") if user else "",
                 user.get("title_emoji", "") if user else "",
                 username,
                 html=True,
+                ranked_badge=r_badge,
             )
 
             # 구독자 존칭 적용

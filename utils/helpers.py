@@ -275,12 +275,15 @@ def resolve_title_badge(title_emoji_raw: str, title_name: str = "") -> str:
     return icon_emoji(ek) if ek in ICON_CUSTOM_EMOJI else ek
 
 
-def get_decorated_name(display_name: str, title: str = "", title_emoji: str = "", username: str = None, html: bool = False) -> str:
-    """Format a display name with title badge for chat messages.
+def get_decorated_name(display_name: str, title: str = "", title_emoji: str = "",
+                       username: str = None, html: bool = False,
+                       ranked_badge: str = "") -> str:
+    """Format a display name with ranked badge + title for chat messages.
 
-    title_emoji can be a custom icon key (e.g. "crown") or a plain emoji.
-    - With title (html):  <b>「crown_icon 챔피언」문유</b>
-    - Without title: 문유
+    ranked_badge: 랭크 뱃지 HTML (config.get_ranked_badge_html() 결과)
+    - With badge+title: <b>「🐉 레전드 헌터」<badge> 문유</b>
+    - With badge only:  <b><badge> 문유</b>
+    - Without badge/title: 문유
     """
     if username:
         name = f"@{username}"
@@ -288,13 +291,17 @@ def get_decorated_name(display_name: str, title: str = "", title_emoji: str = ""
         name = escape_html(display_name) if html else display_name
 
     if title and title_emoji:
-        # Convert icon key to custom emoji if it matches ICON_CUSTOM_EMOJI
-        # Fallback: if DB has old basic emoji, look up correct key by title name
         ek = title_emoji if title_emoji in ICON_CUSTOM_EMOJI else _TITLE_NAME_TO_ICON.get(title, title_emoji)
         badge = icon_emoji(ek) if ek in ICON_CUSTOM_EMOJI else ek
+        if html and ranked_badge:
+            return f"<b>「{badge} {title}」{ranked_badge}{name}</b>"
         if html:
             return f"<b>「{badge} {title}」{name}</b>"
         return f"「{badge} {title}」{name}"
+
+    # 칭호 없어도 랭크 뱃지가 있으면 표시
+    if html and ranked_badge:
+        return f"<b>{ranked_badge} {name}</b>"
     return name
 
 
