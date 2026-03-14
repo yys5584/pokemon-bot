@@ -229,7 +229,7 @@ async def home_camp_handler(update, context):
     else:
         buttons.append([InlineKeyboardButton("🔄 거점변경", callback_data=f"cdm_chghome_{user_id}")])
 
-    await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons))
+    await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 
 
 # ═══════════════════════════════════════════════════════
@@ -613,7 +613,7 @@ async def my_camp_handler(update, context):
     if hints:
         lines.extend(hints)
 
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
 
 # ═══════════════════════════════════════════════════════
@@ -665,7 +665,8 @@ async def shiny_convert_handler(update, context):
     if not eligible:
         await update.message.reply_text(
             f"{shiny_emoji()} 이로치 전환 가능한 포켓몬이 없습니다.\n"
-            "조각이 부족하거나, 보유 포켓몬이 모두 이로치입니다."
+            "조각이 부족하거나, 보유 포켓몬이 모두 이로치입니다.",
+            parse_mode="HTML",
         )
         return
 
@@ -709,7 +710,7 @@ async def shiny_convert_handler(update, context):
     lines.append("━━━━━━━━━━━━━")
 
     markup = InlineKeyboardMarkup(buttons) if buttons else None
-    await update.message.reply_text("\n".join(lines), reply_markup=markup)
+    await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
 
 
 # ═══════════════════════════════════════════════════════
@@ -761,7 +762,7 @@ async def decompose_handler(update, context):
 
     lines.append("━━━━━━━━━━━━━")
 
-    await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons))
+    await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 
 
 # ═══════════════════════════════════════════════════════
@@ -799,13 +800,13 @@ async def camp_dm_callback_handler(update, context):
             ]]
             text = "🏠 거점 캠프가 설정되었습니다!\n\n" + _GUIDE_STEPS[0]
             try:
-                await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+                await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
             except Exception:
                 pass
         elif success:
             await query.answer(msg)
             try:
-                await query.edit_message_text(msg)
+                await query.edit_message_text(msg, parse_mode="HTML")
             except Exception:
                 pass
         else:
@@ -825,7 +826,7 @@ async def camp_dm_callback_handler(update, context):
         text, markup = _build_camp_list_page(camps, uid, 0, is_change=True, exclude_chat_id=current_home)
         await query.answer()
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -855,7 +856,7 @@ async def camp_dm_callback_handler(update, context):
         await query.answer()
         text, markup = await _build_dm_field_buttons(uid, chat_id, fields, camp)
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -884,7 +885,7 @@ async def camp_dm_callback_handler(update, context):
                 fields = await cq.get_fields(chat_id)
                 text, markup = await _build_dm_field_buttons(uid, chat_id, fields, camp)
                 try:
-                    await query.edit_message_text(text, reply_markup=markup)
+                    await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
                 except Exception:
                     pass
 
@@ -904,7 +905,7 @@ async def camp_dm_callback_handler(update, context):
         await query.answer()
         text, markup = await _build_dm_pokemon_list(uid, field_id, field["field_type"], field["chat_id"], 0)
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -944,7 +945,7 @@ async def camp_dm_callback_handler(update, context):
             fields = await cq.get_fields(chat_id)
             text, markup = await _build_dm_field_buttons(uid, chat_id, fields, camp)
             try:
-                await query.edit_message_text(text, reply_markup=markup)
+                await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
             except Exception:
                 pass
 
@@ -965,7 +966,7 @@ async def camp_dm_callback_handler(update, context):
         await query.answer()
         text, markup = await _build_dm_pokemon_list(uid, field_id, field["field_type"], field["chat_id"], page)
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -991,7 +992,7 @@ async def camp_dm_callback_handler(update, context):
         await query.answer()
         text, markup = await _build_dm_field_buttons(uid, chat_id, fields, camp)
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -1006,7 +1007,7 @@ async def camp_dm_callback_handler(update, context):
         if step >= len(_GUIDE_STEPS):
             await query.answer()
             try:
-                await query.edit_message_text(_GUIDE_STEPS[-1])
+                await query.edit_message_text(_GUIDE_STEPS[-1], parse_mode="HTML")
             except Exception:
                 pass
             return
@@ -1023,6 +1024,7 @@ async def camp_dm_callback_handler(update, context):
             await query.edit_message_text(
                 _GUIDE_STEPS[step],
                 reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
+                parse_mode="HTML",
             )
         except Exception:
             pass
@@ -1073,7 +1075,7 @@ async def camp_dm_callback_handler(update, context):
 
         await query.answer()
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -1088,7 +1090,7 @@ async def camp_dm_callback_handler(update, context):
         success, msg = await cs.convert_to_shiny(uid, instance_id)
         await query.answer(msg[:200], show_alert=True)
         try:
-            await query.edit_message_text(msg)
+            await query.edit_message_text(msg, parse_mode="HTML")
         except Exception:
             pass
 
@@ -1125,7 +1127,7 @@ async def camp_dm_callback_handler(update, context):
 
         await query.answer()
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -1140,7 +1142,7 @@ async def camp_dm_callback_handler(update, context):
         success, msg = await cs.decompose_shiny(uid, instance_id)
         await query.answer(msg[:200], show_alert=True)
         try:
-            await query.edit_message_text(msg)
+            await query.edit_message_text(msg, parse_mode="HTML")
         except Exception:
             pass
 
@@ -1163,7 +1165,7 @@ async def camp_dm_callback_handler(update, context):
 
         await query.answer()
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 

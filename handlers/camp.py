@@ -253,7 +253,7 @@ async def camp_handler(update, context):
 
     placements = await cq.get_user_placements_in_chat(chat_id, user_id)
     text, markup = _build_field_buttons(user_id, fields, placements, camp)
-    resp = await update.message.reply_text(text, reply_markup=markup)
+    resp = await update.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
     schedule_delete(update.message, 3)
     schedule_delete(resp, 120)
 
@@ -503,7 +503,7 @@ async def camp_callback_handler(update, context):
         await query.answer()
         text, markup = await _build_pokemon_list(uid, field_id, field["field_type"], 0, field["chat_id"])
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -545,7 +545,7 @@ async def camp_callback_handler(update, context):
             placements = await cq.get_user_placements_in_chat(chat_id, uid)
             text, markup = _build_field_buttons(uid, fields, placements, camp)
             try:
-                await query.edit_message_text(text, reply_markup=markup)
+                await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
             except Exception:
                 pass
 
@@ -566,7 +566,7 @@ async def camp_callback_handler(update, context):
         await query.answer()
         text, markup = await _build_pokemon_list(uid, field_id, field["field_type"], page, field["chat_id"])
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -587,7 +587,7 @@ async def camp_callback_handler(update, context):
 
         text, markup = await _build_my_placements(chat_id, uid)
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -601,7 +601,7 @@ async def camp_callback_handler(update, context):
         chat_id = query.message.chat_id
         text, markup = await _build_my_placements(chat_id, uid)
         try:
-            await query.edit_message_text(text, reply_markup=markup)
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -619,7 +619,7 @@ async def camp_callback_handler(update, context):
             placements = await cq.get_user_placements_in_chat(chat_id, uid)
             text, markup = _build_field_buttons(uid, fields, placements, camp)
             try:
-                await query.edit_message_text(text, reply_markup=markup)
+                await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
             except Exception:
                 pass
 
@@ -647,7 +647,7 @@ async def camp_callback_handler(update, context):
         success, msg = await cs.create_camp(chat_id, uid, field_type)
         await query.answer(msg if len(msg) < 200 else "캠프가 개설되었습니다!", show_alert=True)
         try:
-            await query.edit_message_text(msg)
+            await query.edit_message_text(msg, parse_mode="HTML")
         except Exception:
             pass
 
@@ -694,7 +694,7 @@ async def camp_callback_handler(update, context):
         success, msg = await cs.add_new_field(chat_id, field_type)
         await query.answer(msg, show_alert=True)
         try:
-            await query.edit_message_text(msg)
+            await query.edit_message_text(msg, parse_mode="HTML")
         except Exception:
             pass
 
@@ -767,7 +767,7 @@ async def camp_callback_handler(update, context):
         success, msg = await cs.change_field_type(chat_id, field_id, new_type)
         await query.answer(msg, show_alert=True)
         try:
-            await query.edit_message_text(msg)
+            await query.edit_message_text(msg, parse_mode="HTML")
         except Exception:
             pass
 
@@ -785,7 +785,7 @@ async def camp_callback_handler(update, context):
         success, msg = await cs.toggle_approval_mode(chat_id, enable, slots)
         await query.answer(msg, show_alert=True)
         try:
-            await query.edit_message_text(msg)
+            await query.edit_message_text(msg, parse_mode="HTML")
         except Exception:
             pass
 
@@ -816,7 +816,7 @@ async def camp_callback_handler(update, context):
 
         await query.answer()
         try:
-            await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons))
+            await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
         except Exception:
             pass
 
@@ -851,7 +851,7 @@ async def camp_callback_handler(update, context):
                 ])
             buttons.append([InlineKeyboardButton("◀ 닫기", callback_data=f"camp_close_{uid}")])
             try:
-                await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons))
+                await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
             except Exception:
                 pass
         else:
@@ -886,7 +886,7 @@ async def camp_callback_handler(update, context):
                 ])
             buttons.append([InlineKeyboardButton("◀ 닫기", callback_data=f"camp_close_{uid}")])
             try:
-                await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons))
+                await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
             except Exception:
                 pass
         else:
