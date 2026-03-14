@@ -856,6 +856,9 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         if not arcade and not force:
             last_spawn = await queries.get_last_spawn_time(chat_id)
             if last_spawn:
+                if last_spawn.tzinfo is None:
+                    import datetime as _dt
+                    last_spawn = last_spawn.replace(tzinfo=_dt.timezone.utc)
                 elapsed = (config.get_kst_now() - last_spawn).total_seconds()
                 if elapsed < 300:  # 5 minutes cooldown
                     # Re-schedule after remaining cooldown instead of dropping

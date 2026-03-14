@@ -76,7 +76,7 @@ async def _grant_reward(user_id: int, result_key: str) -> str:
         amount = random.randint(config.GACHA_BP_REFUND_MIN, config.GACHA_BP_REFUND_MAX)
         pool = await get_db()
         await pool.execute(
-            "UPDATE battle_stats SET bp = bp + $2 WHERE user_id = $1",
+            "UPDATE users SET battle_points = battle_points + $2 WHERE user_id = $1",
             user_id, amount)
         return f"+{amount} BP 환급"
 
@@ -95,7 +95,7 @@ async def _grant_reward(user_id: int, result_key: str) -> str:
     elif result_key == "bp_jackpot":
         pool = await get_db()
         await pool.execute(
-            "UPDATE battle_stats SET bp = bp + $2 WHERE user_id = $1",
+            "UPDATE users SET battle_points = battle_points + $2 WHERE user_id = $1",
             user_id, config.GACHA_BP_JACKPOT)
         return f"+{config.GACHA_BP_JACKPOT} BP 잭팟!!"
 
