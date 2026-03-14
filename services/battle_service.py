@@ -8,7 +8,7 @@ import config
 from database import battle_queries as bq
 from database import queries
 from utils.battle_calc import calc_battle_stats, calc_power, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
-from utils.helpers import type_badge, icon_emoji, rarity_badge
+from utils.helpers import type_badge, icon_emoji, rarity_badge, shiny_emoji
 from models.pokemon_skills import POKEMON_SKILLS, get_skill_effect
 from models.pokemon_base_stats import POKEMON_BASE_STATS  # already includes gen3
 
@@ -132,12 +132,15 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False) -> dict:
     bs = POKEMON_BASE_STATS.get(pid)
     dual_types = bs[-1] if bs else [pokemon.get("pokemon_type", "normal")]
 
+    is_shiny = bool(pokemon.get("is_shiny"))
+    display_name = f"{shiny_emoji()}{pokemon['name_ko']}" if is_shiny else pokemon["name_ko"]
+
     return {
-        "name": pokemon["name_ko"],
+        "name": display_name,
         "emoji": pokemon["emoji"],
         "type": dual_types,
         "rarity": pokemon["rarity"],
-        "is_shiny": bool(pokemon.get("is_shiny")),
+        "is_shiny": is_shiny,
         "stats": stats,
         "current_hp": stats["hp"],
         "instance_id": pokemon.get("pokemon_instance_id") or pokemon.get("instance_id"),
