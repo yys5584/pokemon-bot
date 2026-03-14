@@ -1117,11 +1117,12 @@
         <div class="page" id="page-guide">
             <div class="section">
                 <h2>📖 푸키몬 가이드</h2>
-                <p style="font-size:12px;color:var(--muted);margin-bottom:16px">푸키몬 봇의 모든 시스템을 한눈에! 카테고리를 클릭하면 상세 정보가 펼쳐집니다.</p>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:16px">푸키몬 봇의 모든 것을 알려드립니다. 궁금한 카테고리를 눌러보세요.</p>
 
                 <!-- 가이드 탭 네비게이션 -->
                 <div id="guideTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
-                    <button class="guide-tab active" data-guide="battle" onclick="switchGuide('battle')">⚔️ 배틀</button>
+                    <button class="guide-tab active" data-guide="intro" onclick="switchGuide('intro')">👋 처음이세요?</button>
+                    <button class="guide-tab" data-guide="battle" onclick="switchGuide('battle')">⚔️ 배틀</button>
                     <button class="guide-tab" data-guide="ranked" onclick="switchGuide('ranked')">🏟️ 시즌 랭크전</button>
                     <button class="guide-tab" data-guide="typechart" onclick="switchGuide('typechart')">🔥 상성표</button>
                     <button class="guide-tab" data-guide="rarity" onclick="switchGuide('rarity')">🎯 등급 & 출현</button>
@@ -1130,13 +1131,131 @@
                     <button class="guide-tab" data-guide="trade" onclick="switchGuide('trade')">🔄 거래 & 교환</button>
                     <button class="guide-tab" data-guide="mission" onclick="switchGuide('mission')">📋 일일 미션</button>
                     <button class="guide-tab" data-guide="cxp" onclick="switchGuide('cxp')">🏠 채팅방</button>
+                    <button class="guide-tab" data-guide="camp" onclick="switchGuide('camp')">🏕️ 캠프</button>
+                </div>
+
+                <!-- ===== 처음이세요? ===== -->
+                <div class="guide-section active" id="guide-intro">
+                    <div class="guide-card">
+                        <h3>👋 처음이세요? 여기서부터 시작하세요!</h3>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">"텔레그램에서 포켓몬을 잡는다고?" — 네, 진짜입니다. 그것도 꽤 진지하게요.</p>
+
+                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(76,175,80,.06),rgba(33,150,243,.06));border:1px solid rgba(76,175,80,.15);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <h4 style="margin-top:0">🚀 Step 1: 봇과의 첫 만남</h4>
+                            <p style="font-size:13px;line-height:1.8">
+                                텔레그램에서 <b>푸키몬 봇</b>을 찾아 <code>/start</code>를 눌러주세요. 봇이 DM으로 인사를 건넵니다.<br>
+                                아직은 텅 빈 도감과 주머니뿐이지만, 모든 전설의 트레이너도 여기서 시작했습니다.
+                            </p>
+                            <div style="margin-top:10px;padding:10px;background:rgba(0,0,0,.05);border-radius:8px;font-size:12px">
+                                <b>💡 핵심 포인트</b><br>
+                                • 봇이 있는 <b>채팅방</b>에 들어가야 포켓몬이 스폰됩니다<br>
+                                • 혼자서는 포켓몬이 나타나지 않아요 — 사람이 모인 곳에 포켓몬도 모입니다<br>
+                                • DM에서는 상태 확인, 육성, 거래 등 개인 활동을 합니다
+                            </div>
+                        </div>
+
+                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(244,67,54,.06),rgba(255,152,0,.06));border:1px solid rgba(244,67,54,.15);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <h4 style="margin-top:0">🎯 Step 2: 첫 포켓몬 잡기</h4>
+                            <p style="font-size:13px;line-height:1.8">
+                                채팅방에 야생 포켓몬이 나타나면 단 한 글자, <code>ㅊ</code>을 입력하세요.<br>
+                                포켓볼이 날아가고... 잡히면 축하, 못 잡으면 아쉽지만 다음 기회가 있습니다.<br>
+                                인생과 비슷하죠. 다만 여기선 재도전이 훨씬 빠릅니다.
+                            </p>
+                            <table class="guide-table" style="font-size:13px">
+                                <tr><th>입력</th><th>사용하는 볼</th><th>특징</th></tr>
+                                <tr><td><code>ㅊ</code></td><td>🔴 포켓볼</td><td>기본 볼. 매일 100개 자동 충전</td></tr>
+                                <tr><td><code>ㅊㅊ</code></td><td>🔵 하이퍼볼</td><td>포획률 3배. 미션 보상으로 획득</td></tr>
+                                <tr><td><code>ㅊㅊㅊ</code></td><td>🟣 마스터볼</td><td>100% 확정 포획. 귀하신 몸</td></tr>
+                            </table>
+                            <div style="margin-top:10px;padding:10px;background:rgba(0,0,0,.05);border-radius:8px;font-size:12px">
+                                <b>💡 포획 확률은 등급에 따라 다릅니다</b><br>
+                                • 🟢 일반: 80% — 거의 확정. 연습용으로 좋습니다<br>
+                                • 🔵 레어: 50% — 반반의 스릴<br>
+                                • 🟣 에픽: 15% — 여기서부터 심장이 뜁니다<br>
+                                • 🟡 전설: 5% — 잡으면 채팅방이 들썩입니다<br>
+                                • 🔴 초전설: 3% — 눈물이 날 수도 있습니다 (기쁨이든 슬픔이든)
+                            </div>
+                        </div>
+
+                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(156,39,176,.06),rgba(103,58,183,.06));border:1px solid rgba(156,39,176,.15);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <h4 style="margin-top:0">📱 Step 3: 내 포켓몬 확인하기</h4>
+                            <p style="font-size:13px;line-height:1.8">
+                                포켓몬을 잡았으면 확인해봐야죠. DM에서 다음 명령어들을 써보세요.
+                            </p>
+                            <table class="guide-table" style="font-size:13px">
+                                <tr><th>명령어</th><th>기능</th><th>한 줄 설명</th></tr>
+                                <tr><td><code>상태창</code></td><td>내 프로필</td><td>트레이너 정보, 보유 자원, 칭호 등 한눈에</td></tr>
+                                <tr><td><code>내pokemon</code></td><td>보유 목록</td><td>내가 잡은 포켓몬 전체 목록</td></tr>
+                                <tr><td><code>도감</code></td><td>도감 진행도</td><td>수집률 확인. 빈 칸을 채우는 재미가 있습니다</td></tr>
+                            </table>
+                        </div>
+
+                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(255,193,7,.06),rgba(255,87,34,.06));border:1px solid rgba(255,193,7,.15);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <h4 style="margin-top:0">⚔️ Step 4: 팀 만들기</h4>
+                            <p style="font-size:13px;line-height:1.8">
+                                포켓몬이 몇 마리 모였다면 배틀 팀을 꾸려볼 차례입니다.<br>
+                                DM에서 <code>팀등록</code>을 입력하면 팀 편성 화면이 나옵니다.
+                            </p>
+                            <table class="guide-table" style="font-size:13px">
+                                <tr><th>항목</th><th>내용</th></tr>
+                                <tr><td>팀 구성</td><td>최대 6마리 (배틀에 출전할 포켓몬 선택)</td></tr>
+                                <tr><td>코스트 제한</td><td>팀 전체 코스트 합 <b>18 이하</b></td></tr>
+                                <tr><td>팀 슬롯</td><td>2개까지 저장 가능. <code>팀선택</code>으로 전환</td></tr>
+                            </table>
+                            <div style="margin-top:10px;padding:10px;background:rgba(0,0,0,.05);border-radius:8px;font-size:12px">
+                                <b>💡 코스트란?</b><br>
+                                포켓몬마다 등급에 따라 코스트가 있습니다. 초전설은 비싸고, 일반은 저렴합니다.<br>
+                                리자몽 하나 넣으면 나머지 자리가 빠듯해지는 — 그런 트레이드오프의 묘미가 있습니다.
+                            </div>
+                        </div>
+
+                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(33,150,243,.06),rgba(0,150,136,.06));border:1px solid rgba(33,150,243,.15);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <h4 style="margin-top:0">🥊 Step 5: 첫 배틀!</h4>
+                            <p style="font-size:13px;line-height:1.8">
+                                채팅방에서 <code>배틀</code>을 입력하면 랜덤 상대와 자동 배틀이 시작됩니다.<br>
+                                포켓몬들이 알아서 싸워주니 편하게 관전하세요. 타입 상성과 능력치가 승패를 가릅니다.
+                            </p>
+                            <table class="guide-table" style="font-size:13px">
+                                <tr><th>결과</th><th>보상</th></tr>
+                                <tr><td>🏆 승리</td><td>20+ BP (배틀포인트)</td></tr>
+                                <tr><td>😢 패배</td><td>5 BP (위로금이라고 생각하세요)</td></tr>
+                            </table>
+                            <p style="font-size:12px;margin-top:8px">BP는 <b>상점</b>에서 하이퍼볼, 마스터볼, 강제소환권 등을 사는 데 씁니다. 화폐의 시작이자 끝입니다.</p>
+                        </div>
+
+                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(233,30,99,.06),rgba(156,39,176,.06));border:1px solid rgba(233,30,99,.15);border-radius:12px;padding:16px">
+                            <h4 style="margin-top:0">🌟 Step 6: 여기서부터 진짜 시작</h4>
+                            <p style="font-size:13px;line-height:1.8">
+                                기본을 익혔다면 이제 더 넓은 세계가 기다립니다.
+                            </p>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px">
+                                <div style="background:rgba(0,0,0,.04);border-radius:8px;padding:10px">
+                                    <div style="font-weight:700;font-size:13px">🍖 육성</div>
+                                    <div style="font-size:11px;color:var(--muted)">밥주기, 놀아주기로 친밀도를 올리면 능력치가 최대 20% 상승합니다</div>
+                                </div>
+                                <div style="background:rgba(0,0,0,.04);border-radius:8px;padding:10px">
+                                    <div style="font-weight:700;font-size:13px">🔄 교환 & 거래소</div>
+                                    <div style="font-size:11px;color:var(--muted)">다른 트레이너와 포켓몬을 교환하거나 BP로 사고팔 수 있습니다</div>
+                                </div>
+                                <div style="background:rgba(0,0,0,.04);border-radius:8px;padding:10px">
+                                    <div style="font-weight:700;font-size:13px">🏟️ 랭크전</div>
+                                    <div style="font-size:11px;color:var(--muted)">2주 시즌제 경쟁전. 브론즈에서 챌린저까지, 진짜 실력 대결</div>
+                                </div>
+                                <div style="background:rgba(0,0,0,.04);border-radius:8px;padding:10px">
+                                    <div style="font-weight:700;font-size:13px">🏕️ 캠프</div>
+                                    <div style="font-size:11px;color:var(--muted)">채팅방 캠프에 포켓몬을 배치해서 이로치 재료를 모을 수 있습니다</div>
+                                </div>
+                            </div>
+                            <p style="font-size:12px;color:var(--muted);margin-top:12px">각 시스템의 상세 내용은 위 탭에서 확인하세요. 천천히, 하지만 확실하게.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ===== 시즌 랭크전 ===== -->
                 <div class="guide-section" id="guide-ranked">
                     <div class="guide-card">
                         <h3>🏟️ 시즌 랭크전</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">LoL 스타일 랭크 시스템! 배치전을 치르고, 숨겨진 MMR 기반 매칭으로 실력에 맞는 상대와 대결하세요.</p>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">캐주얼 배틀로는 성에 안 차는 분들을 위한 진지한 무대입니다. 배치전 5판으로 시작해서, 2주 동안 자존심을 걸고 싸우세요.</p>
 
                         <!-- 시즌 진행 흐름 -->
                         <div class="guide-block" style="background:linear-gradient(135deg,rgba(255,215,0,.06),rgba(147,112,219,.06));border:1px solid rgba(255,215,0,.12);border-radius:12px;padding:16px;margin-bottom:16px">
@@ -1384,6 +1503,7 @@
                 <div class="guide-section" id="guide-typechart">
                     <div class="guide-card">
                         <h3>🔥 타입 상성표 (18타입)</h3>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">가위바위보의 확장팩입니다. 18가지 타입이 서로 얽히고설켜 있으니, 외우려 하지 말고 자주 들여다보세요.</p>
 
                         <div class="guide-block" style="background:linear-gradient(135deg,rgba(255,107,107,.08),rgba(78,205,196,.08));border:1px solid rgba(255,107,107,.2);border-radius:10px;padding:16px;margin-bottom:16px">
                             <h4 style="margin-top:0">🎮 초보자 필수 상성 5가지</h4>
@@ -1415,10 +1535,10 @@
                 </div>
 
                 <!-- ===== 배틀 시스템 ===== -->
-                <div class="guide-section active" id="guide-battle">
+                <div class="guide-section" id="guide-battle">
                     <div class="guide-card">
                         <h3>⚔️ 배틀 시스템</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">그룹 채팅에서 <code>배틀 @상대</code>로 도전! 자동 턴제 6vs6 배틀입니다.</p>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">포켓몬이 뭐 하는 게임인지 아시죠? 네, 싸우는 겁니다. 채팅방에서 <code>배틀</code>을 입력하면 자동 턴제 배틀이 시작됩니다.</p>
 
                         <div class="guide-block">
                             <h4>📊 6가지 능력치</h4>
@@ -1499,7 +1619,7 @@
                 <div class="guide-section" id="guide-rarity">
                     <div class="guide-card">
                         <h3>🎯 포켓몬 등급 & 출현률</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">포켓몬은 5가지 등급으로 분류되며, 등급별 출현 확률이 다릅니다.</p>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">모든 포켓몬이 평등하게 태어나진 않았습니다. 등급이 높을수록 나타날 확률도, 잡힐 확률도 낮아집니다. 그래서 더 잡고 싶어지는 거겠죠.</p>
 
                         <div class="guide-block">
                             <h4>📊 등급별 확률</h4>
@@ -1537,7 +1657,7 @@
                 <div class="guide-section" id="guide-catch">
                     <div class="guide-card">
                         <h3>🔴 포획 가이드</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">채팅방에 포켓몬이 출현하면 60초 안에 <code>ㅊ</code>을 입력해 포획!</p>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">야생의 포켓몬이 나타났다! 숨 참고 <code>ㅊ</code> 한 방. 60초 안에 입력해야 하니 반사신경을 준비해두세요.</p>
 
                         <div class="guide-block">
                             <h4>⚾ 볼 종류</h4>
@@ -1583,7 +1703,7 @@
                 <div class="guide-section" id="guide-nurture">
                     <div class="guide-card">
                         <h3>💕 육성 가이드</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">DM에서 포켓몬에게 밥을 주고 놀아주며 친밀도를 올려보세요!</p>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">포켓몬은 잡는 것보다 키우는 게 더 어렵습니다. 인생처럼. 하지만 매일 밥 주고 놀아주면 확실히 보답합니다.</p>
 
                         <div class="guide-block">
                             <h4>🍖 밥주기 & 🎮 놀아주기</h4>
@@ -1635,10 +1755,11 @@
                 <div class="guide-section" id="guide-trade">
                     <div class="guide-card">
                         <h3>🔄 거래소 & 교환</h3>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">내가 필요 없는 포켓몬이 누군가에겐 꿈의 포켓몬일 수 있습니다. 자본주의의 아름다움을 포켓몬 세계에서도 누려보세요.</p>
 
                         <div class="guide-block">
                             <h4>🏪 거래소 (DM)</h4>
-                            <p>BP로 포켓몬을 사고파는 마켓! DM에서 <code>거래소</code> 입력.</p>
+                            <p>BP로 포켓몬을 사고파는 마켓입니다. DM에서 <code>거래소</code>를 입력하면 열립니다.</p>
                             <table class="guide-table">
                                 <tr><th>명령어</th><th>설명</th></tr>
                                 <tr><td><code>거래소</code></td><td>매물 목록 보기</td></tr>
@@ -1681,7 +1802,7 @@
                 <div class="guide-section" id="guide-mission">
                     <div class="guide-card">
                         <h3>📋 일일 미션</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">매일 4개의 랜덤 미션! DM에서 <code>미션</code>으로 확인하세요.</p>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">매일 자정에 새로운 미션 4개가 주어집니다. 출석 도장 같은 거라고 생각하시면 되는데, 보상이 꽤 쏠쏠합니다.</p>
 
                         <div class="guide-block">
                             <h4>🎯 미션 목록 (5개 중 4개 랜덤)</h4>
@@ -1711,7 +1832,7 @@
                 <div class="guide-section" id="guide-cxp">
                     <div class="guide-card">
                         <h3>🏠 채팅방 레벨 시스템 (CXP)</h3>
-                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">채팅방이 활발할수록 레벨이 올라가고, 모든 멤버가 혜택을 받아요!</p>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">활발한 채팅방에는 더 좋은 포켓몬이 나타납니다. 열심히 활동하면 방 전체가 혜택을 받는, 공동체의 미덕이 빛나는 시스템입니다.</p>
 
                         <div class="guide-block">
                             <h4>📈 CXP 획득 방법</h4>
@@ -1755,6 +1876,219 @@
                                 <li><b>크로스 프로모션</b> — Lv.3 이상 채팅방은 다른 방에 자동 홍보 메시지가 노출됩니다</li>
                                 <li><b>새 채팅방 보너스</b> — 처음 방문한 채팅방에서 첫 포획 시 보너스 BP 지급!</li>
                             </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== 캠프 ===== -->
+                <div class="guide-section" id="guide-camp">
+                    <div class="guide-card">
+                        <h3>🏕️ 캠프 시스템</h3>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">포켓몬을 수집만 하면 재미없잖아요. 일하게 합시다. 캠프에 포켓몬을 배치하면 조각을 모아 이로치를 만들 수 있습니다.</p>
+
+                        <!-- 월드맵 -->
+                        <div style="text-align:center;margin-bottom:20px">
+                            <img src="/camp-assets/map_base.png" alt="캠프 월드맵" style="max-width:100%;border-radius:14px;border:1px solid var(--border);box-shadow:0 4px 20px rgba(0,0,0,.12)">
+                            <p style="font-size:11px;color:var(--muted);margin-top:6px">6개의 필드에 포켓몬을 배치하고 조각을 모으세요!</p>
+                        </div>
+
+                        <!-- 캠프 흐름 -->
+                        <div class="guide-block" style="background:linear-gradient(135deg,rgba(76,175,80,.06),rgba(255,183,77,.06));border:1px solid rgba(76,175,80,.15);border-radius:12px;padding:16px;margin-bottom:16px">
+                            <h4 style="margin-top:0">🎮 캠프 플레이 흐름</h4>
+                            <div class="flow-diagram">
+                                <div class="flow-node"><div class="flow-node-icon">🏕️</div><div class="flow-node-text">캠프 개설</div><div class="flow-node-sub">100명+ 방장</div></div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node"><div class="flow-node-icon">🐾</div><div class="flow-node-text">포켓몬 배치</div><div class="flow-node-sub">필드에 배치</div></div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node"><div class="flow-node-icon">⏳</div><div class="flow-node-text">라운드 정산</div><div class="flow-node-sub">3시간마다</div></div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node"><div class="flow-node-icon">💎</div><div class="flow-node-text">조각 획득</div><div class="flow-node-sub">필드별 조각</div></div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node"><div class="flow-node-icon">✨</div><div class="flow-node-text">이로치 전환</div><div class="flow-node-sub">조각 소모</div></div>
+                            </div>
+                        </div>
+
+                        <!-- 6개 필드 -->
+                        <div class="guide-block">
+                            <h4>🗺️ 6개 필드</h4>
+                            <p style="font-size:12px;color:var(--muted);margin-bottom:10px">각 필드에는 보너스 타입이 있습니다. 타입이 맞는 포켓몬을 배치하면 추가 점수!</p>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
+                                <div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border:1px solid #A5D6A7;border-radius:12px;padding:14px;text-align:center">
+                                    <div style="font-size:28px">🌿</div>
+                                    <div style="font-weight:700;font-size:14px;color:#2E7D32;margin:4px 0">숲</div>
+                                    <div style="font-size:11px;color:#388E3C">풀 / 벌레 / 독</div>
+                                </div>
+                                <div style="background:linear-gradient(135deg,#FBE9E7,#FFCCBC);border:1px solid #FFAB91;border-radius:12px;padding:14px;text-align:center">
+                                    <div style="font-size:28px">🔥</div>
+                                    <div style="font-weight:700;font-size:14px;color:#BF360C;margin:4px 0">화산</div>
+                                    <div style="font-size:11px;color:#D84315">불꽃 / 드래곤 / 격투</div>
+                                </div>
+                                <div style="background:linear-gradient(135deg,#E3F2FD,#BBDEFB);border:1px solid #90CAF9;border-radius:12px;padding:14px;text-align:center">
+                                    <div style="font-size:28px">💧</div>
+                                    <div style="font-weight:700;font-size:14px;color:#1565C0;margin:4px 0">호수</div>
+                                    <div style="font-size:11px;color:#1976D2">물 / 얼음 / 비행</div>
+                                </div>
+                                <div style="background:linear-gradient(135deg,#FFF8E1,#FFECB3);border:1px solid #FFD54F;border-radius:12px;padding:14px;text-align:center">
+                                    <div style="font-size:28px">⚡</div>
+                                    <div style="font-weight:700;font-size:14px;color:#F57F17;margin:4px 0">도시</div>
+                                    <div style="font-size:11px;color:#F9A825">전기 / 강철 / 노말</div>
+                                </div>
+                                <div style="background:linear-gradient(135deg,#EFEBE9,#D7CCC8);border:1px solid #BCAAA4;border-radius:12px;padding:14px;text-align:center">
+                                    <div style="font-size:28px">🪨</div>
+                                    <div style="font-weight:700;font-size:14px;color:#4E342E;margin:4px 0">동굴</div>
+                                    <div style="font-size:11px;color:#5D4037">땅 / 바위 / 고스트</div>
+                                </div>
+                                <div style="background:linear-gradient(135deg,#F3E5F5,#E1BEE7);border:1px solid #CE93D8;border-radius:12px;padding:14px;text-align:center">
+                                    <div style="font-size:28px">🔮</div>
+                                    <div style="font-weight:700;font-size:14px;color:#6A1B9A;margin:4px 0">신전</div>
+                                    <div style="font-size:11px;color:#7B1FA2">에스퍼 / 악 / 페어리</div>
+                                </div>
+                            </div>
+                            <p style="font-size:11px;color:var(--muted);margin-top:10px">Lv.1은 1개 필드, 레벨업하면 최대 6개 필드까지 해금! 개설 시 숲/화산/호수 중 선택.</p>
+                        </div>
+
+                        <!-- 캠프 레벨 -->
+                        <div class="guide-block">
+                            <h4>📈 캠프 레벨 (Lv.1~10)</h4>
+                            <p style="font-size:12px;color:var(--muted);margin-bottom:8px">라운드마다 쌓이는 XP로 캠프가 성장합니다. 레벨이 오르면 필드와 슬롯이 늘어나요!</p>
+                            <table class="guide-table">
+                                <tr><th>Lv</th><th>이름</th><th>필드 수</th><th>기본 슬롯</th><th>필드 캡</th><th>필요 XP</th></tr>
+                                <tr><td>1</td><td>🏜️ 빈 터</td><td>1</td><td>10</td><td>3</td><td>0</td></tr>
+                                <tr><td>2</td><td>⛺ 작은 텐트</td><td>2</td><td>10</td><td>3</td><td>48</td></tr>
+                                <tr><td>3</td><td>🔥 캠프파이어</td><td>2</td><td>12</td><td>4</td><td>96</td></tr>
+                                <tr><td>4</td><td>🎪 텐트 마을</td><td>3</td><td>12</td><td>4</td><td>250</td></tr>
+                                <tr><td>5</td><td>🏚️ 통나무집</td><td>3</td><td>14</td><td>5</td><td>400</td></tr>
+                                <tr><td>6</td><td>🌱 작은 정원</td><td>4</td><td>14</td><td>5</td><td>550</td></tr>
+                                <tr><td>7</td><td>🏡 울타리 집</td><td>4</td><td>16</td><td>6</td><td>700</td></tr>
+                                <tr><td>8</td><td>💧 물레방아</td><td>5</td><td>16</td><td>6</td><td>900</td></tr>
+                                <tr><td>9</td><td>🏘️ 작은 마을</td><td>5</td><td>18</td><td>7</td><td>1100</td></tr>
+                                <tr><td>10</td><td>🏛️ 마을 광장</td><td>6</td><td>18</td><td>8</td><td>1500</td></tr>
+                            </table>
+                            <p style="font-size:11px;color:var(--muted);margin-top:6px">멤버 500명당 필드 슬롯 +1 추가 보너스!</p>
+                        </div>
+
+                        <!-- 라운드 시스템 -->
+                        <div class="guide-block">
+                            <h4>⏰ 라운드 시스템</h4>
+                            <p style="font-size:12px;color:var(--muted);margin-bottom:8px">하루 6라운드, 3시간 간격으로 자동 진행됩니다.</p>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9">09:00</span>
+                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7">12:00</span>
+                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#FFF3E0;color:#E65100;border:1px solid #FFCC80">15:00</span>
+                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#FCE4EC;color:#C62828;border:1px solid #F48FB1">18:00</span>
+                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#F3E5F5;color:#6A1B9A;border:1px solid #CE93D8">21:00</span>
+                                <span style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;background:#E0E0E0;color:#424242;border:1px solid #BDBDBD">00:00</span>
+                            </div>
+                            <table class="guide-table">
+                                <tr><th>단계</th><th>시간</th><th>설명</th></tr>
+                                <tr><td>📢 접수</td><td>30분</td><td>포켓몬 배치 접수 (선착순 or 승인제)</td></tr>
+                                <tr><td>⏳ 파밍</td><td>2시간 30분</td><td>배치된 포켓몬이 조각 생산</td></tr>
+                                <tr><td>💰 정산</td><td>라운드 종료 시</td><td>점수 계산 → 조각 지급 + XP 적립</td></tr>
+                            </table>
+                        </div>
+
+                        <!-- 보너스 포켓몬 -->
+                        <div class="guide-block">
+                            <h4>🎯 보너스 포켓몬</h4>
+                            <p style="font-size:12px;margin-bottom:8px">매 라운드마다 각 필드에 보너스 포켓몬이 지정됩니다. 해당 포켓몬을 배치하면 추가 점수!</p>
+                            <table class="guide-table">
+                                <tr><th>조건</th><th>점수</th></tr>
+                                <tr><td>타입 매칭만</td><td>1점</td></tr>
+                                <tr><td><b style="color:#2E7D32">보너스 포켓몬</b> 배치</td><td><b>2점</b></td></tr>
+                                <tr><td>보너스 + IV 조건 충족</td><td><b>4점</b></td></tr>
+                                <tr><td>보너스 + 이로치</td><td><b>4점</b></td></tr>
+                                <tr><td><b style="color:#e74c3c">보너스 + IV + 이로치</b></td><td><b style="color:#e74c3c">7점</b></td></tr>
+                            </table>
+                        </div>
+
+                        <!-- 배치 규칙 -->
+                        <div class="guide-block">
+                            <h4>🐾 배치 규칙</h4>
+                            <table class="guide-table">
+                                <tr><th>도감 수</th><th>일일 배치 횟수</th></tr>
+                                <tr><td>0~50</td><td>2회</td></tr>
+                                <tr><td>51~100</td><td>3회</td></tr>
+                                <tr><td>101~200</td><td>4회</td></tr>
+                                <tr><td>201~300</td><td>5회</td></tr>
+                                <tr><td>301+</td><td>6회</td></tr>
+                            </table>
+                            <p style="font-size:11px;color:var(--muted);margin-top:4px">매일 자정(KST) 초기화. 같은 필드에 교체 배치는 횟수 소모 없음.</p>
+                            <ul class="guide-list" style="margin-top:8px">
+                                <li><b>자유 배치 (선착순)</b> — 누구나 빈 슬롯에 바로 배치</li>
+                                <li><b>승인제</b> — 방장이 승인해야 배치 완료 (30분 내 미응답 시 자동 승인)</li>
+                                <li>모드 변경 쿨다운: <b>3시간</b></li>
+                            </ul>
+                        </div>
+
+                        <!-- 조각 & 이로치 전환 -->
+                        <div class="guide-block">
+                            <h4>💎 조각 시스템 & 이로치 전환</h4>
+                            <p style="font-size:12px;margin-bottom:8px">조각을 모아서 보유 포켓몬을 이로치로 전환할 수 있습니다!</p>
+                            <table class="guide-table">
+                                <tr><th>등급</th><th>조각</th><th>크리스탈</th><th>무지개</th><th>쿨다운</th></tr>
+                                <tr><td>🟢 일반</td><td>12</td><td>-</td><td>-</td><td>6시간</td></tr>
+                                <tr><td>🔵 레어</td><td>24</td><td>-</td><td>-</td><td>12시간</td></tr>
+                                <tr><td>🟣 에픽</td><td>42</td><td>5</td><td>-</td><td>1일</td></tr>
+                                <tr><td>🟡 전설</td><td>60</td><td>15</td><td>-</td><td>2일</td></tr>
+                                <tr><td>🔴 초전설</td><td>84</td><td>25</td><td>3</td><td>3일</td></tr>
+                            </table>
+                            <p style="font-size:11px;color:var(--muted);margin-top:6px">포켓몬 타입에 맞는 필드의 조각이 필요합니다. 듀얼 타입은 어느 쪽이든 OK!</p>
+                        </div>
+
+                        <!-- 분해 -->
+                        <div class="guide-block">
+                            <h4>🔨 분해 (이로치 → 크리스탈)</h4>
+                            <p style="font-size:12px;margin-bottom:8px">이로치 포켓몬을 분해하면 일반으로 돌아가고 크리스탈을 얻습니다. 낮은 등급 이로치를 분해해서 높은 등급 전환에 투자하는 전략이 핵심입니다.</p>
+                            <table class="guide-table">
+                                <tr><th>분해 대상</th><th>크리스탈</th><th>무지개</th></tr>
+                                <tr><td>🟢 일반 이로치</td><td>+1</td><td>-</td></tr>
+                                <tr><td>🔵 레어 이로치</td><td>+2</td><td>-</td></tr>
+                                <tr><td>🟣 에픽 이로치</td><td>+3</td><td>-</td></tr>
+                                <tr><td>🟡 전설 이로치</td><td>+5</td><td>+1</td></tr>
+                                <tr><td>🔴 초전설 이로치</td><td>+15</td><td>+2</td></tr>
+                            </table>
+                        </div>
+
+                        <!-- 명령어 -->
+                        <div class="guide-block">
+                            <h4>💬 캠프 명령어</h4>
+                            <table class="guide-table">
+                                <tr><th>명령어</th><th>위치</th><th>대상</th><th>설명</th></tr>
+                                <tr><td><b>캠프</b></td><td>그룹</td><td>전체</td><td>필드 선택 → 포켓몬 배치</td></tr>
+                                <tr><td><b>캠프맵</b></td><td>그룹</td><td>전체</td><td>월드맵 이미지 표시</td></tr>
+                                <tr><td><b>캠프개설</b></td><td>그룹</td><td>방장</td><td>캠프 생성 (100명+)</td></tr>
+                                <tr><td><b>캠프설정</b></td><td>그룹</td><td>방장</td><td>필드 관리, 승인 모드, 승인 처리</td></tr>
+                                <tr><td><b>내캠프</b></td><td>DM</td><td>전체</td><td>조각/크리스탈 현황, 배치 상태</td></tr>
+                                <tr><td><b>이로치전환</b></td><td>DM</td><td>전체</td><td>조각으로 이로치 전환</td></tr>
+                                <tr><td><b>분해</b></td><td>DM</td><td>전체</td><td>이로치 분해 → 크리스탈 획득</td></tr>
+                            </table>
+                        </div>
+
+                        <!-- 전략 팁 -->
+                        <div class="guide-block">
+                            <h4>💡 캠프 전략 팁</h4>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
+                                <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                                    <div style="font-size:18px;margin-bottom:4px">🎯</div>
+                                    <div style="font-weight:700;font-size:13px;margin-bottom:4px">보너스 포켓몬 노리기</div>
+                                    <div style="font-size:11px;color:var(--muted)">매 라운드 보너스 포켓몬을 확인하고 배치하면 점수 2~7배! IV 조건까지 맞추면 최고 점수.</div>
+                                </div>
+                                <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                                    <div style="font-size:18px;margin-bottom:4px">📖</div>
+                                    <div style="font-weight:700;font-size:13px;margin-bottom:4px">도감 채우기 = 배치 횟수 UP</div>
+                                    <div style="font-size:11px;color:var(--muted)">도감 300종 이상이면 하루 6회 배치 가능! 도감을 열심히 채우면 캠프에서도 유리합니다.</div>
+                                </div>
+                                <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                                    <div style="font-size:18px;margin-bottom:4px">🔄</div>
+                                    <div style="font-weight:700;font-size:13px;margin-bottom:4px">분해 → 전환 사이클</div>
+                                    <div style="font-size:11px;color:var(--muted)">낮은 등급 이로치를 분해해서 크리스탈을 모으고, 높은 등급 이로치 전환에 투자하세요.</div>
+                                </div>
+                                <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px">
+                                    <div style="font-size:18px;margin-bottom:4px">🏕️</div>
+                                    <div style="font-weight:700;font-size:13px;margin-bottom:4px">여러 캠프 참여</div>
+                                    <div style="font-size:11px;color:var(--muted)">여러 채팅방 캠프에 참여하면 다양한 필드 조각을 모을 수 있어 전환 선택지가 넓어집니다.</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
