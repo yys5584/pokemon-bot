@@ -1468,7 +1468,10 @@ async def camp_dm_callback_handler(update, context):
                 lv = camp["level"]
                 xp = camp["xp"]
                 level_info = cs.get_level_info(lv)
-                xp_needed = level_info[4]
+                if lv < config.CAMP_MAX_LEVEL:
+                    xp_needed = cs.get_level_info(lv + 1)[4]
+                else:
+                    xp_needed = level_info[4]  # max level
                 lines.append(f"{icon_emoji('stationery')} Lv.{lv} {level_info[5]} — XP {xp}/{xp_needed}")
 
                 # 필드별 슬롯 현황
@@ -1702,7 +1705,10 @@ async def camp_dm_callback_handler(update, context):
         user_placements = await cq.get_user_placements_in_chat(chat_id, uid)
         placed_map = {p["field_id"]: p for p in user_placements}
 
-        xp_needed = level_info[4]
+        if camp["level"] < config.CAMP_MAX_LEVEL:
+            xp_needed = cs.get_level_info(camp["level"] + 1)[4]
+        else:
+            xp_needed = level_info[4]  # max level
         try:
             member_count = await context.bot.get_chat_member_count(chat_id)
         except Exception:
