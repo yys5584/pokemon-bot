@@ -1294,7 +1294,7 @@ async def battle_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     win_rate = round(wins / total * 100, 1) if total > 0 else 0
 
     lines = [
-        f"{icon_emoji('battle')} 나의 배틀 전적\n",
+        f"{icon_emoji('battle')} <b>나의 배틀 전적</b>\n",
         f"🏆 {wins}승 {losses}패  ({win_rate}%)",
         f"🔥 현재 연승: {stats['battle_streak']}",
         f"💫 최고 연승: {stats['best_streak']}",
@@ -1318,13 +1318,20 @@ async def battle_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                     f"{tier_full}",
                     f"랭크 {rec['ranked_wins']}승 {rec['ranked_losses']}패 ({r_wr}%)",
                 ])
-                # MMR 표시 (DM이므로 공개)
                 mmr_rec = await rq.get_user_mmr(user_id)
                 lines.append(f"📊 MMR: {mmr_rec['mmr']}")
     except Exception:
         pass
 
-    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    lines.append("\n💡 <code>랭전</code>을 입력하거나 아래 버튼으로 랭크전 도전!")
+
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    buttons = [[InlineKeyboardButton("⚔️ 랭크전 도전", callback_data=f"ranked_auto_{user_id}")]]
+    await update.message.reply_text(
+        "\n".join(lines),
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="HTML",
+    )
 
 
 async def bp_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2467,6 +2474,19 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         return
 
     await query.answer()
+
+    # ranked_auto_{uid} — 배틀전적 화면에서 랭전 버튼
+    if data.startswith("ranked_auto_"):
+        uid = int(data.split("_")[2])
+        if query.from_user.id != uid:
+            return
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        # auto_ranked_handler와 동일한 흐름을 메시지로 트리거
+        await query.message.reply_text("🏟️ 랭전 매칭을 시작합니다...\n아래에 <code>랭전</code>을 입력해주세요!", parse_mode="HTML")
+        return
 
     parts = data.split("_")
     # ranked_accept_{challenge_id}_{defender_id}
