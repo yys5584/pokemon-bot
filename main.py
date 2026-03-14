@@ -112,7 +112,10 @@ async def post_init(application: Application):
     # Phase 1: DB 연결 + 테이블 생성 + 포켓몬 시드 (순차 필수)
     logger.info("Initializing database...")
     await get_db()
-    await create_tables()
+    try:
+        await asyncio.wait_for(create_tables(), timeout=60)
+    except Exception as e:
+        logger.warning(f"create_tables skipped ({e.__class__.__name__}) — tables already exist in prod")
     await seed_pokemon_data()
     logger.info(f"[{time.monotonic()-t0:.1f}s] DB + schema + seed done")
 
