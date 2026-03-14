@@ -443,6 +443,38 @@ def _delta_badge(today, yesterday, suffix="", reverse=False):
     return f'<span style="color:{color};font-size:11px;font-weight:600">{arrow} {abs(pct)}%{suffix}</span>'
 
 
+def _bp_daily_chart(bp_daily: list[dict]) -> str:
+    """주간 BP 뽑기 소비 일별 바 차트 HTML."""
+    if not bp_daily:
+        return ""
+    weekdays = ["월", "화", "수", "목", "금", "토", "일"]
+    max_spent = max((d.get("spent", 0) for d in bp_daily), default=1) or 1
+    bars = ""
+    for d in bp_daily:
+        spent = d.get("spent", 0)
+        pulls = d.get("pulls", 0)
+        pct = round(spent / max_spent * 100)
+        try:
+            from datetime import datetime as _dt
+            day_dt = _dt.strptime(d["date"], "%Y-%m-%d")
+            day_label = weekdays[day_dt.weekday()]
+            date_label = day_dt.strftime("%m/%d")
+        except Exception:
+            day_label = "?"
+            date_label = d["date"][-5:]
+        bars += (
+            f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+            f'<span style="min-width:50px;font-size:12px;color:#888">{date_label}({day_label})</span>'
+            f'<div style="background:linear-gradient(90deg,#e53935,#ff6f61);height:22px;border-radius:4px;width:{pct}%;min-width:2px"></div>'
+            f'<span style="font-size:13px;font-weight:600">-{spent:,} ({pulls}회)</span>'
+            f'</div>'
+        )
+    return f"""<div class="section">
+<div class="section-title">🎰 일별 BP 뽑기 소비</div>
+{bars}
+</div>"""
+
+
 def _get_today_patches() -> list[str]:
     """오늘 날짜의 git 커밋 메시지 목록 (feat/fix만)."""
     import subprocess
@@ -572,6 +604,36 @@ async def _send_daily_kpi_report(context):
         if d["battles"] == 0 and d["dau"] > 0:
             insights.append("배틀 0건 — 매칭 시스템 또는 동기 부여 점검 필요.")
 
+        # 뽑기 BP 소비 인사이트
+        gacha_spent = d.get("gacha_bp_spent", 0)
+        gacha_pulls = d.get("gacha_pulls", 0)
+        bp_earned = d.get("bp_earned", 0)
+        if gacha_spent > 0:
+            bp_net = bp_earned - gacha_spent
+            if gacha_spent > bp_earned * 1.5:
+                insights.append(
+                    f"🎰 <b>BP 뽑기 소비 급증!</b> 뽑기 -{gacha_spent:,}BP vs 배틀 획득 +{bp_earned:,}BP. "
+                    f"BP 순유출 {bp_net:,}BP — 뽑기가 주요 BP 싱크로 작동 중. "
+                    f"총 {gacha_pulls}회 뽑기, 회당 평균 {gacha_spent // max(gacha_pulls, 1)}BP 소비.")
+            elif gacha_spent > bp_earned:
+                insights.append(
+                    f"🎰 뽑기 BP 소비({gacha_spent:,}) > 배틀 획득({bp_earned:,}). "
+                    f"BP 순유출 {bp_net:,} — 뽑기 시스템이 BP 싱크 역할 수행 중.")
+            else:
+                insights.append(
+                    f"🎰 뽑기 {gacha_pulls}회, BP 소비 -{gacha_spent:,}. "
+                    f"배틀 대비 {round(gacha_spent / max(bp_earned, 1) * 100)}% 수준.")
+
+        # 뽑기 분포 인사이트
+        gacha_dist = d.get("gacha_distribution", {})
+        if gacha_dist:
+            top_items = sorted(gacha_dist.items(), key=lambda x: x[1], reverse=True)[:3]
+            dist_str = ", ".join(f"{k}({v}회)" for k, v in top_items)
+            rare_items = {k: v for k, v in gacha_dist.items() if k in ("shiny_ticket", "shiny_egg", "bp_jackpot", "iv_reroll_one")}
+            if rare_items:
+                rare_str = ", ".join(f"{k}({v})" for k, v in rare_items.items())
+                insights.append(f"🎰 뽑기 TOP: {dist_str}. 레어 아이템: {rare_str}")
+
         insight_html = ""
         if insights:
             items = "".join(f'<li style="margin-bottom:6px;font-size:13px">{ins}</li>' for ins in insights)
@@ -649,7 +711,15 @@ async def _send_daily_kpi_report(context):
 <div class="grid grid-3">
 <div class="card"><div class="label">총 배틀</div><div class="value">{d['battles']}</div></div>
 <div class="card"><div class="label">랭크전</div><div class="value">{d['ranked_battles']}</div></div>
-<div class="card"><div class="label">BP 유통</div><div class="value">+{d['bp_earned']:,}</div></div>
+<div class="card"><div class="label">BP 획득</div><div class="value">+{d['bp_earned']:,}</div></div>
+</div></div>
+
+<div class="section">
+<div class="section-title">🎰 뽑기 (BP 소비)</div>
+<div class="grid grid-3">
+<div class="card"><div class="label">뽑기 횟수</div><div class="value">{d['gacha_pulls']:,}</div></div>
+<div class="card"><div class="label">BP 소비</div><div class="value accent">-{d['gacha_bp_spent']:,}</div></div>
+<div class="card"><div class="label">BP 순유통</div><div class="value" style="color:{'#4caf50' if d['bp_earned'] - d['gacha_bp_spent'] >= 0 else '#e53935'}">{d['bp_earned'] - d['gacha_bp_spent']:+,}</div></div>
 </div></div>
 
 <div class="section">
@@ -734,8 +804,12 @@ async def _send_weekly_kpi_report(context):
 <div class="section-title">⚔️ 배틀</div>
 <div class="grid">
 <div class="card"><div class="label">총 배틀</div><div class="value">{w['battles']}</div></div>
-<div class="card"><div class="label">BP 총유통</div><div class="value">+{w['bp_earned']:,}</div></div>
+<div class="card"><div class="label">BP 획득</div><div class="value">+{w['bp_earned']:,}</div></div>
+<div class="card"><div class="label">BP 뽑기소비</div><div class="value" style="color:#e53935">-{w['gacha_bp_spent']:,}</div></div>
+<div class="card"><div class="label">뽑기 횟수</div><div class="value">{w['gacha_pulls']:,}</div></div>
 </div></div>
+
+{_bp_daily_chart(w.get('bp_daily', []))}
 
 <div class="section">
 <div class="section-title">💰 경제</div>

@@ -2591,6 +2591,7 @@ async def kpi_daily_snapshot() -> dict:
         market_new_row, market_sold_row,
         sub_active_row, sub_revenue_row,
         economy,
+        gacha_bp_row, gacha_dist_rows,
     ) = await asyncio.gather(
         # 유저
         pool.fetchrow("SELECT COUNT(DISTINCT user_id) as cnt FROM catch_attempts WHERE attempted_at >= $1", today),
@@ -2629,6 +2630,15 @@ async def kpi_daily_snapshot() -> dict:
                FROM subscription_payments WHERE status = 'confirmed' AND confirmed_at >= $1""", today),
         # 경제
         get_economy_health(),
+        # BP 뽑기 소비
+        pool.fetchrow(
+            "SELECT COALESCE(SUM(bp_spent), 0) as total, COUNT(*) as pulls FROM gacha_log WHERE created_at >= $1",
+            today),
+        # 뽑기 결과 분포
+        pool.fetch(
+            """SELECT result_key, COUNT(*) as cnt
+               FROM gacha_log WHERE created_at >= $1
+               GROUP BY result_key ORDER BY cnt DESC""", today),
     )
 
     spawns = spawn_row["spawns"] if spawn_row else 0
@@ -2679,6 +2689,10 @@ async def kpi_daily_snapshot() -> dict:
         "top_chats": top_chats,
         # 시간대별
         "hourly": hourly,
+        # 뽑기 BP 소비
+        "gacha_bp_spent": int(gacha_bp_row["total"]) if gacha_bp_row else 0,
+        "gacha_pulls": int(gacha_bp_row["pulls"]) if gacha_bp_row else 0,
+        "gacha_distribution": {r["result_key"]: r["cnt"] for r in gacha_dist_rows} if gacha_dist_rows else {},
     }
 
 
@@ -2720,6 +2734,23 @@ async def kpi_weekly_snapshot() -> dict:
 
     dau_history = await get_dau_history(7)
 
+    # 일별 BP 뽑기 소비 (주간 그래프용)
+    bp_daily_rows = await pool.fetch(
+        """SELECT (created_at AT TIME ZONE 'Asia/Seoul')::date as d,
+                  COALESCE(SUM(bp_spent), 0) as spent,
+                  COUNT(*) as pulls
+           FROM gacha_log
+           WHERE created_at >= $1
+           GROUP BY d ORDER BY d""",
+        week_start,
+    )
+    bp_daily = [{"date": str(r["d"]), "spent": int(r["spent"]), "pulls": int(r["pulls"])} for r in bp_daily_rows]
+
+    # 주간 총 뽑기 BP 소비
+    gacha_week_row = await pool.fetchrow(
+        "SELECT COALESCE(SUM(bp_spent), 0) as total, COUNT(*) as pulls FROM gacha_log WHERE created_at >= $1",
+        week_start)
+
     spawns = spawn_row["spawns"] if spawn_row else 0
     catches = spawn_row["catches"] if spawn_row else 0
 
@@ -2737,6 +2768,10 @@ async def kpi_weekly_snapshot() -> dict:
         "bp_earned": int(bp_row["total"]) if bp_row else 0,
         "market_sold": market_row["cnt"] if market_row else 0,
         "sub_revenue": float(sub_row["total"]) if sub_row else 0,
+        # 뽑기 BP 소비
+        "gacha_bp_spent": int(gacha_week_row["total"]) if gacha_week_row else 0,
+        "gacha_pulls": int(gacha_week_row["pulls"]) if gacha_week_row else 0,
+        "bp_daily": bp_daily,
     }
 
 
