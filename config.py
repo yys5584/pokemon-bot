@@ -555,10 +555,11 @@ SUBSCRIPTION_TIERS = {
             "channel_spawn_boost": 1.3,
             "daily_free_arcade_pass": 1,
             "channel_cxp_multiplier": 1.5,
+            "daily_shiny_ticket": 2,
             "honorific": "supreme",
             "dual_home_camp": True,
         },
-        "description": "베이직 전부 · 강스 무제한 · 채팅상점 · 스폰+30% · 아케이드+1 · 채널XP 1.5배 · 🎩???(강화)",
+        "description": "베이직 전부 · 강스 무제한 · 채팅상점 · 스폰+30% · 아케이드+1 · 채널XP 1.5배 · 이로치강스+1/일 · 🎩???(강화)",
     },
 }
 

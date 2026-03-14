@@ -876,3 +876,112 @@ async def catch_release_callback(update: Update, context: ContextTypes.DEFAULT_T
     except Exception:
         pass
     await query.answer("방생 완료! 하이퍼볼 1개 획득!")
+
+
+# ── 이로치 강스권 (일반 유저용) ──────────────────────────────────
+
+_shiny_ticket_locks: dict[int, asyncio.Lock] = {}
+
+
+async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '이로치강스' command — any user with a shiny spawn ticket can force-spawn a shiny."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    schedule_delete(update.message, config.AUTO_DEL_FORCE_SPAWN_CMD)
+
+    if update.effective_chat.type == "private":
+        resp = await update.message.reply_text("그룹 채팅방에서만 사용 가능합니다.")
+        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+        return
+
+    # 티켓 보유 확인
+    ticket_count = await queries.get_shiny_spawn_tickets(user_id)
+    if ticket_count <= 0:
+        resp = await update.message.reply_text("✨ 이로치 강스권이 없습니다.")
+        schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+        return
+
+    # Per-chat lock
+    if chat_id not in _shiny_ticket_locks:
+        _shiny_ticket_locks[chat_id] = asyncio.Lock()
+    lock = _shiny_ticket_locks[chat_id]
+
+    if lock.locked():
+        return
+
+    async with lock:
+        # 아케이드 활성화 체크
+        from services.spawn_service import get_arcade_state, execute_spawn
+        is_permanent_arcade = chat_id in config.ARCADE_CHAT_IDS
+        arcade_state = get_arcade_state(context.application, chat_id)
+        if is_permanent_arcade or (arcade_state and arcade_state.get("active")):
+            resp = await update.message.reply_text("🎰 아케이드가 활성화되어 있어 사용할 수 없습니다.")
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            return
+
+        # 활성 스폰 체크
+        active = await queries.get_active_spawn(chat_id)
+        if active:
+            resp = await update.message.reply_text(
+                f"⚠️ 이미 스폰 중인 포켓몬이 있습니다!\n"
+                f"{active['emoji']} {active['name_ko']}을(를) 먼저 잡아주세요."
+            )
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            return
+
+        # 최소 멤버 체크
+        room = await queries.get_chat_room(chat_id)
+        member_count = room["member_count"] if room else 0
+        if member_count < config.SPAWN_MIN_MEMBERS:
+            resp = await update.message.reply_text(
+                f"🚫 멤버가 {config.SPAWN_MIN_MEMBERS}명 이상인 방에서만 사용 가능합니다. (현재 {member_count}명)"
+            )
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            return
+
+        # 티켓 차감 (atomic)
+        ok = await queries.use_shiny_spawn_ticket(user_id)
+        if not ok:
+            resp = await update.message.reply_text("✨ 이로치 강스권이 없습니다.")
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            return
+
+        try:
+            class _FakeJob:
+                def __init__(self, data):
+                    self.data = data
+                    self.name = None
+
+            class _FakeCtx:
+                def __init__(self, bot, job_queue, data):
+                    self.bot = bot
+                    self.job_queue = job_queue
+                    self.job = _FakeJob(data)
+
+            fake_ctx = _FakeCtx(
+                context.bot,
+                context.application.job_queue,
+                {"chat_id": chat_id, "force": True, "force_shiny": True},
+            )
+            await execute_spawn(fake_ctx)
+
+            resp = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"✨ 이로치 강스권 사용! 이로치 포켓몬이 나타났다!",
+                parse_mode="HTML",
+            )
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            logger.info(f"shiny_ticket_spawn: user {user_id} used ticket in chat {chat_id}")
+        except Exception as e:
+            # 스폰 실패 시 티켓 복구
+            await queries.add_shiny_spawn_ticket(user_id, 1)
+            logger.error(f"shiny_ticket_spawn FAILED in chat {chat_id}: {e}", exc_info=True)
+            try:
+                resp = await context.bot.send_message(chat_id=chat_id, text="❌ 이로치 강스 실패. 티켓이 복구되었습니다.")
+                schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            except Exception:
+                pass

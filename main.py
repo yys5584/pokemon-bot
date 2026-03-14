@@ -22,7 +22,7 @@ from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types,
 from database import queries
 
 from handlers.start import start_handler, help_handler, help_callback_handler
-from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, my_pokemon_group_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback
+from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, my_pokemon_group_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback, shiny_ticket_spawn_handler
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, title_list_callback, title_page_callback, status_handler, appraisal_handler, type_chart_handler
 from handlers.battle import (
     partner_handler, partner_callback_handler,
@@ -56,7 +56,7 @@ from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
     pokeball_reset_handler,
     event_start_handler, event_list_handler, event_end_handler, event_dm_callback,
-    stats_handler, channel_list_handler, grant_masterball_handler,
+    stats_handler, channel_list_handler, grant_masterball_handler, grant_bp_handler, grant_subscription_handler,
     arcade_handler, tournament_chat_handler, force_tournament_reg_handler, force_tournament_run_handler,
     manual_subscription_handler,
 )
@@ -338,7 +338,7 @@ async def _grant_title_buffs():
 
 
 async def _grant_subscription_daily(bot):
-    """구독자 일일 혜택 지급: 하이퍼볼 +5, 채널장 아케이드 +1."""
+    """구독자 일일 혜택 지급 + DM 알림."""
     try:
         from database import subscription_queries as sq
         subs = await sq.get_all_active_subscriptions()
@@ -348,21 +348,45 @@ async def _grant_subscription_daily(bot):
             uid = sub["user_id"]
             tier_cfg = config.SUBSCRIPTION_TIERS.get(sub["tier"], {})
             benefits = tier_cfg.get("benefits", {})
+            tier_name = tier_cfg.get("name", "프리미엄")
+
+            reward_lines = []
 
             # 일일 마스터볼 +1
             daily_master = benefits.get("daily_masterball", 0)
             if daily_master:
                 await queries.add_master_ball(uid, daily_master)
+                reward_lines.append(f"🔴 마스터볼 +{daily_master}")
 
             # 일일 하이퍼볼 +5
             daily_hyper = benefits.get("daily_hyperball", 0)
             if daily_hyper:
                 await queries.add_hyper_ball(uid, daily_hyper)
+                reward_lines.append(f"🔵 하이퍼볼 +{daily_hyper}")
 
             # 채널장: 일일 아케이드 패스 +1
             daily_arcade = benefits.get("daily_free_arcade_pass", 0)
             if daily_arcade:
                 await queries.add_arcade_ticket(uid, daily_arcade)
+                reward_lines.append(f"🎰 아케이드 이용권 +{daily_arcade}")
+
+            # 채널장: 일일 이로치 강스권
+            daily_shiny_ticket = benefits.get("daily_shiny_ticket", 0)
+            if daily_shiny_ticket:
+                await queries.add_shiny_spawn_ticket(uid, daily_shiny_ticket)
+                reward_lines.append(f"✨ 이로치 강스권 +{daily_shiny_ticket}")
+
+            # DM 알림
+            if reward_lines:
+                text = (
+                    f"💎 <b>{tier_name}</b> 일일 혜택 지급!\n"
+                    "━━━━━━━━━━━━━━━\n"
+                    + "\n".join(reward_lines)
+                )
+                try:
+                    await bot.send_message(chat_id=uid, text=text, parse_mode="HTML")
+                except Exception:
+                    pass  # 유저가 봇 차단 등
 
         logger.info(f"Subscription daily benefits granted to {len(subs)} subscribers")
     except Exception as e:
@@ -1160,6 +1184,8 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^이벤트목록$"), event_list_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^이벤트종료"), event_end_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^마볼지급"), grant_masterball_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^BP지급"), grant_bp_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^구독권지급"), grant_subscription_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^아케이드"), arcade_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회방(등록|해제)$"), tournament_chat_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회시작$"), force_tournament_reg_handler))
@@ -1209,6 +1235,7 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^스폰배율"), spawn_rate_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스\s*$"), force_spawn_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스권\s*$"), ticket_force_spawn_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*이로치강스\s*$"), shiny_ticket_spawn_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰 채널 초기화\s*$"), force_spawn_reset_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*포켓볼초기화\s*$"), pokeball_reset_handler))
 

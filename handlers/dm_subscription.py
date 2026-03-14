@@ -315,7 +315,7 @@ _PREMIUM_GUIDE_TEXT = (
     "  BP 1.5배 · 미션 1.5배 · 프리미엄상점\n\n"
     "📍 <b>채널장</b> ($9.90/월)\n"
     "  베이직 전부 + 강제스폰 무제한\n"
-    "  스폰률 +50% · 채팅상점 · 채널XP 1.5배\n\n"
+    "  이로치 강스권 +2/일 · 채팅상점 · 채널XP 1.5배\n\n"
     "💳 결제: Base 체인 USDC/USDT"
 )
 
@@ -510,6 +510,8 @@ async def subscription_status_handler(update: Update, context: ContextTypes.DEFA
         benefit_lines.append(f"• 일일 무료 아케이드 +{benefits['daily_free_arcade_pass']}")
     if benefits.get("channel_cxp_multiplier"):
         benefit_lines.append(f"• 채널 경험치 {benefits['channel_cxp_multiplier']}배")
+    if benefits.get("daily_shiny_ticket"):
+        benefit_lines.append(f"• 일일 이로치 강스권 +{benefits['daily_shiny_ticket']}")
     if benefits.get("honorific"):
         benefit_lines.append("• 🎩 ???")
 

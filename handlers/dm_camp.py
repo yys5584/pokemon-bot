@@ -333,15 +333,16 @@ async def home_camp_handler(update, context):
     else:
         buttons.append([InlineKeyboardButton("🔄 거점변경", callback_data=f"cdm_chghome_{user_id}")])
 
-    # 구독자: 2번째 거점 설정/해제 버튼
+    # 2번째 거점 설정/해제 버튼 (구독자: 활성, 비구독자: 잠금)
     from services.subscription_service import get_user_tier
     tier = await get_user_tier(user_id)
     has_dual = config.SUBSCRIPTION_TIERS.get(tier, {}).get("benefits", {}).get("dual_home_camp")
-    if has_dual:
-        if settings.get("home_chat_id_2"):
-            buttons.append([InlineKeyboardButton("🏠 2번째 거점 해제", callback_data=f"cdm_delhome2_{user_id}")])
-        else:
-            buttons.append([InlineKeyboardButton("🏠 2번째 거점 설정", callback_data=f"cdm_sethome2_{user_id}")])
+    if settings.get("home_chat_id_2"):
+        buttons.append([InlineKeyboardButton("🏠 2번째 거점 해제", callback_data=f"cdm_delhome2_{user_id}")])
+    elif has_dual:
+        buttons.append([InlineKeyboardButton("🏠 2번째 거점 설정", callback_data=f"cdm_sethome2_{user_id}")])
+    else:
+        buttons.append([InlineKeyboardButton("🔒 2번째 거점 설정 (프리미엄)", callback_data=f"cdm_sethome2_locked_{user_id}")])
 
     await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 
@@ -1697,15 +1698,16 @@ async def camp_dm_callback_handler(update, context):
         if any_full:
             hbuttons.append([InlineKeyboardButton("🔔 빈자리 알림 설정", callback_data=f"cdm_waitlist_{uid}")])
 
-        # 구독자: 2번째 거점 설정/해제
+        # 2번째 거점 설정/해제 (구독자: 활성, 비구독자: 잠금)
         from services.subscription_service import get_user_tier
         tier = await get_user_tier(uid)
         has_dual = config.SUBSCRIPTION_TIERS.get(tier, {}).get("benefits", {}).get("dual_home_camp")
-        if has_dual:
-            if settings.get("home_chat_id_2"):
-                hbuttons.append([InlineKeyboardButton("🏠 2번째 거점 해제", callback_data=f"cdm_delhome2_{uid}")])
-            else:
-                hbuttons.append([InlineKeyboardButton("🏠 2번째 거점 설정", callback_data=f"cdm_sethome2_{uid}")])
+        if settings.get("home_chat_id_2"):
+            hbuttons.append([InlineKeyboardButton("🏠 2번째 거점 해제", callback_data=f"cdm_delhome2_{uid}")])
+        elif has_dual:
+            hbuttons.append([InlineKeyboardButton("🏠 2번째 거점 설정", callback_data=f"cdm_sethome2_{uid}")])
+        else:
+            hbuttons.append([InlineKeyboardButton("🔒 2번째 거점 설정 (프리미엄)", callback_data=f"cdm_sethome2_locked_{uid}")])
 
         hbuttons.append([InlineKeyboardButton("◀ 캠프 메뉴", callback_data=f"cdm_hub_back_{uid}")])
 
@@ -1957,6 +1959,14 @@ async def camp_dm_callback_handler(update, context):
             )
         except Exception:
             pass
+
+    # ── cdm_sethome2_locked_{uid} — 비구독자 잠금 안내 ──
+    elif data.startswith("cdm_sethome2_locked_"):
+        uid = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer("🔒 프리미엄 구독 시 2번째 거점을 설정할 수 있습니다!\nDM에서 '프리미엄'을 입력해 구독 정보를 확인하세요.", show_alert=True)
 
     # ── cdm_sethome2_{uid} — 2번째 거점 설정 목록 ──
     elif data.startswith("cdm_sethome2_"):
