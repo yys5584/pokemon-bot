@@ -15,6 +15,10 @@ from utils.helpers import icon_emoji
 
 logger = logging.getLogger(__name__)
 
+# 유저별 가챠 진행 중 락 (중복 뽑기 방지)
+_gacha_lock: dict[int, float] = {}
+_GACHA_LOCK_DURATION = 15  # 초
+
 # 가챠 이미지 경로
 _GACHA_IMG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "gacha")
 _IMG_NORMAL = os.path.join(_GACHA_IMG_DIR, "nomal-gacha.jpg")
@@ -138,7 +142,19 @@ async def _do_pull(query, user_id: int, count: int):
 
     플로우: 기존 버튼 제거 → 힌트 멘트 + 이미지 → 상세 결과 텍스트 + 다시뽑기 버튼
     """
+    import time as _time
     from services.gacha_service import roll_gacha
+
+    # 중복 뽑기 방지 (10초 딜레이 동안 재클릭 차단)
+    now = _time.monotonic()
+    last = _gacha_lock.get(user_id)
+    if last is not None and (now - last) < _GACHA_LOCK_DURATION:
+        try:
+            await query.answer("뽑기 결과를 확인 중입니다! 잠시만 기다려주세요.", show_alert=True)
+        except Exception:
+            pass
+        return
+    _gacha_lock[user_id] = now
 
     results = []
     for _ in range(count):
@@ -150,10 +166,12 @@ async def _do_pull(query, user_id: int, count: int):
                 await query.edit_message_text(f"❌ {r['error']}")
             except Exception:
                 await query.message.reply_text(f"❌ {r['error']}")
+            _gacha_lock.pop(user_id, None)
             return
         results.append(r)
 
     if not results:
+        _gacha_lock.pop(user_id, None)
         return
 
     # ① 기존 메시지 버튼 제거
@@ -231,6 +249,9 @@ async def _do_pull(query, user_id: int, count: int):
 
     markup = InlineKeyboardMarkup(buttons) if buttons else None
     await query.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+
+    # 락 해제
+    _gacha_lock.pop(user_id, None)
 
 
 # ─── 아이템 목록/사용 ────────────────────────────────────
