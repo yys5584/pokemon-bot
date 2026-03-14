@@ -42,6 +42,36 @@ _TIER_STARS = {
     "shiny_spawn": "⭐⭐⭐⭐⭐",
 }
 
+# 일반 힌트 멘트 (랜덤)
+_HINT_NORMAL = [
+    "🔮 구슬이 잔잔하게 빛납니다...",
+    "🔮 피카츄가 고개를 갸웃합니다...",
+    "🔮 구슬 속에 잔잔한 빛이 맴돕니다...",
+    "🔮 피카츄가 무표정하게 바라봅니다...",
+    "🔮 구슬이 희미하게 반짝입니다...",
+]
+
+# 대박 힌트 멘트 (랜덤)
+_HINT_JACKPOT = [
+    "🔮 구슬이 미친듯이 빛나고 있습니다...!!",
+    "🔮 피카츄가 눈을 크게 뜨고 있습니다...!!",
+    "🔮 뒤에서 무언가의 기척이...?!",
+    "🔮 심상치 않은 기운이 감돕니다...!!",
+    "🔮 구슬에서 무지개빛이 터져나옵니다...!!",
+]
+
+# 아이템 상세 가이드
+_ITEM_GUIDE = {
+    "bp_refund": "",
+    "hyperball": "💡 하이퍼볼: 야생 포획 시 사용 (포획률 ↑↑)",
+    "masterball": "💡 마스터볼: 야생 포획 시 사용 (100% 포획)",
+    "iv_reroll_all": "💡 개체값 재설정권: DM에서 '아이템' → 포켓몬 선택 → IV 6종 전부 랜덤 리롤!",
+    "bp_jackpot": "",
+    "iv_reroll_one": "💡 IV 선택 리롤: DM에서 '아이템' → 포켓몬 선택 → 원하는 스탯 1개만 골라서 리롤!",
+    "shiny_egg": "💡 이로치 알: 24시간 후 자동 부화 → 확정 이로치! DM에서 '아이템'으로 확인 가능",
+    "shiny_spawn": "💡 이로치 강스권: 다음 강제스폰 시 자동 적용 → 확정 이로치 출현!",
+}
+
 
 async def gacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """'뽑기' 명령 — 가챠 메인 메뉴."""
@@ -77,17 +107,7 @@ async def gacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append("⚠️ BP가 부족합니다!")
 
     markup = InlineKeyboardMarkup(buttons) if buttons else None
-    try:
-        with open(_IMG_NORMAL, "rb") as f:
-            await update.message.reply_photo(
-                photo=InputFile(f),
-                caption="\n".join(lines),
-                reply_markup=markup,
-                parse_mode="HTML",
-            )
-    except Exception:
-        logger.warning("가챠 이미지 전송 실패, 텍스트로 대체")
-        await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+    await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
 
 
 async def gacha_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -111,7 +131,10 @@ async def gacha_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def _do_pull(query, user_id: int, count: int):
-    """뽑기 실행 (1회 또는 5회)."""
+    """뽑기 실행 (1회 또는 5회).
+
+    플로우: 기존 버튼 제거 → 힌트 멘트 + 이미지 → 상세 결과 텍스트 + 다시뽑기 버튼
+    """
     from services.gacha_service import roll_gacha
 
     results = []
@@ -119,47 +142,80 @@ async def _do_pull(query, user_id: int, count: int):
         r = await roll_gacha(user_id)
         if not r["success"]:
             if results:
-                break  # 이미 일부 뽑았으면 결과 표시
-            await query.edit_message_text(f"❌ {r['error']}")
+                break
+            try:
+                await query.edit_message_text(f"❌ {r['error']}")
+            except Exception:
+                await query.message.reply_text(f"❌ {r['error']}")
             return
         results.append(r)
 
     if not results:
         return
 
-    # 결과 표시
+    # ① 기존 메시지 버튼 제거
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    # ② 대박 여부 판정
+    is_jackpot = any(r["result_key"] in _JACKPOT_TIERS for r in results)
+    img_path = _IMG_GOLDEN if is_jackpot else _IMG_NORMAL
+    hint = random.choice(_HINT_JACKPOT if is_jackpot else _HINT_NORMAL)
+
+    # ③ 힌트 멘트 + 이미지 전송
+    try:
+        with open(img_path, "rb") as f:
+            await query.message.reply_photo(
+                photo=InputFile(f),
+                caption=f"<b>{hint}</b>",
+                parse_mode="HTML",
+            )
+    except Exception:
+        logger.warning("가챠 힌트 이미지 전송 실패")
+        await query.message.reply_text(f"<b>{hint}</b>", parse_mode="HTML")
+
+    # ④ 상세 결과 텍스트
     bp_after = results[-1]["bp_after"]
 
     if count == 1:
         r = results[0]
         emo, reaction = _TIER_EFFECT.get(r["result_key"], ("🎁", "!"))
         stars = _TIER_STARS.get(r["result_key"], "⭐")
+        guide = _ITEM_GUIDE.get(r["result_key"], "")
 
         lines = [
-            "🎰 <b>뽑기 결과!</b>",
+            f"🎰 <b>뽑기 결과!</b>",
             "",
             f"  {stars}",
             f"  {emo} <b>{r['display_name']}</b>",
             f"  {reaction}",
             "",
             f"  📝 {r['detail']}",
-            "",
-            f"{icon_emoji('coin')} 남은 BP: <b>{bp_after}</b>",
         ]
-    else:
-        lines = [f"🎰 <b>{len(results)}연차 뽑기 결과!</b>", ""]
-        for i, r in enumerate(results, 1):
-            emo = r["emoji"]
-            stars = _TIER_STARS.get(r["result_key"], "⭐")
-            lines.append(f"  {i}. {emo} {r['display_name']} — {r['detail']}")
+        if guide:
+            lines.append("")
+            lines.append(f"  {guide}")
         lines.append("")
         lines.append(f"{icon_emoji('coin')} 남은 BP: <b>{bp_after}</b>")
+    else:
+        lines = [f"🎰 <b>{len(results)}연차 뽑기 결과!</b>", ""]
+        guides = []
+        for i, r in enumerate(results, 1):
+            emo = r["emoji"]
+            lines.append(f"  {i}. {emo} {r['display_name']} — {r['detail']}")
+            guide = _ITEM_GUIDE.get(r["result_key"], "")
+            if guide and guide not in guides:
+                guides.append(guide)
+        lines.append("")
+        if guides:
+            for g in guides:
+                lines.append(f"  {g}")
+            lines.append("")
+        lines.append(f"{icon_emoji('coin')} 남은 BP: <b>{bp_after}</b>")
 
-    # 대박 여부 판정
-    is_jackpot = any(r["result_key"] in _JACKPOT_TIERS for r in results)
-    img_path = _IMG_GOLDEN if is_jackpot else _IMG_NORMAL
-
-    # 다시 뽑기 버튼
+    # ⑤ 다시 뽑기 버튼
     buttons = []
     if bp_after >= config.GACHA_COST:
         row = [InlineKeyboardButton("🎰 1회 더!", callback_data="gacha_again_1")]
@@ -168,24 +224,7 @@ async def _do_pull(query, user_id: int, count: int):
         buttons.append(row)
 
     markup = InlineKeyboardMarkup(buttons) if buttons else None
-
-    # 기존 메시지 버튼 제거 후 새 사진 메시지 전송
-    try:
-        await query.edit_message_reply_markup(reply_markup=None)
-    except Exception:
-        pass
-
-    try:
-        with open(img_path, "rb") as f:
-            await query.message.reply_photo(
-                photo=InputFile(f),
-                caption="\n".join(lines),
-                reply_markup=markup,
-                parse_mode="HTML",
-            )
-    except Exception:
-        logger.warning("가챠 결과 이미지 전송 실패, 텍스트로 대체")
-        await query.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+    await query.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
 
 
 # ─── 아이템 목록/사용 ────────────────────────────────────
