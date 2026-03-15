@@ -1,5 +1,6 @@
 """Camp v2 DM handlers — 거점캠프, 내캠프, 이로치전환, 분해, 캠프알림, 캠프가이드."""
 
+import asyncio
 import time
 import logging
 from datetime import timedelta
@@ -11,6 +12,7 @@ from database import camp_queries as cq
 from database import queries
 from services import camp_service as cs
 from utils.helpers import rarity_badge, shiny_emoji, icon_emoji, _type_emoji
+from utils.card_generator import generate_card
 
 logger = logging.getLogger(__name__)
 
@@ -1325,12 +1327,60 @@ async def camp_dm_callback_handler(update, context):
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
             return
 
-        success, msg, info = await cs.convert_to_shiny(uid, instance_id)
-        await query.answer(msg[:200], show_alert=True)
+        # 포켓몬 이름 미리 가져오기 (연출용)
+        poke = await queries.get_user_pokemon_by_id(instance_id)
+        poke_name = poke["name_ko"] if poke else "포켓몬"
+
+        # 연출 1: 심상치 않다
+        await query.answer()
         try:
-            await query.edit_message_text(msg, parse_mode="HTML")
+            await query.edit_message_text(
+                f"⚡ <b>{poke_name}</b>이(가) 심상치 않다..!", parse_mode="HTML")
         except Exception:
             pass
+        await asyncio.sleep(1.5)
+
+        # 연출 2: 빛나기 시작
+        try:
+            await query.edit_message_text(
+                f"✨ <b>{poke_name}</b>이(가)... 빛나기 시작한다...!", parse_mode="HTML")
+        except Exception:
+            pass
+        await asyncio.sleep(1.5)
+
+        # 실제 전환 실행
+        success, msg, info = await cs.convert_to_shiny(uid, instance_id)
+
+        if success and info:
+            # 이로치 카드 이미지 생성 후 전송
+            try:
+                loop = asyncio.get_event_loop()
+                card_buf = await loop.run_in_executor(
+                    None, generate_card,
+                    info["pokemon_id"], info["name"], info["rarity"], "", True
+                )
+                # 기존 텍스트 메시지 삭제하고 이미지로 교체
+                try:
+                    await query.message.delete()
+                except Exception:
+                    pass
+                await context.bot.send_photo(
+                    chat_id=query.message.chat_id,
+                    photo=card_buf,
+                    caption=msg,
+                    parse_mode="HTML",
+                )
+            except Exception:
+                # 이미지 실패 시 텍스트만
+                try:
+                    await query.edit_message_text(msg, parse_mode="HTML")
+                except Exception:
+                    pass
+        else:
+            try:
+                await query.edit_message_text(msg, parse_mode="HTML")
+            except Exception:
+                pass
 
         # 성공 시 거점캠프 채팅방에 축하 공지
         if success and info:
