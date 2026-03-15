@@ -352,8 +352,8 @@ async def item_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             label = _ITEM_NAMES[key][0].split(" ", 1)[1]  # 이모지 제거
             buttons.append([InlineKeyboardButton(f"사용: {label}", callback_data=f"item_use_{key}")])
 
-    markup = InlineKeyboardMarkup(buttons) if buttons else None
-    await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data="item_close")])
+    await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 
 
 async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -365,6 +365,13 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
     user_id = query.from_user.id
     data = query.data
+
+    if data == "item_close":
+        try:
+            await query.edit_message_text("닫았습니다.")
+        except Exception:
+            pass
+        return
 
     if data == "item_use_gacha_ticket_5":
         await _use_gacha_ticket_5(query, user_id)
@@ -569,6 +576,7 @@ async def _show_pokemon_list(query, user_id: int, mode: str, page: int, rarity_f
             filter_row.append(InlineKeyboardButton(f"{mark}{flabel}", callback_data=f"ivr_ft_{mode}_{fkey}_0"))
         # 3개씩 두 줄로
         buttons = [filter_row[:3], filter_row[3:]]
+        buttons.append([InlineKeyboardButton("❌ 닫기", callback_data="item_close")])
         await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
         return
 
@@ -605,6 +613,7 @@ async def _show_pokemon_list(query, user_id: int, mode: str, page: int, rarity_f
     filter_label = dict(_RARITY_FILTERS).get(rarity_filter, "전체")
     lines.append(f"({start+1}~{end} / {total}마리) [{filter_label}]")
 
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data="item_close")])
     await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 
 

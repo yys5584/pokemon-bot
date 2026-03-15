@@ -157,7 +157,10 @@ async def camp_hub_handler(update, context):
     else:
         buttons.append([InlineKeyboardButton("🏕 거점 설정하기", callback_data=f"cdm_hub_home_{user_id}")])
 
-    buttons.append([InlineKeyboardButton("📖 캠프 가이드", callback_data=f"cdm_guide_{user_id}_0")])
+    buttons.append([
+        InlineKeyboardButton("📖 캠프 가이드", callback_data=f"cdm_guide_{user_id}_0"),
+        InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{user_id}"),
+    ])
 
     await update.message.reply_text(
         "\n".join(lines),
@@ -525,6 +528,8 @@ _GUIDE_STEPS = [
 
 
 DM_PAGE_SIZE = 8
+DECOMPOSE_PAGE_SIZE = 8
+CONVERT_PAGE_SIZE = 8
 
 
 async def _build_dm_field_buttons(user_id: int, chat_id: int, fields: list[dict], camp: dict) -> tuple[str, InlineKeyboardMarkup]:
@@ -803,6 +808,8 @@ async def my_camp_handler(update, context):
             InlineKeyboardButton("⚙️ 캠프 관리", callback_data=f"cdm_hub_manage_{user_id}"),
         ])
 
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{user_id}")])
+
     await update.message.reply_text(
         "\n".join(lines),
         reply_markup=InlineKeyboardMarkup(buttons),
@@ -814,18 +821,8 @@ async def my_camp_handler(update, context):
 # DM 명령: 이로치전환
 # ═══════════════════════════════════════════════════════
 
-async def shiny_convert_handler(update, context):
-    """DM '이로치전환' — 전환 가능 포켓몬 리스트."""
-    user_id = update.effective_user.id
-    user = await queries.get_user(user_id)
-    if not user:
-        await update.message.reply_text("먼저 포켓몬을 잡아보세요!")
-        return
-
-    frags = await cq.get_user_fragments(user_id)
-    crystals = await cq.get_crystals(user_id)
-
-    pokemon_list = await queries.get_user_pokemon_list(user_id)
+def _build_convert_eligible(pokemon_list: list, frags: dict, crystals: dict) -> list:
+    """이로치 전환 가능 포켓몬 목록 빌드."""
     eligible = []
     for p in pokemon_list:
         if p.get("is_shiny"):
@@ -833,17 +830,14 @@ async def shiny_convert_handler(update, context):
         matching_fields = cs.get_matching_fields(p["pokemon_id"])
         if not matching_fields:
             continue
-
         rarity = p.get("rarity", "common")
         frag_cost = config.CAMP_SHINY_COST.get(rarity, 12)
         crystal_cost = config.CAMP_CRYSTAL_COST.get(rarity, 0)
         rainbow_cost = config.CAMP_RAINBOW_COST.get(rarity, 0)
-
         can_afford_frags = any(frags.get(f, 0) >= frag_cost for f in matching_fields)
         can_afford_crystal = crystals["crystal"] >= crystal_cost
         can_afford_rainbow = crystals["rainbow"] >= rainbow_cost
         can_afford = can_afford_frags and can_afford_crystal and can_afford_rainbow
-
         eligible.append({
             "instance_id": p["id"],
             "pokemon_id": p["pokemon_id"],
@@ -855,17 +849,17 @@ async def shiny_convert_handler(update, context):
             "can_afford": can_afford,
             "matching_fields": matching_fields,
         })
+    # 전환 가능한 것 먼저, 불가능한 것 뒤에
+    eligible.sort(key=lambda e: (0 if e["can_afford"] else 1, e["name_ko"]))
+    return eligible
 
-    if not eligible:
-        await update.message.reply_text(
-            f"{shiny_emoji()} 이로치 전환 가능한 포켓몬이 없습니다.\n"
-            "조각이 부족하거나, 보유 포켓몬이 모두 이로치입니다.",
-            parse_mode="HTML",
-        )
-        return
 
-    affordable = [e for e in eligible if e["can_afford"]][:10]
-    unaffordable = [e for e in eligible if not e["can_afford"]][:5]
+def _build_convert_page(eligible: list, uid: int, frags: dict, crystals: dict, page: int = 0) -> tuple[str, InlineKeyboardMarkup]:
+    """이로치 전환 목록 페이지 빌드."""
+    total_pages = max(1, (len(eligible) + CONVERT_PAGE_SIZE - 1) // CONVERT_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * CONVERT_PAGE_SIZE
+    page_items = eligible[start:start + CONVERT_PAGE_SIZE]
 
     total_frags = sum(frags.values())
     lines = [
@@ -877,39 +871,110 @@ async def shiny_convert_handler(update, context):
     ]
 
     buttons = []
-    if affordable:
-        lines.append("── 전환 가능 ──")
-        for e in affordable:
-            cost_parts = [f"{e['frag_cost']}조각"]
-            if e["crystal_cost"]:
-                cost_parts.append(f"결정{e['crystal_cost']}")
-            if e["rainbow_cost"]:
-                cost_parts.append(f"무지개{e['rainbow_cost']}")
-            rarity_tag = rarity_badge(e.get("rarity", ""))
+    for e in page_items:
+        cost_parts = [f"{e['frag_cost']}조각"]
+        if e["crystal_cost"]:
+            cost_parts.append(f"결정{e['crystal_cost']}")
+        if e["rainbow_cost"]:
+            cost_parts.append(f"무지개{e['rainbow_cost']}")
+        rarity_tag = rarity_badge(e.get("rarity", ""))
+        if e["can_afford"]:
             lines.append(f"{icon_emoji('check')} {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
             buttons.append([InlineKeyboardButton(
                 f"✨ {e['name_ko']} 전환",
-                callback_data=f"cdm_conv_{user_id}_{e['instance_id']}",
+                callback_data=f"cdm_conv_{uid}_{e['instance_id']}",
             )])
-
-    if unaffordable:
-        lines.append("\n── 자원 부족 ──")
-        for e in unaffordable:
-            cost_parts = [f"{e['frag_cost']}조각"]
-            if e["crystal_cost"]:
-                cost_parts.append(f"결정{e['crystal_cost']}")
-            rarity_tag = rarity_badge(e.get("rarity", ""))
+        else:
             lines.append(f"❌ {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
 
-    lines.append("")
+    if total_pages > 1:
+        lines.append(f"\n📄 {page + 1}/{total_pages} ({len(eligible)}마리)")
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_convpg_{uid}_{page - 1}"))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_convpg_{uid}_{page + 1}"))
+        buttons.append(nav)
 
-    markup = InlineKeyboardMarkup(buttons) if buttons else None
-    await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+    lines.append("")
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
+
+async def shiny_convert_handler(update, context):
+    """DM '이로치전환' — 전환 가능 포켓몬 리스트."""
+    user_id = update.effective_user.id
+    user = await queries.get_user(user_id)
+    if not user:
+        await update.message.reply_text("먼저 포켓몬을 잡아보세요!")
+        return
+
+    frags = await cq.get_user_fragments(user_id)
+    crystals = await cq.get_crystals(user_id)
+    pokemon_list = await queries.get_user_pokemon_list(user_id)
+    eligible = _build_convert_eligible(pokemon_list, frags, crystals)
+
+    if not eligible:
+        await update.message.reply_text(
+            f"{shiny_emoji()} 이로치 전환 가능한 포켓몬이 없습니다.\n"
+            "조각이 부족하거나, 보유 포켓몬이 모두 이로치입니다.",
+            parse_mode="HTML",
+        )
+        return
+
+    text, markup = _build_convert_page(eligible, user_id, frags, crystals, 0)
+    await update.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
 
 
 # ═══════════════════════════════════════════════════════
 # DM 명령: 분해
 # ═══════════════════════════════════════════════════════
+
+def _build_decompose_page(shinies: list, uid: int, crystals: dict, page: int = 0) -> tuple[str, InlineKeyboardMarkup]:
+    """분해 목록 페이지 빌드 (공용)."""
+    total_pages = max(1, (len(shinies) + DECOMPOSE_PAGE_SIZE - 1) // DECOMPOSE_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * DECOMPOSE_PAGE_SIZE
+    page_items = shinies[start:start + DECOMPOSE_PAGE_SIZE]
+
+    lines = [
+        "🔨 이로치 분해",
+        "",
+        f"💎 결정: {crystals['crystal']}개 | 🌈 무지개: {crystals['rainbow']}개",
+        "",
+        "⚠️ 분해하면 이로치가 해제됩니다!",
+        "",
+    ]
+
+    buttons = []
+    for p in page_items:
+        rarity = p.get("rarity", "common")
+        crystal_gain = config.CAMP_DECOMPOSE_CRYSTAL.get(rarity, 1)
+        rainbow_gain = config.CAMP_DECOMPOSE_RAINBOW.get(rarity, 0)
+        gain_parts = [f"💎+{crystal_gain}"]
+        if rainbow_gain:
+            gain_parts.append(f"🌈+{rainbow_gain}")
+        rarity_tag = rarity_badge(rarity or "")
+        iv_total = sum(p.get(k, 0) for k in ("iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"))
+        lines.append(f"{shiny_emoji()} {rarity_tag}{p['name_ko']} (IV:{iv_total}) → {' '.join(gain_parts)}")
+        buttons.append([InlineKeyboardButton(
+            f"🔨 {p['name_ko']} (IV:{iv_total}) 분해",
+            callback_data=f"cdm_dec_{uid}_{p['id']}",
+        )])
+
+    if total_pages > 1:
+        lines.append(f"\n📄 {page + 1}/{total_pages} ({len(shinies)}마리)")
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_decpg_{uid}_{page - 1}"))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_decpg_{uid}_{page + 1}"))
+        buttons.append(nav)
+
+    lines.append("")
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
 
 async def decompose_handler(update, context):
     """DM '분해' — 이로치 분해로 결정 획득."""
@@ -927,37 +992,8 @@ async def decompose_handler(update, context):
         return
 
     crystals = await cq.get_crystals(user_id)
-
-    lines = [
-        "🔨 이로치 분해",
-        "",
-        f"💎 결정: {crystals['crystal']}개 | 🌈 무지개: {crystals['rainbow']}개",
-        "",
-        "⚠️ 분해하면 이로치가 해제됩니다!",
-        "",
-    ]
-
-    buttons = []
-    for p in shinies[:15]:
-        rarity = p.get("rarity", "common")
-        crystal_gain = config.CAMP_DECOMPOSE_CRYSTAL.get(rarity, 1)
-        rainbow_gain = config.CAMP_DECOMPOSE_RAINBOW.get(rarity, 0)
-
-        gain_parts = [f"💎+{crystal_gain}"]
-        if rainbow_gain:
-            gain_parts.append(f"🌈+{rainbow_gain}")
-
-        rarity_tag = rarity_badge(rarity or "")
-        iv_total = sum(p.get(k, 0) for k in ("iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"))
-        lines.append(f"{shiny_emoji()} {rarity_tag}{p['name_ko']} (IV:{iv_total}) → {' '.join(gain_parts)}")
-        buttons.append([InlineKeyboardButton(
-            f"🔨 {p['name_ko']} (IV:{iv_total}) 분해",
-            callback_data=f"cdm_dec_{user_id}_{p['id']}",
-        )])
-
-    lines.append("")
-
-    await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+    text, markup = _build_decompose_page(shinies, user_id, crystals, 0)
+    await update.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
 
 
 # ═══════════════════════════════════════════════════════
@@ -1671,27 +1707,10 @@ async def camp_dm_callback_handler(update, context):
             return
 
         await query.answer()
-        # 기존 shiny_convert_handler 로직을 인라인으로 실행
         frags = await cq.get_user_fragments(uid)
         crystals_data = await cq.get_crystals(uid)
         pokemon_list = await queries.get_user_pokemon_list(uid)
-        eligible = []
-        for p in pokemon_list:
-            if p.get("is_shiny"):
-                continue
-            matching_fields = cs.get_matching_fields(p["pokemon_id"])
-            if not matching_fields:
-                continue
-            rarity = p.get("rarity", "common")
-            frag_cost = config.CAMP_SHINY_COST.get(rarity, 12)
-            crystal_cost = config.CAMP_CRYSTAL_COST.get(rarity, 0)
-            rainbow_cost = config.CAMP_RAINBOW_COST.get(rarity, 0)
-            can_afford_frags = any(frags.get(f, 0) >= frag_cost for f in matching_fields)
-            can_afford = can_afford_frags and crystals_data["crystal"] >= crystal_cost and crystals_data["rainbow"] >= rainbow_cost
-            eligible.append({
-                "instance_id": p["id"], "name_ko": p["name_ko"], "rarity": rarity,
-                "frag_cost": frag_cost, "crystal_cost": crystal_cost, "can_afford": can_afford,
-            })
+        eligible = _build_convert_eligible(pokemon_list, frags, crystals_data)
 
         if not eligible:
             try:
@@ -1704,30 +1723,9 @@ async def camp_dm_callback_handler(update, context):
                 pass
             return
 
-        affordable = [e for e in eligible if e["can_afford"]][:10]
-        total_frags = sum(frags.values())
-        lines = [
-            f"{shiny_emoji()} 이로치 전환", "",
-            f"{icon_emoji('gotcha')} 보유 조각: {total_frags}개",
-            f"{icon_emoji('crystal')} 결정: {crystals_data['crystal']}개 | 🌈 무지개: {crystals_data['rainbow']}개", "",
-        ]
-        buttons = []
-        if affordable:
-            lines.append("── 전환 가능 ──")
-            for e in affordable:
-                cost_parts = [f"{e['frag_cost']}조각"]
-                if e["crystal_cost"]:
-                    cost_parts.append(f"결정{e['crystal_cost']}")
-                rarity_tag = rarity_badge(e.get("rarity", ""))
-                lines.append(f"{icon_emoji('check')} {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
-                buttons.append([InlineKeyboardButton(
-                    f"✨ {e['name_ko']} 전환",
-                    callback_data=f"cdm_conv_{uid}_{e['instance_id']}",
-                )])
-        lines.append("")
-        markup = InlineKeyboardMarkup(buttons) if buttons else None
+        text, markup = _build_convert_page(eligible, uid, frags, crystals_data, 0)
         try:
-            await query.edit_message_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -1750,29 +1748,9 @@ async def camp_dm_callback_handler(update, context):
             return
 
         crystals_data = await cq.get_crystals(uid)
-        lines = [
-            "🔨 이로치 분해", "",
-            f"{icon_emoji('crystal')} 결정: {crystals_data['crystal']}개 | 🌈 무지개: {crystals_data['rainbow']}개",
-            "", "⚠️ 분해하면 이로치가 해제됩니다!", "",
-        ]
-        buttons = []
-        for p in shinies[:15]:
-            rarity = p.get("rarity", "common")
-            crystal_gain = config.CAMP_DECOMPOSE_CRYSTAL.get(rarity, 1)
-            rainbow_gain = config.CAMP_DECOMPOSE_RAINBOW.get(rarity, 0)
-            gain_parts = [f"💎+{crystal_gain}"]
-            if rainbow_gain:
-                gain_parts.append(f"🌈+{rainbow_gain}")
-            rarity_tag = rarity_badge(rarity or "")
-            iv_total = sum(p.get(k, 0) for k in ("iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"))
-            lines.append(f"{shiny_emoji()} {rarity_tag}{p['name_ko']} (IV:{iv_total}) → {' '.join(gain_parts)}")
-            buttons.append([InlineKeyboardButton(
-                f"🔨 {p['name_ko']} (IV:{iv_total}) 분해",
-                callback_data=f"cdm_dec_{uid}_{p['id']}",
-            )])
-        lines.append("")
+        text, markup = _build_decompose_page(shinies, uid, crystals_data, 0)
         try:
-            await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -2229,7 +2207,10 @@ async def camp_dm_callback_handler(update, context):
                 ])
         else:
             btns.append([InlineKeyboardButton("🏕 거점 설정하기", callback_data=f"cdm_hub_home_{uid}")])
-        btns.append([InlineKeyboardButton("📖 캠프 가이드", callback_data=f"cdm_guide_{uid}_0")])
+        btns.append([
+            InlineKeyboardButton("📖 캠프 가이드", callback_data=f"cdm_guide_{uid}_0"),
+            InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}"),
+        ])
 
         try:
             await query.edit_message_text(
@@ -2293,6 +2274,41 @@ async def camp_dm_callback_handler(update, context):
             pass
 
     # ── cdm_cancel_{uid} — 취소 ──
+    # ── cdm_decpg_{uid}_{page} — 분해 페이지네이션 ──
+    elif data.startswith("cdm_decpg_"):
+        uid = int(parts[2])
+        page = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        pokemon_list = await queries.get_user_pokemon_list(uid)
+        shinies = [p for p in pokemon_list if p.get("is_shiny")]
+        crystals_data = await cq.get_crystals(uid)
+        text, markup = _build_decompose_page(shinies, uid, crystals_data, page)
+        try:
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            pass
+
+    # ── cdm_convpg_{uid}_{page} — 이로치전환 페이지네이션 ──
+    elif data.startswith("cdm_convpg_"):
+        uid = int(parts[2])
+        page = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        frags = await cq.get_user_fragments(uid)
+        crystals_data = await cq.get_crystals(uid)
+        pokemon_list = await queries.get_user_pokemon_list(uid)
+        eligible = _build_convert_eligible(pokemon_list, frags, crystals_data)
+        text, markup = _build_convert_page(eligible, uid, frags, crystals_data, page)
+        try:
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            pass
+
     elif data.startswith("cdm_cancel_"):
         uid = int(parts[2])
         if query.from_user.id != uid:
