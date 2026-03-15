@@ -2738,7 +2738,7 @@
                 <div id="myTeamEmpty" style="display:none;text-align:center;padding:16px;color:var(--dim);font-size:13px">해당 팀에 등록된 푸키몬이 없습니다. 텔레그램에서 <b>/팀설정</b> 명령으로 팀을 편성하세요.</div>
             </div>
             <div class="section">
-                <h2>📦 내 푸키몬</h2>
+                <div style="display:flex;align-items:center;justify-content:space-between"><h2>📦 내 푸키몬</h2><span style="font-size:11px;color:rgba(255,255,255,.35)">⏱ 5분마다 갱신</span></div>
                 <div class="poke-filters" id="pokeFilters">
                     <input type="text" id="pokeSearchInput" placeholder="🔍 이름 검색" style="width:100px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;background:var(--card);outline:none" autocomplete="off">
                     <select class="poke-select" id="pokeRarityFilter">
@@ -6694,7 +6694,7 @@ function _escHtml(s) {
         if(initPage!=="home"){navigateTo(initPage,false)}
         else{loadPage("home")}
     }
-    setInterval(()=>{loaded[currentPage]=false;loadPage(currentPage)},600000);
+    setInterval(()=>{loaded[currentPage]=false;loadPage(currentPage)},300000);
 })();
 </script>
 </body>
