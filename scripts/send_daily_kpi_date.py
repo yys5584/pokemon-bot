@@ -144,6 +144,42 @@ async def main():
         bp_total_spent = 0
         bp_sources = {}
 
+    # BP 소스별 카드 HTML 생성
+    _bp_src_labels = {
+        "battle": "⚔️ 배틀", "ranked_battle": "🏟️ 랭크전", "catch": "🎯 포획",
+        "tournament": "🏆 토너먼트", "mission": "📋 미션", "bet_win": "🎲 야차(승)",
+        "gacha_refund": "🎰 뽑기환급", "gacha_jackpot": "💎 뽑기잭팟",
+        "ranked_reward": "🏅 시즌보상", "admin": "🔧 관리자",
+        "shop_masterball": "🔴 상점(마볼)", "shop_hyperball": "🔵 상점(하볼)",
+        "shop_gacha_ticket": "🎫 상점(뽑기권)", "shop_arcade_speed": "⚡ 상점(속도)",
+        "shop_arcade_extend": "⏱️ 상점(연장)",
+        "bet_refund": "🎲 야차(환불)", "trade_refund": "🔄 교환(환불)",
+    }
+    _bp_src_order = ["battle", "ranked_battle", "catch", "tournament", "mission", "bet_win",
+                     "gacha_refund", "gacha_jackpot", "ranked_reward", "admin"]
+    _bp_src_cards = []
+    for _src in _bp_src_order:
+        if _src in bp_sources and bp_sources[_src]["earned"] > 0:
+            _lbl = _bp_src_labels.get(_src, _src)
+            _val = bp_sources[_src]["earned"]
+            _bp_src_cards.append(
+                f'<div class="card"><div class="label">{_lbl}</div>'
+                f'<div class="value" style="font-size:18px;color:#4caf50">+{_val:,}</div></div>')
+    for _src, _v in sorted(bp_sources.items(), key=lambda x: x[1]["earned"], reverse=True):
+        if _src not in _bp_src_order and _v["earned"] > 0:
+            _lbl = _bp_src_labels.get(_src, _src)
+            _bp_src_cards.append(
+                f'<div class="card"><div class="label">{_lbl}</div>'
+                f'<div class="value" style="font-size:18px;color:#4caf50">+{_v["earned"]:,}</div></div>')
+    if _bp_src_cards:
+        _cols = "1fr 1fr 1fr" if len(_bp_src_cards) >= 3 else "1fr " * len(_bp_src_cards)
+        bp_source_cards_html = (
+            f'<div style="margin-top:6px;font-size:11px;color:#888;margin-bottom:4px">📈 소스별 생성</div>'
+            f'<div class="grid" style="grid-template-columns:{_cols.strip()}">'
+            + "".join(_bp_src_cards) + '</div>')
+    else:
+        bp_source_cards_html = ""
+
     # 뽑기 데이터
     gacha_row = await pool.fetchrow(
         "SELECT COALESCE(SUM(bp_spent), 0) as total, COUNT(*) as pulls FROM gacha_log WHERE created_at >= $1 AND created_at < $2",
@@ -306,14 +342,7 @@ async def main():
 
     # BP 경제 인사이트
     bp_net = int(bp_earned) - int(bp_total_spent)
-    source_labels = {
-        "battle": "⚔️ 배틀", "ranked_battle": "🏟️ 랭크전", "catch": "🎯 포획",
-        "tournament": "🏆 토너먼트", "mission": "📋 미션", "bet_win": "🎲 야차(승)",
-        "gacha_refund": "🎰 뽑기환급", "gacha_jackpot": "💎 뽑기잭팟",
-        "ranked_reward": "🏅 시즌보상", "admin": "🔧 관리자",
-        "shop_masterball": "🔴 상점(마볼)", "shop_hyperball": "🔵 상점(하볼)",
-        "shop_gacha_ticket": "🎫 상점(뽑기권)",
-    }
+    source_labels = _bp_src_labels
 
     insights.append("💰 <b>BP 경제:</b>")
 
@@ -459,6 +488,7 @@ async def main():
 <div class="card"><div class="label">소각</div><div class="value accent">-{int(bp_total_spent):,}</div></div>
 <div class="card"><div class="label">순변동</div><div class="value" style="color:{'#4caf50' if bp_net >= 0 else '#e53935'}">{bp_net:+,}</div></div>
 </div>
+{bp_source_cards_html}
 <div class="grid" style="margin-top:6px">
 <div class="card"><div class="label">총 유통량</div><div class="value">{int(bp_circulation):,}</div>{delta_badge(bp_circulation, prev_bp_circulation) if prev_bp_circulation else ''}<div class="sub">보유자 평균 {int(bp_avg):,}BP</div></div>
 <div class="card"><div class="label">뽑기</div><div class="value">{gacha_pulls:,}회</div><div class="sub">-{gacha_spent:,}BP</div></div>

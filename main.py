@@ -726,11 +726,6 @@ async def _send_daily_kpi_report(context):
         bp_sources = d.get("bp_sources", {})
         bp_net = bp_earned - bp_total_spent
 
-        # 전일 BP 유통량 (스냅샷에서)
-        prev_bp_circulation = prev.get("bp_circulation") if prev else None
-        bp_circ_delta = bp_circulation - prev_bp_circulation if prev_bp_circulation is not None else None
-        prev_bp_earned = prev.get("bp_earned", 0) if prev else 0
-
         source_labels = {
             "battle": "⚔️ 배틀", "ranked_battle": "🏟️ 랭크전", "catch": "🎯 포획",
             "tournament": "🏆 토너먼트", "mission": "📋 미션", "bet_win": "🎲 야차(승)",
@@ -741,6 +736,38 @@ async def _send_daily_kpi_report(context):
             "shop_arcade_extend": "⏱️ 상점(연장)",
             "bet_refund": "🎲 야차(환불)", "trade_refund": "🔄 교환(환불)",
         }
+
+        # BP 소스별 카드 HTML 생성
+        _bp_src_order = ["battle", "ranked_battle", "catch", "tournament", "mission", "bet_win",
+                         "gacha_refund", "gacha_jackpot", "ranked_reward", "admin"]
+        _bp_src_cards = []
+        for _src in _bp_src_order:
+            if _src in bp_sources and bp_sources[_src]["earned"] > 0:
+                _lbl = source_labels.get(_src, _src)
+                _val = bp_sources[_src]["earned"]
+                _bp_src_cards.append(
+                    f'<div class="card"><div class="label">{_lbl}</div>'
+                    f'<div class="value" style="font-size:18px;color:#4caf50">+{_val:,}</div></div>')
+        # 나머지 소스 (위 목록에 없는 것)
+        for _src, _v in sorted(bp_sources.items(), key=lambda x: x[1]["earned"], reverse=True):
+            if _src not in _bp_src_order and _v["earned"] > 0:
+                _lbl = source_labels.get(_src, _src)
+                _bp_src_cards.append(
+                    f'<div class="card"><div class="label">{_lbl}</div>'
+                    f'<div class="value" style="font-size:18px;color:#4caf50">+{_v["earned"]:,}</div></div>')
+        if _bp_src_cards:
+            _cols = "1fr 1fr 1fr" if len(_bp_src_cards) >= 3 else "1fr " * len(_bp_src_cards)
+            bp_source_cards_html = (
+                f'<div style="margin-top:6px;font-size:11px;color:#888;margin-bottom:4px">📈 소스별 생성</div>'
+                f'<div class="grid" style="grid-template-columns:{_cols.strip()}">'
+                + "".join(_bp_src_cards) + '</div>')
+        else:
+            bp_source_cards_html = ""
+
+        # 전일 BP 유통량 (스냅샷에서)
+        prev_bp_circulation = prev.get("bp_circulation") if prev else None
+        bp_circ_delta = bp_circulation - prev_bp_circulation if prev_bp_circulation is not None else None
+        prev_bp_earned = prev.get("bp_earned", 0) if prev else 0
 
         # --- BP 경제 요약 ---
         insights.append(f"💰 <b>BP 경제:</b>")
@@ -928,6 +955,7 @@ async def _send_daily_kpi_report(context):
 <div class="card"><div class="label">소각</div><div class="value accent">-{bp_total_spent:,}</div></div>
 <div class="card"><div class="label">순변동</div><div class="value" style="color:{'#4caf50' if bp_net >= 0 else '#e53935'}">{bp_net:+,}</div></div>
 </div>
+{bp_source_cards_html}
 <div class="grid" style="margin-top:6px">
 <div class="card"><div class="label">총 유통량</div><div class="value">{bp_circulation:,}</div>{_delta_badge(bp_circulation, prev_bp_circulation) if prev_bp_circulation else ''}<div class="sub">보유자 평균 {bp_avg:,}BP</div></div>
 <div class="card"><div class="label">뽑기</div><div class="value">{gacha_pulls:,}회</div><div class="sub">-{gacha_spent:,}BP</div></div>
