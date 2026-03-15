@@ -2190,7 +2190,7 @@ async def api_iv_ranking(request):
 # --- Battle APIs ---
 
 async def api_battle_ranking(request):
-    ranking = await bq.get_battle_ranking(100)
+    ranking = await bq.get_battle_ranking_multi(100)
     for r in ranking:
         if r.get("title_emoji"):
             r["title_emoji"] = _web_emoji(r["title_emoji"])

@@ -333,6 +333,38 @@ async def get_battle_ranking(limit: int = 10) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+async def get_battle_ranking_multi(limit: int = 100) -> list[dict]:
+    """여러 기준(BP, 승률, 승수, 연승)의 Top N을 합쳐서 중복 제거 반환."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """WITH base AS (
+               SELECT u.user_id, u.display_name, u.title, u.title_emoji,
+                      u.battle_wins, u.battle_losses, u.best_streak,
+                      u.battle_points
+               FROM users u
+               WHERE u.battle_points > 0 OR u.battle_wins > 0 OR u.battle_losses > 0
+           ),
+           by_bp AS (SELECT user_id FROM base ORDER BY battle_points DESC, battle_wins DESC LIMIT $1),
+           by_wins AS (SELECT user_id FROM base ORDER BY battle_wins DESC, battle_points DESC LIMIT $1),
+           by_wr AS (
+               SELECT user_id FROM base
+               WHERE (battle_wins + battle_losses) >= 5
+               ORDER BY battle_wins::float / NULLIF(battle_wins + battle_losses, 0) DESC, battle_wins DESC
+               LIMIT $1
+           ),
+           by_streak AS (SELECT user_id FROM base ORDER BY best_streak DESC, battle_wins DESC LIMIT $1),
+           all_ids AS (
+               SELECT user_id FROM by_bp UNION
+               SELECT user_id FROM by_wins UNION
+               SELECT user_id FROM by_wr UNION
+               SELECT user_id FROM by_streak
+           )
+           SELECT b.* FROM base b JOIN all_ids a USING (user_id)""",
+        limit,
+    )
+    return [dict(r) for r in rows]
+
+
 async def get_winrate_ranking(limit: int = 5, min_games: int = 5) -> list[dict]:
     """Get battle ranking by win rate (min_games required)."""
     pool = await get_db()
