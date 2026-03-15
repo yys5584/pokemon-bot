@@ -119,10 +119,17 @@ async def main():
     ranked_battles = await pool.fetchval(
         "SELECT COUNT(*) FROM ranked_battle_log WHERE created_at >= $1 AND created_at < $2",
         day_start, day_end) or 0
-    # BP earned: bp_log 우선, 없으면 battle_records fallback
+    # BP earned: bp_log 우선, 없으면 기존 테이블에서 소스별 추정
     bp_log_exists = await pool.fetchval(
         "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='bp_log')")
+    bp_log_has_data = False
     if bp_log_exists:
+        bp_log_count = await pool.fetchval(
+            "SELECT COUNT(*) FROM bp_log WHERE created_at >= $1 AND created_at < $2",
+            day_start, day_end) or 0
+        bp_log_has_data = bp_log_count > 0
+
+    if bp_log_has_data:
         bp_earned = await pool.fetchval(
             "SELECT COALESCE(SUM(amount), 0) FROM bp_log WHERE amount > 0 AND created_at >= $1 AND created_at < $2",
             day_start, day_end) or 0
@@ -138,11 +145,42 @@ async def main():
             day_start, day_end)
         bp_sources = {r["source"]: {"earned": int(r["earned"]), "spent": int(r["spent"])} for r in bp_source_rows}
     else:
-        bp_earned = await pool.fetchval(
-            "SELECT COALESCE(SUM(bp_earned), 0) FROM battle_records WHERE created_at >= $1 AND created_at < $2",
-            day_start, day_end) or 0
-        bp_total_spent = 0
+        # fallback: 기존 테이블에서 소스별 BP 추정
         bp_sources = {}
+        # battle_type별 배틀 BP
+        bt_rows = await pool.fetch(
+            """SELECT battle_type, COALESCE(SUM(bp_earned), 0) as earned
+               FROM battle_records WHERE created_at >= $1 AND created_at < $2
+               GROUP BY battle_type""",
+            day_start, day_end)
+        for r in bt_rows:
+            btype = r["battle_type"]
+            earned = int(r["earned"])
+            if earned <= 0:
+                continue
+            if btype == "ranked":
+                bp_sources["ranked_battle"] = {"earned": earned, "spent": 0}
+            else:
+                bp_sources["battle"] = {"earned": bp_sources.get("battle", {"earned": 0, "spent": 0})["earned"] + earned, "spent": 0}
+        # 포획 BP 추정 (평균 CATCH_BP_MIN~MAX의 중간값 * 포획수)
+        catch_count = await pool.fetchval(
+            """SELECT COUNT(*) FROM spawn_log
+               WHERE spawned_at >= $1 AND spawned_at < $2 AND caught_by_user_id IS NOT NULL""",
+            day_start, day_end) or 0
+        if catch_count > 0:
+            # config에서 min/max 가져오기
+            try:
+                import config as _cfg
+                avg_catch_bp = (_cfg.CATCH_BP_MIN + _cfg.CATCH_BP_MAX) // 2
+            except Exception:
+                avg_catch_bp = 5
+            bp_sources["catch"] = {"earned": int(catch_count * avg_catch_bp), "spent": 0}
+        bp_earned = sum(v["earned"] for v in bp_sources.values())
+        if bp_earned == 0:
+            bp_earned = await pool.fetchval(
+                "SELECT COALESCE(SUM(bp_earned), 0) FROM battle_records WHERE created_at >= $1 AND created_at < $2",
+                day_start, day_end) or 0
+        bp_total_spent = 0
 
     # BP 소스별 카드 HTML 생성
     _bp_src_labels = {
