@@ -795,9 +795,9 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, d
 
                 # 쿨타임 기록
                 await conn.execute(
-                    """INSERT INTO camp_shiny_cooldown (user_id, last_convert)
+                    """INSERT INTO camp_shiny_cooldown (user_id, last_convert_at)
                        VALUES ($1, NOW())
-                       ON CONFLICT (user_id) DO UPDATE SET last_convert = NOW()""",
+                       ON CONFLICT (user_id) DO UPDATE SET last_convert_at = NOW()""",
                     user_id,
                 )
     except Exception as e:
