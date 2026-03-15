@@ -193,19 +193,6 @@
         .rank-filter:hover{color:var(--text);background:#E8E8E8}
         .rank-filter.active{background:var(--red);color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(229,57,53,.25)}
 
-        /* World Map */
-        .wm-node{text-align:center;cursor:pointer;transition:transform .2s}
-        .wm-node:hover{transform:scale(1.08)}
-        .wm-node:hover .wm-icon{filter:brightness(1.2)}
-        .wm-icon{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto;transition:all .3s}
-        .wm-icon.wm-center{animation:wmPulse 2s ease-in-out infinite}
-        @keyframes wmPulse{0%,100%{box-shadow:0 0 30px rgba(255,213,79,.5)}50%{box-shadow:0 0 45px rgba(255,213,79,.7)}}
-        .wm-label{font-size:11px;font-weight:700;margin-top:4px;text-shadow:0 1px 4px rgba(0,0,0,.5)}
-        .wm-bonus{font-size:9px;color:rgba(255,255,255,.6);margin-top:1px}
-        .wm-detail{display:none;position:absolute;left:50%;transform:translateX(-50%);top:calc(100% + 8px);background:rgba(26,26,46,.95);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 14px;font-size:11px;color:#eee;line-height:1.7;width:200px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.4);backdrop-filter:blur(8px);z-index:10;pointer-events:none}
-        .wm-detail.show{display:block}
-        @media(max-width:600px){.world-map{aspect-ratio:10/11!important}.wm-icon{width:36px;height:36px;font-size:18px}.wm-icon.wm-center{width:44px!important;height:44px!important;font-size:22px!important}.wm-label{font-size:10px}.wm-bonus{font-size:8px}.wm-detail{width:160px;font-size:10px;padding:8px 10px}}
-
         /* Container */
         .container{max-width:1400px;margin:0 auto;padding:12px 14px}
         .page{display:none}.page.active{display:block}
@@ -2493,91 +2480,10 @@
                 <!-- 활성 캠프 목록 -->
                 <div id="campList" style="margin-bottom:20px"></div>
 
-                <!-- 세계지도 -->
-                <div class="world-map-wrap" style="margin-bottom:24px">
-                    <div class="world-map-title" style="text-align:center;margin-bottom:12px">
-                        <h3 style="font-size:18px;font-weight:800;margin:0">🗺️ TGPoke 세계지도</h3>
-                        <p style="font-size:11px;color:var(--muted);margin-top:4px">7개의 영토를 점령하고 길드의 영향력을 넓혀라!</p>
-                    </div>
-                    <div class="world-map" style="position:relative;width:100%;max-width:700px;margin:0 auto;aspect-ratio:16/11;background:linear-gradient(180deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08)">
-                        <!-- 배경 별/파티클 -->
-                        <div style="position:absolute;inset:0;background:radial-gradient(1px 1px at 10% 15%,rgba(255,255,255,.4),transparent),radial-gradient(1px 1px at 30% 8%,rgba(255,255,255,.3),transparent),radial-gradient(1px 1px at 55% 12%,rgba(255,255,255,.35),transparent),radial-gradient(1px 1px at 75% 5%,rgba(255,255,255,.25),transparent),radial-gradient(1px 1px at 90% 18%,rgba(255,255,255,.3),transparent),radial-gradient(1.5px 1.5px at 20% 25%,rgba(255,255,255,.2),transparent),radial-gradient(1px 1px at 65% 22%,rgba(255,255,255,.25),transparent),radial-gradient(1px 1px at 85% 28%,rgba(255,255,255,.15),transparent)"></div>
-
-                        <!-- 연결선 (SVG) -->
-                        <svg style="position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none" viewBox="0 0 700 480">
-                            <!-- 설산 → 깊은숲 -->
-                            <line x1="350" y1="85" x2="175" y2="210" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
-                            <!-- 설산 → 중앙광장 -->
-                            <line x1="350" y1="85" x2="350" y2="210" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
-                            <!-- 설산 → 화산 -->
-                            <line x1="350" y1="85" x2="525" y2="210" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
-                            <!-- 깊은숲 → 초원 -->
-                            <line x1="175" y1="245" x2="175" y2="360" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
-                            <!-- 화산 → 사막 -->
-                            <line x1="525" y1="245" x2="525" y2="360" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
-                            <!-- 중앙광장 → 바다 -->
-                            <line x1="350" y1="245" x2="350" y2="400" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
-                        </svg>
-
-                        <!-- 설산 (상단 중앙) -->
-                        <div class="wm-node" style="position:absolute;top:4%;left:50%;transform:translateX(-50%);z-index:2" onclick="this.querySelector('.wm-detail').classList.toggle('show')">
-                            <div class="wm-icon" style="background:linear-gradient(135deg,#E3F2FD,#BBDEFB);border:2px solid #90CAF9;box-shadow:0 0 20px rgba(144,202,249,.4)">🏔️</div>
-                            <div class="wm-label" style="color:#90CAF9">설산</div>
-                            <div class="wm-bonus">이로치 +1%</div>
-                            <div class="wm-detail"><b>🏔️ 설산 영토</b><br>• 이로치 확률 +1%<br>• 얼음/강철 타입 강화<br>• 수집가의 성지<br><span style="color:#90CAF9">❄️ 만년설이 뒤덮인 극지</span></div>
-                        </div>
-
-                        <!-- 깊은숲 (중단 좌측) -->
-                        <div class="wm-node" style="position:absolute;top:36%;left:18%;z-index:2" onclick="this.querySelector('.wm-detail').classList.toggle('show')">
-                            <div class="wm-icon" style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border:2px solid #81C784;box-shadow:0 0 20px rgba(129,199,132,.4)">🌲</div>
-                            <div class="wm-label" style="color:#81C784">깊은숲</div>
-                            <div class="wm-bonus">포획률 +5%</div>
-                            <div class="wm-detail"><b>🌲 깊은숲 영토</b><br>• 포획 확률 +5%<br>• 풀/벌레 타입 강화<br>• 초보 트레이너 추천<br><span style="color:#81C784">🍃 고대 나무가 하늘을 가린 미지의 숲</span></div>
-                        </div>
-
-                        <!-- 중앙광장 (중단 중앙) -->
-                        <div class="wm-node" style="position:absolute;top:36%;left:50%;transform:translateX(-50%);z-index:3" onclick="this.querySelector('.wm-detail').classList.toggle('show')">
-                            <div class="wm-icon wm-center" style="background:linear-gradient(135deg,#FFF8E1,#FFE082);border:2px solid #FFD54F;box-shadow:0 0 30px rgba(255,213,79,.5);width:56px;height:56px;font-size:28px">🏛️</div>
-                            <div class="wm-label" style="color:#FFD54F;font-size:13px;font-weight:800">중앙광장</div>
-                            <div class="wm-bonus" style="color:#FFD54F">전체 +5% ⚔️</div>
-                            <div class="wm-detail"><b>🏛️ 중앙광장 (쟁탈지)</b><br>• 전체 보너스 +5%<br>• <span style="color:#E53935;font-weight:700">최고 전략적 요충지</span><br>• 모든 길드가 노리는 핵심 영토<br><span style="color:#FFD54F">👑 이곳을 지배하는 자가 세계를 지배한다</span></div>
-                        </div>
-
-                        <!-- 화산 (중단 우측) -->
-                        <div class="wm-node" style="position:absolute;top:36%;right:13%;z-index:2" onclick="this.querySelector('.wm-detail').classList.toggle('show')">
-                            <div class="wm-icon" style="background:linear-gradient(135deg,#FBE9E7,#FFAB91);border:2px solid #FF8A65;box-shadow:0 0 20px rgba(255,138,101,.4)">🌋</div>
-                            <div class="wm-label" style="color:#FF8A65">화산</div>
-                            <div class="wm-bonus">BP +15%</div>
-                            <div class="wm-detail"><b>🌋 화산 영토</b><br>• 배틀 BP +15%<br>• 불꽃/드래곤 타입 강화<br>• 배틀러 필수 영토<br><span style="color:#FF8A65">🔥 끊임없이 용암이 분출하는 전장</span></div>
-                        </div>
-
-                        <!-- 초원 (하단 좌측) -->
-                        <div class="wm-node" style="position:absolute;top:68%;left:18%;z-index:2" onclick="this.querySelector('.wm-detail').classList.toggle('show')">
-                            <div class="wm-icon" style="background:linear-gradient(135deg,#F1F8E9,#DCEDC8);border:2px solid #AED581;box-shadow:0 0 20px rgba(174,213,129,.4)">🌿</div>
-                            <div class="wm-label" style="color:#AED581">초원</div>
-                            <div class="wm-bonus">스폰 +1</div>
-                            <div class="wm-detail"><b>🌿 초원 영토</b><br>• 일일 스폰 +1<br>• 노말/페어리 타입 강화<br>• 채팅방 활성화에 최적<br><span style="color:#AED581">🌸 드넓은 초원에 포켓몬이 뛰노는 낙원</span></div>
-                        </div>
-
-                        <!-- 사막 (하단 우측) -->
-                        <div class="wm-node" style="position:absolute;top:68%;right:13%;z-index:2" onclick="this.querySelector('.wm-detail').classList.toggle('show')">
-                            <div class="wm-icon" style="background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border:2px solid #FFB74D;box-shadow:0 0 20px rgba(255,183,77,.4)">🏜️</div>
-                            <div class="wm-label" style="color:#FFB74D">사막</div>
-                            <div class="wm-bonus">경험치 +10%</div>
-                            <div class="wm-detail"><b>🏜️ 사막 영토</b><br>• 경험치 +10%<br>• 땅/바위 타입 강화<br>• 육성러에게 필수<br><span style="color:#FFB74D">⏳ 고대 유적이 잠든 끝없는 모래벌판</span></div>
-                        </div>
-
-                        <!-- 바다 (최하단 중앙) -->
-                        <div class="wm-node" style="position:absolute;top:78%;left:50%;transform:translateX(-50%);z-index:2" onclick="this.querySelector('.wm-detail').classList.toggle('show')">
-                            <div class="wm-icon" style="background:linear-gradient(135deg,#E0F7FA,#B2EBF2);border:2px solid #4DD0E1;box-shadow:0 0 20px rgba(77,208,225,.4)">🌊</div>
-                            <div class="wm-label" style="color:#4DD0E1">바다</div>
-                            <div class="wm-bonus">거래세 면제</div>
-                            <div class="wm-detail"><b>🌊 바다 영토</b><br>• 교환/거래 수수료 면제<br>• 물/얼음 타입 강화<br>• 거래꾼의 천국<br><span style="color:#4DD0E1">🐚 산호초와 난파선이 가득한 심해</span></div>
-                        </div>
-
-                        <!-- COMING SOON 뱃지 -->
-                        <div style="position:absolute;bottom:8px;right:12px;background:rgba(229,57,53,.85);color:#fff;font-size:9px;font-weight:800;padding:3px 10px;border-radius:10px;letter-spacing:.5px;z-index:5">COMING SOON</div>
-                    </div>
+                <!-- 월드맵 -->
+                <div style="text-align:center;margin-bottom:20px">
+                    <img src="/camp-assets/map_base.png" alt="캠프 월드맵" style="max-width:100%;border-radius:14px;border:1px solid var(--border);box-shadow:0 4px 20px rgba(0,0,0,.12)">
+                    <p style="font-size:11px;color:var(--muted);margin-top:6px">🗺️ 6개의 필드에 포켓몬을 배치하고 조각을 모으세요!</p>
                 </div>
 
                 <!-- 캠프 흐름 -->
