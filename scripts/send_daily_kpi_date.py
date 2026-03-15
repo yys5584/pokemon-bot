@@ -168,13 +168,36 @@ async def main():
                WHERE spawned_at >= $1 AND spawned_at < $2 AND caught_by_user_id IS NOT NULL""",
             day_start, day_end) or 0
         if catch_count > 0:
-            # config에서 min/max 가져오기
             try:
                 import config as _cfg
                 avg_catch_bp = (_cfg.CATCH_BP_MIN + _cfg.CATCH_BP_MAX) // 2
             except Exception:
                 avg_catch_bp = 5
             bp_sources["catch"] = {"earned": int(catch_count * avg_catch_bp), "spent": 0}
+        # 토너먼트 BP 추정 (참가자 수 기반)
+        try:
+            tourn_participants = await pool.fetchval(
+                """SELECT COUNT(DISTINCT winner_id) + COUNT(DISTINCT loser_id)
+                   FROM battle_records WHERE battle_type = 'tournament'
+                   AND created_at >= $1 AND created_at < $2""",
+                day_start, day_end) or 0
+            tourn_battle_bp = await pool.fetchval(
+                """SELECT COALESCE(SUM(bp_earned), 0) FROM battle_records
+                   WHERE battle_type = 'tournament' AND created_at >= $1 AND created_at < $2""",
+                day_start, day_end) or 0
+            if tourn_participants > 0:
+                # 배틀 BP + 참가자 보상 추정 (참가자 * 평균 보상)
+                import config as _cfg
+                avg_reward = _cfg.TOURNAMENT_PRIZE_PARTICIPANT_BP  # 최소 보상 기준
+                est_reward = int(tourn_participants * avg_reward) + int(tourn_battle_bp)
+                bp_sources["tournament"] = {"earned": est_reward, "spent": 0}
+                # tournament 배틀 BP는 battle에서 제거
+                if "battle" in bp_sources:
+                    bp_sources["battle"]["earned"] = max(0, bp_sources["battle"]["earned"] - int(tourn_battle_bp))
+                    if bp_sources["battle"]["earned"] == 0:
+                        del bp_sources["battle"]
+        except Exception:
+            pass
         bp_earned = sum(v["earned"] for v in bp_sources.values())
         if bp_earned == 0:
             bp_earned = await pool.fetchval(
