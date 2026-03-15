@@ -530,6 +530,7 @@ _GUIDE_STEPS = [
 DM_PAGE_SIZE = 8
 DECOMPOSE_PAGE_SIZE = 8
 CONVERT_PAGE_SIZE = 8
+VISIT_PAGE_SIZE = 6
 
 
 async def _build_dm_field_buttons(user_id: int, chat_id: int, fields: list[dict], camp: dict) -> tuple[str, InlineKeyboardMarkup]:
@@ -798,6 +799,9 @@ async def my_camp_handler(update, context):
         [
             InlineKeyboardButton("🔨 분해", callback_data=f"cdm_hub_decompose_{user_id}"),
             InlineKeyboardButton("🏠 거점캠프", callback_data=f"cdm_hub_home_{user_id}"),
+        ],
+        [
+            InlineKeyboardButton("👣 방문하기", callback_data=f"cdm_visit_{user_id}_0"),
         ],
     ]
 
@@ -2273,7 +2277,89 @@ async def camp_dm_callback_handler(update, context):
         except Exception:
             pass
 
-    # ── cdm_cancel_{uid} — 취소 ──
+    # ── cdm_visit_{uid}_{page} — 방문 가능 캠프 목록 ──
+    elif data.startswith("cdm_visit_"):
+        uid = int(parts[2])
+        page = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+
+        settings = await cq.get_user_camp_settings(uid)
+        home_ids = set()
+        if settings:
+            if settings.get("home_chat_id"):
+                home_ids.add(settings["home_chat_id"])
+            if settings.get("home_chat_id_2"):
+                home_ids.add(settings["home_chat_id_2"])
+
+        all_camps = await cq.get_available_camps()
+        # 거점 제외
+        camps = [c for c in all_camps if c["chat_id"] not in home_ids]
+
+        if not camps:
+            try:
+                await query.edit_message_text("방문할 수 있는 캠프가 없습니다.")
+            except Exception:
+                pass
+            return
+
+        visited_ids = await cq.get_today_visited_chat_ids(uid)
+        total_pages = max(1, (len(camps) + VISIT_PAGE_SIZE - 1) // VISIT_PAGE_SIZE)
+        page = max(0, min(page, total_pages - 1))
+        start = page * VISIT_PAGE_SIZE
+        page_items = camps[start:start + VISIT_PAGE_SIZE]
+
+        visited_count = len([c for c in camps if c["chat_id"] in visited_ids])
+        lines = [
+            "👣 <b>캠프 방문하기</b>",
+            "",
+            f"오늘 방문: {visited_count}/{len(camps)}",
+            "",
+            "해당 채팅방에서 <b>방문</b>을 입력하세요!",
+            "",
+        ]
+
+        for c in page_items:
+            title = c.get("chat_title") or f"채팅방"
+            lv = c.get("level", 1)
+            members = c.get("member_count") or 0
+            done = "✅" if c["chat_id"] in visited_ids else "⬜"
+            reward_range = config.CAMP_VISIT_REWARD.get(lv, (1, 1))
+            reward_str = f"{reward_range[0]}~{reward_range[1]}" if reward_range[0] != reward_range[1] else str(reward_range[0])
+            lines.append(f"{done} <b>{title}</b>")
+            lines.append(f"    Lv.{lv} | {members}명 | 조각 {reward_str}개")
+
+        if total_pages > 1:
+            lines.append(f"\n📄 {page + 1}/{total_pages}")
+
+        lines.append("")
+
+        buttons = []
+        # 초대링크 있는 캠프는 바로가기 버튼
+        for c in page_items:
+            if c.get("invite_link") and c["chat_id"] not in visited_ids:
+                title = c.get("chat_title") or "캠프"
+                buttons.append([InlineKeyboardButton(
+                    f"👣 {title} 가기",
+                    url=c["invite_link"],
+                )])
+
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_visit_{uid}_{page - 1}"))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_visit_{uid}_{page + 1}"))
+        if nav:
+            buttons.append(nav)
+        buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
+
+        try:
+            await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+        except Exception:
+            pass
+
     # ── cdm_decpg_{uid}_{page} — 분해 페이지네이션 ──
     elif data.startswith("cdm_decpg_"):
         uid = int(parts[2])

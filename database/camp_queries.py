@@ -806,6 +806,16 @@ async def get_today_visit_count(user_id: int) -> int:
     ) or 0
 
 
+async def get_today_visited_chat_ids(user_id: int) -> set[int]:
+    """오늘 방문한 chat_id 세트."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        "SELECT chat_id FROM camp_visits WHERE user_id = $1 AND visited_at = CURRENT_DATE",
+        user_id,
+    )
+    return {r["chat_id"] for r in rows}
+
+
 # ═══════════════════════════════════════════════════════
 # 캠프 환영 멘트 (캠꾸)
 # ═══════════════════════════════════════════════════════
