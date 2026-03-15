@@ -1132,6 +1132,33 @@ async def create_tables():
         except Exception:
             pass
 
+    # 캠프 방문 시스템 (2026-03-15)
+    camp_visit_tables = [
+        """CREATE TABLE IF NOT EXISTS camp_visits (
+            user_id BIGINT NOT NULL,
+            chat_id BIGINT NOT NULL,
+            visited_at DATE NOT NULL DEFAULT CURRENT_DATE,
+            fragment_type VARCHAR(20),
+            amount INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY(user_id, chat_id, visited_at)
+        )""",
+    ]
+    for sql in camp_visit_tables:
+        try:
+            await pool.execute(sql, timeout=30)
+        except Exception:
+            pass
+
+    # 캠프 환영 멘트 (캠꾸)
+    camp_welcome_migs = [
+        "ALTER TABLE camps ADD COLUMN welcome_message TEXT",
+    ]
+    for mig in camp_welcome_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

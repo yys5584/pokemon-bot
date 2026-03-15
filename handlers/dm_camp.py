@@ -6,6 +6,7 @@ import logging
 from datetime import timedelta
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationHandlerStop
 
 import config
 from database import camp_queries as cq
@@ -147,6 +148,11 @@ async def camp_hub_handler(update, context):
         buttons.append([
             InlineKeyboardButton("🔔 알림설정", callback_data=f"cdm_hub_notify_{user_id}"),
         ])
+        # 소유자면 캠프 관리 버튼 추가
+        if camp and camp.get("created_by") == user_id:
+            buttons.append([
+                InlineKeyboardButton("⚙️ 캠프 관리", callback_data=f"cdm_hub_manage_{user_id}"),
+            ])
     else:
         buttons.append([InlineKeyboardButton("🏕 거점 설정하기", callback_data=f"cdm_hub_home_{user_id}")])
 
@@ -928,6 +934,52 @@ async def decompose_handler(update, context):
     lines.append("")
 
     await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+
+
+# ═══════════════════════════════════════════════════════
+# DM 메시지 핸들러: 환영 멘트 입력
+# ═══════════════════════════════════════════════════════
+
+async def camp_welcome_input_handler(update, context):
+    """DM에서 환영 멘트 입력 처리 (camp_welcome_input 상태일 때)."""
+    if not context.user_data.get("camp_welcome_input"):
+        return  # 상태가 아니면 무시 — 다른 핸들러로 전달
+
+    context.user_data.pop("camp_welcome_input", None)
+    user_id = update.effective_user.id
+    text = (update.message.text or "").strip()
+
+    if text == "취소":
+        await update.message.reply_text("✅ 환영 멘트 설정이 취소되었습니다.")
+        raise ApplicationHandlerStop()
+
+    if len(text) > config.CAMP_WELCOME_MSG_MAX_LEN:
+        await update.message.reply_text(
+            f"❌ 멘트가 너무 깁니다! ({len(text)}자/{config.CAMP_WELCOME_MSG_MAX_LEN}자)\n"
+            "다시 설정하려면 캠프 메뉴 → 캠프 관리에서 시도하세요."
+        )
+        raise ApplicationHandlerStop()
+
+    if not text:
+        await update.message.reply_text("❌ 빈 멘트는 설정할 수 없습니다.")
+        raise ApplicationHandlerStop()
+
+    settings = await cq.get_user_camp_settings(user_id)
+    if not settings or not settings.get("home_chat_id"):
+        await update.message.reply_text("거점 캠프가 없습니다.")
+        raise ApplicationHandlerStop()
+
+    home_chat_id = settings["home_chat_id"]
+    camp = await cq.get_camp(home_chat_id)
+    if not camp or camp.get("created_by") != user_id:
+        await update.message.reply_text("캠프 소유자만 설정할 수 있습니다.")
+        raise ApplicationHandlerStop()
+
+    await cq.set_welcome_message(home_chat_id, text)
+    await update.message.reply_text(
+        f"✅ 환영 멘트가 설정되었습니다!\n\n💬 \"{text}\"\n\n방문자에게 이 멘트가 보여집니다 🏕"
+    )
+    raise ApplicationHandlerStop()
 
 
 # ═══════════════════════════════════════════════════════
@@ -1951,6 +2003,100 @@ async def camp_dm_callback_handler(update, context):
         else:
             await query.answer("🔕 캠프 정산 알림이 꺼졌습니다.", show_alert=True)
 
+    # ── cdm_hub_manage_{uid} — 캠프 관리 (소유자) ──
+    elif data.startswith("cdm_hub_manage_"):
+        uid = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+
+        settings = await cq.get_user_camp_settings(uid)
+        if not settings or not settings.get("home_chat_id"):
+            try:
+                await query.edit_message_text("먼저 거점 캠프를 설정해주세요!")
+            except Exception:
+                pass
+            return
+
+        home_chat_id = settings["home_chat_id"]
+        camp = await cq.get_camp(home_chat_id)
+        if not camp or camp.get("created_by") != uid:
+            try:
+                await query.edit_message_text("캠프 소유자만 관리할 수 있습니다!")
+            except Exception:
+                pass
+            return
+
+        welcome = await cq.get_welcome_message(home_chat_id)
+        lines = [
+            "⚙️ <b>캠프 관리</b>",
+            "",
+            "💬 <b>환영 멘트</b> (캠꾸)",
+        ]
+        if welcome:
+            lines.append(f"  현재: \"{welcome}\"")
+        else:
+            lines.append("  현재: (미설정)")
+        lines.append("")
+        lines.append("방문자가 올 때 보여지는 메시지입니다.")
+
+        mbuttons = []
+        mbuttons.append([
+            InlineKeyboardButton(
+                "✏️ 멘트 설정" if not welcome else "✏️ 멘트 변경",
+                callback_data=f"cdm_mng_welcome_{uid}",
+            ),
+        ])
+        if welcome:
+            mbuttons.append([
+                InlineKeyboardButton("🗑 멘트 삭제", callback_data=f"cdm_mng_delwelc_{uid}"),
+            ])
+        mbuttons.append([InlineKeyboardButton("◀ 캠프 메뉴", callback_data=f"cdm_hub_back_{uid}")])
+
+        try:
+            await query.edit_message_text(
+                "\n".join(lines),
+                reply_markup=InlineKeyboardMarkup(mbuttons),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    # ── cdm_mng_welcome_{uid} — 환영 멘트 입력 대기 ──
+    elif data.startswith("cdm_mng_welcome_"):
+        uid = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        # 유저 데이터에 상태 저장 (다음 메시지를 환영 멘트로 처리)
+        context.user_data["camp_welcome_input"] = True
+        try:
+            await query.edit_message_text(
+                f"💬 환영 멘트를 입력해주세요! (최대 {config.CAMP_WELCOME_MSG_MAX_LEN}자)\n\n"
+                "예: 피카츄가 반겨줍니다! ⚡\n\n"
+                "취소하려면 '취소'를 입력하세요.",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    # ── cdm_mng_delwelc_{uid} — 환영 멘트 삭제 ──
+    elif data.startswith("cdm_mng_delwelc_"):
+        uid = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        settings = await cq.get_user_camp_settings(uid)
+        if settings and settings.get("home_chat_id"):
+            await cq.set_welcome_message(settings["home_chat_id"], None)
+        await query.answer("🗑 환영 멘트가 삭제되었습니다!", show_alert=True)
+        # 관리 화면으로 돌아가기
+        # 위의 manage 로직을 재실행 — 간단히 콜백 데이터 변경
+        query.data = f"cdm_hub_manage_{uid}"
+        await camp_dm_callback_handler(update, context)
+
     # ── cdm_hub_mvp_{uid} — 주간 MVP 랭킹 ──
     elif data.startswith("cdm_hub_mvp_"):
         uid = int(parts[3])
@@ -2065,6 +2211,11 @@ async def camp_dm_callback_handler(update, context):
             btns.append([
                 InlineKeyboardButton("🔔 알림설정", callback_data=f"cdm_hub_notify_{uid}"),
             ])
+            # 소유자면 관리 버튼
+            if camp and camp.get("created_by") == uid:
+                btns.append([
+                    InlineKeyboardButton("⚙️ 캠프 관리", callback_data=f"cdm_hub_manage_{uid}"),
+                ])
         else:
             btns.append([InlineKeyboardButton("🏕 거점 설정하기", callback_data=f"cdm_hub_home_{uid}")])
         btns.append([InlineKeyboardButton("📖 캠프 가이드", callback_data=f"cdm_guide_{uid}_0")])

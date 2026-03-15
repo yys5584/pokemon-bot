@@ -768,3 +768,61 @@ async def get_available_camps() -> list[dict]:
            LIMIT 50""",
     )
     return [dict(r) for r in rows]
+
+
+# ═══════════════════════════════════════════════════════
+# 방문 시스템
+# ═══════════════════════════════════════════════════════
+
+async def has_visited_today(user_id: int, chat_id: int) -> bool:
+    """오늘 이 캠프에 방문했는지 확인."""
+    pool = await get_db()
+    row = await pool.fetchval(
+        "SELECT 1 FROM camp_visits WHERE user_id = $1 AND chat_id = $2 AND visited_at = CURRENT_DATE",
+        user_id, chat_id,
+    )
+    return row is not None
+
+
+async def record_visit(user_id: int, chat_id: int, fragment_type: str, amount: int):
+    """방문 기록 저장 + 조각 지급."""
+    pool = await get_db()
+    await pool.execute(
+        """INSERT INTO camp_visits (user_id, chat_id, visited_at, fragment_type, amount)
+           VALUES ($1, $2, CURRENT_DATE, $3, $4)
+           ON CONFLICT DO NOTHING""",
+        user_id, chat_id, fragment_type, amount,
+    )
+    await add_fragments(user_id, fragment_type, amount)
+    await log_fragment(user_id, chat_id, fragment_type, amount, "visit")
+
+
+async def get_today_visit_count(user_id: int) -> int:
+    """오늘 총 방문 횟수."""
+    pool = await get_db()
+    return await pool.fetchval(
+        "SELECT COUNT(*) FROM camp_visits WHERE user_id = $1 AND visited_at = CURRENT_DATE",
+        user_id,
+    ) or 0
+
+
+# ═══════════════════════════════════════════════════════
+# 캠프 환영 멘트 (캠꾸)
+# ═══════════════════════════════════════════════════════
+
+async def get_welcome_message(chat_id: int) -> str | None:
+    """캠프 환영 멘트 조회."""
+    pool = await get_db()
+    return await pool.fetchval(
+        "SELECT welcome_message FROM camps WHERE chat_id = $1",
+        chat_id,
+    )
+
+
+async def set_welcome_message(chat_id: int, message: str | None):
+    """캠프 환영 멘트 설정 (None이면 삭제)."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE camps SET welcome_message = $1 WHERE chat_id = $2",
+        message, chat_id,
+    )

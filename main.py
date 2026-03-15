@@ -71,8 +71,8 @@ from services.weather_service import update_weather, get_current_weather, WEATHE
 from services.tournament_service import start_registration, start_tournament, snapshot_teams
 from handlers.tournament import tournament_join_handler
 try:
-    from handlers.camp import camp_handler, camp_callback_handler, camp_round_job, camp_create_handler, camp_settings_handler, camp_map_handler
-    from handlers.dm_camp import my_camp_handler, shiny_convert_handler, decompose_handler, camp_dm_callback_handler, home_camp_handler, camp_notify_handler, camp_guide_handler, camp_hub_handler
+    from handlers.camp import camp_handler, camp_callback_handler, camp_round_job, camp_create_handler, camp_settings_handler, camp_map_handler, camp_visit_handler
+    from handlers.dm_camp import my_camp_handler, shiny_convert_handler, decompose_handler, camp_dm_callback_handler, home_camp_handler, camp_notify_handler, camp_guide_handler, camp_hub_handler, camp_welcome_input_handler
     HAS_CAMP = True
 except ImportError:
     HAS_CAMP = False
@@ -1356,6 +1356,8 @@ def main():
 
     # Camp system v2 (DM)
     if HAS_CAMP:
+        # 환영 멘트 입력 (가장 먼저 — 상태가 아니면 무시)
+        app.add_handler(MessageHandler(dm & filters.TEXT & ~filters.COMMAND, camp_welcome_input_handler), group=-2)
         app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏕\s*)?캠프$"), camp_hub_handler))
         app.add_handler(MessageHandler(dm & filters.Regex(r"^내캠프$"), my_camp_handler))
         app.add_handler(MessageHandler(dm & filters.Regex(r"^거점캠프$"), home_camp_handler))
@@ -1425,6 +1427,7 @@ def main():
         app.add_handler(MessageHandler(group & filters.Regex(r"^캠프개설$"), camp_create_handler))
         app.add_handler(MessageHandler(group & filters.Regex(r"^캠프설정$"), camp_settings_handler))
         app.add_handler(MessageHandler(group & filters.Regex(r"^캠프맵$"), camp_map_handler))
+        app.add_handler(MessageHandler(group & filters.Regex(r"^방문$"), camp_visit_handler))
 
     # Battle system (Group)
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀$"), battle_challenge_handler))
