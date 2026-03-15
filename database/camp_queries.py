@@ -514,11 +514,11 @@ async def set_home_camp(user_id: int, chat_id: int):
     pool = await get_db()
     await pool.execute(
         """INSERT INTO camp_user_settings (user_id, home_chat_id, home_changed_date, home_camp_set_at)
-           VALUES ($1, $2, CURRENT_DATE, NOW())
+           VALUES ($1, $2, (NOW() AT TIME ZONE 'Asia/Seoul')::date, NOW())
            ON CONFLICT (user_id)
            DO UPDATE SET
                home_chat_id = $2,
-               home_changed_date = CURRENT_DATE,
+               home_changed_date = (NOW() AT TIME ZONE 'Asia/Seoul')::date,
                home_camp_set_at = NOW()""",
         user_id, chat_id,
     )
@@ -778,7 +778,7 @@ async def has_visited_today(user_id: int, chat_id: int) -> bool:
     """오늘 이 캠프에 방문했는지 확인."""
     pool = await get_db()
     row = await pool.fetchval(
-        "SELECT 1 FROM camp_visits WHERE user_id = $1 AND chat_id = $2 AND visited_at = CURRENT_DATE",
+        "SELECT 1 FROM camp_visits WHERE user_id = $1 AND chat_id = $2 AND visited_at = (NOW() AT TIME ZONE 'Asia/Seoul')::date",
         user_id, chat_id,
     )
     return row is not None
@@ -789,7 +789,7 @@ async def record_visit(user_id: int, chat_id: int, fragment_type: str, amount: i
     pool = await get_db()
     await pool.execute(
         """INSERT INTO camp_visits (user_id, chat_id, visited_at, fragment_type, amount)
-           VALUES ($1, $2, CURRENT_DATE, $3, $4)
+           VALUES ($1, $2, (NOW() AT TIME ZONE 'Asia/Seoul')::date, $3, $4)
            ON CONFLICT DO NOTHING""",
         user_id, chat_id, fragment_type, amount,
     )
@@ -801,7 +801,7 @@ async def get_today_visit_count(user_id: int) -> int:
     """오늘 총 방문 횟수."""
     pool = await get_db()
     return await pool.fetchval(
-        "SELECT COUNT(*) FROM camp_visits WHERE user_id = $1 AND visited_at = CURRENT_DATE",
+        "SELECT COUNT(*) FROM camp_visits WHERE user_id = $1 AND visited_at = (NOW() AT TIME ZONE 'Asia/Seoul')::date",
         user_id,
     ) or 0
 
@@ -810,7 +810,7 @@ async def get_today_visited_chat_ids(user_id: int) -> set[int]:
     """오늘 방문한 chat_id 세트."""
     pool = await get_db()
     rows = await pool.fetch(
-        "SELECT chat_id FROM camp_visits WHERE user_id = $1 AND visited_at = CURRENT_DATE",
+        "SELECT chat_id FROM camp_visits WHERE user_id = $1 AND visited_at = (NOW() AT TIME ZONE 'Asia/Seoul')::date",
         user_id,
     )
     return {r["chat_id"] for r in rows}
