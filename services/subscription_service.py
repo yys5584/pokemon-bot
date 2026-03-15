@@ -149,6 +149,8 @@ async def create_payment_request(user_id: int, tier: str, token: str) -> dict:
 
 async def poll_chain_transfers(bot) -> None:
     """Base 체인에서 USDC/USDT Transfer 이벤트 폴링."""
+    global _w3
+
     if not config.SUBSCRIPTION_WALLET:
         return
 
@@ -160,6 +162,7 @@ async def poll_chain_transfers(bot) -> None:
         current_block = await w3.eth.block_number
     except Exception as e:
         logger.error(f"Chain poll: block_number failed: {e}")
+        _w3 = None
         return
 
     last_block = await sq.get_last_processed_block()
@@ -188,6 +191,7 @@ async def poll_chain_transfers(bot) -> None:
         })
     except Exception as e:
         logger.error(f"Chain poll: get_logs failed ({from_block}-{to_block}): {e}")
+        _w3 = None  # RPC 장애 — 다음 폴링에서 다른 RPC 시도
         return
 
     for log in logs:

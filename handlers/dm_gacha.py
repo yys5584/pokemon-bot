@@ -390,12 +390,24 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if parts[3] == "spdef":
             stat_key = "iv_spdef"
         await _execute_iv_reroll_one(query, user_id, instance_id, stat_key)
-    elif data.startswith("ivr_pg_"):
-        # 페이지네이션
-        parts = data.split("_")  # ivr_pg_{mode}_{page}
+    elif data.startswith("ivr_ft_"):
+        # 등급 필터
+        parts = data.split("_")  # ivr_ft_{mode}_{rarity}_{page}
         mode = parts[2]
-        page = int(parts[3])
-        await _show_pokemon_list(query, user_id, mode, page)
+        rarity_filter = parts[3]
+        page = int(parts[4]) if len(parts) > 4 else 0
+        await _show_pokemon_list(query, user_id, mode, page, rarity_filter)
+    elif data.startswith("ivr_pg_"):
+        # 페이지네이션 (ivr_pg_{mode}_{rarity}_{page} 또는 레거시 ivr_pg_{mode}_{page})
+        parts = data.split("_")
+        mode = parts[2]
+        if len(parts) >= 5:
+            rarity_filter = parts[3]
+            page = int(parts[4])
+        else:
+            rarity_filter = "all"
+            page = int(parts[3])
+        await _show_pokemon_list(query, user_id, mode, page, rarity_filter)
 
 
 async def _use_gacha_ticket_5(query, user_id: int):
@@ -517,14 +529,49 @@ async def _start_iv_reroll(query, user_id: int, mode: str):
     await _show_pokemon_list(query, user_id, mode, 0)
 
 
-async def _show_pokemon_list(query, user_id: int, mode: str, page: int):
-    """포켓몬 선택 리스트 (페이지네이션)."""
+_RARITY_FILTERS = [
+    ("all", "전체"),
+    ("UL", "울트라전설"),
+    ("L", "전설"),
+    ("E", "에픽"),
+    ("R", "레어"),
+    ("C", "커먼"),
+]
+_RARITY_KEY_MAP = {
+    "UL": "ultra_legendary",
+    "L": "legendary",
+    "E": "epic",
+    "R": "rare",
+    "C": "common",
+}
+
+
+async def _show_pokemon_list(query, user_id: int, mode: str, page: int, rarity_filter: str = "all"):
+    """포켓몬 선택 리스트 (페이지네이션 + 등급필터)."""
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
         await query.edit_message_text("❌ 보유 중인 포켓몬이 없습니다.")
         return
 
+    # 등급 필터 적용 (약어 → 실제 rarity 키 변환)
+    actual_rarity = _RARITY_KEY_MAP.get(rarity_filter)
+    if actual_rarity:
+        pokemon_list = [p for p in pokemon_list if p.get("rarity") == actual_rarity]
+
     total = len(pokemon_list)
+    if total == 0:
+        # 필터 결과 없을 때 — 필터 버튼만 표시
+        mode_label = "개체값 재설정 (6종 전부)" if mode == "all" else "IV 선택 리롤 (1종)"
+        lines = [f"🔄 <b>{mode_label}</b>", "", "해당 등급의 포켓몬이 없습니다.", ""]
+        filter_row = []
+        for fkey, flabel in _RARITY_FILTERS:
+            mark = "▸" if fkey == rarity_filter else ""
+            filter_row.append(InlineKeyboardButton(f"{mark}{flabel}", callback_data=f"ivr_ft_{mode}_{fkey}_0"))
+        # 3개씩 두 줄로
+        buttons = [filter_row[:3], filter_row[3:]]
+        await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+        return
+
     start = page * PAGE_SIZE
     end = min(start + PAGE_SIZE, total)
     page_list = pokemon_list[start:end]
@@ -532,7 +579,14 @@ async def _show_pokemon_list(query, user_id: int, mode: str, page: int):
     mode_label = "개체값 재설정 (6종 전부)" if mode == "all" else "IV 선택 리롤 (1종)"
     lines = [f"🔄 <b>{mode_label}</b>", "", "포켓몬을 선택하세요:", ""]
 
-    buttons = []
+    # 등급 필터 버튼
+    filter_row = []
+    for fkey, flabel in _RARITY_FILTERS:
+        mark = "▸" if fkey == rarity_filter else ""
+        filter_row.append(InlineKeyboardButton(f"{mark}{flabel}", callback_data=f"ivr_ft_{mode}_{fkey}_0"))
+
+    buttons = [filter_row[:3], filter_row[3:]]
+
     for p in page_list:
         shiny = "✨" if p.get("is_shiny") else ""
         iv_sum = sum(p.get(k, 0) or 0 for k in config.IV_STAT_KEYS)
@@ -542,13 +596,14 @@ async def _show_pokemon_list(query, user_id: int, mode: str, page: int):
     # 페이지 네비
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"ivr_pg_{mode}_{page-1}"))
+        nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"ivr_pg_{mode}_{rarity_filter}_{page-1}"))
     if end < total:
-        nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"ivr_pg_{mode}_{page+1}"))
+        nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"ivr_pg_{mode}_{rarity_filter}_{page+1}"))
     if nav:
         buttons.append(nav)
 
-    lines.append(f"({start+1}~{end} / {total}마리)")
+    filter_label = dict(_RARITY_FILTERS).get(rarity_filter, "전체")
+    lines.append(f"({start+1}~{end} / {total}마리) [{filter_label}]")
 
     await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 

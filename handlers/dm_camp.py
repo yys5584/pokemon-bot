@@ -918,9 +918,10 @@ async def decompose_handler(update, context):
             gain_parts.append(f"🌈+{rainbow_gain}")
 
         rarity_tag = rarity_badge(rarity or "")
-        lines.append(f"{shiny_emoji()} {rarity_tag}{p['name_ko']} → {' '.join(gain_parts)}")
+        iv_total = sum(p.get(k, 0) for k in ("iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"))
+        lines.append(f"{shiny_emoji()} {rarity_tag}{p['name_ko']} (IV:{iv_total}) → {' '.join(gain_parts)}")
         buttons.append([InlineKeyboardButton(
-            f"🔨 {p['name_ko']} 분해",
+            f"🔨 {p['name_ko']} (IV:{iv_total}) 분해",
             callback_data=f"cdm_dec_{user_id}_{p['id']}",
         )])
 
@@ -1693,9 +1694,10 @@ async def camp_dm_callback_handler(update, context):
             if rainbow_gain:
                 gain_parts.append(f"🌈+{rainbow_gain}")
             rarity_tag = rarity_badge(rarity or "")
-            lines.append(f"{shiny_emoji()} {rarity_tag}{p['name_ko']} → {' '.join(gain_parts)}")
+            iv_total = sum(p.get(k, 0) for k in ("iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"))
+            lines.append(f"{shiny_emoji()} {rarity_tag}{p['name_ko']} (IV:{iv_total}) → {' '.join(gain_parts)}")
             buttons.append([InlineKeyboardButton(
-                f"🔨 {p['name_ko']} 분해",
+                f"🔨 {p['name_ko']} (IV:{iv_total}) 분해",
                 callback_data=f"cdm_dec_{uid}_{p['id']}",
             )])
         lines.append("")
