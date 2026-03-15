@@ -23,6 +23,9 @@ async def create_trade_offer(
 
     cost = config.TRADE_BP_COST
 
+    # 만료된 pending 교환 자동 정리
+    await queries.expire_old_pending_trades(config.TRADE_EXPIRE_MINUTES)
+
     # 일일 교환 횟수 체크 (보내기)
     sent_today = await queries.get_daily_trade_count(from_user_id, "sender")
     if sent_today >= config.TRADE_DAILY_LIMIT:
@@ -83,6 +86,9 @@ async def create_trade_offer(
 
 async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | None]:
     """Accept a trade. Returns (success, message, trade_info for notifications)."""
+    # 만료된 pending 교환 자동 정리
+    await queries.expire_old_pending_trades(config.TRADE_EXPIRE_MINUTES)
+
     # 일일 교환 횟수 체크 (받기)
     received_today = await queries.get_daily_trade_count(user_id, "receiver")
     if received_today >= config.TRADE_DAILY_LIMIT:

@@ -128,6 +128,7 @@ FRIENDSHIP_PER_PLAY = 1            # +1 per play
 # --- Trade ---
 TRADE_BP_COST = 150                # 교환 시 BP 비용
 TRADE_DAILY_LIMIT = 10             # 일일 교환 제한 (보내기/받기 각각)
+TRADE_EXPIRE_MINUTES = 5           # pending 교환 자동 만료 (분)
 
 # --- Marketplace ---
 MARKET_FEE_RATE = 0.05             # 5% 판매 수수료

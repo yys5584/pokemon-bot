@@ -3123,6 +3123,28 @@ async def get_daily_trade_count(user_id: int, role: str = "sender") -> int:
     ) or 0
 
 
+async def expire_old_pending_trades(expire_minutes: int = 5) -> list[int]:
+    """만료된 pending 교환을 cancelled로 변경하고 BP 환불. 환불된 user_id 리스트 반환."""
+    import config
+    pool = await get_db()
+    expired = await pool.fetch(
+        """UPDATE trades SET status = 'cancelled'
+           WHERE status = 'pending'
+             AND created_at < NOW() - make_interval(mins => $1)
+           RETURNING id, from_user_id, trade_type""",
+        expire_minutes,
+    )
+    refunded_users = []
+    for r in expired:
+        cost = config.GROUP_TRADE_BP_COST if r["trade_type"] == "group" else config.TRADE_BP_COST
+        await pool.execute(
+            "UPDATE users SET battle_points = battle_points + $1 WHERE user_id = $2",
+            cost, r["from_user_id"],
+        )
+        refunded_users.append(r["from_user_id"])
+    return refunded_users
+
+
 # ─── Gacha / Item System ─────────────────────────────────
 
 async def get_user_item(user_id: int, item_type: str) -> int:
