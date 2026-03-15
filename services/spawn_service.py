@@ -656,7 +656,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         # Catch BP reward
         from database.battle_queries import add_bp
         catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
-        await add_bp(winner_id, catch_bp)
+        await add_bp(winner_id, catch_bp, "catch")
         msg += f"\n{icon_emoji('coin')} +{catch_bp} BP"
 
         # Master Ball random drop
@@ -1303,7 +1303,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Catch BP reward
         from database.battle_queries import add_bp
         catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
-        await add_bp(winner_id, catch_bp)
+        await add_bp(winner_id, catch_bp, "catch")
         msg += f"\n{icon_emoji('coin')} +{catch_bp} BP"
 
         # Master Ball random drop (2% chance on catch)
@@ -1616,7 +1616,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             # Catch BP reward
             from database.battle_queries import add_bp
             catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
-            await add_bp(winner_id, catch_bp)
+            await add_bp(winner_id, catch_bp, "catch")
             msg += f"\n+{catch_bp} BP"
 
             # Journey system check

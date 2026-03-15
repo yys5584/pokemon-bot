@@ -748,7 +748,7 @@ async def grant_bp_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("유저를 찾을 수 없습니다. (봇 미등록)")
         return
 
-    await bq.add_bp(target_user_id, amount)
+    await bq.add_bp(target_user_id, amount, "admin")
     new_bp = await bq.get_bp(target_user_id)
 
     await update.message.reply_text(

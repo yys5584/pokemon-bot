@@ -1400,7 +1400,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     except Exception:
         logger.error(f"Failed to give master balls to winner {winner_id}")
     try:
-        await bq.add_bp(winner_id, config.TOURNAMENT_PRIZE_1ST_BP)
+        await bq.add_bp(winner_id, config.TOURNAMENT_PRIZE_1ST_BP, "tournament")
     except Exception:
         logger.error(f"Failed to give BP to winner {winner_id}")
     await queries.increment_title_stat(winner_id, "tournament_wins")
@@ -1438,7 +1438,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give master balls to runner-up {runner_up_id}")
         try:
-            await bq.add_bp(runner_up_id, config.TOURNAMENT_PRIZE_2ND_BP)
+            await bq.add_bp(runner_up_id, config.TOURNAMENT_PRIZE_2ND_BP, "tournament")
         except Exception:
             logger.error(f"Failed to give BP to runner-up {runner_up_id}")
         s2_id, s2_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_2ND_SHINY)
@@ -1468,7 +1468,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give master balls to semi-finalist {uid}")
         try:
-            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_SEMI_BP)
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_SEMI_BP, "tournament")
         except Exception:
             logger.error(f"Failed to give BP to semi-finalist {uid}")
         s_id, s_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_SEMI_SHINY)
@@ -1488,7 +1488,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give master ball to quarter-finalist {uid}")
         try:
-            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_QUARTER_BP)
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_QUARTER_BP, "tournament")
         except Exception:
             logger.error(f"Failed to give BP to quarter-finalist {uid}")
     already_rewarded |= quarter_losers
@@ -1501,7 +1501,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give master ball to R16 participant {uid}")
         try:
-            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_R16_BP)
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_R16_BP, "tournament")
         except Exception:
             logger.error(f"Failed to give BP to R16 participant {uid}")
     already_rewarded |= r16_losers
@@ -1514,7 +1514,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give master ball to participant {uid}")
         try:
-            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_PARTICIPANT_BP)
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_PARTICIPANT_BP, "tournament")
         except Exception:
             logger.error(f"Failed to give BP to participant {uid}")
 

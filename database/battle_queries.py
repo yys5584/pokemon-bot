@@ -416,13 +416,20 @@ async def spend_bp(user_id: int, amount: int) -> bool:
     return True
 
 
-async def add_bp(user_id: int, amount: int):
-    """Add BP to a user (for yacha winnings, etc.)."""
+async def add_bp(user_id: int, amount: int, source: str = "unknown"):
+    """Add BP to a user and log the transaction."""
     pool = await get_db()
     await pool.execute(
         "UPDATE users SET battle_points = battle_points + $1 WHERE user_id = $2",
         amount, user_id,
     )
+    try:
+        await pool.execute(
+            "INSERT INTO bp_log (user_id, amount, source) VALUES ($1, $2, $3)",
+            user_id, amount, source,
+        )
+    except Exception:
+        pass
 
 
 # ============================================================

@@ -2616,7 +2616,7 @@ async def kpi_daily_snapshot() -> dict:
                WHERE created_at >= $1 AND bp_earned > 0
                  AND EXISTS (SELECT 1 FROM season_records)""", today),
         pool.fetchrow(
-            "SELECT COALESCE(SUM(bp_earned), 0) as total FROM battle_records WHERE created_at >= $1", today),
+            "SELECT COALESCE(SUM(amount), 0) as total FROM bp_log WHERE amount > 0 AND created_at >= $1", today),
         # 거래소
         pool.fetchrow(
             "SELECT COUNT(*) as cnt FROM market_listings WHERE created_at >= $1", today),
@@ -2659,6 +2659,30 @@ async def kpi_daily_snapshot() -> dict:
     )
     hourly = {r["hr"]: r["users"] for r in hourly_rows}
 
+    # BP 소스별 분포
+    try:
+        bp_source_rows = await pool.fetch(
+            """SELECT source,
+                      COALESCE(SUM(amount) FILTER (WHERE amount > 0), 0) as earned,
+                      COALESCE(SUM(ABS(amount)) FILTER (WHERE amount < 0), 0) as spent
+               FROM bp_log WHERE created_at >= $1
+               GROUP BY source ORDER BY earned DESC""",
+            today,
+        )
+        bp_sources = {r["source"]: {"earned": int(r["earned"]), "spent": int(r["spent"])} for r in bp_source_rows}
+    except Exception:
+        bp_sources = {}
+
+    # BP 총 소각 (shop + gacha 등 음수 합)
+    try:
+        bp_spent_row = await pool.fetchrow(
+            "SELECT COALESCE(SUM(ABS(amount)), 0) as total FROM bp_log WHERE amount < 0 AND created_at >= $1",
+            today,
+        )
+        bp_total_spent = int(bp_spent_row["total"]) if bp_spent_row else 0
+    except Exception:
+        bp_total_spent = 0
+
     return {
         "date": today.strftime("%Y-%m-%d"),
         "weekday": ["월", "화", "수", "목", "금", "토", "일"][today.weekday()],
@@ -2693,6 +2717,9 @@ async def kpi_daily_snapshot() -> dict:
         "gacha_bp_spent": int(gacha_bp_row["total"]) if gacha_bp_row else 0,
         "gacha_pulls": int(gacha_bp_row["pulls"]) if gacha_bp_row else 0,
         "gacha_distribution": {r["result_key"]: r["cnt"] for r in gacha_dist_rows} if gacha_dist_rows else {},
+        # BP 소스별
+        "bp_sources": bp_sources,
+        "bp_total_spent": bp_total_spent,
     }
 
 

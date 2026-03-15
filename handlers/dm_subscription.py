@@ -752,7 +752,7 @@ async def _handle_premium_shop_buy(query, user_id: int):
         return
 
     # BP 차감 + 마스터볼 지급
-    await bq.add_bp(user_id, -price)
+    await bq.add_bp(user_id, -price, "shop_masterball")
     await queries.add_master_ball(user_id, 1)
     await bq.log_bp_purchase(user_id, "masterball", price)
 
@@ -787,7 +787,7 @@ async def _handle_premium_hyperball_buy(query, user_id: int, qty: int):
         return
 
     # BP 차감 + 하이퍼볼 지급
-    await bq.add_bp(user_id, -cost)
+    await bq.add_bp(user_id, -cost, "shop_hyperball")
     await queries.add_hyper_ball(user_id, qty)
 
     new_bp = bp - cost
@@ -824,7 +824,7 @@ async def _handle_premium_gacha_ticket_buy(query, user_id: int):
         return
 
     # BP 차감 + 아이템 지급 + 로그
-    await bq.add_bp(user_id, -cost)
+    await bq.add_bp(user_id, -cost, "shop_gacha_ticket")
     await queries.add_user_item(user_id, "gacha_ticket_5", 1)
     await bq.log_bp_purchase(user_id, "gacha_ticket_5", 1)
 
@@ -875,7 +875,7 @@ async def _handle_channel_shop_speed(query, user_id: int, chat_id: int, context)
         return
 
     # BP 차감 + 속도 부스트 적용
-    await bq.add_bp(user_id, -cost)
+    await bq.add_bp(user_id, -cost, "shop_arcade_speed")
     new_interval = max(min_interval, current_interval - config.ARCADE_SPEED_BOOST_REDUCTION)
 
     from services.spawn_service import set_arcade_interval
@@ -911,7 +911,7 @@ async def _handle_channel_shop_extend(query, user_id: int, chat_id: int, context
         return
 
     # BP 차감 + 시간 연장
-    await bq.add_bp(user_id, -cost)
+    await bq.add_bp(user_id, -cost, "shop_arcade_extend")
     extend_minutes = config.ARCADE_EXTEND_MINUTES
     await extend_arcade_time(context.application, chat_id, extend_minutes)
 

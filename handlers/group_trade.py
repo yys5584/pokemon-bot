@@ -180,7 +180,7 @@ async def _expire_group_trade(context: ContextTypes.DEFAULT_TYPE):
     # Refund BP
     cost = config.GROUP_TRADE_BP_COST
     if cost > 0:
-        await bq.add_bp(trade["from_user_id"], cost)
+        await bq.add_bp(trade["from_user_id"], cost, "trade_refund")
 
     try:
         refund_msg = f"\n💰 {cost:,} BP 환불됨" if cost > 0 else ""
@@ -380,7 +380,7 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
         # Refund BP
         cost = config.GROUP_TRADE_BP_COST
         if cost > 0:
-            await bq.add_bp(trade["from_user_id"], cost)
+            await bq.add_bp(trade["from_user_id"], cost, "trade_refund")
 
         # Cancel expire job
         jobs = context.job_queue.get_jobs_by_name(f"gtrade_expire_{trade_id}")

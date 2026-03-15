@@ -1159,6 +1159,28 @@ async def create_tables():
         except Exception:
             pass
 
+    # BP 로그 테이블 (2026-03-16)
+    try:
+        await pool.execute("""
+            CREATE TABLE IF NOT EXISTS bp_log (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                amount INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """, timeout=30)
+    except Exception:
+        pass
+    try:
+        await pool.execute("CREATE INDEX IF NOT EXISTS idx_bp_log_created ON bp_log(created_at)", timeout=30)
+    except Exception:
+        pass
+    try:
+        await pool.execute("CREATE INDEX IF NOT EXISTS idx_bp_log_user ON bp_log(user_id, created_at)", timeout=30)
+    except Exception:
+        pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

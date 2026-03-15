@@ -54,7 +54,7 @@ async def check_mission_progress(user_id: int, mission_key: str) -> str | None:
     except Exception:
         pass
 
-    await bq.add_bp(user_id, bp_reward)
+    await bq.add_bp(user_id, bp_reward, "mission")
     await queries.add_hyper_ball(user_id, hyper_reward)
     await queries.claim_mission_reward(user_id, date, mission_key)
 

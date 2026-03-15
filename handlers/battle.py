@@ -3631,7 +3631,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
         d_ok = await bq.spend_bp(expected_defender, bet_amount)
         if not d_ok:
             # Refund challenger
-            await bq.add_bp(challenger_id, bet_amount)
+            await bq.add_bp(challenger_id, bet_amount, "bet_refund")
             await bq.update_challenge_status(challenge_id, "expired")
             try:
                 await query.edit_message_text(
@@ -3686,7 +3686,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     # Pay the winner
     winner_id = result["winner_id"]
     if bet_type == "bp":
-        await bq.add_bp(winner_id, bet_amount * 2)
+        await bq.add_bp(winner_id, bet_amount * 2, "bet_win")
     else:
         await queries.add_master_ball(winner_id, bet_amount * 2)
 

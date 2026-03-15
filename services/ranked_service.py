@@ -648,7 +648,7 @@ async def process_season_rewards(season_id: str) -> list[dict]:
             await queries.add_master_ball(uid, reward["masterball"])
         if reward.get("bp", 0) > 0:
             from database.battle_queries import add_bp
-            await add_bp(uid, reward["bp"])
+            await add_bp(uid, reward["bp"], "ranked_reward")
 
         rewarded.append({
             "user_id": uid,

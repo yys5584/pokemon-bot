@@ -809,6 +809,19 @@ async def execute_battle(
     await bq.update_battle_stats_win(winner_id, bp_won)
     await bq.update_battle_stats_lose(loser_id, bp_lose)
 
+    # BP log for unified tracking
+    if bp_won > 0:
+        try:
+            src = "ranked_battle" if battle_type == "ranked" else "battle"
+            from database.connection import get_db
+            pool = await get_db()
+            await pool.execute(
+                "INSERT INTO bp_log (user_id, amount, source) VALUES ($1, $2, $3)",
+                winner_id, bp_won, src,
+            )
+        except Exception:
+            pass
+
     # Mission: battle win
     asyncio.create_task(_notify_battle_mission(winner_id, bot))
 
