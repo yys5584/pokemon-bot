@@ -1624,6 +1624,21 @@ def main():
         name="ranked_decay",
     )
 
+    # Subscription: 결제 폴링 (60초마다)
+    async def _subscription_poll_job(context):
+        try:
+            from services.subscription_service import poll_chain_transfers
+            await poll_chain_transfers(context.bot)
+        except Exception as e:
+            logger.error(f"Subscription poll job error: {e}")
+
+    app.job_queue.run_repeating(
+        _subscription_poll_job,
+        interval=60,
+        first=10,
+        name="subscription_poll",
+    )
+
     # Subscription: 만료 체크 + 갱신 알림 (매일 09:00 KST)
     async def _subscription_expiry_job(context):
         try:
