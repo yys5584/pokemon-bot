@@ -2839,24 +2839,28 @@ async def save_kpi_snapshot(data: dict):
             returned = len(w_set & set(active_ids))
             d7_retention = round(returned / len(w_set) * 100, 1)
 
+    bp_circ = data.get("economy", {}).get("bp_circulation", 0)
+    bp_spent = data.get("bp_total_spent", 0)
+
     await pool.execute("""
         INSERT INTO kpi_daily_snapshots
             (date, dau, new_users, spawns, catches, shiny_caught,
              battles, ranked_battles, bp_earned, active_user_ids,
-             d1_retention, d7_retention)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             d1_retention, d7_retention, bp_circulation, bp_total_spent)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT (date) DO UPDATE SET
             dau = EXCLUDED.dau, new_users = EXCLUDED.new_users,
             spawns = EXCLUDED.spawns, catches = EXCLUDED.catches,
             shiny_caught = EXCLUDED.shiny_caught, battles = EXCLUDED.battles,
             ranked_battles = EXCLUDED.ranked_battles, bp_earned = EXCLUDED.bp_earned,
             active_user_ids = EXCLUDED.active_user_ids,
-            d1_retention = EXCLUDED.d1_retention, d7_retention = EXCLUDED.d7_retention
+            d1_retention = EXCLUDED.d1_retention, d7_retention = EXCLUDED.d7_retention,
+            bp_circulation = EXCLUDED.bp_circulation, bp_total_spent = EXCLUDED.bp_total_spent
     """,
         today, data.get("dau", 0), data.get("new_users", 0),
         data.get("spawns", 0), data.get("catches", 0), data.get("shiny_caught", 0),
         data.get("battles", 0), data.get("ranked_battles", 0), data.get("bp_earned", 0),
-        active_ids, d1_retention, d7_retention,
+        active_ids, d1_retention, d7_retention, bp_circ, bp_spent,
     )
 
     return {"d1_retention": d1_retention, "d7_retention": d7_retention}

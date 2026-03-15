@@ -1159,6 +1159,17 @@ async def create_tables():
         except Exception:
             pass
 
+    # KPI 스냅샷 확장 (BP 유통량/소각 저장)
+    kpi_extend_migs = [
+        "ALTER TABLE kpi_daily_snapshots ADD COLUMN bp_circulation BIGINT DEFAULT 0",
+        "ALTER TABLE kpi_daily_snapshots ADD COLUMN bp_total_spent INTEGER DEFAULT 0",
+    ]
+    for mig in kpi_extend_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
     # BP 로그 테이블 (2026-03-16)
     try:
         await pool.execute("""

@@ -1,6 +1,6 @@
 """특정 날짜 일일 KPI 리포트 발송 스크립트. 사용법: python scripts/send_daily_kpi_date.py 2026-03-11"""
 import asyncio, os, io, sys, subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
@@ -79,10 +79,12 @@ async def main():
         return
 
     pool = await connection.get_db()
+    KST = timezone(timedelta(hours=9))
     dt = datetime.strptime(target_date, "%Y-%m-%d")
-    day_start = dt
-    day_end = dt + timedelta(days=1)
-    prev_start = dt - timedelta(days=1)
+    # KST 00:00 ~ 23:59:59 (UTC 기준으로 -9시간)
+    day_start = dt.replace(tzinfo=KST)
+    day_end = day_start + timedelta(days=1)
+    prev_start = day_start - timedelta(days=1)
     weekdays = ["월", "화", "수", "목", "금", "토", "일"]
     weekday = weekdays[dt.weekday()]
 
@@ -117,9 +119,40 @@ async def main():
     ranked_battles = await pool.fetchval(
         "SELECT COUNT(*) FROM ranked_battle_log WHERE created_at >= $1 AND created_at < $2",
         day_start, day_end) or 0
-    bp_earned = await pool.fetchval(
-        "SELECT COALESCE(SUM(bp_earned), 0) FROM battle_records WHERE created_at >= $1 AND created_at < $2",
-        day_start, day_end) or 0
+    # BP earned: bp_log 우선, 없으면 battle_records fallback
+    bp_log_exists = await pool.fetchval(
+        "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='bp_log')")
+    if bp_log_exists:
+        bp_earned = await pool.fetchval(
+            "SELECT COALESCE(SUM(amount), 0) FROM bp_log WHERE amount > 0 AND created_at >= $1 AND created_at < $2",
+            day_start, day_end) or 0
+        bp_total_spent = await pool.fetchval(
+            "SELECT COALESCE(SUM(ABS(amount)), 0) FROM bp_log WHERE amount < 0 AND created_at >= $1 AND created_at < $2",
+            day_start, day_end) or 0
+        bp_source_rows = await pool.fetch(
+            """SELECT source,
+                      COALESCE(SUM(amount) FILTER (WHERE amount > 0), 0) as earned,
+                      COALESCE(SUM(ABS(amount)) FILTER (WHERE amount < 0), 0) as spent
+               FROM bp_log WHERE created_at >= $1 AND created_at < $2
+               GROUP BY source ORDER BY earned DESC""",
+            day_start, day_end)
+        bp_sources = {r["source"]: {"earned": int(r["earned"]), "spent": int(r["spent"])} for r in bp_source_rows}
+    else:
+        bp_earned = await pool.fetchval(
+            "SELECT COALESCE(SUM(bp_earned), 0) FROM battle_records WHERE created_at >= $1 AND created_at < $2",
+            day_start, day_end) or 0
+        bp_total_spent = 0
+        bp_sources = {}
+
+    # 뽑기 데이터
+    gacha_row = await pool.fetchrow(
+        "SELECT COALESCE(SUM(bp_spent), 0) as total, COUNT(*) as pulls FROM gacha_log WHERE created_at >= $1 AND created_at < $2",
+        day_start, day_end)
+    gacha_spent = int(gacha_row["total"]) if gacha_row else 0
+    gacha_pulls = int(gacha_row["pulls"]) if gacha_row else 0
+    # bp_log 없으면 gacha 소비를 bp_total_spent에 반영
+    if not bp_log_exists or bp_total_spent == 0:
+        bp_total_spent = max(bp_total_spent, gacha_spent)
 
     market_new = await pool.fetchval(
         "SELECT COUNT(*) FROM market_listings WHERE created_at >= $1 AND created_at < $2",
@@ -136,6 +169,18 @@ async def main():
 
     eco_mb = await pool.fetchval("SELECT COALESCE(SUM(master_balls), 0) FROM users") or 0
     eco_hb = await pool.fetchval("SELECT COALESCE(SUM(hyper_balls), 0) FROM users") or 0
+    bp_circulation = await pool.fetchval(
+        "SELECT COALESCE(SUM(battle_points), 0) FROM users WHERE battle_points > 0") or 0
+    bp_avg = await pool.fetchval(
+        "SELECT COALESCE(AVG(battle_points), 0) FROM users WHERE battle_points > 0") or 0
+    bp_avg = round(float(bp_avg), 1)
+
+    # 전일 BP 유통량 (스냅샷에서)
+    prev_bp_snap = await pool.fetchrow(
+        "SELECT bp_circulation, bp_earned FROM kpi_daily_snapshots WHERE date = $1",
+        (day_start - timedelta(days=1)).date() if hasattr(day_start, 'date') else prev_start.date())
+    prev_bp_circulation = int(prev_bp_snap["bp_circulation"]) if prev_bp_snap and prev_bp_snap["bp_circulation"] else None
+    prev_bp_earned = int(prev_bp_snap["bp_earned"]) if prev_bp_snap and prev_bp_snap["bp_earned"] else 0
 
     # Top 채널
     top_chats = await pool.fetch(
@@ -259,6 +304,83 @@ async def main():
     if battles == 0 and dau > 0:
         insights.append("배틀 0건 — 매칭 시스템 또는 동기 부여 점검 필요.")
 
+    # BP 경제 인사이트
+    bp_net = int(bp_earned) - int(bp_total_spent)
+    source_labels = {
+        "battle": "⚔️ 배틀", "ranked_battle": "🏟️ 랭크전", "catch": "🎯 포획",
+        "tournament": "🏆 토너먼트", "mission": "📋 미션", "bet_win": "🎲 야차(승)",
+        "gacha_refund": "🎰 뽑기환급", "gacha_jackpot": "💎 뽑기잭팟",
+        "ranked_reward": "🏅 시즌보상", "admin": "🔧 관리자",
+        "shop_masterball": "🔴 상점(마볼)", "shop_hyperball": "🔵 상점(하볼)",
+        "shop_gacha_ticket": "🎫 상점(뽑기권)",
+    }
+
+    insights.append("💰 <b>BP 경제:</b>")
+
+    # 유통량 + 전일 대비
+    circ_delta_str = ""
+    if prev_bp_circulation is not None and prev_bp_circulation > 0:
+        circ_diff = bp_circulation - prev_bp_circulation
+        circ_pct = round(circ_diff / prev_bp_circulation * 100, 1)
+        circ_delta_str = f" ({circ_diff:+,}, {circ_pct:+.1f}%)"
+    insights.append(
+        f"  └ 총 유통량 <b>{int(bp_circulation):,}</b>BP{circ_delta_str}, "
+        f"보유자 평균 {int(bp_avg):,}BP")
+
+    if bp_earned > 0 or bp_total_spent > 0:
+        insights.append(
+            f"  └ 당일 생성 <b>+{int(bp_earned):,}</b> / 소각 <b>-{int(bp_total_spent):,}</b> / "
+            f"순변동 <b>{bp_net:+,}</b>BP")
+
+        # 전일 대비 생성량 변화
+        if prev_bp_earned > 0:
+            earn_diff = int(bp_earned) - prev_bp_earned
+            earn_pct = round(earn_diff / max(prev_bp_earned, 1) * 100, 1)
+            if abs(earn_pct) > 10:
+                insights.append(
+                    f"  └ BP 생성 전일 대비 {earn_pct:+.1f}% "
+                    f"({'📈 증가' if earn_diff > 0 else '📉 감소'})")
+
+    # 소스별 상세
+    if bp_sources:
+        earn_parts = []
+        spend_parts = []
+        for src, vals in sorted(bp_sources.items(), key=lambda x: x[1]["earned"], reverse=True):
+            label = source_labels.get(src, src)
+            if vals["earned"] > 0:
+                earn_parts.append(f"{label} +{vals['earned']:,}")
+            if vals["spent"] > 0:
+                spend_parts.append(f"{label} -{vals['spent']:,}")
+        if earn_parts:
+            insights.append(f"  └ 📈 <b>생성:</b> {' / '.join(earn_parts[:6])}")
+        if spend_parts:
+            insights.append(f"  └ 📉 <b>소각:</b> {' / '.join(spend_parts[:5])}")
+
+    # 소각률
+    if bp_total_spent > 0 and bp_earned > 0:
+        sink_ratio = round(int(bp_total_spent) / max(int(bp_earned), 1) * 100, 1)
+        if sink_ratio > 150:
+            insights.append(f"  └ 🔴 소각률 {sink_ratio}% — 디플레이션 위험")
+        elif sink_ratio > 100:
+            insights.append(f"  └ 🟡 소각률 {sink_ratio}% — 건전한 싱크 작동 ✓")
+        else:
+            insights.append(f"  └ 🟢 소각률 {sink_ratio}% — 생성 우세")
+
+    # 1인당 경제
+    if dau > 0:
+        bp_per_dau = round(bp_circulation / dau, 0)
+        earn_per_dau = round(int(bp_earned) / dau, 1) if bp_earned > 0 else 0
+        insights.append(
+            f"  └ 👤 DAU당 보유 {bp_per_dau:,.0f}BP, 생성 +{earn_per_dau:.0f}")
+
+    # 뽑기 분석
+    if gacha_pulls > 0:
+        avg_cost = gacha_spent // max(gacha_pulls, 1)
+        gacha_per_dau = round(gacha_pulls / max(dau, 1), 1)
+        insights.append(
+            f"🎰 <b>뽑기:</b> {gacha_pulls:,}회 ({gacha_spent:,}BP), "
+            f"회당 {avg_cost}BP, DAU당 {gacha_per_dau:.1f}회")
+
     insight_html = ""
     if insights:
         items = "".join(f'<li style="margin-bottom:6px;font-size:13px">{ins}</li>' for ins in insights)
@@ -327,7 +449,19 @@ async def main():
 <div class="grid grid-3">
 <div class="card"><div class="label">총 배틀</div><div class="value">{battles}</div></div>
 <div class="card"><div class="label">랭크전</div><div class="value">{ranked_battles}</div></div>
-<div class="card"><div class="label">BP 유통</div><div class="value">+{int(bp_earned):,}</div></div>
+<div class="card"><div class="label">BP 생성</div><div class="value">+{int(bp_earned):,}</div></div>
+</div></div>
+
+<div class="section">
+<div class="section-title">💰 BP 흐름 (당일)</div>
+<div class="grid grid-3">
+<div class="card"><div class="label">생성</div><div class="value" style="color:#4caf50">+{int(bp_earned):,}</div></div>
+<div class="card"><div class="label">소각</div><div class="value accent">-{int(bp_total_spent):,}</div></div>
+<div class="card"><div class="label">순변동</div><div class="value" style="color:{'#4caf50' if bp_net >= 0 else '#e53935'}">{bp_net:+,}</div></div>
+</div>
+<div class="grid" style="margin-top:6px">
+<div class="card"><div class="label">총 유통량</div><div class="value">{int(bp_circulation):,}</div>{delta_badge(bp_circulation, prev_bp_circulation) if prev_bp_circulation else ''}<div class="sub">보유자 평균 {int(bp_avg):,}BP</div></div>
+<div class="card"><div class="label">뽑기</div><div class="value">{gacha_pulls:,}회</div><div class="sub">-{gacha_spent:,}BP</div></div>
 </div></div>
 
 <div class="section">

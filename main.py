@@ -724,74 +724,122 @@ async def _send_daily_kpi_report(context):
         bp_circulation = eco.get("bp_circulation", 0)
         bp_avg = eco.get("bp_avg", 0)
         bp_sources = d.get("bp_sources", {})
+        bp_net = bp_earned - bp_total_spent
 
+        # 전일 BP 유통량 (스냅샷에서)
+        prev_bp_circulation = prev.get("bp_circulation") if prev else None
+        bp_circ_delta = bp_circulation - prev_bp_circulation if prev_bp_circulation is not None else None
+        prev_bp_earned = prev.get("bp_earned", 0) if prev else 0
+
+        source_labels = {
+            "battle": "⚔️ 배틀", "ranked_battle": "🏟️ 랭크전", "catch": "🎯 포획",
+            "tournament": "🏆 토너먼트", "mission": "📋 미션", "bet_win": "🎲 야차(승)",
+            "gacha_refund": "🎰 뽑기환급", "gacha_jackpot": "💎 뽑기잭팟",
+            "ranked_reward": "🏅 시즌보상", "admin": "🔧 관리자",
+            "shop_masterball": "🔴 상점(마볼)", "shop_hyperball": "🔵 상점(하볼)",
+            "shop_gacha_ticket": "🎫 상점(뽑기권)", "shop_arcade_speed": "⚡ 상점(속도)",
+            "shop_arcade_extend": "⏱️ 상점(연장)",
+            "bet_refund": "🎲 야차(환불)", "trade_refund": "🔄 교환(환불)",
+        }
+
+        # --- BP 경제 요약 ---
+        insights.append(f"💰 <b>BP 경제:</b>")
+
+        # 유통량 + 전일 대비
+        circ_delta_str = ""
+        if bp_circ_delta is not None:
+            circ_pct = round(bp_circ_delta / max(prev_bp_circulation, 1) * 100, 1)
+            circ_delta_str = f" ({bp_circ_delta:+,}, {circ_pct:+.1f}%)"
+        insights.append(
+            f"  └ 총 유통량 <b>{bp_circulation:,}</b>BP{circ_delta_str}, "
+            f"보유자 평균 {bp_avg:,}BP")
+
+        # 당일 생성/소각
         if bp_earned > 0 or bp_total_spent > 0:
-            bp_net = bp_earned - bp_total_spent
             insights.append(
-                f"💰 <b>BP 경제:</b> 생성 +{bp_earned:,} / 소각 -{bp_total_spent:,} / "
-                f"순변동 {bp_net:+,}BP")
-            insights.append(
-                f"  └ 총 유통량 {bp_circulation:,}BP, 보유자 평균 {bp_avg:,}BP")
+                f"  └ 당일 생성 <b>+{bp_earned:,}</b> / 소각 <b>-{bp_total_spent:,}</b> / "
+                f"순변동 <b>{bp_net:+,}</b>BP")
 
-            # BP 소스별 상세
-            if bp_sources:
-                source_labels = {
-                    "battle": "배틀", "ranked_battle": "랭크전", "catch": "포획",
-                    "tournament": "토너먼트", "mission": "미션", "bet_win": "야차(승)",
-                    "gacha_refund": "뽑기환급", "gacha_jackpot": "뽑기잭팟",
-                    "ranked_reward": "시즌보상", "admin": "관리자",
-                    "shop_masterball": "상점(마볼)", "shop_hyperball": "상점(하볼)",
-                    "shop_gacha_ticket": "상점(뽑기권)", "shop_arcade_speed": "상점(속도)",
-                    "shop_arcade_extend": "상점(연장)",
-                    "bet_refund": "야차(환불)", "trade_refund": "교환(환불)",
-                }
-                earn_parts = []
-                spend_parts = []
-                for src, vals in sorted(bp_sources.items(), key=lambda x: x[1]["earned"], reverse=True):
-                    label = source_labels.get(src, src)
-                    if vals["earned"] > 0:
-                        earn_parts.append(f"{label} +{vals['earned']:,}")
-                    if vals["spent"] > 0:
-                        spend_parts.append(f"{label} -{vals['spent']:,}")
-                if earn_parts:
-                    insights.append(f"  └ 📈 생성: {' / '.join(earn_parts[:5])}")
-                if spend_parts:
-                    insights.append(f"  └ 📉 소각: {' / '.join(spend_parts[:5])}")
-
-            if bp_total_spent > 0:
-                sink_ratio = round(bp_total_spent / max(bp_earned, 1) * 100, 1)
-                if sink_ratio > 150:
+            # 전일 대비 생성량 변화
+            if prev_bp_earned > 0:
+                earn_diff = bp_earned - prev_bp_earned
+                earn_pct = round(earn_diff / max(prev_bp_earned, 1) * 100, 1)
+                if abs(earn_pct) > 10:
                     insights.append(
-                        f"  └ 🔴 <b>총 소각이 생성의 {sink_ratio}%</b> — BP 디플레이션 위험. "
-                        f"소각 속도 지속 시 유저 BP 고갈 → 활동 저하 우려.")
-                elif sink_ratio > 100:
-                    insights.append(
-                        f"  └ 🟡 소각({sink_ratio}%) > 생성 — 건전한 BP 싱크 작동 중. "
-                        f"인플레 억제 효과 ✓.")
-                else:
-                    insights.append(
-                        f"  └ 🟢 소각 {sink_ratio}% — 아직 생성이 우세. "
-                        f"추가 싱크 검토 가능.")
+                        f"  └ BP 생성 전일 대비 {earn_pct:+.1f}% "
+                        f"({'📈 증가' if earn_diff > 0 else '📉 감소'})")
 
-        # BP 건전성 평가
-        if bp_circulation > 0 and d["dau"] > 0:
-            bp_per_dau = round(bp_circulation / d["dau"], 0)
-            if bp_per_dau > 2000:
-                insights.append(f"  └ DAU당 유통 BP {bp_per_dau:,.0f} — 고인플레 구간. 추가 싱크 필요.")
-            elif bp_per_dau < 300:
-                insights.append(f"  └ DAU당 유통 BP {bp_per_dau:,.0f} — BP 부족 우려. 획득 경로 확인.")
+        # 소스별 상세
+        if bp_sources:
+            earn_parts = []
+            spend_parts = []
+            for src, vals in sorted(bp_sources.items(), key=lambda x: x[1]["earned"], reverse=True):
+                label = source_labels.get(src, src)
+                if vals["earned"] > 0:
+                    earn_parts.append(f"{label} +{vals['earned']:,}")
+                if vals["spent"] > 0:
+                    spend_parts.append(f"{label} -{vals['spent']:,}")
+            if earn_parts:
+                insights.append(f"  └ 📈 <b>생성 상세:</b> {' / '.join(earn_parts[:6])}")
+            if spend_parts:
+                insights.append(f"  └ 📉 <b>소각 상세:</b> {' / '.join(spend_parts[:5])}")
 
-        # 뽑기 분포 인사이트
-        gacha_dist = d.get("gacha_distribution", {})
-        if gacha_dist:
-            top_items = sorted(gacha_dist.items(), key=lambda x: x[1], reverse=True)[:3]
-            dist_str = ", ".join(f"{k}({v}회)" for k, v in top_items)
-            rare_items = {k: v for k, v in gacha_dist.items() if k in ("shiny_ticket", "shiny_egg", "bp_jackpot", "iv_reroll_one")}
-            if rare_items:
-                rare_str = ", ".join(f"{k}({v})" for k, v in rare_items.items())
-                insights.append(f"🎰 뽑기 TOP: {dist_str}. 레어: {rare_str}")
+            # 생성 비중 분석: 가장 큰 소스
+            total_earned = sum(v["earned"] for v in bp_sources.values())
+            if total_earned > 0:
+                top_src = max(bp_sources.items(), key=lambda x: x[1]["earned"])
+                top_pct = round(top_src[1]["earned"] / total_earned * 100, 1)
+                top_label = source_labels.get(top_src[0], top_src[0])
+                if top_pct > 60:
+                    insights.append(
+                        f"  └ ⚠️ <b>{top_label}</b>이 생성의 {top_pct}% 차지 — 소스 편중 주의")
+
+        # 소각률 평가
+        if bp_total_spent > 0:
+            sink_ratio = round(bp_total_spent / max(bp_earned, 1) * 100, 1)
+            if sink_ratio > 150:
+                insights.append(
+                    f"  └ 🔴 <b>소각률 {sink_ratio}%</b> (생성 대비) — 디플레이션 위험. "
+                    f"유저 BP 고갈 → 활동 저하 우려.")
+            elif sink_ratio > 100:
+                insights.append(
+                    f"  └ 🟡 소각률 {sink_ratio}% — 건전한 싱크 작동 중. 인플레 억제 ✓")
             else:
-                insights.append(f"🎰 뽑기 TOP: {dist_str}")
+                insights.append(
+                    f"  └ 🟢 소각률 {sink_ratio}% — 생성 우세. 추가 싱크 검토 가능.")
+
+        # 1인당 BP 경제
+        if d["dau"] > 0:
+            bp_per_dau = round(bp_circulation / d["dau"], 0)
+            earn_per_dau = round(bp_earned / d["dau"], 1) if bp_earned > 0 else 0
+            spend_per_dau = round(bp_total_spent / d["dau"], 1) if bp_total_spent > 0 else 0
+            insights.append(
+                f"  └ 👤 DAU당 보유 {bp_per_dau:,.0f}BP, "
+                f"생성 +{earn_per_dau:.0f}, 소각 -{spend_per_dau:.0f}")
+            if bp_per_dau > 2000:
+                insights.append(f"     └ ⚠️ 고인플레 구간. 추가 싱크 필요.")
+            elif bp_per_dau < 300:
+                insights.append(f"     └ ⚠️ BP 부족 우려. 획득 경로 확인.")
+
+        # 뽑기 분석
+        gacha_dist = d.get("gacha_distribution", {})
+        if gacha_pulls > 0:
+            avg_cost = gacha_spent // max(gacha_pulls, 1)
+            gacha_per_dau = round(gacha_pulls / max(d["dau"], 1), 1)
+            insights.append(
+                f"🎰 <b>뽑기:</b> {gacha_pulls:,}회 ({gacha_spent:,}BP), "
+                f"회당 {avg_cost}BP, DAU당 {gacha_per_dau:.1f}회")
+            if gacha_dist:
+                top_items = sorted(gacha_dist.items(), key=lambda x: x[1], reverse=True)[:3]
+                dist_str = ", ".join(f"{k}({v}회)" for k, v in top_items)
+                rare_items = {k: v for k, v in gacha_dist.items() if k in ("shiny_ticket", "shiny_egg", "bp_jackpot", "iv_reroll_one")}
+                if rare_items:
+                    rare_str = ", ".join(f"{k}({v})" for k, v in rare_items.items())
+                    insights.append(f"  └ TOP: {dist_str} | 레어: {rare_str}")
+                else:
+                    insights.append(f"  └ TOP: {dist_str}")
+        elif gacha_dist:
+            insights.append(f"🎰 뽑기 {gacha_pulls}회 (뽑기 활동 없음)")
 
         insight_html = ""
         if insights:
@@ -874,14 +922,15 @@ async def _send_daily_kpi_report(context):
 </div></div>
 
 <div class="section">
-<div class="section-title">💰 BP 흐름</div>
+<div class="section-title">💰 BP 흐름 (당일)</div>
 <div class="grid grid-3">
-<div class="card"><div class="label">총 생성</div><div class="value" style="color:#4caf50">+{d['bp_earned']:,}</div></div>
-<div class="card"><div class="label">총 소각</div><div class="value accent">-{d.get('bp_total_spent', d['gacha_bp_spent']):,}</div></div>
-<div class="card"><div class="label">순변동</div><div class="value" style="color:{'#4caf50' if d['bp_earned'] - d.get('bp_total_spent', d['gacha_bp_spent']) >= 0 else '#e53935'}">{d['bp_earned'] - d.get('bp_total_spent', d['gacha_bp_spent']):+,}</div></div>
+<div class="card"><div class="label">생성</div><div class="value" style="color:#4caf50">+{bp_earned:,}</div></div>
+<div class="card"><div class="label">소각</div><div class="value accent">-{bp_total_spent:,}</div></div>
+<div class="card"><div class="label">순변동</div><div class="value" style="color:{'#4caf50' if bp_net >= 0 else '#e53935'}">{bp_net:+,}</div></div>
 </div>
 <div class="grid" style="margin-top:6px">
-<div class="card"><div class="label">뽑기</div><div class="value">{d['gacha_pulls']:,}회 / -{d['gacha_bp_spent']:,}BP</div></div>
+<div class="card"><div class="label">총 유통량</div><div class="value">{bp_circulation:,}</div>{_delta_badge(bp_circulation, prev_bp_circulation) if prev_bp_circulation else ''}<div class="sub">보유자 평균 {bp_avg:,}BP</div></div>
+<div class="card"><div class="label">뽑기</div><div class="value">{gacha_pulls:,}회</div><div class="sub">-{gacha_spent:,}BP</div></div>
 </div></div>
 
 <div class="section">
