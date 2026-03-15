@@ -47,8 +47,20 @@ def _is_duplicate_callback(query) -> bool:
 
 def _build_field_buttons(user_id: int, fields: list[dict], placements: list[dict], camp: dict) -> tuple[str, InlineKeyboardMarkup]:
     """필드 선택 화면 빌드."""
-    level_info = cs.get_level_info(camp["level"])
+    level = camp["level"]
+    level_info = cs.get_level_info(level)
     level_name = level_info[5]
+    current_xp = camp.get("xp", 0)
+
+    # XP 진행도
+    if level >= config.CAMP_MAX_LEVEL:
+        xp_line = f"⭐ Lv.{level} MAX"
+    else:
+        next_info = cs.get_level_info(level + 1)
+        next_xp = next_info[4]
+        filled = min(10, int(current_xp / max(next_xp, 1) * 10))
+        bar = "█" * filled + "░" * (10 - filled)
+        xp_line = f"Lv.{level} [{bar}] {current_xp}/{next_xp}"
 
     placed_fields = {p["field_id"] for p in placements}
     field_lines = []
@@ -59,6 +71,7 @@ def _build_field_buttons(user_id: int, fields: list[dict], placements: list[dict
 
     text = (
         f"🏕 포켓몬 캠프 — {level_name}\n"
+        f"{xp_line}\n"
         f"\n"
         f"필드: {' '.join(field_lines)}\n"
         f"내 배치: {len(placements)}마리\n"
