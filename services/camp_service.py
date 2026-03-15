@@ -787,7 +787,7 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, d
 
                 # 이로치 전환
                 row = await conn.fetchrow(
-                    "UPDATE user_pokemon SET is_shiny = TRUE WHERE id = $1 RETURNING id",
+                    "UPDATE user_pokemon SET is_shiny = 1 WHERE id = $1 RETURNING id",
                     instance_id,
                 )
                 if not row:

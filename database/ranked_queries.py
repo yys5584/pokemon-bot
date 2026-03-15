@@ -208,13 +208,13 @@ async def log_ranked_battle(battle_record_id: int, season_id: str,
 # ─── Anti-Abuse ──────────────────────────────────────────
 
 async def get_ranked_battles_today(user_id: int, today) -> int:
-    """오늘 랭크전 횟수. today: datetime.date 객체."""
+    """오늘 랭크전 횟수. today: KST date 객체."""
     pool = await get_db()
     row = await pool.fetchrow(
         """SELECT COUNT(*) as cnt FROM battle_records
            WHERE (winner_id = $1 OR loser_id = $1)
              AND battle_type = 'ranked'
-             AND created_at::date = $2""",
+             AND (created_at AT TIME ZONE 'Asia/Seoul')::date = $2""",
         user_id, today)
     return row["cnt"] if row else 0
 
