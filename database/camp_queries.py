@@ -826,3 +826,12 @@ async def set_welcome_message(chat_id: int, message: str | None):
         "UPDATE camps SET welcome_message = $1 WHERE chat_id = $2",
         message, chat_id,
     )
+
+
+async def get_camp_by_owner(user_id: int):
+    """유저가 소유한 첫 번째 캠프 반환 (없으면 None)."""
+    pool = await get_db()
+    return await pool.fetchrow(
+        "SELECT * FROM camps WHERE created_by = $1 LIMIT 1",
+        user_id,
+    )

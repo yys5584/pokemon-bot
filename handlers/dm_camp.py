@@ -149,7 +149,8 @@ async def camp_hub_handler(update, context):
             InlineKeyboardButton("🔔 알림설정", callback_data=f"cdm_hub_notify_{user_id}"),
         ])
         # 소유자면 캠프 관리 버튼 추가
-        if camp and camp.get("created_by") == user_id:
+        owned_camp = await cq.get_camp_by_owner(user_id)
+        if owned_camp:
             buttons.append([
                 InlineKeyboardButton("⚙️ 캠프 관리", callback_data=f"cdm_hub_manage_{user_id}"),
             ])
@@ -783,7 +784,30 @@ async def my_camp_handler(update, context):
     if hints:
         lines.extend(hints)
 
-    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    # 버튼
+    buttons = [
+        [
+            InlineKeyboardButton("🏕 배치하기", callback_data=f"cdm_place_{user_id}"),
+            InlineKeyboardButton("✨ 이로치전환", callback_data=f"cdm_hub_convert_{user_id}"),
+        ],
+        [
+            InlineKeyboardButton("🔨 분해", callback_data=f"cdm_hub_decompose_{user_id}"),
+            InlineKeyboardButton("🏠 거점캠프", callback_data=f"cdm_hub_home_{user_id}"),
+        ],
+    ]
+
+    # 소유자면 캠프 관리 버튼 추가
+    owned_camp = await cq.get_camp_by_owner(user_id)
+    if owned_camp:
+        buttons.append([
+            InlineKeyboardButton("⚙️ 캠프 관리", callback_data=f"cdm_hub_manage_{user_id}"),
+        ])
+
+    await update.message.reply_text(
+        "\n".join(lines),
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="HTML",
+    )
 
 
 # ═══════════════════════════════════════════════════════
@@ -964,18 +988,12 @@ async def camp_welcome_input_handler(update, context):
         await update.message.reply_text("❌ 빈 멘트는 설정할 수 없습니다.")
         raise ApplicationHandlerStop()
 
-    settings = await cq.get_user_camp_settings(user_id)
-    if not settings or not settings.get("home_chat_id"):
-        await update.message.reply_text("거점 캠프가 없습니다.")
+    owned_camp = await cq.get_camp_by_owner(user_id)
+    if not owned_camp:
+        await update.message.reply_text("소유한 캠프가 없습니다.")
         raise ApplicationHandlerStop()
 
-    home_chat_id = settings["home_chat_id"]
-    camp = await cq.get_camp(home_chat_id)
-    if not camp or camp.get("created_by") != user_id:
-        await update.message.reply_text("캠프 소유자만 설정할 수 있습니다.")
-        raise ApplicationHandlerStop()
-
-    await cq.set_welcome_message(home_chat_id, text)
+    await cq.set_welcome_message(owned_camp["chat_id"], text)
     await update.message.reply_text(
         f"✅ 환영 멘트가 설정되었습니다!\n\n💬 \"{text}\"\n\n방문자에게 이 멘트가 보여집니다 🏕"
     )
@@ -2011,23 +2029,15 @@ async def camp_dm_callback_handler(update, context):
             return
         await query.answer()
 
-        settings = await cq.get_user_camp_settings(uid)
-        if not settings or not settings.get("home_chat_id"):
+        owned_camp = await cq.get_camp_by_owner(uid)
+        if not owned_camp:
             try:
-                await query.edit_message_text("먼저 거점 캠프를 설정해주세요!")
+                await query.edit_message_text("소유한 캠프가 없습니다!")
             except Exception:
                 pass
             return
 
-        home_chat_id = settings["home_chat_id"]
-        camp = await cq.get_camp(home_chat_id)
-        if not camp or camp.get("created_by") != uid:
-            try:
-                await query.edit_message_text("캠프 소유자만 관리할 수 있습니다!")
-            except Exception:
-                pass
-            return
-
+        home_chat_id = owned_camp["chat_id"]
         welcome = await cq.get_welcome_message(home_chat_id)
         lines = [
             "⚙️ <b>캠프 관리</b>",
@@ -2088,9 +2098,9 @@ async def camp_dm_callback_handler(update, context):
         if query.from_user.id != uid:
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
             return
-        settings = await cq.get_user_camp_settings(uid)
-        if settings and settings.get("home_chat_id"):
-            await cq.set_welcome_message(settings["home_chat_id"], None)
+        owned_camp = await cq.get_camp_by_owner(uid)
+        if owned_camp:
+            await cq.set_welcome_message(owned_camp["chat_id"], None)
         await query.answer("🗑 환영 멘트가 삭제되었습니다!", show_alert=True)
         # 관리 화면으로 돌아가기
         # 위의 manage 로직을 재실행 — 간단히 콜백 데이터 변경
@@ -2212,7 +2222,8 @@ async def camp_dm_callback_handler(update, context):
                 InlineKeyboardButton("🔔 알림설정", callback_data=f"cdm_hub_notify_{uid}"),
             ])
             # 소유자면 관리 버튼
-            if camp and camp.get("created_by") == uid:
+            owned_camp = await cq.get_camp_by_owner(uid)
+            if owned_camp:
                 btns.append([
                     InlineKeyboardButton("⚙️ 캠프 관리", callback_data=f"cdm_hub_manage_{uid}"),
                 ])
