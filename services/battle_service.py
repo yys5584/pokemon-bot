@@ -920,12 +920,15 @@ async def execute_battle(
     # Build simplified group chat display
     vs = icon_emoji('battle')
     trophy = icon_emoji('crown')
+    coin = icon_emoji('coin')
     lines = [
         f"{vs} 배틀 결과!",
         f"{rarity_badge('red')} {c_title_str}{c_name}  {vs}  {d_title_str}{d_name} {rarity_badge('blue')}",
         "━━━━━━━━━━━━━━━",
         f"{trophy} {winner_name} 승리!",
     ]
+    if not skip_bp and bp_won > 0:
+        lines.append(f"{coin} +{bp_won} BP")
 
     # Build detailed DM text from turn_data
     detail_dm = _build_battle_detail_dm(
