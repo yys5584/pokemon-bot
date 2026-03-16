@@ -1034,7 +1034,8 @@ async def _send_daily_kpi_report(context):
         source_labels = {
             "battle": "⚔️ 배틀", "ranked_battle": "🏟️ 랭크전", "catch": "🎯 포획",
             "tournament": "🏆 토너먼트", "mission": "📋 미션", "bet_win": "🎲 야차(승)",
-            "gacha_refund": "🎰 뽑기환급", "gacha_jackpot": "💎 뽑기잭팟",
+            "daily_checkin": "💰 출석(!돈)", "gacha_refund": "🎰 뽑기환급",
+            "gacha_jackpot": "💎 뽑기잭팟",
             "ranked_reward": "🏅 시즌보상", "admin": "🔧 관리자",
             "shop_masterball": "🔴 상점(마볼)", "shop_hyperball": "🔵 상점(하볼)",
             "shop_gacha_ticket": "🎫 상점(뽑기권)", "shop_arcade_speed": "⚡ 상점(속도)",
@@ -1042,9 +1043,20 @@ async def _send_daily_kpi_report(context):
             "bet_refund": "🎲 야차(환불)", "trade_refund": "🔄 교환(환불)",
         }
 
+        # 뽑기 BP 소각을 bp_sources에 합산 (gacha_log 기반)
+        if gacha_spent > 0:
+            bp_total_spent += gacha_spent
+            bp_net = bp_earned - bp_total_spent
+            if "gacha_pull" not in bp_sources:
+                bp_sources["gacha_pull"] = {"earned": 0, "spent": gacha_spent}
+            else:
+                bp_sources["gacha_pull"]["spent"] += gacha_spent
+            source_labels["gacha_pull"] = "🎰 뽑기"
+
         # BP 소스별 카드 HTML 생성
-        _bp_src_order = ["battle", "ranked_battle", "catch", "tournament", "mission", "bet_win",
-                         "gacha_refund", "gacha_jackpot", "ranked_reward", "admin"]
+        _bp_src_order = ["catch", "battle", "ranked_battle", "tournament", "daily_checkin",
+                         "mission", "bet_win", "gacha_refund", "gacha_jackpot",
+                         "ranked_reward", "admin"]
         _bp_src_cards = []
         for _src in _bp_src_order:
             if _src in bp_sources and bp_sources[_src]["earned"] > 0:
