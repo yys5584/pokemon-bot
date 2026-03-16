@@ -5,7 +5,7 @@ import logging
 import random
 from datetime import datetime
 
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import config
@@ -174,17 +174,49 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if pokemon_name:
                     ch = create_challenge(user_id, session["id"], pokemon_name)
                     try:
-                        ch_msg = await context.bot.send_message(
-                            chat_id=user_id,
-                            text=(
-                                f"⚠️ 포획 검증이 필요합니다!\n\n"
-                                f"현재 스폰된 포켓몬의 <b>이름</b>을 {CHALLENGE_TIMEOUT_SEC}초 내에 입력하세요.\n"
-                                f"(DM으로 이름만 입력)"
-                            ),
+                        # 그룹에 안내 메시지
+                        display = update.effective_user.first_name or "트레이너"
+                        warn_msg = await update.message.reply_text(
+                            f"🚨 <b>비정상 포획 감지</b>\n"
+                            f"{display}님, DM에서 본인 확인을 완료해주세요.",
                             parse_mode="HTML",
                         )
-                        # 타임아웃 스케줄
-                        async def _challenge_timeout(uid=user_id, mid=ch_msg.message_id):
+                        schedule_delete(warn_msg, 30)
+
+                        # DM으로 카드 이미지 + 4지선다 전송
+                        from utils.card_generator import generate_card
+                        pokemon_id = session.get("pokemon_id", session.get("id", 0))
+                        rarity = session.get("rarity", "common")
+                        emoji = session.get("emoji", "")
+                        is_shiny = bool(session.get("is_shiny", 0))
+
+                        loop = asyncio.get_event_loop()
+                        card_buf = await loop.run_in_executor(
+                            None, generate_card, pokemon_id, pokemon_name, rarity, emoji, is_shiny,
+                        )
+
+                        choices = ch["choices"]
+                        keyboard = InlineKeyboardMarkup([
+                            [InlineKeyboardButton(choices[0], callback_data=f"abot_{ch['session_id']}_{choices[0]}"),
+                             InlineKeyboardButton(choices[1], callback_data=f"abot_{ch['session_id']}_{choices[1]}")],
+                            [InlineKeyboardButton(choices[2], callback_data=f"abot_{ch['session_id']}_{choices[2]}"),
+                             InlineKeyboardButton(choices[3], callback_data=f"abot_{ch['session_id']}_{choices[3]}")],
+                        ])
+
+                        await context.bot.send_photo(
+                            chat_id=user_id,
+                            photo=card_buf,
+                            caption=(
+                                "🚨 <b>비정상 포획 감지</b>\n\n"
+                                "자동 포획이 의심됩니다.\n"
+                                "본인 확인을 위해 이 포켓몬의 이름을 선택하세요. (5분)"
+                            ),
+                            parse_mode="HTML",
+                            reply_markup=keyboard,
+                        )
+
+                        # 타임아웃 스케줄 (5분)
+                        async def _challenge_timeout(uid=user_id):
                             await asyncio.sleep(CHALLENGE_TIMEOUT_SEC + 1)
                             ch_now = get_pending_challenge(uid)
                             if ch_now and not ch_now.get("answered"):
@@ -196,7 +228,6 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                     )
                                 except Exception:
                                     pass
-                                # 포획 참여 취소 처리는 불필요 (아직 record 안 함)
                         asyncio.create_task(_challenge_timeout())
                     except Exception:
                         # DM 전송 실패 (봇 차단 등) → 챌린지 스킵
@@ -205,7 +236,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                     if needs_challenge:
                         # 챌린지 대기 중 — record_attempt 하지 않고 return
-                        # 챌린지 통과 시 _handle_challenge_answer에서 record 처리
+                        # 챌린지 통과 시 콜백 핸들러에서 record 처리
                         return
 
             # Phase 3: record attempt (sequential — must happen before message)
@@ -1047,26 +1078,34 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
                 pass
 
 
-# ─── 봇방지: 챌린지 응답 핸들러 (DM) ────────────────────
-async def challenge_answer_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """DM에서 챌린지 응답 처리. 챌린지 대기 중인 유저만 반응."""
-    if not update.effective_user or not update.message or not update.message.text:
+# ─── 봇방지: 챌린지 콜백 핸들러 (DM 버튼) ────────────────
+async def challenge_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """DM 4지선다 버튼 응답 처리. callback_data: abot_{session_id}_{answer}"""
+    query = update.callback_query
+    if not query or not query.data or not query.data.startswith("abot_"):
         return
+
     user_id = update.effective_user.id
+    await query.answer()
 
     ch = get_pending_challenge(user_id)
     if not ch:
-        return  # 챌린지 없으면 무시 (다른 DM 핸들러에게 위임)
+        await query.edit_message_caption(caption="⚠️ 이미 처리된 챌린지입니다.")
+        return
 
     if ch.get("answered"):
         return
 
-    answer = update.message.text.strip()
+    # abot_{session_id}_{answer} 파싱
+    parts = query.data.split("_", 2)
+    if len(parts) < 3:
+        return
+    answer = parts[2]
 
     # 만료 체크
     if is_challenge_expired(ch):
         await handle_challenge_timeout(user_id)
-        await update.message.reply_text("⏰ 시간이 초과되어 포획이 취소되었습니다.")
+        await query.edit_message_caption(caption="⏰ 시간이 초과되어 포획이 취소되었습니다.")
         return
 
     # 정답 체크
@@ -1074,7 +1113,7 @@ async def challenge_answer_handler(update: Update, context: ContextTypes.DEFAULT
     passed = await resolve_challenge(user_id, answer)
 
     if passed:
-        await update.message.reply_text("✅ 검증 통과! 포획에 참여합니다.")
+        await query.edit_message_caption(caption="✅ 검증 통과! 포획에 참여합니다.")
 
         # 포획 참여 처리: record_attempt 실행
         session_id = ch["session_id"]
@@ -1138,11 +1177,23 @@ async def challenge_answer_handler(update: Update, context: ContextTypes.DEFAULT
             logger.error(f"Challenge pass → record_attempt failed: {e}")
     else:
         expected = ch.get("expected", "???")
-        await update.message.reply_text(
-            f"❌ 오답입니다! (정답: {expected})\n이번 포획은 취소되었습니다."
+        await query.edit_message_caption(
+            caption=f"❌ 오답입니다! (정답: {expected})\n이번 포획은 취소되었습니다."
         )
         # 관리자 알림 (연속 실패 시)
         asyncio.create_task(_notify_admin_if_needed(user_id, context))
+
+
+# 레거시 텍스트 입력 핸들러 (하위호환 — 버튼 사용 안내)
+async def challenge_answer_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """DM 텍스트 입력 시 버튼 사용 안내."""
+    if not update.effective_user or not update.message or not update.message.text:
+        return
+    user_id = update.effective_user.id
+    ch = get_pending_challenge(user_id)
+    if not ch or ch.get("answered"):
+        return
+    await update.message.reply_text("위 메시지의 버튼을 눌러 포켓몬 이름을 선택해주세요.")
 
 
 async def _notify_admin_if_needed(user_id: int, context: ContextTypes.DEFAULT_TYPE):

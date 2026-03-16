@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 BOT_SCORE_THRESHOLD_LOW = 0.4     # 이 이상이면 10% 확률로 챌린지
 BOT_SCORE_THRESHOLD_MID = 0.7     # 이 이상이면 50% 확률로 챌린지
 BOT_SCORE_THRESHOLD_HIGH = 0.9    # 이 이상이면 100% 챌린지
-CHALLENGE_TIMEOUT_SEC = 15        # 챌린지 응답 제한시간 (초)
+CHALLENGE_TIMEOUT_SEC = 300       # 챌린지 응답 제한시간 (5분)
 FAST_REACTION_MS = 2000           # 2초 이하 = 의심 반응
 VERY_FAST_REACTION_MS = 1000      # 1초 이하 = 매우 의심
 MIN_SAMPLES_FOR_SCORING = 5       # 최소 5회 포획 후부터 점수 계산
@@ -164,13 +164,25 @@ async def should_challenge(user_id: int) -> bool:
 
 
 # ─── 챌린지 생성/검증 ─────────────────────────────
+def _generate_wrong_choices(correct_name: str, count: int = 3) -> list[str]:
+    """정답을 제외한 랜덤 오답 보기 생성."""
+    from models.pokemon_data import ALL_POKEMON
+    all_names = [p[1] for p in ALL_POKEMON if p[1] != correct_name]
+    return random.sample(all_names, min(count, len(all_names)))
+
+
 def create_challenge(user_id: int, session_id: int, pokemon_name: str) -> dict:
-    """포획 챌린지 생성. 포켓몬 이름 입력 요구."""
+    """포획 챌린지 생성. 4지선다 이름 선택."""
+    wrong = _generate_wrong_choices(pokemon_name, 3)
+    choices = wrong + [pokemon_name]
+    random.shuffle(choices)
+
     challenge = {
         "user_id": user_id,
         "session_id": session_id,
-        "type": "name",
+        "type": "name_choice",
         "expected": pokemon_name,
+        "choices": choices,
         "created_at": time.time(),
         "answered": False,
     }
