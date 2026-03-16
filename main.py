@@ -531,6 +531,186 @@ def _get_today_patches() -> list[str]:
         return []
 
 
+async def _build_gen4_report_section(pool) -> str:
+    """Gen4(4세대) 업데이트 전후 비교 섹션 HTML 생성. 업데이트일(2026-03-16) 이후에만 표시."""
+    from datetime import timezone, timedelta as _td
+    _KST = timezone(_td(hours=9))
+    _now = config.get_kst_now()
+    _today_start = _now.replace(hour=0, minute=0, second=0, microsecond=0)
+    _today_end = _today_start + _td(days=1)
+    _before_start = _today_start - _td(days=7)
+
+    rarity_ko = {"common": "커먼", "rare": "레어", "epic": "에픽",
+                  "legendary": "전설", "ultra_legendary": "초전설"}
+    rarity_cls = {"common": "#888", "rare": "#2196f3", "epic": "#9c27b0",
+                  "legendary": "#ff9800", "ultra_legendary": "#e53935"}
+
+    # ── Gen4 스폰/포획 (오늘) ──
+    g4_row = await pool.fetchrow(
+        """SELECT COUNT(*) as s, COUNT(caught_by_user_id) as c
+           FROM spawn_log WHERE spawned_at >= $1 AND spawned_at < $2
+           AND pokemon_id >= 387 AND pokemon_id <= 493""",
+        _today_start, _today_end)
+    g4_spawns = g4_row["s"] if g4_row else 0
+    g4_catches = g4_row["c"] if g4_row else 0
+    g4_catch_rate = round(g4_catches / max(g4_spawns, 1) * 100, 1)
+
+    total_row = await pool.fetchrow(
+        "SELECT COUNT(*) as s FROM spawn_log WHERE spawned_at >= $1 AND spawned_at < $2",
+        _today_start, _today_end)
+    total_spawns = total_row["s"] if total_row else 1
+    g4_pct = round(g4_spawns / max(total_spawns, 1) * 100, 1)
+
+    # 7일 평균 (before)
+    avg7_row = await pool.fetchrow(
+        "SELECT COUNT(*)::float/7 as s, COUNT(caught_by_user_id)::float/7 as c FROM spawn_log WHERE spawned_at >= $1 AND spawned_at < $2",
+        _before_start, _today_start)
+    avg7_spawns = round(avg7_row["s"]) if avg7_row else 0
+    avg7_catches = round(avg7_row["c"]) if avg7_row else 0
+    avg7_rate = round(avg7_catches / max(avg7_spawns, 1) * 100, 1)
+
+    # ── Gen4 인기 Top 10 ──
+    g4_popular = await pool.fetch(
+        """SELECT sl.pokemon_id, pm.name_ko, pm.rarity, COUNT(*) as cnt
+           FROM spawn_log sl JOIN pokemon_master pm ON pm.id = sl.pokemon_id
+           WHERE sl.spawned_at >= $1 AND sl.spawned_at < $2
+           AND sl.pokemon_id >= 387 AND sl.pokemon_id <= 493
+           AND sl.caught_by_user_id IS NOT NULL
+           GROUP BY sl.pokemon_id, pm.name_ko, pm.rarity ORDER BY cnt DESC LIMIT 10""",
+        _today_start, _today_end)
+
+    popular_html = ""
+    for i, p in enumerate(g4_popular, 1):
+        r_color = rarity_cls.get(p["rarity"], "#888")
+        r_name = rarity_ko.get(p["rarity"], p["rarity"])
+        popular_html += (
+            f'<div style="display:flex;justify-content:space-between;align-items:center;'
+            f'padding:6px 10px;background:#fafafa;border-radius:6px;margin-bottom:3px;font-size:13px">'
+            f'<span><b style="color:#e53935;margin-right:6px">{i}</b>'
+            f'#{p["pokemon_id"]} <b>{p["name_ko"]}</b> '
+            f'<span style="color:{r_color};font-size:11px">{r_name}</span></span>'
+            f'<span style="font-weight:700">{p["cnt"]}마리</span></div>')
+    if not popular_html:
+        popular_html = '<div style="font-size:13px;color:#888;text-align:center;padding:12px">아직 포획 데이터 없음</div>'
+
+    # ── Gen4 레어리티 분포 ──
+    g4_rarity = await pool.fetch(
+        """SELECT pm.rarity, COUNT(*) as cnt
+           FROM spawn_log sl JOIN pokemon_master pm ON pm.id = sl.pokemon_id
+           WHERE sl.spawned_at >= $1 AND sl.spawned_at < $2
+           AND sl.pokemon_id >= 387 AND sl.pokemon_id <= 493
+           GROUP BY pm.rarity ORDER BY cnt DESC""",
+        _today_start, _today_end)
+    g4_rarity_map = {r["rarity"]: r["cnt"] for r in g4_rarity}
+    g4_total = sum(g4_rarity_map.values()) or 1
+
+    rarity_bars = ""
+    for rk in ["common", "rare", "epic", "legendary", "ultra_legendary"]:
+        cnt = g4_rarity_map.get(rk, 0)
+        pct = round(cnt / g4_total * 100, 1)
+        color = rarity_cls.get(rk, "#888")
+        rarity_bars += (
+            f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'
+            f'<span style="min-width:50px;font-size:11px;color:{color};font-weight:700;text-align:right">{rarity_ko.get(rk, rk)}</span>'
+            f'<div style="flex:1;height:16px;background:#f5f5f5;border-radius:3px;overflow:hidden">'
+            f'<div style="height:100%;width:{pct}%;background:{color};border-radius:3px;opacity:.7"></div></div>'
+            f'<span style="font-size:11px;min-width:60px">{cnt:,} ({pct}%)</span></div>')
+
+    # ── Gen4 보유 현황 ──
+    g4_owners = await pool.fetchval(
+        "SELECT COUNT(DISTINCT user_id) FROM user_pokemon WHERE pokemon_id >= 387 AND pokemon_id <= 493") or 0
+    g4_total_owned = await pool.fetchval(
+        "SELECT COUNT(*) FROM user_pokemon WHERE pokemon_id >= 387 AND pokemon_id <= 493") or 0
+    g4_shiny = await pool.fetchval(
+        "SELECT COUNT(*) FROM user_pokemon WHERE pokemon_id >= 387 AND pokemon_id <= 493 AND is_shiny = true") or 0
+
+    # ── Gen4 전설/초전설 ──
+    g4_legends = await pool.fetch(
+        """SELECT pm.name_ko, pm.rarity, COUNT(*) as cnt
+           FROM user_pokemon up JOIN pokemon_master pm ON pm.id = up.pokemon_id
+           WHERE up.pokemon_id >= 387 AND up.pokemon_id <= 493
+           AND pm.rarity IN ('legendary', 'ultra_legendary')
+           GROUP BY pm.name_ko, pm.rarity ORDER BY pm.rarity DESC, cnt DESC""")
+    legend_items = ""
+    for p in g4_legends:
+        r_color = rarity_cls.get(p["rarity"], "#888")
+        r_name = rarity_ko.get(p["rarity"], "")
+        legend_items += (
+            f'<span style="display:inline-block;padding:3px 8px;background:#fafafa;border-radius:6px;'
+            f'margin:2px;font-size:12px;border:1px solid #f0f0f0">'
+            f'<b style="color:{r_color}">{p["name_ko"]}</b> ×{p["cnt"]}</span>')
+    if not legend_items:
+        legend_items = '<span style="font-size:12px;color:#888">아직 포획 기록 없음</span>'
+
+    # ── 세대별 도감 현황 ──
+    dex_stats = await pool.fetch(
+        """SELECT
+             CASE WHEN pokemon_id <= 151 THEN 1 WHEN pokemon_id <= 251 THEN 2
+                  WHEN pokemon_id <= 386 THEN 3 ELSE 4 END as gen,
+             COUNT(DISTINCT pokemon_id) as species, COUNT(*) as total
+           FROM user_pokemon GROUP BY gen ORDER BY gen""")
+    gen_totals = {1: 151, 2: 100, 3: 135, 4: 107}
+    dex_cards = ""
+    for row in dex_stats:
+        g = row["gen"]
+        total = gen_totals.get(g, 0)
+        species = row["species"]
+        comp = round(species / max(total, 1) * 100, 1)
+        is_g4 = g == 4
+        style = 'border:2px solid #e53935' if is_g4 else ''
+        dex_cards += (
+            f'<div class="card" style="{style}">'
+            f'<div class="label">{"🌟 " if is_g4 else ""}{g}세대</div>'
+            f'<div class="value" style="font-size:18px;{"color:#e53935" if is_g4 else ""}">{species}/{total}</div>'
+            f'<div class="sub">{comp}% · {row["total"]:,}마리</div></div>')
+
+    # ── 조립 ──
+    section = f"""
+<div class="section" style="border:2px solid #e8eaf6;border-radius:12px;padding:16px;margin-bottom:20px;background:linear-gradient(135deg,#fafafa,#f3e5f5 50%,#e8eaf6)">
+<div class="section-title" style="color:#4a148c;border-bottom-color:#ce93d8">🌟 v3.0 — 4세대(신오) 업데이트 보고서</div>
+
+<div style="font-size:12px;color:#666;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.7);border-radius:6px">
+📌 <b>업데이트 내용:</b> 107종 추가(387~493), 분기진화 2종, 크로스세대 진화 18종, 한카리아스/레지기가스 에픽 조정, 커스텀이모지 전면 적용, 챌린지 3분
+</div>
+
+<div style="font-size:11px;color:#888;margin-bottom:8px">Before = 7일 평균 | After = 오늘 | Gen4 = 387~493번</div>
+
+<div class="grid grid-3" style="margin-bottom:12px">
+<div class="card"><div class="label">Gen4 스폰</div><div class="value accent">{g4_spawns:,}</div><div class="sub">전체의 {g4_pct}%</div></div>
+<div class="card"><div class="label">Gen4 포획</div><div class="value" style="color:#4caf50">{g4_catches:,}</div><div class="sub">포획률 {g4_catch_rate}%</div></div>
+<div class="card"><div class="label">Gen4 이로치</div><div class="value" style="color:#ff9800">{g4_shiny}</div></div>
+</div>
+
+<div class="grid" style="margin-bottom:12px">
+<div class="card"><div class="label">포획률 변화</div><div class="value" style="font-size:16px">{avg7_rate}% → {g4_catch_rate}%</div><div class="sub">7일 평균 → Gen4</div></div>
+<div class="card"><div class="label">Gen4 보유자</div><div class="value" style="color:#1565c0">{g4_owners:,}명</div><div class="sub">총 {g4_total_owned:,}마리</div></div>
+</div>
+
+<div style="margin-bottom:12px">
+<div style="font-size:13px;font-weight:700;color:#4a148c;margin-bottom:6px">🏆 Gen4 인기 포켓몬 Top 10</div>
+{popular_html}
+</div>
+
+<div style="margin-bottom:12px">
+<div style="font-size:13px;font-weight:700;color:#4a148c;margin-bottom:6px">📊 Gen4 레어리티 분포</div>
+{rarity_bars}
+</div>
+
+<div style="margin-bottom:12px">
+<div style="font-size:13px;font-weight:700;color:#4a148c;margin-bottom:6px">👑 Gen4 전설 / 초전설</div>
+<div>{legend_items}</div>
+</div>
+
+<div style="margin-bottom:8px">
+<div style="font-size:13px;font-weight:700;color:#4a148c;margin-bottom:6px">📖 세대별 도감 현황</div>
+<div class="grid" style="grid-template-columns:1fr 1fr 1fr 1fr">{dex_cards}</div>
+</div>
+
+</div>"""
+
+    return section
+
+
 async def _send_daily_kpi_report(context):
     """매일 23:55 KST: 일일 KPI 리포트를 HTML 파일로 관리자 DM 발송."""
     import io
@@ -596,6 +776,18 @@ async def _send_daily_kpi_report(context):
 </div>"""
         else:
             patch_html = '<div class="section"><div class="section-title">🛠️ 오늘 패치</div><div style="font-size:13px;color:#888">배포 없음</div></div>'
+
+        # ── Gen4 업데이트 보고서 섹션 ──
+        gen4_html = ""
+        try:
+            # Gen4가 DB에 시딩되어 있을 때만 표시
+            _pool = await get_db()
+            g4_count = await _pool.fetchval(
+                "SELECT COUNT(*) FROM pokemon_master WHERE id >= 387 AND id <= 493")
+            if g4_count and g4_count >= 100:
+                gen4_html = await _build_gen4_report_section(_pool)
+        except Exception as _e:
+            logger.warning(f"Gen4 report section skipped: {_e}")
 
         # ── 마일스톤 로드 ──
         milestones_today = []
@@ -974,6 +1166,7 @@ async def _send_daily_kpi_report(context):
 {hourly_html}
 {top_html}
 {patch_html}
+{gen4_html}
 {insight_html}"""
 
         date_str = f"{d['date']} ({d['weekday']})"
