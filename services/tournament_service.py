@@ -391,11 +391,16 @@ def _extract_mvp(turn_data: list[dict], winner_side: str) -> str | None:
 
 
 async def _safe_send(bot, chat_id, text, **kwargs):
-    """send_message with RetryAfter/TimedOut/NetworkError auto-retry."""
-    from telegram.error import TimedOut, NetworkError
+    """send_message with RetryAfter/TimedOut/NetworkError auto-retry + auto-split."""
+    from telegram.error import TimedOut, NetworkError, BadRequest
     for attempt in range(5):
         try:
             return await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+        except BadRequest as e:
+            if "too long" in str(e).lower():
+                # 메시지가 너무 길면 분할 전송
+                return await _split_send(bot, chat_id, text, **kwargs)
+            raise
         except RetryAfter as e:
             wait = e.retry_after + 1
             logger.warning(f"Flood control, waiting {wait}s (attempt {attempt+1})")
@@ -406,6 +411,32 @@ async def _safe_send(bot, chat_id, text, **kwargs):
             await asyncio.sleep(wait)
     # last attempt without catch
     return await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+
+
+async def _split_send(bot, chat_id, text, **kwargs):
+    """긴 메시지를 4000자 단위로 분할 전송."""
+    MAX_LEN = 4000
+    lines = text.split("\n")
+    chunks = []
+    current = []
+    current_len = 0
+
+    for line in lines:
+        line_len = len(line) + 1  # +1 for \n
+        if current_len + line_len > MAX_LEN and current:
+            chunks.append("\n".join(current))
+            current = [line]
+            current_len = line_len
+        else:
+            current.append(line)
+            current_len += line_len
+    if current:
+        chunks.append("\n".join(current))
+
+    last_msg = None
+    for chunk in chunks:
+        last_msg = await bot.send_message(chat_id=chat_id, text=chunk, **kwargs)
+    return last_msg
 
 
 async def _safe_send_photo(bot, chat_id, photo, caption="", **kwargs):
