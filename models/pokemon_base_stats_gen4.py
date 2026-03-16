@@ -103,7 +103,7 @@ POKEMON_BASE_STATS_GEN4 = {
     483: (100, 120, 120, 150, 100, 90, ["steel", "dragon"]),               # Dialga (BST 680)
     484: (90, 120, 100, 150, 120, 100, ["water", "dragon"]),               # Palkia (BST 680)
     485: (91, 90, 106, 130, 106, 77, ["fire", "steel"]),                   # Heatran (BST 600)
-    486: (110, 160, 110, 80, 110, 100, ["normal"]),                        # Regigigas (BST 670)
+    486: (130, 170, 120, 90, 120, 100, ["normal"]),                        # Regigigas (BST 730, 슬로우스타트 격턴스킵 → 상향)
     487: (150, 100, 120, 100, 120, 90, ["ghost", "dragon"]),               # Giratina (BST 680)
     488: (120, 70, 120, 75, 130, 85, ["psychic"]),                         # Cresselia (BST 600)
     489: (80, 80, 80, 80, 80, 80, ["water"]),                              # Phione (BST 480)
