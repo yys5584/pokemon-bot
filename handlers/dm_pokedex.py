@@ -1331,18 +1331,32 @@ async def _build_team_settings(user_id: int) -> tuple[str, InlineKeyboardMarkup]
 
 async def _do_evolve(p: dict, user_id: int) -> str:
     """Execute evolution, return result message."""
-    if not p["evolves_to"]:
+    pokemon_id = p.get("pokemon_id") or p.get("id")
+    has_branch = pokemon_id in config.BRANCH_EVOLUTIONS
+    is_eevee = pokemon_id == config.EEVEE_ID
+
+    if not p["evolves_to"] and not has_branch and not is_eevee:
         return "이 포켓몬은 진화할 수 없습니다."
     if p["evolution_method"] == "trade":
         return "이 포켓몬은 교환으로만 진화합니다."
     max_f = config.get_max_friendship(p)
     if p["friendship"] < max_f:
         return f"친밀도가 부족합니다 ({p['friendship']}/{max_f})"
-    # Perform evolution
-    evo_target = await queries.get_pokemon_master(p["evolves_to"])
+
+    # Determine target (분기진화 / 이브이 / 일반)
+    if is_eevee:
+        import random
+        target_id = random.choice(config.EEVEE_EVOLUTIONS)
+    elif has_branch:
+        import random
+        target_id = random.choice(config.BRANCH_EVOLUTIONS[pokemon_id])
+    else:
+        target_id = p["evolves_to"]
+
+    evo_target = await queries.get_pokemon_master(target_id)
     if not evo_target:
         return "진화 대상을 찾을 수 없습니다."
-    await queries.evolve_pokemon(p["id"], p["evolves_to"])
+    await queries.evolve_pokemon(p["id"], target_id)
     return f"🎉 {p['name_ko']}이(가) {evo_target['name_ko']}(으)로 진화했습니다!"
 
 
@@ -2020,9 +2034,19 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
     ]
 
     if evo_line:
-        # Bold the current pokemon in the chain (토큰 단위로 정확히 매칭)
+        # Bold the current pokemon in the chain (분기진화 "A / B" 지원)
         parts = evo_line.split(" → ")
-        evo_parts = [f"<b>[{p}]</b>" if p == pokemon['name_ko'] else p for p in parts]
+        evo_parts = []
+        for p in parts:
+            if p == pokemon['name_ko']:
+                evo_parts.append(f"<b>[{p}]</b>")
+            elif "/" in p and pokemon['name_ko'] in p:
+                # 분기진화: "가디안 / 엘레이드" 에서 현재 포켓몬만 bold
+                branch_names = [n.strip() for n in p.split("/")]
+                bolded = [f"<b>[{n}]</b>" if n == pokemon['name_ko'] else n for n in branch_names]
+                evo_parts.append(" / ".join(bolded))
+            else:
+                evo_parts.append(p)
         evo_display = " → ".join(evo_parts)
         lines.append(f"\n📊 진화: {evo_display} ({stage_label})")
 
@@ -2048,7 +2072,9 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
 
 
 async def _build_evo_chain(pokemon: dict) -> str:
-    """Build evolution chain string like 파이리 → 리자드 → 리자몽"""
+    """Build evolution chain string like 파이리 → 리자드 → 리자몽
+    분기진화(킬리아→가디안/엘레이드 등) 지원.
+    """
     chain = []
 
     # Go to the base form
@@ -2059,14 +2085,41 @@ async def _build_evo_chain(pokemon: dict) -> str:
             break
         current = prev
 
-    # Walk forward
+    # Walk forward (분기진화 처리)
     while current:
+        pid = current.get("id") or current.get("pokemon_id")
         chain.append(current['name_ko'])
-        if current.get("evolves_to"):
+
+        # 분기진화 체크
+        branch_targets = config.BRANCH_EVOLUTIONS.get(pid)
+        if branch_targets and len(branch_targets) > 1:
+            # 분기진화: "가디안 / 엘레이드" 형태
+            names = []
+            for tid in branch_targets:
+                t = await queries.get_pokemon(tid)
+                if t:
+                    names.append(t['name_ko'])
+            if names:
+                chain.append(" / ".join(names))
+            break
+        elif current.get("evolves_to"):
             nxt = await queries.get_pokemon(current["evolves_to"])
             current = nxt
         else:
             break
+
+    # 현재 포켓몬이 분기진화 결과물인데 chain에 안 들어간 경우 보정
+    # (예: 엘레이드 → evolves_from=킬리아이지만, 킬리아의 evolves_to=가디안)
+    target_pid = pokemon.get("id") or pokemon.get("pokemon_id")
+    target_name = pokemon['name_ko']
+    if target_name not in " / ".join(chain) and target_name not in chain:
+        # 분기진화 결과물인지 확인
+        for _base_id, _targets in config.BRANCH_EVOLUTIONS.items():
+            if target_pid in _targets:
+                # 체인 마지막 요소가 "가디안 / 엘레이드" 형태이면 이미 포함됨
+                if chain and "/" in chain[-1] and target_name in chain[-1]:
+                    break
+                break
 
     return " → ".join(chain) if len(chain) > 1 else ""
 
