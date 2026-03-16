@@ -175,33 +175,8 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             return
 
-        # Check unique catchers (24h) — 3명 미만이면 24시간 차단
-        unique_catchers = await _pool.fetchval(
-            """SELECT COUNT(DISTINCT caught_by_user_id)
-               FROM spawn_sessions
-               WHERE chat_id = $1
-                 AND spawned_at > NOW() - interval '24 hours'
-                 AND caught_by_user_id IS NOT NULL""",
-            chat_id,
-        )
-        if (unique_catchers or 0) < 3:
-            # 첫 강스 3회는 허용 (신규 방 cold start)
-            fs_count_now = await queries.get_force_spawn_count(chat_id)
-            if fs_count_now >= 3:
-                # 24시간 차단 기록
-                await _pool.execute(
-                    """INSERT INTO force_spawn_bans (chat_id, banned_until, reason)
-                       VALUES ($1, NOW() + interval '24 hours', $2)
-                       ON CONFLICT (chat_id) DO UPDATE
-                       SET banned_until = NOW() + interval '24 hours', reason = $2""",
-                    chat_id, f"unique_catchers={unique_catchers}",
-                )
-                resp = await update.message.reply_text(
-                    f"🚫 이 방의 강스가 24시간 제한됩니다.",
-                )
-                schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
-                logger.warning(f"Force spawn banned chat={chat_id} catchers={unique_catchers}")
-                return
+        # NOTE: unique catchers 체크 비활성화 (오탐 이슈 — 조건 재설계 후 재적용)
+        # 기존 ban 테이블은 유지하되 새 ban은 생성하지 않음
 
         # Check force spawn limit (50 per chat) — 구독자 무제한 체크
         count = await queries.get_force_spawn_count(chat_id)
