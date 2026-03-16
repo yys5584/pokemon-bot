@@ -27,10 +27,21 @@ SCORE_DECAY_PER_HOUR = 0.02       # 시간당 점수 자연 감소
 # 챌린지 실패 시 잠금 시간 (초) — 1차 30분, 2차 1시간, 3차+ 12시간
 LOCK_DURATIONS = [30 * 60, 60 * 60, 12 * 60 * 60]
 
+# ─── 설정값 (행동 패턴) ───────────────────────────
+MULTI_ROOM_WINDOW_SEC = 600       # 10분 내
+MULTI_ROOM_THRESHOLD = 3          # 3개+ 다른 방 = 의심
+HOURLY_CATCH_THRESHOLD = 15       # 1시간 내 15회+ = 의심
+MULTI_ROOM_SCORE_BUMP = 0.15      # 멀티방 감지 시 점수 가산
+HOURLY_CATCH_SCORE_BUMP = 0.10    # 과다포획 감지 시 점수 가산
+
 # ─── 메모리 캐시 ───────────────────────────────────
 # user_id -> list of recent reaction_ms (최근 20개)
 _reaction_cache: dict[int, list[int]] = defaultdict(list)
 _REACTION_CACHE_MAX = 20
+
+# user_id -> list of (timestamp, chat_id) — 최근 포획 기록
+_catch_history: dict[int, list[tuple[float, int]]] = defaultdict(list)
+_CATCH_HISTORY_MAX = 60
 
 # user_id -> bot_score (DB 동기화는 비동기)
 _score_cache: dict[int, float] = {}
@@ -76,8 +87,20 @@ def format_lock_duration(seconds: int) -> str:
 
 
 # ─── 반응시간 기록 ─────────────────────────────────
-async def record_reaction(user_id: int, session_id: int, spawned_at, attempted_at) -> int | None:
-    """포획 시 반응시간(ms) 계산 & 기록. 반환: reaction_ms or None."""
+async def record_reaction(user_id: int, session_id: int, spawned_at, attempted_at, chat_id: int = 0) -> int | None:
+    """포획 시 반응시간(ms) 계산 & 기록 + 행동 패턴 추적. 반환: reaction_ms or None."""
+    now = time.time()
+
+    # ── 행동 패턴 추적 (chat_id 있을 때) ──
+    if chat_id:
+        history = _catch_history[user_id]
+        history.append((now, chat_id))
+        # 오래된 기록 정리 (1시간 이전)
+        cutoff = now - 3600
+        _catch_history[user_id] = [(t, c) for t, c in history if t > cutoff][-_CATCH_HISTORY_MAX:]
+        # 비동기로 패턴 분석
+        asyncio.create_task(_check_behavior_patterns(user_id))
+
     if not spawned_at or not attempted_at:
         return None
 
@@ -176,6 +199,52 @@ async def _update_bot_score(user_id: int, latest_ms: int):
 
     except Exception as e:
         logger.warning(f"_update_bot_score error: {e}")
+
+
+async def _check_behavior_patterns(user_id: int):
+    """멀티방 순회 + 시간당 과다 포획 감지."""
+    try:
+        history = _catch_history.get(user_id, [])
+        if len(history) < 3:
+            return
+
+        now = time.time()
+        bump = 0.0
+        flags = []
+
+        # 1) 멀티방 순회: 최근 10분 내 포획한 방 수
+        window_start = now - MULTI_ROOM_WINDOW_SEC
+        recent = [(t, c) for t, c in history if t > window_start]
+        unique_rooms = set(c for _, c in recent)
+        if len(unique_rooms) >= MULTI_ROOM_THRESHOLD:
+            bump += MULTI_ROOM_SCORE_BUMP
+            flags.append(f"multi_room:{len(unique_rooms)}rooms/{len(recent)}catches/10min")
+
+        # 2) 시간당 과다 포획: 최근 1시간 내 포획 수
+        hourly_count = len(history)  # history는 이미 1시간 내만 보관
+        if hourly_count >= HOURLY_CATCH_THRESHOLD:
+            bump += HOURLY_CATCH_SCORE_BUMP
+            flags.append(f"hourly:{hourly_count}catches/1h")
+
+        if bump > 0:
+            old_score = _score_cache.get(user_id, 0)
+            new_score = min(1.0, old_score + bump)
+            _score_cache[user_id] = new_score
+
+            # DB 업데이트
+            pool = await get_db()
+            await pool.execute(
+                """INSERT INTO abuse_scores (user_id, bot_score, updated_at)
+                   VALUES ($1, $2, NOW())
+                   ON CONFLICT (user_id) DO UPDATE
+                   SET bot_score = LEAST(1.0, abuse_scores.bot_score + $3),
+                       updated_at = NOW()""",
+                user_id, round(new_score, 4), round(bump, 4),
+            )
+            logger.info(f"Abuse pattern detected uid={user_id}: {', '.join(flags)} (score {old_score:.2f}→{new_score:.2f})")
+
+    except Exception as e:
+        logger.warning(f"_check_behavior_patterns error: {e}")
 
 
 async def get_bot_score(user_id: int) -> float:
