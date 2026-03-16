@@ -2805,10 +2805,14 @@ async def report_top_active_users(today, limit: int = 10) -> list[dict]:
                GROUP BY user_id
            ) c ON u.user_id = c.user_id
            LEFT JOIN (
-               SELECT user_id, COUNT(*) as battles,
-                      COUNT(*) FILTER (WHERE is_winner = true) as wins
-               FROM battle_records WHERE created_at >= $1
-               GROUP BY user_id
+               SELECT uid as user_id, COUNT(*) as battles,
+                      COUNT(*) FILTER (WHERE is_win) as wins
+               FROM (
+                   SELECT winner_id as uid, true as is_win FROM battle_records WHERE created_at >= $1
+                   UNION ALL
+                   SELECT loser_id as uid, false as is_win FROM battle_records WHERE created_at >= $1
+               ) bp
+               GROUP BY uid
            ) b ON u.user_id = b.user_id
            WHERE COALESCE(c.catches, 0) + COALESCE(b.battles, 0) > 0
            ORDER BY total_actions DESC
@@ -2862,14 +2866,13 @@ async def report_market_trends(today) -> list[dict]:
 
 
 async def report_battle_meta(today) -> list[dict]:
-    """오늘 배틀에서 많이 사용된 포켓몬 (사용횟수, 승률)."""
+    """오늘 배틀에서 많이 사용된 포켓몬 (승자팀 기준)."""
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT pm.name_ko, pm.id as pokemon_id,
-                  COUNT(*) as uses,
-                  ROUND(100.0 * COUNT(*) FILTER (WHERE br.is_winner = true) / NULLIF(COUNT(*), 0), 1) as win_rate
+                  COUNT(*) as uses, 0.0 as win_rate
            FROM battle_records br
-           JOIN battle_teams bt ON br.user_id = bt.user_id AND bt.team_num = 1
+           JOIN battle_teams bt ON br.winner_id = bt.user_id AND bt.team_num = 1
            JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
            WHERE br.created_at >= $1
