@@ -323,7 +323,7 @@ async def trade_evo_choice_handler(update: Update, context: ContextTypes.DEFAULT
         evo_msg = await try_trade_evolve(user_id, instance_id, pokemon["pokemon_id"])
         try:
             if evo_msg:
-                await query.edit_message_text(f"🎉 진화 완료!{evo_msg}")
+                await query.edit_message_text(f"🎉 진화 완료!{evo_msg}", parse_mode="HTML")
             else:
                 await query.edit_message_text("진화할 수 없는 포켓몬입니다.")
         except Exception:

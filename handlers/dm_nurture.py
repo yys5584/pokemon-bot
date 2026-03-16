@@ -315,7 +315,7 @@ async def evolve_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     success, message = await try_evolve(user_id, pokemon["id"])
-    await update.message.reply_text(message)
+    await update.message.reply_text(message, parse_mode="HTML")
 
 
 async def nurture_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -504,4 +504,4 @@ async def _do_play(query, user_id, pokemon):
 async def _do_evolve(query, user_id, pokemon):
     """Execute evolve logic from callback."""
     success, message = await try_evolve(user_id, pokemon["id"])
-    await query.edit_message_text(message)
+    await query.edit_message_text(message, parse_mode="HTML")

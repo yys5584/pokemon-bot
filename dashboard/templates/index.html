@@ -3542,9 +3542,8 @@ function _tierShort(tier,divDisplay){
 
 // --- BATTLE & RANKING ---
 async function loadBattleRank(){
-    const[ranking,teams,users,kpi,tWinnersBR,ivRanking,rankedData]=await Promise.all([
+    const[ranking,users,kpi,tWinnersBR,ivRanking,rankedData]=await Promise.all([
         fetchJSON("/api/battle/ranking"),
-        fetchJSON("/api/battle/ranking-teams"),
         fetchJSON("/api/users"),
         fetchJSON("/api/fun-kpis"),
         fetchJSON("/api/tournament/winners"),
@@ -3649,16 +3648,7 @@ async function loadBattleRank(){
                 const total=r.battle_wins+r.battle_losses;
                 const wr=total>0?Math.round(r.battle_wins/total*100)+"%":"-";
                 const title=r.title?`<span style="color:var(--muted);font-size:11px">${r.title_emoji} ${r.title}</span> `:"";
-                let teamHtml="";
-                if(teams&&teams[String(r.user_id)]){
-                    const team=teams[String(r.user_id)];
-                    teamHtml=`<span class="tip-content">${team.map(p=>{
-                        let s=p.is_shiny?"★":"";
-                        let partner=p.is_partner?' <span style="color:var(--gold)">[P]</span>':"";
-                        return s+p.emoji+p.name_ko+partner;
-                    }).join("<br>")}</span>`;
-                }
-                const nameCell=teamHtml?`<span class="team-tip">${title}${escHtml(stripEmoji(r.display_name))}${teamHtml}</span>`:`${title}${escHtml(stripEmoji(r.display_name))}`;
+                const nameCell=`${title}${escHtml(stripEmoji(r.display_name))}`;
                 h+=`<tr><td>${idx<3?medals[idx]:idx+1}</td><td>${nameCell}</td><td style="color:var(--green);font-weight:600">${r.battle_wins}</td><td style="color:var(--red)">${r.battle_losses}</td><td>${wr}</td><td>🔥${r.best_streak}</td><td style="color:var(--gold)">${r.battle_points}</td></tr>`;
             });
             return h+"</tbody></table>";

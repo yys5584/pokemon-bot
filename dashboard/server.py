@@ -2294,58 +2294,6 @@ async def api_battle_recent(request):
     return pg_json_response([dict(r) for r in rows])
 
 
-async def api_battle_ranking_teams(request):
-    """Get battle teams + partner info for all rankers (bulk query)."""
-    try:
-        ranking = await bq.get_battle_ranking(100)
-        if not ranking:
-            return pg_json_response({})
-
-        uids = [r["user_id"] for r in ranking]
-        pool = await queries.get_db()
-
-        # Bulk: all teams + all partners in 2 queries
-        teams_rows, partners_rows = await asyncio.gather(
-            pool.fetch("""
-                SELECT bt.user_id, bt.slot, bt.pokemon_instance_id,
-                       up.is_shiny, pm.name_ko, pm.emoji
-                FROM battle_teams bt
-                JOIN users u ON bt.user_id = u.user_id AND bt.team_number = u.active_team
-                JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
-                JOIN pokemon_master pm ON up.pokemon_id = pm.id
-                WHERE bt.user_id = ANY($1) AND up.is_active = 1
-                ORDER BY bt.user_id, bt.slot
-            """, uids),
-            pool.fetch("""
-                SELECT u.user_id, u.partner_pokemon_id
-                FROM users u WHERE u.user_id = ANY($1)
-            """, uids),
-        )
-
-        partner_map = {r["user_id"]: r["partner_pokemon_id"] for r in partners_rows}
-
-        result = {}
-        for r in teams_rows:
-            uid_str = str(r["user_id"])
-            if uid_str not in result:
-                result[uid_str] = []
-            result[uid_str].append({
-                "emoji": r["emoji"],
-                "name_ko": r["name_ko"],
-                "is_partner": r["pokemon_instance_id"] == partner_map.get(r["user_id"]),
-                "is_shiny": bool(r.get("is_shiny", 0)),
-            })
-
-        # Ensure all ranked users have an entry
-        for uid in uids:
-            if str(uid) not in result:
-                result[str(uid)] = []
-
-        return pg_json_response(result)
-    except InterfaceError:
-        return web.json_response({"error": "서버 재시작 중입니다"}, status=503)
-
-
 async def api_battle_tiers(request):
     """Build tier list data for ALL pokemon (final evolution only)."""
     from database.connection import get_db
@@ -4522,7 +4470,6 @@ def create_app() -> web.Application:
     app.router.add_get("/api/iv-ranking", api_iv_ranking)
     app.router.add_get("/api/battle/ranking", api_battle_ranking)
     app.router.add_get("/api/battle/recent", api_battle_recent)
-    app.router.add_get("/api/battle/ranking-teams", api_battle_ranking_teams)
     app.router.add_get("/api/battle/tiers", api_battle_tiers)
     app.router.add_get("/api/ranked/season", api_ranked_season)
     app.router.add_get("/api/tournament/winners", api_tournament_winners)

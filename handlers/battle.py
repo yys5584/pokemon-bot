@@ -1470,7 +1470,8 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{icon_emoji('bolt')} 강스권 1개 구매 완료!\n"
             f"{icon_emoji('coin')} 남은 BP: {bp}\n"
             f"{icon_emoji('container')} 보유 강스권: {tickets}개\n\n"
-            "채팅방에서 '강스권' 입력으로 해당 채널의 강제스폰 50회를 초기화합니다!"
+            "채팅방에서 '강스권' 입력으로 해당 채널의 강제스폰 50회를 초기화합니다!",
+            parse_mode="HTML",
         )
 
     elif item in ("포켓볼", "볼"):
@@ -1544,7 +1545,8 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{icon_emoji('coin')} 남은 BP: {bp}\n"
             f"📦 보유 티켓: {tickets}개\n\n"
             "채팅방에서 '아케이드 등록'으로 사용하세요!\n"
-            f"⏱ 사용 시 {config.ARCADE_PASS_DURATION // 60}분간 아케이드 채널화"
+            f"⏱ 사용 시 {config.ARCADE_PASS_DURATION // 60}분간 아케이드 채널화",
+            parse_mode="HTML",
         )
 
     else:
