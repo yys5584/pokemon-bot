@@ -11,6 +11,7 @@ import config
 from database import queries
 from services.spawn_service import schedule_spawns_for_chat
 from services.event_service import invalidate_event_cache
+from services.abuse_service import get_flagged_users, get_user_abuse_detail, admin_reset_score
 from utils.helpers import schedule_delete, icon_emoji
 
 logger = logging.getLogger(__name__)
@@ -1123,3 +1124,93 @@ async def manual_subscription_handler(update: Update, context: ContextTypes.DEFA
         )
     except Exception:
         pass
+
+
+# ─── 어뷰징 관리 명령어 ───────────────────────────────
+async def abuse_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """관리자 명령 '어뷰징' — 의심 유저 목록."""
+    if not update.effective_user or update.effective_user.id not in config.ADMIN_IDS:
+        return
+    flagged = await get_flagged_users(20)
+    if not flagged:
+        await update.message.reply_text("✅ 현재 의심 유저가 없습니다.")
+        return
+
+    lines = ["🚨 <b>봇 의심 유저 목록</b>\n"]
+    for u in flagged:
+        name = u.get("display_name", "???")
+        uname = f"@{u['username']}" if u.get("username") else ""
+        score = u.get("bot_score", 0)
+        total = u.get("total_challenges", 0)
+        fails = u.get("challenge_fails", 0)
+        lines.append(
+            f"• {name} {uname} — 점수: <b>{score:.2f}</b> "
+            f"(챌린지 {total}회, 실패 {fails}회)\n"
+            f"  <code>/어뷰징상세 {u['user_id']}</code>"
+        )
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
+async def abuse_detail_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """관리자 명령 '어뷰징상세 ID' — 특정 유저 상세."""
+    if not update.effective_user or update.effective_user.id not in config.ADMIN_IDS:
+        return
+    text = update.message.text.strip()
+    parts = text.split()
+    if len(parts) < 2 or not parts[1].isdigit():
+        await update.message.reply_text("사용법: 어뷰징상세 <유저ID>")
+        return
+
+    target_id = int(parts[1])
+    detail = await get_user_abuse_detail(target_id)
+    if not detail or not detail.get("score"):
+        await update.message.reply_text(f"유저 {target_id}의 어뷰징 기록이 없습니다.")
+        return
+
+    s = detail["score"]
+    lines = [
+        f"🔍 <b>어뷰징 상세</b> — <code>{target_id}</code>\n",
+        f"봇 점수: <b>{s.get('bot_score', 0):.3f}</b>",
+        f"챌린지: 총 {s.get('total_challenges', 0)}회 | 통과 {s.get('challenge_passes', 0)} | 실패 {s.get('challenge_fails', 0)}",
+        f"마지막 챌린지: {s.get('last_challenge_at', '-')}",
+        f"마지막 플래그: {s.get('last_flagged_at', '-')}",
+    ]
+
+    # 최근 반응시간
+    reactions = detail.get("reactions", [])
+    if reactions:
+        ms_list = [r["reaction_ms"] for r in reactions if r.get("reaction_ms")]
+        if ms_list:
+            avg_ms = sum(ms_list) / len(ms_list)
+            min_ms = min(ms_list)
+            max_ms = max(ms_list)
+            lines.append(f"\n📊 최근 반응시간 ({len(ms_list)}회):")
+            lines.append(f"  평균: {avg_ms:.0f}ms | 최소: {min_ms}ms | 최대: {max_ms}ms")
+            lines.append(f"  상세: {', '.join(f'{m}ms' for m in ms_list[:10])}")
+
+    # 최근 챌린지
+    challenges = detail.get("challenges", [])
+    if challenges:
+        lines.append(f"\n📋 최근 챌린지:")
+        for c in challenges[:5]:
+            status = "✅" if c.get("passed") else "❌"
+            ans = c.get("given_answer", "무응답") or "무응답"
+            lines.append(f"  {status} 정답: {c.get('expected_answer')} | 입력: {ans}")
+
+    lines.append(f"\n점수 초기화: <code>어뷰징초기화 {target_id}</code>")
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
+async def abuse_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """관리자 명령 '어뷰징초기화 ID' — 점수 리셋."""
+    if not update.effective_user or update.effective_user.id not in config.ADMIN_IDS:
+        return
+    text = update.message.text.strip()
+    parts = text.split()
+    if len(parts) < 2 or not parts[1].isdigit():
+        await update.message.reply_text("사용법: 어뷰징초기화 <유저ID>")
+        return
+
+    target_id = int(parts[1])
+    await admin_reset_score(target_id)
+    await update.message.reply_text(f"✅ 유저 {target_id}의 봇 의심 점수가 초기화되었습니다.")

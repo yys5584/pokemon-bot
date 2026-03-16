@@ -1192,6 +1192,41 @@ async def create_tables():
     except Exception:
         pass
 
+    # ── 봇방지 시스템 (2026-03-16) ──
+    antibot_migs = [
+        # catch_attempts에 반응시간 컬럼 추가
+        "ALTER TABLE catch_attempts ADD COLUMN reaction_ms INTEGER",
+        # 어뷰징 의심 점수 테이블
+        """CREATE TABLE IF NOT EXISTS abuse_scores (
+            user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+            bot_score REAL NOT NULL DEFAULT 0,
+            total_challenges INTEGER NOT NULL DEFAULT 0,
+            challenge_passes INTEGER NOT NULL DEFAULT 0,
+            challenge_fails INTEGER NOT NULL DEFAULT 0,
+            last_challenge_at TIMESTAMPTZ,
+            last_flagged_at TIMESTAMPTZ,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        # 챌린지 로그 (개별 기록)
+        """CREATE TABLE IF NOT EXISTS catch_challenges (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            session_id INTEGER NOT NULL,
+            challenge_type TEXT NOT NULL DEFAULT 'name',
+            expected_answer TEXT NOT NULL,
+            given_answer TEXT,
+            passed BOOLEAN,
+            reaction_ms INTEGER,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_catch_challenges_user ON catch_challenges(user_id, created_at)",
+    ]
+    for mig in antibot_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

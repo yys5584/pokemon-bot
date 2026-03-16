@@ -925,6 +925,15 @@ async def get_active_spawn(chat_id: int) -> dict | None:
     return await _retry(_do)
 
 
+async def get_spawn_session_by_id(session_id: int) -> dict | None:
+    """Get spawn session by ID (for challenge verification)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT * FROM spawn_sessions WHERE id = $1", session_id,
+    )
+    return dict(row) if row else None
+
+
 async def close_spawn_session(session_id: int, caught_by: int | None = None):
     async def _do():
         pool = await get_db()

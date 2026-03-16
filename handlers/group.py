@@ -14,6 +14,11 @@ from database import battle_queries as bq
 from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
 from services.tournament_service import is_tournament_active
+from services.abuse_service import (
+    record_reaction, should_challenge, create_challenge,
+    get_pending_challenge, resolve_challenge, handle_challenge_timeout,
+    clear_challenge, is_challenge_expired, CHALLENGE_TIMEOUT_SEC,
+)
 from utils.helpers import time_ago, get_decorated_name, truncate_name, schedule_delete, ball_emoji, shiny_emoji, icon_emoji, rarity_badge, type_badge
 from utils.honorific import format_actor
 from models.pokemon_data import ALL_POKEMON
@@ -162,8 +167,54 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
+            # ── 봇방지: 챌린지 체크 ──
+            needs_challenge = await should_challenge(user_id)
+            if needs_challenge:
+                pokemon_name = session.get("name_ko", "")
+                if pokemon_name:
+                    ch = create_challenge(user_id, session["id"], pokemon_name)
+                    try:
+                        ch_msg = await context.bot.send_message(
+                            chat_id=user_id,
+                            text=(
+                                f"⚠️ 포획 검증이 필요합니다!\n\n"
+                                f"현재 스폰된 포켓몬의 <b>이름</b>을 {CHALLENGE_TIMEOUT_SEC}초 내에 입력하세요.\n"
+                                f"(DM으로 이름만 입력)"
+                            ),
+                            parse_mode="HTML",
+                        )
+                        # 타임아웃 스케줄
+                        async def _challenge_timeout(uid=user_id, mid=ch_msg.message_id):
+                            await asyncio.sleep(CHALLENGE_TIMEOUT_SEC + 1)
+                            ch_now = get_pending_challenge(uid)
+                            if ch_now and not ch_now.get("answered"):
+                                await handle_challenge_timeout(uid)
+                                try:
+                                    await context.bot.send_message(
+                                        chat_id=uid,
+                                        text="⏰ 시간 초과! 포획이 취소되었습니다.",
+                                    )
+                                except Exception:
+                                    pass
+                                # 포획 참여 취소 처리는 불필요 (아직 record 안 함)
+                        asyncio.create_task(_challenge_timeout())
+                    except Exception:
+                        # DM 전송 실패 (봇 차단 등) → 챌린지 스킵
+                        clear_challenge(user_id)
+                        needs_challenge = False
+
+                    if needs_challenge:
+                        # 챌린지 대기 중 — record_attempt 하지 않고 return
+                        # 챌린지 통과 시 _handle_challenge_answer에서 record 처리
+                        return
+
             # Phase 3: record attempt (sequential — must happen before message)
             await record_attempt(session["id"], user_id)
+
+            # ── 봇방지: 반응시간 기록 (fire-and-forget) ──
+            asyncio.create_task(
+                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=None))
+            )
 
             # 던진 후 남은 수량 = remaining - 1 (방금 1회 사용)
             after_remaining = max(0, remaining - 1) if remaining >= 0 else -1
@@ -270,6 +321,12 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 get_user_tier(user_id),
                 rq.get_season_record(user_id, current_season_id()),
             )
+
+            # ── 봇방지: 반응시간 기록 (fire-and-forget) ──
+            asyncio.create_task(
+                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=None))
+            )
+
             if season_rec and season_rec.get("rp") is not None:
                 _tk, _dv, _ = config.get_division_info(season_rec["rp"])
                 if season_rec.get("tier") == "challenger":
@@ -362,6 +419,12 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 get_user_tier(user_id),
                 rq.get_season_record(user_id, current_season_id()),
             )
+
+            # ── 봇방지: 반응시간 기록 (fire-and-forget) ──
+            asyncio.create_task(
+                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=None))
+            )
+
             if season_rec and season_rec.get("rp") is not None:
                 _tk, _dv, _ = config.get_division_info(season_rec["rp"])
                 if season_rec.get("tier") == "challenger":
@@ -982,3 +1045,126 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
                 schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             except Exception:
                 pass
+
+
+# ─── 봇방지: 챌린지 응답 핸들러 (DM) ────────────────────
+async def challenge_answer_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """DM에서 챌린지 응답 처리. 챌린지 대기 중인 유저만 반응."""
+    if not update.effective_user or not update.message or not update.message.text:
+        return
+    user_id = update.effective_user.id
+
+    ch = get_pending_challenge(user_id)
+    if not ch:
+        return  # 챌린지 없으면 무시 (다른 DM 핸들러에게 위임)
+
+    if ch.get("answered"):
+        return
+
+    answer = update.message.text.strip()
+
+    # 만료 체크
+    if is_challenge_expired(ch):
+        await handle_challenge_timeout(user_id)
+        await update.message.reply_text("⏰ 시간이 초과되어 포획이 취소되었습니다.")
+        return
+
+    # 정답 체크
+    ch["answered"] = True
+    passed = await resolve_challenge(user_id, answer)
+
+    if passed:
+        await update.message.reply_text("✅ 검증 통과! 포획에 참여합니다.")
+
+        # 포획 참여 처리: record_attempt 실행
+        session_id = ch["session_id"]
+        try:
+            await record_attempt(session_id, user_id)
+
+            # 반응시간도 기록
+            try:
+                from database.connection import get_db as _get_db
+                pool = await _get_db()
+                sess = await pool.fetchrow(
+                    "SELECT spawned_at FROM spawn_sessions WHERE id = $1", session_id
+                )
+                if sess:
+                    asyncio.create_task(
+                        record_reaction(user_id, session_id, sess["spawned_at"], datetime.now(tz=None))
+                    )
+            except Exception:
+                pass
+
+            # 그룹 채팅에 던졌다 메시지 전송
+            sess_row = await queries.get_spawn_session_by_id(session_id)
+            if sess_row and not sess_row.get("is_resolved"):
+                chat_id = sess_row["chat_id"]
+                display_name = update.effective_user.first_name or "트레이너"
+                username = update.effective_user.username
+                user = await queries.get_user(user_id)
+
+                from services.subscription_service import get_user_tier
+                from services.ranked_service import current_season_id
+                from database import ranked_queries as rq
+                sub_tier, season_rec = await asyncio.gather(
+                    get_user_tier(user_id),
+                    rq.get_season_record(user_id, current_season_id()),
+                )
+                if season_rec and season_rec.get("rp") is not None:
+                    _tk, _dv, _ = config.get_division_info(season_rec["rp"])
+                    if season_rec.get("tier") == "challenger":
+                        _tk = "challenger"
+                        _dv = 0
+                    r_badge = config.get_ranked_badge_html(_tk, _dv)
+                else:
+                    r_badge = config.get_ranked_badge_html("bronze", 2)
+
+                decorated = get_decorated_name(
+                    display_name,
+                    user.get("title", "") if user else "",
+                    user.get("title_emoji", "") if user else "",
+                    username,
+                    html=True,
+                    ranked_badge=r_badge,
+                )
+                throw_text = format_actor(decorated, "포켓볼을 던졌다!", sub_tier)
+                attempt_msg = await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=f"{ball_emoji('pokeball')} {throw_text}",
+                    parse_mode="HTML",
+                )
+                track_attempt_message(session_id, chat_id, attempt_msg.message_id)
+        except Exception as e:
+            logger.error(f"Challenge pass → record_attempt failed: {e}")
+    else:
+        expected = ch.get("expected", "???")
+        await update.message.reply_text(
+            f"❌ 오답입니다! (정답: {expected})\n이번 포획은 취소되었습니다."
+        )
+        # 관리자 알림 (연속 실패 시)
+        asyncio.create_task(_notify_admin_if_needed(user_id, context))
+
+
+async def _notify_admin_if_needed(user_id: int, context: ContextTypes.DEFAULT_TYPE):
+    """챌린지 연속 실패 시 관리자에게 DM 알림."""
+    try:
+        from services.abuse_service import get_bot_score, BOT_SCORE_THRESHOLD_HIGH
+        score = await get_bot_score(user_id)
+        if score >= BOT_SCORE_THRESHOLD_HIGH:
+            user = await queries.get_user(user_id)
+            name = user.get("display_name", "???") if user else "???"
+            uname = user.get("username", "") if user else ""
+            uname_str = f" (@{uname})" if uname else ""
+            await context.bot.send_message(
+                chat_id=config.ADMIN_IDS[0] if config.ADMIN_IDS else 0,
+                text=(
+                    f"🚨 <b>봇 의심 유저 알림</b>\n\n"
+                    f"유저: {name}{uname_str}\n"
+                    f"ID: <code>{user_id}</code>\n"
+                    f"봇 점수: <b>{score:.2f}</b>\n\n"
+                    f"<code>/어뷰징상세 {user_id}</code> 로 확인"
+                ),
+                parse_mode="HTML",
+            )
+    except Exception as e:
+        logger.warning(f"_notify_admin_if_needed error: {e}")
