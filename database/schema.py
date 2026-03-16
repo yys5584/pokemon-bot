@@ -1236,6 +1236,19 @@ async def create_tables():
     except Exception:
         pass
 
+    # ── 강스 차단 테이블 (2026-03-16) ──
+    try:
+        await pool.execute("""
+            CREATE TABLE IF NOT EXISTS force_spawn_bans (
+                chat_id BIGINT PRIMARY KEY,
+                banned_until TIMESTAMPTZ NOT NULL,
+                reason TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """, timeout=30)
+    except Exception:
+        pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

@@ -151,9 +151,31 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             return
 
-        # Check unique catchers (24h) — 3명 미만이면 강스 차단
+        # Check force spawn ban (24h lockout)
         from database.connection import get_db as _get_db
         _pool = await _get_db()
+        fs_ban = await _pool.fetchval(
+            """SELECT banned_until FROM force_spawn_bans
+               WHERE chat_id = $1 AND banned_until > NOW()""",
+            chat_id,
+        )
+        if fs_ban:
+            from datetime import timezone as _tz
+            now_utc = config.get_kst_now().astimezone(_tz.utc)
+            ban_utc = fs_ban.astimezone(_tz.utc) if fs_ban.tzinfo else fs_ban.replace(tzinfo=_tz.utc)
+            remaining_sec = max(0, int((ban_utc - now_utc).total_seconds()))
+            if remaining_sec >= 3600:
+                time_str = f"{remaining_sec // 3600}시간 {(remaining_sec % 3600) // 60}분"
+            else:
+                time_str = f"{remaining_sec // 60}분"
+            resp = await update.message.reply_text(
+                f"🚫 이 방은 현재 강스가 제한되어 있습니다.\n"
+                f"해제까지 약 {time_str} 남았습니다.",
+            )
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            return
+
+        # Check unique catchers (24h) — 3명 미만이면 24시간 차단
         unique_catchers = await _pool.fetchval(
             """SELECT COUNT(DISTINCT caught_by_user_id)
                FROM spawn_sessions
@@ -166,11 +188,19 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             # 첫 강스 3회는 허용 (신규 방 cold start)
             fs_count_now = await queries.get_force_spawn_count(chat_id)
             if fs_count_now >= 3:
+                # 24시간 차단 기록
+                await _pool.execute(
+                    """INSERT INTO force_spawn_bans (chat_id, banned_until, reason)
+                       VALUES ($1, NOW() + interval '24 hours', $2)
+                       ON CONFLICT (chat_id) DO UPDATE
+                       SET banned_until = NOW() + interval '24 hours', reason = $2""",
+                    chat_id, f"unique_catchers={unique_catchers}",
+                )
                 resp = await update.message.reply_text(
-                    f"🚫 최근 24시간 고유 포획자가 {unique_catchers}명입니다.\n"
-                    f"3명 이상이 포획에 참여해야 강스를 사용할 수 있습니다.",
+                    f"🚫 이 방의 강스가 24시간 제한됩니다.",
                 )
                 schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+                logger.warning(f"Force spawn banned chat={chat_id} catchers={unique_catchers}")
                 return
 
         # Check force spawn limit (50 per chat) — 구독자 무제한 체크
