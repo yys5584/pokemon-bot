@@ -212,13 +212,13 @@ async def _check_behavior_patterns(user_id: int):
         bump = 0.0
         flags = []
 
-        # 1) 멀티방 순회: 최근 10분 내 포획한 방 수
+        # 1) 멀티방 순회: 최근 1분 내 포획한 방 수
         window_start = now - MULTI_ROOM_WINDOW_SEC
         recent = [(t, c) for t, c in history if t > window_start]
         unique_rooms = set(c for _, c in recent)
         if len(unique_rooms) >= MULTI_ROOM_THRESHOLD:
             bump += MULTI_ROOM_SCORE_BUMP
-            flags.append(f"multi_room:{len(unique_rooms)}rooms/{len(recent)}catches/10min")
+            flags.append(f"multi_room:{len(unique_rooms)}rooms/{len(recent)}catches/1min")
 
         # 2) 시간당 과다 포획: 최근 1시간 내 포획 수
         hourly_count = len(history)  # history는 이미 1시간 내만 보관
