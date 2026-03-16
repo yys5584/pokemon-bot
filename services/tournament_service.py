@@ -1160,10 +1160,19 @@ async def _run_match(
 
 async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     """JobQueue callback — 22:00 KST: close registration, run tournament."""
+    # Fallback: if state was lost (bot restart), reload from DB
+    if not _tournament_state["participants"]:
+        db_participants = await _load_registrations_db()
+        if db_participants:
+            _tournament_state["participants"] = db_participants
+            logger.info(f"Loaded {len(db_participants)} participants from DB (restart recovery)")
+    if not _tournament_state["chat_id"]:
+        _tournament_state["chat_id"] = config.TOURNAMENT_CHAT_ID
+
     chat_id = _tournament_state["chat_id"]
 
-    if not _tournament_state["chat_id"] or not _tournament_state["participants"]:
-        # Tournament wasn't set up properly
+    if not chat_id or not _tournament_state["participants"]:
+        logger.warning("start_tournament: no chat_id or participants — aborting")
         return
 
     _tournament_state["registering"] = False
