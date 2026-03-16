@@ -418,16 +418,19 @@ async def _build_pokemon_data(rows, battle_stats: dict | None = None) -> list[di
 
         base_kw = base_raw if base_raw else {}
 
-        # Stats WITH IV
+        # 어드바이저 기준 강화: 이로치 7강, 일반 5강
+        advisor_friendship = 7 if r.get("is_shiny", 0) else 5
+
+        # Stats WITH IV (어드바이저 기준 강화)
         real_stats = calc_battle_stats(
-            rarity, stat_type, friendship, evo_stage,
+            rarity, stat_type, advisor_friendship, evo_stage,
             ivs["iv_hp"], ivs["iv_atk"], ivs["iv_def"],
             ivs["iv_spa"], ivs["iv_spdef"], ivs["iv_spd"],
             **base_kw,
         )
         # Stats WITHOUT IV (IV_mult=1.0)
         base_stats = calc_battle_stats(
-            rarity, stat_type, friendship, evo_stage,
+            rarity, stat_type, advisor_friendship, evo_stage,
             None, None, None, None, None, None,
             **base_kw,
         )
@@ -731,17 +734,36 @@ async def _get_user_battle_stats(user_id: int) -> dict:
 def _pick_team(candidates: list[dict], max_size: int = 6) -> list[dict]:
     """Pick top candidates respecting team composition + cost rules.
     Rules: max 1 ultra_legendary, max 1 legendary, no duplicate epic/leg/ultra species,
-    total cost <= 18, always try to fill 6 slots.
+    total cost <= 18, **must fill 6 slots** (demote high-cost picks if needed).
     """
+
+    def _composition_ok(team_list):
+        """Check ultra/legendary/duplicate constraints."""
+        ultra = sum(1 for p in team_list if p["rarity"] == "ultra_legendary")
+        leg = sum(1 for p in team_list if p["rarity"] == "legendary")
+        if ultra > 1 or leg > 1:
+            return False
+        # 에픽 이상 종류 중복 체크
+        high_ids = [p["pokemon_id"] for p in team_list if p["rarity"] in ("epic", "legendary", "ultra_legendary")]
+        if len(high_ids) != len(set(high_ids)):
+            return False
+        return True
+
+    def _team_cost(team_list):
+        return sum(_RARITY_COST.get(p["rarity"], 1) for p in team_list)
+
+    # 1차: 탐욕 방식으로 6마리 채우되, 남은 슬롯에 필요한 최소 코스트를 예약
     team = []
-    used_ids = set()  # pokemon_id (에픽 이상 중복 방지)
+    used_ids = set()
     has_legendary = False
     has_ultra = False
     total_cost = 0
 
-    def _can_add(p):
+    def _can_add(p, slots_remaining):
         cost = _RARITY_COST.get(p["rarity"], 1)
-        if total_cost + cost > _COST_LIMIT:
+        # 남은 슬롯(이 포켓몬 제외)에 최소 코스트 1씩 예약
+        reserved = max(slots_remaining - 1, 0) * 1
+        if total_cost + cost + reserved > _COST_LIMIT:
             return False
         if p["rarity"] == "ultra_legendary" and has_ultra:
             return False
@@ -764,27 +786,31 @@ def _pick_team(candidates: list[dict], max_size: int = 6) -> list[dict]:
         if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
             used_ids.add(p["pokemon_id"])
 
-    # 1차: 우선순위(전투력) 순으로 코스트 허용 내 추가
-    skipped = []
     for p in candidates:
         if len(team) >= max_size:
             break
-        if _can_add(p):
+        slots_left = max_size - len(team)
+        if _can_add(p, slots_left):
             _add(p)
-        else:
-            skipped.append(p)
 
-    # 2차: 6마리 미달이면, 남은 코스트로 들어갈 수 있는 포켓몬 채움
+    # 2차: 6마리 미달이면, 전체 후보에서 저코스트 포켓몬으로 채움
     if len(team) < max_size:
-        remaining = _COST_LIMIT - total_cost
-        # 낮은 코스트순 정렬 (같으면 전투력 높은 순)
-        fillers = [p for p in skipped if p not in team]
+        team_set = set(id(p) for p in team)
+        fillers = [p for p in candidates if id(p) not in team_set]
         fillers.sort(key=lambda p: (_RARITY_COST.get(p["rarity"], 1), -p.get("real_power", 0)))
         for p in fillers:
             if len(team) >= max_size:
                 break
-            if _can_add(p):
-                _add(p)
+            cost = _RARITY_COST.get(p["rarity"], 1)
+            if total_cost + cost > _COST_LIMIT:
+                continue
+            if p["rarity"] == "ultra_legendary" and has_ultra:
+                continue
+            if p["rarity"] == "legendary" and has_legendary:
+                continue
+            if p["rarity"] in ("epic", "legendary", "ultra_legendary") and p["pokemon_id"] in used_ids:
+                continue
+            _add(p)
 
     return team
 
@@ -1081,7 +1107,9 @@ def _recommend_balance(pokemon: list[dict], meta: dict | None = None) -> tuple[l
         if len(team) >= 6:
             break
         cost = _RARITY_COST.get(p["rarity"], 1)
-        if total_cost + cost > _COST_LIMIT:
+        slots_left = 6 - len(team)
+        reserved = max(slots_left - 1, 0) * 1  # 남은 슬롯에 최소 코스트 예약
+        if total_cost + cost + reserved > _COST_LIMIT:
             continue
         if p["rarity"] == "ultra_legendary":
             if has_ultra:
