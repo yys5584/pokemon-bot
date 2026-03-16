@@ -18,6 +18,7 @@ from services.abuse_service import (
     record_reaction, should_challenge, create_challenge,
     get_pending_challenge, resolve_challenge, handle_challenge_timeout,
     clear_challenge, is_challenge_expired, CHALLENGE_TIMEOUT_SEC,
+    is_catch_locked, format_lock_duration,
 )
 from utils.helpers import time_ago, get_decorated_name, truncate_name, schedule_delete, ball_emoji, shiny_emoji, icon_emoji, rarity_badge, type_badge
 from utils.honorific import format_actor
@@ -167,6 +168,17 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
+            # ── 봇방지: 잠금 체크 ──
+            locked, remain_sec = is_catch_locked(user_id)
+            if locked:
+                resp = await update.message.reply_text(
+                    f"🔒 포획이 잠금 상태입니다.\n"
+                    f"남은 시간: <b>{format_lock_duration(remain_sec)}</b>",
+                    parse_mode="HTML",
+                )
+                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+                return
+
             # ── 봇방지: 챌린지 체크 ──
             needs_challenge = await should_challenge(user_id)
             if needs_challenge:
@@ -221,10 +233,12 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             ch_now = get_pending_challenge(uid)
                             if ch_now and not ch_now.get("answered"):
                                 await handle_challenge_timeout(uid)
+                                _, remain = is_catch_locked(uid)
+                                lock_text = f"\n🔒 포획 잠금: {format_lock_duration(remain)}" if remain else ""
                                 try:
                                     await context.bot.send_message(
                                         chat_id=uid,
-                                        text="⏰ 시간 초과! 포획이 취소되었습니다.",
+                                        text=f"⏰ 시간 초과! 포획이 취소되었습니다.{lock_text}",
                                     )
                                 except Exception:
                                     pass
@@ -1105,7 +1119,11 @@ async def challenge_callback_handler(update: Update, context: ContextTypes.DEFAU
     # 만료 체크
     if is_challenge_expired(ch):
         await handle_challenge_timeout(user_id)
-        await query.edit_message_caption(caption="⏰ 시간이 초과되어 포획이 취소되었습니다.")
+        _, remain = is_catch_locked(user_id)
+        lock_msg = f"\n🔒 포획 잠금: {format_lock_duration(remain)}" if remain else ""
+        await query.edit_message_caption(
+            caption=f"⏰ 시간이 초과되어 포획이 취소되었습니다.{lock_msg}"
+        )
         return
 
     # 정답 체크
@@ -1177,8 +1195,10 @@ async def challenge_callback_handler(update: Update, context: ContextTypes.DEFAU
             logger.error(f"Challenge pass → record_attempt failed: {e}")
     else:
         expected = ch.get("expected", "???")
+        _, remain = is_catch_locked(user_id)
+        lock_msg = f"\n🔒 포획 잠금: {format_lock_duration(remain)}" if remain else ""
         await query.edit_message_caption(
-            caption=f"❌ 오답입니다! (정답: {expected})\n이번 포획은 취소되었습니다."
+            caption=f"❌ 오답입니다! (정답: {expected})\n이번 포획은 취소되었습니다.{lock_msg}"
         )
         # 관리자 알림 (연속 실패 시)
         asyncio.create_task(_notify_admin_if_needed(user_id, context))

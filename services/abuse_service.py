@@ -24,6 +24,9 @@ VERY_FAST_REACTION_MS = 1000      # 1초 이하 = 매우 의심
 MIN_SAMPLES_FOR_SCORING = 5       # 최소 5회 포획 후부터 점수 계산
 SCORE_DECAY_PER_HOUR = 0.02       # 시간당 점수 자연 감소
 
+# 챌린지 실패 시 잠금 시간 (초) — 1차 30분, 2차 1시간, 3차+ 12시간
+LOCK_DURATIONS = [30 * 60, 60 * 60, 12 * 60 * 60]
+
 # ─── 메모리 캐시 ───────────────────────────────────
 # user_id -> list of recent reaction_ms (최근 20개)
 _reaction_cache: dict[int, list[int]] = defaultdict(list)
@@ -34,6 +37,42 @@ _score_cache: dict[int, float] = {}
 
 # user_id -> pending challenge info
 _pending_challenges: dict[int, dict] = {}
+
+# user_id -> {"locked_until": float(timestamp), "strike": int}
+_catch_locks: dict[int, dict] = {}
+
+
+# ─── 포획 잠금 ────────────────────────────────────
+def is_catch_locked(user_id: int) -> tuple[bool, int]:
+    """포획 잠금 여부 확인. 반환: (잠김 여부, 남은 초)."""
+    lock = _catch_locks.get(user_id)
+    if not lock:
+        return False, 0
+    remaining = int(lock["locked_until"] - time.time())
+    if remaining <= 0:
+        _catch_locks.pop(user_id, None)
+        return False, 0
+    return True, remaining
+
+
+def _apply_catch_lock(user_id: int):
+    """챌린지 실패/타임아웃 시 잠금 적용. 연속 실패에 따라 단계적 잠금."""
+    lock = _catch_locks.get(user_id)
+    strike = (lock["strike"] if lock else 0) + 1
+    duration_idx = min(strike - 1, len(LOCK_DURATIONS) - 1)
+    duration = LOCK_DURATIONS[duration_idx]
+    _catch_locks[user_id] = {
+        "locked_until": time.time() + duration,
+        "strike": strike,
+    }
+    return strike, duration
+
+
+def format_lock_duration(seconds: int) -> str:
+    """잠금 시간을 읽기 좋은 형태로 포맷."""
+    if seconds >= 3600:
+        return f"{seconds // 3600}시간"
+    return f"{seconds // 60}분"
 
 
 # ─── 반응시간 기록 ─────────────────────────────────
@@ -244,6 +283,8 @@ async def resolve_challenge(user_id: int, answer: str) -> bool:
             # 캐시도 감소
             if user_id in _score_cache:
                 _score_cache[user_id] = max(0, _score_cache[user_id] - 0.15)
+            # 정답 시 잠금 스트라이크 초기화
+            _catch_locks.pop(user_id, None)
         else:
             await pool.execute(
                 """INSERT INTO abuse_scores (user_id, bot_score, total_challenges, challenge_fails, last_challenge_at, last_flagged_at, updated_at)
@@ -258,6 +299,8 @@ async def resolve_challenge(user_id: int, answer: str) -> bool:
             # 캐시도 증가
             if user_id in _score_cache:
                 _score_cache[user_id] = min(1.0, _score_cache[user_id] + 0.25)
+            # 실패 시 포획 잠금 적용
+            _apply_catch_lock(user_id)
 
     except Exception as e:
         logger.warning(f"resolve_challenge DB error: {e}")
@@ -296,6 +339,8 @@ async def handle_challenge_timeout(user_id: int):
         )
         if user_id in _score_cache:
             _score_cache[user_id] = min(1.0, _score_cache[user_id] + 0.25)
+        # 타임아웃도 실패로 잠금 적용
+        _apply_catch_lock(user_id)
     except Exception as e:
         logger.warning(f"handle_challenge_timeout DB error: {e}")
 
