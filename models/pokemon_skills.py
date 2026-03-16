@@ -858,9 +858,9 @@ POKEMON_SKILLS = {
     397: ("에어슬래시", 1.3),        # 찌르버드 (common) normal/flying
     398: [("브레이브버드", 1.7), ("인파이트", 1.6)],  # 찌르호크 (rare) normal/flying
     399: ("몸통박치기", 1.2),        # 비버니 (common) normal
-    400: ("하이퍼보이스", 1.4),      # 비버통 (common) normal/water
+    400: ("하이퍼보이스", 1.3),      # 비버통 (common) normal/water
     401: ("벌레의저항", 1.2),        # 귀뚤뚜기 (common) bug
-    402: ("시저크로스", 1.4),        # 귀뚤톡크 (common) bug
+    402: ("시저크로스", 1.3),        # 귀뚤톡크 (common) bug
 
     # --- Shinx line ---
     403: ("스파크", 1.2),            # 꼬링크 (common) electric
@@ -887,11 +887,11 @@ POKEMON_SKILLS = {
     416: ("공격지령", 1.5),          # 비퀸 (rare) bug/flying
 
     # --- Singles ---
-    417: ("볼트체인지", 1.4),        # 파치리스 (common) electric
+    417: ("볼트체인지", 1.3),        # 파치리스 (common) electric
     418: ("아쿠아제트", 1.3),        # 브이젤 (common) water
     419: ("아쿠아테일", 1.5),        # 플로젤 (rare) water
     420: ("흡수", 1.2),              # 체리버 (common) grass
-    421: ("솔라빔", 1.5),            # 체리꼬 (common) grass
+    421: ("솔라빔", 1.3),            # 체리꼬 (common) grass
     422: ("탁류", 1.2),              # 깝질무 (common) water
     423: [("대지의힘", 1.5), ("탁류", 1.4)],  # 트리토돈 (rare) water/ground
 
@@ -931,7 +931,7 @@ POKEMON_SKILLS = {
     440: ("알폭탄", 1.2),            # 핑복 (common) normal
 
     # --- Chatot ---
-    441: ("수다", 1.4),              # 페라페 (common) normal/flying
+    441: ("수다", 1.3),              # 페라페 (common) normal/flying
 
     # --- Spiritomb ---
     442: [("섀도볼", 1.5), ("악의파동", 1.5)],  # 화강돌 (epic) ghost/dark
@@ -950,7 +950,7 @@ POKEMON_SKILLS = {
 
     # --- Hippopotas line ---
     449: ("지진", 1.3),              # 히포포타스 (common) ground
-    450: ("지진", 1.6),              # 하마돈 (rare) ground
+    450: ("지진", 1.5),              # 하마돈 (rare) ground
 
     # --- Skorupi / Drapion ---
     451: ("독찌르기", 1.2),          # 스콜피 (common) poison/bug
@@ -972,18 +972,18 @@ POKEMON_SKILLS = {
 
     # --- Snover / Abomasnow ---
     459: ("냉동빔", 1.3),            # 눈쓰개 (common) grass/ice
-    460: [("눈보라", 1.6), ("우드해머", 1.6)],  # 눈설왕 (rare) grass/ice
+    460: [("눈보라", 1.5), ("우드해머", 1.5)],  # 눈설왕 (rare) grass/ice
 
     # --- Cross-gen evolutions (continued) ---
     461: [("얼음뭉치", 1.6), ("밤의슬래시", 1.5)],  # 포푸니라 (epic) dark/ice
     462: [("10만볼트", 1.6), ("라스터캐논", 1.5)],   # 자포코일 (epic) electric/steel
     463: ("파괴광선", 1.5),          # 내루미 (rare) normal
     464: [("암석포", 1.7), ("지진", 1.6)],  # 거대코뿌리 (epic) ground/rock
-    465: [("파워휩", 1.6), ("지진", 1.5)],  # 덩쿠림보 (rare) grass
+    465: [("파워휩", 1.5), ("지진", 1.4)],  # 덩쿠림보 (rare) grass
     466: [("와일드볼트", 1.7), ("크로스촙", 1.5)],  # 에레키블 (epic) electric
     467: [("대문자", 1.7), ("사이코키네시스", 1.5)],  # 마그마번 (epic) fire
     468: [("에어슬래시", 1.6), ("파동탄", 1.5)],  # 토게키스 (epic) fairy/flying
-    469: [("벌레의야단법석", 1.6), ("에어슬래시", 1.5)],  # 메가자리 (rare) bug/flying
+    469: [("벌레의야단법석", 1.5), ("에어슬래시", 1.4)],  # 메가자리 (rare) bug/flying
     470: ("리프블레이드", 1.6),      # 리피아 (rare) grass
     471: ("냉동빔", 1.6),            # 글레이시아 (rare) ice
     472: [("지진", 1.5), ("독찌르기", 1.4)],  # 글라이온 (rare) ground/flying
