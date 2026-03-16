@@ -2829,7 +2829,6 @@ async def report_shiny_catches(today) -> list[dict]:
         """SELECT sl.caught_by_user_id as user_id,
                   u.display_name, u.username,
                   pm.name_ko, pm.id as pokemon_id,
-                  sl.used_master_ball,
                   sl.spawned_at
            FROM spawn_log sl
            JOIN pokemon_master pm ON sl.pokemon_id = pm.id
@@ -2847,18 +2846,15 @@ async def report_market_trends(today) -> list[dict]:
     """오늘 거래소 거래 완료 건 (인기 매물, 가격)."""
     pool = await get_db()
     rows = await pool.fetch(
-        """SELECT pm.name_ko, pm.id as pokemon_id,
-                  ml.price, ml.currency,
-                  up.is_shiny,
+        """SELECT ml.pokemon_name as name_ko, ml.pokemon_id,
+                  ml.price_bp as price, ml.is_shiny,
                   seller.display_name as seller_name,
                   buyer.display_name as buyer_name
            FROM market_listings ml
-           JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
-           JOIN pokemon_master pm ON up.pokemon_id = pm.id
            LEFT JOIN users seller ON ml.seller_id = seller.user_id
            LEFT JOIN users buyer ON ml.buyer_id = buyer.user_id
            WHERE ml.sold_at >= $1 AND ml.status = 'sold'
-           ORDER BY ml.price DESC
+           ORDER BY ml.price_bp DESC
            LIMIT 15""",
         today,
     )
@@ -2872,7 +2868,7 @@ async def report_battle_meta(today) -> list[dict]:
         """SELECT pm.name_ko, pm.id as pokemon_id,
                   COUNT(*) as uses, 0.0 as win_rate
            FROM battle_records br
-           JOIN battle_teams bt ON br.winner_id = bt.user_id AND bt.team_num = 1
+           JOIN battle_teams bt ON br.winner_id = bt.user_id AND bt.team_number = 1
            JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
            WHERE br.created_at >= $1
@@ -2940,9 +2936,9 @@ async def report_checkin_stats(today) -> dict:
     pool = await get_db()
     row = await pool.fetchrow(
         """SELECT COUNT(*) as checkins
-           FROM bp_purchases
-           WHERE item_key = 'daily_money'
-             AND purchased_at >= $1""",
+           FROM bp_log
+           WHERE source = 'daily_checkin'
+             AND created_at >= $1""",
         today,
     )
     return {"checkins": row["checkins"] if row else 0}

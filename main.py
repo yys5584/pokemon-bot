@@ -189,7 +189,10 @@ async def post_init(application: Application):
             logger.info(f"Sent {len(refunded_balls)} ball refund DMs")
         logger.info(f"[startup resolve] Done: {len(refunded_balls) if refunded_balls else 0} refunds")
 
-    application.job_queue.run_once(_delayed_resolve, when=15, name="startup_resolve")
+    application.job_queue.run_once(
+        _delayed_resolve, when=15, name="startup_resolve",
+        job_kwargs={"misfire_grace_time": None},  # 절대 스킵 방지
+    )
 
     # 가챠 미전달 보상 복구 — 재시작 직전 2분 이내 뽑기 기록이 있으면 DM 발송
     try:
@@ -1278,8 +1281,7 @@ async def _send_daily_kpi_report(context):
             items = ""
             for s in shiny_catches:
                 name = (s["display_name"] or "?")[:10]
-                ball = "🔴" if s.get("used_master_ball") else "🔵"
-                items += f'<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5">✨ <b>{s["name_ko"]}</b> — {name} {ball}</div>'
+                items += f'<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5">✨ <b>{s["name_ko"]}</b> — {name}</div>'
             shiny_html = f"""
 <div class="section">
 <div class="section-title">✨ 이로치 포획 ({len(shiny_catches)}마리)</div>
@@ -1292,8 +1294,7 @@ async def _send_daily_kpi_report(context):
             items = ""
             for m in market_trends[:10]:
                 shiny_mark = "✨" if m.get("is_shiny") else ""
-                currency = m.get("currency", "bp")
-                price_str = f"{m['price']:,} {'BP' if currency == 'bp' else '마볼'}"
+                price_str = f"{m['price']:,} BP"
                 items += (
                     f'<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5">'
                     f'{shiny_mark}<b>{m["name_ko"]}</b> — {price_str} '
