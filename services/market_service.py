@@ -7,7 +7,7 @@ import config
 from database import queries
 from database import battle_queries as bq
 from services.evolution_service import build_trade_evo_info
-from utils.helpers import update_title
+from utils.helpers import update_title, type_badge
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ async def create_listing(
     shiny_tag = " ★이로치" if pokemon.get("is_shiny") else ""
     return True, (
         f"🏪 거래소 등록 완료!\n\n"
-        f"{pokemon['emoji']} {pokemon['name_ko']}{shiny_tag}\n"
+        f"{type_badge(pokemon['pokemon_id'])} {pokemon['name_ko']}{shiny_tag}\n"
         f"💰 판매가: {price_bp:,} BP\n"
         f"📋 수수료: {fee:,} BP ({int(config.MARKET_FEE_RATE*100)}%)\n"
         f"💵 수익 예상: {seller_gets:,} BP\n\n"
@@ -154,7 +154,7 @@ async def buy_listing(
     seller_gets = price - fee
     msg = (
         f"🎉 구매 완료!\n\n"
-        f"{listing['emoji']} {listing['pokemon_name']}{shiny_tag}\n"
+        f"{type_badge(listing['pokemon_id'])} {listing['pokemon_name']}{shiny_tag}\n"
         f"💰 {price:,} BP 지불"
     )
 
@@ -164,7 +164,7 @@ async def buy_listing(
         "buyer_id": buyer_id,
         "pokemon_name": listing["pokemon_name"],
         "pokemon_id": listing["pokemon_id"],
-        "emoji": listing["emoji"],
+        "pokemon_id": listing["pokemon_id"],
         "price": price,
         "fee": fee,
         "seller_gets": seller_gets,
@@ -192,5 +192,5 @@ async def cancel_listing_for_user(
     shiny_tag = " ★이로치" if listing.get("is_shiny") else ""
     return True, (
         f"✅ 거래소 등록 취소!\n"
-        f"{listing['emoji']} {listing['pokemon_name']}{shiny_tag} (#{listing_id})"
+        f"{type_badge(listing['pokemon_id'])} {listing['pokemon_name']}{shiny_tag} (#{listing_id})"
     )

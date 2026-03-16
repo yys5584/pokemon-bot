@@ -5,7 +5,7 @@ import logging
 
 import config
 from database import queries
-from utils.helpers import update_title
+from utils.helpers import update_title, type_badge
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +67,8 @@ async def try_evolve(user_id: int, instance_id: int) -> tuple[bool, str]:
 
     return True, (
         f"✨ 축하합니다!\n\n"
-        f"{master['emoji']} {master['name_ko']}이(가)\n"
-        f"{target['emoji']} {target['name_ko']}(으)로 진화했습니다!\n\n"
+        f"{type_badge(master['id'])} {master['name_ko']}이(가)\n"
+        f"{type_badge(target['id'])} {target['name_ko']}(으)로 진화했습니다!\n\n"
         f"도감에 등록되었습니다!"
     )
 
@@ -107,6 +107,6 @@ async def try_trade_evolve(user_id: int, instance_id: int, pokemon_id: int) -> s
 
     return (
         f"\n\n✨ 교환 진화!\n"
-        f"{source['emoji']} {source['name_ko']} → "
-        f"{target['emoji']} {target['name_ko']}"
+        f"{type_badge(source['id'])} {source['name_ko']} → "
+        f"{type_badge(target['id'])} {target['name_ko']}"
     )

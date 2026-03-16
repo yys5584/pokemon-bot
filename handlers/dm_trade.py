@@ -201,8 +201,8 @@ async def accept_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if source and target:
                     evo_text = (
                         f"✨ 교환 진화 가능!\n\n"
-                        f"{source['emoji']} {source['name_ko']}을(를)\n"
-                        f"{target['emoji']} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
+                        f"{type_badge(source['id'])} {source['name_ko']}을(를)\n"
+                        f"{type_badge(target['id'])} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
                         f"진화하시겠습니까?"
                     )
                     evo_buttons = [[

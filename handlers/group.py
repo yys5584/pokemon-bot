@@ -1033,7 +1033,8 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
         if active:
             resp = await update.message.reply_text(
                 f"⚠️ 이미 스폰 중인 포켓몬이 있습니다!\n"
-                f"{active['emoji']} {active['name_ko']}을(를) 먼저 잡아주세요."
+                f"{type_badge(active['pokemon_id'])} {active['name_ko']}을(를) 먼저 잡아주세요.",
+                parse_mode="HTML",
             )
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             return

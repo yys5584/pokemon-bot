@@ -77,7 +77,7 @@ async def create_trade_offer(
     shiny_tag = " ★이로치" if is_shiny else ""
     return True, (
         f"📤 교환 요청을 보냈습니다!\n\n"
-        f"제안: {pokemon['emoji']} {pokemon['name_ko']}{shiny_tag}\n"
+        f"제안: {type_badge(pokemon['pokemon_id'])} {pokemon['name_ko']}{shiny_tag}\n"
         f"상대: {target['display_name']}\n"
         f"💰 BP {cost} 차감 (잔여: {remaining_bp} BP)\n\n"
         f"상대방에게 DM으로 알림이 갑니다."

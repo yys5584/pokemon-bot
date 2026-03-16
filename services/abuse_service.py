@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 BOT_SCORE_THRESHOLD_LOW = 0.4     # 이 이상이면 10% 확률로 챌린지
 BOT_SCORE_THRESHOLD_MID = 0.7     # 이 이상이면 50% 확률로 챌린지
 BOT_SCORE_THRESHOLD_HIGH = 0.9    # 이 이상이면 100% 챌린지
-CHALLENGE_TIMEOUT_SEC = 300       # 챌린지 응답 제한시간 (5분)
+CHALLENGE_TIMEOUT_SEC = 180       # 챌린지 응답 제한시간 (3분)
 FAST_REACTION_MS = 2000           # 2초 이하 = 의심 반응
 VERY_FAST_REACTION_MS = 1000      # 1초 이하 = 매우 의심
 MIN_SAMPLES_FOR_SCORING = 5       # 최소 5회 포획 후부터 점수 계산
@@ -95,8 +95,8 @@ async def record_reaction(user_id: int, session_id: int, spawned_at, attempted_a
         logger.warning(f"record_reaction calc error: {e}")
         return None
 
-    # 비정상 값 필터 (음수 or 5분 초과)
-    if reaction_ms > 300_000:
+    # 비정상 값 필터 (음수 or 3분 초과)
+    if reaction_ms > 180_000:
         return None
 
     # DB에 reaction_ms 저장

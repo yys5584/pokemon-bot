@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from services.market_service import create_listing, buy_listing, cancel_listing_for_user, calc_fee
-from utils.helpers import iv_grade_tag as _iv_tag, iv_grade
+from utils.helpers import iv_grade_tag as _iv_tag, iv_grade, type_badge
 from utils.battle_calc import iv_total, calc_battle_stats, format_power, EVO_STAGE_MAP, get_normalized_base_stats
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ def _listing_line(ml: dict) -> str:
     """Single-line listing summary."""
     shiny = " ✨이로치" if ml.get("is_shiny") else ""
     iv = _iv_tag(ml)
-    return f"#{ml['id']} {ml['emoji']} {ml['pokemon_name']}{shiny}{iv} — {ml['price_bp']:,} BP"
+    return f"#{ml['id']} {type_badge(ml['pokemon_id'])} {ml['pokemon_name']}{shiny}{iv} — {ml['price_bp']:,} BP"
 
 
 RARITY_LABELS = {
@@ -233,13 +233,13 @@ async def market_my_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = []
     for ml in listings:
         shiny = " ✨이로치" if ml.get("is_shiny") else ""
-        lines.append(f"#{ml['id']} {ml['emoji']} {ml['pokemon_name']}{shiny} — {ml['price_bp']:,} BP")
+        lines.append(f"#{ml['id']} {type_badge(ml['pokemon_id'])} {ml['pokemon_name']}{shiny} — {ml['price_bp']:,} BP")
         buttons.append([InlineKeyboardButton(
             f"#{ml['id']} 취소", callback_data=f"mkt_cancel_{ml['id']}"
         )])
 
     markup = InlineKeyboardMarkup(buttons)
-    await update.message.reply_text("\n".join(lines), reply_markup=markup)
+    await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
 
 
 async def market_cancel_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -303,11 +303,12 @@ async def market_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ]
     await update.message.reply_text(
         f"🏪 구매 확인\n\n"
-        f"{listing['emoji']} {listing['pokemon_name']}{shiny}{iv}\n"
+        f"{type_badge(listing['pokemon_id'])} {listing['pokemon_name']}{shiny}{iv}\n"
         f"💰 가격: {listing['price_bp']:,} BP\n"
         f"판매자: {listing.get('seller_name', '???')}\n\n"
         f"구매하시겠습니까?",
         reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="HTML",
     )
 
 
@@ -488,11 +489,12 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         try:
             await query.edit_message_text(
                 f"🏪 구매 확인\n\n"
-                f"{listing['emoji']} {listing['pokemon_name']}{shiny}{iv}\n"
+                f"{type_badge(listing['pokemon_id'])} {listing['pokemon_name']}{shiny}{iv}\n"
                 f"💰 가격: {listing['price_bp']:,} BP\n"
                 f"판매자: {listing.get('seller_name', '???')}\n\n"
                 f"구매하시겠습니까?",
                 reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode="HTML",
             )
         except Exception:
             pass
@@ -536,7 +538,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
                 spec_msg = (
                     f"🎉 거래소 구매 완료!\n\n"
-                    f"{info['emoji']} <b>{info['pokemon_name']}{shiny_tag}</b>\n"
+                    f"{type_badge(info['pokemon_id'])} <b>{info['pokemon_name']}{shiny_tag}</b>\n"
                     f"💰 {info['price']:,} BP 지불\n\n"
                     f"📊 IV: {total_iv}/186 [{grade}]\n"
                     f"  HP {iv_hp or 0} / ATK {iv_atk or 0} / DEF {iv_def or 0}\n"
@@ -565,7 +567,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 shiny_tag = " ✨이로치" if info["is_shiny"] else ""
                 seller_msg = (
                     f"💰 거래소 판매 알림!\n\n"
-                    f"{info['emoji']} {info['pokemon_name']}{shiny_tag}이(가) 판매되었습니다.\n"
+                    f"{type_badge(info['pokemon_id'])} {info['pokemon_name']}{shiny_tag}이(가) 판매되었습니다.\n"
                     f"💵 수익: {info['seller_gets']:,} BP (수수료 {info['fee']:,} BP)"
                 )
                 # Show remaining listings
@@ -574,12 +576,12 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                     seller_msg += f"\n\n📋 남은 매물 ({len(remaining)}개):"
                     for ml in remaining[:5]:
                         s = " ✨이로치" if ml.get("is_shiny") else ""
-                        seller_msg += f"\n  #{ml['id']} {ml['emoji']} {ml['pokemon_name']}{s} — {ml['price_bp']:,} BP"
+                        seller_msg += f"\n  #{ml['id']} {type_badge(ml['pokemon_id'])} {ml['pokemon_name']}{s} — {ml['price_bp']:,} BP"
                     if len(remaining) > 5:
                         seller_msg += f"\n  … 외 {len(remaining) - 5}개"
                 else:
                     seller_msg += "\n\n📋 남은 매물이 없습니다."
-                await context.bot.send_message(chat_id=info["seller_id"], text=seller_msg)
+                await context.bot.send_message(chat_id=info["seller_id"], text=seller_msg, parse_mode="HTML")
             except Exception:
                 pass
 
@@ -592,8 +594,8 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                     if source and target:
                         evo_text = (
                             f"✨ 교환 진화 가능!\n\n"
-                            f"{source['emoji']} {source['name_ko']}을(를)\n"
-                            f"{target['emoji']} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
+                            f"{type_badge(source['id'])} {source['name_ko']}을(를)\n"
+                            f"{type_badge(target['id'])} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
                             f"진화하시겠습니까?"
                         )
                         evo_buttons = [[
@@ -648,12 +650,13 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             try:
                 await query.edit_message_text(
                     f"🏪 거래소 등록 확인\n\n"
-                    f"{pokemon['emoji']} {pokemon['name_ko']}{shiny}{iv}\n"
+                    f"{type_badge(pokemon['pokemon_id'])} {pokemon['name_ko']}{shiny}{iv}\n"
                     f"💰 판매가: {price_bp:,} BP\n"
                     f"📋 수수료: {fee:,} BP\n"
                     f"💵 수익 예상: {price_bp - fee:,} BP\n\n"
                     f"등록하시겠습니까?",
                     reply_markup=InlineKeyboardMarkup(buttons),
+                    parse_mode="HTML",
                 )
             except Exception:
                 pass
