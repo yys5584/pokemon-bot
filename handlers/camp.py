@@ -1105,6 +1105,24 @@ async def camp_round_job(context):
                     except Exception:
                         pass
 
+                    # 새 필드 슬롯이 열렸으면 소유자에게 DM 안내
+                    old_lv_info = cs.get_level_info(new_lv - 1)
+                    if lv_fields > old_lv_info[1] and camp.get("created_by"):
+                        try:
+                            chat_room_info = await queries.get_chat_room(chat_id)
+                            ct = (chat_room_info.get("chat_title") if chat_room_info else None) or "캠프"
+                            await context.bot.send_message(
+                                chat_id=camp["created_by"],
+                                text=(
+                                    f"🆕 캠프 레벨업으로 새 필드를 추가할 수 있습니다!\n\n"
+                                    f"🏕 {ct} — Lv.{new_lv} {lv_name}\n"
+                                    f"🗺 필드: {len(fields)}개 → 최대 {lv_fields}개\n\n"
+                                    f"채팅방에서 '캠프설정' → '필드 추가'로 새 필드를 열어주세요!"
+                                ),
+                            )
+                        except Exception:
+                            pass
+
                 # 거점캠프 유저에게 정산 DM
                 try:
                     home_users = await cq.get_home_camp_users(chat_id)
