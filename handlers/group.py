@@ -176,7 +176,6 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"남은 시간: <b>{format_lock_duration(remain_sec)}</b>",
                     parse_mode="HTML",
                 )
-                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
             # ── 봇방지: 챌린지 체크 ──
@@ -365,7 +364,6 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                     f"남은 시간: <b>{format_lock_duration(remain_sec)}</b>",
                     parse_mode="HTML",
                 )
-                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
             # ── 봇방지: 챌린지 체크 ──
@@ -374,7 +372,6 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                     "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
                     parse_mode="HTML",
                 )
-                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
             if balls < 1:
@@ -482,7 +479,6 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     f"남은 시간: <b>{format_lock_duration(remain_sec)}</b>",
                     parse_mode="HTML",
                 )
-                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
             # ── 봇방지: 챌린지 체크 ──
@@ -491,7 +487,6 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
                     parse_mode="HTML",
                 )
-                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
             # Use hyper ball from inventory
