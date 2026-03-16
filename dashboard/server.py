@@ -105,7 +105,7 @@ async def rate_limit_middleware(request, handler):
 # ============================================================
 # Session Management (DB-persisted)
 # ============================================================
-SESSION_MAX_AGE = 86400  # 24 hours
+SESSION_MAX_AGE = 604800  # 7 days
 MAX_SESSIONS = 1000  # prevent DB bloat
 
 # LLM rate limiting: DB-persisted daily usage
@@ -2402,6 +2402,11 @@ async def api_battle_tiers(request):
                 else:
                     skill_effects_list.append({"name": sn, "power": sp, "type": "normal"})
 
+        # 격턴 스킵 (나태/슬로우스타트)
+        is_truant = r["id"] in config.TRUANT_POKEMON
+        if is_truant:
+            skill_effects_list.append({"name": "슬로우스타트", "power": 0, "type": "truant"})
+
         scored.append({
             "id": r["id"], "name": r["name_ko"], "emoji": r["emoji"],
             "rarity": r["rarity"], "evo_stage": evo_stage,
@@ -2409,6 +2414,7 @@ async def api_battle_tiers(request):
             "stat_ko": stat_ko, "power": round(power, 1),
             "skill_name": get_skill_display(r["id"]), "skill_power": _skill_pow,
             "skill_effects": skill_effects_list,
+            "truant": is_truant,
             "hp": stats["hp"], "atk": stats["atk"],
             "def_": stats["def"], "spa": stats["spa"],
             "spdef": stats["spdef"], "spd": stats["spd"],

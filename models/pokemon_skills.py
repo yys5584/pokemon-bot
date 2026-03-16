@@ -632,7 +632,7 @@ POKEMON_SKILLS = {
     # --- Slakoth line ---
     287: ("하품", 1.2),           # 게을로 (common) normal
     288: ("베어가르기", 1.3),     # 발바로 (rare) normal
-    289: ("기가임팩트", 1.0),     # 게을킹 (나태 특성 반영) normal
+    289: ("기가임팩트", 1.5),     # 게을킹 (나태: 격턴 스킵) normal
 
     # --- Nincada line ---
     290: [("파헤치기", 1.2), ("시저크로스", 1.2)],      # 토중몬 (common) bug/ground
@@ -1008,7 +1008,7 @@ POKEMON_SKILLS = {
 
     # --- Legendary ---
     485: [("마그마스톰", 1.8), ("라스터캐논", 1.6)],  # 히드런 (legendary) fire/steel
-    486: ("기가임팩트", 1.5),        # 레지기가스 (epic) normal
+    486: ("기가임팩트", 1.8),        # 레지기가스 (legendary, 슬로우스타트: 격턴 스킵) normal
     487: [("섀도다이브", 2.0), ("용성군", 1.8)],  # 기라티나 (ultra_legendary) ghost/dragon
 
     # --- Mythical/Legendary ---

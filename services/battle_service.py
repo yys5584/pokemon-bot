@@ -365,10 +365,18 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             first, second = d_mon, c_mon
             first_is_challenger = False
 
+        # 나태/슬로우스타트: 격턴 스킵 (첫 턴 공격, 둘째 턴 스킵, 반복)
+        first_truant = first["pokemon_id"] in config.TRUANT_POKEMON and match_turn % 2 == 0
+        second_truant = second["pokemon_id"] in config.TRUANT_POKEMON and match_turn % 2 == 0
+
         # First attack
-        dmg1, eff1, crit1, tmult1, fx1 = _calc_damage(first, second)
-        # Rest: 공격 안 하고 HP 회복
         rest_lines = []
+        if first_truant:
+            dmg1, eff1, crit1, tmult1, fx1 = 0, "", "", 1.0, None
+            rest_lines.append(f"  😴 {first['name']}은(는) 게으름을 피우고 있다!")
+        else:
+            dmg1, eff1, crit1, tmult1, fx1 = _calc_damage(first, second)
+        # Rest: 공격 안 하고 HP 회복
         if fx1 and fx1["type"] == "rest":
             max_hp = first["stats"]["hp"]
             first["current_hp"] = min(max_hp, first["current_hp"] + fx1["heal"])
@@ -379,9 +387,12 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
         # Second attacks back if alive
         dmg2, eff2, crit2, tmult2, fx2 = 0, "", "", 1.0, None
         if second["current_hp"] > 0:
-            # 반격: 받은 데미지를 전달
-            received = dmg1 if (fx1 is None or fx1["type"] != "rest") else 0
-            dmg2, eff2, crit2, tmult2, fx2 = _calc_damage(second, first, received_dmg=received)
+            if second_truant:
+                rest_lines.append(f"  😴 {second['name']}은(는) 게으름을 피우고 있다!")
+            else:
+                # 반격: 받은 데미지를 전달
+                received = dmg1 if (fx1 is None or fx1["type"] != "rest") else 0
+                dmg2, eff2, crit2, tmult2, fx2 = _calc_damage(second, first, received_dmg=received)
             if fx2 and fx2["type"] == "rest":
                 max_hp = second["stats"]["hp"]
                 second["current_hp"] = min(max_hp, second["current_hp"] + fx2["heal"])

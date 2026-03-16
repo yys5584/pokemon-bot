@@ -1227,6 +1227,15 @@ async def create_tables():
         except Exception:
             pass
 
+    # 레지기가스 epic → legendary 승격 (슬로우스타트 격턴 스킵)
+    try:
+        await pool.execute(
+            "UPDATE pokemon_master SET rarity = 'legendary', catch_rate = 0.08 WHERE id = 486 AND rarity = 'epic'",
+            timeout=30,
+        )
+    except Exception:
+        pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

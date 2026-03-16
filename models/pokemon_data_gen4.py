@@ -234,7 +234,7 @@ ALL_POKEMON_GEN4 = [
     (485, "히드런", "Heatran", "🔥", "legendary", 0.05, None, None, "none"),
 
     # --- Regigigas ---
-    (486, "레지기가스", "Regigigas", "⭐", "epic", 0.15, None, None, "none"),
+    (486, "레지기가스", "Regigigas", "⭐", "legendary", 0.08, None, None, "none"),
 
     # --- Giratina ---
     (487, "기라티나", "Giratina", "👻", "ultra_legendary", 0.03, None, None, "none"),

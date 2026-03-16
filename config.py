@@ -481,6 +481,9 @@ BATTLE_PARTNER_ATK_BONUS = 0.05     # 파트너 ATK 보너스 5%
 BATTLE_SKILL_RATE = 0.30             # 고유기술 발동 확률 30%
 BATTLE_BASE_POWER = 130              # 기본 기술위력 (본가 스타일 데미지 공식)
 
+# 격턴 스킵 (나태/슬로우스타트): 첫 턴 공격, 둘째 턴 스킵, 반복
+TRUANT_POKEMON = {289, 486}          # 게을킹, 레지기가스
+
 # --- BP (Battle Points) ---
 BP_WIN_BASE = 20                    # 승리 기본 BP
 BP_WIN_PER_ENEMY = 2               # 상대 팀 사이즈당 추가 BP
