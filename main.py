@@ -450,6 +450,80 @@ def _delta_badge(today, yesterday, suffix="", reverse=False):
     return f'<span style="color:{color};font-size:11px;font-weight:600">{arrow} {abs(pct)}%{suffix}</span>'
 
 
+async def _build_abuse_report_section(interval: str = "1 day") -> str:
+    """어뷰저 의심 유저 섹션 HTML 생성. interval: '1 day' or '7 days'."""
+    try:
+        pool = await get_db()
+        # 의심 유저 (bot_score >= 0.3)
+        suspects = await pool.fetch(
+            """SELECT a.user_id, a.bot_score, a.total_challenges, a.challenge_passes,
+                      a.challenge_fails, a.last_flagged_at,
+                      u.display_name, u.username
+               FROM abuse_scores a
+               LEFT JOIN users u ON a.user_id = u.user_id
+               WHERE a.bot_score >= 0.3
+               ORDER BY a.bot_score DESC LIMIT 10"""
+        )
+        if not suspects:
+            return ""
+
+        rows = ""
+        for s in suspects:
+            uid = s["user_id"]
+            name = s["display_name"] or "?"
+            uname = f"@{s['username']}" if s["username"] else ""
+            score = float(s["bot_score"])
+            score_color = "#e53935" if score >= 0.7 else "#ff9800" if score >= 0.4 else "#888"
+
+            # 해당 기간 포획 시도 수
+            attempts = await pool.fetchval(
+                f"SELECT COUNT(*) FROM catch_attempts WHERE user_id = $1 "
+                f"AND attempted_at > NOW() - interval '{interval}'",
+                uid,
+            )
+            # 해당 기간 획득 포켓몬 수
+            caught = await pool.fetchval(
+                f"SELECT COUNT(*) FROM user_pokemon WHERE user_id = $1 "
+                f"AND caught_at > NOW() - interval '{interval}'",
+                uid,
+            )
+            # 해당 기간 획득 BP
+            bp_earned = await pool.fetchval(
+                f"SELECT COALESCE(SUM(amount), 0) FROM bp_log WHERE user_id = $1 "
+                f"AND source = 'catch' AND created_at > NOW() - interval '{interval}'",
+                uid,
+            )
+
+            score_bar_w = round(score * 100)
+            rows += (
+                f'<div style="display:flex;align-items:center;gap:8px;padding:8px;'
+                f'background:#1a1a2e;border-radius:6px;margin-bottom:6px">'
+                f'<div style="flex:1;min-width:0">'
+                f'<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+                f'{name} <span style="color:#888;font-size:11px">{uname}</span></div>'
+                f'<div style="display:flex;gap:6px;margin-top:4px;font-size:11px;color:#aaa">'
+                f'<span>포획시도 {attempts:,}</span>'
+                f'<span>획득 {caught}</span>'
+                f'<span>BP +{bp_earned:,}</span>'
+                f'<span>챌린지 {s["total_challenges"]}회(P{s["challenge_passes"]}/F{s["challenge_fails"]})</span>'
+                f'</div></div>'
+                f'<div style="text-align:right;min-width:60px">'
+                f'<div style="font-size:16px;font-weight:700;color:{score_color}">{score:.2f}</div>'
+                f'<div style="width:60px;height:4px;background:#333;border-radius:2px;margin-top:2px">'
+                f'<div style="width:{score_bar_w}%;height:100%;background:{score_color};border-radius:2px"></div>'
+                f'</div></div></div>'
+            )
+
+        return f"""
+<div class="section">
+<div class="section-title">🚨 어뷰저 의심 유저</div>
+{rows}
+</div>"""
+    except Exception as e:
+        logger.warning(f"_build_abuse_report_section error: {e}")
+        return ""
+
+
 def _bp_daily_chart(bp_daily: list[dict]) -> str:
     """주간 BP 뽑기 소비 일별 바 차트 HTML."""
     if not bp_daily:
@@ -756,6 +830,9 @@ async def _send_daily_kpi_report(context):
 </div>"""
         else:
             patch_html = '<div class="section"><div class="section-title">🛠️ 오늘 패치</div><div style="font-size:13px;color:#888">배포 없음</div></div>'
+
+        # ── 어뷰저 의심 유저 섹션 ──
+        abuse_html = await _build_abuse_report_section("1 day")
 
         # ── Gen4 업데이트 보고서 섹션 ──
         gen4_html = ""
@@ -1145,6 +1222,7 @@ async def _send_daily_kpi_report(context):
 
 {hourly_html}
 {top_html}
+{abuse_html}
 {patch_html}
 {gen4_html}
 {insight_html}"""
@@ -1230,6 +1308,11 @@ async def _send_weekly_kpi_report(context):
 <div class="card"><div class="label">거래소 체결</div><div class="value">{w['market_sold']}</div></div>
 <div class="card"><div class="label">구독 매출</div><div class="value accent">${w['sub_revenue']:.1f}</div></div>
 </div></div>"""
+
+        # 어뷰저 의심 유저 (주간)
+        abuse_weekly = await _build_abuse_report_section("7 days")
+        if abuse_weekly:
+            body += abuse_weekly
 
         period = w["period"]
         html = _kpi_html_template("📊 주간 KPI 리포트", body, period)
