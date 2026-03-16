@@ -82,9 +82,17 @@ async def record_reaction(user_id: int, session_id: int, spawned_at, attempted_a
         return None
 
     try:
+        # timezone 맞추기 (spawned_at은 tz-aware, attempted_at은 tz-naive일 수 있음)
+        if hasattr(spawned_at, 'tzinfo') and spawned_at.tzinfo is not None:
+            if attempted_at.tzinfo is None:
+                attempted_at = attempted_at.replace(tzinfo=spawned_at.tzinfo)
+        elif hasattr(attempted_at, 'tzinfo') and attempted_at.tzinfo is not None:
+            if spawned_at.tzinfo is None:
+                spawned_at = spawned_at.replace(tzinfo=attempted_at.tzinfo)
         diff = (attempted_at - spawned_at).total_seconds()
         reaction_ms = max(0, int(diff * 1000))
-    except Exception:
+    except Exception as e:
+        logger.warning(f"record_reaction calc error: {e}")
         return None
 
     # 비정상 값 필터 (음수 or 5분 초과)

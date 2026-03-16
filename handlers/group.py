@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -258,7 +258,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # ── 봇방지: 반응시간 기록 (fire-and-forget) ──
             asyncio.create_task(
-                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=None))
+                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=timezone.utc))
             )
 
             # 던진 후 남은 수량 = remaining - 1 (방금 1회 사용)
@@ -369,7 +369,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
             # ── 봇방지: 반응시간 기록 (fire-and-forget) ──
             asyncio.create_task(
-                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=None))
+                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=timezone.utc))
             )
 
             if season_rec and season_rec.get("rp") is not None:
@@ -467,7 +467,7 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
             # ── 봇방지: 반응시간 기록 (fire-and-forget) ──
             asyncio.create_task(
-                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=None))
+                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=timezone.utc))
             )
 
             if season_rec and season_rec.get("rp") is not None:
@@ -1147,7 +1147,7 @@ async def challenge_callback_handler(update: Update, context: ContextTypes.DEFAU
                 )
                 if sess:
                     asyncio.create_task(
-                        record_reaction(user_id, session_id, sess["spawned_at"], datetime.now(tz=None))
+                        record_reaction(user_id, session_id, sess["spawned_at"], datetime.now(tz=timezone.utc))
                     )
             except Exception:
                 pass
