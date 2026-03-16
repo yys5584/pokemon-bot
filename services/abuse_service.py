@@ -33,9 +33,8 @@ _last_db_hourly_check: dict[int, float] = {}
 # user_id -> 시간당 포획 수 (메모리 or DB 중 큰 값)
 _hourly_count_cache: dict[int, int] = {}
 
-# user_id -> 챌린지 통과 후 면제 만료 시각
-_challenge_passed_until: dict[int, float] = {}
-CHALLENGE_PASS_GRACE_SEC = 3600  # 챌린지 통과 시 1시간 면제
+# user_id -> 챌린지 통과 시각 (이후 포획만 카운트)
+_challenge_passed_at: dict[int, float] = {}
 
 # user_id -> pending challenge info
 _pending_challenges: dict[int, dict] = {}
@@ -126,7 +125,8 @@ async def record_reaction(user_id: int, session_id: int, spawned_at, attempted_a
 
 
 async def _get_hourly_catch_count(user_id: int) -> int:
-    """시간당 포획 수 반환 (메모리 + DB 이중 체크)."""
+    """시간당 포획 수 반환 (메모리 + DB 이중 체크).
+    캡차 통과 후에는 통과 시점 이후의 포획만 카운트."""
     memory_count = _hourly_count_cache.get(user_id, 0)
 
     # DB 체크 (5분마다)
@@ -136,13 +136,23 @@ async def _get_hourly_catch_count(user_id: int) -> int:
         _last_db_hourly_check[user_id] = now
         try:
             pool = await get_db()
-            db_count = await pool.fetchval(
-                "SELECT COUNT(*) FROM catch_attempts "
-                "WHERE user_id = $1 AND attempted_at > NOW() - interval '1 hour'",
-                user_id,
-            )
+            # 캡차 통과 시각이 있으면 그 이후만, 없으면 최근 1시간
+            reset_at = _challenge_passed_at.get(user_id)
+            if reset_at:
+                from datetime import datetime, timezone
+                reset_dt = datetime.fromtimestamp(reset_at, tz=timezone.utc)
+                db_count = await pool.fetchval(
+                    "SELECT COUNT(*) FROM catch_attempts "
+                    "WHERE user_id = $1 AND attempted_at > $2",
+                    user_id, reset_dt,
+                )
+            else:
+                db_count = await pool.fetchval(
+                    "SELECT COUNT(*) FROM catch_attempts "
+                    "WHERE user_id = $1 AND attempted_at > NOW() - interval '1 hour'",
+                    user_id,
+                )
             db_count = db_count or 0
-            # 메모리와 DB 중 큰 값 사용 (봇 재시작 시 메모리 리셋되므로)
             if db_count > memory_count:
                 _hourly_count_cache[user_id] = db_count
                 return db_count
@@ -154,12 +164,7 @@ async def _get_hourly_catch_count(user_id: int) -> int:
 
 # ─── 챌린지 판정 ──────────────────────────────────
 async def should_challenge(user_id: int) -> bool:
-    """시간당 50회 초과 시 챌린지 발동. 챌린지 통과 후 1시간 면제."""
-    # 최근에 챌린지 통과했으면 면제
-    grace_until = _challenge_passed_until.get(user_id, 0)
-    if time.time() < grace_until:
-        return False
-
+    """시간당 50회 초과 시 챌린지 발동. 캡차 통과하면 카운트 리셋."""
     count = await _get_hourly_catch_count(user_id)
     if count >= HOURLY_CATCH_LIMIT:
         logger.info(f"Challenge triggered uid={user_id}: {count} catches/hour (limit={HOURLY_CATCH_LIMIT})")
@@ -250,8 +255,11 @@ async def resolve_challenge(user_id: int, answer: str) -> bool:
                        last_challenge_at = NOW(), updated_at = NOW()""",
                 user_id,
             )
-            # 정답 시 1시간 면제 + 잠금 초기화
-            _challenge_passed_until[user_id] = time.time() + CHALLENGE_PASS_GRACE_SEC
+            # 정답 시: 카운트 리셋 + 잠금 초기화
+            # 여기서부터 다시 50회 카운트 시작
+            _catch_history[user_id] = []
+            _hourly_count_cache[user_id] = 0
+            _challenge_passed_at[user_id] = time.time()
             _catch_locks.pop(user_id, None)
         else:
             await pool.execute(
