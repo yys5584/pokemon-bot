@@ -316,6 +316,11 @@ async def _check_missed_reset():
         queries.reset_force_spawn_counts(),
         queries.reset_daily_spawn_counts(),
         queries.cleanup_old_activity(days=7),
+        queries.cleanup_old_missions(days=7),
+        queries.cleanup_expired_listings(),
+        queries.reset_daily_cxp(),
+        _grant_title_buffs(),
+        _grant_subscription_daily_no_dm(),
     )
     await pool.execute(
         """INSERT INTO bot_settings (key, value) VALUES ('last_daily_reset', $1)
@@ -342,6 +347,34 @@ async def _grant_title_buffs():
         if buff and buff.get("daily_masterball"):
             await queries.add_master_ball(bu["user_id"], buff["daily_masterball"])
             logger.info(f"Title buff: +{buff['daily_masterball']} masterball to user {bu['user_id']} ({bu['title']})")
+
+
+async def _grant_subscription_daily_no_dm():
+    """구독자 일일 혜택 지급 (DM 없이 — missed reset용)."""
+    try:
+        from database import subscription_queries as sq
+        subs = await sq.get_all_active_subscriptions()
+        if not subs:
+            return
+        for sub in subs:
+            uid = sub["user_id"]
+            tier_cfg = config.SUBSCRIPTION_TIERS.get(sub["tier"], {})
+            benefits = tier_cfg.get("benefits", {})
+            daily_master = benefits.get("daily_masterball", 0)
+            if daily_master:
+                await queries.add_master_ball(uid, daily_master)
+            daily_hyper = benefits.get("daily_hyperball", 0)
+            if daily_hyper:
+                await queries.add_hyper_ball(uid, daily_hyper)
+            daily_arcade = benefits.get("daily_free_arcade_pass", 0)
+            if daily_arcade:
+                await queries.add_arcade_ticket(uid, daily_arcade)
+            daily_shiny = benefits.get("daily_shiny_ticket", 0)
+            if daily_shiny:
+                await queries.add_shiny_spawn_ticket(uid, daily_shiny)
+        logger.info(f"Subscription daily benefits granted (no DM) to {len(subs)} subscribers")
+    except Exception as e:
+        logger.error(f"Subscription daily grant (no DM) error: {e}")
 
 
 async def _grant_subscription_daily(bot):
