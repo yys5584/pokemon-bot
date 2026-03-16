@@ -182,6 +182,16 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # ── 봇방지: 챌린지 체크 ──
             needs_challenge = await should_challenge(user_id)
             if needs_challenge:
+                # 이미 대기 중인 챌린지가 있으면 중복 발송 않고 차단만
+                existing_ch = get_pending_challenge(user_id)
+                if existing_ch:
+                    resp = await update.message.reply_text(
+                        "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
+                        parse_mode="HTML",
+                    )
+                    schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+                    return
+
                 pokemon_name = session.get("name_ko", "")
                 if pokemon_name:
                     ch = create_challenge(user_id, session["id"], pokemon_name)
@@ -358,6 +368,15 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
+            # ── 봇방지: 챌린지 체크 ──
+            if await should_challenge(user_id):
+                resp = await update.message.reply_text(
+                    "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
+                    parse_mode="HTML",
+                )
+                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+                return
+
             if balls < 1:
                 resp = await update.message.reply_text(f"{ball_emoji('masterball')} 마스터볼이 없습니다!", parse_mode="HTML")
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
@@ -461,6 +480,15 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 resp = await update.message.reply_text(
                     f"🔒 포획이 잠금 상태입니다.\n"
                     f"남은 시간: <b>{format_lock_duration(remain_sec)}</b>",
+                    parse_mode="HTML",
+                )
+                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+                return
+
+            # ── 봇방지: 챌린지 체크 ──
+            if await should_challenge(user_id):
+                resp = await update.message.reply_text(
+                    "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
                     parse_mode="HTML",
                 )
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)

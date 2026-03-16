@@ -298,15 +298,13 @@ async def get_bot_score(user_id: int) -> float:
 
 # ─── 챌린지 판정 ──────────────────────────────────
 async def should_challenge(user_id: int) -> bool:
-    """이 유저에게 포획 챌린지를 발동할지 판정."""
+    """이 유저에게 포획 챌린지를 발동할지 판정.
+    score >= 0.4 이상이면 무조건 챌린지 (캡차 통과 전 포획 차단).
+    """
     score = await get_bot_score(user_id)
 
-    if score >= BOT_SCORE_THRESHOLD_HIGH:
+    if score >= BOT_SCORE_THRESHOLD_LOW:
         return True
-    elif score >= BOT_SCORE_THRESHOLD_MID:
-        return random.random() < 0.50
-    elif score >= BOT_SCORE_THRESHOLD_LOW:
-        return random.random() < 0.10
     return False
 
 
