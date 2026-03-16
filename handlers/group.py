@@ -774,20 +774,18 @@ async def daily_money_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # KST 자정 기준 하루 1회
     already = await bq.get_bp_purchases_today(user_id, "daily_money")
     if already > 0:
-        resp = await update.message.reply_text(
+        await update.message.reply_text(
             f"{icon_emoji('coin')} 오늘 이미 받았어요! 자정(KST)에 초기화됩니다.",
             parse_mode="HTML",
         )
-        schedule_delete(resp, 10)
         return
 
     await bq.log_bp_purchase(user_id, "daily_money", 1)
     await bq.add_bp(user_id, config.DAILY_CHECKIN_BP, "daily_checkin")
-    resp = await update.message.reply_text(
+    await update.message.reply_text(
         f"{icon_emoji('coin')} <b>일일 출석!</b> +{config.DAILY_CHECKIN_BP} BP 지급!",
         parse_mode="HTML",
     )
-    schedule_delete(resp, 15)
 
 
 async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

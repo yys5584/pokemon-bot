@@ -22,6 +22,9 @@ DB_HOURLY_CHECK_INTERVAL = 300      # DB 기반 시간당 체크 간격 (5분)
 # 챌린지 실패 시 잠금 시간 (초) — 1차 30분, 2차 1시간, 3차+ 12시간
 LOCK_DURATIONS = [30 * 60, 60 * 60, 12 * 60 * 60]
 
+# ─── 봇 시작 시각 (재시작 시 이전 포획 무시) ────────
+_bot_started_at: float = time.time()
+
 # ─── 메모리 캐시 ───────────────────────────────────
 # user_id -> list of (timestamp, chat_id) — 최근 1시간 포획 기록
 _catch_history: dict[int, list[tuple[float, int]]] = defaultdict(list)
@@ -136,22 +139,19 @@ async def _get_hourly_catch_count(user_id: int) -> int:
         _last_db_hourly_check[user_id] = now
         try:
             pool = await get_db()
-            # 캡차 통과 시각이 있으면 그 이후만, 없으면 최근 1시간
+            # 기준 시각: 캡차 통과 > 봇 시작 > 1시간 전 중 가장 늦은 시각
+            from datetime import datetime, timezone
             reset_at = _challenge_passed_at.get(user_id)
             if reset_at:
-                from datetime import datetime, timezone
-                reset_dt = datetime.fromtimestamp(reset_at, tz=timezone.utc)
-                db_count = await pool.fetchval(
-                    "SELECT COUNT(*) FROM catch_attempts "
-                    "WHERE user_id = $1 AND attempted_at > $2",
-                    user_id, reset_dt,
-                )
+                cutoff_ts = reset_at
             else:
-                db_count = await pool.fetchval(
-                    "SELECT COUNT(*) FROM catch_attempts "
-                    "WHERE user_id = $1 AND attempted_at > NOW() - interval '1 hour'",
-                    user_id,
-                )
+                cutoff_ts = _bot_started_at
+            cutoff_dt = datetime.fromtimestamp(cutoff_ts, tz=timezone.utc)
+            db_count = await pool.fetchval(
+                "SELECT COUNT(*) FROM catch_attempts "
+                "WHERE user_id = $1 AND attempted_at > $2",
+                user_id, cutoff_dt,
+            )
             db_count = db_count or 0
             if db_count > memory_count:
                 _hourly_count_cache[user_id] = db_count
