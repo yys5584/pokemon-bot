@@ -2733,6 +2733,218 @@ async def kpi_daily_snapshot() -> dict:
     }
 
 
+# ─── 리포트 v2: 상세 데이터 수집 ──────────────────
+
+
+async def report_new_users_detail(today) -> list[dict]:
+    """오늘 가입한 유저 상세 (닉네임, 포획수, 배틀수)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT u.user_id, u.display_name, u.username,
+                  COALESCE(c.catches, 0) as catches,
+                  COALESCE(b.battles, 0) as battles
+           FROM users u
+           LEFT JOIN (
+               SELECT user_id, COUNT(*) as catches
+               FROM catch_attempts WHERE attempted_at >= $1
+               GROUP BY user_id
+           ) c ON u.user_id = c.user_id
+           LEFT JOIN (
+               SELECT user_id, COUNT(*) as battles
+               FROM battle_records WHERE created_at >= $1
+               GROUP BY user_id
+           ) b ON u.user_id = b.user_id
+           WHERE u.registered_at >= $1
+           ORDER BY c.catches DESC NULLS LAST
+           LIMIT 20""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_churned_users(today) -> list[dict]:
+    """최근 7일 활성이었으나 오늘 미접속 유저 (이탈 징후)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT u.user_id, u.display_name, u.username,
+                  u.last_active_at,
+                  COALESCE(s.total_catches, 0) as week_catches
+           FROM users u
+           LEFT JOIN (
+               SELECT user_id, COUNT(*) as total_catches
+               FROM catch_attempts
+               WHERE attempted_at >= $1 - INTERVAL '7 days'
+               GROUP BY user_id
+           ) s ON u.user_id = s.user_id
+           WHERE u.last_active_at >= $1 - INTERVAL '7 days'
+             AND u.last_active_at < $1
+             AND NOT EXISTS (
+                 SELECT 1 FROM catch_attempts ca
+                 WHERE ca.user_id = u.user_id AND ca.attempted_at >= $1
+             )
+           ORDER BY s.total_catches DESC NULLS LAST
+           LIMIT 10""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_top_active_users(today, limit: int = 10) -> list[dict]:
+    """오늘 활동량 Top 유저 (포획 + 배틀)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT u.user_id, u.display_name, u.username,
+                  COALESCE(c.catches, 0) as catches,
+                  COALESCE(b.battles, 0) as battles,
+                  COALESCE(b.wins, 0) as wins,
+                  COALESCE(c.catches, 0) + COALESCE(b.battles, 0) as total_actions
+           FROM users u
+           LEFT JOIN (
+               SELECT user_id, COUNT(*) as catches
+               FROM catch_attempts WHERE attempted_at >= $1
+               GROUP BY user_id
+           ) c ON u.user_id = c.user_id
+           LEFT JOIN (
+               SELECT user_id, COUNT(*) as battles,
+                      COUNT(*) FILTER (WHERE is_winner = true) as wins
+               FROM battle_records WHERE created_at >= $1
+               GROUP BY user_id
+           ) b ON u.user_id = b.user_id
+           WHERE COALESCE(c.catches, 0) + COALESCE(b.battles, 0) > 0
+           ORDER BY total_actions DESC
+           LIMIT $2""",
+        today, limit,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_shiny_catches(today) -> list[dict]:
+    """오늘 이로치 포획 상세 (누가 뭘 잡았는지)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT sl.caught_by_user_id as user_id,
+                  u.display_name, u.username,
+                  pm.name_ko, pm.id as pokemon_id,
+                  sl.used_master_ball,
+                  sl.spawned_at
+           FROM spawn_log sl
+           JOIN pokemon_master pm ON sl.pokemon_id = pm.id
+           LEFT JOIN users u ON sl.caught_by_user_id = u.user_id
+           WHERE sl.spawned_at >= $1
+             AND sl.is_shiny = 1
+             AND sl.caught_by_user_id IS NOT NULL
+           ORDER BY sl.spawned_at DESC""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_market_trends(today) -> list[dict]:
+    """오늘 거래소 거래 완료 건 (인기 매물, 가격)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT pm.name_ko, pm.id as pokemon_id,
+                  ml.price, ml.currency,
+                  up.is_shiny,
+                  seller.display_name as seller_name,
+                  buyer.display_name as buyer_name
+           FROM market_listings ml
+           JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           LEFT JOIN users seller ON ml.seller_id = seller.user_id
+           LEFT JOIN users buyer ON ml.buyer_id = buyer.user_id
+           WHERE ml.sold_at >= $1 AND ml.status = 'sold'
+           ORDER BY ml.price DESC
+           LIMIT 15""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_battle_meta(today) -> list[dict]:
+    """오늘 배틀에서 많이 사용된 포켓몬 (사용횟수, 승률)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT pm.name_ko, pm.id as pokemon_id,
+                  COUNT(*) as uses,
+                  ROUND(100.0 * COUNT(*) FILTER (WHERE br.is_winner = true) / NULLIF(COUNT(*), 0), 1) as win_rate
+           FROM battle_records br
+           JOIN battle_teams bt ON br.user_id = bt.user_id AND bt.team_num = 1
+           JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE br.created_at >= $1
+           GROUP BY pm.name_ko, pm.id
+           ORDER BY uses DESC
+           LIMIT 10""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_subscription_changes(today) -> dict:
+    """오늘 구독 변동 (신규, 해지, 갱신)."""
+    pool = await get_db()
+    new_subs = await pool.fetch(
+        """SELECT s.user_id, u.display_name, s.tier
+           FROM subscriptions s
+           JOIN users u ON s.user_id = u.user_id
+           WHERE s.started_at >= $1 AND s.is_active = 1""",
+        today,
+    )
+    expired = await pool.fetch(
+        """SELECT s.user_id, u.display_name, s.tier
+           FROM subscriptions s
+           JOIN users u ON s.user_id = u.user_id
+           WHERE s.expires_at >= $1 AND s.expires_at < $1 + INTERVAL '1 day'
+             AND s.is_active = 0""",
+        today,
+    )
+    return {
+        "new": [dict(r) for r in new_subs],
+        "expired": [dict(r) for r in expired],
+    }
+
+
+async def report_chat_health(today) -> list[dict]:
+    """채팅방 활성도 (오늘 vs 어제 스폰 비교)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT cr.chat_id, cr.chat_title, cr.member_count,
+                  COALESCE(t.today_spawns, 0) as today_spawns,
+                  COALESCE(y.yesterday_spawns, 0) as yesterday_spawns
+           FROM chat_rooms cr
+           LEFT JOIN (
+               SELECT chat_id, COUNT(*) as today_spawns
+               FROM spawn_log WHERE spawned_at >= $1
+               GROUP BY chat_id
+           ) t ON cr.chat_id = t.chat_id
+           LEFT JOIN (
+               SELECT chat_id, COUNT(*) as yesterday_spawns
+               FROM spawn_log WHERE spawned_at >= $1 - INTERVAL '1 day'
+                 AND spawned_at < $1
+               GROUP BY chat_id
+           ) y ON cr.chat_id = y.chat_id
+           WHERE COALESCE(t.today_spawns, 0) + COALESCE(y.yesterday_spawns, 0) > 0
+           ORDER BY t.today_spawns DESC
+           LIMIT 15""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_checkin_stats(today) -> dict:
+    """!돈 출석 체크 통계."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT COUNT(*) as checkins
+           FROM bp_purchases
+           WHERE item_key = 'daily_money'
+             AND purchased_at >= $1""",
+        today,
+    )
+    return {"checkins": row["checkins"] if row else 0}
+
+
 async def kpi_weekly_snapshot() -> dict:
     """주간 KPI 스냅샷 — 월요일 리셋 시점에 호출."""
     pool = await get_db()

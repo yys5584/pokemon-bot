@@ -800,7 +800,7 @@ async def _build_gen4_report_section(pool) -> str:
 
 
 async def _send_daily_kpi_report(context):
-    """매일 23:55 KST: 일일 KPI 리포트를 HTML 파일로 관리자 DM 발송."""
+    """매일 23:55 KST: 일일 KPI 리포트 v2 — 유저 동향 중심."""
     import io
     try:
         d = await queries.kpi_daily_snapshot()
@@ -815,6 +815,24 @@ async def _send_daily_kpi_report(context):
         prev = await queries.get_previous_snapshot()
 
         catch_rate = d["catch_rate"]
+        today = config.get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # ── v2 상세 데이터 수집 ──
+        (
+            new_users_detail, churned_users, top_users,
+            shiny_catches, market_trends, battle_meta,
+            sub_changes, chat_health, checkin_stats,
+        ) = await asyncio.gather(
+            queries.report_new_users_detail(today),
+            queries.report_churned_users(today),
+            queries.report_top_active_users(today),
+            queries.report_shiny_catches(today),
+            queries.report_market_trends(today),
+            queries.report_battle_meta(today),
+            queries.report_subscription_changes(today),
+            queries.report_chat_health(today),
+            queries.report_checkin_stats(today),
+        )
 
         # ── 전일 대비 섹션 ──
         if prev:
@@ -1198,6 +1216,165 @@ async def _send_daily_kpi_report(context):
 <div class="section-title">📈 Top 채널 (스폰 기준)</div>
 <ul class="channel-list">{items}</ul></div>"""
 
+        # ── 유저 동향 섹션 (v2 핵심) ──
+        # Top 활동 유저
+        top_users_html = ""
+        if top_users:
+            items = ""
+            medals = ["🥇", "🥈", "🥉"]
+            for i, u in enumerate(top_users[:10]):
+                medal = medals[i] if i < 3 else f"{i+1}."
+                name = (u["display_name"] or "?")[:12]
+                items += (
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                    f'padding:6px 10px;background:{"#fff3e0" if i < 3 else "#fafafa"};'
+                    f'border-radius:6px;margin-bottom:3px;font-size:12px">'
+                    f'<span><b>{medal}</b> {name}</span>'
+                    f'<span style="color:#666">🎯{u["catches"]} ⚔️{u["battles"]}({u["wins"]}승)</span>'
+                    f'</div>'
+                )
+            top_users_html = f"""
+<div class="section">
+<div class="section-title">🏆 오늘의 Top 활동 유저</div>
+{items}
+</div>"""
+
+        # 신규 유저 상세
+        new_users_html = ""
+        if new_users_detail:
+            items = ""
+            for u in new_users_detail[:8]:
+                name = (u["display_name"] or "?")[:12]
+                activity = []
+                if u["catches"]:
+                    activity.append(f"포획 {u['catches']}회")
+                if u["battles"]:
+                    activity.append(f"배틀 {u['battles']}판")
+                act_str = ", ".join(activity) if activity else "활동 없음"
+                items += f'<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f5">🆕 <b>{name}</b> — {act_str}</div>'
+            new_users_html = f"""
+<div class="section">
+<div class="section-title">🆕 신규 가입 ({d['new_users']}명)</div>
+{items}
+</div>"""
+
+        # 이탈 징후 유저
+        churned_html = ""
+        if churned_users:
+            items = ""
+            for u in churned_users[:8]:
+                name = (u["display_name"] or "?")[:12]
+                last = u["last_active_at"].strftime("%m/%d") if u.get("last_active_at") else "?"
+                items += f'<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f5">⚠️ <b>{name}</b> — 최근접속 {last}, 주간포획 {u["week_catches"]}회</div>'
+            churned_html = f"""
+<div class="section">
+<div class="section-title">📉 이탈 징후 (7일 활성 → 오늘 미접속)</div>
+{items}
+</div>"""
+
+        # ── 이로치 포획 상세 ──
+        shiny_html = ""
+        if shiny_catches:
+            items = ""
+            for s in shiny_catches:
+                name = (s["display_name"] or "?")[:10]
+                ball = "🔴" if s.get("used_master_ball") else "🔵"
+                items += f'<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5">✨ <b>{s["name_ko"]}</b> — {name} {ball}</div>'
+            shiny_html = f"""
+<div class="section">
+<div class="section-title">✨ 이로치 포획 ({len(shiny_catches)}마리)</div>
+{items}
+</div>"""
+
+        # ── 거래소 트렌드 ──
+        market_html = ""
+        if market_trends:
+            items = ""
+            for m in market_trends[:10]:
+                shiny_mark = "✨" if m.get("is_shiny") else ""
+                currency = m.get("currency", "bp")
+                price_str = f"{m['price']:,} {'BP' if currency == 'bp' else '마볼'}"
+                items += (
+                    f'<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5">'
+                    f'{shiny_mark}<b>{m["name_ko"]}</b> — {price_str} '
+                    f'<span style="color:#888">({m.get("seller_name", "?")[:8]} → {m.get("buyer_name", "?")[:8]})</span></div>'
+                )
+            market_html = f"""
+<div class="section">
+<div class="section-title">🏪 거래소 ({d['market_sold']}건 거래, {d['market_new']}건 등록)</div>
+{items}
+</div>"""
+
+        # ── 배틀 메타 ──
+        meta_html = ""
+        if battle_meta:
+            items = ""
+            for i, m in enumerate(battle_meta[:8]):
+                bar_w = min(100, int(m["uses"] / max(battle_meta[0]["uses"], 1) * 100))
+                wr = m.get("win_rate") or 0
+                wr_color = "#4caf50" if wr >= 55 else "#ff9800" if wr >= 45 else "#e53935"
+                items += (
+                    f'<div style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:4px">'
+                    f'<span style="min-width:70px"><b>{m["name_ko"]}</b></span>'
+                    f'<div style="flex:1;background:#f5f5f5;border-radius:3px;height:14px;overflow:hidden">'
+                    f'<div style="width:{bar_w}%;height:100%;background:#ffcdd2;border-radius:3px"></div></div>'
+                    f'<span style="min-width:40px;text-align:right">{m["uses"]}회</span>'
+                    f'<span style="min-width:45px;text-align:right;color:{wr_color};font-weight:600">{wr}%</span>'
+                    f'</div>'
+                )
+            meta_html = f"""
+<div class="section">
+<div class="section-title">⚔️ 배틀 메타 (사용횟수 / 승률)</div>
+{items}
+</div>"""
+
+        # ── 구독 변동 ──
+        sub_html = ""
+        sub_new = sub_changes.get("new", [])
+        sub_expired = sub_changes.get("expired", [])
+        if sub_new or sub_expired:
+            items = ""
+            for s in sub_new:
+                items += f'<div style="font-size:12px;padding:3px 0">🟢 <b>{s["display_name"][:12]}</b> 신규 구독 ({s["tier"]})</div>'
+            for s in sub_expired:
+                items += f'<div style="font-size:12px;padding:3px 0">🔴 <b>{s["display_name"][:12]}</b> 구독 만료 ({s["tier"]})</div>'
+            sub_html = f"""
+<div class="section">
+<div class="section-title">💎 구독 변동 (활성 {d['sub_active']}명, 매출 ${d['sub_revenue_today']:.1f})</div>
+{items}
+</div>"""
+
+        # ── 채팅방 건강도 ──
+        chat_health_html = ""
+        if chat_health:
+            items = ""
+            for ch in chat_health[:10]:
+                title = (ch.get("chat_title") or "?")[:15]
+                t_spawns = ch["today_spawns"]
+                y_spawns = ch["yesterday_spawns"]
+                if y_spawns > 0:
+                    diff_pct = round((t_spawns - y_spawns) / y_spawns * 100)
+                    trend = f'<span style="color:{"#4caf50" if diff_pct >= 0 else "#e53935"};font-weight:600">{"▲" if diff_pct >= 0 else "▼"}{abs(diff_pct)}%</span>'
+                else:
+                    trend = '<span style="color:#888">NEW</span>'
+                items += (
+                    f'<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f5">'
+                    f'<span>{title} ({ch.get("member_count", 0)}명)</span>'
+                    f'<span>{y_spawns}→{t_spawns} {trend}</span></div>'
+                )
+            chat_health_html = f"""
+<div class="section">
+<div class="section-title">💬 채팅방 건강도 (어제→오늘 스폰)</div>
+{items}
+</div>"""
+
+        # ── 출석 체크 ──
+        checkin_html = ""
+        if checkin_stats.get("checkins", 0) > 0:
+            checkin_cnt = checkin_stats["checkins"]
+            checkin_rate = round(checkin_cnt / max(d["dau"], 1) * 100, 1)
+            checkin_html = f'<div class="card"><div class="label">!돈 출석</div><div class="value">{checkin_cnt}명</div><div class="sub">DAU 대비 {checkin_rate}%</div></div>'
+
         body = f"""
 {delta_html}
 
@@ -1211,9 +1388,16 @@ async def _send_daily_kpi_report(context):
 <div class="grid" style="margin-top:8px">
 <div class="card"><div class="label">총 유저</div><div class="value">{d['total_users']}</div></div>
 <div class="card"><div class="label">D+1 리텐션</div><div class="value accent">{f'{d1_ret}%' if d1_ret is not None else '-'}</div></div>
+{checkin_html}
 </div>
 <div style="margin-top:8px"><div class="card"><div class="label">D+7 리텐션</div><div class="value" style="color:#ff9800">{f'{d7_ret}%' if d7_ret is not None else '수집 중'}</div><div class="sub">7일 후부터 표시</div></div></div>
 </div>
+
+{top_users_html}
+{new_users_html}
+{churned_html}
+
+{shiny_html}
 
 <div class="section">
 <div class="section-title">🎯 스폰 / 포획</div>
@@ -1223,6 +1407,8 @@ async def _send_daily_kpi_report(context):
 <div class="card"><div class="label">이로치 포획</div><div class="value" style="color:#ff9800">{d['shiny_caught']}</div></div>
 <div class="card"><div class="label">마스터볼 사용</div><div class="value">{d['mb_used']}</div></div>
 </div></div>
+
+{meta_html}
 
 <div class="section">
 <div class="section-title">⚔️ 배틀</div>
@@ -1254,8 +1440,11 @@ async def _send_daily_kpi_report(context):
 <div class="card"><div class="label">구독 매출</div><div class="value accent">${d['sub_revenue_today']:.1f}</div><div class="sub">활성 {d['sub_active']}명</div></div>
 </div></div>
 
+{market_html}
+{sub_html}
+{chat_health_html}
+
 {hourly_html}
-{top_html}
 {abuse_html}
 {patch_html}
 {gen4_html}
