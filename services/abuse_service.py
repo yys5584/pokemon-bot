@@ -30,7 +30,7 @@ LOCK_DURATIONS = [30 * 60, 60 * 60, 12 * 60 * 60]
 # ─── 설정값 (행동 패턴) ───────────────────────────
 MULTI_ROOM_WINDOW_SEC = 600       # 10분 내
 MULTI_ROOM_THRESHOLD = 3          # 3개+ 다른 방 = 의심
-HOURLY_CATCH_THRESHOLD = 15       # 1시간 내 15회+ = 의심
+HOURLY_CATCH_THRESHOLD = 30       # 1시간 내 30회+ = 의심
 MULTI_ROOM_SCORE_BUMP = 0.15      # 멀티방 감지 시 점수 가산
 HOURLY_CATCH_SCORE_BUMP = 0.10    # 과다포획 감지 시 점수 가산
 
