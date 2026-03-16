@@ -1403,7 +1403,7 @@ CAMP_NEWS_TEMPLATES = {
 # ─── 포획 BP 보상 ─────────────────────────────────────────
 CATCH_BP_MIN = 5
 CATCH_BP_MAX = 30
-CATCH_BP_POKEMON_LIMIT = 100  # 보유 포켓몬 100마리 이상이면 포획 BP 미지급
+CATCH_BP_DAILY_LIMIT = 100  # 하루 포획 100마리 이후 BP 미지급
 
 # ─── 가챠 (BP 뽑기) ──────────────────────────────────────
 GACHA_COST = 100  # 1회 뽑기 비용

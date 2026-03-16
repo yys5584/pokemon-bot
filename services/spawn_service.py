@@ -653,13 +653,15 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 *(queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
             )
 
-        # Catch BP reward (보유 100마리 미만만)
+        # Catch BP reward (하루 100마리까지만, KST 자정 기준)
         from database.battle_queries import add_bp
-        poke_count = await pool.fetchval(
-            "SELECT COUNT(*) FROM user_pokemon WHERE user_id = $1 AND is_active = 1",
+        today_catches = await pool.fetchval(
+            "SELECT COUNT(*) FROM catch_attempts WHERE user_id = $1 "
+            "AND attempted_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
+            "AT TIME ZONE 'Asia/Seoul'",
             winner_id,
         )
-        if poke_count < config.CATCH_BP_POKEMON_LIMIT:
+        if today_catches <= config.CATCH_BP_DAILY_LIMIT:
             catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
             await add_bp(winner_id, catch_bp, "catch")
             msg += f"\n{icon_emoji('coin')} +{catch_bp} BP"
@@ -1305,13 +1307,15 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 *(queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
             )
 
-        # Catch BP reward (보유 100마리 미만만)
+        # Catch BP reward (하루 100마리까지만, KST 자정 기준)
         from database.battle_queries import add_bp
-        poke_count = await pool.fetchval(
-            "SELECT COUNT(*) FROM user_pokemon WHERE user_id = $1 AND is_active = 1",
+        today_catches = await pool.fetchval(
+            "SELECT COUNT(*) FROM catch_attempts WHERE user_id = $1 "
+            "AND attempted_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
+            "AT TIME ZONE 'Asia/Seoul'",
             winner_id,
         )
-        if poke_count < config.CATCH_BP_POKEMON_LIMIT:
+        if today_catches <= config.CATCH_BP_DAILY_LIMIT:
             catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
             await add_bp(winner_id, catch_bp, "catch")
             msg += f"\n{icon_emoji('coin')} +{catch_bp} BP"
@@ -1623,13 +1627,15 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             shiny_label = f"{shiny_emoji()}이로치 " if is_shiny else ""
             msg = f"🔄 서버 복구 — {be} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
 
-            # Catch BP reward (보유 100마리 미만만)
+            # Catch BP reward (하루 100마리까지만, KST 자정 기준)
             from database.battle_queries import add_bp
-            poke_count = await pool.fetchval(
-                "SELECT COUNT(*) FROM user_pokemon WHERE user_id = $1 AND is_active = 1",
+            today_catches = await pool.fetchval(
+                "SELECT COUNT(*) FROM catch_attempts WHERE user_id = $1 "
+                "AND attempted_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
+                "AT TIME ZONE 'Asia/Seoul'",
                 winner_id,
             )
-            if poke_count < config.CATCH_BP_POKEMON_LIMIT:
+            if today_catches <= config.CATCH_BP_DAILY_LIMIT:
                 catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
                 await add_bp(winner_id, catch_bp, "catch")
                 msg += f"\n+{catch_bp} BP"
