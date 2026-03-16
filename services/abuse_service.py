@@ -78,7 +78,9 @@ def format_lock_duration(seconds: int) -> str:
 # ─── 반응시간 기록 ─────────────────────────────────
 async def record_reaction(user_id: int, session_id: int, spawned_at, attempted_at) -> int | None:
     """포획 시 반응시간(ms) 계산 & 기록. 반환: reaction_ms or None."""
+    logger.info(f"record_reaction called: user={user_id}, session={session_id}, spawned={spawned_at}, attempted={attempted_at}")
     if not spawned_at or not attempted_at:
+        logger.warning(f"record_reaction early return: spawned_at={spawned_at}, attempted_at={attempted_at}")
         return None
 
     try:
@@ -99,14 +101,17 @@ async def record_reaction(user_id: int, session_id: int, spawned_at, attempted_a
     if reaction_ms > 300_000:
         return None
 
+    logger.info(f"record_reaction: user={user_id}, reaction_ms={reaction_ms}")
+
     # DB에 reaction_ms 저장
     try:
         pool = await get_db()
-        await pool.execute(
+        result = await pool.execute(
             """UPDATE catch_attempts SET reaction_ms = $1
                WHERE session_id = $2 AND user_id = $3""",
             reaction_ms, session_id, user_id,
         )
+        logger.info(f"record_reaction DB update: user={user_id}, result={result}")
     except Exception as e:
         logger.warning(f"record_reaction DB error: {e}")
 
