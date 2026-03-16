@@ -1285,9 +1285,9 @@ async def challenge_answer_handler(update: Update, context: ContextTypes.DEFAULT
 async def _notify_admin_if_needed(user_id: int, context: ContextTypes.DEFAULT_TYPE):
     """챌린지 연속 실패 시 관리자에게 DM 알림."""
     try:
-        from services.abuse_service import get_bot_score, BOT_SCORE_THRESHOLD_HIGH
+        from services.abuse_service import get_bot_score
         score = await get_bot_score(user_id)
-        if score >= BOT_SCORE_THRESHOLD_HIGH:
+        if score >= 0.8:
             user = await queries.get_user(user_id)
             name = user.get("display_name", "???") if user else "???"
             uname = user.get("username", "") if user else ""

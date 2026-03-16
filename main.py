@@ -451,18 +451,25 @@ def _delta_badge(today, yesterday, suffix="", reverse=False):
 
 
 async def _build_abuse_report_section(interval: str = "1 day") -> str:
-    """어뷰저 의심 유저 섹션 HTML 생성. interval: '1 day' or '7 days'."""
+    """어뷰저 의심 유저 섹션 HTML 생성. 시간당 과다포획 기준."""
     try:
         pool = await get_db()
-        # 의심 유저 (bot_score >= 0.3)
+        # 해당 기간 내 포획시도 상위 유저 (시간당 50회 이상 기록 있는 유저)
         suspects = await pool.fetch(
-            """SELECT a.user_id, a.bot_score, a.total_challenges, a.challenge_passes,
-                      a.challenge_fails, a.last_flagged_at,
-                      u.display_name, u.username
-               FROM abuse_scores a
-               LEFT JOIN users u ON a.user_id = u.user_id
-               WHERE a.bot_score >= 0.3
-               ORDER BY a.bot_score DESC LIMIT 10"""
+            f"""SELECT ca.user_id, u.display_name, u.username,
+                       COUNT(*) as total_attempts,
+                       COUNT(CASE WHEN ss.is_shiny = 1 THEN 1 END) as shiny_catches,
+                       COUNT(CASE WHEN ss.caught_by_user_id = ca.user_id THEN 1 END) as successful,
+                       a.total_challenges, a.challenge_passes, a.challenge_fails
+                FROM catch_attempts ca
+                JOIN users u ON ca.user_id = u.user_id
+                JOIN spawn_sessions ss ON ca.session_id = ss.id
+                LEFT JOIN abuse_scores a ON ca.user_id = a.user_id
+                WHERE ca.attempted_at > NOW() - interval '{interval}'
+                GROUP BY ca.user_id, u.display_name, u.username,
+                         a.total_challenges, a.challenge_passes, a.challenge_fails
+                HAVING COUNT(*) >= 200
+                ORDER BY COUNT(*) DESC LIMIT 10"""
         )
         if not suspects:
             return ""
@@ -472,21 +479,13 @@ async def _build_abuse_report_section(interval: str = "1 day") -> str:
             uid = s["user_id"]
             name = s["display_name"] or "?"
             uname = f"@{s['username']}" if s["username"] else ""
-            score = float(s["bot_score"])
-            score_color = "#e53935" if score >= 0.7 else "#ff9800" if score >= 0.4 else "#888"
+            total = s["total_attempts"]
+            successful = s["successful"]
+            shiny = s["shiny_catches"]
+            ch_total = s["total_challenges"] or 0
+            ch_pass = s["challenge_passes"] or 0
+            ch_fail = s["challenge_fails"] or 0
 
-            # 해당 기간 포획 시도 수
-            attempts = await pool.fetchval(
-                f"SELECT COUNT(*) FROM catch_attempts WHERE user_id = $1 "
-                f"AND attempted_at > NOW() - interval '{interval}'",
-                uid,
-            )
-            # 해당 기간 획득 포켓몬 수
-            caught = await pool.fetchval(
-                f"SELECT COUNT(*) FROM user_pokemon WHERE user_id = $1 "
-                f"AND caught_at > NOW() - interval '{interval}'",
-                uid,
-            )
             # 해당 기간 획득 BP
             bp_earned = await pool.fetchval(
                 f"SELECT COALESCE(SUM(amount), 0) FROM bp_log WHERE user_id = $1 "
@@ -494,7 +493,9 @@ async def _build_abuse_report_section(interval: str = "1 day") -> str:
                 uid,
             )
 
-            score_bar_w = round(score * 100)
+            # 색상: 500+면 빨강, 300+면 주황
+            color = "#e53935" if total >= 500 else "#ff9800" if total >= 300 else "#888"
+
             rows += (
                 f'<div style="display:flex;align-items:center;gap:8px;padding:8px;'
                 f'background:#1a1a2e;border-radius:6px;margin-bottom:6px">'
@@ -502,21 +503,21 @@ async def _build_abuse_report_section(interval: str = "1 day") -> str:
                 f'<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
                 f'{name} <span style="color:#888;font-size:11px">{uname}</span></div>'
                 f'<div style="display:flex;gap:6px;margin-top:4px;font-size:11px;color:#aaa">'
-                f'<span>포획시도 {attempts:,}</span>'
-                f'<span>획득 {caught}</span>'
+                f'<span>시도 {total:,}</span>'
+                f'<span>포획 {successful:,}</span>'
+                f'<span>이로치 {shiny}</span>'
                 f'<span>BP +{bp_earned:,}</span>'
-                f'<span>챌린지 {s["total_challenges"]}회(P{s["challenge_passes"]}/F{s["challenge_fails"]})</span>'
+                f'<span>챌린지 {ch_total}(P{ch_pass}/F{ch_fail})</span>'
                 f'</div></div>'
                 f'<div style="text-align:right;min-width:60px">'
-                f'<div style="font-size:16px;font-weight:700;color:{score_color}">{score:.2f}</div>'
-                f'<div style="width:60px;height:4px;background:#333;border-radius:2px;margin-top:2px">'
-                f'<div style="width:{score_bar_w}%;height:100%;background:{score_color};border-radius:2px"></div>'
-                f'</div></div></div>'
+                f'<div style="font-size:16px;font-weight:700;color:{color}">{total:,}</div>'
+                f'<div style="font-size:10px;color:#888">시도</div>'
+                f'</div></div>'
             )
 
         return f"""
 <div class="section">
-<div class="section-title">🚨 어뷰저 의심 유저</div>
+<div class="section-title">🚨 과다포획 유저</div>
 {rows}
 </div>"""
     except Exception as e:

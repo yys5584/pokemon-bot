@@ -1,7 +1,7 @@
 """Anti-bot abuse detection service.
 
-의심 유저 탐지 → 포획 챌린지 발동 → 결과에 따라 점수 조정.
-일반 유저는 전혀 영향 없음.
+시간당 포획 50회 초과 시 캡차(챌린지) 발동.
+챌린지 실패/타임아웃 시 단계적 잠금.
 """
 
 import asyncio
@@ -15,42 +15,23 @@ from database.connection import get_db
 logger = logging.getLogger(__name__)
 
 # ─── 설정값 ────────────────────────────────────────
-BOT_SCORE_THRESHOLD_LOW = 0.75    # 이 이상이면 챌린지 발동
-BOT_SCORE_THRESHOLD_MID = 0.85    # (참고용)
-BOT_SCORE_THRESHOLD_HIGH = 0.95   # (참고용)
-CHALLENGE_TIMEOUT_SEC = 180       # 챌린지 응답 제한시간 (3분)
-FAST_REACTION_MS = 2000           # 2초 이하 = 의심 반응
-VERY_FAST_REACTION_MS = 1000      # 1초 이하 = 매우 의심
-MIN_SAMPLES_FOR_SCORING = 5       # 최소 5회 포획 후부터 점수 계산
-SCORE_DECAY_PER_HOUR = 0.02       # 시간당 점수 자연 감소
+HOURLY_CATCH_LIMIT = 50             # 시간당 이 이상이면 챌린지
+CHALLENGE_TIMEOUT_SEC = 180         # 챌린지 응답 제한시간 (3분)
+DB_HOURLY_CHECK_INTERVAL = 300      # DB 기반 시간당 체크 간격 (5분)
 
 # 챌린지 실패 시 잠금 시간 (초) — 1차 30분, 2차 1시간, 3차+ 12시간
 LOCK_DURATIONS = [30 * 60, 60 * 60, 12 * 60 * 60]
 
-# ─── 설정값 (행동 패턴) ───────────────────────────
-MULTI_ROOM_WINDOW_SEC = 60        # 1분 내
-MULTI_ROOM_THRESHOLD = 3          # 3개+ 다른 방 = 의심
-HOURLY_CATCH_THRESHOLD = 30       # 1시간 내 30회+ = 의심
-MULTI_ROOM_SCORE_BUMP = 0.15      # 멀티방 감지 시 점수 가산
-HOURLY_CATCH_SCORE_BUMP = 0.15    # 과다포획 감지 시 점수 가산 (30회+)
-HOURLY_CATCH_SEVERE = 60          # 1시간 내 60회+ = 중증 의심
-HOURLY_CATCH_SEVERE_BUMP = 0.30   # 중증 과다포획 점수 가산
-DB_HOURLY_CHECK_INTERVAL = 300    # DB 기반 시간당 체크 간격 (5분)
-
 # ─── 메모리 캐시 ───────────────────────────────────
-# user_id -> list of recent reaction_ms (최근 20개)
-_reaction_cache: dict[int, list[int]] = defaultdict(list)
-_REACTION_CACHE_MAX = 20
-
-# user_id -> list of (timestamp, chat_id) — 최근 포획 기록
+# user_id -> list of (timestamp, chat_id) — 최근 1시간 포획 기록
 _catch_history: dict[int, list[tuple[float, int]]] = defaultdict(list)
-_CATCH_HISTORY_MAX = 60
-
-# user_id -> bot_score (DB 동기화는 비동기)
-_score_cache: dict[int, float] = {}
+_CATCH_HISTORY_MAX = 120
 
 # user_id -> last DB hourly check timestamp
 _last_db_hourly_check: dict[int, float] = {}
+
+# user_id -> 시간당 포획 수 (메모리 or DB 중 큰 값)
+_hourly_count_cache: dict[int, int] = {}
 
 # user_id -> pending challenge info
 _pending_challenges: dict[int, dict] = {}
@@ -92,26 +73,26 @@ def format_lock_duration(seconds: int) -> str:
     return f"{seconds // 60}분"
 
 
-# ─── 반응시간 기록 ─────────────────────────────────
+# ─── 포획 기록 & 시간당 체크 ─────────────────────
 async def record_reaction(user_id: int, session_id: int, spawned_at, attempted_at, chat_id: int = 0) -> int | None:
-    """포획 시 반응시간(ms) 계산 & 기록 + 행동 패턴 추적. 반환: reaction_ms or None."""
+    """포획 시 반응시간(ms) 기록 + 시간당 포획 수 추적."""
     now = time.time()
 
-    # ── 행동 패턴 추적 (chat_id 있을 때) ──
+    # ── 시간당 포획 추적 ──
     if chat_id:
         history = _catch_history[user_id]
         history.append((now, chat_id))
-        # 오래된 기록 정리 (1시간 이전)
+        # 1시간 이전 기록 정리
         cutoff = now - 3600
         _catch_history[user_id] = [(t, c) for t, c in history if t > cutoff][-_CATCH_HISTORY_MAX:]
-        # 비동기로 패턴 분석
-        asyncio.create_task(_check_behavior_patterns(user_id))
+        # 메모리 기반 시간당 카운트 갱신
+        _hourly_count_cache[user_id] = len(_catch_history[user_id])
 
+    # ── 반응시간 계산 & DB 저장 (통계용) ──
     if not spawned_at or not attempted_at:
         return None
 
     try:
-        # timezone 맞추기 (spawned_at은 tz-aware, attempted_at은 tz-naive일 수 있음)
         if hasattr(spawned_at, 'tzinfo') and spawned_at.tzinfo is not None:
             if attempted_at.tzinfo is None:
                 attempted_at = attempted_at.replace(tzinfo=spawned_at.tzinfo)
@@ -124,11 +105,9 @@ async def record_reaction(user_id: int, session_id: int, spawned_at, attempted_a
         logger.warning(f"record_reaction calc error: {e}")
         return None
 
-    # 비정상 값 필터 (음수 or 3분 초과)
     if reaction_ms > 180_000:
         return None
 
-    # DB에 reaction_ms 저장
     try:
         pool = await get_db()
         await pool.execute(
@@ -139,173 +118,54 @@ async def record_reaction(user_id: int, session_id: int, spawned_at, attempted_a
     except Exception as e:
         logger.warning(f"record_reaction DB error: {e}")
 
-    # 메모리 캐시 업데이트
-    cache = _reaction_cache[user_id]
-    cache.append(reaction_ms)
-    if len(cache) > _REACTION_CACHE_MAX:
-        cache.pop(0)
-
-    # 점수 업데이트 (백그라운드)
-    asyncio.create_task(_update_bot_score(user_id, reaction_ms))
-
     return reaction_ms
 
 
-# ─── 의심 점수 계산 ────────────────────────────────
-async def _update_bot_score(user_id: int, latest_ms: int):
-    """최근 반응시간 패턴으로 봇 의심 점수 갱신."""
-    try:
-        cache = _reaction_cache.get(user_id, [])
-        if len(cache) < MIN_SAMPLES_FOR_SCORING:
-            return
+async def _get_hourly_catch_count(user_id: int) -> int:
+    """시간당 포획 수 반환 (메모리 + DB 이중 체크)."""
+    memory_count = _hourly_count_cache.get(user_id, 0)
 
-        # 1. 빠른 반응 비율 (2초 이내)
-        fast_count = sum(1 for ms in cache if ms < FAST_REACTION_MS)
-        fast_ratio = fast_count / len(cache)
-
-        # 2. 매우 빠른 반응 비율 (1초 이내)
-        very_fast_count = sum(1 for ms in cache if ms < VERY_FAST_REACTION_MS)
-        very_fast_ratio = very_fast_count / len(cache)
-
-        # 3. 반응시간 표준편차 (봇은 일정함)
-        if len(cache) >= 3:
-            mean = sum(cache) / len(cache)
-            variance = sum((x - mean) ** 2 for x in cache) / len(cache)
-            std_dev = variance ** 0.5
-            # 표준편차가 200ms 이하면 매우 의심 (사람은 보통 500ms+ 분산)
-            consistency_score = max(0, 1.0 - std_dev / 1000)
-        else:
-            consistency_score = 0
-
-        # 종합 점수: 가중 평균
-        score = (
-            fast_ratio * 0.35 +
-            very_fast_ratio * 0.35 +
-            consistency_score * 0.30
-        )
-
-        # 0~1 범위 클램프
-        score = max(0.0, min(1.0, score))
-
-        # 기존 점수와 블렌딩 (급격한 변동 방지)
-        old_score = _score_cache.get(user_id, 0)
-        blended = old_score * 0.3 + score * 0.7
-
-        _score_cache[user_id] = max(_score_cache.get(user_id, 0), blended)
-        blended = _score_cache[user_id]
-
-        # DB에 저장 — behavior bump를 보호하기 위해 GREATEST 사용
-        pool = await get_db()
-        await pool.execute(
-            """INSERT INTO abuse_scores (user_id, bot_score, updated_at)
-               VALUES ($1, $2, NOW())
-               ON CONFLICT (user_id) DO UPDATE
-               SET bot_score = GREATEST(abuse_scores.bot_score, $2),
-                   updated_at = NOW()""",
-            user_id, round(blended, 4),
-        )
-
-    except Exception as e:
-        logger.warning(f"_update_bot_score error: {e}")
-
-
-async def _check_behavior_patterns(user_id: int):
-    """멀티방 순회 + 시간당 과다 포획 감지 (메모리 + DB 이중 체크)."""
-    try:
-        history = _catch_history.get(user_id, [])
-        now = time.time()
-        bump = 0.0
-        flags = []
-
-        # 1) 멀티방 순회: 최근 1분 내 포획한 방 수
-        if len(history) >= 3:
-            window_start = now - MULTI_ROOM_WINDOW_SEC
-            recent = [(t, c) for t, c in history if t > window_start]
-            unique_rooms = set(c for _, c in recent)
-            if len(unique_rooms) >= MULTI_ROOM_THRESHOLD:
-                bump += MULTI_ROOM_SCORE_BUMP
-                flags.append(f"multi_room:{len(unique_rooms)}rooms/{len(recent)}catches/1min")
-
-        # 2) 시간당 과다 포획 (메모리 기반)
-        hourly_count = len(history)
-        if hourly_count >= HOURLY_CATCH_SEVERE:
-            bump += HOURLY_CATCH_SEVERE_BUMP
-            flags.append(f"hourly_severe:{hourly_count}catches/1h")
-        elif hourly_count >= HOURLY_CATCH_THRESHOLD:
-            bump += HOURLY_CATCH_SCORE_BUMP
-            flags.append(f"hourly:{hourly_count}catches/1h")
-
-        # 3) DB 기반 시간당 체크 (메모리 리셋 보완, 5분마다)
-        last_check = _last_db_hourly_check.get(user_id, 0)
-        if now - last_check > DB_HOURLY_CHECK_INTERVAL:
-            _last_db_hourly_check[user_id] = now
-            try:
-                pool = await get_db()
-                db_count = await pool.fetchval(
-                    "SELECT COUNT(*) FROM catch_attempts "
-                    "WHERE user_id = $1 AND attempted_at > NOW() - interval '1 hour'",
-                    user_id,
-                )
-                if db_count and db_count >= HOURLY_CATCH_SEVERE:
-                    if bump < HOURLY_CATCH_SEVERE_BUMP:
-                        bump = max(bump, HOURLY_CATCH_SEVERE_BUMP)
-                        flags.append(f"db_hourly_severe:{db_count}catches/1h")
-                elif db_count and db_count >= HOURLY_CATCH_THRESHOLD:
-                    if bump < HOURLY_CATCH_SCORE_BUMP:
-                        bump = max(bump, HOURLY_CATCH_SCORE_BUMP)
-                        flags.append(f"db_hourly:{db_count}catches/1h")
-            except Exception as e:
-                logger.warning(f"DB hourly check error: {e}")
-
-        if bump > 0:
-            old_score = _score_cache.get(user_id, 0)
-            new_score = min(1.0, old_score + bump)
-            _score_cache[user_id] = new_score
-
-            # DB 업데이트
+    # DB 체크 (5분마다)
+    now = time.time()
+    last_check = _last_db_hourly_check.get(user_id, 0)
+    if now - last_check > DB_HOURLY_CHECK_INTERVAL:
+        _last_db_hourly_check[user_id] = now
+        try:
             pool = await get_db()
-            await pool.execute(
-                """INSERT INTO abuse_scores (user_id, bot_score, updated_at)
-                   VALUES ($1, $2, NOW())
-                   ON CONFLICT (user_id) DO UPDATE
-                   SET bot_score = LEAST(1.0, abuse_scores.bot_score + $3),
-                       last_flagged_at = NOW(), updated_at = NOW()""",
-                user_id, round(new_score, 4), round(bump, 4),
+            db_count = await pool.fetchval(
+                "SELECT COUNT(*) FROM catch_attempts "
+                "WHERE user_id = $1 AND attempted_at > NOW() - interval '1 hour'",
+                user_id,
             )
-            logger.info(f"Abuse pattern detected uid={user_id}: {', '.join(flags)} (score {old_score:.2f}→{new_score:.2f})")
+            db_count = db_count or 0
+            # 메모리와 DB 중 큰 값 사용 (봇 재시작 시 메모리 리셋되므로)
+            if db_count > memory_count:
+                _hourly_count_cache[user_id] = db_count
+                return db_count
+        except Exception as e:
+            logger.warning(f"DB hourly check error: {e}")
 
-    except Exception as e:
-        logger.warning(f"_check_behavior_patterns error: {e}")
-
-
-async def get_bot_score(user_id: int) -> float:
-    """유저의 현재 봇 의심 점수 반환 (0~1)."""
-    if user_id in _score_cache:
-        return _score_cache[user_id]
-
-    try:
-        pool = await get_db()
-        row = await pool.fetchrow(
-            "SELECT bot_score FROM abuse_scores WHERE user_id = $1",
-            user_id,
-        )
-        score = float(row["bot_score"]) if row else 0.0
-        _score_cache[user_id] = score
-        return score
-    except Exception:
-        return 0.0
+    return memory_count
 
 
 # ─── 챌린지 판정 ──────────────────────────────────
 async def should_challenge(user_id: int) -> bool:
-    """이 유저에게 포획 챌린지를 발동할지 판정.
-    score >= 0.4 이상이면 무조건 챌린지 (캡차 통과 전 포획 차단).
-    """
-    score = await get_bot_score(user_id)
-
-    if score >= BOT_SCORE_THRESHOLD_LOW:
+    """시간당 50회 초과 시 챌린지 발동."""
+    count = await _get_hourly_catch_count(user_id)
+    if count >= HOURLY_CATCH_LIMIT:
+        logger.info(f"Challenge triggered uid={user_id}: {count} catches/hour (limit={HOURLY_CATCH_LIMIT})")
         return True
     return False
+
+
+# ─── bot_score 호환 (리포트/관리자 조회용) ────────
+async def get_bot_score(user_id: int) -> float:
+    """시간당 포획 수를 0~1 점수로 변환 (리포트 호환)."""
+    count = await _get_hourly_catch_count(user_id)
+    if count < HOURLY_CATCH_LIMIT:
+        return 0.0
+    # 50회=0.5, 100회=1.0 스케일
+    return min(1.0, count / (HOURLY_CATCH_LIMIT * 2))
 
 
 # ─── 챌린지 생성/검증 ─────────────────────────────
@@ -340,7 +200,6 @@ def get_pending_challenge(user_id: int) -> dict | None:
     ch = _pending_challenges.get(user_id)
     if not ch:
         return None
-    # 타임아웃 체크
     if time.time() - ch["created_at"] > CHALLENGE_TIMEOUT_SEC:
         return ch  # 만료됐지만 반환 (처리용)
     return ch
@@ -360,10 +219,8 @@ async def resolve_challenge(user_id: int, answer: str) -> bool:
     expired = is_challenge_expired(ch)
     expected = ch["expected"].strip()
 
-    # 정답 판정: 완전 일치 또는 공백 무시 일치
     passed = not expired and answer.strip() == expected
 
-    # DB 기록
     try:
         reaction_ms = int((time.time() - ch["created_at"]) * 1000) if not expired else None
         pool = await get_db()
@@ -374,7 +231,6 @@ async def resolve_challenge(user_id: int, answer: str) -> bool:
             user_id, ch["session_id"], ch["type"], expected, answer.strip(), passed, reaction_ms,
         )
 
-        # abuse_scores 업데이트
         if passed:
             await pool.execute(
                 """INSERT INTO abuse_scores (user_id, total_challenges, challenge_passes, last_challenge_at, updated_at)
@@ -382,30 +238,21 @@ async def resolve_challenge(user_id: int, answer: str) -> bool:
                    ON CONFLICT (user_id) DO UPDATE SET
                        total_challenges = abuse_scores.total_challenges + 1,
                        challenge_passes = abuse_scores.challenge_passes + 1,
-                       bot_score = GREATEST(0, abuse_scores.bot_score - 0.15),
                        last_challenge_at = NOW(), updated_at = NOW()""",
                 user_id,
             )
-            # 캐시도 감소
-            if user_id in _score_cache:
-                _score_cache[user_id] = max(0, _score_cache[user_id] - 0.15)
             # 정답 시 잠금 스트라이크 초기화
             _catch_locks.pop(user_id, None)
         else:
             await pool.execute(
-                """INSERT INTO abuse_scores (user_id, bot_score, total_challenges, challenge_fails, last_challenge_at, last_flagged_at, updated_at)
-                   VALUES ($1, 0.3, 1, 1, NOW(), NOW(), NOW())
+                """INSERT INTO abuse_scores (user_id, total_challenges, challenge_fails, last_challenge_at, last_flagged_at, updated_at)
+                   VALUES ($1, 1, 1, NOW(), NOW(), NOW())
                    ON CONFLICT (user_id) DO UPDATE SET
                        total_challenges = abuse_scores.total_challenges + 1,
                        challenge_fails = abuse_scores.challenge_fails + 1,
-                       bot_score = LEAST(1.0, abuse_scores.bot_score + 0.25),
                        last_challenge_at = NOW(), last_flagged_at = NOW(), updated_at = NOW()""",
                 user_id,
             )
-            # 캐시도 증가
-            if user_id in _score_cache:
-                _score_cache[user_id] = min(1.0, _score_cache[user_id] + 0.25)
-            # 실패 시 포획 잠금 적용
             _apply_catch_lock(user_id)
 
     except Exception as e:
@@ -434,18 +281,14 @@ async def handle_challenge_timeout(user_id: int):
             user_id, ch["session_id"], ch["type"], ch["expected"],
         )
         await pool.execute(
-            """INSERT INTO abuse_scores (user_id, bot_score, total_challenges, challenge_fails, last_challenge_at, last_flagged_at, updated_at)
-               VALUES ($1, 0.3, 1, 1, NOW(), NOW(), NOW())
+            """INSERT INTO abuse_scores (user_id, total_challenges, challenge_fails, last_challenge_at, last_flagged_at, updated_at)
+               VALUES ($1, 1, 1, NOW(), NOW(), NOW())
                ON CONFLICT (user_id) DO UPDATE SET
                    total_challenges = abuse_scores.total_challenges + 1,
                    challenge_fails = abuse_scores.challenge_fails + 1,
-                   bot_score = LEAST(1.0, abuse_scores.bot_score + 0.25),
                    last_challenge_at = NOW(), last_flagged_at = NOW(), updated_at = NOW()""",
             user_id,
         )
-        if user_id in _score_cache:
-            _score_cache[user_id] = min(1.0, _score_cache[user_id] + 0.25)
-        # 타임아웃도 실패로 잠금 적용
         _apply_catch_lock(user_id)
     except Exception as e:
         logger.warning(f"handle_challenge_timeout DB error: {e}")
@@ -453,17 +296,23 @@ async def handle_challenge_timeout(user_id: int):
 
 # ─── 관리자용 조회 ─────────────────────────────────
 async def get_flagged_users(limit: int = 20) -> list[dict]:
-    """의심 점수 높은 유저 목록 조회."""
+    """시간당 과다포획 유저 목록 (리포트용, DB에서 최근 1시간 기준)."""
     try:
         pool = await get_db()
         rows = await pool.fetch(
-            """SELECT a.*, u.display_name, u.username
-               FROM abuse_scores a
-               JOIN users u ON a.user_id = u.user_id
-               WHERE a.bot_score >= $1
-               ORDER BY a.bot_score DESC
+            """SELECT ca.user_id, u.display_name, u.username,
+                      COUNT(*) as hourly_catches,
+                      a.total_challenges, a.challenge_passes, a.challenge_fails
+               FROM catch_attempts ca
+               JOIN users u ON ca.user_id = u.user_id
+               LEFT JOIN abuse_scores a ON ca.user_id = a.user_id
+               WHERE ca.attempted_at > NOW() - interval '1 hour'
+               GROUP BY ca.user_id, u.display_name, u.username,
+                        a.total_challenges, a.challenge_passes, a.challenge_fails
+               HAVING COUNT(*) >= $1
+               ORDER BY COUNT(*) DESC
                LIMIT $2""",
-            BOT_SCORE_THRESHOLD_LOW, limit,
+            HOURLY_CATCH_LIMIT, limit,
         )
         return [dict(r) for r in rows]
     except Exception:
@@ -505,7 +354,7 @@ async def admin_reset_score(user_id: int):
             "UPDATE abuse_scores SET bot_score = 0, updated_at = NOW() WHERE user_id = $1",
             user_id,
         )
-        _score_cache.pop(user_id, None)
-        _reaction_cache.pop(user_id, None)
+        _hourly_count_cache.pop(user_id, None)
+        _catch_locks.pop(user_id, None)
     except Exception as e:
         logger.warning(f"admin_reset_score error: {e}")
