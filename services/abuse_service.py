@@ -15,9 +15,9 @@ from database.connection import get_db
 logger = logging.getLogger(__name__)
 
 # ─── 설정값 ────────────────────────────────────────
-BOT_SCORE_THRESHOLD_LOW = 0.4     # 이 이상이면 10% 확률로 챌린지
-BOT_SCORE_THRESHOLD_MID = 0.7     # 이 이상이면 50% 확률로 챌린지
-BOT_SCORE_THRESHOLD_HIGH = 0.9    # 이 이상이면 100% 챌린지
+BOT_SCORE_THRESHOLD_LOW = 0.75    # 이 이상이면 챌린지 발동
+BOT_SCORE_THRESHOLD_MID = 0.85    # (참고용)
+BOT_SCORE_THRESHOLD_HIGH = 0.95   # (참고용)
 CHALLENGE_TIMEOUT_SEC = 180       # 챌린지 응답 제한시간 (3분)
 FAST_REACTION_MS = 2000           # 2초 이하 = 의심 반응
 VERY_FAST_REACTION_MS = 1000      # 1초 이하 = 매우 의심
