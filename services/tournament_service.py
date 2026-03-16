@@ -422,6 +422,15 @@ async def _split_send(bot, chat_id, text, **kwargs):
     current_len = 0
 
     for line in lines:
+        # 한 줄이 MAX_LEN 초과 시 강제 분할
+        while len(line) > MAX_LEN:
+            if current:
+                chunks.append("\n".join(current))
+                current = []
+                current_len = 0
+            chunks.append(line[:MAX_LEN])
+            line = line[MAX_LEN:]
+
         line_len = len(line) + 1  # +1 for \n
         if current_len + line_len > MAX_LEN and current:
             chunks.append("\n".join(current))
@@ -433,9 +442,19 @@ async def _split_send(bot, chat_id, text, **kwargs):
     if current:
         chunks.append("\n".join(current))
 
+    from telegram.error import TimedOut, NetworkError, RetryAfter
     last_msg = None
     for chunk in chunks:
-        last_msg = await bot.send_message(chat_id=chat_id, text=chunk, **kwargs)
+        for attempt in range(5):
+            try:
+                last_msg = await bot.send_message(chat_id=chat_id, text=chunk, **kwargs)
+                break
+            except RetryAfter as e:
+                await asyncio.sleep(e.retry_after + 1)
+            except (TimedOut, NetworkError):
+                await asyncio.sleep(3 * (attempt + 1))
+        else:
+            last_msg = await bot.send_message(chat_id=chat_id, text=chunk, **kwargs)
     return last_msg
 
 
