@@ -34,7 +34,7 @@ async def try_evolve(user_id: int, instance_id: int) -> tuple[bool, str]:
         return False, "포켓몬 데이터를 찾을 수 없습니다."
 
     # Check if can evolve
-    if not master["evolves_to"] and pokemon_id != config.EEVEE_ID:
+    if not master["evolves_to"] and pokemon_id != config.EEVEE_ID and pokemon_id not in config.BRANCH_EVOLUTIONS:
         return False, f"{master['name_ko']}은(는) 더 이상 진화할 수 없습니다."
 
     # Trade evolution check
@@ -51,6 +51,8 @@ async def try_evolve(user_id: int, instance_id: int) -> tuple[bool, str]:
     # Determine evolution target
     if pokemon_id == config.EEVEE_ID:
         target_id = random.choice(config.EEVEE_EVOLUTIONS)
+    elif pokemon_id in config.BRANCH_EVOLUTIONS:
+        target_id = random.choice(config.BRANCH_EVOLUTIONS[pokemon_id])
     else:
         target_id = master["evolves_to"]
 

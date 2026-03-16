@@ -840,6 +840,184 @@ POKEMON_SKILLS = {
     # --- Mythical ---
     385: [("멸망의소원", 2.0), ("사이코키네시스", 2.0)],# 지라치 (ultra_legendary) steel/psychic
     386: ("사이코부스트", 2.0),   # 테오키스 (ultra_legendary) psychic
+
+    # ========== Gen 4 (387-493) ==========
+    # --- Starters ---
+    387: ("씨폭탄", 1.2),           # 모부기 (common) grass
+    388: ("에너지볼", 1.4),          # 수풀부기 (rare) grass
+    389: [("우드해머", 1.5), ("지진", 1.5)],  # 토대부기 (epic) grass/ground
+    390: ("불꽃세례", 1.2),          # 불꽃숭이 (common) fire
+    391: ("화염펀치", 1.4),          # 파이숭이 (rare) fire/fighting
+    392: [("플레어드라이브", 1.5), ("인파이트", 1.5)],  # 초염몽 (epic) fire/fighting
+    393: ("물대포", 1.2),            # 팽도리 (common) water
+    394: ("버블광선", 1.4),          # 팽태자 (rare) water
+    395: [("하이드로펌프", 1.5), ("라스터캐논", 1.5)],  # 엠페르트 (epic) water/steel
+
+    # --- Early routes ---
+    396: ("전광석화", 1.2),          # 찌르꼬 (common) normal/flying
+    397: ("에어슬래시", 1.3),        # 찌르버드 (common) normal/flying
+    398: [("브레이브버드", 1.7), ("인파이트", 1.6)],  # 찌르호크 (rare) normal/flying
+    399: ("몸통박치기", 1.2),        # 비버니 (common) normal
+    400: ("하이퍼보이스", 1.4),      # 비버통 (common) normal/water
+    401: ("벌레의저항", 1.2),        # 귀뚤뚜기 (common) bug
+    402: ("시저크로스", 1.4),        # 귀뚤톡크 (common) bug
+
+    # --- Shinx line ---
+    403: ("스파크", 1.2),            # 꼬링크 (common) electric
+    404: ("방전", 1.4),              # 럭시오 (rare) electric
+    405: [("와일드볼트", 1.6), ("번개엄니", 1.5)],  # 렌트라 (epic) electric
+
+    # --- Budew / Roserade ---
+    406: ("흡수", 1.2),              # 꼬몽울 (common) grass/poison
+    407: [("리프스톰", 1.7), ("헤드로폭탄", 1.6)],  # 로즈레이드 (epic) grass/poison
+
+    # --- Fossils ---
+    408: ("박치기", 1.4),            # 두개도스 (rare) rock
+    409: ("스톤에지", 1.5),          # 램펄드 (epic) rock
+    410: ("아이언헤드", 1.3),        # 방패톱스 (rare) rock/steel
+    411: ("메탈버스트", 1.5),        # 바리톱스 (epic) rock/steel
+
+    # --- Burmy line ---
+    412: ("벌레먹기", 1.2),          # 도롱충이 (common) bug
+    413: ("리프스톰", 1.4),          # 도롱마담 (rare) bug/grass
+    414: ("에어슬래시", 1.4),        # 나메일 (rare) bug/flying
+
+    # --- Combee / Vespiquen ---
+    415: ("벌레의저항", 1.2),        # 세꿀버리 (common) bug/flying
+    416: ("공격지령", 1.5),          # 비퀸 (rare) bug/flying
+
+    # --- Singles ---
+    417: ("볼트체인지", 1.4),        # 파치리스 (common) electric
+    418: ("아쿠아제트", 1.3),        # 브이젤 (common) water
+    419: ("아쿠아테일", 1.5),        # 플로젤 (rare) water
+    420: ("흡수", 1.2),              # 체리버 (common) grass
+    421: ("솔라빔", 1.5),            # 체리꼬 (common) grass
+    422: ("탁류", 1.2),              # 깝질무 (common) water
+    423: [("대지의힘", 1.5), ("탁류", 1.4)],  # 트리토돈 (rare) water/ground
+
+    # --- Ambipom ---
+    424: ("더블어택", 1.5),          # 겟핸보숭 (rare) normal
+
+    # --- Drifloon line ---
+    425: ("섀도볼", 1.3),            # 흔들풍손 (common) ghost/flying
+    426: ("섀도볼", 1.5),            # 둥실라이드 (rare) ghost/flying
+
+    # --- Buneary line ---
+    427: ("돌려차기", 1.2),          # 이어롤 (common) normal
+    428: ("하이점프킥", 1.5),        # 이어롭 (rare) normal
+
+    # --- Cross-gen evolutions ---
+    429: ("섀도볼", 1.6),            # 무우마직 (epic) ghost
+    430: [("이악물기", 1.5), ("브레이브버드", 1.6)],  # 돈크로우 (epic) dark/flying
+
+    # --- Glameow line ---
+    431: ("고양이돈", 1.2),          # 나옹마 (common) normal
+    432: ("하이퍼보이스", 1.4),      # 몬냥이 (rare) normal
+
+    # --- Chingling ---
+    433: ("사이코웨이브", 1.2),      # 랑딸랑 (common) psychic
+
+    # --- Stunky line ---
+    434: ("독찌르기", 1.2),          # 스컹뿡 (common) poison/dark
+    435: ("독폭탄", 1.5),            # 스컹탱크 (rare) poison/dark
+
+    # --- Bronzor line ---
+    436: ("사이코키네시스", 1.2),    # 동미러 (common) steel/psychic
+    437: [("자이로볼", 1.5), ("사이코키네시스", 1.5)],  # 동탁군 (rare) steel/psychic
+
+    # --- Baby Pokemon ---
+    438: ("스톤에지", 1.2),          # 꼬지지 (common) rock
+    439: ("사이코키네시스", 1.2),    # 흉내내 (common) psychic/fairy
+    440: ("알폭탄", 1.2),            # 핑복 (common) normal
+
+    # --- Chatot ---
+    441: ("수다", 1.4),              # 페라페 (common) normal/flying
+
+    # --- Spiritomb ---
+    442: [("섀도볼", 1.5), ("악의파동", 1.5)],  # 화강돌 (epic) ghost/dark
+
+    # --- Gible line ---
+    443: ("용의숨결", 1.3),          # 딥상어동 (rare) dragon/ground
+    444: ("용의클로", 1.4),          # 한바이트 (rare) dragon/ground
+    445: [("역린", 2.0), ("지진", 1.5)],  # 한카리아스 (epic) dragon/ground
+
+    # --- Munchlax ---
+    446: ("누르기", 1.3),            # 먹고자 (rare) normal
+
+    # --- Riolu / Lucario ---
+    447: ("진공파", 1.3),            # 리오르 (rare) fighting
+    448: [("파동탄", 1.5), ("인파이트", 1.5)],  # 루카리오 (epic) fighting/steel
+
+    # --- Hippopotas line ---
+    449: ("지진", 1.3),              # 히포포타스 (common) ground
+    450: ("지진", 1.6),              # 하마돈 (rare) ground
+
+    # --- Skorupi / Drapion ---
+    451: ("독찌르기", 1.2),          # 스콜피 (common) poison/bug
+    452: [("크로스포이즌", 1.5), ("이악물기", 1.5)],  # 드래피온 (rare) poison/dark
+
+    # --- Croagunk / Toxicroak ---
+    453: ("독찌르기", 1.2),          # 삐딱구리 (common) poison/fighting
+    454: [("독찌르기", 1.5), ("드레인펀치", 1.5)],  # 독개굴 (rare) poison/fighting
+
+    # --- Carnivine ---
+    455: ("파워휩", 1.5),            # 무스틈니 (rare) grass
+
+    # --- Finneon line ---
+    456: ("은빛바람", 1.2),          # 형광어 (common) water
+    457: ("파도타기", 1.4),          # 네오라이트 (rare) water
+
+    # --- Mantyke ---
+    458: ("버블광선", 1.2),          # 타만타 (common) water/flying
+
+    # --- Snover / Abomasnow ---
+    459: ("냉동빔", 1.3),            # 눈쓰개 (common) grass/ice
+    460: [("눈보라", 1.6), ("우드해머", 1.6)],  # 눈설왕 (rare) grass/ice
+
+    # --- Cross-gen evolutions (continued) ---
+    461: [("얼음뭉치", 1.6), ("밤의슬래시", 1.5)],  # 포푸니라 (epic) dark/ice
+    462: [("10만볼트", 1.6), ("라스터캐논", 1.5)],   # 자포코일 (epic) electric/steel
+    463: ("파괴광선", 1.5),          # 내루미 (rare) normal
+    464: [("암석포", 1.7), ("지진", 1.6)],  # 거대코뿌리 (epic) ground/rock
+    465: [("파워휩", 1.6), ("지진", 1.5)],  # 덩쿠림보 (rare) grass
+    466: [("와일드볼트", 1.7), ("크로스촙", 1.5)],  # 에레키블 (epic) electric
+    467: [("대문자", 1.7), ("사이코키네시스", 1.5)],  # 마그마번 (epic) fire
+    468: [("에어슬래시", 1.6), ("파동탄", 1.5)],  # 토게키스 (epic) fairy/flying
+    469: [("벌레의야단법석", 1.6), ("에어슬래시", 1.5)],  # 메가자리 (rare) bug/flying
+    470: ("리프블레이드", 1.6),      # 리피아 (rare) grass
+    471: ("냉동빔", 1.6),            # 글레이시아 (rare) ice
+    472: [("지진", 1.5), ("독찌르기", 1.4)],  # 글라이온 (rare) ground/flying
+    473: [("지진", 1.7), ("고드름떨구기", 1.6)],  # 맘모꾸리 (epic) ice/ground
+    474: [("트라이어택", 1.7), ("파괴광선", 1.6)],  # 폴리곤Z (epic) normal
+    475: [("사이코커터", 1.6), ("인파이트", 1.6)],  # 엘레이드 (epic) psychic/fighting
+    476: [("파워잼", 1.5), ("대지의힘", 1.4)],  # 대코파스 (rare) rock/steel
+    477: [("섀도펀치", 1.6), ("냉동펀치", 1.4)],  # 야느와르몽 (epic) ghost
+    478: [("섀도볼", 1.6), ("냉동빔", 1.5)],  # 눈여아 (epic) ice/ghost
+
+    # --- Rotom ---
+    479: [("10만볼트", 1.6), ("섀도볼", 1.5)],  # 로토무 (epic) electric/ghost
+
+    # --- Lake trio ---
+    480: ("사이코키네시스", 1.8),    # 유크시 (legendary) psychic
+    481: ("사이코키네시스", 1.8),    # 엠라이트 (legendary) psychic
+    482: [("사이코키네시스", 1.8), ("대문자", 1.6)],  # 아그놈 (legendary) psychic
+
+    # --- Creation trio ---
+    483: [("시간의포효", 2.0), ("라스터캐논", 1.8)],  # 디아루가 (ultra_legendary) steel/dragon
+    484: [("공간절단", 2.0), ("하이드로펌프", 1.8)],  # 펄기아 (ultra_legendary) water/dragon
+
+    # --- Legendary ---
+    485: [("마그마스톰", 1.8), ("라스터캐논", 1.6)],  # 히드런 (legendary) fire/steel
+    486: ("기가임팩트", 1.5),        # 레지기가스 (epic) normal
+    487: [("섀도다이브", 2.0), ("용성군", 1.8)],  # 기라티나 (ultra_legendary) ghost/dragon
+
+    # --- Mythical/Legendary ---
+    488: ("사이코키네시스", 1.8),    # 크레세리아 (legendary) psychic
+    489: ("파도타기", 1.8),          # 피오네 (legendary) water
+    490: ("하트스왑", 2.0),          # 마나피 (ultra_legendary) water
+    491: [("다크홀", 2.0), ("악의파동", 1.8)],  # 다크라이 (ultra_legendary) dark
+    492: [("시드플레어", 2.0), ("에어슬래시", 1.8)],  # 쉐이미 (ultra_legendary) grass
+    493: ("심판의뭉치", 2.0),        # 아르세우스 (ultra_legendary) normal
 }
 
 
@@ -860,11 +1038,15 @@ SKILL_EFFECTS = {
     "브레이브버드":  {"type": "recoil", "damage_bonus": 2.0, "pct": 0.25},
     "인파이트":     {"type": "recoil", "damage_bonus": 2.0, "pct": 0.25},
     "하이점프킥":   {"type": "recoil", "damage_bonus": 2.0, "pct": 0.25},
+    "플레어드라이브": {"type": "recoil", "damage_bonus": 2.0, "pct": 0.25},
+    "우드해머":     {"type": "recoil", "damage_bonus": 2.0, "pct": 0.25},
+    "와일드볼트":   {"type": "recoil", "damage_bonus": 2.0, "pct": 0.25},
 
     # --- 흡수계: 데미지 + HP 회복 ---
     "흡수":         {"type": "drain", "pct": 0.25},
     "메가드레인":   {"type": "drain", "pct": 0.35},
     "기가드레인":   {"type": "drain", "pct": 0.50},
+    "드레인펀치":   {"type": "drain", "pct": 0.35},
 
     # --- 선제기: 발동(30%) 시 그 턴만 선공 ---
     "신속":         {"type": "priority"},

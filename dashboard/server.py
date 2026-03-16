@@ -598,7 +598,7 @@ async def api_my_summary(request):
 
 
 async def api_my_pokedex(request):
-    """Return user's pokedex: all 386 pokemon with caught status."""
+    """Return user's pokedex: all 493 pokemon with caught status."""
     sess = await _get_session(request)
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=401)
@@ -1383,7 +1383,7 @@ def _build_system_prompt(pokemon_data: list, meta: dict) -> str:
 
     return f"""당신은 TGPoke(텔레포켓몬) 배틀 전략 AI 어드바이저입니다. 한국어로 답변하세요.
 TGPoke는 텔레그램 기반 포켓몬 수집·육성·배틀 시뮬레이터로, 원작과 비슷하지만 독자적인 전투 시스템을 사용합니다.
-**1~3세대 총 386마리** 포켓몬이 등록되어 있습니다. 3세대(호연지방, #252~#386) 포켓몬도 적극 추천하세요.
+**1~4세대 총 493마리** 포켓몬이 등록되어 있습니다. 4세대(신오지방, #387~#493) 포켓몬도 적극 추천하세요.
 
 ## 배틀 시스템 핵심
 - 팀은 최대 6마리. 초전설(ultra_legendary) 최대 1마리, 전설(legendary) 최대 1마리, 에픽/전설/초전설 같은 종 중복 불가

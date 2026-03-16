@@ -399,4 +399,113 @@ POKEMON_BATTLE_DATA = {
     384: ("dragon", "offensive"),     # Rayquaza (dragon/flying)
     385: ("steel", "balanced"),       # Jirachi (steel/psychic)
     386: ("psychic", "offensive"),    # Deoxys Normal (psychic)
+
+    # Gen 4 (387-493)
+    387: ("grass", "balanced"),          # Turtwig
+    388: ("grass", "offensive"),          # Grotle
+    389: ("grass", "offensive"),          # Torterra (grass/ground)
+    390: ("fire", "balanced"),           # Chimchar
+    391: ("fire", "balanced"),           # Monferno (fire/fighting)
+    392: ("fire", "balanced"),           # Infernape (fire/fighting)
+    393: ("water", "balanced"),          # Piplup
+    394: ("water", "balanced"),          # Prinplup
+    395: ("water", "offensive"),         # Empoleon (water/steel)
+    396: ("normal", "offensive"),         # Starly (normal/flying)
+    397: ("normal", "offensive"),         # Staravia (normal/flying)
+    398: ("normal", "offensive"),         # Staraptor (normal/flying)
+    399: ("normal", "balanced"),         # Bidoof
+    400: ("normal", "offensive"),         # Bibarel (normal/water)
+    401: ("bug", "defensive"),           # Kricketot
+    402: ("bug", "offensive"),            # Kricketune
+    403: ("electric", "offensive"),       # Shinx
+    404: ("electric", "offensive"),       # Luxio
+    405: ("electric", "offensive"),       # Luxray
+    406: ("grass", "balanced"),          # Budew (grass/poison)
+    407: ("grass", "offensive"),         # Roserade (grass/poison)
+    408: ("rock", "offensive"),           # Cranidos
+    409: ("rock", "offensive"),           # Rampardos
+    410: ("rock", "defensive"),          # Shieldon (rock/steel)
+    411: ("rock", "defensive"),          # Bastiodon (rock/steel)
+    412: ("bug", "balanced"),            # Burmy
+    413: ("bug", "defensive"),           # Wormadam (bug/grass)
+    414: ("bug", "balanced"),            # Mothim (bug/flying)
+    415: ("bug", "balanced"),            # Combee (bug/flying)
+    416: ("bug", "defensive"),           # Vespiquen (bug/flying)
+    417: ("electric", "defensive"),      # Pachirisu
+    418: ("water", "balanced"),          # Buizel
+    419: ("water", "offensive"),          # Floatzel
+    420: ("grass", "balanced"),          # Cherubi
+    421: ("grass", "balanced"),          # Cherrim
+    422: ("water", "balanced"),          # Shellos
+    423: ("water", "balanced"),          # Gastrodon (water/ground)
+    424: ("normal", "offensive"),         # Ambipom
+    425: ("ghost", "balanced"),          # Drifloon (ghost/flying)
+    426: ("ghost", "balanced"),          # Drifblim (ghost/flying)
+    427: ("normal", "balanced"),         # Buneary
+    428: ("normal", "balanced"),         # Lopunny
+    429: ("ghost", "offensive"),         # Mismagius
+    430: ("dark", "offensive"),           # Honchkrow (dark/flying)
+    431: ("normal", "balanced"),         # Glameow
+    432: ("normal", "balanced"),         # Purugly
+    433: ("psychic", "offensive"),       # Chingling
+    434: ("poison", "balanced"),         # Stunky (poison/dark)
+    435: ("poison", "balanced"),         # Skuntank (poison/dark)
+    436: ("steel", "defensive"),         # Bronzor (steel/psychic)
+    437: ("steel", "defensive"),         # Bronzong (steel/psychic)
+    438: ("rock", "offensive"),           # Bonsly
+    439: ("psychic", "offensive"),       # Mime Jr. (psychic/fairy)
+    440: ("normal", "defensive"),        # Happiny
+    441: ("normal", "offensive"),        # Chatot (normal/flying)
+    442: ("ghost", "defensive"),         # Spiritomb (ghost/dark)
+    443: ("dragon", "offensive"),         # Gible (dragon/ground)
+    444: ("dragon", "offensive"),         # Gabite (dragon/ground)
+    445: ("dragon", "offensive"),         # Garchomp (dragon/ground)
+    446: ("normal", "defensive"),        # Munchlax
+    447: ("fighting", "offensive"),       # Riolu
+    448: ("fighting", "balanced"),       # Lucario (fighting/steel)
+    449: ("ground", "defensive"),        # Hippopotas
+    450: ("ground", "offensive"),         # Hippowdon
+    451: ("poison", "defensive"),        # Skorupi (poison/bug)
+    452: ("poison", "offensive"),         # Drapion (poison/dark)
+    453: ("poison", "balanced"),         # Croagunk (poison/fighting)
+    454: ("poison", "offensive"),         # Toxicroak (poison/fighting)
+    455: ("grass", "offensive"),          # Carnivine
+    456: ("water", "balanced"),          # Finneon
+    457: ("water", "balanced"),          # Lumineon
+    458: ("water", "defensive"),         # Mantyke (water/flying)
+    459: ("grass", "balanced"),          # Snover (grass/ice)
+    460: ("grass", "balanced"),          # Abomasnow (grass/ice)
+    461: ("dark", "offensive"),           # Weavile (dark/ice)
+    462: ("electric", "offensive"),      # Magnezone (electric/steel)
+    463: ("normal", "balanced"),         # Lickilicky
+    464: ("ground", "offensive"),         # Rhyperior (ground/rock)
+    465: ("grass", "balanced"),          # Tangrowth
+    466: ("electric", "offensive"),       # Electivire
+    467: ("fire", "offensive"),          # Magmortar
+    468: ("fairy", "offensive"),         # Togekiss (fairy/flying)
+    469: ("bug", "offensive"),           # Yanmega (bug/flying)
+    470: ("grass", "offensive"),          # Leafeon
+    471: ("ice", "offensive"),           # Glaceon
+    472: ("ground", "defensive"),        # Gliscor (ground/flying)
+    473: ("ice", "offensive"),            # Mamoswine (ice/ground)
+    474: ("normal", "offensive"),        # Porygon-Z
+    475: ("psychic", "offensive"),        # Gallade (psychic/fighting)
+    476: ("rock", "defensive"),          # Probopass (rock/steel)
+    477: ("ghost", "defensive"),         # Dusknoir
+    478: ("ice", "balanced"),            # Froslass (ice/ghost)
+    479: ("electric", "offensive"),      # Rotom (electric/ghost)
+    480: ("psychic", "defensive"),       # Uxie
+    481: ("psychic", "balanced"),        # Mesprit
+    482: ("psychic", "offensive"),       # Azelf
+    483: ("steel", "offensive"),         # Dialga (steel/dragon)
+    484: ("water", "offensive"),         # Palkia (water/dragon)
+    485: ("fire", "offensive"),          # Heatran (fire/steel)
+    486: ("normal", "offensive"),         # Regigigas
+    487: ("ghost", "defensive"),         # Giratina (ghost/dragon)
+    488: ("psychic", "defensive"),       # Cresselia
+    489: ("water", "balanced"),          # Phione
+    490: ("water", "balanced"),          # Manaphy
+    491: ("dark", "offensive"),          # Darkrai
+    492: ("grass", "balanced"),          # Shaymin
+    493: ("normal", "balanced"),         # Arceus
 }

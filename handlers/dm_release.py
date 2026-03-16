@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 RARITY_ORDER = ["common", "rare", "epic", "legendary", "ultra_legendary"]
 IV_GRADES = ["D", "C", "B", "A", "S"]
-GEN_RANGES = {"gen1": (1, 151), "gen2": (152, 251), "gen3": (252, 386)}
-GEN_LABELS = {"gen1": "1세대", "gen2": "2세대", "gen3": "3세대"}
+GEN_RANGES = {"gen1": (1, 151), "gen2": (152, 251), "gen3": (252, 386), "gen4": (387, 493)}
+GEN_LABELS = {"gen1": "1세대", "gen2": "2세대", "gen3": "3세대", "gen4": "4세대"}
 
 
 def _get_filter(context) -> dict:

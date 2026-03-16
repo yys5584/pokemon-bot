@@ -70,7 +70,7 @@ ALL_POKEMON_GEN3 = [
 
     (298, "루리리", "Azurill", "⭐", "common", 0.80, None, None, "none"),  # Azurill
 
-    (299, "코코파스", "Nosepass", "🗿", "common", 0.80, None, None, "none"),  # Nosepass
+    (299, "코코파스", "Nosepass", "🗿", "common", 0.80, None, 476, "none"),  # Nosepass
 
     (300, "에나비", "Skitty", "⭐", "common", 0.80, None, 301, "friendship"),  # Skitty
     (301, "델케티", "Delcatty", "⭐", "rare", 0.50, 300, None, "none"),  # Delcatty
@@ -97,7 +97,7 @@ ALL_POKEMON_GEN3 = [
 
     (314, "네오비트", "Illumise", "🐛", "rare", 0.50, None, None, "none"),  # Illumise
 
-    (315, "로젤리아", "Roselia", "🌿", "rare", 0.50, None, None, "none"),  # Roselia
+    (315, "로젤리아", "Roselia", "🌿", "rare", 0.50, None, 407, "none"),  # Roselia
 
     (316, "꼴깍몬", "Gulpin", "☠️", "common", 0.80, None, 317, "friendship"),  # Gulpin
     (317, "꿀꺽몬", "Swalot", "☠️", "rare", 0.50, 316, None, "none"),  # Swalot
@@ -162,7 +162,7 @@ ALL_POKEMON_GEN3 = [
     (354, "다크펫", "Banette", "👻", "rare", 0.50, 353, None, "none"),  # Banette
 
     (355, "해골몽", "Duskull", "👻", "common", 0.80, None, 356, "friendship"),  # Duskull
-    (356, "미라몽", "Dusclops", "👻", "rare", 0.50, 355, None, "none"),  # Dusclops
+    (356, "미라몽", "Dusclops", "👻", "rare", 0.50, 355, 477, "none"),  # Dusclops
 
     (357, "트로피우스", "Tropius", "🌿", "rare", 0.50, None, None, "none"),  # Tropius
 

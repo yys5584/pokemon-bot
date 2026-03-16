@@ -157,7 +157,7 @@ GROUP_TRADE_BP_COST = 50           # 그룹 교환 비용 (BP)
 # --- Title System ---
 TITLES = [
     # (min_pokemon_count, title_text, emoji)
-    (386, "그랜드마스터", "💫"),
+    (493, "그랜드마스터", "💫"),
     (151, "챔피언", "👑"),
     (120, "포켓몬 마스터", "🏆"),
     (75, "포켓몬 트레이너", "⭐"),
@@ -192,8 +192,13 @@ UNLOCKABLE_TITLES = {
     "gen3_collector": ("호연 수집가",    "abra",       "3세대 도감 45종 달성",   "pokedex_gen3", 45),
     "gen3_trainer":   ("호연 트레이너",  "snorlax",    "3세대 도감 75종 달성",   "pokedex_gen3", 75),
     "gen3_master":    ("호연 마스터",    "moltres",    "3세대 도감 135종 완성!", "pokedex_gen3", 135),
+    # 4세대 도감 기반 (신오)
+    "gen4_starter":   ("신오의 초보",    "squirtle",   "4세대 도감 15종 달성",   "pokedex_gen4", 15),
+    "gen4_collector": ("신오 수집가",    "abra",       "4세대 도감 45종 달성",   "pokedex_gen4", 45),
+    "gen4_trainer":   ("신오 트레이너",  "snorlax",    "4세대 도감 75종 달성",   "pokedex_gen4", 75),
+    "gen4_master":    ("신오 마스터",    "moltres",    "4세대 도감 107종 완성!", "pokedex_gen4", 107),
     # 전체 도감
-    "grand_master":   ("그랜드마스터",   "mew",        "전체 도감 386종 완성!",  "pokedex_all", 386),
+    "grand_master":   ("그랜드마스터",   "mew",        "전체 도감 493종 완성!",  "pokedex_all", 493),
     # 전설
     "legend_hunter":("레전드 헌터",    "dratini",    "전설 포켓몬 3마리 포획",   "legendary", 3),
     # 활동 기반
@@ -246,7 +251,13 @@ TRADE_EVOLUTION_MAP = {
 
 # --- Eevee Evolution ---
 EEVEE_ID = 133
-EEVEE_EVOLUTIONS = [134, 135, 136, 196, 197]  # 샤미드, 쥬피썬더, 부스터, 에브이, 블래키
+EEVEE_EVOLUTIONS = [134, 135, 136, 196, 197, 470, 471]  # 샤미드, 쥬피썬더, 부스터, 에브이, 블래키, 리피아, 글레이시아
+
+# --- Branching Evolution (랜덤 분기진화) ---
+BRANCH_EVOLUTIONS = {
+    281: [282, 475],  # 킬리아 → 가디안 / 엘레이드
+    361: [362, 478],  # 눈꼬마 → 얼음귀신 / 눈여아
+}
 
 # --- Message Templates ---
 MSG_SPAWN = "🌿 야생의 {emoji} {name}이(가) 나타났다!\nㅊ 입력으로 잡기 (60초)"

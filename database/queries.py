@@ -2068,6 +2068,7 @@ async def get_user_rankings(limit: int = 20) -> list[dict]:
                   COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id <= 151) as gen1_count,
                   COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id >= 152 AND p.pokemon_id <= 251) as gen2_count,
                   COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id >= 252 AND p.pokemon_id <= 386) as gen3_count,
+                  COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id >= 387 AND p.pokemon_id <= 493) as gen4_count,
                   COUNT(p.pokemon_id) as pokedex_count
            FROM users u
            LEFT JOIN pokedex p ON u.user_id = p.user_id
