@@ -442,6 +442,17 @@ async def _split_send(bot, chat_id, text, **kwargs):
     if current:
         chunks.append("\n".join(current))
 
+    # HTML 태그 보정: <pre> 등이 청크 사이에서 잘리면 닫기/열기 보정
+    if kwargs.get("parse_mode", "").upper() == "HTML":
+        for i in range(len(chunks)):
+            c = chunks[i]
+            open_pre = c.count("<pre>")
+            close_pre = c.count("</pre>")
+            if open_pre > close_pre:
+                chunks[i] = c + "</pre>"
+            elif close_pre > open_pre:
+                chunks[i] = "<pre>" + c
+
     from telegram.error import TimedOut, NetworkError, RetryAfter
     last_msg = None
     for chunk in chunks:
