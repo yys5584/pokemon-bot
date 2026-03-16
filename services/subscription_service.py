@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 _TRANSFER_TOPIC = None  # lazy init
 
 _w3 = None  # AsyncWeb3 singleton
+_w3_url = None  # 현재 연결된 RPC URL
+_rpc_blacklist: set[str] = set()  # get_logs 실패한 RPC (일시 블랙리스트)
+_blacklist_clear_counter = 0  # 10회 폴링마다 블랙리스트 초기화
 
 
 _BASE_RPC_FALLBACKS = [
@@ -25,10 +28,13 @@ _BASE_RPC_FALLBACKS = [
 ]
 
 
-async def _get_web3():
-    """AsyncWeb3 싱글턴 (RPC fallback 지원)."""
-    global _w3
-    if _w3 is not None:
+async def _get_web3(skip_url: str | None = None):
+    """AsyncWeb3 싱글턴 (RPC fallback 지원).
+
+    skip_url: 이 URL은 건너뜀 (get_logs 실패 시 다른 RPC 시도용).
+    """
+    global _w3, _w3_url
+    if _w3 is not None and skip_url is None:
         # 기존 연결 확인
         try:
             await _w3.eth.block_number
@@ -36,6 +42,7 @@ async def _get_web3():
         except Exception:
             logger.warning("Web3 connection lost, reconnecting...")
             _w3 = None
+            _w3_url = None
 
     # 설정된 RPC + fallback 목록
     rpc_list = [config.BASE_RPC_URL] + [
@@ -50,15 +57,24 @@ async def _get_web3():
         return None
 
     for url in rpc_list:
+        if url == skip_url or url in _rpc_blacklist:
+            continue
         try:
             w3 = AsyncWeb3(AsyncHTTPProvider(url))
             await w3.eth.block_number  # 연결 테스트
             _w3 = w3
+            _w3_url = url
             logger.info(f"Web3 connected to {url}")
             return _w3
         except Exception as e:
             logger.warning(f"Web3 RPC failed: {url} ({e})")
             continue
+
+    # 블랙리스트 비우고 재시도 (모두 실패 시)
+    if _rpc_blacklist:
+        logger.info("Clearing RPC blacklist and retrying...")
+        _rpc_blacklist.clear()
+        return await _get_web3(skip_url=skip_url)
 
     logger.error("All RPC endpoints failed!")
     return None
@@ -149,10 +165,18 @@ async def create_payment_request(user_id: int, tier: str, token: str) -> dict:
 
 async def poll_chain_transfers(bot) -> None:
     """Base 체인에서 USDC/USDT Transfer 이벤트 폴링."""
-    global _w3
+    global _w3, _w3_url, _blacklist_clear_counter
 
     if not config.SUBSCRIPTION_WALLET:
         return
+
+    # 10분(10회 폴링)마다 블랙리스트 초기화 → 복구된 RPC 재시도
+    _blacklist_clear_counter += 1
+    if _blacklist_clear_counter >= 10:
+        _blacklist_clear_counter = 0
+        if _rpc_blacklist:
+            logger.info(f"Clearing RPC blacklist (was: {_rpc_blacklist})")
+            _rpc_blacklist.clear()
 
     w3 = await _get_web3()
     if not w3:
@@ -163,6 +187,7 @@ async def poll_chain_transfers(bot) -> None:
     except Exception as e:
         logger.error(f"Chain poll: block_number failed: {e}")
         _w3 = None
+        _w3_url = None
         return
 
     last_block = await sq.get_last_processed_block()
@@ -179,19 +204,32 @@ async def poll_chain_transfers(bot) -> None:
     wallet_topic = "0x" + config.SUBSCRIPTION_WALLET.lower()[2:].zfill(64)
     transfer_topic = _get_transfer_topic()
 
-    try:
-        logs = await w3.eth.get_logs({
-            "fromBlock": from_block,
-            "toBlock": to_block,
-            "address": [
-                w3.to_checksum_address(config.USDC_CONTRACT),
-                w3.to_checksum_address(config.USDT_CONTRACT),
-            ],
-            "topics": [transfer_topic, None, wallet_topic],
-        })
-    except Exception as e:
-        logger.error(f"Chain poll: get_logs failed ({from_block}-{to_block}): {e}")
-        _w3 = None  # RPC 장애 — 다음 폴링에서 다른 RPC 시도
+    # get_logs 실패 시 다른 RPC로 재시도 (최대 2회)
+    logs = None
+    for attempt in range(3):
+        try:
+            logs = await w3.eth.get_logs({
+                "fromBlock": from_block,
+                "toBlock": to_block,
+                "address": [
+                    w3.to_checksum_address(config.USDC_CONTRACT),
+                    w3.to_checksum_address(config.USDT_CONTRACT),
+                ],
+                "topics": [transfer_topic, None, wallet_topic],
+            })
+            break  # 성공
+        except Exception as e:
+            failed_url = _w3_url
+            logger.error(f"Chain poll: get_logs failed ({from_block}-{to_block}): {e} [RPC: {failed_url}]")
+            if failed_url:
+                _rpc_blacklist.add(failed_url)
+            _w3 = None
+            _w3_url = None
+            w3 = await _get_web3()
+            if not w3:
+                return
+
+    if logs is None:
         return
 
     for log in logs:
