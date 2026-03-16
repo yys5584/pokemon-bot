@@ -1275,16 +1275,19 @@ async def _send_daily_kpi_report(context):
 {items}
 </div>"""
 
-        # ── 이로치 포획 상세 ──
+        # ── 이로치 포획 요약 ──
         shiny_html = ""
         if shiny_catches:
+            total_shiny = sum(s["cnt"] for s in shiny_catches)
             items = ""
-            for s in shiny_catches:
+            medals = ["🥇", "🥈", "🥉"]
+            for i, s in enumerate(shiny_catches[:5]):
+                medal = medals[i] if i < 3 else f"{i+1}."
                 name = (s["display_name"] or "?")[:10]
-                items += f'<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5">✨ <b>{s["name_ko"]}</b> — {name}</div>'
+                items += f'<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5">{medal} <b>{name}</b> — {s["cnt"]}마리</div>'
             shiny_html = f"""
 <div class="section">
-<div class="section-title">✨ 이로치 포획 ({len(shiny_catches)}마리)</div>
+<div class="section-title">✨ 이로치 포획 (총 {total_shiny}마리)</div>
 {items}
 </div>"""
 

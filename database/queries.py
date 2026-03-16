@@ -2823,20 +2823,20 @@ async def report_top_active_users(today, limit: int = 10) -> list[dict]:
 
 
 async def report_shiny_catches(today) -> list[dict]:
-    """오늘 이로치 포획 상세 (누가 뭘 잡았는지)."""
+    """이로치 포획 요약 — Top 포획자 + 총 수."""
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT sl.caught_by_user_id as user_id,
-                  u.display_name, u.username,
-                  pm.name_ko, pm.id as pokemon_id,
-                  sl.spawned_at
+                  u.display_name,
+                  COUNT(*) as cnt
            FROM spawn_log sl
-           JOIN pokemon_master pm ON sl.pokemon_id = pm.id
            LEFT JOIN users u ON sl.caught_by_user_id = u.user_id
            WHERE sl.spawned_at >= $1
              AND sl.is_shiny = 1
              AND sl.caught_by_user_id IS NOT NULL
-           ORDER BY sl.spawned_at DESC""",
+           GROUP BY sl.caught_by_user_id, u.display_name
+           ORDER BY cnt DESC
+           LIMIT 10""",
         today,
     )
     return [dict(r) for r in rows]
