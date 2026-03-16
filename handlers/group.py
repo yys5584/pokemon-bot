@@ -29,6 +29,71 @@ logger = logging.getLogger(__name__)
 # Prevent duplicate catch from rapid ㅊㅊ (race condition guard)
 _catch_locks: set[tuple[int, int]] = set()  # (session_id, user_id)
 
+
+async def _send_challenge_dm(context, user_id: int, session: dict) -> bool:
+    """챌린지 DM 전송. 이미 pending이면 False, 새로 보냈으면 True."""
+    existing = get_pending_challenge(user_id)
+    if existing:
+        return False  # 이미 대기 중
+
+    pokemon_name = session.get("name_ko", "")
+    if not pokemon_name:
+        return False
+
+    ch = create_challenge(user_id, session["id"], pokemon_name)
+    try:
+        from utils.card_generator import generate_card
+        pokemon_id = session.get("pokemon_id", session.get("id", 0))
+        rarity = session.get("rarity", "common")
+        emoji = session.get("emoji", "")
+        is_shiny = bool(session.get("is_shiny", 0))
+
+        loop = asyncio.get_event_loop()
+        card_buf = await loop.run_in_executor(
+            None, generate_card, pokemon_id, pokemon_name, rarity, emoji, is_shiny,
+        )
+
+        choices = ch["choices"]
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton(choices[0], callback_data=f"abot_{ch['session_id']}_{choices[0]}"),
+             InlineKeyboardButton(choices[1], callback_data=f"abot_{ch['session_id']}_{choices[1]}")],
+            [InlineKeyboardButton(choices[2], callback_data=f"abot_{ch['session_id']}_{choices[2]}"),
+             InlineKeyboardButton(choices[3], callback_data=f"abot_{ch['session_id']}_{choices[3]}")],
+        ])
+
+        await context.bot.send_photo(
+            chat_id=user_id,
+            photo=card_buf,
+            caption=(
+                "🚨 <b>비정상 포획 감지</b>\n\n"
+                "자동 포획이 의심됩니다.\n"
+                "본인 확인을 위해 이 포켓몬의 이름을 선택하세요. (5분)"
+            ),
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )
+
+        # 타임아웃 스케줄
+        async def _challenge_timeout(uid=user_id):
+            await asyncio.sleep(CHALLENGE_TIMEOUT_SEC + 1)
+            ch_now = get_pending_challenge(uid)
+            if ch_now and not ch_now.get("answered"):
+                await handle_challenge_timeout(uid)
+                _, remain = is_catch_locked(uid)
+                lock_text = f"\n🔒 포획 잠금: {format_lock_duration(remain)}" if remain else ""
+                try:
+                    await context.bot.send_message(
+                        chat_id=uid,
+                        text=f"⏰ 시간 초과! 포획이 취소되었습니다.{lock_text}",
+                    )
+                except Exception:
+                    pass
+        asyncio.create_task(_challenge_timeout())
+        return True
+    except Exception:
+        clear_challenge(user_id)
+        return False
+
 # Activity tracking cooldown: skip DB writes if recently tracked (per chat)
 _activity_cooldown: dict[int, float] = {}  # chat_id -> last_tracked_timestamp
 _ACTIVITY_COOLDOWN_SEC = 300  # 5분에 1번만 DB 기록
@@ -179,88 +244,22 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
             # ── 봇방지: 챌린지 체크 ──
-            needs_challenge = await should_challenge(user_id)
-            if needs_challenge:
-                # 이미 대기 중인 챌린지가 있으면 중복 발송 않고 차단만
-                existing_ch = get_pending_challenge(user_id)
-                if existing_ch:
-                    resp = await update.message.reply_text(
+            if await should_challenge(user_id):
+                sent = await _send_challenge_dm(context, user_id, session)
+                display = update.effective_user.first_name or "트레이너"
+                if sent:
+                    warn_msg = await update.message.reply_text(
+                        f"🚨 <b>비정상 포획 감지</b>\n"
+                        f"{display}님, DM에서 본인 확인을 완료해주세요.",
+                        parse_mode="HTML",
+                    )
+                    schedule_delete(warn_msg, 30)
+                else:
+                    await update.message.reply_text(
                         "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
                         parse_mode="HTML",
                     )
-                    schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
-                    return
-
-                pokemon_name = session.get("name_ko", "")
-                if pokemon_name:
-                    ch = create_challenge(user_id, session["id"], pokemon_name)
-                    try:
-                        # 그룹에 안내 메시지
-                        display = update.effective_user.first_name or "트레이너"
-                        warn_msg = await update.message.reply_text(
-                            f"🚨 <b>비정상 포획 감지</b>\n"
-                            f"{display}님, DM에서 본인 확인을 완료해주세요.",
-                            parse_mode="HTML",
-                        )
-                        schedule_delete(warn_msg, 30)
-
-                        # DM으로 카드 이미지 + 4지선다 전송
-                        from utils.card_generator import generate_card
-                        pokemon_id = session.get("pokemon_id", session.get("id", 0))
-                        rarity = session.get("rarity", "common")
-                        emoji = session.get("emoji", "")
-                        is_shiny = bool(session.get("is_shiny", 0))
-
-                        loop = asyncio.get_event_loop()
-                        card_buf = await loop.run_in_executor(
-                            None, generate_card, pokemon_id, pokemon_name, rarity, emoji, is_shiny,
-                        )
-
-                        choices = ch["choices"]
-                        keyboard = InlineKeyboardMarkup([
-                            [InlineKeyboardButton(choices[0], callback_data=f"abot_{ch['session_id']}_{choices[0]}"),
-                             InlineKeyboardButton(choices[1], callback_data=f"abot_{ch['session_id']}_{choices[1]}")],
-                            [InlineKeyboardButton(choices[2], callback_data=f"abot_{ch['session_id']}_{choices[2]}"),
-                             InlineKeyboardButton(choices[3], callback_data=f"abot_{ch['session_id']}_{choices[3]}")],
-                        ])
-
-                        await context.bot.send_photo(
-                            chat_id=user_id,
-                            photo=card_buf,
-                            caption=(
-                                "🚨 <b>비정상 포획 감지</b>\n\n"
-                                "자동 포획이 의심됩니다.\n"
-                                "본인 확인을 위해 이 포켓몬의 이름을 선택하세요. (5분)"
-                            ),
-                            parse_mode="HTML",
-                            reply_markup=keyboard,
-                        )
-
-                        # 타임아웃 스케줄 (5분)
-                        async def _challenge_timeout(uid=user_id):
-                            await asyncio.sleep(CHALLENGE_TIMEOUT_SEC + 1)
-                            ch_now = get_pending_challenge(uid)
-                            if ch_now and not ch_now.get("answered"):
-                                await handle_challenge_timeout(uid)
-                                _, remain = is_catch_locked(uid)
-                                lock_text = f"\n🔒 포획 잠금: {format_lock_duration(remain)}" if remain else ""
-                                try:
-                                    await context.bot.send_message(
-                                        chat_id=uid,
-                                        text=f"⏰ 시간 초과! 포획이 취소되었습니다.{lock_text}",
-                                    )
-                                except Exception:
-                                    pass
-                        asyncio.create_task(_challenge_timeout())
-                    except Exception:
-                        # DM 전송 실패 (봇 차단 등) → 챌린지 스킵
-                        clear_challenge(user_id)
-                        needs_challenge = False
-
-                    if needs_challenge:
-                        # 챌린지 대기 중 — record_attempt 하지 않고 return
-                        # 챌린지 통과 시 콜백 핸들러에서 record 처리
-                        return
+                return
 
             # Phase 3: record attempt (sequential — must happen before message)
             await record_attempt(session["id"], user_id)
@@ -368,10 +367,20 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
             # ── 봇방지: 챌린지 체크 ──
             if await should_challenge(user_id):
-                resp = await update.message.reply_text(
-                    "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
-                    parse_mode="HTML",
-                )
+                sent = await _send_challenge_dm(context, user_id, session)
+                display = update.effective_user.first_name or "트레이너"
+                if sent:
+                    warn_msg = await update.message.reply_text(
+                        f"🚨 <b>비정상 포획 감지</b>\n"
+                        f"{display}님, DM에서 본인 확인을 완료해주세요.",
+                        parse_mode="HTML",
+                    )
+                    schedule_delete(warn_msg, 30)
+                else:
+                    await update.message.reply_text(
+                        "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
+                        parse_mode="HTML",
+                    )
                 return
 
             if balls < 1:
@@ -483,10 +492,20 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
             # ── 봇방지: 챌린지 체크 ──
             if await should_challenge(user_id):
-                resp = await update.message.reply_text(
-                    "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
-                    parse_mode="HTML",
-                )
+                sent = await _send_challenge_dm(context, user_id, session)
+                display = update.effective_user.first_name or "트레이너"
+                if sent:
+                    warn_msg = await update.message.reply_text(
+                        f"🚨 <b>비정상 포획 감지</b>\n"
+                        f"{display}님, DM에서 본인 확인을 완료해주세요.",
+                        parse_mode="HTML",
+                    )
+                    schedule_delete(warn_msg, 30)
+                else:
+                    await update.message.reply_text(
+                        "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
+                        parse_mode="HTML",
+                    )
                 return
 
             # Use hyper ball from inventory
