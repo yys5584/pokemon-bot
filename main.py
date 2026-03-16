@@ -1517,7 +1517,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^어뷰징초기화\s+\d+$"), abuse_reset_handler))
 
     # Group trade (reply with '교환')
-    app.add_handler(MessageHandler(group & filters.Regex(r"^교환\s+\S+$"), group_trade_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^교환\s+.+$"), group_trade_handler))
 
     # Pokeball recharge
     app.add_handler(MessageHandler(group & filters.Regex(r"^포켓볼\s*충전$"), love_easter_egg))
