@@ -1288,9 +1288,11 @@ async def _build_team_settings(user_id: int) -> tuple[str, InlineKeyboardMarkup]
     """Build unified team settings menu (팀설정)."""
     from database import battle_queries as bq
 
-    team1 = await bq.get_battle_team(user_id, 1)
-    team2 = await bq.get_battle_team(user_id, 2)
-    active = await bq.get_active_team_number(user_id)
+    team1, team2, active = await asyncio.gather(
+        bq.get_battle_team(user_id, 1),
+        bq.get_battle_team(user_id, 2),
+        bq.get_active_team_number(user_id),
+    )
 
     t1_info = f"({len(team1)}마리)" if team1 else "(비어있음)"
     t2_info = f"({len(team2)}마리)" if team2 else "(비어있음)"
@@ -2448,11 +2450,13 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from models.pokemon_skills import POKEMON_SKILLS
     from models.pokemon_base_stats import POKEMON_BASE_STATS
 
-    user = await queries.get_user(user_id)
-    pokemon_list = await queries.get_user_pokemon_list(user_id)
-    partner = await bq.get_partner(user_id)
-    team = await bq.get_battle_team(user_id)
-    battle_stats = await bq.get_battle_stats(user_id)
+    user, pokemon_list, partner, team, battle_stats = await asyncio.gather(
+        queries.get_user(user_id),
+        queries.get_user_pokemon_list(user_id),
+        bq.get_partner(user_id),
+        bq.get_battle_team(user_id),
+        bq.get_battle_stats(user_id),
+    )
     master_balls = user.get("master_balls", 0) if user else 0
     bp = battle_stats.get("battle_points", 0)
 
@@ -2473,8 +2477,12 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines.append(f"{icon_emoji('coin')} BP: {bp}")
     lines.append(f"{icon_emoji('container')} 보유 포켓몬: {len(pokemon_list)}마리")
 
-    # 도감 수 (pokedex 테이블 기준 — 방생해도 유지)
-    pokedex_count = await queries.count_pokedex(user_id)
+    # 도감 수 (pokedex 테이블 기준 — 방생해도 유지) — 팀2/활성팀도 미리 로드
+    pokedex_count, active_num, team2 = await asyncio.gather(
+        queries.count_pokedex(user_id),
+        bq.get_active_team_number(user_id),
+        bq.get_battle_team(user_id, 2),
+    )
     shiny_count = sum(1 for p in pokemon_list if p.get("is_shiny"))
     lines.append(f"{icon_emoji('pokedex')} 도감: {pokedex_count}/493종")
     if shiny_count > 0:
@@ -2518,9 +2526,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         lines.append(f"{icon_emoji('pokemon-love')} 파트너: 미지정 ('파트너' 명령어로 설정)")
 
-    # 팀
-    active_num = await bq.get_active_team_number(user_id)
-    team2 = await bq.get_battle_team(user_id, 2)
+    # 팀 (active_num, team2는 위에서 미리 로드됨)
     lines.append("")
     if team:
         lines.append(f"{icon_emoji('battle')} 배틀팀 {active_num} ({len(team)}/6)")

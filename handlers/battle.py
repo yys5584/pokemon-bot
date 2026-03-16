@@ -1,5 +1,6 @@
 """Battle system handlers: partner, team, challenge, accept/decline, rankings, BP shop."""
 
+import asyncio
 import logging
 import re
 import time
@@ -552,8 +553,11 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     team_num = 2 if text.endswith("2") else 1
 
-    team = await bq.get_battle_team(user_id, team_num)
-    active_num = await bq.get_active_team_number(user_id)
+    team, active_num, partner = await asyncio.gather(
+        bq.get_battle_team(user_id, team_num),
+        bq.get_active_team_number(user_id),
+        bq.get_partner(user_id),
+    )
 
     if not team:
         # No team → go straight to slot editor
@@ -561,8 +565,6 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text_msg, markup = _build_team_slots(user_id, draft, team_num)
         await update.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
         return
-
-    partner = await bq.get_partner(user_id)
     partner_instance = partner["instance_id"] if partner else None
 
     active_mark = f" {icon_emoji('check')}" if team_num == active_num else ""
@@ -643,9 +645,11 @@ async def team_edit_menu_handler(update: Update, context: ContextTypes.DEFAULT_T
         return
     user_id = update.effective_user.id
 
-    team1 = await bq.get_battle_team(user_id, 1)
-    team2 = await bq.get_battle_team(user_id, 2)
-    active = await bq.get_active_team_number(user_id)
+    team1, team2, active = await asyncio.gather(
+        bq.get_battle_team(user_id, 1),
+        bq.get_battle_team(user_id, 2),
+        bq.get_active_team_number(user_id),
+    )
 
     t1_label = f"팀1 ({len(team1)}마리)" if team1 else "팀1 (비어있음)"
     t2_label = f"팀2 ({len(team2)}마리)" if team2 else "팀2 (비어있음)"
@@ -826,8 +830,10 @@ async def team_swap_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not update.message:
         return
     user_id = update.effective_user.id
-    team1 = await bq.get_battle_team(user_id, 1)
-    team2 = await bq.get_battle_team(user_id, 2)
+    team1, team2 = await asyncio.gather(
+        bq.get_battle_team(user_id, 1),
+        bq.get_battle_team(user_id, 2),
+    )
     if not team1 and not team2:
         await update.message.reply_text("교환할 팀이 없습니다.")
         return
@@ -1364,21 +1370,20 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
-    bp = await bq.get_bp(user_id)
+    bp, bought_today, tickets, hyper_balls, arcade_tickets = await asyncio.gather(
+        bq.get_bp(user_id),
+        bq.get_bp_purchases_today(user_id, "masterball"),
+        queries.get_force_spawn_tickets(user_id),
+        queries.get_hyper_balls(user_id),
+        queries.get_arcade_tickets(user_id),
+    )
 
-    bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
     remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today
     next_price = _masterball_price(bought_today)
     price_str = f"{next_price} BP" if next_price else "매진"
 
-    tickets = await queries.get_force_spawn_tickets(user_id)
-    hyper_balls = await queries.get_hyper_balls(user_id)
-
     fst_label = "🎉 무료!" if config.BP_FORCE_SPAWN_TICKET_COST == 0 else f"{config.BP_FORCE_SPAWN_TICKET_COST} BP"
     pb_label = "🎉 무료!" if config.BP_POKEBALL_RESET_COST == 0 else f"{config.BP_POKEBALL_RESET_COST} BP"
-
-    # Arcade tickets
-    arcade_tickets = await queries.get_arcade_tickets(user_id)
 
     lines = [
         f"{icon_emoji('shopping-bag')} BP 상점\n",
@@ -1640,22 +1645,25 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             bp = await bq.get_bp(user_id)
             await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
             return
-        await queries.add_arcade_ticket(user_id)
-        await bq.log_bp_purchase(user_id, "arcade_ticket", 1)
-        bp = await bq.get_bp(user_id)
-        tickets = await queries.get_arcade_tickets(user_id)
+        await asyncio.gather(
+            queries.add_arcade_ticket(user_id),
+            bq.log_bp_purchase(user_id, "arcade_ticket", 1),
+        )
+        bp, tickets = await asyncio.gather(bq.get_bp(user_id), queries.get_arcade_tickets(user_id))
         await query.answer(f"🎮 아케이드 티켓 구매! (보유: {tickets}개, 남은 BP: {bp})", show_alert=True)
 
     # Refresh shop display after purchase
     try:
-        bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
+        bought_today, bp, tickets, hyper_balls, arcade_tickets = await asyncio.gather(
+            bq.get_bp_purchases_today(user_id, "masterball"),
+            bq.get_bp(user_id),
+            queries.get_force_spawn_tickets(user_id),
+            queries.get_hyper_balls(user_id),
+            queries.get_arcade_tickets(user_id),
+        )
         remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today
         next_price = _masterball_price(bought_today)
         price_str = f"{next_price} BP" if next_price else "매진"
-        bp = await bq.get_bp(user_id)
-        tickets = await queries.get_force_spawn_tickets(user_id)
-        hyper_balls = await queries.get_hyper_balls(user_id)
-        arcade_tickets = await queries.get_arcade_tickets(user_id)
         fst_label = "🎉 무료!" if config.BP_FORCE_SPAWN_TICKET_COST == 0 else f"{config.BP_FORCE_SPAWN_TICKET_COST} BP"
         pb_label = "🎉 무료!" if config.BP_POKEBALL_RESET_COST == 0 else f"{config.BP_POKEBALL_RESET_COST} BP"
 
@@ -1726,15 +1734,17 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("봇에게는 배틀을 신청할 수 없습니다.")
         return
 
-    # Ensure both users exist
-    await queries.ensure_user(challenger_id, challenger_name, update.effective_user.username)
-    await queries.ensure_user(defender_id, defender_name, reply.from_user.username)
-
-    # Check cooldowns
+    # Ensure both users exist + check cooldowns (병렬)
     from datetime import datetime, timedelta, timezone
 
+    _, _, last_vs, last_any = await asyncio.gather(
+        queries.ensure_user(challenger_id, challenger_name, update.effective_user.username),
+        queries.ensure_user(defender_id, defender_name, reply.from_user.username),
+        bq.get_last_battle_time(challenger_id, defender_id),
+        bq.get_last_battle_time_any(challenger_id),
+    )
+
     # Same opponent cooldown
-    last_vs = await bq.get_last_battle_time(challenger_id, defender_id)
     if last_vs:
         last_time = datetime.fromisoformat(last_vs)
         if last_time.tzinfo is None:
@@ -1750,7 +1760,6 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
             return
 
     # Global cooldown
-    last_any = await bq.get_last_battle_time_any(challenger_id)
     if last_any:
         last_time = datetime.fromisoformat(last_any)
         if last_time.tzinfo is None:
@@ -2122,16 +2131,16 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
             await query.answer("승자만 사용할 수 있습니다!", show_alert=True)
             return
 
-        winner_user = await queries.get_user(winner_id)
-        loser_user = await queries.get_user(loser_id)
-        w_name = winner_user["display_name"] if winner_user else "???"
-        l_name = loser_user["display_name"] if loser_user else "???"
-
-        # 구독자 존칭 적용
         from utils.honorific import honorific_name as _hon_name, _get_honorific
         from services.subscription_service import get_user_tier
-        w_tier = await get_user_tier(winner_id)
-        l_tier = await get_user_tier(loser_id)
+        winner_user, loser_user, w_tier, l_tier = await asyncio.gather(
+            queries.get_user(winner_id),
+            queries.get_user(loser_id),
+            get_user_tier(winner_id),
+            get_user_tier(loser_id),
+        )
+        w_name = winner_user["display_name"] if winner_user else "???"
+        l_name = loser_user["display_name"] if loser_user else "???"
         l_name = _hon_name(l_name, l_tier)
 
         # 승자 구독 티어에 따라 멘트풀 분기
@@ -2347,28 +2356,34 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("봇에게는 랭크전을 신청할 수 없습니다.")
         return
 
-    await queries.ensure_user(challenger_id, challenger_name, update.effective_user.username)
-    await queries.ensure_user(defender_id, defender_name, reply.from_user.username)
-
-    # 시즌 확인/생성
     from services import ranked_service as rs
-    season = await rs.ensure_current_season()
+    from datetime import datetime, timedelta, timezone
+
+    # ensure_user + 시즌 확인 병렬
+    _, _, season = await asyncio.gather(
+        queries.ensure_user(challenger_id, challenger_name, update.effective_user.username),
+        queries.ensure_user(defender_id, defender_name, reply.from_user.username),
+        rs.ensure_current_season(),
+    )
     if not season:
         await update.message.reply_text("🏟️ 현재 시즌이 없습니다. 잠시 후 다시 시도하세요.")
         return
 
     season_id = season["season_id"]
 
-    # 일일 랭크전 상한 체크
+    # 쿨다운 3종 병렬 체크
     today_date = config.get_kst_now().date()
-    c_today_count = await rq.get_ranked_battles_today(challenger_id, today_date)
+    c_today_count, last_vs, last_any = await asyncio.gather(
+        rq.get_ranked_battles_today(challenger_id, today_date),
+        rq.get_last_ranked_vs(challenger_id, defender_id),
+        bq.get_last_battle_time_any(challenger_id),
+    )
+
     if c_today_count >= config.RANKED_DAILY_CAP:
         await update.message.reply_text(f"오늘 랭크전 {config.RANKED_DAILY_CAP}회를 모두 소진했습니다.")
         return
 
     # 같은 상대 쿨다운 (랭크전 전용)
-    from datetime import datetime, timedelta, timezone
-    last_vs = await rq.get_last_ranked_vs(challenger_id, defender_id)
     if last_vs:
         if hasattr(last_vs, 'tzinfo') and last_vs.tzinfo is None:
             last_vs = last_vs.replace(tzinfo=timezone.utc)
@@ -2382,7 +2397,6 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
             return
 
     # 전체 랭크전 쿨다운
-    last_any = await bq.get_last_battle_time_any(challenger_id)
     if last_any:
         last_time = datetime.fromisoformat(last_any) if isinstance(last_any, str) else last_any
         if hasattr(last_time, 'tzinfo') and last_time.tzinfo is None:
@@ -3776,16 +3790,16 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
             await query.answer("승자만 사용할 수 있습니다!", show_alert=True)
             return
 
-        winner_user = await queries.get_user(winner_id)
-        loser_user = await queries.get_user(loser_id)
-        w_name = winner_user["display_name"] if winner_user else "???"
-        l_name = loser_user["display_name"] if loser_user else "???"
-
-        # 구독자 존칭 적용
         from utils.honorific import honorific_name as _hon_name, _get_honorific
         from services.subscription_service import get_user_tier
-        w_tier = await get_user_tier(winner_id)
-        l_tier = await get_user_tier(loser_id)
+        winner_user, loser_user, w_tier, l_tier = await asyncio.gather(
+            queries.get_user(winner_id),
+            queries.get_user(loser_id),
+            get_user_tier(winner_id),
+            get_user_tier(loser_id),
+        )
+        w_name = winner_user["display_name"] if winner_user else "???"
+        l_name = loser_user["display_name"] if loser_user else "???"
         l_name = _hon_name(l_name, l_tier)
 
         # 승자 구독 티어에 따라 멘트풀 분기
