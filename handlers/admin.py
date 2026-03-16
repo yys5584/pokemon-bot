@@ -182,21 +182,10 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                     self.job_queue = job_queue
                     self.job = FakeJob(data)
 
-            # 이로치 강스권 체크 — 보유 시 자동 사용
-            shiny_ticket_used = False
-            try:
-                has_ticket = await queries.get_shiny_spawn_tickets(user_id)
-                if has_ticket > 0:
-                    ok = await queries.use_shiny_spawn_ticket(user_id)
-                    if ok:
-                        shiny_ticket_used = True
-            except Exception:
-                pass
-
             fake_ctx = FakeContext(
                 context.bot,
                 context.application.job_queue,
-                {"chat_id": chat_id, "force": True, "force_shiny": shiny_ticket_used},
+                {"chat_id": chat_id, "force": True},
             )
             await execute_spawn(fake_ctx)
 
@@ -204,9 +193,8 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             await queries.increment_force_spawn(chat_id)
             used = count + 1
             try:
-                shiny_txt = " ✨이로치 강스권 사용!" if shiny_ticket_used else ""
                 count_txt = f"({used}/∞)" if force_spawn_unlimited else f"({used}/50회)"
-                resp = await context.bot.send_message(chat_id=chat_id, text=f"{icon_emoji('bolt')} 강제스폰! {count_txt}{shiny_txt}", parse_mode="HTML")
+                resp = await context.bot.send_message(chat_id=chat_id, text=f"{icon_emoji('bolt')} 강제스폰! {count_txt}", parse_mode="HTML")
                 schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             except Exception:
                 pass

@@ -1646,6 +1646,30 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
 
         except Exception as e:
             logger.error(f"[startup resolve] session {session_id} failed: {e}")
+            # 실패해도 볼 환불은 해줘야 함
+            try:
+                refund_rows = await pool.fetch(
+                    """SELECT user_id, used_master_ball, used_hyper_ball
+                       FROM catch_attempts WHERE session_id = $1
+                       AND (used_master_ball = 1 OR used_hyper_ball = 1)""",
+                    session_id,
+                )
+                for r in refund_rows:
+                    if r["used_master_ball"]:
+                        await pool.execute(
+                            "UPDATE users SET master_balls = master_balls + 1 WHERE user_id = $1",
+                            r["user_id"],
+                        )
+                        refunded.append((r["user_id"], "master"))
+                    if r["used_hyper_ball"]:
+                        await pool.execute(
+                            "UPDATE users SET hyper_balls = hyper_balls + 1 WHERE user_id = $1",
+                            r["user_id"],
+                        )
+                        refunded.append((r["user_id"], "hyper"))
+                logger.info(f"[startup resolve] session {session_id}: refunded {len(refund_rows)} balls on error")
+            except Exception as refund_err:
+                logger.error(f"[startup resolve] session {session_id} refund also failed: {refund_err}")
             await queries.close_spawn_session(session_id)
 
     if refunded:

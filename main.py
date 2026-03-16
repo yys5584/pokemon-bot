@@ -189,7 +189,7 @@ async def post_init(application: Application):
             logger.info(f"Sent {len(refunded_balls)} ball refund DMs")
         logger.info(f"[startup resolve] Done: {len(refunded_balls) if refunded_balls else 0} refunds")
 
-    application.job_queue.run_once(_delayed_resolve, when=5, name="startup_resolve")
+    application.job_queue.run_once(_delayed_resolve, when=15, name="startup_resolve")
 
     # 가챠 미전달 보상 복구 — 재시작 직전 2분 이내 뽑기 기록이 있으면 DM 발송
     try:
@@ -289,28 +289,8 @@ async def _notify_restart(bot):
 
 
 async def post_shutdown(application: Application):
-    """Called on shutdown — resolve active spawns, then close DB."""
-    try:
-        from services.spawn_service import resolve_unresolved_sessions
-        refunded = await resolve_unresolved_sessions(application.bot)
-        if refunded:
-            for uid, ball_type in refunded:
-                try:
-                    from utils.helpers import ball_emoji
-                    be = ball_emoji("masterball") if ball_type == "master" else ball_emoji("hyperball")
-                    bname = "마스터볼" if ball_type == "master" else "하이퍼볼"
-                    await application.bot.send_message(
-                        chat_id=uid,
-                        text=f"{be} 서버 점검으로 인해 {bname}이 환불되었습니다.",
-                        parse_mode="HTML",
-                    )
-                except Exception:
-                    pass
-            logger.info(f"[shutdown] Resolved spawns, refunded {len(refunded)} balls")
-        else:
-            logger.info("[shutdown] No pending spawns to resolve")
-    except Exception as e:
-        logger.error(f"[shutdown] Failed to resolve spawns: {e}")
+    """Called on shutdown — close DB only. Spawn resolve는 startup에서 처리.
+    (shutdown 시 HTTP 클라이언트가 이미 닫혀서 DM 발송 불가하므로)"""
     await close_db()
     logger.info("Database closed.")
 
@@ -1753,7 +1733,7 @@ def main():
     app.add_handler(MessageHandler(group & filters.Regex(r"^스폰배율(\s+.+)?$"), spawn_rate_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스\s*$"), force_spawn_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스권\s*$"), ticket_force_spawn_handler))
-    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*이로치강스\s*$"), shiny_ticket_spawn_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*이로치\s*강스\s*$"), shiny_ticket_spawn_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰 채널 초기화\s*$"), force_spawn_reset_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*포켓볼초기화\s*$"), pokeball_reset_handler))
 

@@ -2295,9 +2295,9 @@ async def api_battle_recent(request):
 
 
 async def api_battle_ranking_teams(request):
-    """Get battle teams + partner info for top 10 rankers (bulk query)."""
+    """Get battle teams + partner info for all rankers (bulk query)."""
     try:
-        ranking = await bq.get_battle_ranking(10)
+        ranking = await bq.get_battle_ranking(100)
         if not ranking:
             return pg_json_response({})
 
