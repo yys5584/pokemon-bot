@@ -32,7 +32,10 @@ MULTI_ROOM_WINDOW_SEC = 60        # 1분 내
 MULTI_ROOM_THRESHOLD = 3          # 3개+ 다른 방 = 의심
 HOURLY_CATCH_THRESHOLD = 30       # 1시간 내 30회+ = 의심
 MULTI_ROOM_SCORE_BUMP = 0.15      # 멀티방 감지 시 점수 가산
-HOURLY_CATCH_SCORE_BUMP = 0.10    # 과다포획 감지 시 점수 가산
+HOURLY_CATCH_SCORE_BUMP = 0.15    # 과다포획 감지 시 점수 가산 (30회+)
+HOURLY_CATCH_SEVERE = 60          # 1시간 내 60회+ = 중증 의심
+HOURLY_CATCH_SEVERE_BUMP = 0.30   # 중증 과다포획 점수 가산
+DB_HOURLY_CHECK_INTERVAL = 300    # DB 기반 시간당 체크 간격 (5분)
 
 # ─── 메모리 캐시 ───────────────────────────────────
 # user_id -> list of recent reaction_ms (최근 20개)
@@ -45,6 +48,9 @@ _CATCH_HISTORY_MAX = 60
 
 # user_id -> bot_score (DB 동기화는 비동기)
 _score_cache: dict[int, float] = {}
+
+# user_id -> last DB hourly check timestamp
+_last_db_hourly_check: dict[int, float] = {}
 
 # user_id -> pending challenge info
 _pending_challenges: dict[int, dict] = {}
@@ -185,15 +191,17 @@ async def _update_bot_score(user_id: int, latest_ms: int):
         old_score = _score_cache.get(user_id, 0)
         blended = old_score * 0.3 + score * 0.7
 
-        _score_cache[user_id] = blended
+        _score_cache[user_id] = max(_score_cache.get(user_id, 0), blended)
+        blended = _score_cache[user_id]
 
-        # DB에 저장
+        # DB에 저장 — behavior bump를 보호하기 위해 GREATEST 사용
         pool = await get_db()
         await pool.execute(
             """INSERT INTO abuse_scores (user_id, bot_score, updated_at)
                VALUES ($1, $2, NOW())
                ON CONFLICT (user_id) DO UPDATE
-               SET bot_score = $2, updated_at = NOW()""",
+               SET bot_score = GREATEST(abuse_scores.bot_score, $2),
+                   updated_at = NOW()""",
             user_id, round(blended, 4),
         )
 
@@ -202,29 +210,52 @@ async def _update_bot_score(user_id: int, latest_ms: int):
 
 
 async def _check_behavior_patterns(user_id: int):
-    """멀티방 순회 + 시간당 과다 포획 감지."""
+    """멀티방 순회 + 시간당 과다 포획 감지 (메모리 + DB 이중 체크)."""
     try:
         history = _catch_history.get(user_id, [])
-        if len(history) < 3:
-            return
-
         now = time.time()
         bump = 0.0
         flags = []
 
         # 1) 멀티방 순회: 최근 1분 내 포획한 방 수
-        window_start = now - MULTI_ROOM_WINDOW_SEC
-        recent = [(t, c) for t, c in history if t > window_start]
-        unique_rooms = set(c for _, c in recent)
-        if len(unique_rooms) >= MULTI_ROOM_THRESHOLD:
-            bump += MULTI_ROOM_SCORE_BUMP
-            flags.append(f"multi_room:{len(unique_rooms)}rooms/{len(recent)}catches/1min")
+        if len(history) >= 3:
+            window_start = now - MULTI_ROOM_WINDOW_SEC
+            recent = [(t, c) for t, c in history if t > window_start]
+            unique_rooms = set(c for _, c in recent)
+            if len(unique_rooms) >= MULTI_ROOM_THRESHOLD:
+                bump += MULTI_ROOM_SCORE_BUMP
+                flags.append(f"multi_room:{len(unique_rooms)}rooms/{len(recent)}catches/1min")
 
-        # 2) 시간당 과다 포획: 최근 1시간 내 포획 수
-        hourly_count = len(history)  # history는 이미 1시간 내만 보관
-        if hourly_count >= HOURLY_CATCH_THRESHOLD:
+        # 2) 시간당 과다 포획 (메모리 기반)
+        hourly_count = len(history)
+        if hourly_count >= HOURLY_CATCH_SEVERE:
+            bump += HOURLY_CATCH_SEVERE_BUMP
+            flags.append(f"hourly_severe:{hourly_count}catches/1h")
+        elif hourly_count >= HOURLY_CATCH_THRESHOLD:
             bump += HOURLY_CATCH_SCORE_BUMP
             flags.append(f"hourly:{hourly_count}catches/1h")
+
+        # 3) DB 기반 시간당 체크 (메모리 리셋 보완, 5분마다)
+        last_check = _last_db_hourly_check.get(user_id, 0)
+        if now - last_check > DB_HOURLY_CHECK_INTERVAL:
+            _last_db_hourly_check[user_id] = now
+            try:
+                pool = await get_db()
+                db_count = await pool.fetchval(
+                    "SELECT COUNT(*) FROM catch_attempts "
+                    "WHERE user_id = $1 AND attempted_at > NOW() - interval '1 hour'",
+                    user_id,
+                )
+                if db_count and db_count >= HOURLY_CATCH_SEVERE:
+                    if bump < HOURLY_CATCH_SEVERE_BUMP:
+                        bump = max(bump, HOURLY_CATCH_SEVERE_BUMP)
+                        flags.append(f"db_hourly_severe:{db_count}catches/1h")
+                elif db_count and db_count >= HOURLY_CATCH_THRESHOLD:
+                    if bump < HOURLY_CATCH_SCORE_BUMP:
+                        bump = max(bump, HOURLY_CATCH_SCORE_BUMP)
+                        flags.append(f"db_hourly:{db_count}catches/1h")
+            except Exception as e:
+                logger.warning(f"DB hourly check error: {e}")
 
         if bump > 0:
             old_score = _score_cache.get(user_id, 0)
@@ -238,7 +269,7 @@ async def _check_behavior_patterns(user_id: int):
                    VALUES ($1, $2, NOW())
                    ON CONFLICT (user_id) DO UPDATE
                    SET bot_score = LEAST(1.0, abuse_scores.bot_score + $3),
-                       updated_at = NOW()""",
+                       last_flagged_at = NOW(), updated_at = NOW()""",
                 user_id, round(new_score, 4), round(bump, 4),
             )
             logger.info(f"Abuse pattern detected uid={user_id}: {', '.join(flags)} (score {old_score:.2f}→{new_score:.2f})")

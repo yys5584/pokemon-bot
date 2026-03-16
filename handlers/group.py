@@ -346,6 +346,18 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 return
             if already:
                 return
+
+            # ── 봇방지: 잠금 체크 ──
+            locked, remain_sec = is_catch_locked(user_id)
+            if locked:
+                resp = await update.message.reply_text(
+                    f"🔒 포획이 잠금 상태입니다.\n"
+                    f"남은 시간: <b>{format_lock_duration(remain_sec)}</b>",
+                    parse_mode="HTML",
+                )
+                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+                return
+
             if balls < 1:
                 resp = await update.message.reply_text(f"{ball_emoji('masterball')} 마스터볼이 없습니다!", parse_mode="HTML")
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
@@ -441,6 +453,17 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             if not row or row["is_resolved"] == 1:
                 return
             if already:
+                return
+
+            # ── 봇방지: 잠금 체크 ──
+            locked, remain_sec = is_catch_locked(user_id)
+            if locked:
+                resp = await update.message.reply_text(
+                    f"🔒 포획이 잠금 상태입니다.\n"
+                    f"남은 시간: <b>{format_lock_duration(remain_sec)}</b>",
+                    parse_mode="HTML",
+                )
+                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
             # Use hyper ball from inventory
