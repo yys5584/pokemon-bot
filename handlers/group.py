@@ -304,6 +304,14 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         if session is None:
             return
 
+        # 🌱 뉴비 스폰이면 마볼 사용 불가 → 일반 포획(ㅊ)으로 전환
+        if session.get("is_newbie_spawn"):
+            resp = await update.message.reply_text(
+                "🌱 뉴비 스폰! 마스터볼은 효과가 없어요. 'ㅊ'으로 도전하세요!",
+            )
+            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+            return
+
         # Race condition guard
         lock_key = (session["id"], user_id)
         if lock_key in _catch_locks:
@@ -395,6 +403,14 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             queries.get_active_spawn(chat_id),
         )
         if session is None:
+            return
+
+        # 🌱 뉴비 스폰이면 하볼 사용 불가 → 일반 포획(ㅊ)으로 전환
+        if session.get("is_newbie_spawn"):
+            resp = await update.message.reply_text(
+                "🌱 뉴비 스폰! 하이퍼볼은 효과가 없어요. 'ㅊ'으로 도전하세요!",
+            )
+            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
             return
 
         # Race condition guard

@@ -889,7 +889,7 @@ async def record_spawn_in_chat(chat_id: int):
 
 async def create_spawn_session(
     chat_id: int, pokemon_id: int, expires_at, message_id: int | None = None,
-    is_shiny: bool = False,
+    is_shiny: bool = False, is_newbie_spawn: bool = False,
 ) -> int:
     async def _do():
         pool = await get_db()
@@ -899,9 +899,9 @@ async def create_spawn_session(
         else:
             exp = expires_at
         row = await pool.fetchrow(
-            """INSERT INTO spawn_sessions (chat_id, pokemon_id, expires_at, message_id, is_shiny)
-               VALUES ($1, $2, $3, $4, $5) RETURNING id""",
-            chat_id, pokemon_id, exp, message_id, 1 if is_shiny else 0,
+            """INSERT INTO spawn_sessions (chat_id, pokemon_id, expires_at, message_id, is_shiny, is_newbie_spawn)
+               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""",
+            chat_id, pokemon_id, exp, message_id, 1 if is_shiny else 0, 1 if is_newbie_spawn else 0,
         )
         return row["id"]
     return await _retry(_do)
@@ -2578,6 +2578,21 @@ async def count_total_catches_bulk(user_ids: list[int]) -> dict[int, int]:
            FROM spawn_log
            WHERE caught_by_user_id = ANY($1::bigint[])
            GROUP BY caught_by_user_id""",
+        user_ids,
+    )
+    return {r["user_id"]: r["cnt"] for r in rows}
+
+
+async def count_pokedex_bulk(user_ids: list[int]) -> dict[int, int]:
+    """유저별 도감 보유 종 수 (뉴비 스폰 티어 판별용)."""
+    if not user_ids:
+        return {}
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT user_id, COUNT(DISTINCT pokemon_id) AS cnt
+           FROM user_pokemon
+           WHERE user_id = ANY($1::bigint[])
+           GROUP BY user_id""",
         user_ids,
     )
     return {r["user_id"]: r["cnt"] for r in rows}

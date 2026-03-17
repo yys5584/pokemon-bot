@@ -465,6 +465,10 @@ MISSION_TABLES = [
     "CREATE INDEX IF NOT EXISTS idx_dm_user_date ON daily_missions(user_id, mission_date)",
 ]
 
+NEWBIE_SPAWN_MIGRATIONS = [
+    "ALTER TABLE spawn_sessions ADD COLUMN is_newbie_spawn INTEGER NOT NULL DEFAULT 0",
+]
+
 TUTORIAL_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN tutorial_step INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD COLUMN tutorial_restarted BOOLEAN NOT NULL DEFAULT FALSE",
@@ -1249,6 +1253,13 @@ async def create_tables():
         """, timeout=30)
     except Exception:
         pass
+
+    # Newbie spawn migrations
+    for mig in NEWBIE_SPAWN_MIGRATIONS:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
 
     # ── Performance indexes (idempotent) ──
     perf_indexes = [

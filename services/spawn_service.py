@@ -438,6 +438,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
 
     session_id = active["id"]
     chat_id = active["chat_id"]
+    is_newbie_spawn = bool(active.get("is_newbie_spawn"))
 
     try:
         pool = await get_db()
@@ -489,39 +490,68 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         catch_boost = await get_catch_boost()
         catch_rate = min(1.0, base_rate * catch_boost)
 
-        # Pre-fetch catch counts for newbie boost (batch)
-        normal_user_ids = [
-            a["user_id"] for a in attempts
-            if not a.get("used_master_ball") and not a.get("used_hyper_ball")
-        ]
-        catch_counts = await queries.count_total_catches_bulk(normal_user_ids) if normal_user_ids else {}
+        # 🌱 뉴비 스폰: 도감 수 기준 우선순위
+        if is_newbie_spawn:
+            all_user_ids = [a["user_id"] for a in attempts]
+            pokedex_counts = await queries.count_pokedex_bulk(all_user_ids) if all_user_ids else {}
+            thresholds = config.NEWBIE_TIER_THRESHOLDS
 
-        # Roll for each catcher
-        results = []
-        for attempt in attempts:
-            if attempt.get("used_master_ball"):
-                roll, success = -1.0, True
-            elif attempt.get("used_hyper_ball"):
-                hyper_rate = min(1.0, catch_rate * config.HYPER_BALL_CATCH_MULTIPLIER)
+            results = []
+            for attempt in attempts:
+                pdex = pokedex_counts.get(attempt["user_id"], 0)
+                tier = 0 if pdex < thresholds[0] else (1 if pdex < thresholds[1] else 2)
                 roll = random.random()
-                success = roll < hyper_rate
-            else:
-                total = catch_counts.get(attempt["user_id"], 0)
-                if total < 2:
-                    roll, success = 0.0, True
-                else:
-                    roll = random.random()
-                    success = roll < catch_rate
-            results.append({
-                "user_id": attempt["user_id"],
-                "display_name": attempt["display_name"],
-                "username": attempt["username"],
-                "roll": roll, "success": success,
-                "used_master_ball": bool(attempt.get("used_master_ball")),
-                "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
-            })
+                if attempt.get("used_master_ball"):
+                    await queries.add_master_balls_bulk([attempt["user_id"]])
+                    logger.info(f"Newbie spawn (overlap): refunded master ball to {attempt['user_id']}")
+                if attempt.get("used_hyper_ball"):
+                    await queries.add_hyper_balls_bulk([attempt["user_id"]])
+                    logger.info(f"Newbie spawn (overlap): refunded hyper ball to {attempt['user_id']}")
+                results.append({
+                    "user_id": attempt["user_id"],
+                    "display_name": attempt["display_name"],
+                    "username": attempt["username"],
+                    "roll": roll,
+                    "success": True,
+                    "used_master_ball": False,
+                    "used_hyper_ball": False,
+                    "_tier": tier,
+                })
+            winners = sorted(results, key=lambda x: (x["_tier"], x["roll"]))
+        else:
+            # Pre-fetch catch counts for newbie boost (batch)
+            normal_user_ids = [
+                a["user_id"] for a in attempts
+                if not a.get("used_master_ball") and not a.get("used_hyper_ball")
+            ]
+            catch_counts = await queries.count_total_catches_bulk(normal_user_ids) if normal_user_ids else {}
 
-        winners = [r for r in results if r["success"]]
+            # Roll for each catcher
+            results = []
+            for attempt in attempts:
+                if attempt.get("used_master_ball"):
+                    roll, success = -1.0, True
+                elif attempt.get("used_hyper_ball"):
+                    hyper_rate = min(1.0, catch_rate * config.HYPER_BALL_CATCH_MULTIPLIER)
+                    roll = random.random()
+                    success = roll < hyper_rate
+                else:
+                    total = catch_counts.get(attempt["user_id"], 0)
+                    if total < 2:
+                        roll, success = 0.0, True
+                    else:
+                        roll = random.random()
+                        success = roll < catch_rate
+                results.append({
+                    "user_id": attempt["user_id"],
+                    "display_name": attempt["display_name"],
+                    "username": attempt["username"],
+                    "roll": roll, "success": success,
+                    "used_master_ball": bool(attempt.get("used_master_ball")),
+                    "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
+                })
+
+            winners = [r for r in results if r["success"]]
         participants = len(attempts)
 
         if not winners:
@@ -543,16 +573,19 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             return
 
         # Pick winner
-        winners.sort(key=lambda x: x["roll"])
-        winner = winners[0]
+        if is_newbie_spawn:
+            winner = winners[0]  # 이미 (tier, roll) 정렬됨
+        else:
+            winners.sort(key=lambda x: x["roll"])
+            winner = winners[0]
         winner_id = winner["user_id"]
         winner_name = winner["display_name"]
 
-        # Refund master balls to losers (batch)
+        # Refund master balls to losers (batch) — 뉴비 스폰에서는 이미 환불 완료
         master_refund_ids = [
             r["user_id"] for r in results
             if r["used_master_ball"] and r["user_id"] != winner_id
-        ]
+        ] if not is_newbie_spawn else []
         if master_refund_ids:
             await queries.add_master_balls_bulk(master_refund_ids)
             for loser in results:
@@ -568,7 +601,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                         pass
 
         # Refund hyper balls when master ball user wins (hyper had no chance)
-        if winner.get("used_master_ball"):
+        if not is_newbie_spawn and winner.get("used_master_ball"):
             hyper_refund_ids = [
                 r["user_id"] for r in results
                 if r["used_hyper_ball"] and r["user_id"] != winner_id
@@ -631,7 +664,9 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
 
         _catch = _hon_verb("포획!", _winner_tier)
         _catch_confirm = _hon_verb("확정 포획!", _winner_tier)
-        if winner.get("used_master_ball"):
+        if is_newbie_spawn and winner.get("_tier", 99) < 2:
+            msg = f"🌱 새로운 트레이너 {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch}{iv_tag}"
+        elif winner.get("used_master_ball"):
             msg = f"{be_master} 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch_confirm}{iv_tag}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
@@ -960,10 +995,16 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         else:
             window = config.SPAWN_WINDOW_SECONDS
 
+        # 뉴비 스폰 판정 (아케이드 전용, 10% 확률)
+        is_newbie_spawn = arcade and random.random() < config.NEWBIE_SPAWN_CHANCE
+
         tb = type_badge(pokemon["id"], pokemon.get("pokemon_type"))
+        newbie_tag = ""
+        if is_newbie_spawn:
+            newbie_tag = "\n🌱 이 포켓몬은 새로운 트레이너를 찾고 있어요!\n⚠️ 마스터볼/하이퍼볼은 효과가 없습니다"
         caption = (
             f"{icon_emoji('footsteps')} 야생의{shiny_text} {tb} {pokemon['name_ko']}이(가) 나타났다!{bonus_text}{weather_tag}\n"
-            f"ㅊ 입력으로 잡기 ({window}초)"
+            f"ㅊ 입력으로 잡기 ({window}초){newbie_tag}"
         )
 
         # Generate card image (run in executor to avoid blocking event loop)
@@ -993,6 +1034,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         session_id = await queries.create_spawn_session(
             chat_id, pokemon["id"], expires, is_shiny=is_shiny,
+            is_newbie_spawn=is_newbie_spawn,
         )
 
         # Update session with message_id
@@ -1018,6 +1060,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 "pokemon_emoji": pokemon["emoji"],
                 "rarity": rarity,
                 "is_shiny": is_shiny,
+                "is_newbie_spawn": is_newbie_spawn,
             },
             name=f"resolve_{session_id}",
         )
@@ -1065,6 +1108,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
     pokemon_emoji = data["pokemon_emoji"]
     rarity = data["rarity"]
     is_shiny = data.get("is_shiny", False)
+    is_newbie_spawn = data.get("is_newbie_spawn", False)
 
     # 포획 메시지 전송 완료까지 다음 스폰 차단
     lock = _get_chat_lock(chat_id)
@@ -1118,44 +1162,77 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         catch_boost = await get_catch_boost()
         catch_rate = min(1.0, base_rate * catch_boost)
 
-        # Pre-fetch catch counts for newbie boost (batch)
-        normal_user_ids2 = [
-            a["user_id"] for a in attempts
-            if not a.get("used_master_ball") and not a.get("used_hyper_ball")
-        ]
-        catch_counts2 = await queries.count_total_catches_bulk(normal_user_ids2) if normal_user_ids2 else {}
+        # 🌱 뉴비 스폰: 도감 수 기준 우선순위
+        if is_newbie_spawn:
+            all_user_ids = [a["user_id"] for a in attempts]
+            pokedex_counts = await queries.count_pokedex_bulk(all_user_ids) if all_user_ids else {}
+            thresholds = config.NEWBIE_TIER_THRESHOLDS  # [100, 200]
 
-        # Roll for each catcher (master ball > hyper ball > newbie > regular)
-        results = []
-        for attempt in attempts:
-            if attempt.get("used_master_ball"):
-                roll = -1.0  # Highest priority
-                success = True
-            elif attempt.get("used_hyper_ball"):
-                # Hyper ball: 3x catch rate
-                hyper_rate = min(1.0, catch_rate * config.HYPER_BALL_CATCH_MULTIPLIER)
+            results = []
+            for attempt in attempts:
+                pdex = pokedex_counts.get(attempt["user_id"], 0)
+                # 티어: 0(도감<100) > 1(도감<200) > 2(도감≥200)
+                tier = 0 if pdex < thresholds[0] else (1 if pdex < thresholds[1] else 2)
                 roll = random.random()
-                success = roll < hyper_rate
-            else:
-                # Newbie boost: first 2 catches are guaranteed
-                total = catch_counts2.get(attempt["user_id"], 0)
-                if total < 2:
-                    roll = 0.0  # Lower priority than master ball
-                    success = True
-                else:
-                    roll = random.random()
-                    success = roll < catch_rate
-            results.append({
-                "user_id": attempt["user_id"],
-                "display_name": attempt["display_name"],
-                "username": attempt["username"],
-                "roll": roll,
-                "success": success,
-                "used_master_ball": bool(attempt.get("used_master_ball")),
-                "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
-            })
+                # 마볼/하볼 사용자: 환불 처리 (아래에서), 일반 포획으로 전환
+                if attempt.get("used_master_ball"):
+                    await queries.add_master_balls_bulk([attempt["user_id"]])
+                    logger.info(f"Newbie spawn: refunded master ball to {attempt['user_id']}")
+                if attempt.get("used_hyper_ball"):
+                    await queries.add_hyper_balls_bulk([attempt["user_id"]])
+                    logger.info(f"Newbie spawn: refunded hyper ball to {attempt['user_id']}")
+                results.append({
+                    "user_id": attempt["user_id"],
+                    "display_name": attempt["display_name"],
+                    "username": attempt["username"],
+                    "roll": roll,
+                    "success": True,  # 뉴비 스폰은 전원 성공
+                    "used_master_ball": False,  # 환불 후 일반 전환
+                    "used_hyper_ball": False,
+                    "_tier": tier,
+                })
+            # 도감 적은 사람(tier 낮은) 우선, 같은 티어면 roll 낮은 사람
+            winners = sorted(results, key=lambda x: (x["_tier"], x["roll"]))
+        else:
+            # ── 기존 포획 로직 ──
+            # Pre-fetch catch counts for newbie boost (batch)
+            normal_user_ids2 = [
+                a["user_id"] for a in attempts
+                if not a.get("used_master_ball") and not a.get("used_hyper_ball")
+            ]
+            catch_counts2 = await queries.count_total_catches_bulk(normal_user_ids2) if normal_user_ids2 else {}
 
-        winners = [r for r in results if r["success"]]
+            # Roll for each catcher (master ball > hyper ball > newbie > regular)
+            results = []
+            for attempt in attempts:
+                if attempt.get("used_master_ball"):
+                    roll = -1.0  # Highest priority
+                    success = True
+                elif attempt.get("used_hyper_ball"):
+                    # Hyper ball: 3x catch rate
+                    hyper_rate = min(1.0, catch_rate * config.HYPER_BALL_CATCH_MULTIPLIER)
+                    roll = random.random()
+                    success = roll < hyper_rate
+                else:
+                    # Newbie boost: first 2 catches are guaranteed
+                    total = catch_counts2.get(attempt["user_id"], 0)
+                    if total < 2:
+                        roll = 0.0  # Lower priority than master ball
+                        success = True
+                    else:
+                        roll = random.random()
+                        success = roll < catch_rate
+                results.append({
+                    "user_id": attempt["user_id"],
+                    "display_name": attempt["display_name"],
+                    "username": attempt["username"],
+                    "roll": roll,
+                    "success": success,
+                    "used_master_ball": bool(attempt.get("used_master_ball")),
+                    "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
+                })
+
+            winners = [r for r in results if r["success"]]
         participants = len(attempts)
 
         if not winners:
@@ -1176,17 +1253,22 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # Pick winner (lowest roll = luckiest)
-        winners.sort(key=lambda x: x["roll"])
-        winner = winners[0]
+        # Pick winner
+        if is_newbie_spawn:
+            # 뉴비 스폰: 이미 (tier, roll) 기준 정렬됨
+            winner = winners[0]
+        else:
+            # 일반: lowest roll = luckiest
+            winners.sort(key=lambda x: x["roll"])
+            winner = winners[0]
         winner_id = winner["user_id"]
         winner_name = winner["display_name"]
 
-        # Refund master balls to losers (batch)
+        # Refund master balls to losers (batch) — 뉴비 스폰에서는 이미 환불 완료
         master_refund_ids2 = [
             r["user_id"] for r in results
             if r["used_master_ball"] and r["user_id"] != winner_id
-        ]
+        ] if not is_newbie_spawn else []
         if master_refund_ids2:
             await queries.add_master_balls_bulk(master_refund_ids2)
             for loser in results:
@@ -1280,7 +1362,9 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         be_hyper = ball_emoji("hyperball")
         _catch = _hon_verb("포획!", _winner_tier)
         _catch_confirm = _hon_verb("확정 포획!", _winner_tier)
-        if winner.get("used_master_ball"):
+        if is_newbie_spawn and winner.get("_tier", 99) < 2:
+            msg = f"🌱 새로운 트레이너 {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch}{iv_tag}"
+        elif winner.get("used_master_ball"):
             msg = f"{be_master} 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch_confirm}{iv_tag}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
