@@ -793,7 +793,7 @@ def _pick_team(candidates: list[dict], max_size: int = 6) -> list[dict]:
         if _can_add(p, slots_left):
             _add(p)
 
-    # 2차: 6마리 미달이면, 전체 후보에서 저코스트 포켓몬으로 채움
+    # 2차: 6마리 미달이면, 전체 후보에서 저코스트 포켓몬으로 채움 (예약 로직 포함)
     if len(team) < max_size:
         team_set = set(id(p) for p in team)
         fillers = [p for p in candidates if id(p) not in team_set]
@@ -802,7 +802,9 @@ def _pick_team(candidates: list[dict], max_size: int = 6) -> list[dict]:
             if len(team) >= max_size:
                 break
             cost = _RARITY_COST.get(p["rarity"], 1)
-            if total_cost + cost > _COST_LIMIT:
+            slots_remaining = max_size - len(team)
+            reserved = max(slots_remaining - 1, 0) * 1
+            if total_cost + cost + reserved > _COST_LIMIT:
                 continue
             if p["rarity"] == "ultra_legendary" and has_ultra:
                 continue
@@ -1130,16 +1132,17 @@ def _recommend_balance(pokemon: list[dict], meta: dict | None = None) -> tuple[l
         if p["rarity"] in ("epic", "legendary", "ultra_legendary"):
             epic_species.add(p["pokemon_id"])
 
-    # 6마리 미달 시 남은 코스트로 채움
+    # 6마리 미달 시 남은 코스트로 채움 (예약 로직 포함)
     if len(team) < 6:
-        remaining_cost = _COST_LIMIT - total_cost
         fillers = [p for p in sorted_p if p not in team]
         fillers.sort(key=lambda p: (_RARITY_COST.get(p["rarity"], 1), -p.get("_balance", 0)))
         for p in fillers:
             if len(team) >= 6:
                 break
             cost = _RARITY_COST.get(p["rarity"], 1)
-            if total_cost + cost > _COST_LIMIT:
+            slots_remaining = 6 - len(team)
+            reserved = max(slots_remaining - 1, 0) * 1
+            if total_cost + cost + reserved > _COST_LIMIT:
                 continue
             if p["rarity"] == "ultra_legendary" and has_ultra:
                 continue

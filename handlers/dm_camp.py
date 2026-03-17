@@ -842,6 +842,8 @@ def _build_convert_eligible(pokemon_list: list, frags: dict, crystals: dict) -> 
         can_afford_crystal = crystals["crystal"] >= crystal_cost
         can_afford_rainbow = crystals["rainbow"] >= rainbow_cost
         can_afford = can_afford_frags and can_afford_crystal and can_afford_rainbow
+        from utils.helpers import pokemon_iv_total
+        iv_sum = pokemon_iv_total(p)
         eligible.append({
             "instance_id": p["id"],
             "pokemon_id": p["pokemon_id"],
@@ -852,20 +854,40 @@ def _build_convert_eligible(pokemon_list: list, frags: dict, crystals: dict) -> 
             "rainbow_cost": rainbow_cost,
             "can_afford": can_afford,
             "matching_fields": matching_fields,
+            "iv_sum": iv_sum,
         })
-    # 전환 가능한 것 먼저, 불가능한 것 뒤에
-    eligible.sort(key=lambda e: (0 if e["can_afford"] else 1, e["name_ko"]))
+    # 전환 가능한 것 먼저, IV 내림차순
+    eligible.sort(key=lambda e: (0 if e["can_afford"] else 1, -e["iv_sum"], e["name_ko"]))
     return eligible
 
 
-def _build_convert_page(eligible: list, uid: int, frags: dict, crystals: dict, page: int = 0) -> tuple[str, InlineKeyboardMarkup]:
+_RARITY_FILTER_MAP = {
+    "all": ("전체", None),
+    "ul": ("초전설", "ultra_legendary"),
+    "leg": ("전설", "legendary"),
+    "ep": ("에픽", "epic"),
+    "ra": ("레어", "rare"),
+    "co": ("커먼", "common"),
+}
+
+
+def _build_convert_page(eligible: list, uid: int, frags: dict, crystals: dict,
+                         page: int = 0, rarity_filter: str = "all") -> tuple[str, InlineKeyboardMarkup]:
     """이로치 전환 목록 페이지 빌드."""
-    total_pages = max(1, (len(eligible) + CONVERT_PAGE_SIZE - 1) // CONVERT_PAGE_SIZE)
+    # 희귀도 필터 적용
+    if rarity_filter != "all":
+        target_rarity = _RARITY_FILTER_MAP.get(rarity_filter, (None, None))[1]
+        filtered = [e for e in eligible if e["rarity"] == target_rarity] if target_rarity else eligible
+    else:
+        filtered = eligible
+
+    total_pages = max(1, (len(filtered) + CONVERT_PAGE_SIZE - 1) // CONVERT_PAGE_SIZE)
     page = max(0, min(page, total_pages - 1))
     start = page * CONVERT_PAGE_SIZE
-    page_items = eligible[start:start + CONVERT_PAGE_SIZE]
+    page_items = filtered[start:start + CONVERT_PAGE_SIZE]
 
     total_frags = sum(frags.values())
+    filter_label = _RARITY_FILTER_MAP.get(rarity_filter, ("전체", None))[0]
     lines = [
         f"{shiny_emoji()} 이로치 전환",
         "",
@@ -874,30 +896,40 @@ def _build_convert_page(eligible: list, uid: int, frags: dict, crystals: dict, p
         "",
     ]
 
-    buttons = []
-    for e in page_items:
-        cost_parts = [f"{e['frag_cost']}조각"]
-        if e["crystal_cost"]:
-            cost_parts.append(f"결정{e['crystal_cost']}")
-        if e["rainbow_cost"]:
-            cost_parts.append(f"무지개{e['rainbow_cost']}")
-        rarity_tag = rarity_badge(e.get("rarity", ""))
-        if e["can_afford"]:
-            lines.append(f"{icon_emoji('check')} {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
-            buttons.append([InlineKeyboardButton(
-                f"✨ {e['name_ko']} 전환",
-                callback_data=f"cdm_conv_{uid}_{e['instance_id']}",
-            )])
-        else:
-            lines.append(f"❌ {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
+    # 희귀도 탭 버튼
+    tab_row = []
+    for key, (label, _) in _RARITY_FILTER_MAP.items():
+        display = f"[{label}]" if key == rarity_filter else label
+        tab_row.append(InlineKeyboardButton(display, callback_data=f"cdm_cf_{uid}_{key}"))
+    buttons = [tab_row[:3], tab_row[3:]]  # 2줄로 나눔
+
+    if not filtered:
+        lines.append(f"해당 희귀도의 전환 가능 포켓몬이 없습니다.")
+    else:
+        for e in page_items:
+            cost_parts = [f"{e['frag_cost']}조각"]
+            if e["crystal_cost"]:
+                cost_parts.append(f"결정{e['crystal_cost']}")
+            if e["rainbow_cost"]:
+                cost_parts.append(f"무지개{e['rainbow_cost']}")
+            rarity_tag = rarity_badge(e.get("rarity", ""))
+            iv_tag = f" ({e['iv_sum']}/186)" if e.get("iv_sum") else ""
+            if e["can_afford"]:
+                lines.append(f"{icon_emoji('check')} {rarity_tag}{e['name_ko']}{iv_tag} — {'+'.join(cost_parts)}")
+                buttons.append([InlineKeyboardButton(
+                    f"✨ {e['name_ko']} 전환",
+                    callback_data=f"cdm_conv_{uid}_{e['instance_id']}",
+                )])
+            else:
+                lines.append(f"❌ {rarity_tag}{e['name_ko']}{iv_tag} — {'+'.join(cost_parts)}")
 
     if total_pages > 1:
-        lines.append(f"\n📄 {page + 1}/{total_pages} ({len(eligible)}마리)")
+        lines.append(f"\n📄 {page + 1}/{total_pages} ({len(filtered)}마리)")
         nav = []
         if page > 0:
-            nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_convpg_{uid}_{page - 1}"))
+            nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_convpg_{uid}_{page - 1}_{rarity_filter}"))
         if page < total_pages - 1:
-            nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_convpg_{uid}_{page + 1}"))
+            nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_convpg_{uid}_{page + 1}_{rarity_filter}"))
         buttons.append(nav)
 
     lines.append("")
@@ -2377,10 +2409,11 @@ async def camp_dm_callback_handler(update, context):
         except Exception:
             pass
 
-    # ── cdm_convpg_{uid}_{page} — 이로치전환 페이지네이션 ──
+    # ── cdm_convpg_{uid}_{page}_{filter} — 이로치전환 페이지네이션 ──
     elif data.startswith("cdm_convpg_"):
         uid = int(parts[2])
         page = int(parts[3])
+        rarity_filter = parts[4] if len(parts) > 4 else "all"
         if query.from_user.id != uid:
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
             return
@@ -2389,7 +2422,25 @@ async def camp_dm_callback_handler(update, context):
         crystals_data = await cq.get_crystals(uid)
         pokemon_list = await queries.get_user_pokemon_list(uid)
         eligible = _build_convert_eligible(pokemon_list, frags, crystals_data)
-        text, markup = _build_convert_page(eligible, uid, frags, crystals_data, page)
+        text, markup = _build_convert_page(eligible, uid, frags, crystals_data, page, rarity_filter)
+        try:
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            pass
+
+    # ── cdm_cf_{uid}_{filter} — 이로치전환 희귀도 필터 ──
+    elif data.startswith("cdm_cf_"):
+        uid = int(parts[2])
+        rarity_filter = parts[3] if len(parts) > 3 else "all"
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        frags = await cq.get_user_fragments(uid)
+        crystals_data = await cq.get_crystals(uid)
+        pokemon_list = await queries.get_user_pokemon_list(uid)
+        eligible = _build_convert_eligible(pokemon_list, frags, crystals_data)
+        text, markup = _build_convert_page(eligible, uid, frags, crystals_data, 0, rarity_filter)
         try:
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
