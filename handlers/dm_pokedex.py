@@ -923,7 +923,10 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     if query.from_user.id != user_id:
         return
 
-    await query.answer()
+    # feed/play/evo/relconf 등 show_alert 필요한 액션은 자체 answer
+    _self_answer_actions = {"feed", "play", "evo", "relconf", "tact", "tset"}
+    if action not in _self_answer_actions:
+        await query.answer()
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
