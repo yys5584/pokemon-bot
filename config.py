@@ -506,7 +506,8 @@ BP_HYPER_BALL_COST = 20              # 하이퍼볼 1회 사용 BP
 HYPER_BALL_CATCH_MULTIPLIER = 3.0    # 하이퍼볼 포획률 배수
 
 # --- Newbie Spawn (아케이드 전용) ---
-NEWBIE_SPAWN_CHANCE = 0.10           # 아케이드 스폰 중 뉴비 스폰 확률 (10%)
+NEWBIE_SPAWN_CHANCE = 0.20           # 아케이드 스폰 중 뉴비 스폰 확률 (20%, 5번 중 1번)
+NEWBIE_SPAWN_SHINY_RATE = 1 / 30     # 뉴비 스폰 이로치 확률 (~3.33%)
 NEWBIE_TIER_THRESHOLDS = [100, 200]  # 도감 수 기준 티어 경계
 
 # --- Arcade Pass ---

@@ -507,17 +507,25 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 if attempt.get("used_hyper_ball"):
                     await queries.add_hyper_balls_bulk([attempt["user_id"]])
                     logger.info(f"Newbie spawn (overlap): refunded hyper ball to {attempt['user_id']}")
+                # 뉴비(tier 0,1)는 포획 보장, 고인물(tier 2)은 일반 확률
+                if tier < 2:
+                    success = True
+                else:
+                    success = roll < catch_rate
                 results.append({
                     "user_id": attempt["user_id"],
                     "display_name": attempt["display_name"],
                     "username": attempt["username"],
                     "roll": roll,
-                    "success": True,
+                    "success": success,
                     "used_master_ball": False,
                     "used_hyper_ball": False,
                     "_tier": tier,
                 })
-            winners = sorted(results, key=lambda x: (x["_tier"], x["roll"]))
+            winners = sorted(
+                [r for r in results if r["success"]],
+                key=lambda x: (x["_tier"], x["roll"]),
+            )
         else:
             # Pre-fetch catch counts for newbie boost (batch)
             normal_user_ids = [
@@ -932,11 +940,16 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # 4. Pick random Pokemon
         pokemon = await pick_random_pokemon(rarity)
 
-        # 4.5 Shiny determination (자연 스폰은 확정만, 강스/아케이드는 랜덤 유지)
+        # 4.5 뉴비 스폰 판정 (관리자 아케이드 전용, 10% 확률) — shiny 판정 전에 결정
+        is_newbie_spawn = (chat_id in config.ARCADE_CHAT_IDS) and random.random() < config.NEWBIE_SPAWN_CHANCE
+
+        # 4.6 Shiny determination (자연 스폰은 확정만, 강스/아케이드는 랜덤 유지)
         if force_shiny:
             is_shiny = True
         else:
-            if arcade:
+            if is_newbie_spawn:
+                shiny_rate = config.NEWBIE_SPAWN_SHINY_RATE
+            elif arcade:
                 shiny_rate = config.SHINY_RATE_ARCADE
             elif force:
                 shiny_rate = config.SHINY_RATE_FORCE
@@ -994,9 +1007,6 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             window = 30
         else:
             window = config.SPAWN_WINDOW_SECONDS
-
-        # 뉴비 스폰 판정 (아케이드 전용, 10% 확률)
-        is_newbie_spawn = arcade and random.random() < config.NEWBIE_SPAWN_CHANCE
 
         tb = type_badge(pokemon["id"], pokemon.get("pokemon_type"))
         newbie_tag = ""
@@ -1174,25 +1184,33 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 # 티어: 0(도감<100) > 1(도감<200) > 2(도감≥200)
                 tier = 0 if pdex < thresholds[0] else (1 if pdex < thresholds[1] else 2)
                 roll = random.random()
-                # 마볼/하볼 사용자: 환불 처리 (아래에서), 일반 포획으로 전환
+                # 마볼/하볼 사용자: 환불 처리, 일반 포획으로 전환
                 if attempt.get("used_master_ball"):
                     await queries.add_master_balls_bulk([attempt["user_id"]])
                     logger.info(f"Newbie spawn: refunded master ball to {attempt['user_id']}")
                 if attempt.get("used_hyper_ball"):
                     await queries.add_hyper_balls_bulk([attempt["user_id"]])
                     logger.info(f"Newbie spawn: refunded hyper ball to {attempt['user_id']}")
+                # 뉴비(tier 0,1)는 포획 보장, 고인물(tier 2)은 일반 확률
+                if tier < 2:
+                    success = True
+                else:
+                    success = roll < catch_rate
                 results.append({
                     "user_id": attempt["user_id"],
                     "display_name": attempt["display_name"],
                     "username": attempt["username"],
                     "roll": roll,
-                    "success": True,  # 뉴비 스폰은 전원 성공
+                    "success": success,
                     "used_master_ball": False,  # 환불 후 일반 전환
                     "used_hyper_ball": False,
                     "_tier": tier,
                 })
-            # 도감 적은 사람(tier 낮은) 우선, 같은 티어면 roll 낮은 사람
-            winners = sorted(results, key=lambda x: (x["_tier"], x["roll"]))
+            # 성공한 사람 중 도감 적은 사람(tier 낮은) 우선, 같은 티어면 roll 낮은 사람
+            winners = sorted(
+                [r for r in results if r["success"]],
+                key=lambda x: (x["_tier"], x["roll"]),
+            )
         else:
             # ── 기존 포획 로직 ──
             # Pre-fetch catch counts for newbie boost (batch)
