@@ -824,6 +824,7 @@ async def _send_daily_kpi_report(context):
             new_users_detail, churned_users, top_users,
             shiny_catches, market_trends, battle_meta,
             sub_changes, chat_health, checkin_stats,
+            new_user_sources,
         ) = await asyncio.gather(
             queries.report_new_users_detail(today),
             queries.report_churned_users(today),
@@ -834,6 +835,7 @@ async def _send_daily_kpi_report(context):
             queries.report_subscription_changes(today),
             queries.report_chat_health(today),
             queries.report_checkin_stats(today),
+            queries.report_new_user_sources(today),
         )
 
         # ── 전일 대비 섹션 ──
@@ -1253,11 +1255,22 @@ async def _send_daily_kpi_report(context):
 {items}
 </div>"""
 
-        # 신규 유저 상세
+        # 신규 유저 상세 + 유입 채널 분석
         new_users_html = ""
         if new_users_detail:
-            items = ""
-            for u in new_users_detail[:8]:
+            # 채널별 유입 소스
+            source_items = ""
+            if new_user_sources:
+                tracked_total = sum(s["cnt"] for s in new_user_sources)
+                untracked = d.get("new_users", 0) - tracked_total
+                for s in new_user_sources[:5]:
+                    title = (s["chat_title"] or "?")[:15]
+                    source_items += f'<div style="font-size:12px;padding:3px 0">📍 <b>{title}</b> — {s["cnt"]}명</div>'
+                if untracked > 0:
+                    source_items += f'<div style="font-size:12px;padding:3px 0;color:#888">📍 기타/미포획 — {untracked}명</div>'
+            # Top 활동 신규 유저
+            user_items = ""
+            for u in new_users_detail[:5]:
                 name = (u["display_name"] or "?")[:12]
                 activity = []
                 if u["catches"]:
@@ -1265,11 +1278,13 @@ async def _send_daily_kpi_report(context):
                 if u["battles"]:
                     activity.append(f"배틀 {u['battles']}판")
                 act_str = ", ".join(activity) if activity else "활동 없음"
-                items += f'<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f5">🆕 <b>{name}</b> — {act_str}</div>'
+                user_items += f'<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5">🆕 <b>{name}</b> — {act_str}</div>'
             new_users_html = f"""
 <div class="section">
 <div class="section-title">🆕 신규 가입 ({d['new_users']}명)</div>
-{items}
+{source_items}
+{f'<div style="border-top:1px solid #eee;margin:6px 0"></div>' if source_items else ''}
+{user_items}
 </div>"""
 
         # 이탈 징후 유저
@@ -1286,20 +1301,18 @@ async def _send_daily_kpi_report(context):
 {items}
 </div>"""
 
-        # ── 이로치 포획 요약 ──
+        # ── 이로치 포획 요약 (한 줄) ──
         shiny_html = ""
         if shiny_catches:
             total_shiny = sum(s["cnt"] for s in shiny_catches)
-            items = ""
-            medals = ["🥇", "🥈", "🥉"]
-            for i, s in enumerate(shiny_catches[:5]):
-                medal = medals[i] if i < 3 else f"{i+1}."
-                name = (s["display_name"] or "?")[:10]
-                items += f'<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5">{medal} <b>{name}</b> — {s["cnt"]}마리</div>'
+            top3 = " / ".join(
+                f"{(s['display_name'] or '?')[:8]} {s['cnt']}마리"
+                for s in shiny_catches[:3]
+            )
             shiny_html = f"""
 <div class="section">
-<div class="section-title">✨ 이로치 포획 (총 {total_shiny}마리)</div>
-{items}
+<div class="section-title">✨ 이로치 포획 — 총 {total_shiny}마리</div>
+<div style="font-size:12px;color:#666;padding:4px 0">🏅 {top3}</div>
 </div>"""
 
         # ── 거래소 트렌드 ──

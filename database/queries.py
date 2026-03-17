@@ -2842,6 +2842,33 @@ async def report_shiny_catches(today) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+async def report_new_user_sources(today) -> list[dict]:
+    """신규 유저의 첫 포획 채널별 분류 (유입 소스 분석)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """WITH new_users AS (
+               SELECT user_id FROM users WHERE registered_at >= $1
+           ),
+           first_catch AS (
+               SELECT DISTINCT ON (ca.user_id)
+                      ca.user_id, ss.chat_id
+               FROM catch_attempts ca
+               JOIN spawn_sessions ss ON ca.session_id = ss.id
+               WHERE ca.user_id IN (SELECT user_id FROM new_users)
+                 AND ca.attempted_at >= $1
+               ORDER BY ca.user_id, ca.attempted_at ASC
+           )
+           SELECT cr.chat_id, cr.chat_title, COUNT(*) as cnt
+           FROM first_catch fc
+           JOIN chat_rooms cr ON fc.chat_id = cr.chat_id
+           GROUP BY cr.chat_id, cr.chat_title
+           ORDER BY cnt DESC
+           LIMIT 10""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
 async def report_market_trends(today) -> list[dict]:
     """오늘 거래소 거래 완료 건 (인기 매물, 가격)."""
     pool = await get_db()
