@@ -931,60 +931,89 @@ async def _send_daily_kpi_report(context):
             tag_emoji = {"content": "🎮", "system": "⚙️", "balance": "⚖️", "monetization": "💎", "event": "🎪"}.get(ms["tag"], "📌")
             insights.append(f"{tag_emoji} <b>오늘 마일스톤:</b> {ms['title']}")
 
-        # ── 1. 유저 활성도 분석 ──
+        # ── 1. 유저 활성도 + 유입 소스 분석 ──
+        new_users = d.get("new_users", 0)
+        prev_new = prev.get("new_users", 0) if prev else 0
         if prev:
             dau_diff = d["dau"] - prev.get("dau", 0)
             dau_pct = round(dau_diff / max(prev.get("dau", 1), 1) * 100, 1)
-            new_users = d.get("new_users", 0)
-            prev_new = prev.get("new_users", 0)
 
-            # 최근 마일스톤 영향 분석
-            if milestones_recent:
-                recent_titles = [ms["title"] for ms in milestones_recent[:3]]
-                context_str = " / ".join(recent_titles)
-                if dau_diff > 0:
-                    insights.append(
-                        f"📈 <b>DAU +{dau_diff}명({dau_pct:+.1f}%)</b>. "
-                        f"최근 업데이트({context_str}) 영향. "
-                        f"신규 {new_users}명 유입, 복귀 유저 확인 필요.")
-                elif dau_diff < 0:
+            # DAU 변동 + 원인 추론
+            if dau_diff > 0:
+                cause_parts = []
+                # 신규 유입 소스 분석
+                if new_user_sources:
+                    top_src = new_user_sources[0]
+                    top_title = (top_src["chat_title"] or "?")[:15]
+                    top_cnt = top_src["cnt"]
+                    top_pct = round(top_cnt / max(new_users, 1) * 100)
+                    if top_pct >= 30:
+                        cause_parts.append(f"<b>{top_title}</b>에서 {top_cnt}명({top_pct}%) 유입")
+                    if len(new_user_sources) >= 3:
+                        cause_parts.append(f"총 {len(new_user_sources)}개 채널에서 유입")
+                if milestones_recent:
+                    recent_titles = [ms["title"] for ms in milestones_recent[:2]]
+                    cause_parts.append(f"최근 업데이트({' / '.join(recent_titles)}) 효과")
+                elif patches:
+                    cause_parts.append(f"오늘 패치 {len(patches)}건 영향")
+
+                cause_str = ". ".join(cause_parts) if cause_parts else "유입 원인 분석 필요"
+                insights.append(
+                    f"📈 <b>DAU +{dau_diff}명({dau_pct:+.1f}%)</b>, 신규 {new_users}명(전일 {prev_new}명). "
+                    f"{cause_str}.")
+
+                # 신규 급증 시 추가 인사이트
+                if new_users > 0 and prev_new > 0:
+                    new_growth = round((new_users - prev_new) / max(prev_new, 1) * 100)
+                    if new_growth >= 50:
+                        insights.append(
+                            f"  └ 🚀 신규 가입 전일 대비 <b>+{new_growth}%</b> 급증. "
+                            f"{'외부 채널 이벤트/바이럴 효과 확인.' if new_user_sources and new_user_sources[0]['cnt'] >= 10 else '업데이트 효과 추정.'}")
+
+            elif dau_diff < 0:
+                if milestones_recent:
+                    context_str = " / ".join(ms["title"] for ms in milestones_recent[:2])
                     insights.append(
                         f"📉 <b>DAU {dau_diff}명({dau_pct:+.1f}%)</b>. "
                         f"최근 업데이트({context_str}) 이후 안정화 구간. "
                         f"신규 {new_users}명(전일 {prev_new}명).")
-            elif patches:
-                if dau_diff > 0:
-                    insights.append(
-                        f"📈 <b>DAU +{dau_diff}명({dau_pct:+.1f}%)</b>. "
-                        f"오늘 패치 {len(patches)}건 영향 가능. "
-                        f"신규 {new_users}명 유입.")
-                elif dau_diff < 0:
+                else:
                     insights.append(
                         f"📉 <b>DAU {dau_diff}명({dau_pct:+.1f}%)</b>. "
-                        f"자연 이탈 또는 콘텐츠 소진 구간. "
-                        f"신규 {new_users}명(전일 {prev_new}명), 활성 유저 유지 전략 필요.")
-                else:
-                    insights.append(f"📊 DAU 전일 동일({d['dau']}명). 안정 구간.")
+                        f"신규 {new_users}명(전일 {prev_new}명). "
+                        f"{'콘텐츠 소진 구간 — 신규 콘텐츠 투입 검토.' if abs(dau_diff) > 10 else '자연 변동 범위.'}")
             else:
-                if dau_diff != 0:
-                    direction = "증가" if dau_diff > 0 else "감소"
-                    insights.append(f"📊 DAU {dau_diff:+d}명 {direction}({dau_pct:+.1f}%). 신규 {new_users}명.")
+                insights.append(f"📊 DAU 전일 동일({d['dau']}명). 신규 {new_users}명.")
+
+        # 신규 유저 전환율 분석
+        if new_users_detail and new_users >= 5:
+            active_new = sum(1 for u in new_users_detail if u["catches"] > 0)
+            battled_new = sum(1 for u in new_users_detail if u["battles"] > 0)
+            activation_rate = round(active_new / max(new_users, 1) * 100)
+            battle_rate = round(battled_new / max(new_users, 1) * 100)
+            insights.append(
+                f"🆕 <b>신규 전환율:</b> 포획 {activation_rate}%({active_new}명), "
+                f"배틀 {battle_rate}%({battled_new}명)")
+            if activation_rate < 50:
+                insights.append("  └ ⚠️ 포획 전환 50% 미만 — 첫 경험 온보딩 개선 필요.")
+            if battle_rate < 10 and active_new >= 10:
+                insights.append("  └ 💡 포획→배틀 전환 낮음 — 배틀 유도 튜토리얼/보상 강화 고려.")
 
         # ── 2. 리텐션 분석 ──
         if d1_ret is not None or d7_ret is not None:
             ret_parts = []
             if d1_ret is not None:
-                d1_status = "🟢 양호" if d1_ret >= 70 else "🟡 보통" if d1_ret >= 50 else "🔴 주의"
-                ret_parts.append(f"D+1 {d1_ret}%({d1_status})")
+                d1_status = "🟢" if d1_ret >= 70 else "🟡" if d1_ret >= 50 else "🔴"
+                ret_parts.append(f"D+1 {d1_ret}%{d1_status}")
             if d7_ret is not None:
-                d7_status = "🟢 양호" if d7_ret >= 40 else "🟡 보통" if d7_ret >= 25 else "🔴 주의"
-                ret_parts.append(f"D+7 {d7_ret}%({d7_status})")
+                d7_status = "🟢" if d7_ret >= 40 else "🟡" if d7_ret >= 25 else "🔴"
+                ret_parts.append(f"D+7 {d7_ret}%{d7_status}")
             ret_str = " / ".join(ret_parts)
             insights.append(f"🔄 <b>리텐션:</b> {ret_str}")
             if d1_ret is not None and d1_ret < 50:
                 insights.append("  └ D+1 50% 미만 — 첫날 경험 개선 또는 복귀 인센티브 검토.")
             if d7_ret is not None and d7_ret >= 40:
-                insights.append("  └ D+7 40%+ — 핵심 루프가 잘 작동하는 신호. 장기 콘텐츠 준비 시점.")
+                insights.append("  └ D+7 40%+ — 핵심 루프 건재. 장기 콘텐츠 타이밍.")
 
         # ── 3. 포획/배틀 활성도 ──
         if prev:
@@ -997,9 +1026,14 @@ async def _send_daily_kpi_report(context):
                 rate_diff = round(catch_rate - prev_rate, 1)
                 if abs(rate_diff) > 2:
                     direction = "상승" if rate_diff > 0 else "하락"
+                    reason = ""
+                    if rate_diff > 5 and new_users >= 10:
+                        reason = " 신규 유저 대량 유입으로 경쟁 완화 추정."
+                    elif rate_diff < -5:
+                        reason = " 스폰 대비 활성 유저 부족 또는 이벤트 종료."
                     insights.append(
-                        f"🎯 <b>포획률 {prev_rate}% → {catch_rate}%({rate_diff:+.1f}%p {direction})</b>. "
-                        f"스폰 {d['spawns']}회 중 {d['catches']}회 포획.")
+                        f"🎯 <b>포획률 {prev_rate}% → {catch_rate}%({rate_diff:+.1f}%p)</b>. "
+                        f"스폰 {d['spawns']}회 중 {d['catches']}회 포획.{reason}")
 
             # 배틀 활성도
             if d["battles"] > 0:
@@ -1007,20 +1041,24 @@ async def _send_daily_kpi_report(context):
                     bt_diff = d["battles"] - battle_prev
                     bt_pct = round(bt_diff / max(battle_prev, 1) * 100, 1)
                     if abs(bt_pct) > 20:
+                        if bt_diff > 0:
+                            reason = "보상/콘텐츠 효과." if milestones_recent else "유저 참여도 자연 증가."
+                        else:
+                            reason = "매칭 대기 또는 보상 포화." if d["dau"] >= prev.get("dau", 0) else "DAU 감소에 따른 자연 감소."
                         insights.append(
-                            f"⚔️ 배틀 {battle_prev} → {d['battles']}건({bt_pct:+.1f}%). "
-                            f"{'배틀 수요 증가 — 보상/콘텐츠 효과.' if bt_diff > 0 else '배틀 감소 — 매칭 소요시간 또는 보상 점검.'}")
+                            f"⚔️ 배틀 {battle_prev} → {d['battles']}건({bt_pct:+.1f}%). {reason}")
             elif d["dau"] > 0:
-                insights.append("⚔️ <b>배틀 0건</b> — 매칭 시스템 점검 또는 배틀 동기 부여 필요.")
+                insights.append("⚔️ <b>배틀 0건</b> — 매칭 시스템 점검 필요.")
 
             # 1인당 활동량
             if d["dau"] > 0 and prev.get("dau", 0) > 0:
                 actions_per_user = round((d["catches"] + d["battles"]) / d["dau"], 1)
                 prev_actions = round((catch_prev + battle_prev) / max(prev.get("dau", 1), 1), 1)
-                if abs(actions_per_user - prev_actions) > 1:
+                diff = round(actions_per_user - prev_actions, 1)
+                if abs(diff) > 1:
                     insights.append(
-                        f"👤 1인당 활동량 {prev_actions} → {actions_per_user}회/일 "
-                        f"({'참여도 상승' if actions_per_user > prev_actions else '참여도 하락'}).")
+                        f"👤 1인당 활동 {prev_actions} → {actions_per_user}회/일({diff:+.1f}). "
+                        f"{'참여 밀도 ↑' if diff > 0 else '참여 밀도 ↓ — 콘텐츠 소진 또는 허들 존재'}.")
 
         # ── 4. BP 경제 분석 ──
         bp_earned = d.get("bp_earned", 0)
