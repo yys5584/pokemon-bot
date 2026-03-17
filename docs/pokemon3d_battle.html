@@ -1,0 +1,1799 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TGPoke 3D Battle</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  color: #fff;
+  font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
+}
+#canvas-container {
+  width: 100%; height: 100%;
+  position: relative;
+  touch-action: none;
+}
+canvas { display: block; width: 100%; height: 100%; }
+
+/* ══════════════════════════════════════════
+   Pokemon Sword/Shield Style HP Panels
+   ══════════════════════════════════════════ */
+
+/* Enemy panel — top-left */
+.hp-panel-enemy {
+  position: absolute;
+  top: 12px; left: 10px;
+  z-index: 10;
+  pointer-events: none;
+  width: min(54%, 290px);
+}
+.hp-panel-enemy .panel-inner {
+  background: linear-gradient(135deg, #2c3040 0%, #383d50 100%);
+  border-radius: 0 16px 16px 0;
+  padding: 10px 18px 10px 14px;
+  clip-path: polygon(0% 0%, 100% 0%, 95% 100%, 0% 100%);
+  position: relative;
+  overflow: hidden;
+}
+.hp-panel-enemy .panel-inner::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #50c878, #3daa5e);
+}
+.hp-panel-enemy .name-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 6px;
+}
+.hp-panel-enemy .poke-name {
+  font-size: 15px; font-weight: 900; color: #fff;
+  letter-spacing: 0.5px;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+}
+.hp-panel-enemy .poke-lv {
+  font-size: 11px; font-weight: 700; color: #b0b8c8;
+}
+.hp-panel-enemy .hp-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.hp-panel-enemy .hp-label {
+  font-size: 9px; font-weight: 900; color: #f0c030;
+  letter-spacing: 1px;
+}
+.hp-panel-enemy .hp-track {
+  flex: 1; height: 6px;
+  background: #1a1e28;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(80,80,80,0.4);
+}
+.hp-panel-enemy .hp-fill {
+  height: 100%; width: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #48d068, #68e080);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* My panel — bottom-right */
+.hp-panel-my {
+  position: absolute;
+  bottom: 80px; right: 10px;
+  z-index: 10;
+  pointer-events: none;
+  width: min(58%, 310px);
+}
+.hp-panel-my .panel-inner {
+  background: linear-gradient(225deg, #2c3040 0%, #383d50 100%);
+  border-radius: 16px 0 0 16px;
+  padding: 10px 14px 8px 18px;
+  clip-path: polygon(5% 0%, 100% 0%, 100% 100%, 0% 100%);
+  position: relative;
+  overflow: hidden;
+}
+.hp-panel-my .panel-inner::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #50c878, #3daa5e);
+}
+.hp-panel-my .name-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 6px;
+}
+.hp-panel-my .poke-name {
+  font-size: 15px; font-weight: 900; color: #fff;
+  letter-spacing: 0.5px;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+}
+.hp-panel-my .poke-lv {
+  font-size: 11px; font-weight: 700; color: #b0b8c8;
+}
+.hp-panel-my .hp-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.hp-panel-my .hp-label {
+  font-size: 9px; font-weight: 900; color: #f0c030;
+  letter-spacing: 1px;
+}
+.hp-panel-my .hp-track {
+  flex: 1; height: 6px;
+  background: #1a1e28;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(80,80,80,0.4);
+}
+.hp-panel-my .hp-fill {
+  height: 100%; width: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #48d068, #68e080);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.hp-panel-my .hp-text {
+  font-size: 13px; font-weight: 700; color: #dde0e8;
+  text-align: right;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.hp-panel-my .exp-track {
+  height: 3px;
+  background: #1a1e28;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 3px;
+}
+.hp-panel-my .exp-fill {
+  height: 100%; width: 62%;
+  background: linear-gradient(90deg, #3888dd, #50b0f0);
+  border-radius: 2px;
+}
+
+/* HP color states */
+.hp-fill.warn { background: linear-gradient(90deg, #e8a020, #f0c030) !important; }
+.hp-fill.danger { background: linear-gradient(90deg, #d83030, #f05050) !important; }
+
+/* ══════════════════════════════════════════
+   Battle Log — game text box
+   ══════════════════════════════════════════ */
+.battle-log {
+  position: absolute;
+  bottom: 56px; left: 8px; right: 8px;
+  pointer-events: none; z-index: 10;
+}
+.log-msg {
+  background: linear-gradient(180deg, rgba(24,28,40,0.94) 0%, rgba(32,36,48,0.92) 100%);
+  border-radius: 10px;
+  padding: 12px 18px;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f0f2f8;
+  animation: logSlide 0.25s ease-out;
+  border: 1.5px solid rgba(100,110,140,0.35);
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+}
+@keyframes logSlide {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ══════════════════════════════════════════
+   Controls
+   ══════════════════════════════════════════ */
+.controls {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 6px 10px 10px;
+  z-index: 10;
+  display: flex; gap: 8px;
+}
+.ctrl-btn {
+  flex: 1; padding: 11px 8px; border-radius: 10px;
+  border: 1.5px solid rgba(100,110,140,0.4);
+  background: rgba(36,40,55,0.92);
+  color: #a0a8b8; font-size: 13px; font-weight: 900;
+  cursor: pointer; text-align: center;
+  transition: all 0.12s;
+  letter-spacing: 0.5px;
+}
+.ctrl-btn:active { transform: scale(0.96); }
+.ctrl-btn.primary {
+  background: linear-gradient(180deg, #e04040 0%, #c02828 100%);
+  border: 1.5px solid rgba(255,100,100,0.4);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(200,32,32,0.3);
+}
+
+/* VS splash */
+.vs-splash {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 30; pointer-events: none; opacity: 0;
+}
+.vs-splash.show { animation: vsAnim 1.6s ease-out forwards; }
+@keyframes vsAnim {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  60% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.vs-text {
+  font-size: 90px; font-weight: 900; letter-spacing: 6px;
+  background: linear-gradient(135deg, #ff3d00, #ffd600, #ff3d00);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 25px rgba(255,61,0,0.6)) drop-shadow(0 0 50px rgba(255,214,0,0.3));
+}
+
+/* Damage popup */
+.dmg-popup {
+  position: absolute; z-index: 20;
+  font-size: 32px; font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255,60,60,0.8), 2px 2px 0 #111, -1px -1px 0 #111;
+  pointer-events: none;
+  animation: dmgUp 1s ease-out forwards;
+}
+.dmg-popup.crit {
+  font-size: 48px;
+  color: #ffd600;
+  text-shadow: 0 0 15px rgba(255,214,0,0.9), 0 0 30px rgba(255,80,0,0.5), 2px 2px 0 #111;
+  animation: dmgCrit 1s ease-out forwards;
+}
+.dmg-popup.effective {
+  color: #ff6040;
+  font-size: 36px;
+}
+@keyframes dmgUp {
+  0% { opacity: 1; transform: translateY(0) scale(1.2); }
+  25% { opacity: 1; transform: translateY(-25px) scale(1); }
+  100% { opacity: 0; transform: translateY(-70px) scale(0.7); }
+}
+@keyframes dmgCrit {
+  0% { opacity: 1; transform: translateY(0) scale(1.8); }
+  12% { transform: translateY(-8px) scale(1.1); }
+  25% { opacity: 1; transform: translateY(-20px) scale(1.05); }
+  100% { opacity: 0; transform: translateY(-80px) scale(0.6); }
+}
+
+/* Loading */
+.loading-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: #161a28;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 40; transition: opacity 0.5s;
+}
+.loading-overlay.hidden { opacity: 0; pointer-events: none; }
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid rgba(255,255,255,0.06);
+  border-top-color: #e04040;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+.load-text { margin-top: 12px; font-size: 13px; color: #888; font-weight: 700; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Overlays */
+.type-flash {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none; z-index: 5; opacity: 0;
+  transition: opacity 0.06s;
+}
+.hit-flash {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none; z-index: 6; opacity: 0;
+  background: white;
+  transition: opacity 0.04s;
+}
+.skill-dim {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none; z-index: 3; opacity: 0;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.5) 100%);
+  transition: opacity 0.35s ease-in-out;
+}
+.skill-dim.active { opacity: 1; }
+
+/* Effectiveness text */
+.eff-text {
+  position: absolute; z-index: 20;
+  font-size: 14px; font-weight: 900; color: #ffa040;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+  pointer-events: none;
+  animation: effFade 1.5s ease-out forwards;
+  white-space: nowrap;
+}
+@keyframes effFade {
+  0% { opacity: 0; transform: translateY(5px); }
+  15% { opacity: 1; transform: translateY(0); }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+</style>
+</head>
+<body>
+<div id="canvas-container">
+  <div class="loading-overlay" id="loading">
+    <div class="spinner"></div>
+    <div class="load-text">배틀 준비 중...</div>
+  </div>
+
+  <!-- Enemy HP — top-left (no numeric HP) -->
+  <div class="hp-panel-enemy">
+    <div class="panel-inner">
+      <div class="name-row">
+        <span class="poke-name" id="enemyName">???</span>
+        <span class="poke-lv" id="enemyLv">Lv.50</span>
+      </div>
+      <div class="hp-row">
+        <span class="hp-label">HP</span>
+        <div class="hp-track"><div class="hp-fill" id="enemyHP"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- My HP — bottom-right (with numeric HP + EXP) -->
+  <div class="hp-panel-my">
+    <div class="panel-inner">
+      <div class="name-row">
+        <span class="poke-name" id="myName">???</span>
+        <span class="poke-lv" id="myLv">Lv.50</span>
+      </div>
+      <div class="hp-row">
+        <span class="hp-label">HP</span>
+        <div class="hp-track"><div class="hp-fill" id="myHP"></div></div>
+      </div>
+      <div class="hp-text" id="myHPText">266 / 266</div>
+      <div class="exp-track"><div class="exp-fill"></div></div>
+    </div>
+  </div>
+
+  <div class="vs-splash" id="vsSplash"><div class="vs-text">VS</div></div>
+  <div class="type-flash" id="typeFlash"></div>
+  <div class="skill-dim" id="skillDim"></div>
+  <div class="hit-flash" id="hitFlash"></div>
+  <div class="battle-log" id="battleLog"></div>
+</div>
+
+<div class="controls">
+  <div class="ctrl-btn primary" id="btnStart" onclick="startBattle()">배틀 시작</div>
+  <div class="ctrl-btn" id="btnReset" onclick="resetBattle()">리셋</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+// ══════════════════════════════════════════
+// TGPoke 3D Battle — Mini App
+// ══════════════════════════════════════════
+
+// Telegram Mini App integration
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+const MODEL_BASE = "https://raw.githubusercontent.com/Pokemon-3D-api/assets/refs/heads/main/models/opt";
+
+// ── Battle Data ──
+const MY_POKEMON    = { id: 6,   name: "리자몽", type: "fire",    maxHP: 266, height: 1.7, lv: 50 };
+const ENEMY_POKEMON = { id: 150, name: "뮤츠",   type: "psychic", maxHP: 286, height: 2.0, lv: 50 };
+
+const BATTLE_TURNS = [
+  { attacker: "my",    skill: "화염방사",       dmg: 45, crit: false, effective: false, msg: "리자몽의 화염방사!",                effectType: "fire" },
+  { attacker: "enemy", skill: "사이코키네시스", dmg: 62, crit: false, effective: true,  msg: "뮤츠의 사이코키네시스!",            effectType: "psychic" },
+  { attacker: "my",    skill: "불대문자",       dmg: 78, crit: true,  effective: false, msg: "리자몽의 불대문자! 급소에 맞았다!", effectType: "fire_blast" },
+  { attacker: "enemy", skill: "섀도볼",         dmg: 52, crit: false, effective: false, msg: "뮤츠의 섀도볼!",                    effectType: "dark" },
+  { attacker: "my",    skill: "에어슬래시",     dmg: 38, crit: false, effective: false, msg: "리자몽의 에어슬래시!",              effectType: "wind" },
+  { attacker: "enemy", skill: "냉동빔",         dmg: 72, crit: false, effective: true,  msg: "뮤츠의 냉동빔! 효과가 굉장했다!",  effectType: "ice" },
+  { attacker: "my",    skill: "화염방사",       dmg: 48, crit: false, effective: false, msg: "리자몽의 화염방사!",                effectType: "fire" },
+  { attacker: "enemy", skill: "파괴광선",       dmg: 95, crit: true,  effective: false, msg: "뮤츠의 파괴광선! 급소에 맞았다!",   effectType: "beam" },
+];
+
+// ── Renderer ──
+const container = document.getElementById('canvas-container');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+
+// ── Sky Dome (gradient) ──
+const skyGeo = new THREE.SphereGeometry(80, 32, 32);
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  uniforms: {
+    topColor:    { value: new THREE.Color(0x2a6fc8) },
+    bottomColor: { value: new THREE.Color(0x90c8e8) },
+    offset:      { value: 10 },
+    exponent:    { value: 0.5 },
+  },
+  vertexShader: `
+    varying vec3 vWorldPos;
+    void main() {
+      vWorldPos = (modelMatrix * vec4(position,1.0)).xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 topColor, bottomColor;
+    uniform float offset, exponent;
+    varying vec3 vWorldPos;
+    void main() {
+      float h = normalize(vWorldPos + offset).y;
+      gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h,0.0), exponent), 0.0)), 1.0);
+    }
+  `,
+});
+scene.add(new THREE.Mesh(skyGeo, skyMat));
+scene.fog = new THREE.Fog(0x90c8e8, 35, 75);
+
+// ── Camera ──
+const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 200);
+const DEFAULT_CAM    = new THREE.Vector3(3, 2.2, 7);
+const DEFAULT_TARGET = new THREE.Vector3(-0.3, 0.8, -1.5);
+camera.position.copy(DEFAULT_CAM);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.copy(DEFAULT_TARGET);
+controls.enableRotate = false;
+controls.enableZoom = false;
+controls.enablePan = false;
+
+// ── Post-processing ──
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(container.clientWidth, container.clientHeight),
+  0.35, 0.3, 0.85
+);
+composer.addPass(bloomPass);
+
+// ── Lighting (bright outdoor) ──
+scene.add(new THREE.AmbientLight(0x8899aa, 0.7));
+
+const sunLight = new THREE.DirectionalLight(0xfff5e0, 1.8);
+sunLight.position.set(8, 15, 5);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 40;
+[-10, 10, 10, -10].forEach((v, i) => {
+  const cam = sunLight.shadow.camera;
+  if (i === 0) cam.left = v;
+  else if (i === 1) cam.right = v;
+  else if (i === 2) cam.top = v;
+  else cam.bottom = v;
+});
+scene.add(sunLight);
+
+const fillLight = new THREE.DirectionalLight(0x88bbdd, 0.5);
+fillLight.position.set(-5, 3, 2);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xffeedd, 0.6);
+rimLight.position.set(0, 5, -6);
+scene.add(rimLight);
+
+const warmFill = new THREE.DirectionalLight(0xddeeff, 0.4);
+warmFill.position.set(0, 3, 8);
+scene.add(warmFill);
+
+// ══════════════════════════════════════════
+// Stadium
+// ══════════════════════════════════════════
+
+// Grass field
+const grassMat = new THREE.MeshStandardMaterial({ color: 0x3d8c3a, roughness: 0.85, metalness: 0 });
+const grass = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), grassMat);
+grass.rotation.x = -Math.PI / 2;
+grass.position.y = -0.01;
+grass.receiveShadow = true;
+scene.add(grass);
+
+// Grass stripes
+for (let i = -8; i <= 8; i += 2) {
+  const stripe = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.8, 20),
+    new THREE.MeshStandardMaterial({ color: 0x358432, roughness: 0.85, metalness: 0 })
+  );
+  stripe.rotation.x = -Math.PI / 2;
+  stripe.position.set(i, 0.001, 0);
+  stripe.receiveShadow = true;
+  scene.add(stripe);
+}
+
+// Field lines
+const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+const FW = 5, FL = 5, LW = 0.06;
+[
+  { w: FW*2+LW, h: LW, x: 0, z: -FL },
+  { w: FW*2+LW, h: LW, x: 0, z: FL },
+  { w: LW, h: FL*2, x: -FW, z: 0 },
+  { w: LW, h: FL*2, x: FW, z: 0 },
+  { w: FW*2, h: LW, x: 0, z: 0 },
+].forEach(l => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(l.w, l.h), lineMat.clone());
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(l.x, 0.005, l.z);
+  scene.add(m);
+});
+
+// Pokeball circle center
+const circMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.65, side: THREE.DoubleSide });
+const pokeCircle = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.58, 64), circMat);
+pokeCircle.rotation.x = -Math.PI / 2;
+pokeCircle.position.set(0, 0.006, 0);
+scene.add(pokeCircle);
+
+// Pokeball center line
+const pkLine = new THREE.Mesh(new THREE.PlaneGeometry(3.16, 0.06), circMat.clone());
+pkLine.rotation.x = -Math.PI / 2;
+pkLine.position.set(0, 0.006, 0);
+scene.add(pkLine);
+
+// Pokeball inner circle
+const pkInner = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.43, 32), circMat.clone());
+pkInner.rotation.x = -Math.PI / 2;
+pkInner.position.set(0, 0.006, 0);
+scene.add(pkInner);
+
+// Trainer semi-circles
+[FL, -FL].forEach(z => {
+  const tc = new THREE.Mesh(
+    new THREE.RingGeometry(1.8, 1.86, 32, 1, 0, Math.PI),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.65, side: THREE.DoubleSide })
+  );
+  tc.rotation.x = -Math.PI / 2;
+  tc.rotation.z = z > 0 ? 0 : Math.PI;
+  tc.position.set(0, 0.006, z);
+  scene.add(tc);
+});
+
+// Stadium stands
+function createStands(xPos, zLen, facing) {
+  const g = new THREE.Group();
+  for (let row = 0; row < 4; row++) {
+    const rowMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(1.5, 0.6, zLen),
+      new THREE.MeshStandardMaterial({ color: row % 2 === 0 ? 0x556677 : 0x445566, roughness: 0.7 })
+    );
+    rowMesh.position.set(row * 1.2 * facing, row * 0.7 + 0.3, 0);
+    rowMesh.castShadow = true;
+    rowMesh.receiveShadow = true;
+    g.add(rowMesh);
+
+    // Spectator dots
+    for (let s = 0; s < 18; s++) {
+      const spec = new THREE.Mesh(
+        new THREE.SphereGeometry(0.14 + Math.random() * 0.08, 6, 6),
+        new THREE.MeshStandardMaterial({
+          color: new THREE.Color().setHSL(Math.random(), 0.5, 0.4 + Math.random() * 0.2),
+          roughness: 0.8,
+        })
+      );
+      spec.position.set(
+        row * 1.2 * facing + (Math.random() - 0.5) * 0.8,
+        row * 0.7 + 0.7 + Math.random() * 0.12,
+        (Math.random() - 0.5) * (zLen - 1)
+      );
+      g.add(spec);
+    }
+  }
+  g.position.set(xPos, 0, 0);
+  return g;
+}
+
+scene.add(createStands(-8, 14, -1));
+scene.add(createStands(8, 14, 1));
+
+// Back stands
+const backStands = new THREE.Group();
+for (let row = 0; row < 3; row++) {
+  const rowMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(14, 0.6, 1.5),
+    new THREE.MeshStandardMaterial({ color: row % 2 === 0 ? 0x556677 : 0x445566, roughness: 0.7 })
+  );
+  rowMesh.position.set(0, row * 0.7 + 0.3, -row * 1.2);
+  rowMesh.castShadow = true;
+  rowMesh.receiveShadow = true;
+  backStands.add(rowMesh);
+
+  for (let s = 0; s < 22; s++) {
+    const spec = new THREE.Mesh(
+      new THREE.SphereGeometry(0.14 + Math.random() * 0.08, 6, 6),
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color().setHSL(Math.random(), 0.5, 0.4 + Math.random() * 0.2),
+        roughness: 0.8,
+      })
+    );
+    spec.position.set(
+      (Math.random() - 0.5) * 12,
+      row * 0.7 + 0.7 + Math.random() * 0.12,
+      -row * 1.2 + (Math.random() - 0.5) * 0.8
+    );
+    backStands.add(spec);
+  }
+}
+backStands.position.set(0, 0, -9);
+scene.add(backStands);
+
+// Scoreboard
+const board = new THREE.Mesh(
+  new THREE.BoxGeometry(6, 3, 0.3),
+  new THREE.MeshStandardMaterial({ color: 0x222233, roughness: 0.3, metalness: 0.5 })
+);
+board.position.set(0, 4.5, -13);
+scene.add(board);
+
+const screenMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(5.4, 2.4),
+  new THREE.MeshBasicMaterial({ color: 0x113355, transparent: true, opacity: 0.8 })
+);
+screenMesh.position.set(0, 4.5, -12.83);
+scene.add(screenMesh);
+
+// ══════════════════════════════════════════
+// Effect System
+// ══════════════════════════════════════════
+const activeEffects = [];
+let hitStopTimer = 0;
+
+function triggerHitStop(duration) { hitStopTimer = duration; }
+
+function triggerHitFlash(duration = 60) {
+  const el = document.getElementById('hitFlash');
+  el.style.opacity = '0.5';
+  setTimeout(() => { el.style.opacity = '0.25'; }, duration * 0.3);
+  setTimeout(() => { el.style.opacity = '0'; }, duration);
+}
+
+function flashScreen(color, duration = 150) {
+  const el = document.getElementById('typeFlash');
+  el.style.background = color;
+  el.style.opacity = '0.3';
+  setTimeout(() => { el.style.opacity = '0'; }, duration);
+}
+
+let shakeDecay = 0, shakeIntensity = 0;
+function triggerShake(intensity) { shakeDecay = 1.0; shakeIntensity = intensity; }
+
+// Impact ring shockwaves
+function createImpactRings(position, color, count = 3, maxScale = 5) {
+  for (let i = 0; i < count; i++) {
+    const ringMat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.8,
+      side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.55, 32), ringMat);
+    ring.position.copy(position);
+    ring.position.y += 0.8;
+    scene.add(ring);
+
+    activeEffects.push({
+      mesh: ring, mat: ringMat, time: 0, duration: 0.6,
+      delay: i * 0.1, maxScale, ax: Math.random(),
+      update(d) {
+        this.time += d;
+        const t = Math.max(0, this.time - this.delay) / this.duration;
+        if (t < 0) return false;
+        if (t > 1) return true;
+        this.mesh.scale.setScalar(1 + t * this.maxScale);
+        this.mat.opacity = 0.8 * (1 - t);
+        this.mesh.rotation.x = Math.PI * 0.5 * this.ax + t * 0.5;
+        this.mesh.rotation.y = t * 1.5;
+        return false;
+      },
+      dispose() { scene.remove(this.mesh); }
+    });
+  }
+}
+
+// Impact sparks/debris
+function createImpactDebris(position, color, count = 20) {
+  const group = new THREE.Group();
+  const particles = [];
+  for (let i = 0; i < count; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(color).offsetHSL(0, 0, (Math.random() - 0.5) * 0.3),
+      transparent: true, opacity: 1, blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.03 + Math.random() * 0.06, 4, 4), mat);
+    mesh.position.copy(position);
+    mesh.position.y += 0.8;
+    group.add(mesh);
+    particles.push({
+      mesh, mat,
+      vel: new THREE.Vector3((Math.random()-0.5)*6, Math.random()*5+1, (Math.random()-0.5)*6),
+    });
+  }
+  scene.add(group);
+
+  activeEffects.push({
+    group, particles, time: 0, duration: 0.8,
+    update(d) {
+      this.time += d;
+      const t = this.time / this.duration;
+      this.particles.forEach(p => {
+        p.mesh.position.add(p.vel.clone().multiplyScalar(d));
+        p.vel.y -= 12 * d;
+        p.mat.opacity = Math.max(0, 1 - t * 1.5);
+        p.mesh.scale.setScalar(Math.max(0.1, 1 - t));
+      });
+      return t >= 1;
+    },
+    dispose() { scene.remove(this.group); }
+  });
+}
+
+// Flash target model white on hit
+function flashModelWhite(model, duration = 150) {
+  if (!model) return;
+  const originals = [];
+  model.traverse(c => {
+    if (c.isMesh && c.material) {
+      originals.push({
+        mesh: c,
+        color: c.material.color?.clone(),
+        emissive: c.material.emissive?.clone(),
+      });
+      if (c.material.emissive) c.material.emissive.set(0xffffff);
+      if (c.material.color) c.material.color.set(0xffffff);
+    }
+  });
+  setTimeout(() => {
+    originals.forEach(o => {
+      if (o.color && o.mesh.material.color) o.mesh.material.color.copy(o.color);
+      if (o.emissive && o.mesh.material.emissive) o.mesh.material.emissive.copy(o.emissive);
+    });
+  }, duration);
+}
+
+// Impact flash sphere
+function createImpactFlash(position, color, size = 1) {
+  const mat = new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 1, blending: THREE.AdditiveBlending,
+  });
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.3 * size, 16, 16), mat);
+  mesh.position.copy(position);
+  mesh.position.y += 0.8;
+  scene.add(mesh);
+
+  activeEffects.push({
+    mesh, mat, time: 0, duration: 0.3,
+    update(d) {
+      this.time += d;
+      const t = this.time / this.duration;
+      this.mat.opacity = Math.max(0, 1 - t);
+      this.mesh.scale.setScalar(1 + t * 5 * size);
+      return t >= 1;
+    },
+    dispose() { scene.remove(this.mesh); }
+  });
+}
+
+// ══════════════════════════════════════════
+// Attack Effects
+// ══════════════════════════════════════════
+
+function createFireStream(origin, target) {
+  const group = new THREE.Group();
+  const dir = new THREE.Vector3().subVectors(target, origin);
+  const dist = dir.length();
+  dir.normalize();
+
+  const spheres = [];
+  for (let i = 0; i < 35; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.02 + Math.random() * 0.1, 1, 0.4 + Math.random() * 0.4),
+      transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.12 + Math.random() * 0.22, 8, 8), mat);
+    mesh.position.copy(origin);
+    mesh.position.y += 0.8;
+    group.add(mesh);
+    spheres.push({
+      mesh, mat, delay: i * 0.02,
+      speed: 7 + Math.random() * 4,
+      offset: new THREE.Vector3((Math.random()-0.5)*0.5, (Math.random()-0.5)*0.4, (Math.random()-0.5)*0.5),
+    });
+  }
+
+  const embers = [];
+  for (let i = 0; i < 15; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.08, 1, 0.7),
+      transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.04 + Math.random() * 0.04, 4, 4), mat);
+    group.add(mesh);
+    embers.push({ mesh, mat, phase: Math.random() * Math.PI * 2 });
+  }
+
+  const glow = new THREE.PointLight(0xff4400, 4, 8);
+  glow.position.copy(origin);
+  glow.position.y += 1;
+  group.add(glow);
+  scene.add(group);
+
+  activeEffects.push({
+    group, spheres, embers, glow, origin: origin.clone(), dir, dist,
+    targetPos: target.clone(), time: 0, duration: 0.7,
+    update(d) {
+      this.time += d;
+      const t = this.time / this.duration;
+      this.spheres.forEach(s => {
+        const st = Math.max(0, t - s.delay) / (1 - s.delay);
+        if (st <= 0) return;
+        const pos = this.origin.clone().add(this.dir.clone().multiplyScalar(this.dist * Math.min(1, st)));
+        pos.y += 0.8 + Math.sin(st * Math.PI) * 0.6;
+        pos.add(s.offset.clone().multiplyScalar(Math.sin(st * Math.PI * 2) * (1 - st)));
+        s.mesh.position.copy(pos);
+        s.mat.opacity = st < 0.7 ? 0.95 : Math.max(0, (1 - st) * 3.3);
+        s.mesh.scale.setScalar(0.8 + st * 0.8);
+      });
+      this.embers.forEach(e => {
+        const et = Math.min(1, t * 1.5);
+        const pos = this.origin.clone().add(this.dir.clone().multiplyScalar(this.dist * et * 0.8));
+        pos.y += 0.8 + Math.sin(this.time * 5 + e.phase) * 0.5;
+        pos.x += Math.sin(this.time * 8 + e.phase) * 0.4;
+        pos.z += Math.cos(this.time * 8 + e.phase) * 0.4;
+        e.mesh.position.copy(pos);
+        e.mat.opacity = 0.7 * Math.max(0, 1 - t);
+      });
+      const gt = Math.min(1, t * 1.3);
+      this.glow.position.lerpVectors(
+        this.origin.clone().add(new THREE.Vector3(0,1,0)),
+        this.targetPos.clone().add(new THREE.Vector3(0,1,0)), gt
+      );
+      this.glow.intensity = 4 * (1 - t);
+      return t >= 1.2;
+    },
+    dispose() { scene.remove(this.group); }
+  });
+}
+
+function createFireBlast(origin, target) {
+  const group = new THREE.Group();
+  const dir = new THREE.Vector3().subVectors(target, origin).normalize();
+  const dist = origin.distanceTo(target);
+
+  const arms = [];
+  for (let i = 0; i < 45; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.01 + Math.random() * 0.07, 1, 0.35 + Math.random() * 0.35),
+      transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.18 + Math.random() * 0.4, 8, 8), mat);
+    group.add(mesh);
+    arms.push({
+      mesh, mat, delay: i * 0.01,
+      spiralAngle: (i / 45) * Math.PI * 2,
+      spiralRadius: 0.3 + Math.random() * 0.6,
+    });
+  }
+
+  const glow = new THREE.PointLight(0xff2200, 6, 10);
+  group.add(glow);
+  scene.add(group);
+
+  activeEffects.push({
+    group, arms, glow, origin: origin.clone(), dir, dist,
+    targetPos: target.clone(), time: 0, duration: 0.9,
+    update(d) {
+      this.time += d;
+      const t = this.time / this.duration;
+      this.arms.forEach(a => {
+        const st = Math.max(0, t - a.delay) / (1 - a.delay);
+        if (st <= 0) return;
+        const progress = Math.min(1, st);
+        const pos = this.origin.clone().add(this.dir.clone().multiplyScalar(this.dist * progress));
+        pos.y += 0.8;
+        const expand = progress > 0.6 ? (progress - 0.6) / 0.4 : 0;
+        pos.x += Math.cos(a.spiralAngle + st * 5) * a.spiralRadius * (0.3 + expand * 2.5);
+        pos.y += Math.sin(a.spiralAngle + st * 5) * a.spiralRadius * (0.3 + expand * 2.5);
+        a.mesh.position.copy(pos);
+        a.mat.opacity = st < 0.6 ? 0.95 : Math.max(0, (1 - st) * 2.5);
+        a.mesh.scale.setScalar(0.7 + expand * 2.5);
+      });
+      const gt = Math.min(1, t * 1.3);
+      this.glow.position.lerpVectors(
+        this.origin.clone().add(new THREE.Vector3(0,1,0)),
+        this.targetPos.clone().add(new THREE.Vector3(0,1,0)), gt
+      );
+      this.glow.intensity = 6 * Math.max(0, 1 - t);
+      return t >= 1.2;
+    },
+    dispose() { scene.remove(this.group); }
+  });
+}
+
+function createPsychicWave(origin, target) {
+  const group = new THREE.Group();
+
+  const rings = [];
+  for (let i = 0; i < 7; i++) {
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xcc44ff, transparent: true, opacity: 0.85,
+      side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.5, 32), ringMat);
+    ring.position.copy(target);
+    ring.position.y += 1;
+    group.add(ring);
+    rings.push({ mesh: ring, mat: ringMat, delay: i * 0.1 });
+  }
+
+  const orbs = [];
+  for (let i = 0; i < 25; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.77 + Math.random() * 0.06, 1, 0.55 + Math.random() * 0.2),
+      transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending,
+    });
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.06 + Math.random() * 0.1, 8, 8), mat);
+    group.add(orb);
+    orbs.push({
+      mesh: orb, mat,
+      angle: (i / 25) * Math.PI * 2,
+      radius: 0.4 + Math.random() * 1.2,
+      speed: 3 + Math.random() * 5,
+      yOff: Math.random() * 1.8,
+    });
+  }
+
+  const waveParts = [];
+  const beamDir = new THREE.Vector3().subVectors(target, origin);
+  const beamDist = beamDir.length();
+  for (let i = 0; i < 10; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xdd66ff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), mat);
+    group.add(mesh);
+    waveParts.push({ mesh, mat, delay: i * 0.03 });
+  }
+
+  const glow = new THREE.PointLight(0xaa44ff, 5, 8);
+  glow.position.copy(target);
+  glow.position.y += 1;
+  group.add(glow);
+  scene.add(group);
+
+  activeEffects.push({
+    group, rings, orbs, waveParts, glow, origin: origin.clone(),
+    target: target.clone(), beamDir: beamDir.normalize(), beamDist,
+    time: 0, duration: 1.1,
+    update(d) {
+      this.time += d;
+      const t = this.time / this.duration;
+      this.waveParts.forEach(w => {
+        const wt = Math.max(0, t * 2 - w.delay);
+        const pos = this.origin.clone().add(this.beamDir.clone().multiplyScalar(this.beamDist * Math.min(1, wt)));
+        pos.y += 0.8 + Math.sin(wt * Math.PI * 3) * 0.3;
+        w.mesh.position.copy(pos);
+        w.mat.opacity = 0.6 * Math.max(0, 1 - t);
+        w.mesh.scale.setScalar(0.8 + Math.sin(wt * Math.PI) * 0.5);
+      });
+      this.rings.forEach(r => {
+        const rt = Math.max(0, t - r.delay) / (1 - r.delay);
+        if (rt <= 0) { r.mesh.visible = false; return; }
+        r.mesh.visible = true;
+        r.mesh.scale.setScalar(1 + rt * 5);
+        r.mesh.rotation.x = Math.PI / 2 + Math.sin(rt * 3) * 0.3;
+        r.mesh.rotation.y = rt * 2;
+        r.mat.opacity = Math.max(0, 0.8 * (1 - rt));
+      });
+      this.orbs.forEach(o => {
+        const a = o.angle + this.time * o.speed;
+        const r = o.radius * (0.3 + t * 0.7);
+        o.mesh.position.set(
+          this.target.x + Math.cos(a) * r,
+          this.target.y + 0.5 + o.yOff + Math.sin(this.time * 3) * 0.3,
+          this.target.z + Math.sin(a) * r
+        );
+        o.mat.opacity = t < 0.6 ? 0.85 : Math.max(0, (1 - t) * 2.5);
+      });
+      this.glow.intensity = 5 * Math.max(0, 1 - t * 0.8);
+      return t >= 1.2;
+    },
+    dispose() { scene.remove(this.group); }
+  });
+}
+
+function createDarkPulse(origin, target) {
+  const group = new THREE.Group();
+  const dir = new THREE.Vector3().subVectors(target, origin).normalize();
+  const dist = origin.distanceTo(target);
+
+  const orbs = [];
+  for (let i = 0; i < 20; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.75, 0.8, 0.15 + Math.random() * 0.15),
+      transparent: true, opacity: 0.9,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.12 + Math.random() * 0.18, 8, 8), mat);
+    group.add(mesh);
+    orbs.push({
+      mesh, mat, delay: i * 0.025,
+      offset: new THREE.Vector3((Math.random()-0.5)*1, (Math.random()-0.5)*0.8, (Math.random()-0.5)*1),
+    });
+  }
+
+  const auraMat = new THREE.MeshBasicMaterial({
+    color: 0x4422aa, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending,
+  });
+  const aura = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.15, 8, 24), auraMat);
+  group.add(aura);
+
+  const glow = new THREE.PointLight(0x6633aa, 4, 6);
+  group.add(glow);
+  scene.add(group);
+
+  activeEffects.push({
+    group, orbs, aura, auraMat, glow, origin: origin.clone(), dir, dist, target: target.clone(),
+    time: 0, duration: 0.85,
+    update(d) {
+      this.time += d;
+      const t = this.time / this.duration;
+      this.orbs.forEach(o => {
+        const st = Math.max(0, t - o.delay) / (1 - o.delay);
+        if (st <= 0) return;
+        const pos = this.origin.clone().add(this.dir.clone().multiplyScalar(this.dist * Math.min(1, st)));
+        pos.y += 0.8;
+        pos.add(o.offset.clone().multiplyScalar(Math.sin(st * Math.PI)));
+        o.mesh.position.copy(pos);
+        o.mat.opacity = st < 0.6 ? 0.9 : Math.max(0, (1 - st) * 2.5);
+      });
+      const at = Math.min(1, t * 1.2);
+      this.aura.position.lerpVectors(
+        this.origin.clone().add(new THREE.Vector3(0,0.8,0)),
+        this.target.clone().add(new THREE.Vector3(0,0.8,0)), at
+      );
+      this.aura.rotation.x = this.time * 3;
+      this.aura.rotation.y = this.time * 2;
+      this.auraMat.opacity = 0.5 * Math.max(0, 1 - t);
+      this.aura.scale.setScalar(1 + t * 0.5);
+      this.glow.position.copy(this.aura.position);
+      this.glow.intensity = 4 * Math.max(0, 1 - t);
+      return t >= 1.2;
+    },
+    dispose() { scene.remove(this.group); }
+  });
+}
+
+function createWindSlash(origin, target) {
+  const group = new THREE.Group();
+  const dir = new THREE.Vector3().subVectors(target, origin).normalize();
+  const dist = origin.distanceTo(target);
+
+  const slashes = [];
+  for (let i = 0; i < 8; i++) {
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, 0.6, 0, Math.PI, false);
+    shape.absarc(0, 0.05, 0.55, Math.PI, 0, true);
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.55 + Math.random() * 0.05, 0.7, 0.7),
+      transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), mat);
+    group.add(mesh);
+    slashes.push({
+      mesh, mat, delay: i * 0.06,
+      rotSpeed: 6 + Math.random() * 6,
+      scaleMax: 1.5 + Math.random(),
+    });
+  }
+
+  const windParts = [];
+  for (let i = 0; i < 15; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xaaddff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.03, 4, 4), mat);
+    group.add(mesh);
+    windParts.push({ mesh, mat, phase: Math.random() * Math.PI * 2 });
+  }
+
+  const glow = new THREE.PointLight(0x66aaff, 3, 6);
+  group.add(glow);
+  scene.add(group);
+
+  activeEffects.push({
+    group, slashes, windParts, glow, origin: origin.clone(), dir, dist, target: target.clone(),
+    time: 0, duration: 0.65,
+    update(d) {
+      this.time += d;
+      const t = this.time / this.duration;
+      this.slashes.forEach(s => {
+        const st = Math.max(0, t - s.delay) / (1 - s.delay);
+        if (st <= 0) return;
+        const pos = this.origin.clone().add(this.dir.clone().multiplyScalar(this.dist * Math.min(1, st)));
+        pos.y += 1;
+        s.mesh.position.copy(pos);
+        s.mesh.rotation.z = this.time * s.rotSpeed;
+        s.mesh.rotation.y = this.time * 2;
+        s.mesh.scale.setScalar(0.5 + st * s.scaleMax);
+        s.mat.opacity = st < 0.5 ? 0.7 : Math.max(0, (1 - st) * 1.4);
+      });
+      this.windParts.forEach(w => {
+        const wt = Math.min(1, t * 1.3);
+        const pos = this.origin.clone().add(this.dir.clone().multiplyScalar(this.dist * wt));
+        pos.y += 1 + Math.sin(this.time * 10 + w.phase) * 0.5;
+        pos.x += Math.sin(this.time * 8 + w.phase) * 0.5;
+        w.mesh.position.copy(pos);
+        w.mat.opacity = 0.6 * Math.max(0, 1 - t);
+      });
+      this.glow.position.lerpVectors(
+        this.origin.clone().add(new THREE.Vector3(0,1,0)),
+        this.target.clone().add(new THREE.Vector3(0,1,0)),
+        Math.min(1, t * 1.3)
+      );
+      this.glow.intensity = 3 * Math.max(0, 1 - t);
+      return t >= 1.1;
+    },
+    dispose() { scene.remove(this.group); }
+  });
+}
+
+function createIceBeam(origin, target) {
+  const group = new THREE.Group();
+  const dir = new THREE.Vector3().subVectors(target, origin).normalize();
+  const dist = origin.distanceTo(target);
+
+  const crystals = [];
+  for (let i = 0; i < 35; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.54 + Math.random() * 0.06, 0.8, 0.65 + Math.random() * 0.25),
+      transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.08 + Math.random() * 0.15, 0), mat);
+    group.add(mesh);
+    crystals.push({
+      mesh, mat, delay: i * 0.015,
+      offset: new THREE.Vector3((Math.random()-0.5)*0.5, (Math.random()-0.5)*0.4, (Math.random()-0.5)*0.5),
+      rotSpeed: Math.random() * 6,
+    });
+  }
+
+  // Core beam
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0x88eeff, transparent: true, opacity: 0.6,
+    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, dist, 8, 1, true), beamMat);
+  const mid = origin.clone().add(target).multiplyScalar(0.5);
+  mid.y += 0.8;
+  beam.position.copy(mid);
+  beam.lookAt(target.clone().add(new THREE.Vector3(0, 0.8, 0)));
+  beam.rotateX(Math.PI / 2);
+  group.add(beam);
+
+  // Frost at impact
+  const frost = [];
+  for (let i = 0; i < 8; i++) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xaaeeff, transparent: true, opacity: 0, roughness: 0.2, metalness: 0.3,
+    });
+    const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 0), mat);
+    mesh.position.copy(target);
+    mesh.position.y += Math.random() * 0.5;
+    mesh.position.x += (Math.random() - 0.5);
+    mesh.position.z += (Math.random() - 0.5);
+    group.add(mesh);
+    frost.push({ mesh, mat, rotSpeed: Math.random() * 3 });
+  }
+
+  const glow = new THREE.PointLight(0x44ddff, 5, 8);
+  group.add(glow);
+  scene.add(group);
+
+  activeEffects.push({
+    group, crystals, beam, beamMat, frost, glow,
+    origin: origin.clone(), dir, dist, target: target.clone(),
+    time: 0, duration: 0.85,
+    update(d) {
+      this.time += d;
+      const t = this.time / this.duration;
+      this.crystals.forEach(c => {
+        const st = Math.max(0, t - c.delay) / (1 - c.delay);
+        if (st <= 0) return;
+        const pos = this.origin.clone().add(this.dir.clone().multiplyScalar(this.dist * Math.min(1, st)));
+        pos.y += 0.8;
+        pos.add(c.offset.clone().multiplyScalar(1 - st * 0.5));
+        c.mesh.position.copy(pos);
+        c.mesh.rotation.x = this.time * c.rotSpeed;
+        c.mesh.rotation.y = this.time * c.rotSpeed * 0.7;
+        c.mat.opacity = st < 0.6 ? 0.9 : Math.max(0, (1 - st) * 2.5);
+      });
+      this.beamMat.opacity = t < 0.7 ? 0.6 : Math.max(0, 0.6 * (1 - (t-0.7)/0.3));
+      if (t > 0.4) {
+        const ft = (t - 0.4) / 0.6;
+        this.frost.forEach(f => {
+          f.mat.opacity = ft < 0.5 ? ft * 1.4 : Math.max(0, 0.7 * (1 - (ft-0.5)/0.5));
+          f.mesh.scale.setScalar(0.5 + ft * 1.5);
+          f.mesh.rotation.y += d * f.rotSpeed;
+        });
+      }
+      this.glow.position.lerpVectors(
+        this.origin.clone().add(new THREE.Vector3(0,1,0)),
+        this.target.clone().add(new THREE.Vector3(0,1,0)),
+        Math.min(1, t * 1.3)
+      );
+      this.glow.intensity = 5 * Math.max(0, 1 - t);
+      return t >= 1.3;
+    },
+    dispose() { scene.remove(this.group); }
+  });
+}
+
+function createHyperBeam(origin, target) {
+  const group = new THREE.Group();
+  const dir = new THREE.Vector3().subVectors(target, origin).normalize();
+  const dist = origin.distanceTo(target);
+
+  // Charge orbs
+  const chargeOrbs = [];
+  for (let i = 0; i < 20; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.12, 1, 0.6),
+      transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), mat);
+    group.add(mesh);
+    chargeOrbs.push({
+      mesh, mat,
+      angle: (i / 20) * Math.PI * 2,
+      radius: 1 + Math.random() * 0.5,
+      speed: 4 + Math.random() * 4,
+    });
+  }
+
+  // Main beam
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0xffdd00, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, dist, 12, 1, true), beamMat);
+  const mid = origin.clone().add(target).multiplyScalar(0.5);
+  mid.y += 0.8;
+  beam.position.copy(mid);
+  beam.lookAt(target.clone().add(new THREE.Vector3(0,0.8,0)));
+  beam.rotateX(Math.PI / 2);
+  group.add(beam);
+
+  // Outer glow
+  const outerMat = new THREE.MeshBasicMaterial({
+    color: 0xff8800, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  });
+  const outer = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, dist, 12, 1, true), outerMat);
+  outer.position.copy(beam.position);
+  outer.rotation.copy(beam.rotation);
+  group.add(outer);
+
+  // Impact explosions
+  const explosions = [];
+  for (let i = 0; i < 25; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.08 + Math.random() * 0.1, 1, 0.5),
+      transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.15 + Math.random() * 0.35, 8, 8), mat);
+    mesh.position.copy(target);
+    mesh.position.y += 0.8;
+    group.add(mesh);
+    explosions.push({
+      mesh, mat,
+      vel: new THREE.Vector3((Math.random()-0.5)*4, Math.random()*4+1, (Math.random()-0.5)*4),
+    });
+  }
+
+  const glow = new THREE.PointLight(0xffaa00, 0, 12);
+  glow.position.copy(origin);
+  glow.position.y += 1;
+  group.add(glow);
+  scene.add(group);
+
+  activeEffects.push({
+    group, chargeOrbs, beam, beamMat, outer, outerMat, explosions, glow,
+    origin: origin.clone(), target: target.clone(), mid,
+    time: 0, duration: 1.6,
+    update(d) {
+      this.time += d;
+      const t = this.time / this.duration;
+
+      if (t < 0.25) {
+        const ct = t / 0.25;
+        this.chargeOrbs.forEach(c => {
+          const a = c.angle + this.time * c.speed;
+          const r = c.radius * (1 - ct * 0.8);
+          c.mesh.position.set(
+            this.origin.x + Math.cos(a) * r,
+            this.origin.y + 1 + Math.sin(this.time * 5) * 0.3,
+            this.origin.z + Math.sin(a) * r
+          );
+          c.mat.opacity = 0.8 * ct;
+          c.mesh.scale.setScalar(0.5 + ct * 1.5);
+        });
+        this.glow.position.copy(this.origin).add(new THREE.Vector3(0,1,0));
+        this.glow.intensity = ct * 4;
+      } else if (t < 0.65) {
+        const bt = (t - 0.25) / 0.4;
+        this.chargeOrbs.forEach(c => { c.mat.opacity = Math.max(0, 0.8 * (1 - bt * 2)); });
+        this.beamMat.opacity = 0.9;
+        this.outerMat.opacity = 0.35 + Math.sin(bt * 25) * 0.15;
+        this.beam.scale.x = 1 + Math.sin(bt * 20) * 0.3;
+        this.beam.scale.z = 1 + Math.sin(bt * 20) * 0.3;
+        this.glow.position.copy(this.mid);
+        this.glow.intensity = 8 + Math.sin(bt * 25) * 3;
+      } else {
+        const et = (t - 0.65) / 0.35;
+        this.beamMat.opacity = Math.max(0, 0.9 - et * 2);
+        this.outerMat.opacity = Math.max(0, 0.35 - et * 0.7);
+        this.explosions.forEach(e => {
+          e.mesh.position.add(e.vel.clone().multiplyScalar(d));
+          e.vel.y -= 8 * d;
+          e.mat.opacity = et < 0.3 ? et / 0.3 : Math.max(0, 1 - (et-0.3)/0.7);
+          e.mesh.scale.setScalar(1 + et * 2.5);
+        });
+        this.glow.position.copy(this.target).add(new THREE.Vector3(0,1,0));
+        this.glow.intensity = Math.max(0, 8 * (1 - et));
+      }
+      return t >= 1.1;
+    },
+    dispose() { scene.remove(this.group); }
+  });
+}
+
+// ══════════════════════════════════════════
+// Battle Engine
+// ══════════════════════════════════════════
+
+const TYPE_COLORS = {
+  fire: 0xff4400, fire_blast: 0xff2200, psychic: 0xcc44ff,
+  dark: 0x6633aa, wind: 0x66aaff, ice: 0x44ddff, beam: 0xffaa00,
+};
+const SCREEN_COLORS = {
+  fire: 'rgba(255,68,0,0.35)', fire_blast: 'rgba(255,34,0,0.4)', psychic: 'rgba(204,68,255,0.3)',
+  dark: 'rgba(80,40,120,0.35)', wind: 'rgba(100,170,255,0.25)', ice: 'rgba(68,221,255,0.3)',
+  beam: 'rgba(255,170,0,0.4)',
+};
+
+function fireEffect(turn, attackerPos, targetPos) {
+  const originY = attackerPos.clone();
+  const targetY = targetPos.clone();
+
+  switch (turn.effectType) {
+    case 'fire':       createFireStream(originY, targetY); break;
+    case 'fire_blast': createFireBlast(originY, targetY); break;
+    case 'psychic':    createPsychicWave(originY, targetY); break;
+    case 'dark':       createDarkPulse(originY, targetY); break;
+    case 'wind':       createWindSlash(originY, targetY); break;
+    case 'ice':        createIceBeam(originY, targetY); break;
+    case 'beam':       createHyperBeam(originY, targetY); break;
+  }
+
+  // Delayed impact — full hit feel
+  const impactDelay = turn.effectType === 'beam' ? 700 : turn.effectType === 'psychic' ? 300 : 450;
+  const targetModel = turn.attacker === "my" ? enemyModel : myModel;
+
+  setTimeout(() => {
+    const color = TYPE_COLORS[turn.effectType] || 0xffffff;
+
+    createImpactFlash(targetPos, color, turn.crit ? 2.2 : 1.2);
+    createImpactRings(targetPos, color, turn.crit ? 5 : 3, turn.crit ? 7 : 4);
+    createImpactDebris(targetPos, color, turn.crit ? 30 : 15);
+    triggerShake(turn.crit ? 0.3 : 0.1);
+    flashScreen(SCREEN_COLORS[turn.effectType] || 'rgba(255,255,255,0.25)', turn.crit ? 200 : 120);
+
+    if (turn.crit || turn.effective) {
+      triggerHitFlash(turn.crit ? 80 : 50);
+    }
+
+    flashModelWhite(targetModel, turn.crit ? 180 : 90);
+    triggerHitStop(turn.crit ? 0.1 : 0.04);
+
+    // Bloom spike
+    bloomPass.strength = turn.crit ? 1.3 : 0.7;
+    setTimeout(() => { bloomPass.strength = 0.35; }, turn.crit ? 250 : 120);
+
+    showDamage(turn.dmg, targetPos, turn.crit, turn.effective);
+  }, impactDelay);
+}
+
+// ── Model Loading ──
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/');
+const gltfLoader = new GLTFLoader();
+gltfLoader.setDRACOLoader(dracoLoader);
+const clock = new THREE.Clock();
+
+let myModel = null, enemyModel = null;
+let myMixer = null, enemyMixer = null;
+let myHP = MY_POKEMON.maxHP, enemyHP = ENEMY_POKEMON.maxHP;
+let battleRunning = false;
+
+const MY_POS = new THREE.Vector3(0, 0, 3);
+const ENEMY_POS = new THREE.Vector3(0, 0, -3.5);
+
+function loadModel(id) {
+  return new Promise((resolve, reject) => {
+    gltfLoader.load(`${MODEL_BASE}/regular/${id}.glb`, resolve, undefined, reject);
+  });
+}
+
+function setupModel(gltf, basePos, faceAngle, targetScale = 2.0) {
+  const model = gltf.scene;
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  const scale = targetScale / Math.max(size.x, size.y, size.z);
+  model.scale.setScalar(scale);
+
+  const scaledBox = new THREE.Box3().setFromObject(model);
+  const center = scaledBox.getCenter(new THREE.Vector3());
+  model.position.set(basePos.x - center.x, -scaledBox.min.y, basePos.z - center.z);
+  model.rotation.y = faceAngle;
+
+  model.traverse(c => {
+    if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
+  });
+  scene.add(model);
+
+  let mixer = null;
+  if (gltf.animations.length > 0) {
+    mixer = new THREE.AnimationMixer(model);
+    mixer.clipAction(gltf.animations[0]).play();
+  }
+  return { model, mixer };
+}
+
+// ── HUD ──
+function updateHUD() {
+  const mPct = Math.max(0, myHP / MY_POKEMON.maxHP * 100);
+  const ePct = Math.max(0, enemyHP / ENEMY_POKEMON.maxHP * 100);
+  const myBar = document.getElementById('myHP');
+  const eBar = document.getElementById('enemyHP');
+  myBar.style.width = mPct + '%';
+  eBar.style.width = ePct + '%';
+  myBar.className = 'hp-fill' + (mPct < 20 ? ' danger' : mPct < 50 ? ' warn' : '');
+  eBar.className = 'hp-fill' + (ePct < 20 ? ' danger' : ePct < 50 ? ' warn' : '');
+  document.getElementById('myHPText').textContent = `${Math.max(0, Math.round(myHP))} / ${MY_POKEMON.maxHP}`;
+}
+
+function addLog(msg) {
+  const log = document.getElementById('battleLog');
+  const div = document.createElement('div');
+  div.className = 'log-msg';
+  div.textContent = msg;
+  log.appendChild(div);
+  while (log.children.length > 2) log.removeChild(log.firstChild);
+}
+
+function showDamage(dmg, position, isCrit, isEffective) {
+  const popup = document.createElement('div');
+  let cls = 'dmg-popup';
+  if (isCrit) cls += ' crit';
+  else if (isEffective) cls += ' effective';
+  popup.className = cls;
+  popup.textContent = (isCrit ? '\u{1F4A5} ' : '-') + dmg;
+  const vec = position.clone();
+  vec.y += 2.5;
+  vec.project(camera);
+  popup.style.left = ((vec.x * 0.5 + 0.5) * container.clientWidth) + 'px';
+  popup.style.top = ((-vec.y * 0.5 + 0.5) * container.clientHeight) + 'px';
+  container.appendChild(popup);
+  setTimeout(() => popup.remove(), 1200);
+
+  // Effectiveness text
+  if (isEffective && !isCrit) {
+    const eff = document.createElement('div');
+    eff.className = 'eff-text';
+    eff.textContent = '효과가 굉장했다!';
+    eff.style.left = popup.style.left;
+    eff.style.top = (parseFloat(popup.style.top) + 35) + 'px';
+    container.appendChild(eff);
+    setTimeout(() => eff.remove(), 1500);
+  }
+}
+
+// ── Camera System ──
+// KEY CHANGE: Enemy attacks use MINIMAL camera movement
+// Only MY attacks get dramatic camera shifts
+const camBasePos = DEFAULT_CAM.clone();
+
+function animateCamera(pos, lookAt, duration = 500) {
+  return new Promise(resolve => {
+    const sp = camBasePos.clone(), st = controls.target.clone();
+    const start = performance.now();
+    function tick(now) {
+      const t = Math.min(1, (now - start) / duration);
+      const e = t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2;
+      camBasePos.lerpVectors(sp, pos, e);
+      controls.target.lerpVectors(st, lookAt, e);
+      if (t < 1) requestAnimationFrame(tick); else resolve();
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+function setSkillDim(active) {
+  document.getElementById('skillDim').classList.toggle('active', active);
+}
+
+// Camera presets — enemy attacks are VERY subtle
+function getCameraForAttack(isMy, effectType) {
+  if (isMy) {
+    // My attacks — dynamic, dramatic camera
+    switch (effectType) {
+      case 'beam':       return { pos: new THREE.Vector3(4, 2.5, 2),   target: new THREE.Vector3(0, 1, -1) };
+      case 'fire_blast': return { pos: new THREE.Vector3(2.5, 1.8, 5), target: new THREE.Vector3(0, 1, 0) };
+      default:           return { pos: new THREE.Vector3(3.5, 2, 5.5), target: new THREE.Vector3(-0.2, 0.9, -1) };
+    }
+  } else {
+    // Enemy attacks — barely move camera (just a very slight shift)
+    // This prevents the disorienting camera movement when Mewtwo attacks
+    return { pos: DEFAULT_CAM.clone(), target: DEFAULT_TARGET.clone() };
+  }
+}
+
+function getCameraForImpact(isMy, effectType) {
+  if (isMy) {
+    // My attack hits enemy — slight zoom toward enemy
+    if (effectType === 'beam') {
+      return { pos: new THREE.Vector3(2.5, 2, 1), target: new THREE.Vector3(0, 1, -3) };
+    }
+    return { pos: new THREE.Vector3(2.8, 2, 2), target: new THREE.Vector3(0, 0.8, -2.5) };
+  } else {
+    // Enemy hits me — NO camera movement. Just shake effect is enough.
+    return { pos: DEFAULT_CAM.clone(), target: DEFAULT_TARGET.clone() };
+  }
+}
+
+// Knockback animation
+function animateKnockback(model, basePos, direction, intensity = 0.3) {
+  return new Promise(resolve => {
+    const origPos = model.position.clone();
+    const knockTarget = origPos.clone().add(direction.clone().normalize().multiplyScalar(intensity));
+    const start = performance.now();
+    const dur = 250;
+    function tick(now) {
+      const t = Math.min(1, (now - start) / dur);
+      if (t < 0.3) {
+        model.position.lerpVectors(origPos, knockTarget, t / 0.3);
+      } else {
+        model.position.lerpVectors(knockTarget, origPos, Math.min(1, (t - 0.3) / 0.7 * 1.2));
+      }
+      if (t < 1) requestAnimationFrame(tick); else resolve();
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+// ── Execute Turn ──
+async function executeTurn(turn) {
+  const isMy = turn.attacker === "my";
+  const targetModel = isMy ? enemyModel : myModel;
+  const attackerPos = isMy ? MY_POS : ENEMY_POS;
+  const targetPos = isMy ? ENEMY_POS : MY_POS;
+
+  addLog(turn.msg);
+
+  // Phase 1: Camera setup + dim
+  if (isMy) {
+    // My attacks: cinematic camera
+    setSkillDim(true);
+    const atkCam = getCameraForAttack(true, turn.effectType);
+    await animateCamera(atkCam.pos, atkCam.target, 400);
+  } else {
+    // Enemy attacks: subtle dim only, NO camera movement
+    setSkillDim(true);
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  // Phase 2: Fire effect
+  fireEffect(turn, attackerPos, targetPos);
+
+  // Wait for projectile travel
+  const travelTime = turn.effectType === 'beam' ? 600 : 350;
+  await new Promise(r => setTimeout(r, travelTime));
+
+  // Phase 3: Impact camera (only for my attacks)
+  if (isMy) {
+    const impCam = getCameraForImpact(true, turn.effectType);
+    animateCamera(impCam.pos, impCam.target, 250);
+  }
+
+  const impactWait = turn.effectType === 'beam' ? 500 : 300;
+  await new Promise(r => setTimeout(r, impactWait));
+
+  // Knockback
+  const knockDir = new THREE.Vector3().subVectors(targetPos, attackerPos);
+  animateKnockback(targetModel, targetPos, knockDir, turn.crit ? 0.5 : 0.25);
+
+  // Apply damage
+  if (isMy) {
+    enemyHP = Math.max(0, enemyHP - turn.dmg);
+  } else {
+    myHP = Math.max(0, myHP - turn.dmg);
+  }
+  updateHUD();
+
+  // Phase 4: Return camera
+  await new Promise(r => setTimeout(r, 350));
+  setSkillDim(false);
+
+  if (isMy) {
+    await animateCamera(DEFAULT_CAM.clone(), DEFAULT_TARGET.clone(), 500);
+  }
+
+  await new Promise(r => setTimeout(r, 250));
+  return myHP <= 0 || enemyHP <= 0;
+}
+
+// ── Battle Start ──
+window.startBattle = async () => {
+  if (battleRunning) return;
+  battleRunning = true;
+  document.getElementById('btnStart').style.opacity = '0.4';
+  document.getElementById('btnStart').style.pointerEvents = 'none';
+
+  const splash = document.getElementById('vsSplash');
+  splash.classList.add('show');
+  await new Promise(r => setTimeout(r, 1600));
+  splash.classList.remove('show');
+
+  for (const turn of BATTLE_TURNS) {
+    const ko = await executeTurn(turn);
+    if (ko) {
+      const winner = myHP > 0 ? MY_POKEMON.name : ENEMY_POKEMON.name;
+      const loser = myHP <= 0 ? MY_POKEMON.name : ENEMY_POKEMON.name;
+      addLog(`${winner} 승리! ${loser}은(는) 쓰러졌다!`);
+      bloomPass.strength = 1.8;
+      triggerShake(0.25);
+      setTimeout(() => { bloomPass.strength = 0.35; }, 800);
+      break;
+    }
+  }
+
+  await new Promise(r => setTimeout(r, 1500));
+  setSkillDim(false);
+  await animateCamera(DEFAULT_CAM.clone(), DEFAULT_TARGET.clone(), 600);
+  battleRunning = false;
+  document.getElementById('btnStart').style.opacity = '1';
+  document.getElementById('btnStart').style.pointerEvents = 'auto';
+};
+
+window.resetBattle = () => {
+  if (battleRunning) return;
+  myHP = MY_POKEMON.maxHP;
+  enemyHP = ENEMY_POKEMON.maxHP;
+  updateHUD();
+  document.getElementById('battleLog').innerHTML = '';
+  camBasePos.copy(DEFAULT_CAM);
+  controls.target.copy(DEFAULT_TARGET);
+  setSkillDim(false);
+  addLog('배틀 준비 완료!');
+};
+
+// ── Render Loop ──
+function animate() {
+  requestAnimationFrame(animate);
+  const rawDelta = clock.getDelta();
+
+  // Hit-stop freeze
+  if (hitStopTimer > 0) {
+    hitStopTimer -= rawDelta;
+    composer.render();
+    return;
+  }
+
+  if (myMixer) myMixer.update(rawDelta);
+  if (enemyMixer) enemyMixer.update(rawDelta);
+
+  // Update effects
+  for (let i = activeEffects.length - 1; i >= 0; i--) {
+    if (activeEffects[i].update(rawDelta)) {
+      activeEffects[i].dispose();
+      activeEffects.splice(i, 1);
+    }
+  }
+
+  // Screen shake
+  if (shakeDecay > 0.01) {
+    camera.position.set(
+      camBasePos.x + (Math.random() - 0.5) * 2 * shakeIntensity * shakeDecay,
+      camBasePos.y + (Math.random() - 0.5) * 1.5 * shakeIntensity * shakeDecay,
+      camBasePos.z
+    );
+    shakeDecay *= 0.85;
+  } else {
+    camera.position.copy(camBasePos);
+  }
+
+  controls.update();
+  composer.render();
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = container.clientWidth / container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  composer.setSize(container.clientWidth, container.clientHeight);
+});
+
+// ── Init ──
+async function init() {
+  document.getElementById('myName').textContent = MY_POKEMON.name;
+  document.getElementById('enemyName').textContent = ENEMY_POKEMON.name;
+  document.getElementById('myLv').textContent = `Lv.${MY_POKEMON.lv}`;
+  document.getElementById('enemyLv').textContent = `Lv.${ENEMY_POKEMON.lv}`;
+  updateHUD();
+
+  try {
+    const [myGltf, enemyGltf] = await Promise.all([
+      loadModel(MY_POKEMON.id),
+      loadModel(ENEMY_POKEMON.id),
+    ]);
+
+    const baseScale = 2.0;
+    const mySetup = setupModel(myGltf, MY_POS, Math.PI, baseScale * (MY_POKEMON.height / 2.0));
+    myModel = mySetup.model;
+    myMixer = mySetup.mixer;
+
+    const enemySetup = setupModel(enemyGltf, ENEMY_POS, 0, baseScale * (ENEMY_POKEMON.height / 2.0));
+    enemyModel = enemySetup.model;
+    enemyMixer = enemySetup.mixer;
+
+    // Force to ground
+    const enemyBox = new THREE.Box3().setFromObject(enemyModel);
+    if (enemyBox.min.y > 0.1) enemyModel.position.y -= enemyBox.min.y;
+
+    // Shadow discs
+    [MY_POS, ENEMY_POS].forEach(pos => {
+      const shadow = new THREE.Mesh(
+        new THREE.CircleGeometry(1, 32),
+        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })
+      );
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.set(pos.x, 0.015, pos.z);
+      scene.add(shadow);
+    });
+
+    document.getElementById('loading').classList.add('hidden');
+    addLog('배틀 준비 완료! 버튼을 눌러주세요.');
+  } catch (err) {
+    console.error('Model load failed:', err);
+    document.querySelector('.load-text').textContent = '모델 로드 실패...';
+  }
+}
+init();
+</script>
+</body>
+</html>
