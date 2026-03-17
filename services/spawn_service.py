@@ -1177,6 +1177,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             all_user_ids = [a["user_id"] for a in attempts]
             pokedex_counts = await queries.count_pokedex_bulk(all_user_ids) if all_user_ids else {}
             thresholds = config.NEWBIE_TIER_THRESHOLDS  # [100, 200]
+            logger.info(f"🌱 Newbie spawn resolve: {len(attempts)} attempts, pokedex={pokedex_counts}")
 
             results = []
             for attempt in attempts:
@@ -1211,6 +1212,10 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 [r for r in results if r["success"]],
                 key=lambda x: (x["_tier"], x["roll"]),
             )
+            for r in results:
+                logger.info(f"  🌱 {r['display_name']}: tier={r['_tier']}, roll={r['roll']:.4f}, success={r['success']}")
+            if winners:
+                logger.info(f"  🌱 Winner: {winners[0]['display_name']} (tier={winners[0]['_tier']})")
         else:
             # ── 기존 포획 로직 ──
             # Pre-fetch catch counts for newbie boost (batch)
