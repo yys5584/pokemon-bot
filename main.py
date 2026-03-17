@@ -58,7 +58,7 @@ from handlers.admin import (
     event_start_handler, event_list_handler, event_end_handler, event_dm_callback,
     stats_handler, channel_list_handler, grant_masterball_handler, grant_bp_handler, grant_subscription_handler,
     arcade_handler, tournament_chat_handler, force_tournament_reg_handler, force_tournament_run_handler,
-    manual_subscription_handler,
+    manual_subscription_handler, report_handler,
 )
 from handlers.dm_subscription import (
     subscription_handler, subscription_callback_handler,
@@ -801,23 +801,28 @@ async def _build_gen4_report_section(pool) -> str:
     return section
 
 
-async def _send_daily_kpi_report(context):
-    """매일 23:55 KST: 일일 KPI 리포트 v2 — 유저 동향 중심."""
+async def _send_daily_kpi_report(context, target_date=None):
+    """매일 23:55 KST: 일일 KPI 리포트 v2 — 유저 동향 중심. target_date로 특정 날짜 조회."""
     import io
     try:
-        d = await queries.kpi_daily_snapshot()
+        d = await queries.kpi_daily_snapshot(target_date=target_date)
         eco = d["economy"]
 
-        # 스냅샷 저장 + D+1/D+7 리텐션 계산
-        retention = await queries.save_kpi_snapshot(d)
-        d1_ret = retention.get("d1_retention")
-        d7_ret = retention.get("d7_retention")
-
-        # 전일 스냅샷 조회
-        prev = await queries.get_previous_snapshot()
+        if target_date:
+            # 수동 트리거: 스냅샷 저장 스킵, 리텐션/전일 데이터 없음
+            d1_ret = None
+            d7_ret = None
+            prev = await queries.get_previous_snapshot()
+            today = target_date
+        else:
+            # 스냅샷 저장 + D+1/D+7 리텐션 계산
+            retention = await queries.save_kpi_snapshot(d)
+            d1_ret = retention.get("d1_retention")
+            d7_ret = retention.get("d7_retention")
+            prev = await queries.get_previous_snapshot()
+            today = config.get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         catch_rate = d["catch_rate"]
-        today = config.get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         # ── v2 상세 데이터 수집 ──
         (
@@ -2052,6 +2057,7 @@ def main():
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회시작$"), force_tournament_reg_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회진행$"), force_tournament_run_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^구독승인\s+.+$"), manual_subscription_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^!리포트\s+\d{4}$"), report_handler))
 
     # Group trade (reply with '교환')
     app.add_handler(MessageHandler(group & filters.Regex(r"^교환\s+.+$"), group_trade_handler))

@@ -2587,11 +2587,14 @@ async def count_total_catches_bulk(user_ids: list[int]) -> dict[int, int]:
 # KPI Report Queries (일일/주간 리포트용)
 # ============================================================
 
-async def kpi_daily_snapshot() -> dict:
-    """일일 KPI 스냅샷 — midnight_reset 직전에 호출."""
+async def kpi_daily_snapshot(target_date=None) -> dict:
+    """일일 KPI 스냅샷 — midnight_reset 직전에 호출. target_date로 특정 날짜 조회 가능."""
     pool = await get_db()
     now = _cfg.get_kst_now()
-    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if target_date:
+        today = target_date
+    else:
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     one_hour_ago = now - timedelta(hours=1)
 
     (

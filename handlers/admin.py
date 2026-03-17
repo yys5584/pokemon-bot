@@ -1252,3 +1252,23 @@ async def abuse_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     target_id = int(parts[1])
     await admin_reset_score(target_id)
     await update.message.reply_text(f"✅ 유저 {target_id}의 봇 의심 점수가 초기화되었습니다.")
+
+
+async def report_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '!리포트 MMDD' — 특정 날짜 일일 리포트 수동 트리거."""
+    if not update.effective_user or not update.message:
+        return
+    if not is_admin(update.effective_user.id):
+        return
+    text = update.message.text.strip()
+    parts = text.split()
+    if len(parts) < 2 or len(parts[1]) != 4 or not parts[1].isdigit():
+        await update.message.reply_text("사용법: !리포트 0316 (MMDD)")
+        return
+
+    from main import _send_daily_kpi_report
+    mm, dd = int(parts[1][:2]), int(parts[1][2:])
+    now = config.get_kst_now()
+    target = now.replace(month=mm, day=dd, hour=0, minute=0, second=0, microsecond=0)
+    await update.message.reply_text(f"📊 {mm}/{dd} 리포트 생성 중...")
+    await _send_daily_kpi_report(context, target_date=target)
