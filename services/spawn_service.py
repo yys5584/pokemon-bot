@@ -704,7 +704,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             "AT TIME ZONE 'Asia/Seoul'",
             winner_id,
         )
-        if today_catches <= config.CATCH_BP_DAILY_LIMIT:
+        if today_catches < config.CATCH_BP_DAILY_LIMIT:
             catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
             await add_bp(winner_id, catch_bp, "catch")
             msg += f"\n{icon_emoji('coin')} +{catch_bp} BP"
@@ -1422,7 +1422,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             "AT TIME ZONE 'Asia/Seoul'",
             winner_id,
         )
-        if today_catches <= config.CATCH_BP_DAILY_LIMIT:
+        if today_catches < config.CATCH_BP_DAILY_LIMIT:
             catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
             await add_bp(winner_id, catch_bp, "catch")
             msg += f"\n{icon_emoji('coin')} +{catch_bp} BP"
@@ -1742,7 +1742,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                 "AT TIME ZONE 'Asia/Seoul'",
                 winner_id,
             )
-            if today_catches <= config.CATCH_BP_DAILY_LIMIT:
+            if today_catches < config.CATCH_BP_DAILY_LIMIT:
                 catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
                 await add_bp(winner_id, catch_bp, "catch")
                 msg += f"\n+{catch_bp} BP"
