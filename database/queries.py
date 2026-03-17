@@ -2768,9 +2768,13 @@ async def report_new_users_detail(today) -> list[dict]:
                GROUP BY user_id
            ) c ON u.user_id = c.user_id
            LEFT JOIN (
-               SELECT user_id, COUNT(*) as battles
-               FROM battle_records WHERE created_at >= $1
-               GROUP BY user_id
+               SELECT uid as user_id, COUNT(*) as battles
+               FROM (
+                   SELECT winner_id as uid FROM battle_records WHERE created_at >= $1
+                   UNION ALL
+                   SELECT loser_id as uid FROM battle_records WHERE created_at >= $1
+               ) _bp
+               GROUP BY uid
            ) b ON u.user_id = b.user_id
            WHERE u.registered_at >= $1
            ORDER BY c.catches DESC NULLS LAST
