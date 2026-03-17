@@ -14,12 +14,13 @@ from database import battle_queries as bq
 from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
 from services.tournament_service import is_tournament_active
-from services.abuse_service import (
-    record_reaction, should_challenge, create_challenge,
-    get_pending_challenge, resolve_challenge, handle_challenge_timeout,
-    clear_challenge, is_challenge_expired, CHALLENGE_TIMEOUT_SEC,
-    is_catch_locked, format_lock_duration,
-)
+# abuse_service 비활성화 (2026-03-17)
+# from services.abuse_service import (
+#     record_reaction, should_challenge, create_challenge,
+#     get_pending_challenge, resolve_challenge, handle_challenge_timeout,
+#     clear_challenge, is_challenge_expired, CHALLENGE_TIMEOUT_SEC,
+#     is_catch_locked, format_lock_duration,
+# )
 from utils.helpers import time_ago, get_decorated_name, truncate_name, schedule_delete, ball_emoji, shiny_emoji, icon_emoji, rarity_badge, type_badge
 from utils.honorific import format_actor
 from models.pokemon_data import ALL_POKEMON
@@ -233,41 +234,8 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
-            # ── 봇방지: 잠금 체크 ──
-            locked, remain_sec = is_catch_locked(user_id)
-            if locked:
-                resp = await update.message.reply_text(
-                    f"🔒 포획이 잠금 상태입니다.\n"
-                    f"남은 시간: <b>{format_lock_duration(remain_sec)}</b>",
-                    parse_mode="HTML",
-                )
-                return
-
-            # ── 봇방지: 챌린지 체크 ──
-            if await should_challenge(user_id):
-                sent = await _send_challenge_dm(context, user_id, session)
-                display = update.effective_user.first_name or "트레이너"
-                if sent:
-                    warn_msg = await update.message.reply_text(
-                        f"🚨 <b>비정상 포획 감지</b>\n"
-                        f"{display}님, DM에서 본인 확인을 완료해주세요.",
-                        parse_mode="HTML",
-                    )
-                    schedule_delete(warn_msg, 30)
-                else:
-                    await update.message.reply_text(
-                        "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
-                        parse_mode="HTML",
-                    )
-                return
-
             # Phase 3: record attempt (sequential — must happen before message)
             await record_attempt(session["id"], user_id)
-
-            # ── 봇방지: 반응시간 기록 (fire-and-forget) ──
-            asyncio.create_task(
-                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=timezone.utc), chat_id=chat_id)
-            )
 
             # 던진 후 남은 수량 = remaining - 1 (방금 1회 사용)
             after_remaining = max(0, remaining - 1) if remaining >= 0 else -1
@@ -355,34 +323,6 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             if already:
                 return
 
-            # ── 봇방지: 잠금 체크 ──
-            locked, remain_sec = is_catch_locked(user_id)
-            if locked:
-                resp = await update.message.reply_text(
-                    f"🔒 포획이 잠금 상태입니다.\n"
-                    f"남은 시간: <b>{format_lock_duration(remain_sec)}</b>",
-                    parse_mode="HTML",
-                )
-                return
-
-            # ── 봇방지: 챌린지 체크 ──
-            if await should_challenge(user_id):
-                sent = await _send_challenge_dm(context, user_id, session)
-                display = update.effective_user.first_name or "트레이너"
-                if sent:
-                    warn_msg = await update.message.reply_text(
-                        f"🚨 <b>비정상 포획 감지</b>\n"
-                        f"{display}님, DM에서 본인 확인을 완료해주세요.",
-                        parse_mode="HTML",
-                    )
-                    schedule_delete(warn_msg, 30)
-                else:
-                    await update.message.reply_text(
-                        "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
-                        parse_mode="HTML",
-                    )
-                return
-
             if balls < 1:
                 resp = await update.message.reply_text(f"{ball_emoji('masterball')} 마스터볼이 없습니다!", parse_mode="HTML")
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
@@ -402,11 +342,6 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 queries.get_user(user_id),
                 get_user_tier(user_id),
                 rq.get_season_record(user_id, current_season_id()),
-            )
-
-            # ── 봇방지: 반응시간 기록 (fire-and-forget) ──
-            asyncio.create_task(
-                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=timezone.utc), chat_id=chat_id)
             )
 
             if season_rec and season_rec.get("rp") is not None:
@@ -480,34 +415,6 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             if already:
                 return
 
-            # ── 봇방지: 잠금 체크 ──
-            locked, remain_sec = is_catch_locked(user_id)
-            if locked:
-                resp = await update.message.reply_text(
-                    f"🔒 포획이 잠금 상태입니다.\n"
-                    f"남은 시간: <b>{format_lock_duration(remain_sec)}</b>",
-                    parse_mode="HTML",
-                )
-                return
-
-            # ── 봇방지: 챌린지 체크 ──
-            if await should_challenge(user_id):
-                sent = await _send_challenge_dm(context, user_id, session)
-                display = update.effective_user.first_name or "트레이너"
-                if sent:
-                    warn_msg = await update.message.reply_text(
-                        f"🚨 <b>비정상 포획 감지</b>\n"
-                        f"{display}님, DM에서 본인 확인을 완료해주세요.",
-                        parse_mode="HTML",
-                    )
-                    schedule_delete(warn_msg, 30)
-                else:
-                    await update.message.reply_text(
-                        "🚨 <b>비정상 포획 감지</b>\nDM에서 본인 확인을 완료해야 포획할 수 있습니다.",
-                        parse_mode="HTML",
-                    )
-                return
-
             # Use hyper ball from inventory
             success = await queries.use_hyper_ball(user_id)
             if not success:
@@ -528,11 +435,6 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 queries.get_hyper_balls(user_id),
                 get_user_tier(user_id),
                 rq.get_season_record(user_id, current_season_id()),
-            )
-
-            # ── 봇방지: 반응시간 기록 (fire-and-forget) ──
-            asyncio.create_task(
-                record_reaction(user_id, session["id"], session.get("spawned_at"), datetime.now(tz=timezone.utc), chat_id=chat_id)
             )
 
             if season_rec and season_rec.get("rp") is not None:

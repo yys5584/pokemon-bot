@@ -22,7 +22,7 @@ from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types,
 from database import queries
 
 from handlers.start import start_handler, help_handler, help_callback_handler
-from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, daily_money_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, my_pokemon_group_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback, shiny_ticket_spawn_handler, challenge_answer_handler, challenge_callback_handler
+from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, daily_money_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, my_pokemon_group_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback, shiny_ticket_spawn_handler
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, title_list_callback, title_page_callback, status_handler, appraisal_handler, type_chart_handler
 from handlers.battle import (
     partner_handler, partner_callback_handler,
@@ -59,7 +59,6 @@ from handlers.admin import (
     stats_handler, channel_list_handler, grant_masterball_handler, grant_bp_handler, grant_subscription_handler,
     arcade_handler, tournament_chat_handler, force_tournament_reg_handler, force_tournament_run_handler,
     manual_subscription_handler,
-    abuse_list_handler, abuse_detail_handler, abuse_reset_handler,
 )
 from handlers.dm_subscription import (
     subscription_handler, subscription_callback_handler,
@@ -1956,9 +1955,6 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?칭호$"), title_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?상태창$"), status_handler))
 
-    # ── 봇방지: 챌린지 응답 핸들러 (최우선 DM 핸들러) ──
-    app.add_handler(MessageHandler(dm & filters.TEXT & ~filters.COMMAND, challenge_answer_handler), group=-3)
-
     # Camp system v2 (DM)
     if HAS_CAMP:
         # 환영 멘트 입력 (가장 먼저 — 상태가 아니면 무시)
@@ -2005,11 +2001,6 @@ def main():
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회시작$"), force_tournament_reg_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회진행$"), force_tournament_run_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^구독승인\s+.+$"), manual_subscription_handler))
-
-    # 어뷰징 관리 명령어 (관리자 전용)
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^어뷰징$"), abuse_list_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^어뷰징상세\s+\d+$"), abuse_detail_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^어뷰징초기화\s+\d+$"), abuse_reset_handler))
 
     # Group trade (reply with '교환')
     app.add_handler(MessageHandler(group & filters.Regex(r"^교환\s+.+$"), group_trade_handler))
@@ -2083,9 +2074,6 @@ def main():
         group & filters.TEXT & filters.Regex(r"^ㄷ$"),
         tournament_join_handler,
     ))
-
-    # Anti-bot challenge callback (4지선다 버튼)
-    app.add_handler(CallbackQueryHandler(challenge_callback_handler, pattern=r"^abot_"))
 
     # Close message callback (❌ button)
     app.add_handler(CallbackQueryHandler(close_message_callback, pattern=r"^close_msg$"))

@@ -653,11 +653,11 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 *(queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
             )
 
-        # Catch BP reward (하루 100마리까지만, KST 자정 기준)
+        # Catch BP reward (하루 포획 성공 100마리까지만, KST 자정 기준)
         from database.battle_queries import add_bp
         today_catches = await pool.fetchval(
-            "SELECT COUNT(*) FROM catch_attempts WHERE user_id = $1 "
-            "AND attempted_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
+            "SELECT COUNT(*) FROM spawn_log WHERE caught_by_user_id = $1 "
+            "AND spawned_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
             "AT TIME ZONE 'Asia/Seoul'",
             winner_id,
         )
@@ -1307,11 +1307,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 *(queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
             )
 
-        # Catch BP reward (하루 100마리까지만, KST 자정 기준)
+        # Catch BP reward (하루 포획 성공 100마리까지만, KST 자정 기준)
         from database.battle_queries import add_bp
         today_catches = await pool.fetchval(
-            "SELECT COUNT(*) FROM catch_attempts WHERE user_id = $1 "
-            "AND attempted_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
+            "SELECT COUNT(*) FROM spawn_log WHERE caught_by_user_id = $1 "
+            "AND spawned_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
             "AT TIME ZONE 'Asia/Seoul'",
             winner_id,
         )
@@ -1627,11 +1627,11 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             shiny_label = f"{shiny_emoji()}이로치 " if is_shiny else ""
             msg = f"🔄 서버 복구 — {be} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
 
-            # Catch BP reward (하루 100마리까지만, KST 자정 기준)
+            # Catch BP reward (하루 포획 성공 100마리까지만, KST 자정 기준)
             from database.battle_queries import add_bp
             today_catches = await pool.fetchval(
-                "SELECT COUNT(*) FROM catch_attempts WHERE user_id = $1 "
-                "AND attempted_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
+                "SELECT COUNT(*) FROM spawn_log WHERE caught_by_user_id = $1 "
+                "AND spawned_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
                 "AT TIME ZONE 'Asia/Seoul'",
                 winner_id,
             )

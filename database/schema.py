@@ -154,6 +154,7 @@ TABLES = [
     # Performance indexes for spawn_log
     "CREATE INDEX IF NOT EXISTS idx_spawn_log_chat ON spawn_log(chat_id, id DESC)",
     "CREATE INDEX IF NOT EXISTS idx_spawn_log_chat_pokemon ON spawn_log(chat_id, pokemon_id)",
+    "CREATE INDEX IF NOT EXISTS idx_spawn_log_catcher ON spawn_log(caught_by_user_id, spawned_at DESC)",
 
     # Performance indexes for trades
     "CREATE INDEX IF NOT EXISTS idx_trades_to_user ON trades(to_user_id, status)",
