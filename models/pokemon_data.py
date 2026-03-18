@@ -209,7 +209,7 @@ ALL_POKEMON = [
     (107, "홍수몬", "Hitmonchan", "🥊", "rare", 0.50, None, None, "none"),
 
     # --- Lickitung (no evolution in Gen1) ---
-    (108, "베로링가", "Lickitung", "👅", "common", 0.80, None, 463, "none"),
+    (108, "내루미", "Lickitung", "👅", "common", 0.80, None, 463, "none"),
 
     # --- Koffing line ---
     (109, "또가스", "Koffing", "💨", "common", 0.80, None, 110, "friendship"),

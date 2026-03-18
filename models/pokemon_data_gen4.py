@@ -165,7 +165,7 @@ ALL_POKEMON_GEN4 = [
     (462, "자포코일", "Magnezone", "⚡", "epic", 0.15, 82, None, "none"),
 
     # --- Lickilicky (cross-gen) ---
-    (463, "내루미", "Lickilicky", "⭐", "rare", 0.50, 108, None, "none"),
+    (463, "내룸벨트", "Lickilicky", "⭐", "rare", 0.50, 108, None, "none"),
 
     # --- Rhyperior (cross-gen) ---
     (464, "거대코뿌리", "Rhyperior", "🌍", "epic", 0.15, 112, None, "none"),
