@@ -7,10 +7,21 @@ from telegram.ext import ContextTypes
 from services.fusion_service import get_fusable_species, get_fusable_copies, execute_fusion
 from utils.helpers import rarity_badge
 import config
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
 SPECIES_PAGE_SIZE = 8
+
+def _rarity_filters(lang: str = "ko") -> list[tuple[str, str]]:
+    return [
+        ("all", t(lang, "release.filter_all") if t(lang, "release.filter_all") != "release.filter_all" else "전체"),
+        ("common", t(lang, "rarity.common")),
+        ("rare", t(lang, "rarity.rare")),
+        ("epic", t(lang, "rarity.epic")),
+        ("legendary", t(lang, "rarity.legendary")),
+        ("ultra_legendary", t(lang, "rarity.ultra_legendary")),
+    ]
 
 RARITY_FILTERS = [
     ("all", "전체"),
@@ -48,7 +59,7 @@ def _filter_species(species: list[dict], rarity_filter: str) -> list[dict]:
     return [s for s in species if s["rarity"] == rarity_filter]
 
 
-def _build_species_panel(user_id: int, species: list[dict], page: int, rarity_filter: str) -> tuple[str, InlineKeyboardMarkup]:
+def _build_species_panel(user_id: int, species: list[dict], page: int, rarity_filter: str, lang: str = "ko") -> tuple[str, InlineKeyboardMarkup]:
     """Build species selection panel with rarity filter and pagination."""
     filtered = _filter_species(species, rarity_filter)
     total = len(filtered)
@@ -57,16 +68,17 @@ def _build_species_panel(user_id: int, species: list[dict], page: int, rarity_fi
     start = page * SPECIES_PAGE_SIZE
     page_items = filtered[start:start + SPECIES_PAGE_SIZE]
 
-    text = "🔀 <b>포켓몬 합성</b>\n\n"
-    text += "같은 종류의 포켓몬 2마리를 합성하면\n새로운 개체값의 포켓몬 1마리가 탄생합니다!\n\n"
-    text += "⚠️ 팀/파트너/거래소 포켓몬은 제외됩니다.\n\n"
+    text = f"🔀 <b>{t(lang, 'fusion.title')}</b>\n\n"
+    text += f"{t(lang, 'fusion.description')}\n\n"
+    text += f"⚠️ {t(lang, 'fusion.excluded')}\n\n"
 
     # Current filter label
-    filter_label = next((label for key, label in RARITY_FILTERS if key == rarity_filter), "전체")
-    text += f"필터: <b>{filter_label}</b> | 합성 가능: <b>{total}종</b>\n"
+    rf = _rarity_filters(lang)
+    filter_label = next((label for key, label in rf if key == rarity_filter), rf[0][1])
+    text += f"{t(lang, 'fusion.filter_label', label=filter_label, count=total)}\n"
 
     if total == 0:
-        text += "\n해당 등급에 합성 가능한 포켓몬이 없습니다."
+        text += f"\n{t(lang, 'fusion.no_fusable')}"
 
     rows = []
 
@@ -177,17 +189,20 @@ async def fusion_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "rarity_filter": "all",
     }
 
+    lang = await get_user_lang(user_id)
+    context.user_data["fusion_lang"] = lang
+
     species = await get_fusable_species(user_id)
     if not species:
         await update.message.reply_text(
-            "🔀 합성 가능한 포켓몬이 없습니다.\n\n"
-            "같은 종류의 포켓몬을 2마리 이상 보유해야 합니다.\n"
-            "⚠️ 팀/파트너/거래소 포켓몬은 제외됩니다.",
+            f"🔀 {t(lang, 'fusion.no_fusable')}\n\n"
+            f"{t(lang, 'fusion.select_copies')}\n"
+            f"⚠️ {t(lang, 'fusion.excluded')}",
             parse_mode="HTML",
         )
         return
 
-    text, kb = _build_species_panel(user_id, species, 0, "all")
+    text, kb = _build_species_panel(user_id, species, 0, "all", lang)
     await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
 
 

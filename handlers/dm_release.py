@@ -6,13 +6,25 @@ from telegram.ext import ContextTypes
 
 from database import queries
 import config
+from utils.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
 
 RARITY_ORDER = ["common", "rare", "epic", "legendary", "ultra_legendary"]
 IV_GRADES = ["D", "C", "B", "A", "S"]
 GEN_RANGES = {"gen1": (1, 151), "gen2": (152, 251), "gen3": (252, 386), "gen4": (387, 493)}
-GEN_LABELS = {"gen1": "1세대", "gen2": "2세대", "gen3": "3세대", "gen4": "4세대"}
+GEN_LABELS_KO = {"gen1": "1세대", "gen2": "2세대", "gen3": "3세대", "gen4": "4세대"}
+
+def _gen_label(gen: str, lang: str = "ko") -> str:
+    """Get generation label for given language."""
+    gen_keys = {"gen1": "pokedex.gen1", "gen2": "pokedex.gen2", "gen3": "pokedex.gen3", "gen4": "pokedex.gen4"}
+    key = gen_keys.get(gen)
+    if key:
+        return t(lang, key)
+    return GEN_LABELS_KO.get(gen, gen)
+
+# Keep for backward compat
+GEN_LABELS = GEN_LABELS_KO
 
 
 def _get_filter(context) -> dict:
@@ -31,22 +43,22 @@ def _get_filter(context) -> dict:
 from utils.helpers import pokemon_iv_total as _iv_total, iv_grade
 
 
-def _build_panel(user_id: int, filt: dict) -> tuple[str, InlineKeyboardMarkup]:
+def _build_panel(user_id: int, filt: dict, lang: str = "ko") -> tuple[str, InlineKeyboardMarkup]:
     """Build the filter selection panel."""
-    text = "🔄 <b>포켓몬 방생</b>\n\n필터를 선택한 후 [미리보기]를 눌러주세요.\n"
+    text = f"🔄 <b>{t(lang, 'release.title')}</b>\n\n{t(lang, 'release.select_filter')}\n"
 
     # Show current selection summary
-    sel_r = [config.RARITY_LABEL.get(r, r) for r in RARITY_ORDER if r in filt["rarities"]]
+    sel_r = [t(lang, f"rarity.{r}") for r in RARITY_ORDER if r in filt["rarities"]]
     sel_iv = sorted(filt["iv_grades"], key=lambda g: IV_GRADES.index(g))
-    sel_gen = [GEN_LABELS[g] for g in ("gen1", "gen2", "gen3") if g in filt["gens"]]
+    sel_gen = [_gen_label(g, lang) for g in ("gen1", "gen2", "gen3") if g in filt["gens"]]
     if sel_r:
-        text += f"\n선택된 등급: {', '.join(sel_r)}"
+        text += f"\n{t(lang, 'release.selected_rarity')}: {', '.join(sel_r)}"
     if sel_iv:
-        text += f"\n선택된 IV등급: {', '.join(sel_iv)}"
+        text += f"\n{t(lang, 'release.selected_iv')}: {', '.join(sel_iv)}"
     if sel_gen:
-        text += f"\n선택된 세대: {', '.join(sel_gen)}"
+        text += f"\n{t(lang, 'release.selected_gen')}: {', '.join(sel_gen)}"
     if not sel_r and not sel_iv:
-        text += "\n<i>최소 등급 또는 IV등급 1개를 선택하세요</i>"
+        text += f"\n<i>{t(lang, 'release.select_hint')}</i>"
 
     # Generation buttons
     gen_row = []
@@ -73,13 +85,14 @@ def _build_panel(user_id: int, filt: dict) -> tuple[str, InlineKeyboardMarkup]:
         iv_row.append(InlineKeyboardButton(label, callback_data=f"rel_iv_{user_id}_{g}"))
 
     # Keep-one toggle
-    keep_label = "✓ 도감용 1마리 남기기" if filt["keep_one"] else "✗ 도감용 1마리 남기기"
+    keep_text = t(lang, "release.keep_one_label")
+    keep_label = f"✓ {keep_text}" if filt["keep_one"] else f"✗ {keep_text}"
     keep_row = [InlineKeyboardButton(keep_label, callback_data=f"rel_keep_{user_id}")]
 
     # Action buttons
     action_row = [
-        InlineKeyboardButton("🔍 미리보기", callback_data=f"rel_preview_{user_id}"),
-        InlineKeyboardButton("❌ 취소", callback_data=f"rel_cancel_{user_id}"),
+        InlineKeyboardButton(f"🔍 {t(lang, 'release.preview')}", callback_data=f"rel_preview_{user_id}"),
+        InlineKeyboardButton(f"❌ {t(lang, 'common.cancel')}", callback_data=f"rel_cancel_{user_id}"),
     ]
 
     kb = InlineKeyboardMarkup([
@@ -170,6 +183,7 @@ async def release_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not update.message:
         return
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
 
     # Reset filter state
     context.user_data["release_filter"] = {
@@ -178,8 +192,9 @@ async def release_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "gens": set(),
         "keep_one": True,
     }
+    context.user_data["release_lang"] = lang
     filt = _get_filter(context)
-    text, kb = _build_panel(user_id, filt)
+    text, kb = _build_panel(user_id, filt, lang)
     await update.message.reply_text(text, reply_markup=kb, parse_mode="HTML")
 
 
@@ -207,6 +222,7 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     filt = _get_filter(context)
+    lang = context.user_data.get("release_lang", "ko")
 
     if action == "gen":
         # Toggle generation
@@ -217,7 +233,7 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 filt["gens"].add(gen)
         await query.answer()
-        text, kb = _build_panel(user_id, filt)
+        text, kb = _build_panel(user_id, filt, lang)
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
         except Exception:
@@ -232,7 +248,7 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 filt["rarities"].add(rarity)
         await query.answer()
-        text, kb = _build_panel(user_id, filt)
+        text, kb = _build_panel(user_id, filt, lang)
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
         except Exception:
@@ -247,7 +263,7 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 filt["iv_grades"].add(grade)
         await query.answer()
-        text, kb = _build_panel(user_id, filt)
+        text, kb = _build_panel(user_id, filt, lang)
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
         except Exception:
@@ -256,7 +272,7 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif action == "keep":
         filt["keep_one"] = not filt["keep_one"]
         await query.answer()
-        text, kb = _build_panel(user_id, filt)
+        text, kb = _build_panel(user_id, filt, lang)
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
         except Exception:
@@ -265,14 +281,14 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif action == "preview":
         # Check at least one filter selected
         if not filt["rarities"] and not filt["iv_grades"]:
-            await query.answer("최소 1개의 필터를 선택해주세요!", show_alert=True)
+            await query.answer(t(lang, "release.select_hint"), show_alert=True)
             return
 
-        await query.answer("🔍 계산 중...")
+        await query.answer(f"🔍 {t(lang, 'release.calculating')}")
         candidates = await _get_candidates(user_id, filt)
 
         if not candidates:
-            await query.answer("조건에 맞는 포켓몬이 없습니다!", show_alert=True)
+            await query.answer(t(lang, "release.no_candidates"), show_alert=True)
             return
 
         count = len(candidates)
@@ -280,39 +296,40 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Build filter summary
         parts_text = []
         if filt["gens"]:
-            parts_text.append(", ".join(GEN_LABELS[g] for g in ("gen1", "gen2", "gen3") if g in filt["gens"]))
+            parts_text.append(", ".join(_gen_label(g, lang) for g in ("gen1", "gen2", "gen3") if g in filt["gens"]))
         if filt["rarities"]:
-            parts_text.append(", ".join(config.RARITY_LABEL.get(r, r) for r in RARITY_ORDER if r in filt["rarities"]))
+            parts_text.append(", ".join(t(lang, f"rarity.{r}") for r in RARITY_ORDER if r in filt["rarities"]))
         if filt["iv_grades"]:
-            parts_text.append(", ".join(sorted(filt["iv_grades"], key=lambda g: IV_GRADES.index(g))) + "등급")
+            parts_text.append(", ".join(sorted(filt["iv_grades"], key=lambda g: IV_GRADES.index(g))))
         filter_summary = " / ".join(parts_text)
         if filt["keep_one"]:
-            filter_summary += " / 도감용 남기기 ✓"
+            filter_summary += f" / {t(lang, 'release.keep_one_label')} ✓"
 
-        text = f"🔄 <b>방생 미리보기</b>\n\n"
-        text += f"필터: {filter_summary}\n"
-        text += f"방생 대상: <b>{count}마리</b>\n"
-        text += f"보상: 하이퍼볼 <b>{count}개</b>\n\n"
+        text = f"🔄 <b>{t(lang, 'release.preview_title')}</b>\n\n"
+        text += f"{t(lang, 'release.filter_label')}: {filter_summary}\n"
+        text += f"{t(lang, 'release.target_count')}: <b>{count}</b>\n"
+        text += f"{t(lang, 'release.reward_hyperball')}: <b>{count}</b>\n\n"
 
         # Sample list (max 10)
+        from utils.i18n import poke_name
         sample = candidates[:10]
         for p in sample:
             total = _iv_total(p)
             grade = iv_grade(total)
             emoji = config.RARITY_EMOJI.get(p.get("rarity", ""), "")
-            name = p.get("name_ko", "???")
+            name = poke_name(p, lang)
             text += f"• {emoji} {name} [{grade}]\n"
         if count > 10:
-            text += f"  ... 외 {count - 10}마리\n"
+            text += f"  ... +{count - 10}\n"
 
-        text += f"\n⚠️ <b>방생한 포켓몬은 되돌릴 수 없습니다!</b>"
+        text += f"\n⚠️ <b>{t(lang, 'release.warning')}</b>"
 
         kb = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("✅ 방생 실행", callback_data=f"rel_confirm_{user_id}"),
-                InlineKeyboardButton("◀ 돌아가기", callback_data=f"rel_back_{user_id}"),
+                InlineKeyboardButton(f"✅ {t(lang, 'release.execute')}", callback_data=f"rel_confirm_{user_id}"),
+                InlineKeyboardButton(f"◀ {t(lang, 'common.back')}", callback_data=f"rel_back_{user_id}"),
             ],
-            [InlineKeyboardButton("❌ 취소", callback_data=f"rel_cancel_{user_id}")],
+            [InlineKeyboardButton(f"❌ {t(lang, 'common.cancel')}", callback_data=f"rel_cancel_{user_id}")],
         ])
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
@@ -322,12 +339,12 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif action == "confirm":
         # Re-fetch candidates (fresh data)
         if not filt["rarities"] and not filt["iv_grades"]:
-            await query.answer("필터가 초기화되었습니다. 다시 시도해주세요.", show_alert=True)
+            await query.answer(t(lang, "release.filter_reset"), show_alert=True)
             return
 
         candidates = await _get_candidates(user_id, filt)
         if not candidates:
-            await query.answer("방생할 포켓몬이 없습니다!", show_alert=True)
+            await query.answer(t(lang, "release.no_candidates"), show_alert=True)
             return
 
         count = len(candidates)
@@ -341,9 +358,9 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Clear filter state
         context.user_data.pop("release_filter", None)
 
-        text = f"✅ <b>{released}마리 방생 완료!</b>\n하이퍼볼 {released}개를 획득했습니다!"
+        text = t(lang, "release.complete", count=released)
         try:
-            await query.edit_message_text(text, parse_mode="HTML")
+            await query.edit_message_text(f"✅ <b>{text}</b>", parse_mode="HTML")
         except Exception:
             pass
         await query.answer()
@@ -351,7 +368,7 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif action == "back":
         # Return to filter panel
         await query.answer()
-        text, kb = _build_panel(user_id, filt)
+        text, kb = _build_panel(user_id, filt, lang)
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
         except Exception:
@@ -360,7 +377,7 @@ async def release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif action == "cancel":
         context.user_data.pop("release_filter", None)
         try:
-            await query.edit_message_text("❌ 방생이 취소되었습니다.", parse_mode="HTML")
+            await query.edit_message_text(f"❌ {t(lang, 'release.cancelled')}", parse_mode="HTML")
         except Exception:
             pass
         await query.answer()

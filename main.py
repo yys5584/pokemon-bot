@@ -21,7 +21,7 @@ from database.schema import create_tables
 from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types, migrate_assign_ivs, migrate_rarity_v2, migrate_ultra_legendary, migrate_catch_rates_v3, migrate_add_nurture_locked, migrate_trade_evo_fix
 from database import queries
 
-from handlers.start import start_handler, help_handler, help_callback_handler
+from handlers.start import start_handler, help_handler, help_callback_handler, language_callback_handler, language_command_handler
 from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, daily_money_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, my_pokemon_group_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback, shiny_ticket_spawn_handler
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, title_list_callback, title_page_callback, status_handler, appraisal_handler, type_chart_handler
 from handlers.battle import (
@@ -2012,14 +2012,18 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^튜토$"), tutorial_dm_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^[ㅊㅎㅁ]$"), tutorial_dm_catch))
 
+    # Language change command (DM) — 언어/language/lang
+    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🌐\s*)?(언어|language|lang)$"), language_command_handler))
+
     # Patch note opt-out (수신거부)
     app.add_handler(MessageHandler(dm & filters.Regex(r"^수신거부$"), _optout_handler))
 
     # Korean commands via MessageHandler + Regex (DM only)
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(❓\s*)?도움말$"), help_handler))
-    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^(📖\s*)?도감(\s+\S+)?$"), pokedex_handler))
+    # English/Chinese aliases added with | alternation — Korean commands always work
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(❓\s*)?(도움말|help)$"), help_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^(📖\s*)?(도감|pokedex)(\s+\S+)?$"), pokedex_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^날씨$"), weather_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📦\s*)?내포켓몬(\s+.+)?$"), my_pokemon_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📦\s*)?(내포켓몬|mypokemon)(\s+.+)?$"), my_pokemon_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(💪\s*)?친밀도강화$"), nurture_menu_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^밥(\s+.+)?$"), feed_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^놀기(\s+.+)?$"), play_handler))
@@ -2029,26 +2033,26 @@ def main():
     # DM trade removed — replaced by group reply trade
 
     # Marketplace (DM) — 구체적 서브커맨드 먼저 등록
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소\s*등록\s+.+$"), market_register_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소\s*취소\s+.+$"), market_cancel_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소\s*구매\s+.+$"), market_buy_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소\s*검색\s+.+$"), market_search_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소\s*내꺼$"), market_my_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소$"), market_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^방생$"), release_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^합성$"), fusion_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏰\s*)?던전$"), dungeon_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*|📌\s*)?미션$"), mission_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?(거래소|market)\s*(등록|register)\s+.+$"), market_register_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?(거래소|market)\s*(취소|cancel)\s+.+$"), market_cancel_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?(거래소|market)\s*(구매|buy)\s+.+$"), market_buy_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?(거래소|market)\s*(검색|search)\s+.+$"), market_search_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?(거래소|market)\s*(내꺼|mine)$"), market_my_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?(거래소|market)$"), market_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(방생|release)$"), release_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(합성|fusion)$"), fusion_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏰\s*)?(던전|dungeon)$"), dungeon_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*|📌\s*)?(미션|mission)$"), mission_handler))
 
     # Subscription / Premium system (DM + Group)
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(💎\s*)?프리미엄$"), premium_hub_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(💎\s*)?구독$"), subscription_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(💎\s*)?(프리미엄|premium)$"), premium_hub_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(💎\s*)?(구독|subscribe)$"), subscription_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^구독정보$"), subscription_status_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(💎\s*)?프리미엄상점$"), premium_shop_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^채팅상점$"), channel_shop_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?칭호목록$"), title_list_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?칭호$"), title_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?상태창$"), status_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?(칭호목록|titles)$"), title_list_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?(칭호|title)$"), title_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?(상태창|status)$"), status_handler))
 
     # Camp system v2 (DM)
     if HAS_CAMP:
@@ -2076,8 +2080,8 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🏪\s*)?(bp)?상점$"), bp_shop_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^bp$"), bp_handler))
     # 가챠 (뽑기) + 아이템
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🎰\s*)?(뽑기|가챠)$"), gacha_handler))
-    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🎒\s*)?아이템$"), item_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🎰\s*)?(뽑기|가챠|gacha)$"), gacha_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🎒\s*)?(아이템|items?)$"), item_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^티어$"), tier_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^시즌$"), season_info_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(시즌)?랭킹$"), ranked_ranking_handler))
@@ -2147,21 +2151,21 @@ def main():
     app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰 채널 초기화\s*$"), force_spawn_reset_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*포켓볼초기화\s*$"), pokeball_reset_handler))
 
-    # "ㅊ" catch handler (group only, exact match)
+    # "ㅊ" / "c" catch handler (group only, exact match)
     app.add_handler(MessageHandler(
-        group & filters.TEXT & filters.Regex(r"^ㅊ$"),
+        group & filters.TEXT & filters.Regex(r"(?i)^(ㅊ|c)$"),
         catch_handler,
     ))
 
-    # "ㅁ" master ball handler (group only, exact match)
+    # "ㅁ" / "m" master ball handler (group only, exact match)
     app.add_handler(MessageHandler(
-        group & filters.TEXT & filters.Regex(r"^ㅁ$"),
+        group & filters.TEXT & filters.Regex(r"(?i)^(ㅁ|m)$"),
         master_ball_handler,
     ))
 
-    # "ㅎ" hyper ball handler (group only, exact match)
+    # "ㅎ" / "h" hyper ball handler (group only, exact match)
     app.add_handler(MessageHandler(
-        group & filters.TEXT & filters.Regex(r"^ㅎ$"),
+        group & filters.TEXT & filters.Regex(r"(?i)^(ㅎ|h)$"),
         hyper_ball_handler,
     ))
 
@@ -2170,6 +2174,9 @@ def main():
         group & filters.TEXT & filters.Regex(r"^ㄷ$"),
         tournament_join_handler,
     ))
+
+    # Language selection callback
+    app.add_handler(CallbackQueryHandler(language_callback_handler, pattern=r"^lang_"))
 
     # Close message callback (❌ button)
     app.add_handler(CallbackQueryHandler(close_message_callback, pattern=r"^close_msg$"))

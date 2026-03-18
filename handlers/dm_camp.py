@@ -14,6 +14,7 @@ from database import queries
 from services import camp_service as cs
 from utils.helpers import rarity_badge, shiny_emoji, icon_emoji, _type_emoji
 from utils.card_generator import generate_card
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +79,10 @@ def _next_round_countdown() -> str:
 async def camp_hub_handler(update, context):
     """DM '캠프' — 캠프 메인 허브 메뉴."""
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     user = await queries.get_user(user_id)
     if not user:
-        await update.message.reply_text("먼저 포켓몬을 잡아보세요!")
+        await update.message.reply_text(t(lang, "camp.no_pokemon"))
         return
 
     settings = await cq.get_user_camp_settings(user_id)

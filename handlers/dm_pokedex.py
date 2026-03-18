@@ -12,6 +12,7 @@ from utils.helpers import hearts_display, rarity_badge, rarity_badge_label, esca
 from utils.card_generator import generate_card, generate_pokedex_card
 from utils.parse import parse_number, parse_name_arg
 from utils.battle_calc import iv_total
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -206,7 +207,8 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(user_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
 
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
@@ -259,6 +261,7 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await query.answer()
+    lang = await get_user_lang(query.from_user.id)
 
     data = query.data
     parts = data.split("_")
@@ -376,19 +379,17 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
 
     if not pokemon_list:
-        await update.message.reply_text(
-            "보유한 포켓몬이 없습니다.\n"
-            "그룹 채팅방에서 ㅊ 으로 잡아보세요!"
-        )
+        await update.message.reply_text(t(lang, "my_pokemon.no_pokemon"))
         return
 
     # Check if a specific index was given: "내포켓몬 3"
@@ -753,7 +754,7 @@ def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: i
     """Show individual pokemon within a duplicate group."""
     members = [p for p in pokemon_list if p["pokemon_id"] == pokemon_id]
     if not members:
-        return "해당 포켓몬을 찾을 수 없습니다.", InlineKeyboardMarkup([])
+        return t(lang, "error.pokemon_not_found"), InlineKeyboardMarkup([])
 
     first = members[0]
     rb = rarity_badge(first.get("rarity", ""))
@@ -919,6 +920,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     parts = data.split("_")
     action = parts[1]
     user_id = int(parts[2])
+    lang = await get_user_lang(user_id)
 
     if query.from_user.id != user_id:
         return
@@ -931,7 +933,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
         try:
-            await query.edit_message_text("보유한 포켓몬이 없습니다.")
+            await query.edit_message_text(t(lang, "my_pokemon.no_pokemon"))
         except Exception:
             pass
         return
@@ -1186,7 +1188,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                     target = p
                     break
             if not target:
-                await query.answer("이미 방생된 포켓몬입니다!", show_alert=True)
+                await query.answer(t(lang, "my_pokemon.already_released"), show_alert=True)
                 return
 
             if target.get("team_slot") is not None:
@@ -1212,7 +1214,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 text, markup = _build_list_view(user_id, pokemon_list, page, filt=filt)
                 await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
             else:
-                await query.edit_message_text("보유한 포켓몬이 없습니다.")
+                await query.edit_message_text(t(lang, "my_pokemon.no_pokemon"))
 
     except Exception:
         pass
@@ -1341,9 +1343,9 @@ async def _do_evolve(p: dict, user_id: int) -> str:
     is_eevee = pokemon_id == config.EEVEE_ID
 
     if not p["evolves_to"] and not has_branch and not is_eevee:
-        return "이 포켓몬은 진화할 수 없습니다."
+        return t(lang, "my_pokemon.cannot_evolve")
     if p["evolution_method"] == "trade":
-        return "이 포켓몬은 교환으로만 진화합니다."
+        return t(lang, "my_pokemon.trade_evolve_only")
     max_f = config.get_max_friendship(p)
     if p["friendship"] < max_f:
         return f"친밀도가 부족합니다 ({p['friendship']}/{max_f})"
@@ -1360,7 +1362,7 @@ async def _do_evolve(p: dict, user_id: int) -> str:
 
     evo_target = await queries.get_pokemon_master(target_id)
     if not evo_target:
-        return "진화 대상을 찾을 수 없습니다."
+        return t(lang, "my_pokemon.evolve_target_not_found")
     await queries.evolve_pokemon(p["id"], target_id)
     return f"🎉 {p['name_ko']}이(가) {evo_target['name_ko']}(으)로 진화했습니다!"
 
@@ -2213,9 +2215,10 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -2246,6 +2249,7 @@ async def title_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = query.from_user.id
+    lang = await get_user_lang(user_id)
     unlocked = await queries.get_user_titles(user_id)
     unlocked_ids = {ut["title_id"] for ut in unlocked}
 
@@ -2327,7 +2331,8 @@ async def title_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(user_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
     # Check and unlock any new titles first
@@ -2370,6 +2375,7 @@ async def title_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = query.from_user.id
+    lang = await get_user_lang(user_id)
     unlocked = await queries.get_user_titles(user_id)
     user = await queries.get_user(user_id)
     current_title = user.get("title", "") if user else ""
@@ -2390,6 +2396,7 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.answer()
     user_id = query.from_user.id
+    lang = await get_user_lang(user_id)
     title_id = query.data.replace("title_", "")
 
     if title_id == "none":
@@ -2445,7 +2452,8 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(user_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
     from database import battle_queries as bq
@@ -2597,9 +2605,10 @@ async def appraisal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -2691,6 +2700,7 @@ async def type_chart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Handle '상성 [타입]' command — show type effectiveness."""
     if not update.effective_user or not update.message:
         return
+    lang = await get_user_lang(update.effective_user.id)
 
     text = update.message.text or ""
     name_arg = parse_name_arg(text)

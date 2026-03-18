@@ -14,6 +14,7 @@ from database import queries
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, EVO_STAGE_MAP, iv_total, get_normalized_base_stats
 from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge, icon_emoji, ball_emoji, iv_grade_tag
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,8 @@ TEAM_MAX = 6
 # ============================================================
 
 def _build_partner_list(user_id: int, pokemon_list: list, page: int,
-                        current_partner_id: int | None = None) -> tuple[str, InlineKeyboardMarkup]:
+                        current_partner_id: int | None = None,
+                        lang: str = "ko") -> tuple[str, InlineKeyboardMarkup]:
     """Build partner selection list with inline buttons."""
     total = len(pokemon_list)
     total_pages = max(1, (total + PARTNER_PAGE_SIZE - 1) // PARTNER_PAGE_SIZE)
@@ -59,13 +61,13 @@ def _build_partner_list(user_id: int, pokemon_list: list, page: int,
     end = min(start + PARTNER_PAGE_SIZE, total)
     page_pokemon = pokemon_list[start:end]
 
-    lines = [f"🤝 파트너 선택  [{page + 1}/{total_pages}]\n"]
+    lines = [f"🤝 {t(lang, 'partner.title')}  [{page + 1}/{total_pages}]\n"]
     for i, p in enumerate(page_pokemon):
         num = start + i + 1
         mark = f" {icon_emoji('check')}" if p["id"] == current_partner_id else ""
         tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-        lines.append(f"{num}. {tb} {p['name_ko']}{mark}")
-    lines.append("\n포켓몬을 눌러 파트너로 지정!")
+        lines.append(f"{num}. {tb} {poke_name(p, lang)}{mark}")
+    lines.append(f"\n{t(lang, 'partner.select')}")
 
     # Buttons: 2 per row
     buttons = []
@@ -73,7 +75,7 @@ def _build_partner_list(user_id: int, pokemon_list: list, page: int,
     for i, p in enumerate(page_pokemon):
         idx = start + i
         row.append(InlineKeyboardButton(
-            f"{idx + 1}. {p['name_ko']}",
+            f"{idx + 1}. {poke_name(p, lang)}",
             callback_data=f"partner_s_{user_id}_{idx}_{page}",
         ))
         if len(row) == 2:
@@ -85,9 +87,9 @@ def _build_partner_list(user_id: int, pokemon_list: list, page: int,
     # Pagination
     nav_row = []
     if page > 0:
-        nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"partner_p_{user_id}_{page - 1}"))
+        nav_row.append(InlineKeyboardButton(t(lang, "common.prev"), callback_data=f"partner_p_{user_id}_{page - 1}"))
     if page < total_pages - 1:
-        nav_row.append(InlineKeyboardButton("다음 ▶", callback_data=f"partner_p_{user_id}_{page + 1}"))
+        nav_row.append(InlineKeyboardButton(t(lang, "common.next"), callback_data=f"partner_p_{user_id}_{page + 1}"))
     if nav_row:
         buttons.append(nav_row)
 
@@ -100,9 +102,10 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -118,9 +121,9 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # 파트너 없음 → 바로 선택 리스트
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             if not pokemon_list:
-                await update.message.reply_text("보유한 포켓몬이 없습니다.")
+                await update.message.reply_text(t(lang, "my_pokemon.no_pokemon"))
                 return
-            text_msg, markup = _build_partner_list(user_id, pokemon_list, 0)
+            text_msg, markup = _build_partner_list(user_id, pokemon_list, 0, lang=lang)
             await update.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
             return
 
@@ -142,17 +145,17 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from models.pokemon_base_stats import POKEMON_BASE_STATS
         pbs = POKEMON_BASE_STATS.get(partner["pokemon_id"])
         if pbs:
-            type_name = "/".join(config.TYPE_NAME_KO.get(t, t) for t in pbs[-1])
+            type_name = "/".join(t(lang, f"type.{tp}") for tp in pbs[-1])
         else:
-            type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
+            type_name = t(lang, f"type.{partner['pokemon_type']}")
         buttons = InlineKeyboardMarkup([[
-            InlineKeyboardButton("🔄 변경", callback_data=f"partner_p_{user_id}_0"),
+            InlineKeyboardButton(f"🔄 {t(lang, 'common.change')}", callback_data=f"partner_p_{user_id}_0"),
         ]])
         await update.message.reply_text(
-            f"{icon_emoji('pokemon-love')} 나의 파트너\n\n"
-            f"{tb} {partner['name_ko']}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
+            f"{icon_emoji('pokemon-love')} {t(lang, 'partner.my_partner')}\n\n"
+            f"{tb} {poke_name(partner, lang)}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
             f"{icon_emoji('stationery')} {format_stats_line(stats, base)}\n\n"
-            f"💡 배틀 시 파트너가 팀에 포함되면 공격 +5%!",
+            f"💡 {t(lang, 'partner.bonus_info', pct=5)}",
             reply_markup=buttons,
             parse_mode="HTML",
         )
@@ -164,7 +167,7 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
-        await update.message.reply_text("보유한 포켓몬이 없습니다.")
+        await update.message.reply_text(t(lang, "my_pokemon.no_pokemon"))
         return
 
     chosen = None
@@ -187,17 +190,16 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(matches) == 1:
             chosen = matches[0]
         elif len(matches) > 1:
-            lines = [f"'{search_name}' 검색 결과가 {len(matches)}마리입니다:\n"]
+            lines = [t(lang, "partner.search_multiple", name=search_name, count=len(matches)) + "\n"]
             for p in matches:
                 idx = pokemon_list.index(p) + 1
-                lines.append(f"  {idx}. {p['name_ko']}")
-            lines.append("\n번호로 지정: 파트너 [번호]")
+                lines.append(f"  {idx}. {poke_name(p, lang)}")
+            lines.append(f"\n{t(lang, 'partner.specify_number')}")
             await update.message.reply_text("\n".join(lines))
             return
         else:
             await update.message.reply_text(
-                f"'{search_name}' 이름의 포켓몬을 보유하고 있지 않습니다.\n"
-                f"내포켓몬 으로 보유 목록을 확인하세요."
+                t(lang, "my_pokemon.not_found", name=search_name)
             )
             return
 
@@ -205,7 +207,7 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 인식 불가 → 선택 리스트 보여주기
         partner = await bq.get_partner(user_id)
         partner_id = partner["instance_id"] if partner else None
-        text_msg, markup = _build_partner_list(user_id, pokemon_list, 0, partner_id)
+        text_msg, markup = _build_partner_list(user_id, pokemon_list, 0, partner_id, lang=lang)
         await update.message.reply_text(text_msg, reply_markup=markup)
         return
 
@@ -214,12 +216,13 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def _set_partner_and_reply(message, user_id: int, chosen: dict):
     """Set partner and send confirmation."""
+    lang = await get_user_lang(user_id)
     await bq.set_partner(user_id, chosen["id"])
 
     tb = type_badge(chosen["pokemon_id"], chosen.get("pokemon_type"))
     await message.reply_text(
-        f"🤝 {tb} {chosen['name_ko']} 파트너로 지정!\n"
-        f"배틀 시 파트너가 팀에 포함되면 ATK +5% 보너스!",
+        f"🤝 {tb} {poke_name(chosen, lang)} {t(lang, 'partner.set_success_short')}!\n"
+        f"{t(lang, 'partner.bonus_info', pct=5)}",
         parse_mode="HTML",
     )
 
@@ -245,15 +248,16 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
     # partner_s_{user_id}_{idx}_{page}  — select pokemon
     action = parts[1]
     owner_id = int(parts[2])
+    lang = await get_user_lang(query.from_user.id)
 
     if query.from_user.id != owner_id:
-        await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "error.not_your_button"), show_alert=True)
         return
 
     pokemon_list = await queries.get_user_pokemon_list(owner_id)
     if not pokemon_list:
         try:
-            await query.edit_message_text("보유한 포켓몬이 없습니다.")
+            await query.edit_message_text(t(lang, "my_pokemon.no_pokemon"))
         except Exception:
             pass
         return
@@ -263,7 +267,7 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         page = int(parts[3])
         partner = await bq.get_partner(owner_id)
         partner_id = partner["instance_id"] if partner else None
-        text_msg, markup = _build_partner_list(owner_id, pokemon_list, page, partner_id)
+        text_msg, markup = _build_partner_list(owner_id, pokemon_list, page, partner_id, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
@@ -273,7 +277,7 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         # Select partner
         idx = int(parts[3])
         if idx < 0 or idx >= len(pokemon_list):
-            await query.answer("잘못된 선택입니다.", show_alert=True)
+            await query.answer(t(lang, "dungeon.invalid_choice"), show_alert=True)
             return
 
         chosen = pokemon_list[idx]
@@ -300,10 +304,10 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         )
         try:
             await query.edit_message_text(
-                f"{icon_emoji('pokemon-love')} 파트너 지정 완료!\n\n"
-                f"{tb} {chosen['name_ko']}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
+                f"{icon_emoji('pokemon-love')} {t(lang, 'partner.set_complete')}!\n\n"
+                f"{tb} {poke_name(chosen, lang)}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
                 f"{icon_emoji('stationery')} {format_stats_line(stats, base)}\n\n"
-                f"💡 배틀 시 파트너가 팀에 포함되면 공격 +5%!",
+                f"💡 {t(lang, 'partner.bonus_info', pct=5)}",
                 parse_mode="HTML",
             )
         except Exception:
@@ -544,9 +548,10 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -644,6 +649,7 @@ async def team_edit_menu_handler(update: Update, context: ContextTypes.DEFAULT_T
     if not update.effective_user or not update.message:
         return
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
 
     team1, team2, active = await asyncio.gather(
         bq.get_battle_team(user_id, 1),
@@ -680,9 +686,10 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -795,6 +802,7 @@ async def team_clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     text = (update.message.text or "").strip()
     team_num = 2 if text.endswith("2") else 1
     await bq.clear_battle_team(user_id, team_num)
@@ -807,6 +815,7 @@ async def team_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     text = (update.message.text or "").strip()
     parts = text.split()
 
@@ -830,6 +839,7 @@ async def team_swap_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not update.message:
         return
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     team1, team2 = await asyncio.gather(
         bq.get_battle_team(user_id, 1),
         bq.get_battle_team(user_id, 2),
@@ -853,6 +863,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
     data = query.data
     parts = data.split("_")
+    lang = await get_user_lang(query.from_user.id)
 
     # Helper: ownership check
     def _check_owner(uid):
@@ -871,7 +882,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _init_draft(context, owner_id, tn)
@@ -891,7 +902,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         slot = int(parts[3])
         tn = int(parts[4])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
@@ -912,7 +923,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         page = int(parts[4])
         tn = int(parts[5])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         draft = await _get_draft(owner_id, tn)
 
@@ -980,7 +991,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         slot = int(parts[2])
         tn = int(parts[3])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
@@ -1004,7 +1015,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         page = int(parts[3])
         tn = int(parts[4])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
@@ -1024,7 +1035,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         filter_code = parts[3]
         tn = int(parts[4])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
@@ -1043,7 +1054,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
@@ -1061,7 +1072,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
@@ -1081,7 +1092,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[2])
         tn = int(parts[3])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
@@ -1102,7 +1113,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         slot = int(parts[2])
         tn = int(parts[3])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
@@ -1143,7 +1154,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     elif data.startswith("tswap_teams_"):
         owner_id = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         team1 = await bq.get_battle_team(owner_id, 1)
         team2 = await bq.get_battle_team(owner_id, 2)
@@ -1169,7 +1180,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
 
         # Check if editing session is still alive (draft exists in memory)
@@ -1259,7 +1270,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         # Clean up draft — original team is still in DB
@@ -1277,7 +1288,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         await bq.clear_battle_team(owner_id, tn)
@@ -1298,6 +1309,7 @@ async def battle_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     stats = await bq.get_battle_stats(user_id)
 
     wins = stats["battle_wins"]
@@ -1352,6 +1364,7 @@ async def bp_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     bp = await bq.get_bp(user_id)
     await update.message.reply_text(f"{icon_emoji('coin')} 보유 BP: {bp}\n\nBP상점 으로 교환 가능", parse_mode="HTML")
 
@@ -1370,6 +1383,7 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     bp, bought_today, tickets, hyper_balls, arcade_tickets = await asyncio.gather(
         bq.get_bp(user_id),
         bq.get_bp_purchases_today(user_id, "masterball"),
@@ -1418,6 +1432,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     text = (update.message.text or "").strip()
     parts = text.split()
 
@@ -1565,6 +1580,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     user_id = query.from_user.id
+    lang = await get_user_lang(user_id)
     item_key = query.data.replace("shop_", "")
 
     # Map callback to item name for bp_buy logic
@@ -1711,7 +1727,8 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     if is_tournament_active(chat_id):
         return
     challenger_id = update.effective_user.id
-    challenger_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(challenger_id)
+    challenger_name = update.effective_user.first_name or t(lang, "common.trainer")
 
     # Must reply to someone or mention
     reply = update.message.reply_to_message
@@ -1722,16 +1739,16 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
         return
 
     defender_id = reply.from_user.id
-    defender_name = reply.from_user.first_name or "트레이너"
+    defender_name = reply.from_user.first_name or t(lang, "common.trainer")
 
     # Can't battle yourself
     if challenger_id == defender_id:
-        await update.message.reply_text("자기 자신에게 배틀을 신청할 수 없습니다.")
+        await update.message.reply_text(t(lang, "battle.cannot_self"))
         return
 
     # Can't battle bots
     if reply.from_user.is_bot:
-        await update.message.reply_text("봇에게는 배틀을 신청할 수 없습니다.")
+        await update.message.reply_text(t(lang, "battle.cannot_bot"))
         return
 
     # Ensure both users exist + check cooldowns (병렬)
@@ -1801,7 +1818,7 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     # Check for existing pending challenge
     existing = await bq.get_pending_challenge(challenger_id, defender_id)
     if existing:
-        await update.message.reply_text("이미 대기 중인 배틀 신청이 있습니다.")
+        await update.message.reply_text(t(lang, "battle.already_pending"))
         return
 
     # Create challenge
@@ -1873,6 +1890,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         return
 
     await query.answer()
+    lang = await get_user_lang(query.from_user.id)
 
     parts = data.split("_")
     # battle_accept_{challenge_id}_{defender_id}
@@ -1891,20 +1909,20 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
     # Only the defender can respond
     if query.from_user.id != expected_defender:
-        await query.answer("본인만 응답할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "error.not_your_button"), show_alert=True)
         return
 
     challenge = await bq.get_challenge_by_id(challenge_id)
     if not challenge:
         try:
-            await query.edit_message_text("배틀 신청을 찾을 수 없습니다.")
+            await query.edit_message_text(t(lang, "battle.challenge_not_found"))
         except Exception:
             pass
         return
 
     if challenge["status"] != "pending":
         try:
-            await query.edit_message_text("이미 처리된 배틀 신청입니다.")
+            await query.edit_message_text(t(lang, "battle.already_processed"))
         except Exception:
             pass
         return
@@ -1925,7 +1943,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     if action == "decline":
         await bq.update_challenge_status(challenge_id, "declined")
         try:
-            await query.edit_message_text("❌ 배틀이 거절되었습니다.")
+            await query.edit_message_text(t(lang, "battle.challenge_declined_msg"))
         except Exception:
             pass
         return
@@ -2062,6 +2080,7 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
     data = query.data
     parts = data.split("_")
     prefix = parts[0]
+    lang = await get_user_lang(query.from_user.id)
 
     if prefix == "bdetail":
         # Detail DM: bdetail_{cache_key}_{winner_id}_{loser_id}
@@ -2075,7 +2094,7 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
 
         # Only participants can view
         if query.from_user.id not in (winner_id, loser_id):
-            await query.answer("배틀 참가자만 볼 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "battle.participants_only"), show_alert=True)
             return
 
         from services.battle_service import get_battle_detail
@@ -2109,7 +2128,7 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
 
         # Both winner and loser can skip
         if query.from_user.id not in (winner_id, loser_id):
-            await query.answer("배틀 참가자만 삭제할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "battle.participants_only"), show_alert=True)
             return
 
         await query.answer()
@@ -2128,7 +2147,7 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
             return
 
         if query.from_user.id != winner_id:
-            await query.answer("승자만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "battle.winner_only"), show_alert=True)
             return
 
         from utils.honorific import honorific_name as _hon_name, _get_honorific
@@ -2191,10 +2210,11 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
 
 async def battle_ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 배틀랭킹 command (group). Show battle leaderboard."""
+    lang = await get_user_lang(update.effective_user.id) if update.effective_user else "ko"
     rankings = await bq.get_battle_ranking(10)
 
     if not rankings:
-        await update.message.reply_text("아직 배틀 기록이 없습니다.")
+        await update.message.reply_text(t(lang, "battle.no_records"))
         return
 
     medals = ["🥇", "🥈", "🥉"]
@@ -2326,7 +2346,8 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
 
     chat_id = update.effective_chat.id
     challenger_id = update.effective_user.id
-    challenger_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(challenger_id)
+    challenger_name = update.effective_user.first_name or t(lang, "common.trainer")
 
     from services.tournament_service import is_tournament_active
     if is_tournament_active(chat_id):
@@ -2426,7 +2447,7 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     # 중복 도전 체크
     existing = await bq.get_pending_challenge(challenger_id, defender_id)
     if existing:
-        await update.message.reply_text("이미 대기 중인 배틀 신청이 있습니다.")
+        await update.message.reply_text(t(lang, "battle.already_pending"))
         return
 
     # 시즌 법칙 표시 텍스트
@@ -2496,6 +2517,7 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         return
 
     await query.answer()
+    lang = await get_user_lang(query.from_user.id)
 
     # ranked_auto_{uid} — 배틀전적 화면에서 랭전 버튼
     if data.startswith("ranked_auto_"):
@@ -2525,20 +2547,20 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         job.schedule_removal()
 
     if query.from_user.id != expected_defender:
-        await query.answer("본인만 응답할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "error.not_your_button"), show_alert=True)
         return
 
     challenge = await bq.get_challenge_by_id(challenge_id)
     if not challenge:
         try:
-            await query.edit_message_text("배틀 신청을 찾을 수 없습니다.")
+            await query.edit_message_text(t(lang, "battle.challenge_not_found"))
         except Exception:
             pass
         return
 
     if challenge["status"] != "pending":
         try:
-            await query.edit_message_text("이미 처리된 배틀 신청입니다.")
+            await query.edit_message_text(t(lang, "battle.already_processed"))
         except Exception:
             pass
         return
@@ -2558,7 +2580,7 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     if action == "decline":
         await bq.update_challenge_status(challenge_id, "declined")
         try:
-            await query.edit_message_text("❌ 랭크전이 거절되었습니다.")
+            await query.edit_message_text(t(lang, "ranked.declined"))
         except Exception:
             pass
         return
@@ -2760,6 +2782,7 @@ async def season_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     from services import ranked_service as rs
     from database import ranked_queries as rq
 
@@ -2831,6 +2854,7 @@ async def ranked_ranking_handler(update: Update, context: ContextTypes.DEFAULT_T
     """Handle '랭킹' or '시즌랭킹' command (DM). Show season ranking."""
     if not update.effective_user or not update.message:
         return
+    lang = await get_user_lang(update.effective_user.id)
 
     from services import ranked_service as rs
     from database import ranked_queries as rq
@@ -2878,6 +2902,7 @@ async def arena_register_handler(update: Update, context: ContextTypes.DEFAULT_T
 
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
 
     # 관리자 체크
     try:
@@ -2907,7 +2932,8 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(user_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
     from services import ranked_service as rs
@@ -3273,7 +3299,8 @@ async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = update.effective_chat.id
     challenger_id = update.effective_user.id
-    challenger_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(challenger_id)
+    challenger_name = update.effective_user.first_name or t(lang, "common.trainer")
 
     # Must reply to someone
     reply = update.message.reply_to_message
@@ -3337,7 +3364,7 @@ async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check for existing pending yacha
     existing = await bq.get_pending_challenge(challenger_id, defender_id)
     if existing:
-        await update.message.reply_text("이미 대기 중인 신청이 있습니다.")
+        await update.message.reply_text(t(lang, "battle.already_pending"))
         return
 
     # Show bet type selection
@@ -3378,17 +3405,18 @@ async def yacha_type_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     bet_type = parts[1]  # bp, mb, cancel
     challenger_id = int(parts[2])
     defender_id = int(parts[3])
+    lang = await get_user_lang(query.from_user.id)
 
     # Only challenger can select
     if query.from_user.id != challenger_id:
-        await query.answer("도전자만 선택할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "battle.challenger_only"), show_alert=True)
         return
 
     await query.answer()
 
     if bet_type == "cancel":
         try:
-            await query.edit_message_text("❌ 야차가 취소되었습니다.")
+            await query.edit_message_text(t(lang, "yacha.cancelled"))
         except Exception:
             pass
         return
@@ -3450,10 +3478,11 @@ async def yacha_amount_callback(update: Update, context: ContextTypes.DEFAULT_TY
     amount = int(parts[2])
     challenger_id = int(parts[3])
     defender_id = int(parts[4])
+    lang = await get_user_lang(query.from_user.id)
 
     # Only challenger can select
     if query.from_user.id != challenger_id:
-        await query.answer("도전자만 선택할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "battle.challenger_only"), show_alert=True)
         return
 
     await query.answer()
@@ -3535,23 +3564,24 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     action = parts[1]  # accept or decline
     challenge_id = int(parts[2])
     expected_defender = int(parts[3])
+    lang = await get_user_lang(query.from_user.id)
 
     # Only defender can respond
     if query.from_user.id != expected_defender:
-        await query.answer("본인만 응답할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "error.not_your_button"), show_alert=True)
         return
 
     challenge = await bq.get_challenge_by_id(challenge_id)
     if not challenge:
         try:
-            await query.edit_message_text("야차 신청을 찾을 수 없습니다.")
+            await query.edit_message_text(t(lang, "yacha.challenge_not_found"))
         except Exception:
             pass
         return
 
     if challenge["status"] != "pending":
         try:
-            await query.edit_message_text("이미 처리된 야차 신청입니다.")
+            await query.edit_message_text(t(lang, "yacha.already_processed"))
         except Exception:
             pass
         return
@@ -3574,7 +3604,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     if action == "decline":
         await bq.update_challenge_status(challenge_id, "declined")
         try:
-            await query.edit_message_text("❌ 야차가 거절되었습니다.")
+            await query.edit_message_text(t(lang, "yacha.declined"))
         except Exception:
             pass
         return
@@ -3774,6 +3804,7 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if _is_duplicate_callback(query):
         await query.answer()
         return
+    lang = await get_user_lang(query.from_user.id)
 
     data = query.data  # yres_tbag_{w}_{l}
     parts = data.split("_")
@@ -3787,7 +3818,7 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     if action == "tbag":
         if query.from_user.id != winner_id:
-            await query.answer("승자만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "battle.winner_only"), show_alert=True)
             return
 
         from utils.honorific import honorific_name as _hon_name, _get_honorific

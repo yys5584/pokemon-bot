@@ -23,6 +23,7 @@ from services.tournament_service import is_tournament_active
 # )
 from utils.helpers import time_ago, get_decorated_name, truncate_name, schedule_delete, ball_emoji, shiny_emoji, icon_emoji, rarity_badge, type_badge
 from utils.honorific import format_actor
+from utils.i18n import t, get_group_lang, get_user_lang, poke_name
 from models.pokemon_data import ALL_POKEMON
 
 logger = logging.getLogger(__name__)
@@ -109,7 +110,8 @@ async def close_message_callback(update: Update, context: ContextTypes.DEFAULT_T
         await query.message.delete()
     except Exception:
         # If delete fails (permissions, too old, etc.), just dismiss the callback
-        await query.answer("메시지를 삭제할 수 없습니다.")
+        lang = await get_group_lang(query.message.chat_id) if query.message else "ko"
+        await query.answer(t(lang, "group.close_msg_fail"))
         return
     await query.answer()
 
@@ -172,7 +174,8 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    display_name = update.effective_user.first_name or "트레이너"
+    lang = await get_group_lang(chat_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
     # Block during tournament
@@ -264,7 +267,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             # 구독자 존칭 적용
-            throw_text = format_actor(decorated, "포켓볼을 던졌다!", sub_tier)
+            throw_text = format_actor(decorated, t(lang, "group.threw_pokeball"), sub_tier)
             attempt_msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"{ball_emoji('pokeball')} {throw_text}{ball_count_tag}",
@@ -285,7 +288,8 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    display_name = update.effective_user.first_name or "트레이너"
+    lang = await get_group_lang(chat_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
     # Block during tournament
@@ -307,7 +311,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         # 🌱 뉴비 스폰이면 마볼 사용 불가 → 일반 포획(ㅊ)으로 전환
         if session.get("is_newbie_spawn"):
             resp = await update.message.reply_text(
-                "🌱 뉴비 스폰! 마스터볼은 효과가 없어요. 'ㅊ'으로 도전하세요!",
+                t(lang, "group.newbie_no_special_ball", ball=t(lang, "catch.masterball")),
             )
             schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
             return
@@ -332,7 +336,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 return
 
             if balls < 1:
-                resp = await update.message.reply_text(f"{ball_emoji('masterball')} 마스터볼이 없습니다!", parse_mode="HTML")
+                resp = await update.message.reply_text(f"{ball_emoji('masterball')} {t(lang, 'group.no_masterball')}", parse_mode="HTML")
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
@@ -368,10 +372,10 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 html=True,
                 ranked_badge=r_badge,
             )
-            throw_text = format_actor(decorated, "마스터볼을 던졌다!", sub_tier)
+            throw_text = format_actor(decorated, t(lang, "group.threw_masterball"), sub_tier)
             msg = await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"{ball_emoji('masterball')} {throw_text} (남은: {remaining}개)",
+                text=f"{ball_emoji('masterball')} {throw_text} ({t(lang, 'group.remaining_count', count=remaining)})",
                 parse_mode="HTML",
             )
             track_attempt_message(session["id"], chat_id, msg.message_id)
@@ -389,7 +393,8 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    display_name = update.effective_user.first_name or "트레이너"
+    lang = await get_group_lang(chat_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
     # Block during tournament
@@ -408,7 +413,7 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # 🌱 뉴비 스폰이면 하볼 사용 불가 → 일반 포획(ㅊ)으로 전환
         if session.get("is_newbie_spawn"):
             resp = await update.message.reply_text(
-                "🌱 뉴비 스폰! 하이퍼볼은 효과가 없어요. 'ㅊ'으로 도전하세요!",
+                t(lang, "group.newbie_no_special_ball", ball=t(lang, "catch.hyperball")),
             )
             schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
             return
@@ -436,7 +441,7 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             if not success:
                 remaining = await queries.get_hyper_balls(user_id)
                 await update.message.reply_text(
-                    f"{ball_emoji('hyperball')} 하이퍼볼이 없습니다! (보유: {remaining}개)\nDM에서 '상점' → 하이퍼볼로 구매하세요. ({config.BP_HYPER_BALL_COST} BP)",
+                    f"{ball_emoji('hyperball')} {t(lang, 'group.no_hyperball', count=remaining, cost=config.BP_HYPER_BALL_COST)}",
                     parse_mode="HTML",
                 )
                 return
@@ -469,10 +474,10 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 html=True,
                 ranked_badge=r_badge,
             )
-            throw_text = format_actor(decorated, "하이퍼볼을 던졌다!", sub_tier)
+            throw_text = format_actor(decorated, t(lang, "group.threw_hyperball"), sub_tier)
             hyper_msg = await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"{ball_emoji('hyperball')} {throw_text} (남은: {remaining}개)",
+                text=f"{ball_emoji('hyperball')} {throw_text} ({t(lang, 'group.remaining_count', count=remaining)})",
                 parse_mode="HTML",
             )
             track_attempt_message(session["id"], chat_id, hyper_msg.message_id)
@@ -493,7 +498,9 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    lang = await get_group_lang(chat_id) if chat_id else "ko"
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
     now = config.get_kst_now()
 
     # 포켓볼 충전 쿨다운 (구독자는 면제)
@@ -509,9 +516,9 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if last_used and (now - last_used).total_seconds() < cooldown_sec:
         remaining = int(cooldown_sec - (now - last_used).total_seconds())
         mins, secs = divmod(remaining, 60)
-        time_str = f"{mins}분 {secs}초" if mins else f"{secs}초"
+        time_str = t(lang, "group.time_minutes_seconds", min=mins, sec=secs) if mins else t(lang, "group.time_seconds", sec=secs)
         await update.message.reply_text(
-            f"⏳ 포켓볼 충전 쿨타임! {time_str} 후에 다시 충전할 수 있어요.",
+            t(lang, "group.recharge_cooldown", time=time_str),
         )
         return
     _love_cooldown[user_id] = now
@@ -525,8 +532,7 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bonus = await queries.get_bonus_catches(user_id, today)
     if bonus >= 100:
         await update.message.reply_text(
-            f"{ball_emoji('pokeball')} 오늘 포켓볼 충전 한도를 모두 사용했어요! (최대 100회)\n"
-            f"💡 DM 상점에서 <b>포켓볼 초기화</b>를 구매하면 다시 충전할 수 있어요!",
+            f"{ball_emoji('pokeball')} {t(lang, 'group.recharge_max')}",
             parse_mode="HTML",
         )
         return
@@ -538,8 +544,7 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Reply FIRST (fast response)
     await update.message.reply_text(
-        f"{ball_emoji('pokeball')} 포켓볼 충전 완료!\n"
-        f"🎁 {display_name}의 오늘 잡기 횟수 +10! (총 {total}회)",
+        f"{ball_emoji('pokeball')} {t(lang, 'group.recharge_done', name=display_name, total=total)}",
         parse_mode="HTML",
     )
 
@@ -551,12 +556,14 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
             new_titles = await check_and_unlock_titles(user_id)
             if new_titles:
                 title_msg = "\n".join(
-                    f"🎉 새 칭호 해금! 「{icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji} {tname}」"
+                    t(lang, "group.title_unlocked",
+                      emoji=icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji,
+                      title=tname)
                     for _, tname, temoji in new_titles
                 )
                 await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=f"🏷️ {display_name}의 {title_msg}",
+                    chat_id=chat_id,
+                    text=t(lang, "group.title_unlocked_prefix", name=display_name) + title_msg,
                     parse_mode="HTML",
                 )
         except Exception:
@@ -603,7 +610,9 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    lang = await get_group_lang(chat_id) if chat_id else "ko"
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
     now = config.get_kst_now()
 
     # 30 second cooldown (prevent spam from blocking bot)
@@ -623,7 +632,7 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if already_claimed == 0:
         await bq.log_bp_purchase(user_id, "love_hidden_reward", 1)
         await queries.add_hyper_ball(user_id, 1)
-        reward_msg = f"\n\n{ball_emoji('hyperball')} 출석 보상! 하이퍼볼 1개 지급!"
+        reward_msg = f"\n\n{ball_emoji('hyperball')} {t(lang, 'group.attendance_reward')}"
 
     await update.message.reply_text(f"문유: {response}{reward_msg}", parse_mode="HTML")
 
@@ -636,12 +645,14 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             new_titles = await check_and_unlock_titles(user_id)
             if new_titles:
                 title_msg = "\n".join(
-                    f"🎉 새 칭호 해금! 「{icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji} {tname}」"
+                    t(lang, "group.title_unlocked",
+                      emoji=icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji,
+                      title=tname)
                     for _, tname, temoji in new_titles
                 )
                 await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=f"🏷️ {display_name}의 {title_msg}",
+                    chat_id=chat_id,
+                    text=t(lang, "group.title_unlocked_prefix", name=display_name) + title_msg,
                     parse_mode="HTML",
                 )
         except Exception:
@@ -657,20 +668,22 @@ async def attendance_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    lang = await get_group_lang(chat_id) if chat_id else "ko"
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
 
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
     # Same DB key as love_hidden — only 1 reward per day between both commands
     already_claimed = await bq.get_bp_purchases_today(user_id, "love_hidden_reward")
     if already_claimed > 0:
-        await update.message.reply_text("이미 오늘 출석 보상을 받았어요!", parse_mode="HTML")
+        await update.message.reply_text(t(lang, "group.attendance_already"), parse_mode="HTML")
         return
 
     await bq.log_bp_purchase(user_id, "love_hidden_reward", 1)
     await queries.add_hyper_ball(user_id, 1)
     await update.message.reply_text(
-        f"{ball_emoji('hyperball')} 금일 출석체크 완료!\n하이퍼볼 1개 지급! 자정에 초기화됩니다.",
+        f"{ball_emoji('hyperball')} {t(lang, 'group.attendance_done')}",
         parse_mode="HTML",
     )
 
@@ -685,7 +698,9 @@ async def daily_money_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    chat_id = update.effective_chat.id
+    lang = await get_group_lang(chat_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
 
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
@@ -693,7 +708,7 @@ async def daily_money_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     already = await bq.get_bp_purchases_today(user_id, "daily_money")
     if already > 0:
         await update.message.reply_text(
-            f"{icon_emoji('coin')} 오늘 이미 받았어요! 자정(KST)에 초기화됩니다.",
+            f"{icon_emoji('coin')} {t(lang, 'group.daily_money_already')}",
             parse_mode="HTML",
         )
         return
@@ -701,7 +716,7 @@ async def daily_money_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     await bq.log_bp_purchase(user_id, "daily_money", 1)
     await bq.add_bp(user_id, config.DAILY_CHECKIN_BP, "daily_checkin")
     await update.message.reply_text(
-        f"{icon_emoji('coin')} <b>일일 출석!</b> +{config.DAILY_CHECKIN_BP} BP 지급!",
+        f"{icon_emoji('coin')} {t(lang, 'group.daily_money_done', bp=config.DAILY_CHECKIN_BP)}",
         parse_mode="HTML",
     )
 
@@ -713,15 +728,18 @@ async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_tournament_active(update.effective_chat.id):
         return
 
+    chat_id = update.effective_chat.id
+    lang = await get_group_lang(chat_id)
+
     try:
         rankings = await bq.get_winrate_ranking(limit=5, min_games=5)
 
         if not rankings:
-            await update.message.reply_text("아직 배틀 기록이 충분한 트레이너가 없습니다! (최소 5판)")
+            await update.message.reply_text(t(lang, "group.ranking_no_data"))
             return
 
         medals = ["🥇", "🥈", "🥉", "4.", "5."]
-        lines = ["⚔️ <b>승률 랭킹</b> (최소 5판)"]
+        lines = [t(lang, "group.ranking_title")]
         for i, r in enumerate(rankings):
             medal = medals[i] if i < len(medals) else f"{i+1}."
             decorated = get_decorated_name(
@@ -735,14 +753,14 @@ async def ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             w = r["battle_wins"]
             total = r["total_games"]
             lines.append(
-                f"{medal} {decorated} — {wr}% ({w}승/{total}판)"
+                f"{medal} {decorated} — {t(lang, 'group.ranking_entry', winrate=wr, wins=w, total=total)}"
             )
 
         await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
     except Exception as e:
         logger.error(f"Ranking handler error: {e}")
-        await update.message.reply_text("랭킹을 불러올 수 없습니다.")
+        await update.message.reply_text(t(lang, "group.ranking_error"))
 
 
 async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -752,21 +770,24 @@ async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_tournament_active(update.effective_chat.id):
         return
 
+    chat_id = update.effective_chat.id
+    lang = await get_group_lang(chat_id)
+
     try:
-        logs = await queries.get_recent_logs(update.effective_chat.id, limit=10)
+        logs = await queries.get_recent_logs(chat_id, limit=10)
 
         if not logs:
-            await update.message.reply_text("아직 출현 기록이 없습니다!")
+            await update.message.reply_text(t(lang, "group.log_no_data"))
             return
 
-        lines = [f"{icon_emoji('bookmark')} 최근 출현 기록"]
+        lines = [f"{icon_emoji('bookmark')} {t(lang, 'group.log_title')}"]
         for log in logs:
             ago = time_ago(log["spawned_at"])
             shiny = shiny_emoji() if log.get("is_shiny") else ""
             if log["caught_by_name"]:
-                result = f"→ {log['caught_by_name']} 포획"
+                result = t(lang, "group.log_caught", name=log["caught_by_name"])
             else:
-                result = "→ 도망"
+                result = t(lang, "group.log_escaped")
             lines.append(
                 f"{ago} {shiny}{log['pokemon_emoji']} {log['pokemon_name']} {result}"
             )
@@ -775,18 +796,19 @@ async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Log handler error: {e}")
-        await update.message.reply_text("기록을 불러올 수 없습니다.")
+        await update.message.reply_text(t(lang, "group.log_error"))
 
 
 async def dashboard_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '대시보드' command — show dashboard link."""
     if update.effective_chat and is_tournament_active(update.effective_chat.id):
         return
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    lang = await get_group_lang(chat_id) if chat_id else "ko"
     await update.message.reply_text(
-        f"{icon_emoji('computer')} <b>포켓몬 봇 대시보드</b>\n\n"
+        f"{icon_emoji('computer')} {t(lang, 'group.dashboard_title')}\n\n"
         f"🔗 <a href='{config.DASHBOARD_URL}'>tgpoke.com</a>\n\n"
-        "에픽/전설 보유자 랭킹, 도망 장인, 행운아/불행아,\n"
-        "교환왕, 올빼미족 등 재미있는 통계를 확인하세요!",
+        f"{t(lang, 'group.dashboard_desc')}",
         parse_mode="HTML",
         disable_web_page_preview=True,
     )
@@ -800,10 +822,11 @@ async def room_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     chat_id = update.effective_chat.id
+    lang = await get_group_lang(chat_id)
     try:
         row = await queries.get_chat_level(chat_id)
         if not row:
-            await update.message.reply_text("아직 채팅방 정보가 없습니다.")
+            await update.message.reply_text(t(lang, "group.room_no_data"))
             return
 
         info = config.get_chat_level_info(row["cxp"])
@@ -827,32 +850,32 @@ async def room_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Benefits list
         benefits = []
         if info["spawn_bonus"]:
-            benefits.append(f"📦 일일 보너스 스폰 +{info['spawn_bonus']}")
+            benefits.append(t(lang, "group.room_spawn_bonus", count=info["spawn_bonus"]))
         if info["shiny_boost_pct"]:
-            benefits.append(f"✨ 이로치 확률 +{info['shiny_boost_pct']:.1f}%")
+            benefits.append(t(lang, "group.room_shiny_boost", pct=f"{info['shiny_boost_pct']:.1f}"))
         if info["rarity_boosts"]:
             rb = ", ".join(f"{k} ×{v:.2f}" for k, v in info["rarity_boosts"].items())
-            benefits.append(f"💎 레어리티 부스트: {rb}")
+            benefits.append(t(lang, "group.room_rarity_boost", detail=rb))
         if "daily_shiny" in info["specials"]:
-            benefits.append("🌟 일일 이로치 스폰 보장")
+            benefits.append(t(lang, "group.room_daily_shiny"))
         if "auto_arcade" in info["specials"]:
-            benefits.append("🎰 일일 자동 아케이드 (1시간)")
+            benefits.append(t(lang, "group.room_auto_arcade"))
 
-        benefits_text = "\n".join(benefits) if benefits else "없음"
+        benefits_text = "\n".join(benefits) if benefits else t(lang, "group.none")
 
         text = (
-            f"🏠 <b>채팅방 정보</b>\n"
+            f"{t(lang, 'group.room_title')}\n"
             f"━━━━━━━━━━━━━━━\n"
-            f"📊 레벨: <b>Lv.{level}</b>\n"
+            f"{t(lang, 'group.room_level', level=level)}\n"
             f"{progress_text}\n"
-            f"📈 오늘 획득: {cxp_today}/{config.CXP_DAILY_CAP} CXP\n\n"
-            f"🎁 <b>활성 혜택</b>\n{benefits_text}"
+            f"{t(lang, 'group.room_today_xp', today=cxp_today, cap=config.CXP_DAILY_CAP)}\n\n"
+            f"{t(lang, 'group.room_benefits')}\n{benefits_text}"
         )
         await update.message.reply_text(text, parse_mode="HTML")
 
     except Exception as e:
         logger.error(f"Room info handler error: {e}")
-        await update.message.reply_text("방 정보를 불러올 수 없습니다.")
+        await update.message.reply_text(t(lang, "group.room_error"))
 
 
 async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -862,22 +885,25 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
     if update.effective_chat and is_tournament_active(update.effective_chat.id):
         return
 
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    lang = await get_group_lang(chat_id) if chat_id else "ko"
+
     import re
     text = (update.message.text or "").strip()
     name_query = re.sub(r"^내포켓몬\s*", "", text).strip()
     if not name_query:
-        await update.message.reply_text("사용법: 내포켓몬 리자몽")
+        await update.message.reply_text(t(lang, "group.my_pokemon_usage"))
         return
 
     user_id = update.effective_user.id
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
     user = await queries.get_user(user_id)
     display_name = get_decorated_name(
-        user.get("display_name", update.effective_user.first_name or "트레이너") if user else (update.effective_user.first_name or "트레이너"),
+        user.get("display_name", update.effective_user.first_name or t(lang, "common.trainer")) if user else (update.effective_user.first_name or t(lang, "common.trainer")),
         user.get("title", "") if user else "",
         user.get("title_emoji", "") if user else "",
         update.effective_user.username,
@@ -886,20 +912,23 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
-        await update.message.reply_text("보유한 포켓몬이 없습니다.")
+        await update.message.reply_text(t(lang, "group.my_pokemon_none"))
         return
 
     matches = [p for p in pokemon_list if name_query in p["name_ko"]]
     if not matches:
-        msg = await update.message.reply_text(f"'{name_query}' — 보유하지 않은 포켓몬입니다.")
+        msg = await update.message.reply_text(t(lang, "group.my_pokemon_not_found", name=name_query))
         schedule_delete(msg, 30)
         return
 
     rarity_labels = {
-        "ultra_legendary": "초전설", "legendary": "전설",
-        "epic": "에픽", "rare": "레어", "common": "일반",
+        "ultra_legendary": t(lang, "rarity.ultra_legendary"),
+        "legendary": t(lang, "rarity.legendary"),
+        "epic": t(lang, "rarity.epic"),
+        "rare": t(lang, "rarity.rare"),
+        "common": t(lang, "rarity.common"),
     }
-    lines = [f"🔍 <b>{display_name}</b>의 '{name_query}' ({len(matches)}마리)"]
+    lines = [f"🔍 <b>{display_name}</b> {t(lang, 'group.my_pokemon_title', name='', query=name_query, count=len(matches)).strip()}"]
     lines.append("━━━━━━━━━━━━━━━")
     for i, p in enumerate(matches[:15]):
         rb = rarity_badge(p.get("rarity", "common"))
@@ -910,12 +939,12 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
             iv_sum = sum(p.get(f"iv_{s}", 0) for s in ["hp", "atk", "def", "spa", "spdef", "spd"])
             grade, _ = config.get_iv_grade(iv_sum)
             iv_tag = f" [{grade}]"
-        team_tag = f" 🎯팀{p['team_num']}" if p.get("team_num") else ""
+        team_tag = f" 🎯{t(lang, 'team.team_title', num=p['team_num'])}" if p.get("team_num") else ""
         rl = rarity_labels.get(p.get("rarity", ""), "")
         lines.append(f"{i+1}. {rb}{tb}{s} {p['name_ko']} ({rl}){iv_tag}{team_tag}")
 
     if len(matches) > 15:
-        lines.append(f"...외 {len(matches) - 15}마리")
+        lines.append(t(lang, "group.my_pokemon_more", count=len(matches) - 15))
 
     msg = await update.message.reply_text("\n".join(lines), parse_mode="HTML")
     schedule_delete(msg, 60)
@@ -929,12 +958,13 @@ async def catch_keep_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not query:
         return
     user_id = query.from_user.id
+    lang = await get_user_lang(user_id)
 
     # Extract instance_id from callback_data
     try:
         instance_id = int(query.data.split("_")[-1])
     except (ValueError, IndexError):
-        await query.answer("오류가 발생했습니다.")
+        await query.answer(t(lang, "error.generic"))
         return
 
     # Verify ownership
@@ -944,16 +974,16 @@ async def catch_keep_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         "SELECT user_id FROM user_pokemon WHERE id = $1", instance_id
     )
     if owner != user_id:
-        await query.answer("본인의 포켓몬만 조작할 수 있습니다.")
+        await query.answer(t(lang, "group.catch_own_only"))
         return
 
     # Remove buttons, append confirmation (text_html preserves <tg-emoji> tags)
-    new_text = (query.message.text_html or query.message.text) + "\n\n✅ 가방에 넣었습니다!"
+    new_text = (query.message.text_html or query.message.text) + f"\n\n{t(lang, 'group.catch_keep_done')}"
     try:
         await query.message.edit_text(new_text, parse_mode="HTML")
     except Exception:
         pass
-    await query.answer("가방에 넣었습니다!")
+    await query.answer(t(lang, "group.catch_keep_done"))
 
 
 async def catch_release_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -962,12 +992,13 @@ async def catch_release_callback(update: Update, context: ContextTypes.DEFAULT_T
     if not query:
         return
     user_id = query.from_user.id
+    lang = await get_user_lang(user_id)
 
     # Extract instance_id
     try:
         instance_id = int(query.data.split("_")[-1])
     except (ValueError, IndexError):
-        await query.answer("오류가 발생했습니다.")
+        await query.answer(t(lang, "error.generic"))
         return
 
     # Verify ownership + still active
@@ -977,10 +1008,10 @@ async def catch_release_callback(update: Update, context: ContextTypes.DEFAULT_T
         "SELECT user_id, is_active FROM user_pokemon WHERE id = $1", instance_id
     )
     if not row or row["user_id"] != user_id:
-        await query.answer("본인의 포켓몬만 조작할 수 있습니다.")
+        await query.answer(t(lang, "group.catch_own_only"))
         return
     if row["is_active"] == 0:
-        await query.answer("이미 방생한 포켓몬입니다.")
+        await query.answer(t(lang, "group.catch_release_already"))
         return
 
     # Deactivate pokemon + grant hyperball
@@ -989,12 +1020,12 @@ async def catch_release_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     # Remove buttons, append release confirmation (text_html preserves <tg-emoji> tags)
     be_hyper = ball_emoji("hyperball")
-    new_text = (query.message.text_html or query.message.text) + f"\n\n🔄 방생 완료! {be_hyper} 하이퍼볼 1개 획득!"
+    new_text = (query.message.text_html or query.message.text) + f"\n\n{t(lang, 'group.catch_release_done', ball=be_hyper)}"
     try:
         await query.message.edit_text(new_text, parse_mode="HTML")
     except Exception:
         pass
-    await query.answer("방생 완료! 하이퍼볼 1개 획득!")
+    await query.answer(t(lang, "group.catch_release_done", ball=""))
 
 
 # ── 이로치 강스권 (일반 유저용) ──────────────────────────────────
@@ -1009,18 +1040,19 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
 
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
+    lang = await get_group_lang(chat_id)
 
     schedule_delete(update.message, config.AUTO_DEL_FORCE_SPAWN_CMD)
 
     if update.effective_chat.type == "private":
-        resp = await update.message.reply_text("그룹 채팅방에서만 사용 가능합니다.")
+        resp = await update.message.reply_text(t(lang, "common.group_only"))
         schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         return
 
     # 티켓 보유 확인
     ticket_count = await queries.get_shiny_spawn_tickets(user_id)
     if ticket_count <= 0:
-        resp = await update.message.reply_text("✨ 이로치 강스권이 없습니다.")
+        resp = await update.message.reply_text(f"✨ {t(lang, 'dungeon.no_tickets')}")
         schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
         return
 
@@ -1038,7 +1070,7 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
         is_permanent_arcade = chat_id in config.ARCADE_CHAT_IDS
         arcade_state = get_arcade_state(context.application, chat_id)
         if is_permanent_arcade or (arcade_state and arcade_state.get("active")):
-            resp = await update.message.reply_text("🎰 아케이드가 활성화되어 있어 사용할 수 없습니다.")
+            resp = await update.message.reply_text(t(lang, "group.arcade_active_no_use"))
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             return
 
@@ -1046,8 +1078,7 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
         active = await queries.get_active_spawn(chat_id)
         if active:
             resp = await update.message.reply_text(
-                f"⚠️ 이미 스폰 중인 포켓몬이 있습니다!\n"
-                f"{type_badge(active['pokemon_id'])} {active['name_ko']}을(를) 먼저 잡아주세요.",
+                t(lang, "group.already_spawned", tb=type_badge(active['pokemon_id']), name=active['name_ko']),
                 parse_mode="HTML",
             )
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
@@ -1058,7 +1089,7 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
         member_count = room["member_count"] if room else 0
         if member_count < config.SPAWN_MIN_MEMBERS:
             resp = await update.message.reply_text(
-                f"🚫 멤버가 {config.SPAWN_MIN_MEMBERS}명 이상인 방에서만 사용 가능합니다. (현재 {member_count}명)"
+                t(lang, "group.min_members", min=config.SPAWN_MIN_MEMBERS, current=member_count)
             )
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             return
@@ -1066,7 +1097,7 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
         # 티켓 차감 (atomic)
         ok = await queries.use_shiny_spawn_ticket(user_id)
         if not ok:
-            resp = await update.message.reply_text("✨ 이로치 강스권이 없습니다.")
+            resp = await update.message.reply_text(t(lang, "group.shiny_ticket_empty"))
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             return
 
@@ -1091,7 +1122,7 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
 
             resp = await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"✨ 이로치 강스권 사용! 이로치 포켓몬이 나타났다!",
+                text=t(lang, "group.shiny_ticket_used"),
                 parse_mode="HTML",
             )
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
@@ -1101,7 +1132,7 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
             await queries.add_shiny_spawn_ticket(user_id, 1)
             logger.error(f"shiny_ticket_spawn FAILED in chat {chat_id}: {e}", exc_info=True)
             try:
-                resp = await context.bot.send_message(chat_id=chat_id, text="❌ 이로치 강스 실패. 티켓이 복구되었습니다.")
+                resp = await context.bot.send_message(chat_id=chat_id, text=t(lang, "group.shiny_ticket_fail"))
                 schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
             except Exception:
                 pass
@@ -1171,7 +1202,8 @@ async def challenge_callback_handler(update: Update, context: ContextTypes.DEFAU
             sess_row = await queries.get_spawn_session_by_id(session_id)
             if sess_row and not sess_row.get("is_resolved"):
                 chat_id = sess_row["chat_id"]
-                display_name = update.effective_user.first_name or "트레이너"
+                _chat_lang = await get_group_lang(chat_id) if chat_id else "ko"
+                display_name = update.effective_user.first_name or t(_chat_lang, "common.trainer")
                 username = update.effective_user.username
                 user = await queries.get_user(user_id)
 
@@ -1199,7 +1231,7 @@ async def challenge_callback_handler(update: Update, context: ContextTypes.DEFAU
                     html=True,
                     ranked_badge=r_badge,
                 )
-                throw_text = format_actor(decorated, "포켓볼을 던졌다!", sub_tier)
+                throw_text = format_actor(decorated, t(_chat_lang, "group.threw_pokeball"), sub_tier)
                 attempt_msg = await context.bot.send_message(
                     chat_id=chat_id,
                     text=f"{ball_emoji('pokeball')} {throw_text}",

@@ -12,6 +12,7 @@ import config
 from database import queries
 from database.battle_queries import get_bp
 from utils.helpers import icon_emoji
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -85,15 +86,16 @@ async def gacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user:
         return
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     bp = await get_bp(user_id)
 
     lines = [
-        f"🎰 <b>BP 뽑기</b>",
+        f"🎰 <b>{t(lang, 'gacha.title')}</b>",
         f"",
-        f"{icon_emoji('coin')} 보유 BP: <b>{bp}</b>",
-        f"💸 1회 비용: <b>{config.GACHA_COST} BP</b>",
+        f"{icon_emoji('coin')} BP: <b>{bp}</b>",
+        f"💸 {t(lang, 'gacha.cost', cost=config.GACHA_COST)}",
         f"",
-        f"📋 <b>보상 목록:</b>",
+        f"📋 <b>{t(lang, 'gacha.reward_list')}:</b>",
     ]
     for prob, key, name, emo in config.GACHA_TABLE:
         pct = f"{prob*100:.0f}%"
@@ -111,7 +113,7 @@ async def gacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("🎰 5연차 뽑기", callback_data="gacha_pull_5"),
             ])
     else:
-        lines.append("⚠️ BP가 부족합니다!")
+        lines.append(f"⚠️ {t(lang, 'gacha.bp_insufficient')}")
 
     markup = InlineKeyboardMarkup(buttons) if buttons else None
     await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
@@ -296,12 +298,13 @@ async def item_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user:
         return
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
 
     items = await queries.get_all_user_items(user_id)
     shiny_tickets = await queries.get_shiny_spawn_tickets(user_id)
     eggs = await queries.get_user_eggs(user_id)
 
-    lines = ["🎒 <b>아이템 가방</b>", ""]
+    lines = [f"🎒 <b>{t(lang, 'gacha.item_bag')}</b>", ""]
 
     iv_stones = await queries.get_iv_stones(user_id)
     uni_frags = await queries.get_universal_fragments(user_id)

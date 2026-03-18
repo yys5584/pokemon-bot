@@ -11,6 +11,7 @@ from database import queries
 from services.market_service import create_listing, buy_listing, cancel_listing_for_user, calc_fee
 from utils.helpers import iv_grade_tag as _iv_tag, iv_grade, type_badge
 from utils.battle_calc import iv_total, calc_battle_stats, format_power, EVO_STAGE_MAP, get_normalized_base_stats
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 

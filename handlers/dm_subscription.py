@@ -15,6 +15,7 @@ from services.subscription_service import (
     get_user_tier,
 )
 from utils.helpers import ball_emoji, icon_emoji
+from utils.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ _E_POKE = icon_emoji("pokecenter")       # 포케센터
 async def premium_hub_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """프리미엄 허브 — 구독/프리미엄상점/가이드 세부 메뉴."""
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     sub = await get_user_subscription(user_id)
 
     status_line = ""
@@ -84,6 +86,7 @@ async def premium_hub_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """구독 티어 목록 표시."""
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
 
     # 현재 구독 상태
     sub = await get_user_subscription(user_id)
@@ -505,11 +508,12 @@ async def _send_premium_shop(user_id: int, context):
 async def subscription_status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """현재 구독 상태 표시."""
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     sub = await get_user_subscription(user_id)
 
     if not sub:
         await update.message.reply_text(
-            f"{_E_CRYSTAL} 현재 구독 중인 티어가 없습니다.\n\nDM에서 '구독'으로 시작하세요!",
+            f"{_E_CRYSTAL} {t(lang, 'subscription.not_subscribed')}",
             parse_mode="HTML",
         )
         return

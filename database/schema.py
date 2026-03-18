@@ -1344,6 +1344,19 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── i18n (다국어 지원) 마이그레이션 ──
+    i18n_migs = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'ko'",
+        "ALTER TABLE chat_rooms ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'ko'",
+        "ALTER TABLE pokemon_master ADD COLUMN IF NOT EXISTS name_zh_hans TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE pokemon_master ADD COLUMN IF NOT EXISTS name_zh_hant TEXT NOT NULL DEFAULT ''",
+    ]
+    for mig in i18n_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",
