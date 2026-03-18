@@ -1452,8 +1452,8 @@ async def _do_set_slot(p: dict, user_id: int, team_num: int, slot: int) -> str:
     await bq.set_battle_team(user_id, instance_ids, team_num)
 
     if replaced_name:
-        return f"✅ 슬롯{slot}: {replaced_name} → {p['name_ko']} 교체!"
-    return f"✅ {p['name_ko']}을(를) 슬롯 {slot}에 배치!"
+        return f"슬롯{slot}: {replaced_name} → {p['name_ko']} 교체!"
+    return f"{p['name_ko']}(를) 슬롯 {slot}에 배치!"
 
 
 # --- Pokemon TMI data (웃긴 버전) ---
