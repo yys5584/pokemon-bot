@@ -766,6 +766,11 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             return
         await query.answer()
         st["run_id"] = run["id"]
+        # 즉시 로딩 표시 (GIF 생성 5~10초 소요)
+        next_floor = run["floor_reached"] + 1
+        floor_label = f"★ {next_floor}층 관장전" if next_floor % 5 == 0 else f"{next_floor}층"
+        await _send_fresh(query, context, user_id,
+            f"⚔️ <b>{floor_label} 전투 중...</b>")
         await _process_floor(query, context, user_id, run)
         return
 
