@@ -3388,7 +3388,7 @@ async def get_daily_trade_count(user_id: int, role: str = "sender") -> int:
     pool = await get_db()
     col = "from_user_id" if role == "sender" else "to_user_id"
     return await pool.fetchval(
-        f"SELECT COUNT(*) FROM trades WHERE {col} = $1 AND created_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date",
+        f"SELECT COUNT(*) FROM trades WHERE {col} = $1 AND created_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date AT TIME ZONE 'Asia/Seoul'",
         user_id,
     ) or 0
 
