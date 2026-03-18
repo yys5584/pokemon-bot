@@ -507,7 +507,14 @@
     "official_channel": "공식방",
     "spawn_rate": "30초마다 포켓몬이 출현해요!",
     "tournament_schedule": "매일 저녁 9시 대회 접수, 10시 포켓몬 마스터 대회!",
-    "help_hint": "도움이 필요하면 언제든 \"도움말\"을 입력하세요!"
+    "help_hint": "도움이 필요하면 언제든 \"도움말\"을 입력하세요!",
+    "premium_hint": "💎 '프리미엄'을 입력하면 포케볼 무제한, BP 1.5배 등 구독 혜택을 확인할 수 있어요!"
+  },
+  "premium": {
+    "cooldown_hint": "구독하면 쿨다운이 30초로 줄어요! DM: '프리미엄'",
+    "bp_hint": "구독하면 BP 1.5배! DM: '프리미엄'",
+    "pokeball_hint": "구독하면 포케볼 무제한! DM: '프리미엄'",
+    "dungeon_hint": "구독하면 던전 입장권이 더 많아요! DM: '프리미엄'"
   },
   "subscription": {
     "title": "구독",

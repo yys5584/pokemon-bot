@@ -517,8 +517,11 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         remaining = int(cooldown_sec - (now - last_used).total_seconds())
         mins, secs = divmod(remaining, 60)
         time_str = t(lang, "group.time_minutes_seconds", min=mins, sec=secs) if mins else t(lang, "group.time_seconds", sec=secs)
+        hint = ""
+        if cooldown_sec > 60:  # 비구독자 (5분 쿨)
+            hint = "\n💎 " + t(lang, "premium.pokeball_hint", fallback_text="구독하면 포케볼 무제한! DM: '프리미엄'")
         await update.message.reply_text(
-            t(lang, "group.recharge_cooldown", time=time_str),
+            t(lang, "group.recharge_cooldown", time=time_str) + hint,
         )
         return
     _love_cooldown[user_id] = now

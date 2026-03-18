@@ -1136,6 +1136,7 @@
                     <button class="guide-tab" data-guide="cxp" onclick="switchGuide('cxp')">🏠 채팅방</button>
                     <button class="guide-tab" data-guide="camp" onclick="switchGuide('camp')">🏕️ 캠프</button>
                     <button class="guide-tab" data-guide="dungeon" onclick="switchGuide('dungeon')">🏰 던전</button>
+                    <button class="guide-tab" data-guide="premium" onclick="switchGuide('premium')">💎 프리미엄</button>
                 </div>
 
                 <!-- ===== 처음이세요? ===== -->
@@ -2714,6 +2715,102 @@
                             • 버프 스킵 시 <b style="color:#22c55e">HP 50% 회복</b> (2회 제한)<br>
                             • 초전설 포켓몬은 <b style="color:var(--red)">전용 궁극기 GIF 연출!</b><br>
                             • 타입 상성이 적용됨 — 테마에 유리한 포켓몬을 골라보세요
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== 프리미엄 ===== -->
+                <div class="guide-section" id="guide-premium">
+                    <h3 style="margin-bottom:12px">💎 프리미엄 구독</h3>
+                    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">구독으로 포켓몬 생활을 더 편리하게! 모든 혜택은 구독 즉시 적용됩니다.</p>
+
+                    <!-- 요금제 비교 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:12px">📋 요금제 비교</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                            <!-- 베이직 -->
+                            <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);border-radius:10px;padding:14px;color:#fff">
+                                <div style="font-size:14px;font-weight:700;margin-bottom:2px">🔵 베이직</div>
+                                <div style="font-size:20px;font-weight:800;margin-bottom:10px">$3.90<span style="font-size:11px;font-weight:400">/월</span></div>
+                                <div style="font-size:11px;line-height:1.8">
+                                    ✅ 포케볼 무제한<br>
+                                    ✅ 충전 쿨다운 해제<br>
+                                    ✅ 마스터볼 +1/일<br>
+                                    ✅ 하이퍼볼 +5/일<br>
+                                    ✅ BP 1.5배<br>
+                                    ✅ 미션보상 1.5배<br>
+                                    ✅ 프리미엄 상점<br>
+                                    ✅ 캠프 거점 2개<br>
+                                    ✅ 🎩 칭호
+                                </div>
+                            </div>
+                            <!-- 채널장 -->
+                            <div style="background:linear-gradient(135deg,#7c2d12,#dc2626);border-radius:10px;padding:14px;color:#fff">
+                                <div style="font-size:14px;font-weight:700;margin-bottom:2px">🔴 채널장</div>
+                                <div style="font-size:20px;font-weight:800;margin-bottom:10px">$9.90<span style="font-size:11px;font-weight:400">/월</span></div>
+                                <div style="font-size:11px;line-height:1.8">
+                                    ✅ 베이직 전체 포함<br>
+                                    ✅ 강스 무제한<br>
+                                    ✅ 이로치강스 +2/일<br>
+                                    ✅ 채팅 상점<br>
+                                    ✅ 스폰률 +30%<br>
+                                    ✅ 아케이드 +1/일<br>
+                                    ✅ 채널XP 1.5배<br>
+                                    ✅ 던전 입장권 +2<br>
+                                    ✅ 🎩 특별 칭호
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 프리미엄 상점 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">🏪 프리미엄 상점 (구독자 전용)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+                            <div style="background:var(--bg);border-radius:8px;padding:10px">
+                                <div style="font-weight:600">🟣 마스터볼</div>
+                                <div style="color:var(--muted);font-size:11px">200 / 300 / 500 BP</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px">
+                                <div style="font-weight:600">🔵 하이퍼볼 x5</div>
+                                <div style="color:var(--muted);font-size:11px">90 BP (10% 할인)</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px">
+                                <div style="font-weight:600">🔵 하이퍼볼 x10</div>
+                                <div style="color:var(--muted);font-size:11px">160 BP (20% 할인)</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px">
+                                <div style="font-weight:600">🎰 5연뽑기권</div>
+                                <div style="color:var(--muted);font-size:11px">100 BP</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 채팅 상점 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">🏬 채팅 상점 (채널장 전용)</div>
+                        <div style="font-size:12px;color:var(--muted);line-height:1.8">
+                            • <b style="color:var(--text)">아케이드 속도 부스트</b> — 100 BP (스폰 간격 -10초)<br>
+                            • <b style="color:var(--text)">아케이드 시간 연장</b> — 100 BP (+30분)
+                        </div>
+                    </div>
+
+                    <!-- 결제 방법 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">💳 결제 방법</div>
+                        <div style="font-size:12px;color:var(--muted);line-height:1.8">
+                            1. 봇 DM에서 <b style="color:var(--text)">「프리미엄」</b> 또는 <b style="color:var(--text)">「구독」</b> 입력<br>
+                            2. 원하는 티어 선택<br>
+                            3. <b style="color:var(--text)">Base 체인</b> USDC 또는 USDT로 결제<br>
+                            4. <b style="color:var(--text)">30분 이내</b> 전송 완료 시 자동 활성화<br>
+                            5. 활성화 완료 DM 수신!
+                        </div>
+                        <div style="background:#fef3c7;border-radius:8px;padding:10px 12px;margin-top:10px">
+                            <div style="font-size:11px;font-weight:700;color:#92400e">⚠️ 주의</div>
+                            <div style="font-size:11px;color:#b45309;line-height:1.5">
+                                요청한 토큰(USDC/USDT)과 동일한 토큰으로 전송해야 자동 인식됩니다.<br>
+                                다른 토큰으로 전송 시 관리자에게 문의해주세요.
+                            </div>
                         </div>
                     </div>
                 </div>

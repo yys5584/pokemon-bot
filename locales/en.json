@@ -658,6 +658,12 @@
     "fragments_header": "Camp Fragments"
   },
 
+  "premium": {
+    "cooldown_hint": "Subscribe for 30s cooldown! DM: 'premium'",
+    "bp_hint": "Subscribe for 1.5x BP! DM: 'premium'",
+    "pokeball_hint": "Subscribe for unlimited Pokeballs! DM: 'premium'",
+    "dungeon_hint": "Subscribe for more dungeon tickets! DM: 'premium'"
+  },
   "subscription": {
     "title": "Monthly Subscription",
     "basic": "Basic",
@@ -880,5 +886,5 @@
     "declined": "❌ Wager battle declined."
   },
   "nurture_dm": {"no_partner":"No partner Pokemon! Set one with Partner first.","friendship_boost":"Friendship Boost","friendship_max":"Friendship is already MAX!"},
-  "tutorial_dm": {"first_catch_intro":"You just tried your first catch!\nThis bot has many more features:","nurture_summary":"Nurture — Feed/Play to raise friendship","battle_summary":"Battle — Build a team and fight other trainers","pokedex_summary":"Pokedex — Collect Pokemon & unlock titles","will_guide":"Let me show you one by one!","title_unlock":"Title unlocked!","tips_header":"Useful Tips","tip_appraise":"Appraise [name] — Check IV stats","tip_type_matchup":"Matchup [type] — Type chart","tip_attendance":"Attendance — Daily login reward","tip_weather":"Weather boosts certain type catch rates!","official_channel":"Official Channel","spawn_rate":"Pokemon appear every 30 seconds!","tournament_schedule":"Daily tournament at 9PM-10PM!","help_hint":"Type help anytime for assistance!"}
+  "tutorial_dm": {"first_catch_intro":"You just tried your first catch!\nThis bot has many more features:","nurture_summary":"Nurture — Feed/Play to raise friendship","battle_summary":"Battle — Build a team and fight other trainers","pokedex_summary":"Pokedex — Collect Pokemon & unlock titles","will_guide":"Let me show you one by one!","title_unlock":"Title unlocked!","tips_header":"Useful Tips","tip_appraise":"Appraise [name] — Check IV stats","tip_type_matchup":"Matchup [type] — Type chart","tip_attendance":"Attendance — Daily login reward","tip_weather":"Weather boosts certain type catch rates!","official_channel":"Official Channel","spawn_rate":"Pokemon appear every 30 seconds!","tournament_schedule":"Daily tournament at 9PM-10PM!","help_hint":"Type help anytime for assistance!","premium_hint":"💎 Type 'premium' to check subscription benefits like unlimited Pokeballs, 1.5x BP, and more!"}
 }

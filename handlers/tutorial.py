@@ -352,7 +352,8 @@ async def _send_step(context, user_id: int, step: int):
                 f"🏠 {t(lang, 'tutorial.official_channel')}: {config.BOT_CHANNEL_URL}\n"
                 f"{crystal} {t(lang, 'tutorial.spawn_rate')}\n"
                 f"🏆 {t(lang, 'tutorial.tournament_schedule')}\n\n"
-                f"{t(lang, 'tutorial.help_hint')}"
+                f"{t(lang, 'tutorial.help_hint')}\n\n"
+                f"{t(lang, 'tutorial.premium_hint')}"
             ),
             parse_mode="HTML",
         )

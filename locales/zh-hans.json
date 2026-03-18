@@ -603,6 +603,12 @@
     "all_clear": "🎉 全部完成！奖励: 大师球 ×{n}",
     "not_started": "任务尚未开始。"
   },
+  "premium": {
+    "cooldown_hint": "订阅后冷却缩短至30秒！DM: 'premium'",
+    "bp_hint": "订阅后BP 1.5倍！DM: 'premium'",
+    "pokeball_hint": "订阅后精灵球无限！DM: 'premium'",
+    "dungeon_hint": "订阅后获得更多入场券！DM: 'premium'"
+  },
   "subscription": {
     "title": "💎 月度订阅",
     "basic": "基础版",
@@ -771,5 +777,5 @@
     "declined": "❌ 赌博对战已拒绝。"
   },
   "nurture_dm": {"no_partner":"没有伙伴宝可梦！请先设置伙伴。","friendship_boost":"亲密度强化","friendship_max":"亲密度已满！"},
-  "tutorial_dm": {"first_catch_intro":"您刚进行了第一次捕捉！\n这个机器人还有许多功能：","nurture_summary":"培养 — 喂食/玩耍提升亲密度","battle_summary":"对战 — 组队与其他训练师对战","pokedex_summary":"图鉴 — 收集宝可梦 & 解锁称号","will_guide":"让我一一为您介绍！","title_unlock":"称号解锁！","tips_header":"实用小贴士","tip_appraise":"鉴定 [名称] — 查看IV","tip_type_matchup":"属性 [类型] — 属性相克表","tip_attendance":"签到 — 每日签到奖励","tip_weather":"天气会提升特定属性的捕获率！","official_channel":"官方频道","spawn_rate":"每30秒出现一只宝可梦！","tournament_schedule":"每天晚上9点报名，10点大赛！","help_hint":"随时输入帮助获取指引！"}
+  "tutorial_dm": {"first_catch_intro":"您刚进行了第一次捕捉！\n这个机器人还有许多功能：","nurture_summary":"培养 — 喂食/玩耍提升亲密度","battle_summary":"对战 — 组队与其他训练师对战","pokedex_summary":"图鉴 — 收集宝可梦 & 解锁称号","will_guide":"让我一一为您介绍！","title_unlock":"称号解锁！","tips_header":"实用小贴士","tip_appraise":"鉴定 [名称] — 查看IV","tip_type_matchup":"属性 [类型] — 属性相克表","tip_attendance":"签到 — 每日签到奖励","tip_weather":"天气会提升特定属性的捕获率！","official_channel":"官方频道","spawn_rate":"每30秒出现一只宝可梦！","tournament_schedule":"每天晚上9点报名，10点大赛！","help_hint":"随时输入帮助获取指引！","premium_hint":"💎 输入'premium'查看订阅福利：精灵球无限、BP 1.5倍等！"}
 }
