@@ -1261,6 +1261,7 @@ DUNGEON_SKIP_HEAL = 0.50         # 버프 스킵 시 HP 50% 회복
 DUNGEON_MAX_SKIPS = 2            # 런당 스킵 횟수
 DUNGEON_MAX_BUFFS = 8            # 버프 슬롯 상한
 DUNGEON_BP_PER_FLOOR = 10        # 층당 기본 BP
+DUNGEON_MAX_DAILY_RUNS = 5       # 일일 런 횟수 제한
 
 # --- 스킬 배율 (희귀도별, 던전 간소화) ---
 DUNGEON_SKILL_MULT = {
@@ -1315,7 +1316,7 @@ DUNGEON_MILESTONE_REWARDS = {
     25: {"bp": 250, "fragments": 3, "crystals": 1},
     30: {"bp": 300, "fragments": 4, "crystals": 2, "rainbow": 1},
     35: {"bp": 350, "fragments": 4},
-    40: {"bp": 400, "fragments": 5, "tickets": 1, "crystals": 3, "rainbow": 1, "iv_stones": 1},
+    40: {"bp": 400, "fragments": 5, "crystals": 3, "rainbow": 1, "iv_stones": 1},
     45: {"bp": 450, "fragments": 5},
     50: {"bp": 500, "fragments": 6, "tickets": 1, "rainbow": 2, "iv_stones": 1},
 }

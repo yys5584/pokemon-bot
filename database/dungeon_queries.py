@@ -104,6 +104,16 @@ async def create_dungeon_run(
     return run_id
 
 
+async def get_daily_run_count(user_id: int) -> int:
+    """오늘 KST 기준 완료+활성 런 수."""
+    pool = await get_db()
+    return await pool.fetchval(
+        "SELECT COUNT(*) FROM dungeon_runs WHERE user_id = $1 "
+        "AND started_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date",
+        user_id,
+    ) or 0
+
+
 async def get_active_run(user_id: int) -> dict | None:
     pool = await get_db()
     row = await pool.fetchrow(

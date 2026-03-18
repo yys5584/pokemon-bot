@@ -130,9 +130,13 @@ async def _build_entry_screen(user_id: int) -> tuple[str, InlineKeyboardMarkup]:
     FOOT = icon_emoji("footsteps")
     BOLT = icon_emoji("bolt")
 
+    daily_count = await dq.get_daily_run_count(user_id)
+    daily_max = config.DUNGEON_MAX_DAILY_RUNS
+    daily_left = max(0, daily_max - daily_count)
+
     text = (
         f"{CASTLE} <b>포켓몬 던전</b>\n\n"
-        f"{TICKET} 입장권: <b>{tickets}장</b>\n"
+        f"{TICKET} 입장권: <b>{tickets}장</b> | 남은 횟수: <b>{daily_left}/{daily_max}</b>\n"
         f"{CROWN} 내 최고: <b>{best}층</b>\n\n"
         f"{FOOT} 오늘의 던전: {theme['emoji']} <b>{theme['name']}</b>\n"
         f"   {theme_types} 타입 적 출현!\n"
@@ -140,7 +144,7 @@ async def _build_entry_screen(user_id: int) -> tuple[str, InlineKeyboardMarkup]:
     )
 
     buttons = []
-    if tickets > 0:
+    if tickets > 0 and daily_left > 0:
         buttons.append([InlineKeyboardButton("⚔️ 포켓몬 선택", callback_data=f"dg_list_{user_id}_all_0")])
     else:
         buttons.append([InlineKeyboardButton("🎫 입장권 없음", callback_data=f"dg_noop_{user_id}")])
@@ -921,6 +925,13 @@ async def _start_run(query, context, user_id: int, instance_id: int):
     existing = await dq.get_active_run(user_id)
     if existing:
         await _send_fresh(query, context, user_id, "⚠️ 이미 진행 중인 던전이 있습니다!")
+        return
+
+    # 일일 런 제한
+    daily_count = await dq.get_daily_run_count(user_id)
+    if daily_count >= config.DUNGEON_MAX_DAILY_RUNS:
+        await _send_fresh(query, context, user_id,
+            f"⚠️ 오늘 던전 횟수를 모두 소진했습니다. ({daily_count}/{config.DUNGEON_MAX_DAILY_RUNS})")
         return
 
     # 입장권 차감
