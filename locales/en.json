@@ -359,7 +359,8 @@
     "invalid_choice": "Invalid selection.",
     "skip_limit_reached": "All skips used.",
     "only_owner": "Only you can use this!",
-    "error": "An error occurred."
+    "error": "An error occurred.",
+    "fragment_reward": "Fragment reward: {field_emoji} {field}"
   },
 
   "camp": {
@@ -472,11 +473,30 @@
   },
 
   "release": {
-    "title": "Release",
+    "title": "Release Pokemon",
     "description": "Release a Pokemon back into the wild.",
     "confirm": "Release {name}? This cannot be undone!",
     "success": "{name} was released. Goodbye!",
-    "friendship_bonus": "Friendship bonus received!"
+    "friendship_bonus": "Friendship bonus received!",
+    "select_filter": "Select filters, then press [Preview].",
+    "selected_rarity": "Selected rarity",
+    "selected_iv": "Selected IV grade",
+    "selected_gen": "Selected generation",
+    "select_hint": "Select at least 1 rarity or IV grade",
+    "filter_all": "All",
+    "keep_one_label": "Keep 1 per species for Pokedex",
+    "preview": "Preview",
+    "preview_title": "Release Preview",
+    "filter_label": "Filter",
+    "target_count": "To release",
+    "reward_hyperball": "Reward: Great Balls",
+    "warning": "Released Pokemon cannot be recovered!",
+    "execute": "Release",
+    "calculating": "Calculating...",
+    "no_candidates": "No Pokemon match the filters!",
+    "filter_reset": "Filters were reset. Please try again.",
+    "complete": "{count} Pokemon released! +{count} Great Balls!",
+    "cancelled": "Release cancelled."
   },
 
   "title": {
@@ -633,7 +653,9 @@
       "iv_reroll_one": "Targeted reroll!",
       "shiny_egg": "INCREDIBLE!!!",
       "shiny_spawn": "LEGENDARY!!!!"
-    }
+    },
+    "item_bag": "Item Bag",
+    "fragments_header": "Camp Fragments"
   },
 
   "subscription": {
@@ -857,7 +879,6 @@
     "cancelled": "❌ Wager battle cancelled.",
     "declined": "❌ Wager battle declined."
   },
-  "release": {"title":"Release Pokemon","select_filter":"Select filters, then press [Preview].","selected_rarity":"Selected rarity","selected_iv":"Selected IV grade","selected_gen":"Selected generation","select_hint":"Select at least 1 rarity or IV grade","filter_all":"All","keep_one_label":"Keep 1 per species for Pokedex","preview":"Preview","preview_title":"Release Preview","filter_label":"Filter","target_count":"To release","reward_hyperball":"Reward: Great Balls","warning":"Released Pokemon cannot be recovered!","execute":"Release","calculating":"Calculating...","no_candidates":"No Pokemon match the filters!","filter_reset":"Filters were reset. Please try again.","complete":"{count} Pokemon released! +{count} Great Balls!","cancelled":"Release cancelled."},
   "nurture_dm": {"no_partner":"No partner Pokemon! Set one with Partner first.","friendship_boost":"Friendship Boost","friendship_max":"Friendship is already MAX!"},
   "tutorial_dm": {"first_catch_intro":"You just tried your first catch!\nThis bot has many more features:","nurture_summary":"Nurture — Feed/Play to raise friendship","battle_summary":"Battle — Build a team and fight other trainers","pokedex_summary":"Pokedex — Collect Pokemon & unlock titles","will_guide":"Let me show you one by one!","title_unlock":"Title unlocked!","tips_header":"Useful Tips","tip_appraise":"Appraise [name] — Check IV stats","tip_type_matchup":"Matchup [type] — Type chart","tip_attendance":"Attendance — Daily login reward","tip_weather":"Weather boosts certain type catch rates!","official_channel":"Official Channel","spawn_rate":"Pokemon appear every 30 seconds!","tournament_schedule":"Daily tournament at 9PM-10PM!","help_hint":"Type help anytime for assistance!"}
 }

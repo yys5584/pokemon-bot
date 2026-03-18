@@ -233,7 +233,8 @@
     "invalid_choice": "无效选择。",
     "skip_limit_reached": "跳过次数已用完。",
     "only_owner": "只有本人可以操作！",
-    "error": "发生了错误。"
+    "error": "发生了错误。",
+    "fragment_reward": "碎片奖励: {field_emoji} {field}"
   },
   "pokedex": {
     "title": "🏅 {name}的图鉴（{caught}/{total}）",
@@ -509,10 +510,29 @@
     "trade_evolution": "✨ {name} 因交换而进化了！"
   },
   "release": {
-    "title": "放生",
+    "title": "放生宝可梦",
     "confirm": "确定要放生 {name} 吗？此操作不可撤销。",
     "success": "{name} 被放归了野外... 获得亲密度奖励。",
-    "cannot_release": "无法放生正在队伍/营地中的宝可梦。"
+    "cannot_release": "无法放生正在队伍/营地中的宝可梦。",
+    "select_filter": "选择筛选条件后点击[预览]。",
+    "selected_rarity": "已选稀有度",
+    "selected_iv": "已选IV等级",
+    "selected_gen": "已选世代",
+    "select_hint": "请至少选择1个稀有度或IV等级",
+    "filter_all": "全部",
+    "keep_one_label": "每种保留1只(图鉴用)",
+    "preview": "预览",
+    "preview_title": "放生预览",
+    "filter_label": "筛选",
+    "target_count": "放生对象",
+    "reward_hyperball": "奖励: 高级球",
+    "warning": "放生后的宝可梦无法恢复！",
+    "execute": "执行放生",
+    "calculating": "计算中...",
+    "no_candidates": "没有符合条件的宝可梦！",
+    "filter_reset": "筛选已重置，请重试。",
+    "complete": "放生{count}只完成！获得{count}个高级球！",
+    "cancelled": "放生已取消。"
   },
   "nurture": {
     "feed": "喂食",
@@ -611,9 +631,7 @@
     "log": "出现记录",
     "room_info": "频道信息",
     "channel_level": "频道等级",
-    "channel_xp": "频道经验值"
-  },
-  "group": {
+    "channel_xp": "频道经验值",
     "threw_pokeball": "扔出了精灵球！",
     "threw_masterball": "扔出了大师球！",
     "threw_hyperball": "扔出了高级球！",
@@ -740,7 +758,9 @@
     "title": "🎰 扭蛋",
     "pull": "抽取",
     "result": "抽取结果",
-    "pity": "保底计数"
+    "pity": "保底计数",
+    "item_bag": "物品背包",
+    "fragments_header": "营地碎片"
   },
   "yacha": {
     "cannot_self": "不能对自己发起赌博对战！",
@@ -750,7 +770,6 @@
     "cancelled": "❌ 赌博对战已取消。",
     "declined": "❌ 赌博对战已拒绝。"
   },
-  "release": {"title":"放生宝可梦","select_filter":"选择筛选条件后点击[预览]。","selected_rarity":"已选稀有度","selected_iv":"已选IV等级","selected_gen":"已选世代","select_hint":"请至少选择1个稀有度或IV等级","filter_all":"全部","keep_one_label":"每种保留1只(图鉴用)","preview":"预览","preview_title":"放生预览","filter_label":"筛选","target_count":"放生对象","reward_hyperball":"奖励: 高级球","warning":"放生后的宝可梦无法恢复！","execute":"执行放生","calculating":"计算中...","no_candidates":"没有符合条件的宝可梦！","filter_reset":"筛选已重置，请重试。","complete":"放生{count}只完成！获得{count}个高级球！","cancelled":"放生已取消。"},
   "nurture_dm": {"no_partner":"没有伙伴宝可梦！请先设置伙伴。","friendship_boost":"亲密度强化","friendship_max":"亲密度已满！"},
   "tutorial_dm": {"first_catch_intro":"您刚进行了第一次捕捉！\n这个机器人还有许多功能：","nurture_summary":"培养 — 喂食/玩耍提升亲密度","battle_summary":"对战 — 组队与其他训练师对战","pokedex_summary":"图鉴 — 收集宝可梦 & 解锁称号","will_guide":"让我一一为您介绍！","title_unlock":"称号解锁！","tips_header":"实用小贴士","tip_appraise":"鉴定 [名称] — 查看IV","tip_type_matchup":"属性 [类型] — 属性相克表","tip_attendance":"签到 — 每日签到奖励","tip_weather":"天气会提升特定属性的捕获率！","official_channel":"官方频道","spawn_rate":"每30秒出现一只宝可梦！","tournament_schedule":"每天晚上9点报名，10点大赛！","help_hint":"随时输入帮助获取指引！"}
 }

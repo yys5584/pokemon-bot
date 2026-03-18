@@ -233,7 +233,8 @@
     "invalid_choice": "無效選擇。",
     "skip_limit_reached": "跳過次數已用完。",
     "only_owner": "只有本人可以操作！",
-    "error": "發生了錯誤。"
+    "error": "發生了錯誤。",
+    "fragment_reward": "碎片獎勵: {field_emoji} {field}"
   },
   "pokedex": {
     "title": "🏅 {name}的圖鑑（{caught}/{total}）",
@@ -509,10 +510,29 @@
     "trade_evolution": "✨ {name} 因交換而進化了！"
   },
   "release": {
-    "title": "放生",
+    "title": "放生寶可夢",
     "confirm": "確定要放生 {name} 嗎？此操作不可撤銷。",
     "success": "{name} 被放歸了野外... 獲得親密度獎勵。",
-    "cannot_release": "無法放生正在隊伍/營地中的寶可夢。"
+    "cannot_release": "無法放生正在隊伍/營地中的寶可夢。",
+    "select_filter": "選擇篩選條件後點擊[預覽]。",
+    "selected_rarity": "已選稀有度",
+    "selected_iv": "已選IV等級",
+    "selected_gen": "已選世代",
+    "select_hint": "請至少選擇1個稀有度或IV等級",
+    "filter_all": "全部",
+    "keep_one_label": "每種保留1隻(圖鑑用)",
+    "preview": "預覽",
+    "preview_title": "放生預覽",
+    "filter_label": "篩選",
+    "target_count": "放生對象",
+    "reward_hyperball": "獎勵: 高級球",
+    "warning": "放生後的寶可夢無法恢復！",
+    "execute": "執行放生",
+    "calculating": "計算中...",
+    "no_candidates": "沒有符合條件的寶可夢！",
+    "filter_reset": "篩選已重置，請重試。",
+    "complete": "放生{count}隻完成！獲得{count}個高級球！",
+    "cancelled": "放生已取消。"
   },
   "nurture": {
     "feed": "餵食",
@@ -738,7 +758,9 @@
     "title": "🎰 轉蛋",
     "pull": "抽取",
     "result": "抽取結果",
-    "pity": "保底計數"
+    "pity": "保底計數",
+    "item_bag": "物品背包",
+    "fragments_header": "營地碎片"
   },
   "yacha": {
     "cannot_self": "不能對自己發起賭博對戰！",
@@ -748,7 +770,6 @@
     "cancelled": "❌ 賭博對戰已取消。",
     "declined": "❌ 賭博對戰已拒絕。"
   },
-  "release": {"title":"放生寶可夢","select_filter":"選擇篩選條件後點擊[預覽]。","selected_rarity":"已選稀有度","selected_iv":"已選IV等級","selected_gen":"已選世代","select_hint":"請至少選擇1個稀有度或IV等級","filter_all":"全部","keep_one_label":"每種保留1隻(圖鑑用)","preview":"預覽","preview_title":"放生預覽","filter_label":"篩選","target_count":"放生對象","reward_hyperball":"獎勵: 高級球","warning":"放生後的寶可夢無法恢復！","execute":"執行放生","calculating":"計算中...","no_candidates":"沒有符合條件的寶可夢！","filter_reset":"篩選已重置，請重試。","complete":"放生{count}隻完成！獲得{count}個高級球！","cancelled":"放生已取消。"},
   "nurture_dm": {"no_partner":"沒有夥伴寶可夢！請先設定夥伴。","friendship_boost":"親密度強化","friendship_max":"親密度已滿！"},
   "tutorial_dm": {"first_catch_intro":"您剛進行了第一次捕捉！\n這個機器人還有許多功能：","nurture_summary":"培育 — 餵食/玩耍提升親密度","battle_summary":"對戰 — 組隊與其他訓練師對戰","pokedex_summary":"圖鑑 — 收集寶可夢 & 解鎖稱號","will_guide":"讓我一一為您介紹！","title_unlock":"稱號解鎖！","tips_header":"實用小貼士","tip_appraise":"鑑定 [名稱] — 查看IV","tip_type_matchup":"屬性 [類型] — 屬性相剋表","tip_attendance":"簽到 — 每日簽到獎勵","tip_weather":"天氣會提升特定屬性的捕獲率！","official_channel":"官方頻道","spawn_rate":"每30秒出現一隻寶可夢！","tournament_schedule":"每天晚上9點報名，10點大賽！","help_hint":"隨時輸入幫助取得指引！"}
 }
