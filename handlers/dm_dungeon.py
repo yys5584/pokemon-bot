@@ -917,9 +917,21 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
 
 async def _start_run(query, context, user_id: int, instance_id: int):
     """포켓몬 선택 → 입장권 차감 → 런 시작."""
+    # 이미 활성 런이 있으면 차단
+    existing = await dq.get_active_run(user_id)
+    if existing:
+        await _send_fresh(query, context, user_id, "⚠️ 이미 진행 중인 던전이 있습니다!")
+        return
+
+    # 중복 클릭 방지
+    if user_id in _dungeon_locks:
+        return
+    _dungeon_locks.add(user_id)
+
     # 입장권 차감
     success = await dq.deduct_dungeon_ticket(user_id)
     if not success:
+        _dungeon_locks.discard(user_id)
         await _send_fresh(query, context, user_id, "🎫 입장권이 부족합니다!")
         return
 
@@ -951,6 +963,8 @@ async def _start_run(query, context, user_id: int, instance_id: int):
         current_hp=max_hp,
         max_hp=max_hp,
     )
+
+    _dungeon_locks.discard(user_id)
 
     st = _state(context)
     st["run_id"] = run_id
