@@ -938,6 +938,84 @@ def _generate_bracket(players: list) -> list:
     return matches
 
 
+# ── GIF Round Builder ──────────────────────────────────────────
+
+_DRAMATIC_COMMENTS = [
+    "간다!", "이번엔 진다!", "아직이야!", "크윽...", "다음은 내 차례!",
+    "이 정도쯤이야!", "마지막이다!", "각오해라!", "여기서 끝이야!",
+]
+
+def _build_gif_rounds(turn_data: list[dict], p1_data: dict, p2_data: dict) -> list[dict]:
+    """turn_data → generate_tournament_battle_gif용 rounds 리스트 변환."""
+    import random as _rnd
+    rounds = []
+    current_matchup = None
+    current_turns = []
+
+    for td in turn_data:
+        if td["type"] == "matchup":
+            # 이전 매치업 저장
+            if current_matchup and current_turns:
+                rounds.append(_matchup_to_round(current_matchup, current_turns, p1_data, p2_data))
+            current_matchup = td
+            current_turns = []
+        elif td["type"] == "turn":
+            current_turns.append(td)
+        elif td["type"] == "ko":
+            current_turns.append(td)
+
+    # 마지막 매치업
+    if current_matchup and current_turns:
+        rounds.append(_matchup_to_round(current_matchup, current_turns, p1_data, p2_data))
+
+    # 멘트 배분 (홀수 라운드에 before, 짝수에 after)
+    comments = list(_DRAMATIC_COMMENTS)
+    _rnd.shuffle(comments)
+    for i, rd in enumerate(rounds):
+        if i > 0 and i < len(comments):
+            rd["comment_before"] = comments[i]
+
+    return rounds
+
+
+def _matchup_to_round(matchup: dict, turns: list[dict], p1_data: dict, p2_data: dict) -> dict:
+    """단일 매치업(1v1)의 turn_data → GIF round dict 변환."""
+    # 총 데미지 집계
+    total_c_dmg = sum(t.get("c_dmg", 0) for t in turns if t["type"] == "turn")
+    total_d_dmg = sum(t.get("d_dmg", 0) for t in turns if t["type"] == "turn")
+    has_crit = any(t.get("c_crit") or t.get("d_crit") for t in turns if t["type"] == "turn")
+
+    # KO 판정
+    ko_side = None
+    for t in turns:
+        if t["type"] == "ko":
+            ko_side = t["side"]
+            break
+
+    # winner: p1이 challenger
+    if ko_side == "defender":
+        winner = "p1"  # 적(defender) 쓰러짐 → p1 승리
+    elif ko_side == "challenger":
+        winner = "p2"
+    else:
+        winner = "p1"  # 기본
+
+    return {
+        "p1_id": matchup.get("c_pokemon_id", 1),
+        "p1_poke": matchup["c_name"],
+        "p1_rarity": matchup.get("c_rarity", "common"),
+        "p1_shiny": matchup.get("c_shiny", False),
+        "p2_id": matchup.get("d_pokemon_id", 1),
+        "p2_poke": matchup["d_name"],
+        "p2_rarity": matchup.get("d_rarity", "common"),
+        "p2_shiny": matchup.get("d_shiny", False),
+        "winner": winner,
+        "damage_dealt": total_c_dmg,
+        "damage_taken": total_d_dmg,
+        "crit": has_crit,
+    }
+
+
 # ── Match Execution ─────────────────────────────────────────────
 
 async def _run_match(
@@ -1215,6 +1293,31 @@ async def _run_match(
         if mvp_line:
             win_text += f"\n{mvp_line}"
         await _safe_send(context.bot, chat_id, text=win_text)
+
+        # 🎬 결승전 GIF 하이라이트
+        try:
+            from utils.card_generator import generate_tournament_battle_gif
+            gif_rounds = _build_gif_rounds(result["turn_data"], p1_data, p2_data)
+            if gif_rounds:
+                loop = asyncio.get_event_loop()
+                gif_buf = await loop.run_in_executor(
+                    None, generate_tournament_battle_gif,
+                    p1_name, p2_name, gif_rounds,
+                )
+                for _retry in range(3):
+                    try:
+                        await context.bot.send_animation(
+                            chat_id=chat_id, animation=gif_buf,
+                            caption="🎬 결승전 하이라이트",
+                        )
+                        break
+                    except RetryAfter as e:
+                        await asyncio.sleep(e.retry_after + 1)
+                    except Exception:
+                        break
+                await asyncio.sleep(2)
+        except Exception:
+            logger.error("Failed to generate tournament GIF", exc_info=True)
 
         # 🎤 우승 인터뷰
         await asyncio.sleep(3)
