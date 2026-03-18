@@ -1269,6 +1269,11 @@ async def api_my_team_recommend(request):
     await _record_llm_usage(uid, cost=1)
     _, remaining_after, bonus_after = await _check_llm_limit(uid)
 
+    import logging
+    logging.info(f"[team-recommend] uid={uid} mode={mode} team_size={len(team)} "
+                 f"cost={sum(_RARITY_COST.get(p['rarity'],1) for p in team)} "
+                 f"names={[p['name_ko'] for p in team]}")
+
     return pg_json_response({
         "team": team,
         "analysis": analysis,
@@ -1894,12 +1899,34 @@ async def api_my_chat(request):
                     )
                     team = adjusted
 
-                # 6마리 미달 시 알고리즘으로 백필
+                # 6마리 미달 시 남은 포켓몬에서 저코스트 순으로 백필
                 if len(team) < 6 and len(pokemon) >= 6:
                     team_ids_set = set(p["id"] for p in team)
                     remaining = [p for p in pokemon if p["id"] not in team_ids_set]
-                    remaining.sort(key=lambda p: p["real_power"], reverse=True)
-                    team = _pick_team(team + remaining, max_size=6)
+                    # 저코스트 우선, 같은 코스트면 전투력 높은 순
+                    remaining.sort(key=lambda p: (_RARITY_COST.get(p.get("rarity","common"),1), -p["real_power"]))
+                    cur_cost = sum(_RARITY_COST.get(p.get("rarity","common"),1) for p in team)
+                    has_ultra = any(p.get("rarity") == "ultra_legendary" for p in team)
+                    has_leg = any(p.get("rarity") == "legendary" for p in team)
+                    used_species = set(p["pokemon_id"] for p in team if p.get("rarity") in ("epic","legendary","ultra_legendary"))
+                    for p in remaining:
+                        if len(team) >= 6:
+                            break
+                        cost = _RARITY_COST.get(p.get("rarity","common"), 1)
+                        if cur_cost + cost > _COST_LIMIT:
+                            continue
+                        if p.get("rarity") == "ultra_legendary" and has_ultra:
+                            continue
+                        if p.get("rarity") == "legendary" and has_leg:
+                            continue
+                        if p.get("rarity") in ("epic","legendary","ultra_legendary") and p["pokemon_id"] in used_species:
+                            continue
+                        team.append(p)
+                        cur_cost += cost
+                        if p.get("rarity") == "ultra_legendary": has_ultra = True
+                        if p.get("rarity") == "legendary": has_leg = True
+                        if p.get("rarity") in ("epic","legendary","ultra_legendary"):
+                            used_species.add(p["pokemon_id"])
 
             # Clean [TEAM:...] from display text
             import re
