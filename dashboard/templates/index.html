@@ -1135,6 +1135,7 @@
                     <button class="guide-tab" data-guide="mission" onclick="switchGuide('mission')">📋 일일 미션</button>
                     <button class="guide-tab" data-guide="cxp" onclick="switchGuide('cxp')">🏠 채팅방</button>
                     <button class="guide-tab" data-guide="camp" onclick="switchGuide('camp')">🏕️ 캠프</button>
+                    <button class="guide-tab" data-guide="dungeon" onclick="switchGuide('dungeon')">🏰 던전</button>
                 </div>
 
                 <!-- ===== 처음이세요? ===== -->
@@ -2466,6 +2467,104 @@
                         </div>
                     </div>
 
+                </div>
+
+                <!-- ===== 던전 ===== -->
+                <div class="guide-section" id="guide-dungeon">
+                    <h3 style="margin-bottom:12px">🏰 던전 시스템</h3>
+                    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">로그라이크 던전! 포켓몬 1마리로 도전하며 버프를 쌓아가세요.</p>
+
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">📖 이용 방법</div>
+                        <div style="font-size:13px;color:var(--muted);line-height:1.8">
+                            <b style="color:var(--text)">1.</b> 봇 DM에서 <b style="color:var(--red)">「던전」</b> 입력<br>
+                            <b style="color:var(--text)">2.</b> 포켓몬 선택 → 입장권 소모 → 시작<br>
+                            <b style="color:var(--text)">3.</b> 매 층 자동 배틀 → 승리 시 <b style="color:var(--red)">버프 선택</b><br>
+                            <b style="color:var(--text)">4.</b> 같은 버프를 뽑으면 <b style="color:var(--red)">레벨업!</b>
+                        </div>
+                    </div>
+
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">⬆️ 레벨업 시스템</div>
+                        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">같은 버프를 선택할 때마다 강화! MAX 도달 시 선택지에서 사라집니다.</div>
+                        <div style="background:var(--bg);border-radius:8px;padding:12px">
+                            <div style="font-size:11px;color:var(--muted);margin-bottom:8px">예시 — 공격 강화</div>
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                                <span style="font-size:11px;color:var(--muted);width:36px">Lv.1</span>
+                                <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="width:33%;height:100%;background:#888;border-radius:3px"></div></div>
+                                <span style="font-size:11px;color:var(--muted);width:40px;text-align:right">+15%</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                                <span style="font-size:11px;color:#3b82f6;width:36px">Lv.2</span>
+                                <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="width:66%;height:100%;background:#3b82f6;border-radius:3px"></div></div>
+                                <span style="font-size:11px;color:#3b82f6;width:40px;text-align:right">+30%</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span style="font-size:11px;color:#8b5cf6;width:36px;font-weight:700">Lv.3</span>
+                                <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="width:100%;height:100%;background:linear-gradient(90deg,#8b5cf6,#a855f7);border-radius:3px"></div></div>
+                                <span style="font-size:11px;color:#8b5cf6;width:40px;text-align:right;font-weight:700">+45%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">🗡 버프 목록</div>
+                        <div style="font-size:11px;color:#3b82f6;font-weight:600;margin-bottom:6px">● 스탯 계열</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">공격 강화</div><div style="font-size:10px;color:var(--muted)">+15% → +45%</div></div>
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">특공 강화</div><div style="font-size:10px;color:var(--muted)">+15% → +45%</div></div>
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">체력 강화</div><div style="font-size:10px;color:var(--muted)">+15% → +40%</div></div>
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">방어/특방/스피드</div><div style="font-size:10px;color:var(--muted)">+15% → +35%</div></div>
+                        </div>
+                        <div style="font-size:11px;color:#f43f5e;font-weight:600;margin-bottom:6px">● 전투 계열 <span style="background:#f43f5e;color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">NEW</span></div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">⚡ 크리 강화</div><div style="font-size:10px;color:var(--muted)">크리확률 +10~25%</div></div>
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">⚔️ 이중타격</div><div style="font-size:10px;color:var(--muted)">15~30% 2회 공격</div></div>
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">💨 회피 본능</div><div style="font-size:10px;color:var(--muted)">10~25% 회피</div></div>
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">🦔 가시갑옷</div><div style="font-size:10px;color:var(--muted)">피해 15~35% 반사</div></div>
+                        </div>
+                        <div style="font-size:11px;color:#22c55e;font-weight:600;margin-bottom:6px">● 생존 계열</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">🩸 흡혈</div><div style="font-size:10px;color:var(--muted)">8~20% 흡혈</div></div>
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">💚 층간 회복</div><div style="font-size:10px;color:var(--muted)">매층 5~15%</div></div>
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">🛡️ 보호막</div><div style="font-size:10px;color:var(--muted)">매층 10~20% 실드</div></div>
+                            <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">💫 부활의 깃털</div><div style="font-size:10px;color:var(--muted)">사망 시 1회 부활</div></div>
+                        </div>
+                    </div>
+
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">✨ 히든 시너지</div>
+                        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">특정 버프 조합을 완성하면 숨겨진 효과가 발동! (총 6종)</div>
+                        <div style="background:#fef3c7;border-radius:8px;padding:10px 12px;margin-bottom:6px">
+                            <div style="font-size:13px;font-weight:700;color:#92400e">🔥 필살연격</div>
+                            <div style="font-size:11px;color:#b45309">크리티컬 시 특수 효과 발동</div>
+                        </div>
+                        <div style="background:#fef3c7;border-radius:8px;padding:10px 12px;margin-bottom:6px">
+                            <div style="font-size:13px;font-weight:700;color:#92400e">👻 잔상</div>
+                            <div style="font-size:11px;color:#b45309">회피 성공 시 특수 효과 발동</div>
+                        </div>
+                        <div style="background:#fef3c7;border-radius:8px;padding:10px 12px;margin-bottom:6px">
+                            <div style="font-size:13px;font-weight:700;color:#92400e">💀 사신의 낫</div>
+                            <div style="font-size:11px;color:#b45309">적을 즉사시키는 숨겨진 효과</div>
+                        </div>
+                        <div style="text-align:center;font-size:11px;color:#d97706;font-weight:600;margin-top:8px">... 외 3종 더</div>
+                        <div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;margin-top:10px">
+                            <div style="font-size:11px;font-weight:700;color:#16a34a">💡 힌트</div>
+                            <div style="font-size:11px;color:#555;line-height:1.5">같은 성격의 버프를 Lv.2 이상으로 조합해보세요!</div>
+                        </div>
+                    </div>
+
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:8px">📋 기타 정보</div>
+                        <div style="font-size:12px;color:var(--muted);line-height:1.8">
+                            • 입장권: 매일 무료 지급 (구독 시 추가)<br>
+                            • BP로 입장권 추가 구매 가능<br>
+                            • 5층마다 <b style="color:var(--text)">관장전</b> (강화된 보스)<br>
+                            • 층 클리어 시 <b style="color:var(--text)">BP + 조각</b> 보상<br>
+                            • 초전설 포켓몬은 <b style="color:var(--red)">전용 궁극기 GIF 연출!</b><br>
+                            • 버프 스킵 시 <b style="color:#22c55e">HP 50% 회복</b> (2회 제한)
+                        </div>
+                    </div>
                 </div>
 
             </div>
