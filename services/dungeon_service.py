@@ -155,80 +155,191 @@ def generate_enemy(floor: int, theme: dict) -> dict:
 
 
 # ══════════════════════════════════════════════════════════
-# 버프 시스템 (Phase 1: 직접스탯 + 생존만)
+# 버프 시스템 (뱀서식 레벨업 + 히든 시너지)
 # ══════════════════════════════════════════════════════════
 
-BUFF_POOL = [
-    # 직접 스탯
-    {"id": "atk_15",  "name": "공격 강화",     "grade": "normal",   "category": "stat", "effect": {"stat": "atk",   "mult": 1.15}, "desc": "공격력 +15%"},
-    {"id": "atk_25",  "name": "강력한 일격",   "grade": "advanced", "category": "stat", "effect": {"stat": "atk",   "mult": 1.25}, "desc": "공격력 +25%"},
-    {"id": "atk_40",  "name": "궁극의 힘",     "grade": "rare",     "category": "stat", "effect": {"stat": "atk",   "mult": 1.40}, "desc": "공격력 +40%"},
-    {"id": "spa_15",  "name": "특공 강화",     "grade": "normal",   "category": "stat", "effect": {"stat": "spa",   "mult": 1.15}, "desc": "특수공격 +15%"},
-    {"id": "spa_25",  "name": "마력 폭발",     "grade": "advanced", "category": "stat", "effect": {"stat": "spa",   "mult": 1.25}, "desc": "특수공격 +25%"},
-    {"id": "hp_15",   "name": "체력 강화",     "grade": "normal",   "category": "stat", "effect": {"stat": "hp",    "mult": 1.15}, "desc": "HP +15%"},
-    {"id": "hp_25",   "name": "불굴의 체력",   "grade": "advanced", "category": "stat", "effect": {"stat": "hp",    "mult": 1.25}, "desc": "HP +25%"},
-    {"id": "def_15",  "name": "방어 강화",     "grade": "normal",   "category": "stat", "effect": {"stat": "def",   "mult": 1.15}, "desc": "방어력 +15%"},
-    {"id": "def_30",  "name": "철벽 방어",     "grade": "advanced", "category": "stat", "effect": {"stat": "def",   "mult": 1.30}, "desc": "방어력 +30%"},
-    {"id": "spdef_15","name": "특방 강화",     "grade": "normal",   "category": "stat", "effect": {"stat": "spdef", "mult": 1.15}, "desc": "특수방어 +15%"},
-    {"id": "spd_15",  "name": "쾌속",          "grade": "normal",   "category": "stat", "effect": {"stat": "spd",   "mult": 1.15}, "desc": "스피드 +15%"},
-    {"id": "spd_25",  "name": "신속의 발",     "grade": "advanced", "category": "stat", "effect": {"stat": "spd",   "mult": 1.25}, "desc": "스피드 +25%"},
-    {"id": "all_10",  "name": "전능의 기운",   "grade": "rare",     "category": "stat", "effect": {"stat": "all",   "mult": 1.10}, "desc": "전스탯 +10%"},
-    # 생존
-    {"id": "lifesteal","name": "생명력 흡수",  "grade": "advanced", "category": "survival", "effect": {"type": "lifesteal", "rate": 0.10}, "desc": "데미지의 10% HP회복"},
-    {"id": "revive",   "name": "부활의 깃털",  "grade": "legendary","category": "survival", "effect": {"type": "revive", "hp_pct": 0.30}, "desc": "사망 시 1회 부활 (30%)"},
-    {"id": "heal_5",   "name": "자연 치유",    "grade": "normal",   "category": "survival", "effect": {"type": "floor_heal", "rate": 0.05}, "desc": "매 층 HP 5% 회복"},
-    {"id": "heal_8",   "name": "응급 처치",    "grade": "advanced", "category": "survival", "effect": {"type": "floor_heal", "rate": 0.08}, "desc": "매 층 HP 8% 회복"},
-    {"id": "heal_12",  "name": "생명의 축복",  "grade": "rare",     "category": "survival", "effect": {"type": "floor_heal", "rate": 0.12}, "desc": "매 층 HP 12% 회복"},
-]
+# 레벨업 버프 정의: id → {name, category, max_lv, levels: [{효과값들}]}
+BUFF_DEFS = {
+    # ── 스탯 계열 ──
+    "atk":    {"name": "공격 강화",   "category": "stat", "max_lv": 3,
+               "levels": [{"mult": 1.15, "desc": "공격력 +15%"}, {"mult": 1.30, "desc": "공격력 +30%"}, {"mult": 1.45, "desc": "공격력 +45%"}]},
+    "spa":    {"name": "특공 강화",   "category": "stat", "max_lv": 3,
+               "levels": [{"mult": 1.15, "desc": "특수공격 +15%"}, {"mult": 1.30, "desc": "특수공격 +30%"}, {"mult": 1.45, "desc": "특수공격 +45%"}]},
+    "hp":     {"name": "체력 강화",   "category": "stat", "max_lv": 3,
+               "levels": [{"mult": 1.15, "desc": "HP +15%"}, {"mult": 1.25, "desc": "HP +25%"}, {"mult": 1.40, "desc": "HP +40%"}]},
+    "def":    {"name": "방어 강화",   "category": "stat", "max_lv": 3,
+               "levels": [{"mult": 1.15, "desc": "방어 +15%"}, {"mult": 1.25, "desc": "방어 +25%"}, {"mult": 1.35, "desc": "방어 +35%"}]},
+    "spdef":  {"name": "특방 강화",   "category": "stat", "max_lv": 3,
+               "levels": [{"mult": 1.15, "desc": "특방 +15%"}, {"mult": 1.25, "desc": "특방 +25%"}, {"mult": 1.35, "desc": "특방 +35%"}]},
+    "spd":    {"name": "스피드",      "category": "stat", "max_lv": 3,
+               "levels": [{"mult": 1.15, "desc": "스피드 +15%"}, {"mult": 1.25, "desc": "스피드 +25%"}, {"mult": 1.35, "desc": "스피드 +35%"}]},
+    # ── 전투 계열 ──
+    "crit":   {"name": "크리 강화",   "category": "combat", "max_lv": 3,
+               "levels": [{"rate": 0.10, "desc": "크리 확률 +10%"}, {"rate": 0.18, "desc": "크리 확률 +18%"}, {"rate": 0.25, "desc": "크리 확률 +25%"}]},
+    "double": {"name": "이중타격",    "category": "combat", "max_lv": 3,
+               "levels": [{"rate": 0.15, "desc": "15% 2회 공격"}, {"rate": 0.22, "desc": "22% 2회 공격"}, {"rate": 0.30, "desc": "30% 2회 공격"}]},
+    "dodge":  {"name": "회피 본능",   "category": "combat", "max_lv": 3,
+               "levels": [{"rate": 0.10, "desc": "10% 회피"}, {"rate": 0.18, "desc": "18% 회피"}, {"rate": 0.25, "desc": "25% 회피"}]},
+    "thorns": {"name": "가시갑옷",    "category": "combat", "max_lv": 3,
+               "levels": [{"rate": 0.15, "desc": "피해 15% 반사"}, {"rate": 0.25, "desc": "피해 25% 반사"}, {"rate": 0.35, "desc": "피해 35% 반사"}]},
+    # ── 생존 계열 ──
+    "lifesteal": {"name": "흡혈",     "category": "survival", "max_lv": 3,
+               "levels": [{"rate": 0.08, "desc": "8% 흡혈"}, {"rate": 0.15, "desc": "15% 흡혈"}, {"rate": 0.20, "desc": "20% 흡혈"}]},
+    "heal":   {"name": "층간 회복",   "category": "survival", "max_lv": 3,
+               "levels": [{"rate": 0.05, "desc": "매층 HP 5%"}, {"rate": 0.10, "desc": "매층 HP 10%"}, {"rate": 0.15, "desc": "매층 HP 15%"}]},
+    "shield": {"name": "보호막",      "category": "survival", "max_lv": 3,
+               "levels": [{"rate": 0.10, "desc": "매층 10% 실드"}, {"rate": 0.15, "desc": "매층 15% 실드"}, {"rate": 0.20, "desc": "매층 20% 실드"}]},
+    # ── 1회성 (레벨 없음) ──
+    "revive": {"name": "부활의 깃털", "category": "unique", "max_lv": 1,
+               "levels": [{"desc": "사망 시 1회 부활 (30%)"}]},
+    "allstat":{"name": "전능의 기운", "category": "unique", "max_lv": 1,
+               "levels": [{"mult": 1.15, "desc": "전스탯 +15%"}]},
+}
+
+# 히든 시너지: 조건 충족 시 자동 발동
+SYNERGIES = {
+    "fury":    {"name": "필살연격",   "emoji": "🔥", "req": {"crit": 2, "double": 2},
+                "desc": "크리 시 이중타격 확률 2배", "effect": {"type": "crit_double"}},
+    "vampire": {"name": "피의 갑옷",  "emoji": "🩸", "req": {"lifesteal": 2, "thorns": 2},
+                "desc": "반사 데미지도 흡혈", "effect": {"type": "thorns_lifesteal"}},
+    "phantom": {"name": "잔상",       "emoji": "👻", "req": {"dodge": 2, "spd": 2},
+                "desc": "회피 시 다음 공격 크리 확정", "effect": {"type": "dodge_crit"}},
+    "power":   {"name": "풀파워",     "emoji": "⚡", "req": {"atk": 3, "spa": 3},
+                "desc": "전체 데미지 +20%", "effect": {"type": "damage_boost", "mult": 1.20}},
+    "iron":    {"name": "철벽요새",   "emoji": "🛡️", "req": {"hp": 2, "def": 2, "spdef": 2},
+                "desc": "받는 데미지 -15%", "effect": {"type": "damage_reduce", "mult": 0.85}},
+    "reaper":  {"name": "사신의 낫",  "emoji": "💀", "req": {"crit": 3, "atk": 3},
+                "desc": "적 HP 15% 이하 즉사", "effect": {"type": "execute", "threshold": 0.15}},
+}
+
+# 등급별 이모지/한글 (레벨 기반)
+LV_EMOJI = {1: "⬜", 2: "🟦", 3: "🟪"}
+LV_KO = {1: "Lv.1", 2: "Lv.2", 3: "Lv.3"}
 
 GRADE_EMOJI = {"normal": "⬜", "advanced": "🟦", "rare": "🟪", "legendary": "🟨"}
 GRADE_KO = {"normal": "일반", "advanced": "고급", "rare": "희귀", "legendary": "전설"}
 
 
-def _get_grade_probs(floor: int) -> dict[str, int]:
-    """층수에 맞는 버프 등급 확률."""
-    for max_floor, probs in sorted(config.DUNGEON_BUFF_GRADE_PROB.items()):
-        if floor <= max_floor:
-            return probs
-    return config.DUNGEON_BUFF_GRADE_PROB[999]
+def _get_buff_level(buff_id: str, current_buffs: list[dict]) -> int:
+    """현재 버프 리스트에서 해당 버프의 레벨을 반환 (없으면 0)."""
+    for b in current_buffs:
+        if b.get("id") == buff_id:
+            return b.get("lv", 1)
+    return 0
 
 
-def _pick_grade(floor: int) -> str:
-    probs = _get_grade_probs(floor)
-    pool = []
-    for grade, weight in probs.items():
-        pool.extend([grade] * weight)
-    return random.choice(pool)
+def _get_active_synergies(current_buffs: list[dict]) -> list[dict]:
+    """현재 버프에서 발동 중인 시너지 목록."""
+    buff_levels = {}
+    for b in current_buffs:
+        buff_levels[b["id"]] = b.get("lv", 1)
+
+    active = []
+    for syn_id, syn in SYNERGIES.items():
+        if all(buff_levels.get(bid, 0) >= req_lv for bid, req_lv in syn["req"].items()):
+            active.append({"id": syn_id, **syn})
+    return active
+
+
+def check_new_synergies(old_buffs: list[dict], new_buffs: list[dict]) -> list[dict]:
+    """버프 변경 후 새로 발동된 시너지 반환."""
+    old_syn = {s["id"] for s in _get_active_synergies(old_buffs)}
+    new_syn = _get_active_synergies(new_buffs)
+    return [s for s in new_syn if s["id"] not in old_syn]
 
 
 def generate_buff_choices(
     floor: int, current_buffs: list[dict], count: int = 3
 ) -> list[dict]:
-    """버프 선택지 생성 (서로 다른 카테고리에서 count개)."""
-    used_categories = set()
+    """버프 선택지 생성 — 레벨업 가능한 것 + 새로운 것 혼합."""
     choices = []
-    attempts = 0
+    used_ids = set()
 
-    while len(choices) < count and attempts < 50:
-        attempts += 1
-        grade = _pick_grade(floor)
-        candidates = [b for b in BUFF_POOL
-                       if b["grade"] == grade
-                       and b["category"] not in used_categories]
-        if not candidates:
-            # 카테고리 제한 완화
-            candidates = [b for b in BUFF_POOL if b["grade"] == grade]
-        if not candidates:
-            # 등급 제한도 완화
-            candidates = [b for b in BUFF_POOL if b["category"] not in used_categories]
-        if not candidates:
-            candidates = list(BUFF_POOL)
+    # 현재 보유 버프 중 레벨업 가능한 것들
+    upgradable = []
+    for b in current_buffs:
+        bdef = BUFF_DEFS.get(b["id"])
+        if bdef and b.get("lv", 1) < bdef["max_lv"]:
+            upgradable.append(b["id"])
 
-        pick = random.choice(candidates)
-        choices.append(pick)
-        used_categories.add(pick["category"])
+    # 아직 없는 버프들
+    owned_ids = {b["id"] for b in current_buffs}
+    new_available = [bid for bid in BUFF_DEFS if bid not in owned_ids]
 
+    # 선택지 구성: 레벨업 1~2개 + 새 버프 1~2개 (가능한 만큼)
+    random.shuffle(upgradable)
+    random.shuffle(new_available)
+
+    # 레벨업 선택지 (최대 2개)
+    for bid in upgradable:
+        if len(choices) >= min(2, count):
+            break
+        if bid in used_ids:
+            continue
+        bdef = BUFF_DEFS[bid]
+        cur_lv = _get_buff_level(bid, current_buffs)
+        next_lv = cur_lv + 1
+        lv_data = bdef["levels"][next_lv - 1]
+        choices.append({
+            "id": bid, "name": bdef["name"], "category": bdef["category"],
+            "lv": next_lv, "is_upgrade": True,
+            "effect": lv_data, "desc": lv_data["desc"],
+        })
+        used_ids.add(bid)
+
+    # 새 버프 선택지 (나머지 채움)
+    for bid in new_available:
+        if len(choices) >= count:
+            break
+        if bid in used_ids:
+            continue
+        bdef = BUFF_DEFS[bid]
+        lv_data = bdef["levels"][0]
+        choices.append({
+            "id": bid, "name": bdef["name"], "category": bdef["category"],
+            "lv": 1, "is_upgrade": False,
+            "effect": lv_data, "desc": lv_data["desc"],
+        })
+        used_ids.add(bid)
+
+    # 선택지가 부족하면 남은 레벨업으로 채움
+    for bid in upgradable:
+        if len(choices) >= count:
+            break
+        if bid in used_ids:
+            continue
+        bdef = BUFF_DEFS[bid]
+        cur_lv = _get_buff_level(bid, current_buffs)
+        next_lv = cur_lv + 1
+        lv_data = bdef["levels"][next_lv - 1]
+        choices.append({
+            "id": bid, "name": bdef["name"], "category": bdef["category"],
+            "lv": next_lv, "is_upgrade": True,
+            "effect": lv_data, "desc": lv_data["desc"],
+        })
+        used_ids.add(bid)
+
+    random.shuffle(choices)
     return choices[:count]
+
+
+def apply_buff_choice(current_buffs: list[dict], choice: dict) -> list[dict]:
+    """선택된 버프를 적용 (레벨업 또는 새로 추가)."""
+    new_buffs = []
+    found = False
+    for b in current_buffs:
+        if b["id"] == choice["id"]:
+            # 레벨업
+            new_buffs.append({**b, "lv": choice["lv"], "effect": choice["effect"], "desc": choice["desc"]})
+            found = True
+        else:
+            new_buffs.append(b)
+    if not found:
+        new_buffs.append({
+            "id": choice["id"], "name": choice["name"], "category": choice["category"],
+            "lv": choice["lv"], "effect": choice["effect"], "desc": choice["desc"],
+        })
+    return new_buffs
 
 
 def should_offer_buff(floor: int, pokemon_cost: int) -> bool:
@@ -238,46 +349,59 @@ def should_offer_buff(floor: int, pokemon_cost: int) -> bool:
 
 
 # ══════════════════════════════════════════════════════════
-# 버프 적용
+# 버프 적용 (배틀 엔진용)
 # ══════════════════════════════════════════════════════════
 
 def apply_buffs_to_stats(base_stats: dict, buffs: list[dict]) -> dict:
-    """스탯 버프를 곱연산으로 적용. 원본 수정하지 않음."""
+    """스탯 버프를 적용. 원본 수정하지 않음."""
     result = dict(base_stats)
     for buff in buffs:
         eff = buff.get("effect", {})
-        if eff.get("stat") == "all":
-            mult = eff.get("mult", 1.0)
+        bid = buff.get("id", "")
+        # 스탯 계열: mult 적용
+        if bid in ("atk", "spa", "hp", "def", "spdef", "spd") and "mult" in eff:
+            if bid in result:
+                result[bid] = int(result[bid] * eff["mult"])
+        # 전스탯
+        elif bid == "allstat" and "mult" in eff:
             for k in result:
-                result[k] = int(result[k] * mult)
-        elif eff.get("stat") in result:
-            stat = eff["stat"]
-            mult = eff.get("mult", 1.0)
-            result[stat] = int(result[stat] * mult)
+                result[k] = int(result[k] * eff["mult"])
     return result
 
 
 def get_floor_heal_rate(buffs: list[dict]) -> float:
-    """누적 층간 회복률."""
-    total = 0.0
+    """층간 회복률."""
     for b in buffs:
-        eff = b.get("effect", {})
-        if eff.get("type") == "floor_heal":
-            total += eff.get("rate", 0)
-    return total
+        if b.get("id") == "heal":
+            return b["effect"].get("rate", 0)
+    return 0.0
+
+
+def get_shield_rate(buffs: list[dict]) -> float:
+    """보호막 비율."""
+    for b in buffs:
+        if b.get("id") == "shield":
+            return b["effect"].get("rate", 0)
+    return 0.0
 
 
 def has_revive(buffs: list[dict]) -> bool:
-    return any(b.get("effect", {}).get("type") == "revive" for b in buffs)
+    return any(b.get("id") == "revive" for b in buffs)
 
 
 def get_lifesteal_rate(buffs: list[dict]) -> float:
-    total = 0.0
     for b in buffs:
-        eff = b.get("effect", {})
-        if eff.get("type") == "lifesteal":
-            total += eff.get("rate", 0)
-    return total
+        if b.get("id") == "lifesteal":
+            return b["effect"].get("rate", 0)
+    return 0.0
+
+
+def get_combat_rate(buffs: list[dict], buff_id: str) -> float:
+    """전투 버프 (crit/double/dodge/thorns) 확률."""
+    for b in buffs:
+        if b.get("id") == buff_id:
+            return b["effect"].get("rate", 0)
+    return 0.0
 
 
 # ══════════════════════════════════════════════════════════
@@ -335,9 +459,23 @@ def resolve_dungeon_battle(
     p_hp = current_hp if current_hp is not None else p_max_hp
     e_hp = e_stats["hp"]
 
+    # 보호막: 매 층 시작 시 실드 적용 (데미지 먼저 흡수)
+    shield_rate = get_shield_rate(buffs)
+    p_shield = int(p_max_hp * shield_rate) if shield_rate > 0 else 0
+
     lifesteal = get_lifesteal_rate(buffs)
     revive_available = has_revive(buffs)
     revive_used = False
+
+    # 전투 버프
+    crit_bonus = get_combat_rate(buffs, "crit")
+    double_rate = get_combat_rate(buffs, "double")
+    dodge_rate = get_combat_rate(buffs, "dodge")
+    thorns_rate = get_combat_rate(buffs, "thorns")
+
+    # 히든 시너지
+    active_syn = {s["id"] for s in _get_active_synergies(buffs)}
+    dodge_crit_ready = False  # 잔상: 회피 후 다음 크리 확정
 
     log_lines = []
     total_dmg_dealt = 0
@@ -373,6 +511,13 @@ def resolve_dungeon_battle(
             if p_hp <= 0 or e_hp <= 0:
                 break
 
+            # ── 회피 (플레이어만) ──
+            if tag == "enemy" and dodge_rate > 0 and random.random() < dodge_rate:
+                # 시너지: 잔상 — 회피 시 다음 크리 확정
+                if "phantom" in active_syn:
+                    dodge_crit_ready = True
+                continue
+
             # 물리 vs 특수
             if atk_s["atk"] >= atk_s["spa"]:
                 atk_val = atk_s["atk"]
@@ -384,8 +529,14 @@ def resolve_dungeon_battle(
             # 기본 데미지
             base = max(1, atk_val - int(def_val * 0.4))
 
-            # 크리티컬
-            is_crit = random.random() < config.DUNGEON_CRIT_RATE
+            # 크리티컬 (버프 + 잔상 시너지)
+            effective_crit = config.DUNGEON_CRIT_RATE
+            if tag == "player":
+                effective_crit += crit_bonus
+                if dodge_crit_ready:
+                    effective_crit = 1.0  # 잔상: 확정 크리
+                    dodge_crit_ready = False
+            is_crit = random.random() < effective_crit
             crit_mult = config.DUNGEON_CRIT_MULT if is_crit else 1.0
 
             # 스킬
@@ -397,16 +548,54 @@ def resolve_dungeon_battle(
 
             damage = max(1, int(base * t_mult * crit_mult * skill_mult * variance))
 
+            # 시너지: 풀파워 — 전체 데미지 +20%
+            if tag == "player" and "power" in active_syn:
+                damage = int(damage * 1.20)
+
+            # 시너지: 철벽요새 — 받는 데미지 -15%
+            if tag == "enemy" and "iron" in active_syn:
+                damage = int(damage * 0.85)
+
             if tag == "player":
-                e_hp -= damage
-                total_dmg_dealt += damage
-                # 흡혈
-                if lifesteal > 0:
-                    heal = int(damage * lifesteal)
-                    p_hp = min(p_max_hp, p_hp + heal)
+                # 시너지: 사신의 낫 — 적 HP 15% 이하 즉사
+                if "reaper" in active_syn and e_hp <= e_stats["hp"] * 0.15:
+                    damage = e_hp  # 즉사
+
+                # ── 이중타격 ──
+                hit_count = 1
+                effective_double = double_rate
+                # 시너지: 필살연격 — 크리 시 이중타격 확률 2배
+                if is_crit and "fury" in active_syn:
+                    effective_double = min(1.0, effective_double * 2)
+                if effective_double > 0 and random.random() < effective_double:
+                    hit_count = 2
+
+                for _hit in range(hit_count):
+                    e_hp -= damage
+                    total_dmg_dealt += damage
+                    # 흡혈
+                    if lifesteal > 0:
+                        heal = int(damage * lifesteal)
+                        p_hp = min(p_max_hp, p_hp + heal)
             else:
+                # 보호막 먼저 흡수
+                if p_shield > 0:
+                    absorbed = min(p_shield, damage)
+                    p_shield -= absorbed
+                    damage -= absorbed
+
                 p_hp -= damage
                 total_dmg_taken += damage
+
+                # ── 가시갑옷 ──
+                if thorns_rate > 0 and damage > 0:
+                    reflect = max(1, int((damage) * thorns_rate))
+                    e_hp -= reflect
+                    total_dmg_dealt += reflect
+                    # 시너지: 피의 갑옷 — 반사 데미지 흡혈
+                    if "vampire" in active_syn and lifesteal > 0:
+                        heal = int(reflect * lifesteal)
+                        p_hp = min(p_max_hp, p_hp + heal)
 
         # 턴 종료 후 부활 체크
         if p_hp <= 0 and revive_available:

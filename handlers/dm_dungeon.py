@@ -174,13 +174,27 @@ async def _build_resume_screen(user_id: int, run: dict) -> tuple[str, InlineKeyb
     SKILL = icon_emoji("skill")
     rb = rarity_badge(run.get("rarity", "common"))
 
+    # 보유 버프 요약
+    buff_summary = ""
+    if buffs:
+        for b in buffs:
+            blv = b.get("lv", 1)
+            buff_summary += f"  {ds.LV_EMOJI.get(blv, '⬜')} {b.get('name', '?')} Lv.{blv}\n"
+    # 시너지
+    active_syn = ds._get_active_synergies(buffs)
+    syn_line = ""
+    if active_syn:
+        syn_line = "\n✨ " + " / ".join(f"{s['emoji']}{s['name']}" for s in active_syn)
+
     text = (
         f"{CASTLE} <b>진행 중인 던전</b>\n\n"
         f"{FOOT} {run['floor_reached']}층 | {theme_info['emoji']} {run['theme']}\n"
         f"{rb} {shiny}{run['pokemon_name']} [{run['iv_grade']}]\n"
         f"{HEART} {hp_bar} {hp_pct}%\n"
-        f"{SKILL} 버프 {len(buffs)}개\n"
+        f"{SKILL} 버프 {len(buffs)}개{syn_line}\n"
     )
+    if buff_summary:
+        text += buff_summary
     buttons = [
         [InlineKeyboardButton("⚔️ 다음 층으로!", callback_data=f"dg_go_{user_id}")],
         [InlineKeyboardButton("🏳️ 포기", callback_data=f"dg_quit_{user_id}")],
@@ -340,7 +354,7 @@ async def _process_floor(query, context, user_id: int, run: dict):
 
     # 부활이 사용됐으면 버프에서 제거
     if result.get("revive_used"):
-        buffs = [b for b in buffs if b.get("effect", {}).get("type") != "revive"]
+        buffs = [b for b in buffs if b.get("id") != "revive"]
 
     # 배틀 GIF 생성 — Canvas GIF (내 공격 + 적 반격)
     import asyncio as _aio
@@ -451,10 +465,68 @@ async def _process_floor(query, context, user_id: int, run: dict):
         CHECK = icon_emoji("check")
         HEART = icon_emoji("pokecenter")
         SKILL = icon_emoji("skill")
+        BATTLE = icon_emoji("battle")
+        FOOT = icon_emoji("footsteps")
+
+        # 적 정보
+        enemy_rb = rarity_badge(enemy["rarity"])
+        enemy_types = " ".join(config.TYPE_EMOJI.get(t, "") for t in enemy.get("types", []))
+        enemy_label = f"{enemy_rb}{enemy['name_ko']} {enemy_types}"
+        if enemy["is_boss"]:
+            enemy_label = f"★ {enemy_label} (관장)"
+        elif enemy["is_elite"]:
+            enemy_label = f"⚡ {enemy_label} (엘리트)"
+
+        # 배틀 요약
+        battle_lines = f"{BATTLE} vs {enemy_label}\n"
+        battle_lines += f"  🗡 {result['total_damage_dealt']} 딜"
+        if result["total_damage_taken"] > 0:
+            battle_lines += f" | 🩸 {result['total_damage_taken']} 피해"
+        battle_lines += f" | {result['turns']}턴"
+
+        # 상성
+        if result.get("type_display"):
+            battle_lines += f"\n  ⚖️ 상성: {result['type_display']}"
+
+        # 특수 효과 로그
+        effect_lines = ""
+        if result.get("revive_used"):
+            effect_lines += "\n  💫 부활의 깃털 발동!"
+        # 흡혈 회복량
+        if ds.get_lifesteal_rate(buffs) > 0 and result["total_damage_dealt"] > 0:
+            ls_heal = int(result["total_damage_dealt"] * ds.get_lifesteal_rate(buffs))
+            effect_lines += f"\n  🩸 흡혈 +{ls_heal}HP"
+        # 층간 회복
+        if heal_rate > 0:
+            heal_amt = int(run["max_hp"] * heal_rate)
+            effect_lines += f"\n  💚 층간 회복 +{heal_amt}HP"
+        # 보호막
+        shield_rate = ds.get_shield_rate(buffs)
+        if shield_rate > 0:
+            shield_amt = int(run["max_hp"] * shield_rate)
+            effect_lines += f"\n  🛡️ 다음 층 보호막 {shield_amt}HP"
+
+        # 보유 버프 요약
+        buff_summary = ""
+        if buffs:
+            for b in buffs:
+                blv = b.get("lv", 1)
+                buff_summary += f"  {ds.LV_EMOJI.get(blv, '⬜')} {b.get('name', '?')} Lv.{blv}\n"
+        # 시너지
+        active_syn = ds._get_active_synergies(buffs)
+        syn_line = ""
+        if active_syn:
+            syn_line = "\n✨ " + " / ".join(f"{s['emoji']}{s['name']}" for s in active_syn)
+
         text = (
-            f"{CHECK} <b>{floor}층 승리!</b> {HEART} {hp_bar} {hp_pct}%\n"
-            f"{SKILL} 버프 {len(buffs)}개"
+            f"{CHECK} <b>{floor}층 승리!</b>\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"{battle_lines}{effect_lines}\n\n"
+            f"{HEART} {hp_bar} {hp_pct}%\n"
+            f"{SKILL} 버프 {len(buffs)}개{syn_line}\n"
         )
+        if buff_summary:
+            text += buff_summary
 
         # 버프 제공 여부 확인
         cost = _get_pokemon_cost(pokemon["rarity"])
@@ -467,10 +539,14 @@ async def _process_floor(query, context, user_id: int, run: dict):
             text += f"\n\n{icon_emoji('gotcha')} <b>버프를 선택하세요:</b>"
             buttons = []
             for i, buff in enumerate(choices):
-                emoji = ds.GRADE_EMOJI.get(buff["grade"], "⬜")
-                grade_ko = ds.GRADE_KO.get(buff["grade"], "")
+                lv = buff.get("lv", 1)
+                lv_emoji = ds.LV_EMOJI.get(lv, "⬜")
+                if buff.get("is_upgrade"):
+                    tag = f"Lv.{lv-1}→{lv}"
+                else:
+                    tag = "NEW"
                 buttons.append([InlineKeyboardButton(
-                    f"{emoji} {buff['name']} [{grade_ko}] — {buff['desc']}",
+                    f"{lv_emoji} {buff['name']} [{tag}] — {buff['desc']}",
                     callback_data=f"dg_buf_{user_id}_{i}"
                 )])
             # 스킵 옵션
@@ -711,20 +787,26 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         if isinstance(buffs, str):
             import json
             buffs = json.loads(buffs)
-        buffs.append(chosen)
 
-        # HP 버프면 max_hp도 갱신
+        old_buffs = list(buffs)
+        buffs = ds.apply_buff_choice(buffs, chosen)
+
+        # HP 버프면 max_hp도 갱신 (레벨업 시 이전 레벨 효과 제거 후 재적용)
         new_max_hp = run["max_hp"]
         new_hp = run["current_hp"]
         eff = chosen.get("effect", {})
-        if eff.get("stat") == "hp":
-            mult = eff.get("mult", 1.0)
-            new_max_hp = int(new_max_hp * mult)
-            new_hp = int(new_hp * mult)  # 현재 HP도 비례 증가
-        elif eff.get("stat") == "all":
-            mult = eff.get("mult", 1.0)
-            new_max_hp = int(new_max_hp * mult)
-            new_hp = int(new_hp * mult)
+        if chosen["id"] == "hp" and "mult" in eff:
+            # 이전 레벨 mult 제거 후 새 mult 적용
+            old_lv = ds._get_buff_level("hp", old_buffs)
+            if old_lv > 0:
+                old_mult = ds.BUFF_DEFS["hp"]["levels"][old_lv - 1]["mult"]
+                new_max_hp = int(new_max_hp / old_mult)
+                new_hp = int(new_hp / old_mult)
+            new_max_hp = int(new_max_hp * eff["mult"])
+            new_hp = int(new_hp * eff["mult"])
+        elif chosen["id"] == "allstat" and "mult" in eff:
+            new_max_hp = int(new_max_hp * eff["mult"])
+            new_hp = int(new_hp * eff["mult"])
 
         await dq.update_run_progress(run["id"], run["floor_reached"], new_hp, buffs)
         if new_max_hp != run["max_hp"]:
@@ -734,19 +816,44 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
                 new_max_hp, new_hp, run["id"],
             )
 
-        emoji = ds.GRADE_EMOJI.get(chosen["grade"], "")
-        await query.answer(f"{emoji} {chosen['name']} 획득!")
+        lv = chosen.get("lv", 1)
+        lv_emoji = ds.LV_EMOJI.get(lv, "⬜")
+        tag = f"Lv.{lv}" if chosen.get("is_upgrade") else "NEW"
+        await query.answer(f"{lv_emoji} {chosen['name']} [{tag}] 획득!")
+
+        # 히든 시너지 체크
+        new_synergies = ds.check_new_synergies(old_buffs, buffs)
+        if new_synergies:
+            syn_texts = []
+            for s in new_synergies:
+                syn_texts.append(f"{s['emoji']} 시너지 발동! — 「{s['name']}」\n{s['desc']}")
+            syn_msg = "\n".join(syn_texts)
+            try:
+                await context.bot.send_message(chat_id=user_id, text=syn_msg)
+            except Exception:
+                pass
 
         # 다음 층 진행 화면
         run_updated = await dq.get_active_run(user_id)
         hp_bar = _hp_bar(run_updated["current_hp"], run_updated["max_hp"])
         hp_pct = int(run_updated["current_hp"] / run_updated["max_hp"] * 100) if run_updated["max_hp"] else 0
 
+        CASTLE = icon_emoji("container")
+        HEART = icon_emoji("pokecenter")
+        SKILL = icon_emoji("skill")
+
+        # 보유 버프 요약
+        buff_summary = ""
+        for b in buffs:
+            blv = b.get("lv", 1)
+            bname = b.get("name", "?")
+            buff_summary += f"  {ds.LV_EMOJI.get(blv, '⬜')} {bname} Lv.{blv}\n"
+
         text = (
-            f"🏰 <b>{run_updated['floor_reached']}층 클리어!</b>\n\n"
-            f"{emoji} <b>{chosen['name']}</b> 획득! — {chosen['desc']}\n\n"
-            f"❤️ {hp_bar} {hp_pct}%\n"
-            f"🗡 버프 {len(buffs)}개\n"
+            f"{CASTLE} <b>{run_updated['floor_reached']}층 클리어!</b>\n\n"
+            f"{lv_emoji} <b>{chosen['name']} [{tag}]</b> — {chosen['desc']}\n\n"
+            f"{HEART} {hp_bar} {hp_pct}%\n"
+            f"{SKILL} 버프:\n{buff_summary}"
         )
         buttons = [
             [InlineKeyboardButton("⚔️ 다음 층으로!", callback_data=f"dg_go_{user_id}")],
