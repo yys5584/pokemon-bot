@@ -31,7 +31,7 @@ const ctx=document.getElementById('c').getContext('2d');
 const ATK_CX=200, ATK_CY=320;
 const DEF_CX=720, DEF_CY=180;
 
-const TOTAL_FRAMES=60;
+const TOTAL_FRAMES=24;
 const RARITY_KO={common:"C",uncommon:"U",rare:"R",epic:"E",legendary:"L",mythic:"M"};
 const RARITY_COLOR={common:"#aaa",uncommon:"#5b5",rare:"#58f",epic:"#c5f",legendary:"#fa0",mythic:"#f55"};
 
@@ -1114,13 +1114,13 @@ function drawDmgNum(progress){
 }
 
 // ---- 셰이크 ----
-const SHAKES=[[20,-12],[-16,14],[14,-10],[-10,8],[8,-5],[-5,3],[3,-1],[0,0]];
+const SHAKES=[[20,-12],[-14,10],[6,-4]];
 
 // ---- 메인 렌더 ----
 window.renderFrame=function(fi){
   ctx.clearRect(0,0,W,H);
   // Phase boundaries
-  const P1=8,P2=16,P3=28,P4=33,P5=41,P6=52,P7=60;
+  const P1=3,P2=6,P3=11,P4=13,P5=16,P6=20,P7=24;
   let sx=0,sy=0;
   // 셰이크
   if(fi>=P4&&fi<P5){const si=fi-P4;if(si<SHAKES.length){sx=SHAKES[si][0];sy=SHAKES[si][1]}}
