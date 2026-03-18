@@ -1397,7 +1397,8 @@ async def _run_match(
                 caption1 = f"{td['turn_num']}턴 ─ {first_name}{skill_label}{crit_label}\n  → {first_target_name} {bar} {first_target_hp}/{first_target_max} (-{first_dmg})"
 
                 _gif_sent = False
-                if first_eff and first_pid:
+                _is_skill = first_eff and "「" in first_eff
+                if _is_skill and first_pid:
                     _skill_name = first_eff
                     if "「" in _skill_name:
                         _skill_name = _skill_name.split("「")[1].split("」")[0]
