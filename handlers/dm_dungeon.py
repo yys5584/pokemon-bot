@@ -357,27 +357,8 @@ async def _process_floor(query, context, user_id: int, run: dict):
     if result.get("revive_used"):
         buffs = [b for b in buffs if b.get("id") != "revive"]
 
-    # 배틀 결과 — 관장전만 PIL GIF, 일반층은 텍스트만
-    import asyncio as _aio
     floor_type = "★ 관장전" if enemy["is_boss"] else ("⚡ 엘리트" if enemy["is_elite"] else "")
     _result_gif = None
-
-    if enemy["is_boss"]:
-        try:
-            from utils.card_generator import generate_dungeon_battle_gif
-            loop = _aio.get_event_loop()
-            _result_gif = await loop.run_in_executor(
-                None, generate_dungeon_battle_gif,
-                pokemon["pokemon_id"], run["pokemon_name"], pokemon["rarity"],
-                run["current_hp"], run["max_hp"], bool(run["is_shiny"]),
-                enemy["id"], enemy["name_ko"], enemy["rarity"],
-                floor, floor_type, result["type_display"],
-                result["total_damage_dealt"], result["total_damage_taken"],
-                won, remaining_hp,
-            )
-        except Exception:
-            import logging
-            logging.getLogger(__name__).error("PIL GIF 생성 실패", exc_info=True)
 
     if won:
         # 층간 회복 적용
