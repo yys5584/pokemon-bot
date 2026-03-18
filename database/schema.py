@@ -687,6 +687,52 @@ TRADE_EVO_FIX_MIGRATIONS = [
 
 
 # ─── 캠프 v2 시스템 (2026-03-13) ─────────
+# ============================================================
+# Dungeon System (로그라이크 던전)
+# ============================================================
+
+DUNGEON_TABLES = [
+    """CREATE TABLE IF NOT EXISTS dungeon_runs (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        pokemon_instance_id INT NOT NULL,
+        pokemon_id INT NOT NULL,
+        pokemon_name TEXT NOT NULL,
+        is_shiny BOOLEAN DEFAULT FALSE,
+        iv_grade TEXT,
+        floor_reached INT NOT NULL DEFAULT 0,
+        theme TEXT NOT NULL,
+        buffs_json JSONB DEFAULT '[]',
+        current_hp INT NOT NULL DEFAULT 0,
+        max_hp INT NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'active',
+        skips_used INT NOT NULL DEFAULT 0,
+        bp_earned INT DEFAULT 0,
+        fragments_earned INT DEFAULT 0,
+        started_at TIMESTAMPTZ DEFAULT NOW(),
+        ended_at TIMESTAMPTZ,
+        season_key TEXT
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_dungeon_runs_active ON dungeon_runs(user_id, status) WHERE status = 'active'",
+    "CREATE INDEX IF NOT EXISTS idx_dungeon_ranking ON dungeon_runs(season_key, floor_reached DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_dungeon_user ON dungeon_runs(user_id, started_at DESC)",
+
+    """CREATE TABLE IF NOT EXISTS dungeon_pokemon_records (
+        user_id BIGINT NOT NULL,
+        pokemon_instance_id INT NOT NULL,
+        best_floor INT NOT NULL DEFAULT 0,
+        best_theme TEXT,
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_id, pokemon_instance_id)
+    )""",
+]
+
+DUNGEON_MIGRATIONS = [
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_tickets INT NOT NULL DEFAULT 1",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_tickets_bought_today INT NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_best_floor INT NOT NULL DEFAULT 0",
+]
+
 CAMP_TABLES = [
     # 캠프 설정 (채팅방당 1개)
     """CREATE TABLE IF NOT EXISTS camps (
@@ -1256,6 +1302,18 @@ async def create_tables():
 
     # Newbie spawn migrations
     for mig in NEWBIE_SPAWN_MIGRATIONS:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # ── Dungeon system tables (2026-03-18) ──
+    for sql in DUNGEON_TABLES:
+        try:
+            await pool.execute(sql, timeout=30)
+        except Exception:
+            pass
+    for mig in DUNGEON_MIGRATIONS:
         try:
             await pool.execute(mig, timeout=30)
         except Exception:

@@ -51,6 +51,7 @@ from handlers.group_trade import group_trade_handler, group_trade_callback_handl
 from handlers.dm_mission import mission_handler
 from handlers.dm_release import release_handler, release_callback
 from handlers.dm_fusion import fusion_handler, fusion_callback
+from handlers.dm_dungeon import dungeon_handler, dungeon_callback
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
@@ -312,6 +313,7 @@ async def _check_missed_reset():
         return
 
     logger.info(f"Missed daily reset detected (last={marker}, today={today}). Running now...")
+    from database import dungeon_queries as dq
     await asyncio.gather(
         queries.reset_daily_nurture(),
         queries.reset_catch_limits(),
@@ -323,6 +325,7 @@ async def _check_missed_reset():
         queries.reset_daily_cxp(),
         _grant_title_buffs(),
         _grant_subscription_daily_no_dm(),
+        dq.grant_daily_tickets_by_tier(),
     )
     await pool.execute(
         """INSERT INTO bot_settings (key, value) VALUES ('last_daily_reset', $1)
@@ -1644,6 +1647,7 @@ async def midnight_reset(context):
     logger.info("Running scheduled reset...")
 
     # 모든 리셋 작업 병렬 실행
+    from database import dungeon_queries as dq
     await asyncio.gather(
         queries.reset_daily_nurture(),
         queries.reset_catch_limits(),
@@ -1655,6 +1659,7 @@ async def midnight_reset(context):
         queries.reset_daily_cxp(),
         _grant_title_buffs(),
         _grant_subscription_daily(context.bot),
+        dq.grant_daily_tickets_by_tier(),
     )
 
     # Record reset timestamp
@@ -1999,6 +2004,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?거래소$"), market_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^방생$"), release_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^합성$"), fusion_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏰\s*)?던전$"), dungeon_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*|📌\s*)?미션$"), mission_handler))
 
     # Subscription / Premium system (DM + Group)
@@ -2150,6 +2156,9 @@ def main():
 
     # Fusion (합성) callback
     app.add_handler(CallbackQueryHandler(fusion_callback, pattern=r"^fus_"))
+
+    # Dungeon (던전) callback
+    app.add_handler(CallbackQueryHandler(dungeon_callback, pattern=r"^dg_"))
 
     # Title selection callback
     app.add_handler(CallbackQueryHandler(title_callback, pattern=r"^title_"))

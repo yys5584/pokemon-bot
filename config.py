@@ -1239,6 +1239,81 @@ ICON_CUSTOM_EMOJI = {
     "psyduck": "6143060400272317013",
 }
 
+# ============================================================
+# Dungeon System (로그라이크 던전)
+# ============================================================
+
+# --- 입장권 ---
+DUNGEON_DAILY_TICKETS = {"free": 1, "basic": 2, "channel_owner": 3}
+DUNGEON_TICKET_BP_COST = {"free": 50, "basic": 40, "channel_owner": 30}
+DUNGEON_DAILY_BUY_LIMIT = {"free": 3, "basic": 5, "channel_owner": 7}
+
+# --- 버프 주기 (코스트별) ---
+DUNGEON_BUFF_FREQUENCY = {1: 1, 2: 1, 4: 2, 5: 3, 6: 4}
+
+# --- 배틀 ---
+DUNGEON_MAX_ROUNDS = 50
+DUNGEON_CRIT_RATE = 0.10
+DUNGEON_CRIT_MULT = 1.5
+DUNGEON_SKILL_RATE = 0.30
+DUNGEON_IMMUNITY_MULT = 0.3      # 면역 0x → 0.3x (던전 전용)
+DUNGEON_SKIP_HEAL = 0.05         # 버프 스킵 시 HP 5% 회복
+DUNGEON_MAX_SKIPS = 2            # 런당 스킵 횟수
+DUNGEON_BP_PER_FLOOR = 10        # 층당 기본 BP
+
+# --- 스킬 배율 (희귀도별, 던전 간소화) ---
+DUNGEON_SKILL_MULT = {
+    "common": 1.2, "rare": 1.3, "epic": 1.4,
+    "legendary": 1.8, "ultra_legendary": 2.0,
+}
+
+# --- 테마 (요일별 로테이션, 월=0) ---
+DUNGEON_THEMES = [
+    {"name": "고대 숲", "emoji": "🌿", "types": ["grass", "poison", "bug"],
+     "advantage": ["fire", "flying", "ice"], "bonus": "fire"},
+    {"name": "화산", "emoji": "🔥", "types": ["fire", "dragon", "fighting"],
+     "advantage": ["water", "ground", "rock"], "bonus": "water"},
+    {"name": "심해", "emoji": "🌊", "types": ["water", "ice", "flying"],
+     "advantage": ["electric", "grass"], "bonus": "electric"},
+    {"name": "발전소", "emoji": "⚡", "types": ["electric", "steel", "normal"],
+     "advantage": ["ground", "fighting", "fire"], "bonus": "ground"},
+    {"name": "동굴", "emoji": "🪨", "types": ["ground", "rock", "ghost"],
+     "advantage": ["water", "grass", "ice"], "bonus": "ice"},
+    {"name": "신전", "emoji": "🔮", "types": ["psychic", "dark", "fairy"],
+     "advantage": ["dark", "steel", "poison"], "bonus": "dark"},
+    {"name": "용의 둥지", "emoji": "🐉", "types": ["dragon"],
+     "advantage": ["fairy", "ice"], "bonus": "fairy"},
+]
+
+# --- 버프 등급 확률 (층 구간별) ---
+DUNGEON_BUFF_GRADE_PROB = {
+    5:   {"normal": 70, "advanced": 25, "rare": 5, "legendary": 0},
+    10:  {"normal": 50, "advanced": 35, "rare": 13, "legendary": 2},
+    20:  {"normal": 35, "advanced": 35, "rare": 25, "legendary": 5},
+    30:  {"normal": 20, "advanced": 35, "rare": 35, "legendary": 10},
+    999: {"normal": 10, "advanced": 30, "rare": 40, "legendary": 20},
+}
+
+# --- 마일스톤 보상 ---
+DUNGEON_MILESTONE_REWARDS = {
+    5:  {"bp": 50,  "fragments": 1},
+    10: {"bp": 100, "fragments": 2, "tickets": 1},
+    15: {"bp": 150, "fragments": 2},
+    20: {"bp": 200, "fragments": 3},
+    25: {"bp": 250},
+    30: {"bp": 300},
+}
+
+# --- 마일스톤 칭호 ---
+DUNGEON_MILESTONE_TITLES = {
+    5:  ("던전 입문자", "🏰"),
+    10: ("던전 탐험가", "⚔️"),
+    20: ("던전 정복자", "🗡"),
+    30: ("던전 마스터", "🔥"),
+    40: ("던전 레전드", "💎"),
+    50: ("던전 챔피언", "👑"),
+}
+
 # ─── Camp System v2 (포켓몬 캠프) ────────────────────────
 # 최소 참여 조건
 CAMP_MIN_MEMBERS = 100
