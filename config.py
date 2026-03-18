@@ -1245,7 +1245,7 @@ ICON_CUSTOM_EMOJI = {
 
 # --- 입장권 ---
 DUNGEON_DAILY_TICKETS = {"free": 1, "basic": 2, "channel_owner": 3}
-DUNGEON_TICKET_BP_COST = {"free": 50, "basic": 40, "channel_owner": 30}
+DUNGEON_TICKET_BP_COST = {"free": 300, "basic": 250, "channel_owner": 200}
 DUNGEON_DAILY_BUY_LIMIT = {"free": 3, "basic": 5, "channel_owner": 7}
 
 # --- 버프 주기 (코스트별) ---
