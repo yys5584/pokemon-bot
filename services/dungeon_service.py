@@ -264,10 +264,19 @@ def generate_buff_choices(
         if bdef and b.get("lv", 1) < bdef["max_lv"]:
             upgradable.append(b["id"])
 
-    # 아직 없는 버프들 (슬롯 상한 체크)
+    # 아직 없는 버프들 (슬롯 상한 + 생존 배타 체크)
     owned_ids = {b["id"] for b in current_buffs}
     at_cap = len(current_buffs) >= config.DUNGEON_MAX_BUFFS
-    new_available = [] if at_cap else [bid for bid in BUFF_DEFS if bid not in owned_ids]
+
+    # 생존 계열 배타: 1개 선택하면 나머지 2개 차단
+    _SURVIVAL_EXCLUSIVE = {"lifesteal", "heal", "shield"}
+    owned_survival = owned_ids & _SURVIVAL_EXCLUSIVE
+    blocked_ids = (_SURVIVAL_EXCLUSIVE - owned_survival) if owned_survival else set()
+
+    new_available = [] if at_cap else [
+        bid for bid in BUFF_DEFS
+        if bid not in owned_ids and bid not in blocked_ids
+    ]
 
     # 선택지 구성: 레벨업 1~2개 + 새 버프 1~2개 (가능한 만큼)
     random.shuffle(upgradable)
