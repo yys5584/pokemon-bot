@@ -11,6 +11,7 @@ from database import queries
 from database import dungeon_queries as dq
 from services import dungeon_service as ds
 from utils.battle_calc import calc_battle_stats, calc_power, get_normalized_base_stats, EVO_STAGE_MAP, iv_total
+from utils.helpers import icon_emoji, shiny_emoji, rarity_badge
 
 logger = logging.getLogger(__name__)
 
@@ -122,13 +123,19 @@ async def _build_entry_screen(user_id: int) -> tuple[str, InlineKeyboardMarkup]:
     adv_types = " / ".join(config.TYPE_EMOJI.get(t, "") + config.TYPE_NAME_KO.get(t, t) for t in theme["advantage"])
     theme_types = " / ".join(config.TYPE_EMOJI.get(t, "") + config.TYPE_NAME_KO.get(t, t) for t in theme["types"])
 
+    CASTLE = icon_emoji("container")
+    TICKET = icon_emoji("stationery")
+    CROWN = icon_emoji("crown")
+    FOOT = icon_emoji("footsteps")
+    BOLT = icon_emoji("bolt")
+
     text = (
-        f"🏰 <b>포켓몬 던전</b>\n\n"
-        f"🎫 입장권: <b>{tickets}장</b>\n"
-        f"🏆 내 최고: <b>{best}층</b>\n\n"
-        f"📍 오늘의 던전: {theme['emoji']} <b>{theme['name']}</b>\n"
+        f"{CASTLE} <b>포켓몬 던전</b>\n\n"
+        f"{TICKET} 입장권: <b>{tickets}장</b>\n"
+        f"{CROWN} 내 최고: <b>{best}층</b>\n\n"
+        f"{FOOT} 오늘의 던전: {theme['emoji']} <b>{theme['name']}</b>\n"
         f"   {theme_types} 타입 적 출현!\n"
-        f"   ⭐ 유리: {adv_types}\n"
+        f"   {BOLT} 유리: {adv_types}\n"
     )
 
     buttons = []
@@ -159,15 +166,20 @@ async def _build_resume_screen(user_id: int, run: dict) -> tuple[str, InlineKeyb
     theme_info = ds.get_today_theme()
     hp_bar = _hp_bar(run["current_hp"], run["max_hp"])
     hp_pct = int(run["current_hp"] / run["max_hp"] * 100) if run["max_hp"] else 0
-    shiny = "✨" if run["is_shiny"] else ""
+    shiny = shiny_emoji() + " " if run["is_shiny"] else ""
     buffs = run.get("buffs_json", [])
+    CASTLE = icon_emoji("container")
+    FOOT = icon_emoji("footsteps")
+    HEART = icon_emoji("pokecenter")
+    SKILL = icon_emoji("skill")
+    rb = rarity_badge(run.get("rarity", "common"))
 
     text = (
-        f"🏰 <b>진행 중인 던전</b>\n\n"
-        f"📍 {run['floor_reached']}층 | {theme_info['emoji']} {run['theme']}\n"
-        f"🐉 {shiny}{run['pokemon_name']} [{run['iv_grade']}]\n"
-        f"❤️ {hp_bar} {hp_pct}%\n"
-        f"🗡 버프 {len(buffs)}개\n"
+        f"{CASTLE} <b>진행 중인 던전</b>\n\n"
+        f"{FOOT} {run['floor_reached']}층 | {theme_info['emoji']} {run['theme']}\n"
+        f"{rb} {shiny}{run['pokemon_name']} [{run['iv_grade']}]\n"
+        f"{HEART} {hp_bar} {hp_pct}%\n"
+        f"{SKILL} 버프 {len(buffs)}개\n"
     )
     buttons = [
         [InlineKeyboardButton("⚔️ 다음 층으로!", callback_data=f"dg_go_{user_id}")],
@@ -252,7 +264,7 @@ async def _build_pokemon_list(user_id: int, filter_key: str, page: int, theme: d
     buttons.append([InlineKeyboardButton("🔙 돌아가기", callback_data=f"dg_back_{user_id}")])
 
     theme_name = f"{theme['emoji']} {theme['name']}"
-    text = f"🏰 던전 — {theme_name}\n포켓몬을 선택하세요 ({total}마리)"
+    text = f"{icon_emoji('container')} 던전 — {theme_name}\n포켓몬을 선택하세요 ({total}마리)"
 
     return text, InlineKeyboardMarkup(buttons)
 
@@ -436,9 +448,12 @@ async def _process_floor(query, context, user_id: int, run: dict):
         hp_bar = _hp_bar(remaining_hp, run["max_hp"])
         hp_pct = int(remaining_hp / run["max_hp"] * 100) if run["max_hp"] else 0
 
+        CHECK = icon_emoji("check")
+        HEART = icon_emoji("pokecenter")
+        SKILL = icon_emoji("skill")
         text = (
-            f"✅ <b>{floor}층 승리!</b> ❤️ {hp_bar} {hp_pct}%\n"
-            f"🗡 버프 {len(buffs)}개"
+            f"{CHECK} <b>{floor}층 승리!</b> {HEART} {hp_bar} {hp_pct}%\n"
+            f"{SKILL} 버프 {len(buffs)}개"
         )
 
         # 버프 제공 여부 확인
@@ -449,7 +464,7 @@ async def _process_floor(query, context, user_id: int, run: dict):
             choices = ds.generate_buff_choices(floor, buffs)
             st["buff_choices"] = choices
 
-            text += "\n\n🎁 <b>버프를 선택하세요:</b>"
+            text += f"\n\n{icon_emoji('gotcha')} <b>버프를 선택하세요:</b>"
             buttons = []
             for i, buff in enumerate(choices):
                 emoji = ds.GRADE_EMOJI.get(buff["grade"], "⬜")
@@ -510,22 +525,32 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
     buffs = run.get("buffs_json", [])
     record_text = " 🎉 최고 갱신!" if is_new_record else ""
 
+    SKULL = icon_emoji("skull")
+    CASTLE = icon_emoji("container")
+    FOOT = icon_emoji("footsteps")
+    SKILL = icon_emoji("skill")
+    COIN = icon_emoji("coin")
+    CROWN = icon_emoji("crown")
+    TICKET = icon_emoji("stationery")
+    rb = rarity_badge(run.get("rarity", "common"))
+    shiny = shiny_emoji() + " " if run["is_shiny"] else ""
+
     text = (
-        f"💀 <b>{final_floor}층에서 패배...</b>\n\n"
-        f"🏰 <b>던전 결과</b>\n"
+        f"{SKULL} <b>{final_floor}층에서 패배...</b>\n\n"
+        f"{CASTLE} <b>던전 결과</b>\n"
         f"━━━━━━━━━━━━━━\n"
-        f"📍 도달: <b>{final_floor}층</b>{record_text}\n"
-        f"🐉 {shiny}{run['pokemon_name']} [{run['iv_grade']}]\n"
-        f"🗡 버프 {len(buffs)}개\n\n"
-        f"💰 <b>보상:</b>\n"
+        f"{FOOT} 도달: <b>{final_floor}층</b>{record_text}\n"
+        f"{rb} {shiny}{run['pokemon_name']} [{run['iv_grade']}]\n"
+        f"{SKILL} 버프 {len(buffs)}개\n\n"
+        f"{COIN} <b>보상:</b>\n"
         f"  BP +{rewards['bp']}\n"
     )
     if rewards["fragments"] > 0:
         text += f"  🧩 조각 ×{rewards['fragments']}\n"
     if rewards.get("tickets", 0) > 0:
-        text += f"  🎫 입장권 ×{rewards['tickets']}\n"
+        text += f"  {TICKET} 입장권 ×{rewards['tickets']}\n"
     for t_info in unlocked_titles:
-        text += f"  🏆 칭호 해금: \"{t_info['title']}\"\n"
+        text += f"  {CROWN} 칭호 해금: \"{t_info['title']}\"\n"
 
     # 랭킹 표시
     rank = await dq.get_user_rank(user_id)
