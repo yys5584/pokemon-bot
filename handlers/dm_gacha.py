@@ -388,11 +388,25 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
     # IV 스톤 콜백들
     if data == "ivstone_start":
-        await _ivstone_show_pokemon(query, user_id, 0)
+        await _ivstone_show_pokemon(query, user_id, 0, "all")
+        return
+    elif data.startswith("ivstone_ft_"):
+        # ivstone_ft_{rarity}_{page}
+        parts = data.split("_")
+        rarity_filter = parts[2]
+        page = int(parts[3]) if len(parts) > 3 else 0
+        await _ivstone_show_pokemon(query, user_id, page, rarity_filter)
         return
     elif data.startswith("ivstone_pg_"):
-        page = int(data.split("_")[2])
-        await _ivstone_show_pokemon(query, user_id, page)
+        # ivstone_pg_{rarity}_{page}
+        parts = data.split("_")
+        if len(parts) >= 4:
+            rarity_filter = parts[2]
+            page = int(parts[3])
+        else:
+            rarity_filter = "all"
+            page = int(parts[2])
+        await _ivstone_show_pokemon(query, user_id, page, rarity_filter)
         return
     elif data.startswith("ivstone_pk_"):
         instance_id = int(data.split("_")[2])
@@ -797,8 +811,8 @@ async def _execute_iv_reroll_one(query, user_id: int, instance_id: int, stat_key
 _IVSTONE_PAGE_SIZE = 8
 
 
-async def _ivstone_show_pokemon(query, user_id: int, page: int):
-    """IV 스톤 사용 — 포켓몬 선택."""
+async def _ivstone_show_pokemon(query, user_id: int, page: int, rarity_filter: str = "all"):
+    """IV 스톤 사용 — 포켓몬 선택 (등급 필터 + 페이지네이션)."""
     stones = await queries.get_iv_stones(user_id)
     if stones <= 0:
         await query.edit_message_text("❌ IV스톤이 없습니다.")
@@ -816,19 +830,38 @@ async def _ivstone_show_pokemon(query, user_id: int, page: int):
         await query.edit_message_text("❌ IV를 강화할 수 있는 포켓몬이 없습니다. (모두 최대)")
         return
 
+    # 등급 필터 적용
+    actual_rarity = _RARITY_KEY_MAP.get(rarity_filter)
+    if actual_rarity:
+        eligible = [p for p in eligible if p.get("rarity") == actual_rarity]
+
+    # 등급 필터 버튼 (항상 표시)
+    filter_row = []
+    for fkey, flabel in _RARITY_FILTERS:
+        mark = "▸" if fkey == rarity_filter else ""
+        filter_row.append(InlineKeyboardButton(f"{mark}{flabel}", callback_data=f"ivstone_ft_{fkey}_0"))
+    buttons = [filter_row[:3], filter_row[3:]]
+
     total = len(eligible)
+    if total == 0:
+        lines = [f"💠 <b>IV스톤 사용</b> (보유: {stones}개)", "", "해당 등급의 포켓몬이 없습니다.", ""]
+        buttons.append([InlineKeyboardButton("❌ 닫기", callback_data="item_close")])
+        await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+        return
+
     total_pages = (total + _IVSTONE_PAGE_SIZE - 1) // _IVSTONE_PAGE_SIZE
     page = max(0, min(page, total_pages - 1))
     start = page * _IVSTONE_PAGE_SIZE
-    page_items = eligible[start:start + _IVSTONE_PAGE_SIZE]
+    end = min(start + _IVSTONE_PAGE_SIZE, total)
+    page_items = eligible[start:end]
 
+    filter_label = dict(_RARITY_FILTERS).get(rarity_filter, "전체")
     lines = [
         f"💠 <b>IV스톤 사용</b> (보유: {stones}개)",
         f"IV를 강화할 포켓몬을 선택하세요.",
         f"",
     ]
 
-    buttons = []
     for p in page_items:
         iv_sum = sum(p.get(k) or 0 for k in config.IV_STAT_KEYS)
         grade = _iv_grade_letter(iv_sum)
@@ -842,13 +875,13 @@ async def _ivstone_show_pokemon(query, user_id: int, page: int):
     # 페이지네이션
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("◀️ 이전", callback_data=f"ivstone_pg_{page - 1}"))
-    nav.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="noop"))
-    if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("▶️ 다음", callback_data=f"ivstone_pg_{page + 1}"))
+        nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"ivstone_pg_{rarity_filter}_{page - 1}"))
+    if end < total:
+        nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"ivstone_pg_{rarity_filter}_{page + 1}"))
     if nav:
         buttons.append(nav)
 
+    lines.append(f"({start+1}~{end} / {total}마리) [{filter_label}]")
     buttons.append([InlineKeyboardButton("❌ 닫기", callback_data="item_close")])
     await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 
