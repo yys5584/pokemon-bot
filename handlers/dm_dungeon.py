@@ -386,7 +386,9 @@ async def _process_floor(query, context, user_id: int, run: dict):
         # 적 정보
         enemy_rb = rarity_badge(enemy["rarity"])
         enemy_types = " ".join(config.TYPE_EMOJI.get(t, "") for t in enemy.get("types", []))
-        enemy_label = f"{enemy_rb}{enemy['name_ko']} {enemy_types}"
+        scaling = enemy.get("scaling", 1.0)
+        scale_text = f" (×{scaling:.1f})" if scaling > 1.0 else ""
+        enemy_label = f"{enemy_rb}{enemy['name_ko']} {enemy_types}{scale_text}"
         if enemy["is_boss"]:
             enemy_label = f"★ {enemy_label} (관장)"
         elif enemy["is_elite"]:
