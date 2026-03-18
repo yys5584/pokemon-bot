@@ -3143,19 +3143,26 @@ async def api_admin_db_dungeon(request):
         "GROUP BY death_enemy, death_enemy_rarity ORDER BY cnt DESC LIMIT 10"
     )
 
-    # 최근 런 20개
+    # 런 로그 (페이지네이션)
+    page = max(1, int(request.query.get("page", "1")))
+    per_page = 30
+    total_runs_count = stats["total_runs"]
+
     recent_runs = await pool.fetch(
         "SELECT dr.pokemon_name as pokemon, dr.rarity, dr.is_shiny as shiny, "
         "dr.floor_reached as floor, dr.bp_earned as bp, dr.ended_at, "
         "COALESCE(u.display_name, u.user_id::text) as name "
         "FROM dungeon_runs dr LEFT JOIN users u ON dr.user_id = u.user_id "
-        "WHERE dr.status = 'completed' ORDER BY dr.ended_at DESC LIMIT 20"
+        "WHERE dr.status = 'completed' ORDER BY dr.ended_at DESC "
+        f"LIMIT {per_page} OFFSET {(page - 1) * per_page}"
     )
+
+    total_pages = max(1, (total_runs_count + per_page - 1) // per_page)
 
     return web.json_response({
         "ok": True,
         "stats": {
-            "total_runs": stats["total_runs"],
+            "total_runs": total_runs_count,
             "avg_floor": float(stats["avg_floor"]),
             "max_floor": stats["max_floor"],
             "today_runs": stats["today_runs"],
@@ -3164,6 +3171,8 @@ async def api_admin_db_dungeon(request):
         "rarity_stats": [{"rarity": r["rarity"], "cnt": r["cnt"], "avg": float(r["avg"]), "max_f": r["max_f"]} for r in rarity_stats],
         "death_top": [{"name": r["name"], "rarity": r["rarity"], "cnt": r["cnt"]} for r in death_top],
         "recent_runs": [{"pokemon": r["pokemon"], "rarity": r["rarity"], "shiny": r["shiny"], "floor": r["floor"], "bp": r["bp"], "ended_at": r["ended_at"].isoformat() if r["ended_at"] else None, "name": r["name"]} for r in recent_runs],
+        "page": page,
+        "pages": total_pages,
     })
 
 

@@ -6079,11 +6079,14 @@ async function admDbEconomy(){
     </div>`;
 }
 
-async function admDbDungeon(){
+if(!_admDbState.dungeon)_admDbState.dungeon={page:1};
+async function admDbDungeon(page){
+    const ds=_admDbState.dungeon;
+    if(page)ds.page=page;
     const c=document.getElementById("admDbContent");
     c.innerHTML='<div class="loading">로딩 중...</div>';
     try{
-        const d=await fetchJSON("/api/admin/db/dungeon");
+        const d=await fetchJSON(`/api/admin/db/dungeon?page=${ds.page}`);
         if(!d||!d.ok){c.innerHTML='<div class="loading">오류</div>';return}
         const s=d.stats;
         let h=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
@@ -6142,15 +6145,26 @@ async function admDbDungeon(){
         }
         h+=`</table></div>`;
 
-        // 최근 런
+        // 런 로그
         h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
-            <div style="font-weight:700;margin-bottom:8px">🕐 최근 런</div>
+            <div style="font-weight:700;margin-bottom:8px">🕐 런 로그 (${s.total_runs}건, ${ds.page}/${d.pages}페이지)</div>
             <table style="width:100%;border-collapse:collapse;font-size:11px">
             <tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 0">유저</th><th>포켓몬</th><th style="text-align:center">층</th><th style="text-align:center">BP</th><th style="text-align:right">시간</th></tr>`;
         for(const run of (d.recent_runs||[])){
             h+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(run.name)}</td><td>${rarBadge(run.rarity,run.pokemon)}${run.shiny?"✨":""}</td><td style="text-align:center;font-weight:700">${run.floor}F</td><td style="text-align:center">${run.bp}</td><td style="text-align:right">${admTime(run.ended_at)}</td></tr>`;
         }
-        h+=`</table></div>`;
+        h+=`</table>`;
+        if(d.pages>1){
+            h+='<div style="display:flex;justify-content:center;gap:4px;margin-top:8px">';
+            if(ds.page>1)h+=`<button onclick="admDbDungeon(${ds.page-1})" style="padding:3px 8px;border:1px solid var(--border);border-radius:4px;font-size:11px;cursor:pointer;background:var(--card);color:var(--text)">◀</button>`;
+            const start=Math.max(1,ds.page-5),end=Math.min(d.pages,ds.page+5);
+            for(let i=start;i<=end;i++){
+                h+=`<button onclick="admDbDungeon(${i})" style="padding:3px 8px;border:1px solid ${i===ds.page?"var(--red)":"var(--border)"};border-radius:4px;font-size:11px;cursor:pointer;background:${i===ds.page?"var(--red)":"var(--card)"};color:${i===ds.page?"#fff":"var(--text)"}">${i}</button>`;
+            }
+            if(ds.page<d.pages)h+=`<button onclick="admDbDungeon(${ds.page+1})" style="padding:3px 8px;border:1px solid var(--border);border-radius:4px;font-size:11px;cursor:pointer;background:var(--card);color:var(--text)">▶</button>`;
+            h+='</div>';
+        }
+        h+=`</div>`;
         c.innerHTML=h;
     }catch(e){c.innerHTML='<div class="loading">오류: '+e.message+'</div>'}
 }
