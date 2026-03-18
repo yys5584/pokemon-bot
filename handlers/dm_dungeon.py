@@ -39,11 +39,17 @@ async def _send_fresh(query, context, user_id: int, text: str, reply_markup=None
             await context.bot.delete_message(chat_id=user_id, message_id=old_photo_id)
         except Exception:
             pass
-    # 이미지 전송
+    # 이미지/GIF 전송
     if photo:
-        photo_msg = await context.bot.send_photo(
-            chat_id=user_id, photo=photo, parse_mode="HTML"
-        )
+        name = getattr(photo, "name", "")
+        if name.endswith(".gif"):
+            photo_msg = await context.bot.send_animation(
+                chat_id=user_id, animation=photo,
+            )
+        else:
+            photo_msg = await context.bot.send_photo(
+                chat_id=user_id, photo=photo, parse_mode="HTML",
+            )
         st["photo_msg_id"] = photo_msg.message_id
     # 텍스트 메시지 전송
     msg = await context.bot.send_message(
@@ -324,32 +330,21 @@ async def _process_floor(query, context, user_id: int, run: dict):
     if result.get("revive_used"):
         buffs = [b for b in buffs if b.get("effect", {}).get("type") != "revive"]
 
-    # 배틀 카드 이미지 생성
+    # 배틀 GIF 생성
     import asyncio as _aio
-    from utils.card_generator import generate_dungeon_battle_card
+    from utils.card_generator import generate_dungeon_battle_gif
 
     floor_type = "★ 관장전" if enemy["is_boss"] else ("⚡ 엘리트" if enemy["is_elite"] else "")
-    enemy_hp_pct = 0.0 if won else 1.0  # 이기면 적 HP 0, 지면 적 생존
-
-    log_lines = []
-    if result["total_damage_dealt"] > 0:
-        log_lines.append(f"{run['pokemon_name']}의 공격! → {result['total_damage_dealt']} 데미지")
-    if result["total_damage_taken"] > 0:
-        log_lines.append(f"{enemy['name_ko']}의 반격! → {result['total_damage_taken']} 피해")
-    for line in result.get("log", []):
-        log_lines.append(line)
-    skill_text = "\n".join(log_lines[:3])
 
     loop = _aio.get_event_loop()
     battle_card = await loop.run_in_executor(
-        None, generate_dungeon_battle_card,
+        None, generate_dungeon_battle_gif,
         pokemon["pokemon_id"], run["pokemon_name"], pokemon["rarity"],
-        remaining_hp, run["max_hp"], bool(run["is_shiny"]),
+        run["current_hp"], run["max_hp"], bool(run["is_shiny"]),
         enemy["id"], enemy["name_ko"], enemy["rarity"],
-        enemy_hp_pct, floor, floor_type,
-        result["type_display"],
+        floor, floor_type, result["type_display"],
         result["total_damage_dealt"], result["total_damage_taken"],
-        won, skill_text,
+        won, remaining_hp,
     )
 
     if won:
