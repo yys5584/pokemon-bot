@@ -1275,6 +1275,211 @@ def generate_battle_card(
 
 
 # ============================================================
+# Skill GIF (960x540 고해상도 스킬 애니메이션)
+# ============================================================
+
+def _skill_base_frame(
+    atk_id: int, atk_name: str, def_id: int, def_name: str,
+    skill_type: str, atk_shiny: bool, def_shiny: bool,
+    fx_progress: float = 0.0,
+    impact: bool = False,
+    shake: tuple[int, int] = (0, 0),
+    def_alpha: float = 1.0,
+    flash_color: tuple | None = None,
+    flash_alpha: int = 0,
+    screen_flash: float = 0.0,
+) -> Image.Image:
+    """스킬 GIF 단일 프레임 (960x540)."""
+    from PIL import ImageFilter as IF
+
+    W, H = CARD_WIDTH, CARD_HEIGHT
+    colors = _BATTLE_TYPE_COLORS.get(skill_type, _BATTLE_TYPE_COLORS["normal"])
+    deep, mid, bright = colors
+
+    card = _make_gradient(W, H, (10, 12, 22), (4, 4, 10)).convert("RGBA")
+
+    ATK_CX, ATK_CY = 220, 255
+    DEF_CX, DEF_CY = 720, 265
+
+    # 공격자 글로우 (빌드업에 따라 강도 변화)
+    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    glow_intensity = min(1.0, fx_progress * 2)
+    for i in range(30, 0, -1):
+        a = int(25 * (i / 30) * glow_intensity)
+        r = int(180 * (i / 30))
+        gd.ellipse([ATK_CX - r, ATK_CY - r, ATK_CX + r, ATK_CY + r], fill=(*deep, a))
+
+    # 피격자 임팩트 글로우
+    if impact:
+        for i in range(30, 0, -1):
+            a = int(20 * (i / 30))
+            r = int(160 * (i / 30))
+            gd.ellipse([DEF_CX - r, DEF_CY - r, DEF_CX + r, DEF_CY + r], fill=(180, 40, 40, a))
+    card = Image.alpha_composite(card, glow)
+
+    # 스킬 FX (progress에 따라 부분 렌더)
+    if fx_progress > 0:
+        fx = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        fx_draw = ImageDraw.Draw(fx)
+        # FX 경로를 progress만큼만 그리기
+        sx, sy = ATK_CX + 80, ATK_CY
+        ex, ey = DEF_CX - 40, DEF_CY
+        # progress에 따라 도착점 이동
+        px = sx + (ex - sx) * min(1.0, fx_progress)
+        py = sy + (ey - sy) * min(1.0, fx_progress)
+        fx_func = _BATTLE_FX.get(skill_type, _battle_fx_generic)
+        fx_func(fx_draw, sx, sy, int(px), int(py), colors)
+        if impact:
+            _battle_impact(fx_draw, DEF_CX, DEF_CY, colors)
+        fx_glow = fx.filter(IF.GaussianBlur(radius=4))
+        card = Image.alpha_composite(card, fx_glow)
+        card = Image.alpha_composite(card, fx)
+
+    # 이로치 이펙트
+    if atk_shiny:
+        card = _draw_shiny_effect(card, ATK_CX, ATK_CY, 180)
+    if def_shiny:
+        card = _draw_shiny_effect(card, DEF_CX, DEF_CY, 150)
+
+    # 공격자 스프라이트
+    atk_sprite = _load_sprite(atk_id)
+    if atk_sprite:
+        ax = ATK_CX - atk_sprite.width // 2 + 15
+        ay = ATK_CY - atk_sprite.height // 2 - 15
+        card.paste(atk_sprite, (ax, ay), atk_sprite)
+
+    # 피격자 스프라이트 (흔들림 + 알파)
+    def_sprite = _load_sprite(def_id)
+    if def_sprite:
+        ratio = min(230 / def_sprite.width, 230 / def_sprite.height)
+        ds = def_sprite.resize(
+            (int(def_sprite.width * ratio), int(def_sprite.height * ratio)),
+            Image.LANCZOS,
+        )
+        if def_alpha < 1.0:
+            r2, g2, b2, a2 = ds.split()
+            a2 = a2.point(lambda x: int(x * def_alpha))
+            ds = Image.merge("RGBA", (r2, g2, b2, a2))
+            if impact:
+                tint = Image.new("RGBA", ds.size, (255, 30, 30, int(40 * (1 - def_alpha))))
+                ds = Image.alpha_composite(ds, tint)
+        dx = DEF_CX - ds.width // 2 + shake[0]
+        dy = DEF_CY - ds.height // 2 - 5 + shake[1]
+        card.paste(ds, (dx, dy), ds)
+
+    # 전체 플래시 (스킬 발동 순간)
+    if flash_color and flash_alpha > 0:
+        overlay = Image.new("RGBA", (W, H), (*flash_color, flash_alpha))
+        card = Image.alpha_composite(card, overlay)
+
+    # 화면 플래시 (흰색, 임팩트 순간)
+    if screen_flash > 0:
+        overlay = Image.new("RGBA", (W, H), (255, 255, 255, int(180 * screen_flash)))
+        card = Image.alpha_composite(card, overlay)
+
+    return card
+
+
+def make_skill_gif(
+    atk_id: int, atk_name: str, def_id: int, def_name: str,
+    skill_name: str, skill_type: str, damage: int,
+    atk_shiny: bool = False, def_shiny: bool = False,
+    is_crit: bool = False,
+) -> tuple[io.BytesIO, int]:
+    """스킬 발동 GIF (960x540). Returns (gif_buffer, total_duration_ms)."""
+    colors = _BATTLE_TYPE_COLORS.get(skill_type, _BATTLE_TYPE_COLORS["normal"])
+    deep, mid, bright = colors
+
+    frames = []
+    durs = []
+
+    def add_frame(dur, **kw):
+        f = _skill_base_frame(atk_id, atk_name, def_id, def_name,
+                              skill_type, atk_shiny, def_shiny, **kw)
+        # 텍스트 오버레이
+        draw = ImageDraw.Draw(f)
+        return f, dur
+
+    # Phase 1: 스킬명 플래시 (타입 컬러 배너)
+    f1 = _skill_base_frame(atk_id, atk_name, def_id, def_name,
+                           skill_type, atk_shiny, def_shiny,
+                           flash_color=deep, flash_alpha=60)
+    draw = ImageDraw.Draw(f1)
+    font_big = _get_font(36, "bold")
+    font_name = _get_font(22, "bold")
+    banner = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(banner)
+    bd.rectangle([0, 0, CARD_WIDTH, 56], fill=(*deep, 160))
+    draw = ImageDraw.Draw(f1)
+    skill_text = f"{atk_name}의 {skill_name}!"
+    bbox = draw.textbbox((0, 0), skill_text, font=font_big)
+    tw = bbox[2] - bbox[0]
+    draw.text(((CARD_WIDTH - tw) // 2 + 2, 10), skill_text, fill=(0, 0, 0, 100), font=font_big)
+    draw.text(((CARD_WIDTH - tw) // 2, 8), skill_text, fill=(255, 255, 255), font=font_big)
+    frames.append(f1.convert("RGB"))
+    durs.append(600)
+
+    # Phase 2: 글로우 빌드업 (2 프레임)
+    for prog in [0.15, 0.3]:
+        f, _ = add_frame(200, fx_progress=prog,
+                         flash_color=deep, flash_alpha=int(30 * prog))
+        frames.append(f.convert("RGB"))
+        durs.append(200)
+
+    # Phase 3: FX 발사 (3 프레임, progress 진행)
+    for prog in [0.5, 0.75, 1.0]:
+        f, _ = add_frame(180, fx_progress=prog)
+        frames.append(f.convert("RGB"))
+        durs.append(180)
+
+    # Phase 4: 임팩트 — 화면 플래시
+    f, _ = add_frame(120, fx_progress=1.0, impact=True, screen_flash=1.0)
+    frames.append(f.convert("RGB"))
+    durs.append(120)
+
+    # Phase 5: 타격 흔들림 (4 프레임)
+    shakes = [(18, -8), (-14, 10), (10, -6), (-6, 4)]
+    for sx, sy in shakes:
+        f, _ = add_frame(100, fx_progress=1.0, impact=True,
+                         shake=(sx, sy), def_alpha=0.75,
+                         screen_flash=0.3 if sx > 10 else 0)
+        frames.append(f.convert("RGB"))
+        durs.append(100)
+
+    # Phase 6: 데미지 표시 (피격자 약간 투명 + 데미지 숫자)
+    f = _skill_base_frame(atk_id, atk_name, def_id, def_name,
+                          skill_type, atk_shiny, def_shiny,
+                          fx_progress=0, def_alpha=0.65)
+    draw = ImageDraw.Draw(f)
+    font_dmg = _get_font(54, "bold")
+    font_crit = _get_font(28, "bold")
+    DEF_CX = 720
+    dmg_text = f"-{damage}"
+    bbox = draw.textbbox((0, 0), dmg_text, font=font_dmg)
+    dw = bbox[2] - bbox[0]
+    draw.text((DEF_CX - dw // 2 + 3, 401), dmg_text, fill=(0, 0, 0, 150), font=font_dmg)
+    draw.text((DEF_CX - dw // 2, 398), dmg_text, fill=(255, 65, 65), font=font_dmg)
+    if is_crit:
+        crit_text = "크리티컬!"
+        bbox2 = draw.textbbox((0, 0), crit_text, font=font_crit)
+        cw = bbox2[2] - bbox2[0]
+        draw.text((DEF_CX - cw // 2 + 2, 462), crit_text, fill=(0, 0, 0, 120), font=font_crit)
+        draw.text((DEF_CX - cw // 2, 460), crit_text, fill=(255, 220, 50), font=font_crit)
+    frames.append(f.convert("RGB"))
+    durs.append(1000)
+
+    # Phase 7: 정리 (원래 상태로 페이드백)
+    f = _skill_base_frame(atk_id, atk_name, def_id, def_name,
+                          skill_type, atk_shiny, def_shiny,
+                          fx_progress=0, def_alpha=0.8)
+    frames.append(f.convert("RGB"))
+    durs.append(400)
+
+    return _assemble_gif(frames, durs), sum(durs)
+
+
+# ============================================================
 # Dungeon Battle Card (게임보이 스타일)
 # ============================================================
 

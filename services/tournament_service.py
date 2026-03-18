@@ -943,58 +943,59 @@ def _generate_bracket(players: list) -> list:
 def _make_round_comment(rd: dict, r_idx: int, total_rounds: int,
                         p1_score: int, p2_score: int,
                         p1_name: str, p2_name: str) -> str:
-    """배틀 상황 기반 멘트 생성. 건조한 반말, 2~30대 한국 커뮤니티 톤."""
+    """배틀 상황 기반 멘트. 트레이너 본인이 한마디 하는 느낌.
+
+    Returns: "이름: 멘트" 형식 문자열.
+    """
     import random as _rnd
 
     winner_poke = rd["p1_poke"] if rd["winner"] == "p1" else rd["p2_poke"]
     loser_poke = rd["p2_poke"] if rd["winner"] == "p1" else rd["p1_poke"]
     winner_name = p1_name if rd["winner"] == "p1" else p2_name
+    loser_name = p2_name if rd["winner"] == "p1" else p1_name
     type_adv = rd.get("type_advantage", 1.0)
     crit = rd.get("crit", False)
     dmg_dealt = rd.get("damage_dealt", 0)
     dmg_taken = rd.get("damage_taken", 0)
     turn_count = rd.get("turn_count", 3)
 
-    pool = []
+    # (speaker: "winner"/"loser", 멘트)
+    pool: list[tuple[str, str]] = []
 
-    # 상성 기반
+    # 상성
     if type_adv >= 2.0:
         pool += [
-            f"상성인데 {loser_poke}를 왜 데려온거야",
-            f"{loser_poke} 상성에 녹았다",
-            f"상성 차이 어쩔 수 없지",
-            f"{winner_poke} 상성으로 밀어버리네",
+            ("loser", f"{loser_poke} 상성이 안 좋았어"),
+            ("loser", f"상성 매치가 너무 안 좋다"),
+            ("winner", f"{winner_poke}으로 잡으려고 했어"),
         ]
     elif type_adv <= 0.5:
         pool += [
-            f"역상성인데 뚫었네 ㅋㅋ",
-            f"{winner_poke} 불리한 상성을 깡으로 이김",
-            f"상성 무시하고 이기는게 가능하구나",
-            f"{loser_poke} 상성 좋았는데 졌네",
+            ("winner", f"상성 안 좋은 거 알았는데 믿었어"),
+            ("winner", f"{winner_poke}가 해줄 줄 알았어"),
+            ("loser", f"상성 좋았는데 못 잡았네"),
         ]
 
-    # 급소 기반
+    # 크리티컬
     if crit:
         pool += [
-            f"급소 터지면 답이 없지",
-            f"급소 한방에 끝났다",
-            f"{loser_poke} 급소 맞고 바로 갔네",
-            f"운도 실력이긴 한데 급소는 좀",
+            ("winner", f"크리티컬 터져줬다"),
+            ("loser", f"크리티컬 안 터졌으면 잡았는데"),
+            ("winner", f"운이 좋았어"),
         ]
 
-    # 원턴킬 (턴 1)
+    # 원턴
     if turn_count <= 1:
         pool += [
-            f"{loser_poke} 숨도 못 쉬었다",
-            f"원턴킬 ㄷㄷ",
-            f"{winner_poke} 한방에 보내버림",
+            ("winner", f"{winner_poke} 화력 믿고 갔다"),
+            ("loser", f"한 턴도 못 버텼네"),
+            ("winner", f"바로 정리됐다"),
         ]
-    # 장기전 (턴 5+)
     elif turn_count >= 5:
         pool += [
-            f"둘 다 안 죽어서 답답했다",
-            f"끈질긴 승부였네",
-            f"탱커전이었나",
+            ("winner", f"오래 걸렸다"),
+            ("loser", f"버텼는데 결국 졌다"),
+            ("winner", f"끝까지 긴장했다"),
         ]
 
     # 데미지 차이
@@ -1002,52 +1003,56 @@ def _make_round_comment(rd: dict, r_idx: int, total_rounds: int,
         ratio = dmg_dealt / max(dmg_taken, 1)
         if ratio >= 3.0:
             pool += [
-                f"{winner_poke} 일방적이었다",
-                f"{loser_poke} 데미지를 못 넣었네",
+                ("winner", f"무난했다"),
+                ("loser", f"데미지를 못 넣었다"),
             ]
         elif ratio <= 0.5:
             pool += [
-                f"아슬아슬했다 진짜",
-                f"{winner_poke} 간신히 이김",
-                f"HP 1 남기고 이기는거 아니야",
+                ("winner", f"솔직히 위험했다"),
+                ("loser", f"거의 잡을 뻔했는데"),
+                ("winner", f"겨우 이겼다"),
             ]
 
-    # 스코어 기반
+    # 스코어
     if p1_score == 0 and p2_score == 0:
         pool += [
-            f"첫 라운드부터 빡세네",
-            f"선봉전 가보자",
+            ("winner", f"좋은 출발이다"),
+            ("loser", f"아직 시작이야"),
         ]
     elif abs(p1_score - p2_score) >= 3:
-        leading = p1_name if p1_score > p2_score else p2_name
-        pool += [
-            f"{leading} 압도적이네",
-            f"이거 역전 가능한건가",
-        ]
+        leading = "winner" if (
+            (p1_score > p2_score and rd["winner"] == "p1") or
+            (p2_score > p1_score and rd["winner"] == "p2")
+        ) else "loser"
+        if leading == "winner":
+            pool += [("winner", "이대로 가면 된다")]
+        else:
+            pool += [("loser", "아직 포기 안 했어")]
     elif r_idx == total_rounds - 1:
         pool += [
-            f"마지막 라운드다",
-            f"이거 결정전이네",
-            f"여기서 끝내자",
+            ("winner", f"마지막이다 집중하자"),
+            ("loser", f"여기서 지면 끝이다"),
         ]
 
     # 이로치
     if rd.get("p1_shiny") or rd.get("p2_shiny"):
         shiny_poke = rd["p1_poke"] if rd.get("p1_shiny") else rd["p2_poke"]
-        pool += [
-            f"이로치 {shiny_poke} 나왔다",
-            f"{shiny_poke} 색이 다르네",
-        ]
+        is_winner_shiny = (rd.get("p1_shiny") and rd["winner"] == "p1") or \
+                          (rd.get("p2_shiny") and rd["winner"] == "p2")
+        if is_winner_shiny:
+            pool += [("winner", f"이로치 {shiny_poke} 믿고 있었어")]
+        else:
+            pool += [("loser", f"이로치였는데 아쉽다")]
 
-    # 폴백
     if not pool:
         pool = [
-            f"{winner_poke} 승",
-            f"{loser_poke} 졌다",
-            f"다음 라운드 가자",
+            ("winner", "좋았어"),
+            ("loser", "다음에 잡는다"),
         ]
 
-    return _rnd.choice(pool)
+    side, comment = _rnd.choice(pool)
+    name = winner_name if side == "winner" else loser_name
+    return f"{name}: {comment}"
 
 
 def _build_gif_rounds(turn_data: list[dict], p1_data: dict, p2_data: dict) -> list[dict]:
