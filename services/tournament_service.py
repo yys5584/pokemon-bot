@@ -1398,7 +1398,8 @@ async def _run_match(
 
                 _gif_sent = False
                 _is_skill = first_eff and "「" in first_eff
-                if _is_skill and first_pid:
+                _is_high_rarity = first_rarity in ("legendary", "ultra_legendary")
+                if _is_skill and _is_high_rarity and first_pid:
                     _skill_name = first_eff
                     if "「" in _skill_name:
                         _skill_name = _skill_name.split("「")[1].split("」")[0]
