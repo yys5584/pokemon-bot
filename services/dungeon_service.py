@@ -36,7 +36,7 @@ def enemy_scaling(floor: int) -> float:
     elif floor <= 20:
         return 1.60 + (floor - 10) * 0.10
     elif floor <= 30:
-        return 2.60 + (floor - 10) * 0.15
+        return 2.60 + (floor - 20) * 0.15
     else:
         return 4.10 + (floor - 30) * 0.20
 
@@ -317,22 +317,27 @@ def resolve_dungeon_battle(
     player_rarity: str,
     enemy: dict,
     buffs: list[dict],
+    current_hp: int | None = None,
+    max_hp: int | None = None,
 ) -> dict:
-    """던전 1v1 배틀 해결.
+    """던전 1v1 배틀 해결. current_hp/max_hp로 carry-over HP 지원.
 
     Returns:
-        {won, remaining_hp, max_hp, turns, total_damage_dealt, total_damage_taken, log}
+        {won, remaining_hp, max_hp, turns, total_damage_dealt, total_damage_taken,
+         log, revive_used, type_display, type_mult_player}
     """
     # 버프 적용된 플레이어 스탯
     p_stats = apply_buffs_to_stats(player_stats, buffs)
     e_stats = dict(enemy["stats"])
 
-    p_hp = p_stats["hp"]
-    p_max_hp = p_stats["hp"]
+    # carry-over HP (이전 층에서 남은 HP)
+    p_max_hp = max_hp if max_hp is not None else p_stats["hp"]
+    p_hp = current_hp if current_hp is not None else p_max_hp
     e_hp = e_stats["hp"]
 
     lifesteal = get_lifesteal_rate(buffs)
     revive_available = has_revive(buffs)
+    revive_used = False
 
     log_lines = []
     total_dmg_dealt = 0
@@ -407,6 +412,7 @@ def resolve_dungeon_battle(
         if p_hp <= 0 and revive_available:
             p_hp = int(p_max_hp * 0.30)
             revive_available = False
+            revive_used = True
             log_lines.append("💫 부활의 깃털 발동! HP 30% 회복")
 
     won = p_hp > 0 and e_hp <= 0
@@ -425,6 +431,7 @@ def resolve_dungeon_battle(
         "type_display": type_display,
         "type_mult_player": type_mult_p,
         "log": log_lines,
+        "revive_used": revive_used,
     }
 
 
@@ -488,12 +495,12 @@ def build_player_stats(pokemon: dict) -> tuple[dict, list[str]]:
     is_shiny = pokemon.get("is_shiny", False)
     evo_stage = EVO_STAGE_MAP.get(pid, 3)
 
-    # 어드바이저와 동일: 이로치 7강, 일반 5강 (최대 육성 가정)
-    max_friendship = 7 if is_shiny else 5
+    # 실제 친밀도 사용 (육성 투자가 던전 성능에 반영)
+    actual_friendship = friendship
 
     base_kw = get_normalized_base_stats(pid) or {}
     stats = calc_battle_stats(
-        rarity, stat_type, max_friendship, evo_stage,
+        rarity, stat_type, actual_friendship, evo_stage,
         pokemon.get("iv_hp"), pokemon.get("iv_atk"), pokemon.get("iv_def"),
         pokemon.get("iv_spa"), pokemon.get("iv_spdef"), pokemon.get("iv_spd"),
         **base_kw,

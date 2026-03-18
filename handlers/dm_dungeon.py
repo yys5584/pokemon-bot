@@ -281,30 +281,17 @@ async def _process_floor(query, context, user_id: int, run: dict):
         import json
         buffs = json.loads(buffs)
 
-    # HP 복원 (carry-over)
-    buffed_stats = ds.apply_buffs_to_stats(player_stats, buffs)
-    buffed_stats["hp"] = run["current_hp"]  # carry-over HP
-
-    # 배틀 실행
+    # 배틀 실행 (carry-over HP를 엔진에 전달 — 단일 진실 소스)
     result = ds.resolve_dungeon_battle(
-        player_stats, player_types, pokemon["rarity"], enemy, buffs
+        player_stats, player_types, pokemon["rarity"], enemy, buffs,
+        current_hp=run["current_hp"], max_hp=run["max_hp"],
     )
-    # 실제 HP는 carry-over 기준
-    remaining_hp = run["current_hp"] - result["total_damage_taken"]
-    # 흡혈 반영
-    lifesteal = ds.get_lifesteal_rate(buffs)
-    if lifesteal > 0:
-        remaining_hp += int(result["total_damage_dealt"] * lifesteal)
-    remaining_hp = min(remaining_hp, run["max_hp"])
-    remaining_hp = max(0, remaining_hp)
+    remaining_hp = result["remaining_hp"]
+    won = result["won"]
 
-    # 부활 체크
-    if remaining_hp <= 0 and ds.has_revive(buffs):
-        remaining_hp = int(run["max_hp"] * 0.30)
-        # 부활 버프 제거
+    # 부활이 사용됐으면 버프에서 제거
+    if result.get("revive_used"):
         buffs = [b for b in buffs if b.get("effect", {}).get("type") != "revive"]
-
-    won = remaining_hp > 0
 
     if won:
         # 층간 회복 적용
@@ -371,8 +358,8 @@ async def _process_floor(query, context, user_id: int, run: dict):
             ]
             await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
     else:
-        # 패배 — 런 종료
-        await _finish_run(query, context, user_id, run, floor)
+        # 패배 — 도달 층은 마지막 클리어 층 (이번 층은 실패)
+        await _finish_run(query, context, user_id, run, run["floor_reached"])
 
 
 async def _finish_run(query, context, user_id: int, run: dict, final_floor: int):
@@ -442,18 +429,22 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int)
     _state(context).pop("run_id", None)
 
 
-async def _load_pokemon(instance_id: int) -> dict | None:
-    """인스턴스 ID로 포켓몬 로드."""
+async def _load_pokemon(instance_id: int, user_id: int | None = None) -> dict | None:
+    """인스턴스 ID로 포켓몬 로드. user_id 지정 시 소유권 검증."""
     pool = await queries.get_db()
-    row = await pool.fetchrow(
-        "SELECT up.id, up.pokemon_id, up.friendship, up.is_shiny, "
+    sql = (
+        "SELECT up.id, up.user_id, up.pokemon_id, up.friendship, up.is_shiny, "
         "up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd, "
         "pm.name_ko, pm.rarity, pm.pokemon_type, pm.stat_type "
         "FROM user_pokemon up "
         "JOIN pokemon_master pm ON up.pokemon_id = pm.id "
-        "WHERE up.id = $1",
-        instance_id,
+        "WHERE up.id = $1 AND up.is_active = 1"
     )
+    if user_id is not None:
+        sql += " AND up.user_id = $2"
+        row = await pool.fetchrow(sql, instance_id, user_id)
+    else:
+        row = await pool.fetchrow(sql, instance_id)
     return dict(row) if row else None
 
 
@@ -735,8 +726,8 @@ async def _start_run(query, context, user_id: int, instance_id: int):
         await query.edit_message_text("🎫 입장권이 부족합니다!")
         return
 
-    # 포켓몬 로드
-    pokemon = await _load_pokemon(instance_id)
+    # 포켓몬 로드 (소유권 검증)
+    pokemon = await _load_pokemon(instance_id, user_id=user_id)
     if not pokemon:
         await dq.add_dungeon_tickets(user_id, 1)  # 환불
         await query.edit_message_text("포켓몬을 찾을 수 없습니다.")

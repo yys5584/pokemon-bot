@@ -163,12 +163,16 @@ async def update_pokemon_record(
 async def update_user_best_floor(user_id: int, floor: int) -> bool:
     """Update user's all-time best floor. Returns True if new record."""
     pool = await get_db()
-    row = await pool.fetchrow(
-        "UPDATE users SET dungeon_best_floor = GREATEST(dungeon_best_floor, $1) "
-        "WHERE user_id = $2 RETURNING dungeon_best_floor",
-        floor, user_id,
+    old = await pool.fetchval(
+        "SELECT dungeon_best_floor FROM users WHERE user_id = $1", user_id
     )
-    return row and row["dungeon_best_floor"] == floor
+    if floor > (old or 0):
+        await pool.execute(
+            "UPDATE users SET dungeon_best_floor = $1 WHERE user_id = $2",
+            floor, user_id,
+        )
+        return True
+    return False
 
 
 async def get_user_best_floor(user_id: int) -> int:
@@ -180,19 +184,22 @@ async def get_user_best_floor(user_id: int) -> int:
 
 
 async def get_weekly_ranking(limit: int = 30) -> list[dict]:
-    """Current week's ranking by highest floor reached."""
+    """Current week's ranking by highest floor reached (best per user)."""
     pool = await get_db()
     rows = await pool.fetch(
-        "SELECT dr.user_id, u.display_name, dr.pokemon_name, dr.is_shiny, "
+        "SELECT DISTINCT ON (dr.user_id) "
+        "dr.user_id, u.display_name, dr.pokemon_name, dr.is_shiny, "
         "dr.iv_grade, dr.floor_reached, dr.theme "
         "FROM dungeon_runs dr "
         "JOIN users u ON dr.user_id = u.user_id "
         "WHERE dr.season_key = $1 AND dr.status = 'completed' "
-        "ORDER BY dr.floor_reached DESC, dr.ended_at ASC "
-        "LIMIT $2",
-        _current_season_key(), limit,
+        "ORDER BY dr.user_id, dr.floor_reached DESC, dr.ended_at ASC",
+        _current_season_key(),
     )
-    return [dict(r) for r in rows]
+    # 층수 내림차순 정렬
+    result = [dict(r) for r in rows]
+    result.sort(key=lambda x: x["floor_reached"], reverse=True)
+    return result[:limit]
 
 
 async def get_user_rank(user_id: int) -> int | None:
