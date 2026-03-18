@@ -1320,6 +1320,19 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── 던전 분석용 컬럼 (2026-03-18) ──
+    dungeon_analytics_migs = [
+        "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS rarity TEXT",
+        "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS death_enemy TEXT",
+        "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS death_enemy_rarity TEXT",
+        "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS death_floor INT",
+    ]
+    for mig in dungeon_analytics_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
     # ── IV 스톤 & 만능 조각 (2026-03-18) ──
     iv_uni_migs = [
         "ALTER TABLE users ADD COLUMN iv_stones INTEGER NOT NULL DEFAULT 0",

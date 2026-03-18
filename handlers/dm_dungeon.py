@@ -486,16 +486,21 @@ async def _process_floor(query, context, user_id: int, run: dict):
             await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=_result_gif)
     else:
         # 패배 — 도달 층은 마지막 클리어 층 (이번 층은 실패)
-        await _finish_run(query, context, user_id, run, run["floor_reached"], battle_card=_result_gif)
+        await _finish_run(query, context, user_id, run, run["floor_reached"],
+                          battle_card=_result_gif,
+                          death_enemy=enemy.get("name_ko"), death_enemy_rarity=enemy.get("rarity"),
+                          death_floor=floor)
 
 
-async def _finish_run(query, context, user_id: int, run: dict, final_floor: int, battle_card=None):
+async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
+                      battle_card=None, death_enemy=None, death_enemy_rarity=None, death_floor=None):
     """런 종료 + 보상 정산."""
     sub_tier = await _get_sub_tier(user_id)
     rewards = ds.calculate_rewards(final_floor, run["theme"], sub_tier)
 
     # DB 업데이트
-    await dq.end_run(run["id"], final_floor, rewards["bp"], rewards["fragments"])
+    await dq.end_run(run["id"], final_floor, rewards["bp"], rewards["fragments"],
+                     death_enemy=death_enemy, death_enemy_rarity=death_enemy_rarity, death_floor=death_floor)
     await dq.update_pokemon_record(user_id, run["pokemon_instance_id"], final_floor, run["theme"])
     is_new_record = await dq.update_user_best_floor(user_id, final_floor)
 
@@ -941,6 +946,7 @@ async def _start_run(query, context, user_id: int, instance_id: int):
         pokemon_name=pokemon["name_ko"],
         is_shiny=bool(pokemon.get("is_shiny")),
         iv_grade=grade,
+        rarity=pokemon.get("rarity", "common"),
         theme=theme["name"],
         current_hp=max_hp,
         max_hp=max_hp,
