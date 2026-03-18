@@ -2368,7 +2368,7 @@ async def api_battle_tiers(request):
     from models.pokemon_skills import POKEMON_SKILLS, SKILL_EFFECTS, get_skill_display, get_max_skill_power
     from models.pokemon_base_stats import POKEMON_BASE_STATS
 
-    pool = await get_db()
+    pool = await queries.get_db()
     rows = await pool.fetch("""
         SELECT id, name_ko, emoji, rarity, pokemon_type, stat_type, evolves_to
         FROM pokemon_master
@@ -3111,7 +3111,7 @@ async def api_admin_db_dungeon(request):
     """Admin DB: dungeon analytics."""
     if not await _admin_check(request):
         return web.json_response({"ok": False, "error": "forbidden"}, status=403)
-    pool = await get_db()
+    pool = await queries.get_db()
 
     # 기본 통계
     stats = await pool.fetchrow(
@@ -4043,7 +4043,7 @@ async def api_donation(request):
     """Return donation progress — sum of fulfilled order price_usd."""
     import json as _json
     from database.connection import get_db
-    pool = await get_db()
+    pool = await queries.get_db()
     rows = await pool.fetch(
         "SELECT value FROM bot_settings WHERE key LIKE 'order_%'"
     )
@@ -4681,7 +4681,7 @@ document.getElementById('content').innerHTML=marked.parse(`{escaped}`);
 async def api_tournament_winners(request):
     """Get tournament winners grouped by user, with battle team."""
     from database.connection import get_db
-    pool = await get_db()
+    pool = await queries.get_db()
     import config
 
     # Get all tournament titles
