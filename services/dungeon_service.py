@@ -36,11 +36,11 @@ def enemy_scaling(floor: int) -> float:
     elif floor <= 20:
         return 1.20 + (floor - 10) * 0.03  # 1.23 ~ 1.50
     elif floor <= 30:
-        return 1.50 + (floor - 20) * 0.05  # 1.55 ~ 2.00
+        return 1.50 + (floor - 20) * 0.04  # 1.54 ~ 1.90
     elif floor <= 40:
-        return 2.00 + (floor - 30) * 0.08  # 2.08 ~ 2.80
+        return 1.90 + (floor - 30) * 0.06  # 1.96 ~ 2.50
     else:
-        return 2.80 + (floor - 40) * 0.12  # 2.92 ~
+        return 2.50 + (floor - 40) * 0.08  # 2.58 ~ 3.30
 
 
 # ══════════════════════════════════════════════════════════
