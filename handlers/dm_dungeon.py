@@ -447,27 +447,36 @@ async def _process_floor(query, context, user_id: int, run: dict):
             choices = ds.generate_buff_choices(floor, buffs)
             st["buff_choices"] = choices
 
-            text += f"\n\n{icon_emoji('gotcha')} <b>버프를 선택하세요:</b>"
-            buttons = []
-            for i, buff in enumerate(choices):
-                lv = buff.get("lv", 1)
-                lv_emoji = ds.LV_EMOJI.get(lv, "⬜")
-                if buff.get("is_upgrade"):
-                    tag = f"Lv.{lv-1}→{lv}"
-                else:
-                    tag = "NEW"
-                buttons.append([InlineKeyboardButton(
-                    f"{lv_emoji} {buff['name']} [{tag}] — {buff['desc']}",
-                    callback_data=f"dg_buf_{user_id}_{i}"
-                )])
-            # 스킵 옵션
-            skips = run.get("skips_used", 0)
-            if skips < config.DUNGEON_MAX_SKIPS:
-                buttons.append([InlineKeyboardButton(
-                    f"⏭ 스킵 (HP 5% 회복) [{skips}/{config.DUNGEON_MAX_SKIPS}]",
-                    callback_data=f"dg_skip_{user_id}"
-                )])
-            await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=_result_gif)
+            if choices:
+                text += f"\n\n{icon_emoji('gotcha')} <b>버프를 선택하세요:</b>"
+                buttons = []
+                for i, buff in enumerate(choices):
+                    lv = buff.get("lv", 1)
+                    lv_emoji = ds.LV_EMOJI.get(lv, "⬜")
+                    if buff.get("is_upgrade"):
+                        tag = f"Lv.{lv-1}→{lv}"
+                    else:
+                        tag = "NEW"
+                    buttons.append([InlineKeyboardButton(
+                        f"{lv_emoji} {buff['name']} [{tag}] — {buff['desc']}",
+                        callback_data=f"dg_buf_{user_id}_{i}"
+                    )])
+                # 스킵 옵션
+                skips = run.get("skips_used", 0)
+                if skips < config.DUNGEON_MAX_SKIPS:
+                    buttons.append([InlineKeyboardButton(
+                        f"⏭ 스킵 (HP 5% 회복) [{skips}/{config.DUNGEON_MAX_SKIPS}]",
+                        callback_data=f"dg_skip_{user_id}"
+                    )])
+                await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=_result_gif)
+            else:
+                # 모든 버프가 MAX — 자동 스킵, 다음 층으로
+                text += f"\n\n💪 <b>모든 버프 MAX! 다음 층으로!</b>"
+                buttons = [
+                    [InlineKeyboardButton("⚔️ 다음 층으로!", callback_data=f"dg_go_{user_id}")],
+                    [InlineKeyboardButton("🏳️ 포기", callback_data=f"dg_quit_{user_id}")],
+                ]
+                await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=_result_gif)
         else:
             # 버프 없이 다음 층
             buttons = [
