@@ -1473,29 +1473,7 @@ async def _run_match(
             win_text += f"\n{mvp_line}"
         await _safe_send(context.bot, chat_id, text=win_text)
 
-        # 🎬 결승전 GIF 하이라이트
-        try:
-            from utils.card_generator import generate_tournament_battle_gif
-            if _comment_rounds:
-                loop = asyncio.get_event_loop()
-                gif_buf = await loop.run_in_executor(
-                    None, generate_tournament_battle_gif,
-                    p1_name, p2_name, _comment_rounds,
-                )
-                for _retry in range(3):
-                    try:
-                        await context.bot.send_animation(
-                            chat_id=chat_id, animation=gif_buf,
-                            caption="🎬 결승전 하이라이트",
-                        )
-                        break
-                    except RetryAfter as e:
-                        await asyncio.sleep(e.retry_after + 1)
-                    except Exception:
-                        break
-                await asyncio.sleep(2)
-        except Exception:
-            logger.error("Failed to generate tournament GIF", exc_info=True)
+        # 🎬 결승전 GIF 하이라이트 — 비활성화 (품질 이슈)
 
         # 🎤 우승 인터뷰
         await asyncio.sleep(3)
