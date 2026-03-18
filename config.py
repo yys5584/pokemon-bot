@@ -1309,15 +1309,15 @@ DUNGEON_THEME_TO_FIELD = {
 # --- 마일스톤 보상 ---
 DUNGEON_MILESTONE_REWARDS = {
     5:  {"bp": 50,  "fragments": 1},
-    10: {"bp": 100, "fragments": 2, "tickets": 1},
+    10: {"bp": 100, "fragments": 2},
     15: {"bp": 150, "fragments": 2},
-    20: {"bp": 200, "fragments": 3, "tickets": 1, "crystals": 1},
+    20: {"bp": 200, "fragments": 3, "crystals": 1},
     25: {"bp": 250, "fragments": 3, "crystals": 1},
     30: {"bp": 300, "fragments": 4, "crystals": 2, "rainbow": 1},
     35: {"bp": 350, "fragments": 4},
     40: {"bp": 400, "fragments": 5, "tickets": 1, "crystals": 3, "rainbow": 1, "iv_stones": 1},
     45: {"bp": 450, "fragments": 5},
-    50: {"bp": 500, "fragments": 6, "tickets": 2, "rainbow": 2, "iv_stones": 1},
+    50: {"bp": 500, "fragments": 6, "tickets": 1, "rainbow": 2, "iv_stones": 1},
 }
 
 # --- 마일스톤 칭호 ---
