@@ -330,22 +330,59 @@ async def _process_floor(query, context, user_id: int, run: dict):
     if result.get("revive_used"):
         buffs = [b for b in buffs if b.get("effect", {}).get("type") != "revive"]
 
-    # 배틀 GIF 생성
+    # 배틀 GIF 생성 — Canvas GIF 우선, 실패 시 PIL 폴백
     import asyncio as _aio
-    from utils.card_generator import generate_dungeon_battle_gif
 
     floor_type = "★ 관장전" if enemy["is_boss"] else ("⚡ 엘리트" if enemy["is_elite"] else "")
+    battle_card = None
 
-    loop = _aio.get_event_loop()
-    battle_card = await loop.run_in_executor(
-        None, generate_dungeon_battle_gif,
-        pokemon["pokemon_id"], run["pokemon_name"], pokemon["rarity"],
-        run["current_hp"], run["max_hp"], bool(run["is_shiny"]),
-        enemy["id"], enemy["name_ko"], enemy["rarity"],
-        floor, floor_type, result["type_display"],
-        result["total_damage_dealt"], result["total_damage_taken"],
-        won, remaining_hp,
-    )
+    # Canvas GIF 시도
+    try:
+        from utils.battle_canvas import render_battle_gif
+        from models.pokemon_skills import get_primary_skill
+        from models.pokemon_battle_data import POKEMON_BATTLE_DATA
+
+        _skill_name, _ = get_primary_skill(pokemon["pokemon_id"])
+        _atk_type = POKEMON_BATTLE_DATA.get(pokemon["pokemon_id"], ("normal",))[0]
+        _floor_label = f"{floor}F"
+        if floor_type:
+            _floor_label += f" {floor_type}"
+
+        _hp_before = run["current_hp"] / run["max_hp"] if run["max_hp"] else 1.0
+        _hp_after = remaining_hp / run["max_hp"] if run["max_hp"] else 0.0
+        # 적 HP: 이기면 0, 지면 남아있음
+        _enemy_hp_after = 0.0 if won else 0.15
+
+        loop = _aio.get_event_loop()
+        battle_card, _ = await loop.run_in_executor(
+            None, render_battle_gif,
+            pokemon["pokemon_id"], run["pokemon_name"],
+            enemy["id"], enemy["name_ko"],
+            _skill_name, _atk_type, result["total_damage_dealt"],
+            bool(run["is_shiny"]), False,  # atk_shiny, def_shiny
+            False,  # is_crit
+            pokemon["rarity"], enemy["rarity"],
+            1.0, _enemy_hp_after,  # 적 HP: 시작 100% → 결과
+            _hp_before,  # 아군 HP
+            _floor_label,
+        )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).error("Canvas GIF 실패, PIL 폴백", exc_info=True)
+
+    # Canvas GIF 실패 시 기존 PIL GIF 폴백
+    if battle_card is None:
+        from utils.card_generator import generate_dungeon_battle_gif
+        loop = _aio.get_event_loop()
+        battle_card = await loop.run_in_executor(
+            None, generate_dungeon_battle_gif,
+            pokemon["pokemon_id"], run["pokemon_name"], pokemon["rarity"],
+            run["current_hp"], run["max_hp"], bool(run["is_shiny"]),
+            enemy["id"], enemy["name_ko"], enemy["rarity"],
+            floor, floor_type, result["type_display"],
+            result["total_damage_dealt"], result["total_damage_taken"],
+            won, remaining_hp,
+        )
 
     if won:
         # 층간 회복 적용
