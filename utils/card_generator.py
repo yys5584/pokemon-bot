@@ -1707,7 +1707,93 @@ def generate_dungeon_battle_gif(
     return _assemble_gif(frames, durs)
 
 
-# ── 토너먼트 결승 GIF ──
+# ── 토너먼트 단일 라운드 GIF ──
+
+def make_round_gif(
+    p1_name: str, p2_name: str,
+    rd: dict, round_num: int,
+    p1_score: int, p2_score: int,
+) -> tuple[io.BytesIO, int]:
+    """토너먼트 결승 단일 라운드(1v1) GIF.
+
+    Returns (gif_buffer, total_duration_ms).
+
+    rd: {
+        "p1_id": int, "p1_poke": str, "p1_rarity": str, "p1_shiny": bool,
+        "p2_id": int, "p2_poke": str, "p2_rarity": str, "p2_shiny": bool,
+        "winner": "p1" | "p2",
+        "damage_dealt": int, "damage_taken": int,
+        "crit": bool,
+    }
+    """
+    frames = []
+    durs = []
+
+    won = rd["winner"] == "p1"
+    fl_text = f"R{round_num} [{p1_score}-{p2_score}]"
+
+    p_id = rd["p1_id"]
+    p_name_poke = rd["p1_poke"]
+    p_rar = rd["p1_rarity"]
+    p_shiny = rd.get("p1_shiny", False)
+    e_id = rd["p2_id"]
+    e_name_poke = rd["p2_poke"]
+    e_rar = rd["p2_rarity"]
+
+    dmg_dealt = rd.get("damage_dealt", 300)
+    dmg_taken = rd.get("damage_taken", 200)
+    crit = rd.get("crit", False)
+
+    def add(p_hp, e_hp, log, dur=1500, **kw):
+        frames.append(_gif_battle_frame(
+            p_id, p_name_poke, p_rar, p_hp, p_shiny,
+            e_id, e_name_poke, e_rar, e_hp,
+            fl_text, "", log, **kw,
+        ))
+        durs.append(dur)
+
+    # 라운드 타이틀
+    frames.append(_gif_text_frame(
+        f"Round {round_num}",
+        f"{p_name_poke}  VS  {e_name_poke}",
+    ))
+    durs.append(1500)
+
+    # 등장
+    add(1.0, 1.0, f"{p_name_poke} vs {e_name_poke}!", dur=1500)
+
+    # p1 공격
+    skill = f"{p_name_poke}의 공격!"
+    fc = (255, 255, 100) if crit else (50, 120, 255)
+    if crit:
+        skill += " 급소!"
+    add(1.0, 1.0, skill, flash_color=fc, flash_alpha=45, dur=700)
+    for sx, sy in [(10, -5), (-8, 6)]:
+        add(1.0, 1.0, skill, impact_side="enemy", shake_x=sx, shake_y=sy, dur=200)
+
+    e_after = 0.0 if won else 0.35
+    add(1.0, e_after, f"→ {dmg_dealt} 데미지!", dur=1200)
+
+    # p2 반격
+    add(1.0, e_after, f"{e_name_poke}의 반격!",
+        flash_color=(255, 80, 20), flash_alpha=40, dur=700)
+    for sx, sy in [(-7, 5), (5, -3)]:
+        add(1.0, e_after, f"{e_name_poke}의 반격!",
+            impact_side="player", shake_x=sx, shake_y=sy, dur=200)
+
+    p_after = 0.0 if not won else 0.55
+    add(p_after, e_after, f"→ {dmg_taken} 피해!", dur=1200)
+
+    # KO 결과
+    if won:
+        add(p_after, 0.0, f"{e_name_poke} 쓰러졌다!", dim_target="enemy", dur=1800)
+    else:
+        add(0.0, e_after, f"{p_name_poke} 쓰러졌다!", dur=1800)
+
+    return _assemble_gif(frames, durs), sum(durs)
+
+
+# ── 토너먼트 결승 GIF (전체 하이라이트) ──
 
 def generate_tournament_battle_gif(
     p1_name: str, p2_name: str,
