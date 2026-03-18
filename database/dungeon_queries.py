@@ -75,15 +75,27 @@ async def create_dungeon_run(
 ) -> int:
     """Create a new dungeon run. Returns run ID."""
     pool = await get_db()
-    run_id = await pool.fetchval(
-        "INSERT INTO dungeon_runs "
-        "(user_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny, "
-        "iv_grade, rarity, floor_reached, theme, current_hp, max_hp, status, season_key) "
-        "VALUES ($1,$2,$3,$4,$5,$6,$7,0,$8,$9,$10,'active',$11) RETURNING id",
-        user_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny,
-        iv_grade, rarity, theme, current_hp, max_hp,
-        _current_season_key(),
-    )
+    try:
+        run_id = await pool.fetchval(
+            "INSERT INTO dungeon_runs "
+            "(user_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny, "
+            "iv_grade, rarity, floor_reached, theme, current_hp, max_hp, status, season_key) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,0,$8,$9,$10,'active',$11) RETURNING id",
+            user_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny,
+            iv_grade, rarity, theme, current_hp, max_hp,
+            _current_season_key(),
+        )
+    except Exception:
+        # rarity 컬럼 미존재 시 폴백
+        run_id = await pool.fetchval(
+            "INSERT INTO dungeon_runs "
+            "(user_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny, "
+            "iv_grade, floor_reached, theme, current_hp, max_hp, status, season_key) "
+            "VALUES ($1,$2,$3,$4,$5,$6,0,$7,$8,$9,'active',$10) RETURNING id",
+            user_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny,
+            iv_grade, theme, current_hp, max_hp,
+            _current_season_key(),
+        )
     # 시즌 런 카운트 증가
     await pool.execute(
         "UPDATE users SET dungeon_season_runs = dungeon_season_runs + 1 WHERE user_id = $1",
@@ -129,13 +141,21 @@ async def update_run_skips(run_id: int, skips_used: int):
 async def end_run(run_id: int, floor_reached: int, bp_earned: int, fragments_earned: int,
                   death_enemy: str = None, death_enemy_rarity: str = None, death_floor: int = None):
     pool = await get_db()
-    await pool.execute(
-        "UPDATE dungeon_runs SET status = 'completed', floor_reached = $1, "
-        "bp_earned = $2, fragments_earned = $3, ended_at = NOW(), "
-        "death_enemy = $5, death_enemy_rarity = $6, death_floor = $7 WHERE id = $4",
-        floor_reached, bp_earned, fragments_earned, run_id,
-        death_enemy, death_enemy_rarity, death_floor,
-    )
+    try:
+        await pool.execute(
+            "UPDATE dungeon_runs SET status = 'completed', floor_reached = $1, "
+            "bp_earned = $2, fragments_earned = $3, ended_at = NOW(), "
+            "death_enemy = $5, death_enemy_rarity = $6, death_floor = $7 WHERE id = $4",
+            floor_reached, bp_earned, fragments_earned, run_id,
+            death_enemy, death_enemy_rarity, death_floor,
+        )
+    except Exception:
+        # death_enemy 컬럼 미존재 시 폴백
+        await pool.execute(
+            "UPDATE dungeon_runs SET status = 'completed', floor_reached = $1, "
+            "bp_earned = $2, fragments_earned = $3, ended_at = NOW() WHERE id = $4",
+            floor_reached, bp_earned, fragments_earned, run_id,
+        )
 
 
 async def abandon_run(run_id: int):
