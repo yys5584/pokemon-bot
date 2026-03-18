@@ -1369,10 +1369,25 @@ def generate_dungeon_battle_card(
         type_color = (76, 209, 55) if "유리" in type_display else ((232, 65, 24) if "불리" in type_display else (180, 180, 180))
         draw.text((W - tw - 20, 14), type_display, fill=type_color, font=f_name)
 
-    # ── 적 포켓몬 (상단 오른쪽) ──
-    ENEMY_CX, ENEMY_CY = 700, 175
+    # ── 게임보이 스타일 교차 배치 ──
+    # 적 스프라이트: 오른쪽 상단 / 적 이름+HP: 왼쪽 상단
+    # 내 스프라이트: 왼쪽 하단 / 내 이름+HP: 오른쪽 하단
 
-    # 적 글로우
+    ENEMY_CX, ENEMY_CY = 700, 170      # 적 스프라이트 위치 (우상)
+    PLAYER_CX, PLAYER_CY = 240, 310    # 내 스프라이트 위치 (좌하)
+
+    # ── 적 정보 패널 (좌상) ──
+    # 패널 배경
+    panel_e = Image.new("RGBA", (420, 70), (0, 0, 0, 100))
+    card.paste(panel_e, (20, 60), panel_e)
+    draw = ImageDraw.Draw(card)
+
+    rarity_label = _RARITY_LABEL_KO.get(enemy_rarity, "")
+    enemy_label = f"{enemy_name}  [{rarity_label}]"
+    draw.text((35, 65), enemy_label, fill=(255, 255, 255), font=f_name)
+    _draw_hp_bar(draw, 65, 95, 340, 14, int(enemy_hp_pct * 100), 100, font=f_hp_label)
+
+    # ── 적 스프라이트 (우상) ──
     glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
     enemy_accent = RARITY_ACCENT.get(enemy_rarity, (150, 150, 150))
@@ -1383,22 +1398,11 @@ def generate_dungeon_battle_card(
     card = Image.alpha_composite(card, glow)
     draw = ImageDraw.Draw(card)
 
-    # 적 이름 + HP 바
-    rarity_label = _RARITY_LABEL_KO.get(enemy_rarity, "")
-    enemy_label = f"{enemy_name}  [{rarity_label}]"
-    draw.text((540, 68), enemy_label, fill=(255, 255, 255), font=f_name)
-    _draw_hp_bar(draw, 570, 96, 300, 14, int(enemy_hp_pct * 100), 100, font=f_hp_label)
-
-    # 적 스프라이트
     enemy_sprite = _load_sprite(enemy_id)
     if enemy_sprite:
         ratio = min(220 / enemy_sprite.width, 220 / enemy_sprite.height)
         es = enemy_sprite.resize((int(enemy_sprite.width * ratio), int(enemy_sprite.height * ratio)), Image.LANCZOS)
-        if not won:
-            # 살아있는 적
-            pass
-        else:
-            # 쓰러진 적: 반투명 + 빨강 틴트
+        if won:
             r, g, b, a = es.split()
             a = a.point(lambda x: int(x * 0.4))
             es = Image.merge("RGBA", (r, g, b, a))
@@ -1408,10 +1412,7 @@ def generate_dungeon_battle_card(
         ey = ENEMY_CY - es.height // 2
         card.paste(es, (ex, ey), es)
 
-    # ── 내 포켓몬 (하단 왼쪽) ──
-    PLAYER_CX, PLAYER_CY = 250, 300
-
-    # 플레이어 글로우
+    # ── 내 스프라이트 (좌하) ──
     glow2 = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     gd2 = ImageDraw.Draw(glow2)
     player_accent = RARITY_ACCENT.get(player_rarity, (150, 150, 150))
@@ -1422,12 +1423,10 @@ def generate_dungeon_battle_card(
     card = Image.alpha_composite(card, glow2)
     draw = ImageDraw.Draw(card)
 
-    # 이로치 이펙트
     if player_shiny:
         card = _draw_shiny_effect(card, PLAYER_CX, PLAYER_CY, 150)
         draw = ImageDraw.Draw(card)
 
-    # 플레이어 스프라이트
     player_sprite = _load_sprite(player_id)
     if player_sprite:
         ratio = min(280 / player_sprite.width, 280 / player_sprite.height)
@@ -1436,11 +1435,15 @@ def generate_dungeon_battle_card(
         py = PLAYER_CY - ps.height // 2
         card.paste(ps, (px, py), ps)
 
-    # 플레이어 이름 + HP 바
+    # ── 내 정보 패널 (우하) ──
+    panel_p = Image.new("RGBA", (420, 85), (0, 0, 0, 100))
+    card.paste(panel_p, (520, 290), panel_p)
+    draw = ImageDraw.Draw(card)
+
     shiny_mark = "✨" if player_shiny else ""
     player_label = f"{shiny_mark}{player_name}"
-    draw.text((540, 310), player_label, fill=(255, 255, 255), font=f_name)
-    _draw_hp_bar(draw, 570, 340, 300, 14, player_hp, player_max_hp, show_numbers=True, font=f_hp_num)
+    draw.text((535, 295), player_label, fill=(255, 255, 255), font=f_name)
+    _draw_hp_bar(draw, 565, 325, 340, 14, player_hp, player_max_hp, show_numbers=True, font=f_hp_num)
 
     # ── 배틀 로그 박스 (하단) ──
     log_box = Image.new("RGBA", (W, 110), (0, 0, 0, 160))
