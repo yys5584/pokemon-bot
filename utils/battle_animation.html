@@ -1235,6 +1235,9 @@ window.renderFrame=function(fi){
     drawPlayerPanel(DATA.atkHp);
   }
 
+  // 스킬명 배너 — 모든 프레임에서 항상 표시
+  drawBanner(1);
+
   ctx.restore();
 
   // 화면 플래시 (셰이크 바깥)

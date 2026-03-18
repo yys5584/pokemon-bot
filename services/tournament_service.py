@@ -1400,58 +1400,32 @@ async def _run_match(
                 _is_skill = first_eff and "「" in first_eff
                 _is_high_rarity = first_rarity in ("legendary", "ultra_legendary")
                 if _is_skill and _is_high_rarity and first_pid:
-                    _skill_name = first_eff
-                    if "「" in _skill_name:
-                        _skill_name = _skill_name.split("「")[1].split("」")[0]
-                    from models.pokemon_battle_data import POKEMON_BATTLE_DATA
-                    _atk_type = POKEMON_BATTLE_DATA.get(first_pid, ("normal",))[0]
-
-                    # Canvas GIF 생성 시도
+                    # 미리 생성된 프레임 + 상대 스프라이트 합성 (Playwright 없음, ~0.3초)
                     try:
-                        from utils.battle_canvas import render_battle_gif
-                        _round_text = f"FINAL [{_score_c}-{_score_d}]"
-                        loop = asyncio.get_event_loop()
-                        gif_buf, _ = await loop.run_in_executor(
-                            None, render_battle_gif,
-                            first_pid, first_name, _gif_def_pid, first_target_name,
-                            _skill_name, _atk_type, first_dmg,
-                            first_shiny, _gif_def_shiny,
-                            first_crit,
-                            first_rarity, _gif_def_rarity,
-                            _gif_hp_before, _gif_hp_after,
-                            _gif_atk_hp,
-                            _round_text,
-                        )
-                        for _retry in range(3):
-                            try:
-                                await context.bot.send_animation(
-                                    chat_id=chat_id, animation=gif_buf,
-                                    caption=caption1, parse_mode="HTML",
-                                )
-                                _gif_sent = True
-                                break
-                            except RetryAfter as e:
-                                await asyncio.sleep(e.retry_after + 1)
-                            except Exception:
-                                break
-                    except Exception:
-                        logger.error("Canvas GIF 생성 실패, 배틀카드로 폴백", exc_info=True)
-
-                    # GIF 실패 시 기존 배틀카드(JPEG)로 폴백
-                    if not _gif_sent:
-                        try:
-                            _def_pid_fb = td.get("d_pokemon_id") if td["first_is_challenger"] else td.get("c_pokemon_id")
-                            _def_shiny_fb = td.get("d_shiny", False) if td["first_is_challenger"] else td.get("c_shiny", False)
+                        from utils.skill_gif import compose_skill_gif, has_skill_gif
+                        if has_skill_gif(first_pid):
                             loop = asyncio.get_event_loop()
-                            card_buf = await loop.run_in_executor(
-                                None, generate_battle_card,
-                                first_pid, first_name, _def_pid_fb, first_target_name,
-                                _skill_name, _atk_type, first_dmg,
-                                first_shiny, _def_shiny_fb,
+                            gif_buf = await loop.run_in_executor(
+                                None, compose_skill_gif, first_pid, _gif_def_pid,
                             )
-                            await _safe_send_photo(context.bot, chat_id, photo=card_buf, caption=caption1, parse_mode="HTML")
-                        except Exception:
-                            await _safe_send(context.bot, chat_id, text=caption1, parse_mode="HTML")
+                            if gif_buf:
+                                for _retry in range(3):
+                                    try:
+                                        await context.bot.send_animation(
+                                            chat_id=chat_id, animation=gif_buf,
+                                            caption=caption1, parse_mode="HTML",
+                                        )
+                                        _gif_sent = True
+                                        break
+                                    except RetryAfter as e:
+                                        await asyncio.sleep(e.retry_after + 1)
+                                    except Exception:
+                                        break
+                    except Exception:
+                        logger.error("스킬 GIF 합성 실패", exc_info=True)
+
+                    if not _gif_sent:
+                        await _safe_send(context.bot, chat_id, text=caption1, parse_mode="HTML")
                     await asyncio.sleep(3)
                 else:
                     await _safe_send(context.bot, chat_id, text=caption1, parse_mode="HTML")
