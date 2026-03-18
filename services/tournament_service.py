@@ -1322,9 +1322,19 @@ async def _run_match(
                 _matchup_count += 1
         _current_matchup_idx = -1
 
+        # HP 추적: 턴 시작 시점의 HP를 기록 (GIF hp_before 용)
+        _running_c_hp = None  # 현재 challenger HP
+        _running_d_hp = None  # 현재 defender HP
+        _score_c = 0  # challenger KO 수
+        _score_d = 0  # defender KO 수
+
         for _i, td in enumerate(result["turn_data"]):
             if td["type"] == "matchup":
                 _current_matchup_idx += 1
+                # 매치업 시작 시 HP 초기화
+                _running_c_hp = td["c_hp"]
+                _running_d_hp = td["d_hp"]
+
                 # 매치업 시작 전 상황기반 멘트
                 _comment = _comment_map.get(_current_matchup_idx, "")
                 if _comment and _current_matchup_idx > 0:
@@ -1350,6 +1360,13 @@ async def _run_match(
                     first_target_mark, second_target_mark = D, C
                     first_pid, first_rarity, first_shiny = td.get("c_pokemon_id"), td.get("c_rarity", "common"), td.get("c_shiny", False)
                     second_pid, second_rarity, second_shiny = td.get("d_pokemon_id"), td.get("d_rarity", "common"), td.get("d_shiny", False)
+                    # GIF용 HP: 첫 공격 대상 = defender
+                    _gif_hp_before = (_running_d_hp or 0) / td["d_max_hp"] if td["d_max_hp"] else 1.0
+                    _gif_hp_after = max(0, (_running_d_hp or 0) - first_dmg) / td["d_max_hp"] if td["d_max_hp"] else 0.0
+                    _gif_atk_hp = (_running_c_hp or 0) / td["c_max_hp"] if td["c_max_hp"] else 1.0
+                    _gif_def_pid = td.get("d_pokemon_id")
+                    _gif_def_shiny = td.get("d_shiny", False)
+                    _gif_def_rarity = td.get("d_rarity", "common")
                 else:
                     first_mark, second_mark = D, C
                     first_name, first_dmg, first_crit, first_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
@@ -1360,61 +1377,103 @@ async def _run_match(
                     first_target_mark, second_target_mark = C, D
                     first_pid, first_rarity, first_shiny = td.get("d_pokemon_id"), td.get("d_rarity", "common"), td.get("d_shiny", False)
                     second_pid, second_rarity, second_shiny = td.get("c_pokemon_id"), td.get("c_rarity", "common"), td.get("c_shiny", False)
+                    # GIF용 HP: 첫 공격 대상 = challenger
+                    _gif_hp_before = (_running_c_hp or 0) / td["c_max_hp"] if td["c_max_hp"] else 1.0
+                    _gif_hp_after = max(0, (_running_c_hp or 0) - first_dmg) / td["c_max_hp"] if td["c_max_hp"] else 0.0
+                    _gif_atk_hp = (_running_d_hp or 0) / td["d_max_hp"] if td["d_max_hp"] else 1.0
+                    _gif_def_pid = td.get("c_pokemon_id")
+                    _gif_def_shiny = td.get("c_shiny", False)
+                    _gif_def_rarity = td.get("c_rarity", "common")
 
-                # First attack — battle scene image for skills
+                # HP 비율 클램핑
+                _gif_hp_before = max(0.0, min(1.0, _gif_hp_before))
+                _gif_hp_after = max(0.0, min(1.0, _gif_hp_after))
+                _gif_atk_hp = max(0.0, min(1.0, _gif_atk_hp))
+
+                # First attack — Canvas GIF 연출
                 crit_label = " 크리티컬!" if first_crit else ""
                 skill_label = f" {first_eff}!" if first_eff else " 공격!"
                 bar = _hp_bar(first_target_hp, first_target_max)
                 caption1 = f"{td['turn_num']}턴 ─ {first_name}{skill_label}{crit_label}\n  → {first_target_name} {bar} {first_target_hp}/{first_target_max} (-{first_dmg})"
+
+                _gif_sent = False
                 if first_eff and first_pid:
                     _skill_name = first_eff
                     if "「" in _skill_name:
                         _skill_name = _skill_name.split("「")[1].split("」")[0]
                     from models.pokemon_battle_data import POKEMON_BATTLE_DATA
                     _atk_type = POKEMON_BATTLE_DATA.get(first_pid, ("normal",))[0]
-                    _def_pid = td.get("d_pokemon_id") if td["first_is_challenger"] else td.get("c_pokemon_id")
-                    _def_shiny = td.get("d_shiny", False) if td["first_is_challenger"] else td.get("c_shiny", False)
-                    loop = asyncio.get_event_loop()
-                    card_buf = await loop.run_in_executor(
-                        None, generate_battle_card,
-                        first_pid, first_name, _def_pid, first_target_name,
-                        _skill_name, _atk_type, first_dmg,
-                        first_shiny, _def_shiny,
-                    )
-                    await _safe_send_photo(context.bot, chat_id, photo=card_buf, caption=caption1, parse_mode="HTML")
+
+                    # Canvas GIF 생성 시도
+                    try:
+                        from utils.battle_canvas import render_battle_gif
+                        _round_text = f"FINAL [{_score_c}-{_score_d}]"
+                        loop = asyncio.get_event_loop()
+                        gif_buf, _ = await loop.run_in_executor(
+                            None, render_battle_gif,
+                            first_pid, first_name, _gif_def_pid, first_target_name,
+                            _skill_name, _atk_type, first_dmg,
+                            first_shiny, _gif_def_shiny,
+                            first_crit,
+                            first_rarity, _gif_def_rarity,
+                            _gif_hp_before, _gif_hp_after,
+                            _gif_atk_hp,
+                            _round_text,
+                        )
+                        for _retry in range(3):
+                            try:
+                                await context.bot.send_animation(
+                                    chat_id=chat_id, animation=gif_buf,
+                                    caption=caption1, parse_mode="HTML",
+                                )
+                                _gif_sent = True
+                                break
+                            except RetryAfter as e:
+                                await asyncio.sleep(e.retry_after + 1)
+                            except Exception:
+                                break
+                    except Exception:
+                        logger.error("Canvas GIF 생성 실패, 배틀카드로 폴백", exc_info=True)
+
+                    # GIF 실패 시 기존 배틀카드(JPEG)로 폴백
+                    if not _gif_sent:
+                        try:
+                            _def_pid_fb = td.get("d_pokemon_id") if td["first_is_challenger"] else td.get("c_pokemon_id")
+                            _def_shiny_fb = td.get("d_shiny", False) if td["first_is_challenger"] else td.get("c_shiny", False)
+                            loop = asyncio.get_event_loop()
+                            card_buf = await loop.run_in_executor(
+                                None, generate_battle_card,
+                                first_pid, first_name, _def_pid_fb, first_target_name,
+                                _skill_name, _atk_type, first_dmg,
+                                first_shiny, _def_shiny_fb,
+                            )
+                            await _safe_send_photo(context.bot, chat_id, photo=card_buf, caption=caption1, parse_mode="HTML")
+                        except Exception:
+                            await _safe_send(context.bot, chat_id, text=caption1, parse_mode="HTML")
                     await asyncio.sleep(3)
                 else:
                     await _safe_send(context.bot, chat_id, text=caption1, parse_mode="HTML")
                     await asyncio.sleep(3)
 
-                # Counter attack
+                # Counter attack (텍스트로 이어감)
                 if second_dmg > 0:
                     crit2_label = " 크리티컬!" if second_crit else ""
                     skill2_label = f" {second_eff}!" if second_eff else " 반격!"
                     bar2 = _hp_bar(second_target_hp, second_target_max)
                     caption2 = f"{second_name}{skill2_label}{crit2_label}\n  → {second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})"
-                    if second_eff and second_pid:
-                        _skill_name2 = second_eff
-                        if "「" in _skill_name2:
-                            _skill_name2 = _skill_name2.split("「")[1].split("」")[0]
-                        from models.pokemon_battle_data import POKEMON_BATTLE_DATA
-                        _atk_type2 = POKEMON_BATTLE_DATA.get(second_pid, ("normal",))[0]
-                        _def_pid2 = td.get("c_pokemon_id") if td["first_is_challenger"] else td.get("d_pokemon_id")
-                        _def_shiny2 = td.get("c_shiny", False) if td["first_is_challenger"] else td.get("d_shiny", False)
-                        loop = asyncio.get_event_loop()
-                        card_buf2 = await loop.run_in_executor(
-                            None, generate_battle_card,
-                            second_pid, second_name, _def_pid2, second_target_name,
-                            _skill_name2, _atk_type2, second_dmg,
-                            second_shiny, _def_shiny2,
-                        )
-                        await _safe_send_photo(context.bot, chat_id, photo=card_buf2, caption=caption2, parse_mode="HTML")
-                        await asyncio.sleep(3)
-                    else:
-                        await _safe_send(context.bot, chat_id, text=caption2, parse_mode="HTML")
-                        await asyncio.sleep(3)
+                    await _safe_send(context.bot, chat_id, text=caption2, parse_mode="HTML")
+                    await asyncio.sleep(2)
+
+                # 턴 끝: running HP 갱신 (다음 턴의 hp_before 용)
+                _running_c_hp = max(0, td["c_hp"])
+                _running_d_hp = max(0, td["d_hp"])
 
             elif td["type"] == "ko":
+                # 스코어 업데이트 (GIF round_text 용)
+                if td["side"] == "challenger":
+                    _score_d += 1  # defender가 challenger 포켓몬 KO
+                else:
+                    _score_c += 1  # challenger가 defender 포켓몬 KO
                 m = _mark(td["side"])
                 trainer = p1_name if td["side"] == "challenger" else p2_name
                 if td["next_name"]:

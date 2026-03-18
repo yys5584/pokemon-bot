@@ -82,6 +82,7 @@ def render_battle_gif(
     data = {
         "atkSprite": _sprite_to_base64(atk_id),
         "defSprite": _sprite_to_base64(def_id),
+        "atkPokemonId": atk_id,
         "skillType": skill_type,
         "skillName": skill_name,
         "atkName": atk_name,
