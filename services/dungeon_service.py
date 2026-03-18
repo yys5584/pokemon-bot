@@ -264,9 +264,10 @@ def generate_buff_choices(
         if bdef and b.get("lv", 1) < bdef["max_lv"]:
             upgradable.append(b["id"])
 
-    # 아직 없는 버프들
+    # 아직 없는 버프들 (슬롯 상한 체크)
     owned_ids = {b["id"] for b in current_buffs}
-    new_available = [bid for bid in BUFF_DEFS if bid not in owned_ids]
+    at_cap = len(current_buffs) >= config.DUNGEON_MAX_BUFFS
+    new_available = [] if at_cap else [bid for bid in BUFF_DEFS if bid not in owned_ids]
 
     # 선택지 구성: 레벨업 1~2개 + 새 버프 1~2개 (가능한 만큼)
     random.shuffle(upgradable)

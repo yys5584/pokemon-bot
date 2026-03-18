@@ -1259,6 +1259,7 @@ DUNGEON_SKILL_RATE = 0.30
 DUNGEON_IMMUNITY_MULT = 0.3      # 면역 0x → 0.3x (던전 전용)
 DUNGEON_SKIP_HEAL = 0.50         # 버프 스킵 시 HP 50% 회복
 DUNGEON_MAX_SKIPS = 2            # 런당 스킵 횟수
+DUNGEON_MAX_BUFFS = 8            # 버프 슬롯 상한
 DUNGEON_BP_PER_FLOOR = 10        # 층당 기본 BP
 
 # --- 스킬 배율 (희귀도별, 던전 간소화) ---
