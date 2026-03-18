@@ -22,7 +22,7 @@ _dungeon_locks: set[int] = set()
 # 유틸리티
 # ══════════════════════════════════════════════════════════
 
-async def _send_fresh(query, context, user_id: int, text: str, reply_markup=None):
+async def _send_fresh(query, context, user_id: int, text: str, reply_markup=None, photo=None):
     """이전 메시지 삭제 후 새 메시지 전송 (항상 최하단 유지)."""
     st = _state(context)
     # 이전 메시지 삭제 시도
@@ -32,7 +32,20 @@ async def _send_fresh(query, context, user_id: int, text: str, reply_markup=None
             await context.bot.delete_message(chat_id=user_id, message_id=old_msg_id)
         except Exception:
             pass
-    # 새 메시지 전송
+    # 이미지 메시지도 삭제
+    old_photo_id = st.pop("photo_msg_id", None)
+    if old_photo_id:
+        try:
+            await context.bot.delete_message(chat_id=user_id, message_id=old_photo_id)
+        except Exception:
+            pass
+    # 이미지 전송
+    if photo:
+        photo_msg = await context.bot.send_photo(
+            chat_id=user_id, photo=photo, parse_mode="HTML"
+        )
+        st["photo_msg_id"] = photo_msg.message_id
+    # 텍스트 메시지 전송
     msg = await context.bot.send_message(
         chat_id=user_id, text=text, reply_markup=reply_markup, parse_mode="HTML"
     )
@@ -311,6 +324,34 @@ async def _process_floor(query, context, user_id: int, run: dict):
     if result.get("revive_used"):
         buffs = [b for b in buffs if b.get("effect", {}).get("type") != "revive"]
 
+    # 배틀 카드 이미지 생성
+    import asyncio as _aio
+    from utils.card_generator import generate_dungeon_battle_card
+
+    floor_type = "★ 관장전" if enemy["is_boss"] else ("⚡ 엘리트" if enemy["is_elite"] else "")
+    enemy_hp_pct = 0.0 if won else 1.0  # 이기면 적 HP 0, 지면 적 생존
+
+    log_lines = []
+    if result["total_damage_dealt"] > 0:
+        log_lines.append(f"{run['pokemon_name']}의 공격! → {result['total_damage_dealt']} 데미지")
+    if result["total_damage_taken"] > 0:
+        log_lines.append(f"{enemy['name_ko']}의 반격! → {result['total_damage_taken']} 피해")
+    for line in result.get("log", []):
+        log_lines.append(line)
+    skill_text = "\n".join(log_lines[:3])
+
+    loop = _aio.get_event_loop()
+    battle_card = await loop.run_in_executor(
+        None, generate_dungeon_battle_card,
+        pokemon["pokemon_id"], run["pokemon_name"], pokemon["rarity"],
+        remaining_hp, run["max_hp"], bool(run["is_shiny"]),
+        enemy["id"], enemy["name_ko"], enemy["rarity"],
+        enemy_hp_pct, floor, floor_type,
+        result["type_display"],
+        result["total_damage_dealt"], result["total_damage_taken"],
+        won, skill_text,
+    )
+
     if won:
         # 층간 회복 적용
         heal_rate = ds.get_floor_heal_rate(buffs)
@@ -320,28 +361,14 @@ async def _process_floor(query, context, user_id: int, run: dict):
         # DB 업데이트
         await dq.update_run_progress(run["id"], floor, remaining_hp, buffs)
 
-        # 배틀 결과 표시
-        shiny = "✨" if run["is_shiny"] else ""
+        # 배틀 결과 텍스트
         hp_bar = _hp_bar(remaining_hp, run["max_hp"])
         hp_pct = int(remaining_hp / run["max_hp"] * 100) if run["max_hp"] else 0
 
-        floor_type = "★ 관장전" if enemy["is_boss"] else ("⚡ 엘리트" if enemy["is_elite"] else "")
-        e_type_str = "/".join(config.TYPE_EMOJI.get(t, "") for t in enemy["types"])
-
         text = (
-            f"📍 <b>{floor}층</b> {floor_type}\n\n"
-            f"{shiny}{run['pokemon_name']} [{run['iv_grade']}] vs {e_type_str} {enemy['name_ko']} [{enemy['rarity'][:2]}]\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"🎯 {result['type_display']}\n\n"
-            f"⚔️ → {result['total_damage_dealt']} 데미지 ({result['turns']}턴)\n"
-            f"💥 ← {result['total_damage_taken']} 피해\n\n"
-            f"✅ 승리! ❤️ {hp_bar} {hp_pct}%\n"
+            f"✅ <b>{floor}층 승리!</b> ❤️ {hp_bar} {hp_pct}%\n"
+            f"🗡 버프 {len(buffs)}개"
         )
-
-        for line in result.get("log", []):
-            text += f"\n{line}"
-
-        text += f"\n🗡 버프 {len(buffs)}개"
 
         # 버프 제공 여부 확인
         cost = _get_pokemon_cost(pokemon["rarity"])
@@ -367,20 +394,20 @@ async def _process_floor(query, context, user_id: int, run: dict):
                     f"⏭ 스킵 (HP 5% 회복) [{skips}/{config.DUNGEON_MAX_SKIPS}]",
                     callback_data=f"dg_skip_{user_id}"
                 )])
-            await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
+            await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=battle_card)
         else:
             # 버프 없이 다음 층
             buttons = [
                 [InlineKeyboardButton("⚔️ 다음 층으로!", callback_data=f"dg_go_{user_id}")],
                 [InlineKeyboardButton("🏳️ 포기", callback_data=f"dg_quit_{user_id}")],
             ]
-            await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
+            await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=battle_card)
     else:
         # 패배 — 도달 층은 마지막 클리어 층 (이번 층은 실패)
-        await _finish_run(query, context, user_id, run, run["floor_reached"])
+        await _finish_run(query, context, user_id, run, run["floor_reached"], battle_card=battle_card)
 
 
-async def _finish_run(query, context, user_id: int, run: dict, final_floor: int):
+async def _finish_run(query, context, user_id: int, run: dict, final_floor: int, battle_card=None):
     """런 종료 + 보상 정산."""
     sub_tier = await _get_sub_tier(user_id)
     rewards = ds.calculate_rewards(final_floor, run["theme"], sub_tier)
@@ -443,7 +470,7 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int)
         InlineKeyboardButton("❌ 닫기", callback_data=f"dg_close_{user_id}"),
     ])
 
-    await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
+    await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=battle_card)
     _state(context).pop("run_id", None)
 
 
