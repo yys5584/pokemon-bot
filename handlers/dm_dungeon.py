@@ -340,7 +340,9 @@ async def _process_floor(query, context, user_id: int, run: dict):
     # 플레이어 스탯
     pokemon = await _load_pokemon(run["pokemon_instance_id"])
     if not pokemon:
-        await _send_fresh(query, context, user_id, "포켓몬 정보를 불러올 수 없습니다.")
+        await dq.abandon_run(run["id"])
+        await dq.add_dungeon_tickets(user_id, 1)  # 환불
+        await _send_fresh(query, context, user_id, "⚠️ 포켓몬 정보를 불러올 수 없어 던전이 종료됩니다. 입장권이 환불됩니다.")
         return
 
     player_stats, player_types = ds.build_player_stats(pokemon)
@@ -510,34 +512,52 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
     await dq.update_pokemon_record(user_id, run["pokemon_instance_id"], final_floor, run["theme"])
     is_new_record = await dq.update_user_best_floor(user_id, final_floor)
 
-    # BP 지급
-    if rewards["bp"] > 0:
-        await queries.add_battle_points(user_id, rewards["bp"])
+    # 보상 지급 (각각 try/except — 하나 실패해도 나머지 지급)
+    reward_errors = []
+    try:
+        if rewards["bp"] > 0:
+            await queries.add_battle_points(user_id, rewards["bp"])
+    except Exception as e:
+        reward_errors.append(f"BP: {e}")
 
-    # 입장권 지급
-    if rewards.get("tickets", 0) > 0:
-        await dq.add_dungeon_tickets(user_id, rewards["tickets"])
+    try:
+        if rewards.get("tickets", 0) > 0:
+            await dq.add_dungeon_tickets(user_id, rewards["tickets"])
+    except Exception as e:
+        reward_errors.append(f"tickets: {e}")
 
-    # 조각 지급 (던전 테마에 맞는 캠프 필드타입)
-    if rewards.get("fragments", 0) > 0:
-        await cq.add_fragments(user_id, rewards["field_type"], rewards["fragments"])
+    try:
+        if rewards.get("fragments", 0) > 0:
+            await cq.add_fragments(user_id, rewards["field_type"], rewards["fragments"])
+    except Exception as e:
+        reward_errors.append(f"fragments: {e}")
 
-    # 결정 / 무지개결정 지급
-    if rewards.get("crystals", 0) > 0 or rewards.get("rainbow", 0) > 0:
-        await cq.add_crystals(user_id, rewards.get("crystals", 0), rewards.get("rainbow", 0))
+    try:
+        if rewards.get("crystals", 0) > 0 or rewards.get("rainbow", 0) > 0:
+            await cq.add_crystals(user_id, rewards.get("crystals", 0), rewards.get("rainbow", 0))
+    except Exception as e:
+        reward_errors.append(f"crystals: {e}")
 
-    # IV 스톤 지급
-    if rewards.get("iv_stones", 0) > 0:
-        await queries.add_iv_stones(user_id, rewards["iv_stones"])
+    try:
+        if rewards.get("iv_stones", 0) > 0:
+            await queries.add_iv_stones(user_id, rewards["iv_stones"])
+    except Exception as e:
+        reward_errors.append(f"iv_stones: {e}")
+
+    if reward_errors:
+        logger.error(f"dungeon reward errors for user {user_id}: {reward_errors}")
 
     # 칭호 해금
     unlocked_titles = []
     for t_info in rewards.get("new_titles", []):
         title_id = f"dungeon_{t_info['floor']}"
-        has = await queries.has_title(user_id, title_id)
-        if not has:
-            await queries.unlock_title(user_id, title_id)
-            unlocked_titles.append(t_info)
+        try:
+            has = await queries.has_title(user_id, title_id)
+            if not has:
+                await queries.unlock_title(user_id, title_id)
+                unlocked_titles.append(t_info)
+        except Exception as e:
+            logger.error(f"dungeon title unlock error: {e}")
 
     # 결과 화면
     shiny = "✨" if run["is_shiny"] else ""
