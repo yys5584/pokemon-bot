@@ -2472,21 +2472,164 @@
                 <!-- ===== 던전 ===== -->
                 <div class="guide-section" id="guide-dungeon">
                     <h3 style="margin-bottom:12px">🏰 던전 시스템</h3>
-                    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">로그라이크 던전! 포켓몬 1마리로 도전하며 버프를 쌓아가세요.</p>
+                    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">로그라이크 던전! 포켓몬 1마리로 도전하며 버프를 쌓아 고층을 돌파하세요.</p>
 
+                    <!-- 이용 방법 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
                         <div style="font-weight:700;margin-bottom:10px">📖 이용 방법</div>
                         <div style="font-size:13px;color:var(--muted);line-height:1.8">
                             <b style="color:var(--text)">1.</b> 봇 DM에서 <b style="color:var(--red)">「던전」</b> 입력<br>
-                            <b style="color:var(--text)">2.</b> 포켓몬 선택 → 입장권 소모 → 시작<br>
+                            <b style="color:var(--text)">2.</b> 포켓몬 <b style="color:var(--text)">1마리</b> 선택 → 입장권 소모 → 시작<br>
                             <b style="color:var(--text)">3.</b> 매 층 자동 배틀 → 승리 시 <b style="color:var(--red)">버프 선택</b><br>
-                            <b style="color:var(--text)">4.</b> 같은 버프를 뽑으면 <b style="color:var(--red)">레벨업!</b>
+                            <b style="color:var(--text)">4.</b> 같은 버프를 뽑으면 <b style="color:var(--red)">레벨업!</b> (Lv.1→2→3)<br>
+                            <b style="color:var(--text)">5.</b> 패배 시 도달 층에 따라 보상 정산
                         </div>
                     </div>
 
+                    <!-- 입장권 & 테마 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
-                        <div style="font-weight:700;margin-bottom:10px">⬆️ 레벨업 시스템</div>
-                        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">같은 버프를 선택할 때마다 강화! MAX 도달 시 선택지에서 사라집니다.</div>
+                        <div style="font-weight:700;margin-bottom:10px">🎫 입장권 & 던전 테마</div>
+                        <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">
+                            • 매일 <b style="color:var(--text)">1장</b> 무료 지급 (최대 3장 보관)<br>
+                            • 구독자: 추가 입장권 지급<br>
+                            • BP로 추가 구매 가능
+                        </div>
+                        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">던전 테마는 <b style="color:var(--text)">요일별 로테이션</b>:</div>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;text-align:center"><b>월</b> 🌿 고대 숲</div>
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;text-align:center"><b>화</b> 🔥 화산</div>
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;text-align:center"><b>수</b> 🌊 심해</div>
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;text-align:center"><b>목</b> ⚡ 발전소</div>
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;text-align:center"><b>금</b> 🪨 동굴</div>
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;text-align:center"><b>토</b> 🔮 신전</div>
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;text-align:center"><b>일</b> 🐉 용의 둥지</div>
+                        </div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:6px">* 테마에 따라 적 포켓몬 타입이 달라지며, 조각 보상도 해당 필드 타입으로 지급됩니다.</div>
+                    </div>
+
+                    <!-- 등급별 버프 주기 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">⭐ 등급별 버프 주기</div>
+                        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">등급이 <b style="color:var(--text)">낮을수록</b> 버프를 자주 받아 빌드가 강력해집니다!</div>
+                        <table style="width:100%;border-collapse:collapse;font-size:12px">
+                            <tr style="border-bottom:1px solid var(--border)">
+                                <th style="text-align:left;padding:6px 0;color:var(--muted);font-size:11px">등급</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:11px">코스트</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:11px">버프 주기</th>
+                                <th style="text-align:right;padding:6px 0;color:var(--muted);font-size:11px">특징</th>
+                            </tr>
+                            <tr style="border-bottom:1px solid var(--border)">
+                                <td style="padding:8px 0;color:#aaa;font-weight:700">커먼·언커먼</td>
+                                <td style="text-align:center">1~2</td>
+                                <td style="text-align:center;color:var(--red);font-weight:700">매 층</td>
+                                <td style="text-align:right;color:var(--muted)">버프 폭풍</td>
+                            </tr>
+                            <tr style="border-bottom:1px solid var(--border)">
+                                <td style="padding:8px 0;color:#58f;font-weight:700">레어</td>
+                                <td style="text-align:center">4</td>
+                                <td style="text-align:center;color:var(--red);font-weight:700">2층마다</td>
+                                <td style="text-align:right;color:var(--muted)">밸런스</td>
+                            </tr>
+                            <tr style="border-bottom:1px solid var(--border)">
+                                <td style="padding:8px 0;color:#c5f;font-weight:700">에픽</td>
+                                <td style="text-align:center">5</td>
+                                <td style="text-align:center;color:var(--red);font-weight:700">3층마다</td>
+                                <td style="text-align:right;color:var(--muted)">스탯으로 버팀</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px 0;color:#fa0;font-weight:700">전설·초전설</td>
+                                <td style="text-align:center">6</td>
+                                <td style="text-align:center;color:var(--red);font-weight:700">4층마다</td>
+                                <td style="text-align:right;color:var(--muted)">순수 깡스탯</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- 마일스톤 보상 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">🏆 마일스톤 보상</div>
+                        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">보상은 <b style="color:var(--text)">누적</b> 지급됩니다. (20F 도달 시 5~20F 보상 모두 획득)</div>
+                        <table style="width:100%;border-collapse:collapse;font-size:12px">
+                            <tr style="border-bottom:1px solid var(--border)">
+                                <th style="text-align:left;padding:6px 0;color:var(--muted);font-size:10px">층</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">BP</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">조각</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">입장권</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">결정</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">무지개</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">IV스톤</th>
+                            </tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;font-weight:700">5F</td><td style="text-align:center">+50</td><td style="text-align:center">1</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;font-weight:700">10F</td><td style="text-align:center">+100</td><td style="text-align:center">2</td><td style="text-align:center">1</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;font-weight:700">15F</td><td style="text-align:center">+150</td><td style="text-align:center">2</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
+                            <tr style="border-bottom:1px solid var(--border);background:rgba(230,57,70,0.05)"><td style="padding:6px 0;font-weight:700;color:var(--red)">20F</td><td style="text-align:center">+200</td><td style="text-align:center">3</td><td style="text-align:center">1</td><td style="text-align:center;color:var(--red);font-weight:700">1</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
+                            <tr style="border-bottom:1px solid var(--border);background:rgba(230,57,70,0.05)"><td style="padding:6px 0;font-weight:700;color:var(--red)">25F</td><td style="text-align:center">+250</td><td style="text-align:center">3</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--red);font-weight:700">1</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
+                            <tr style="border-bottom:1px solid var(--border);background:rgba(230,57,70,0.05)"><td style="padding:6px 0;font-weight:700;color:var(--red)">30F</td><td style="text-align:center">+300</td><td style="text-align:center">4</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--red);font-weight:700">2</td><td style="text-align:center;color:var(--red);font-weight:700">1</td><td style="text-align:center;color:var(--muted)">-</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;font-weight:700">35F</td><td style="text-align:center">+350</td><td style="text-align:center">4</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
+                            <tr style="border-bottom:1px solid var(--border);background:rgba(245,158,11,0.06)"><td style="padding:6px 0;font-weight:700;color:#f59e0b">40F</td><td style="text-align:center">+400</td><td style="text-align:center">5</td><td style="text-align:center">1</td><td style="text-align:center;color:#f59e0b;font-weight:700">3</td><td style="text-align:center;color:#f59e0b;font-weight:700">1</td><td style="text-align:center;color:#f59e0b;font-weight:700">1</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;font-weight:700">45F</td><td style="text-align:center">+450</td><td style="text-align:center">5</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
+                            <tr style="background:rgba(245,158,11,0.06)"><td style="padding:6px 0;font-weight:700;color:#f59e0b">50F</td><td style="text-align:center">+500</td><td style="text-align:center">6</td><td style="text-align:center">2</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:#f59e0b;font-weight:700">2</td><td style="text-align:center;color:#f59e0b;font-weight:700">1</td></tr>
+                        </table>
+                        <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6">
+                            * 조각은 <b style="color:var(--text)">던전 테마</b>에 맞는 캠프 필드 조각으로 지급<br>
+                            * 기본 BP: 층당 +10 BP (구독자 1.2~1.5배)
+                        </div>
+                    </div>
+
+                    <!-- 보상 아이템 설명 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">💎 보상 아이템</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #8b5cf6">
+                                <div style="font-size:13px;font-weight:700">💠 IV스톤</div>
+                                <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:4px">
+                                    원하는 포켓몬의 <b style="color:var(--text)">IV 스탯 +3</b> (최대 31)<br>
+                                    포켓몬·스탯 직접 선택 가능<br>
+                                    DM → 「아이템」에서 사용
+                                </div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #22c55e">
+                                <div style="font-size:13px;font-weight:700">🧩 만능 조각</div>
+                                <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:4px">
+                                    캠프 이로치 전환 시 <b style="color:var(--text)">아무 타입</b> 대체<br>
+                                    필드 조각이 부족할 때 자동 보충<br>
+                                    필드 조각 우선 소모 → 부족분만 차감
+                                </div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #3b82f6">
+                                <div style="font-size:13px;font-weight:700">💎 결정</div>
+                                <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:4px">
+                                    캠프 이로치 전환 재화<br>
+                                    에픽 이상 전환 시 필요
+                                </div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #f59e0b">
+                                <div style="font-size:13px;font-weight:700">🌈 무지개결정</div>
+                                <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:4px">
+                                    초전설 이로치 전환 재화<br>
+                                    분해로도 획득 가능
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 칭호 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">👑 던전 칭호</div>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;font-size:12px">
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;text-align:center">🏰 5F <b>던전 입문자</b></div>
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;text-align:center">⚔️ 10F <b>던전 탐험가</b></div>
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;text-align:center">🗡 20F <b>던전 정복자</b></div>
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;text-align:center">🔥 30F <b>던전 마스터</b></div>
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;text-align:center">💎 40F <b>던전 레전드</b></div>
+                            <div style="background:var(--bg);border-radius:6px;padding:6px 8px;text-align:center">👑 50F <b style="color:#f59e0b">던전 챔피언</b></div>
+                        </div>
+                    </div>
+
+                    <!-- 레벨업 시스템 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">⬆️ 뱀서식 레벨업</div>
+                        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">같은 버프를 선택할 때마다 강화! MAX(Lv.3) 도달 시 선택지에서 사라집니다.</div>
                         <div style="background:var(--bg);border-radius:8px;padding:12px">
                             <div style="font-size:11px;color:var(--muted);margin-bottom:8px">예시 — 공격 강화</div>
                             <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -2507,8 +2650,9 @@
                         </div>
                     </div>
 
+                    <!-- 버프 목록 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
-                        <div style="font-weight:700;margin-bottom:10px">🗡 버프 목록</div>
+                        <div style="font-weight:700;margin-bottom:10px">🗡 버프 목록 (15종)</div>
                         <div style="font-size:11px;color:#3b82f6;font-weight:600;margin-bottom:6px">● 스탯 계열</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
                             <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">공격 강화</div><div style="font-size:10px;color:var(--muted)">+15% → +45%</div></div>
@@ -2516,7 +2660,7 @@
                             <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">체력 강화</div><div style="font-size:10px;color:var(--muted)">+15% → +40%</div></div>
                             <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">방어/특방/스피드</div><div style="font-size:10px;color:var(--muted)">+15% → +35%</div></div>
                         </div>
-                        <div style="font-size:11px;color:#f43f5e;font-weight:600;margin-bottom:6px">● 전투 계열 <span style="background:#f43f5e;color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">NEW</span></div>
+                        <div style="font-size:11px;color:#f43f5e;font-weight:600;margin-bottom:6px">● 전투 계열</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
                             <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">⚡ 크리 강화</div><div style="font-size:10px;color:var(--muted)">크리확률 +10~25%</div></div>
                             <div style="background:var(--bg);border-radius:8px;padding:8px 10px"><div style="font-size:12px;font-weight:600">⚔️ 이중타격</div><div style="font-size:10px;color:var(--muted)">15~30% 2회 공격</div></div>
@@ -2532,9 +2676,10 @@
                         </div>
                     </div>
 
+                    <!-- 히든 시너지 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
-                        <div style="font-weight:700;margin-bottom:10px">✨ 히든 시너지</div>
-                        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">특정 버프 조합을 완성하면 숨겨진 효과가 발동! (총 6종)</div>
+                        <div style="font-weight:700;margin-bottom:10px">✨ 히든 시너지 (6종)</div>
+                        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">특정 버프 조합을 완성하면 숨겨진 효과가 발동!</div>
                         <div style="background:#fef3c7;border-radius:8px;padding:10px 12px;margin-bottom:6px">
                             <div style="font-size:13px;font-weight:700;color:#92400e">🔥 필살연격</div>
                             <div style="font-size:11px;color:#b45309">크리티컬 시 특수 효과 발동</div>
@@ -2554,15 +2699,15 @@
                         </div>
                     </div>
 
+                    <!-- 기타 정보 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
                         <div style="font-weight:700;margin-bottom:8px">📋 기타 정보</div>
                         <div style="font-size:12px;color:var(--muted);line-height:1.8">
-                            • 입장권: 매일 무료 지급 (구독 시 추가)<br>
-                            • BP로 입장권 추가 구매 가능<br>
                             • 5층마다 <b style="color:var(--text)">관장전</b> (강화된 보스)<br>
-                            • 층 클리어 시 <b style="color:var(--text)">BP + 조각</b> 보상<br>
+                            • HP는 다음 층으로 이월 (회복 없음)<br>
+                            • 버프 스킵 시 <b style="color:#22c55e">HP 50% 회복</b> (2회 제한)<br>
                             • 초전설 포켓몬은 <b style="color:var(--red)">전용 궁극기 GIF 연출!</b><br>
-                            • 버프 스킵 시 <b style="color:#22c55e">HP 50% 회복</b> (2회 제한)
+                            • 타입 상성이 적용됨 — 테마에 유리한 포켓몬을 골라보세요
                         </div>
                     </div>
                 </div>
