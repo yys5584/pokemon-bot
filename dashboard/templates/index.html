@@ -6083,9 +6083,8 @@ async function admDbDungeon(){
     const c=document.getElementById("admDbContent");
     c.innerHTML='<div class="loading">로딩 중...</div>';
     try{
-        const r=await fetch("/api/admin/db/dungeon",{headers:{"X-Session-Token":_sessToken}});
-        const d=await r.json();
-        if(!d.ok){c.innerHTML='<div class="loading">오류</div>';return}
+        const d=await fetchJSON("/api/admin/db/dungeon");
+        if(!d||!d.ok){c.innerHTML='<div class="loading">오류</div>';return}
         const s=d.stats;
         let h=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
             <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
