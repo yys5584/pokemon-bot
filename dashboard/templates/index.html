@@ -3222,6 +3222,7 @@
                     <div class="poke-filter" onclick="admDbTab('spawns')">📋 스폰로그</div>
                     <div class="poke-filter" onclick="admDbTab('userpoke')">🎒 유저포켓몬</div>
                     <div class="poke-filter" onclick="admDbTab('economy')">💰 경제현황</div>
+                    <div class="poke-filter" onclick="admDbTab('dungeon')">🏰 던전</div>
                     <div class="poke-filter" onclick="admDbTab('optout')">🔕 수신거부</div>
                 </div>
                 <div id="admDbContent"><div class="loading">탭을 선택하세요</div></div>
@@ -5797,7 +5798,7 @@ function admDbTab(tab){
     _admDbCur=tab;
     document.querySelectorAll("#page-admin .section:last-child .poke-filter").forEach(f=>{
         f.classList.toggle("active",f.textContent.includes(
-            tab==="overview"?"서버현황":tab==="shiny"?"이로치":tab==="spawns"?"스폰로그":tab==="userpoke"?"유저포켓몬":tab==="economy"?"경제현황":"수신거부"
+            tab==="overview"?"서버현황":tab==="shiny"?"이로치":tab==="spawns"?"스폰로그":tab==="userpoke"?"유저포켓몬":tab==="economy"?"경제현황":tab==="dungeon"?"던전":"수신거부"
         ))
     });
     if(tab==="overview")admDbOverview();
@@ -5805,6 +5806,7 @@ function admDbTab(tab){
     else if(tab==="spawns")admDbSpawns();
     else if(tab==="userpoke")admDbUserPoke();
     else if(tab==="economy")admDbEconomy();
+    else if(tab==="dungeon")admDbDungeon();
     else if(tab==="optout")admDbOptout();
 }
 
@@ -6075,6 +6077,83 @@ async function admDbEconomy(){
         ${rankTable("BP 보유","⚡",d.bp," BP")}
         ${rankTable("크레딧 보유","🎫",d.credits,"")}
     </div>`;
+}
+
+async function admDbDungeon(){
+    const c=document.getElementById("admDbContent");
+    c.innerHTML='<div class="loading">로딩 중...</div>';
+    try{
+        const r=await fetch("/api/admin/db/dungeon",{headers:{"X-Session-Token":_sessToken}});
+        const d=await r.json();
+        if(!d.ok){c.innerHTML='<div class="loading">오류</div>';return}
+        const s=d.stats;
+        let h=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+                <div style="font-size:11px;color:var(--muted)">총 런</div>
+                <div style="font-size:20px;font-weight:700">${s.total_runs}</div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+                <div style="font-size:11px;color:var(--muted)">평균 층</div>
+                <div style="font-size:20px;font-weight:700">${s.avg_floor}F</div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+                <div style="font-size:11px;color:var(--muted)">최고 층</div>
+                <div style="font-size:20px;font-weight:700">${s.max_floor}F</div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+                <div style="font-size:11px;color:var(--muted)">오늘 런</div>
+                <div style="font-size:20px;font-weight:700">${s.today_runs}</div>
+            </div>
+        </div>`;
+
+        // 층별 분포
+        h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div style="font-weight:700;margin-bottom:8px">📊 층별 사망 분포</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px">`;
+        const maxCnt=Math.max(...(d.floor_dist||[]).map(x=>x.cnt),1);
+        for(const f of (d.floor_dist||[])){
+            const pct=Math.round(f.cnt/maxCnt*100);
+            h+=`<div style="text-align:center;min-width:28px">
+                <div style="height:60px;display:flex;align-items:flex-end;justify-content:center">
+                    <div style="width:18px;background:var(--red);border-radius:3px 3px 0 0;height:${Math.max(pct,5)}%"></div>
+                </div>
+                <div style="font-size:9px;color:var(--muted)">${f.floor}F</div>
+                <div style="font-size:9px;font-weight:700">${f.cnt}</div>
+            </div>`;
+        }
+        h+=`</div></div>`;
+
+        // 희귀도별
+        h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div style="font-weight:700;margin-bottom:8px">⭐ 희귀도별 평균</div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 0">등급</th><th style="text-align:center">런 수</th><th style="text-align:center">평균 층</th><th style="text-align:right">최고 층</th></tr>`;
+        for(const r2 of (d.rarity_stats||[])){
+            h+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0">${rarBadge(r2.rarity,r2.rarity)}</td><td style="text-align:center">${r2.cnt}</td><td style="text-align:center;font-weight:700">${r2.avg}F</td><td style="text-align:right">${r2.max_f}F</td></tr>`;
+        }
+        h+=`</table></div>`;
+
+        // 사망 원인 Top10
+        h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div style="font-weight:700;margin-bottom:8px">💀 사망 원인 Top10</div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 0">적</th><th style="text-align:center">등급</th><th style="text-align:right">횟수</th></tr>`;
+        for(const k of (d.death_top||[])){
+            h+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0">${escHtml(k.name)}</td><td style="text-align:center">${rarBadge(k.rarity,k.rarity)}</td><td style="text-align:right;font-weight:700">${k.cnt}</td></tr>`;
+        }
+        h+=`</table></div>`;
+
+        // 최근 런
+        h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-weight:700;margin-bottom:8px">🕐 최근 런</div>
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 0">유저</th><th>포켓몬</th><th style="text-align:center">층</th><th style="text-align:center">BP</th><th style="text-align:right">시간</th></tr>`;
+        for(const run of (d.recent_runs||[])){
+            h+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(run.name)}</td><td>${rarBadge(run.rarity,run.pokemon)}${run.shiny?"✨":""}</td><td style="text-align:center;font-weight:700">${run.floor}F</td><td style="text-align:center">${run.bp}</td><td style="text-align:right">${admTime(run.ended_at)}</td></tr>`;
+        }
+        h+=`</table></div>`;
+        c.innerHTML=h;
+    }catch(e){c.innerHTML='<div class="loading">오류: '+e.message+'</div>'}
 }
 
 async function admDbOptout(){

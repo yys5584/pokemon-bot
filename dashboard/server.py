@@ -3107,6 +3107,66 @@ async def api_admin_db_economy(request):
     })
 
 
+async def api_admin_db_dungeon(request):
+    """Admin DB: dungeon analytics."""
+    if not await _admin_check(request):
+        return web.json_response({"ok": False, "error": "forbidden"}, status=403)
+    pool = await get_db()
+
+    # 기본 통계
+    stats = await pool.fetchrow(
+        "SELECT COUNT(*) as total_runs, "
+        "COALESCE(AVG(floor_reached)::numeric(5,1), 0) as avg_floor, "
+        "COALESCE(MAX(floor_reached), 0) as max_floor, "
+        "COUNT(CASE WHEN started_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date THEN 1 END) as today_runs "
+        "FROM dungeon_runs WHERE status = 'completed'"
+    )
+
+    # 층별 분포
+    floor_dist = await pool.fetch(
+        "SELECT floor_reached as floor, COUNT(*) as cnt FROM dungeon_runs "
+        "WHERE status = 'completed' GROUP BY floor_reached ORDER BY floor_reached"
+    )
+
+    # 희귀도별
+    rarity_stats = await pool.fetch(
+        "SELECT rarity, COUNT(*) as cnt, AVG(floor_reached)::numeric(5,1) as avg, "
+        "MAX(floor_reached) as max_f FROM dungeon_runs "
+        "WHERE status = 'completed' AND rarity IS NOT NULL "
+        "GROUP BY rarity ORDER BY avg DESC"
+    )
+
+    # 사망 원인 Top10
+    death_top = await pool.fetch(
+        "SELECT death_enemy as name, death_enemy_rarity as rarity, COUNT(*) as cnt "
+        "FROM dungeon_runs WHERE status = 'completed' AND death_enemy IS NOT NULL "
+        "GROUP BY death_enemy, death_enemy_rarity ORDER BY cnt DESC LIMIT 10"
+    )
+
+    # 최근 런 20개
+    recent_runs = await pool.fetch(
+        "SELECT dr.pokemon_name as pokemon, dr.rarity, dr.is_shiny as shiny, "
+        "dr.floor_reached as floor, dr.bp_earned as bp, dr.ended_at, "
+        "COALESCE(u.display_name, u.user_id::text) as name "
+        "FROM dungeon_runs dr LEFT JOIN users u ON dr.user_id = u.user_id "
+        "WHERE dr.status = 'completed' ORDER BY dr.ended_at DESC LIMIT 20"
+    )
+
+    return web.json_response({
+        "ok": True,
+        "stats": {
+            "total_runs": stats["total_runs"],
+            "avg_floor": float(stats["avg_floor"]),
+            "max_floor": stats["max_floor"],
+            "today_runs": stats["today_runs"],
+        },
+        "floor_dist": [{"floor": r["floor"], "cnt": r["cnt"]} for r in floor_dist],
+        "rarity_stats": [{"rarity": r["rarity"], "cnt": r["cnt"], "avg": float(r["avg"]), "max_f": r["max_f"]} for r in rarity_stats],
+        "death_top": [{"name": r["name"], "rarity": r["rarity"], "cnt": r["cnt"]} for r in death_top],
+        "recent_runs": [{"pokemon": r["pokemon"], "rarity": r["rarity"], "shiny": r["shiny"], "floor": r["floor"], "bp": r["bp"], "ended_at": r["ended_at"].isoformat() if r["ended_at"] else None, "name": r["name"]} for r in recent_runs],
+    })
+
+
 async def api_admin_db_optout(request):
     """Admin DB: list users who opted out of patch notes."""
     if not await _admin_check(request):
@@ -4518,6 +4578,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/admin/db/spawns", api_admin_db_spawns)
     app.router.add_get("/api/admin/db/user-pokemon", api_admin_db_user_pokemon)
     app.router.add_get("/api/admin/db/economy", api_admin_db_economy)
+    app.router.add_get("/api/admin/db/dungeon", api_admin_db_dungeon)
     app.router.add_get("/api/admin/db/optout", api_admin_db_optout)
     app.router.add_post("/api/admin/db/optout-remove", api_admin_db_optout_remove)
     # Analytics
