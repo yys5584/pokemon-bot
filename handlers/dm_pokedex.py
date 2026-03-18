@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
+from database import camp_queries as cq
 from utils.helpers import hearts_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji, shiny_emoji, icon_emoji, ball_emoji, resolve_title_badge, pokemon_iv_total as _iv_sum, iv_grade
 from utils.card_generator import generate_card, generate_pokedex_card
 from utils.parse import parse_number, parse_name_arg
@@ -2577,6 +2578,24 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(f"{icon_emoji('game')} 아케이드 티켓: {arcade_tickets}개")
     if hyper_balls > 0:
         lines.append(f"{ball_emoji('hyperball')} 하이퍼볼: {hyper_balls}개")
+
+    # 조각 / 결정
+    fragments = await cq.get_user_fragments(user_id)
+    uni_frags = await queries.get_universal_fragments(user_id)
+    crystals = await cq.get_crystals(user_id)
+    total_frags = sum(fragments.values()) + uni_frags
+    crystal_count = crystals.get("crystal", 0)
+    rainbow_count = crystals.get("rainbow", 0)
+    if total_frags > 0 or crystal_count > 0 or rainbow_count > 0:
+        lines.append("")
+        frag_parts = []
+        if total_frags > 0:
+            frag_parts.append(f"🧩 조각 {total_frags}개")
+        if crystal_count > 0:
+            frag_parts.append(f"💎 결정 {crystal_count}개")
+        if rainbow_count > 0:
+            frag_parts.append(f"🌈 무지개 {rainbow_count}개")
+        lines.append(" / ".join(frag_parts) + " (상세: '아이템')")
 
     # DM 메뉴 키보드
     menu_keyboard = ReplyKeyboardMarkup(

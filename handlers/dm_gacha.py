@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
+from database import camp_queries as cq
 from database.battle_queries import get_bp
 from utils.helpers import icon_emoji
 from utils.i18n import t, get_user_lang, poke_name
@@ -330,6 +331,28 @@ async def item_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if shiny_tickets > 0:
         lines.append(f"  ✨ 이로치 강스권 ×{shiny_tickets}")
+        has_items = True
+
+    # 캠프 조각 + 결정 표시
+    fragments = await cq.get_user_fragments(user_id)
+    crystals = await cq.get_crystals(user_id)
+    crystal_count = crystals.get("crystal", 0)
+    rainbow_count = crystals.get("rainbow", 0)
+    has_camp_mats = any(v > 0 for v in fragments.values()) or crystal_count > 0 or rainbow_count > 0
+    if has_camp_mats:
+        lines.append("")
+        lines.append(f"  🧩 <b>{t(lang, 'gacha.fragments_header')}</b>")
+        for field_key, amount in fragments.items():
+            if amount <= 0:
+                continue
+            field_info = config.CAMP_FIELDS.get(field_key, {})
+            field_name = field_info.get("name", field_key)
+            field_emoji = field_info.get("emoji", "")
+            lines.append(f"    {field_emoji} {field_name} ×{amount}")
+        if crystal_count > 0:
+            lines.append(f"    💎 결정 ×{crystal_count}")
+        if rainbow_count > 0:
+            lines.append(f"    🌈 무지개결정 ×{rainbow_count}")
         has_items = True
 
     if eggs:

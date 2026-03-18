@@ -890,10 +890,15 @@ def _build_convert_page(eligible: list, uid: int, frags: dict, crystals: dict,
 
     total_frags = sum(frags.values())
     filter_label = _RARITY_FILTER_MAP.get(rarity_filter, ("전체", None))[0]
+    # 필드별 조각 요약
+    frag_detail = " / ".join(
+        f"{config.CAMP_FIELDS[fk]['emoji']}{amt}"
+        for fk, amt in frags.items() if amt > 0
+    )
     lines = [
         f"{shiny_emoji()} 이로치 전환",
         "",
-        f"🧩 보유 조각: {total_frags}개",
+        f"🧩 보유 조각: {total_frags}개" + (f"  ({frag_detail})" if frag_detail else ""),
         f"💎 결정: {crystals['crystal']}개 | 🌈 무지개: {crystals['rainbow']}개",
         "",
     ]

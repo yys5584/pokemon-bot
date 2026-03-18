@@ -12,7 +12,7 @@ from database import dungeon_queries as dq
 from database import camp_queries as cq
 from services import dungeon_service as ds
 from utils.battle_calc import calc_battle_stats, calc_power, get_normalized_base_stats, EVO_STAGE_MAP, iv_total
-from utils.helpers import icon_emoji, shiny_emoji, rarity_badge
+from utils.helpers import icon_emoji, shiny_emoji, rarity_badge, _type_emoji
 from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
@@ -131,8 +131,8 @@ async def _build_entry_screen(user_id: int, lang: str | None = None) -> tuple[st
     theme = ds.get_today_theme()
     sub_tier = await _get_sub_tier(user_id)
 
-    adv_types = " / ".join(config.TYPE_EMOJI.get(tp, "") + _type_name(lang, tp) for tp in theme["advantage"])
-    theme_types = " / ".join(config.TYPE_EMOJI.get(tp, "") + _type_name(lang, tp) for tp in theme["types"])
+    adv_types = " / ".join(_type_emoji(tp) + _type_name(lang, tp) for tp in theme["advantage"])
+    theme_types = " / ".join(_type_emoji(tp) + _type_name(lang, tp) for tp in theme["types"])
 
     CASTLE = icon_emoji("container")
     TICKET = icon_emoji("stationery")
@@ -144,6 +144,12 @@ async def _build_entry_screen(user_id: int, lang: str | None = None) -> tuple[st
     daily_max = config.DUNGEON_MAX_DAILY_RUNS.get(sub_tier or "free", 3)
     daily_left = max(0, daily_max - daily_count)
 
+    # 조각 타입 표시
+    field_key = config.DUNGEON_THEME_TO_FIELD.get(theme["name"], "forest")
+    field_info = config.CAMP_FIELDS.get(field_key, {})
+    field_name = field_info.get("name", field_key)
+    field_emoji = field_info.get("emoji", "🧩")
+
     text = (
         f"{CASTLE} <b>{t(lang, 'dungeon.title')}</b>\n\n"
         f"{TICKET} {t(lang, 'dungeon.tickets_info', tickets=tickets, left=daily_left, max=daily_max)}\n"
@@ -151,6 +157,7 @@ async def _build_entry_screen(user_id: int, lang: str | None = None) -> tuple[st
         f"{FOOT} {t(lang, 'dungeon.today_theme', emoji=theme['emoji'], name=theme['name'])}\n"
         f"   {t(lang, 'dungeon.enemy_types_appear', types=theme_types)}\n"
         f"   {BOLT} {t(lang, 'dungeon.advantage_types', types=adv_types)}\n"
+        f"   🧩 {t(lang, 'dungeon.fragment_reward', field_emoji=field_emoji, field=field_name)}\n"
     )
 
     buttons = []
@@ -403,7 +410,7 @@ async def _process_floor(query, context, user_id: int, run: dict):
 
         # 적 정보
         enemy_rb = rarity_badge(enemy["rarity"])
-        enemy_types = " ".join(config.TYPE_EMOJI.get(tp, "") for tp in enemy.get("types", []))
+        enemy_types = " ".join(_type_emoji(tp) for tp in enemy.get("types", []))
         scaling = enemy.get("scaling", 1.0)
         scale_text = f" (×{scaling:.1f})" if scaling > 1.0 else ""
         enemy_name = enemy.get("name_ko", "???")
@@ -1034,7 +1041,7 @@ async def _start_run(query, context, user_id: int, instance_id: int):
     # 시작 화면
     shiny = "✨" if pokemon.get("is_shiny") else ""
     p_name = poke_name(pokemon, lang)
-    type_str = "/".join(config.TYPE_EMOJI.get(tp, "") + _type_name(lang, tp) for tp in types)
+    type_str = "/".join(_type_emoji(tp) + _type_name(lang, tp) for tp in types)
     cost = _get_pokemon_cost(pokemon["rarity"])
     freq = config.DUNGEON_BUFF_FREQUENCY.get(cost, 1)
 
