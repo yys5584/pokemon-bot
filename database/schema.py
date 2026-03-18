@@ -1320,6 +1320,17 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── IV 스톤 & 만능 조각 (2026-03-18) ──
+    iv_uni_migs = [
+        "ALTER TABLE users ADD COLUMN iv_stones INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN universal_fragments INTEGER NOT NULL DEFAULT 0",
+    ]
+    for mig in iv_uni_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

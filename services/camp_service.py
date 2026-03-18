@@ -731,11 +731,21 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, d
     frag_cost = config.CAMP_SHINY_COST.get(rarity, 12)
     user_frags = await cq.get_user_fragments(user_id)
 
+    from database import queries as _q
+    uni_frags = await _q.get_universal_fragments(user_id)
+
     # 매칭 필드 중 조각이 충분한 것 찾기
     chosen_field = None
+    uni_use = 0  # 만능 조각 사용량
     for fkey in matching_fields:
-        if user_frags.get(fkey, 0) >= frag_cost:
+        field_amount = user_frags.get(fkey, 0)
+        if field_amount >= frag_cost:
             chosen_field = fkey
+            break
+        # 필드 조각 + 만능 조각 합산
+        if field_amount + uni_frags >= frag_cost:
+            chosen_field = fkey
+            uni_use = frag_cost - field_amount
             break
 
     if not chosen_field:
@@ -743,7 +753,11 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, d
             config.CAMP_FIELDS[f]["name"] for f in matching_fields
         )
         best = max((user_frags.get(f, 0) for f in matching_fields), default=0)
-        return False, f"{field_names} 조각이 부족합니다. ({best}/{frag_cost})", None
+        total_best = best + uni_frags
+        msg = f"{field_names} 조각이 부족합니다. ({best}/{frag_cost})"
+        if uni_frags > 0:
+            msg += f"\n만능 조각 {uni_frags}개 포함해도 부족합니다. ({total_best}/{frag_cost})"
+        return False, msg, None
 
     # 3) 결정 확인
     crystal_cost = config.CAMP_CRYSTAL_COST.get(rarity, 0)
@@ -774,16 +788,28 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, d
                     if not row:
                         return False, "결정 소모에 실패했습니다.", None
 
-                # 조각 소모
-                row = await conn.fetchrow(
-                    """UPDATE camp_fragments
-                       SET amount = amount - $3
-                       WHERE user_id = $1 AND field_type = $2 AND amount >= $3
-                       RETURNING amount""",
-                    user_id, chosen_field, frag_cost,
-                )
-                if not row:
-                    return False, "조각 소모에 실패했습니다.", None
+                # 조각 소모 (필드 조각 + 만능 조각)
+                field_use = frag_cost - uni_use
+                if field_use > 0:
+                    row = await conn.fetchrow(
+                        """UPDATE camp_fragments
+                           SET amount = amount - $3
+                           WHERE user_id = $1 AND field_type = $2 AND amount >= $3
+                           RETURNING amount""",
+                        user_id, chosen_field, field_use,
+                    )
+                    if not row:
+                        return False, "조각 소모에 실패했습니다.", None
+                if uni_use > 0:
+                    row = await conn.fetchrow(
+                        """UPDATE users
+                           SET universal_fragments = universal_fragments - $2
+                           WHERE user_id = $1 AND universal_fragments >= $2
+                           RETURNING universal_fragments""",
+                        user_id, uni_use,
+                    )
+                    if not row:
+                        return False, "만능 조각 소모에 실패했습니다.", None
 
                 # 이로치 전환
                 row = await conn.fetchrow(

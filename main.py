@@ -2221,7 +2221,7 @@ def main():
     # 가챠 (뽑기) callbacks
     app.add_handler(CallbackQueryHandler(gacha_callback_handler, pattern=r"^gacha_"))
     # 아이템 사용 callbacks
-    app.add_handler(CallbackQueryHandler(item_callback_handler, pattern=r"^(item_|ivr_)"))
+    app.add_handler(CallbackQueryHandler(item_callback_handler, pattern=r"^(item_|ivr_|ivstone_)"))
 
     # Nurture (feed/play/evolve) duplicate selection callbacks
     app.add_handler(CallbackQueryHandler(nurture_callback_handler, pattern=r"^nurt_"))

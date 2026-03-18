@@ -303,6 +303,8 @@ async def item_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = ["🎒 <b>아이템 가방</b>", ""]
 
+    iv_stones = await queries.get_iv_stones(user_id)
+    uni_frags = await queries.get_universal_fragments(user_id)
     has_items = False
 
     for item in items:
@@ -314,6 +316,14 @@ async def item_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if name_info:
             lines.append(f"  {name_info[0]} ×{qty}")
             has_items = True
+
+    if iv_stones > 0:
+        lines.append(f"  💠 IV스톤 ×{iv_stones}")
+        has_items = True
+
+    if uni_frags > 0:
+        lines.append(f"  🧩 만능 조각 ×{uni_frags}")
+        has_items = True
 
     if shiny_tickets > 0:
         lines.append(f"  ✨ 이로치 강스권 ×{shiny_tickets}")
@@ -352,6 +362,9 @@ async def item_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             label = _ITEM_NAMES[key][0].split(" ", 1)[1]  # 이모지 제거
             buttons.append([InlineKeyboardButton(f"사용: {label}", callback_data=f"item_use_{key}")])
 
+    if iv_stones > 0:
+        buttons.append([InlineKeyboardButton(f"사용: IV스톤 ({iv_stones}개)", callback_data="ivstone_start")])
+
     buttons.append([InlineKeyboardButton("❌ 닫기", callback_data="item_close")])
     await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 
@@ -371,6 +384,37 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             await query.edit_message_text("닫았습니다.")
         except Exception:
             pass
+        return
+
+    # IV 스톤 콜백들
+    if data == "ivstone_start":
+        await _ivstone_show_pokemon(query, user_id, 0)
+        return
+    elif data.startswith("ivstone_pg_"):
+        page = int(data.split("_")[2])
+        await _ivstone_show_pokemon(query, user_id, page)
+        return
+    elif data.startswith("ivstone_pk_"):
+        instance_id = int(data.split("_")[2])
+        await _ivstone_show_stats(query, user_id, instance_id)
+        return
+    elif data.startswith("ivstone_st_"):
+        parts = data.split("_")  # ivstone_st_{instance_id}_{stat_short}
+        instance_id = int(parts[2])
+        stat_short = parts[3]
+        stat_key = f"iv_{stat_short}"
+        if stat_short == "spdef":
+            stat_key = "iv_spdef"
+        await _ivstone_confirm(query, user_id, instance_id, stat_key)
+        return
+    elif data.startswith("ivstone_yes_"):
+        parts = data.split("_")  # ivstone_yes_{instance_id}_{stat_short}
+        instance_id = int(parts[2])
+        stat_short = parts[3]
+        stat_key = f"iv_{stat_short}"
+        if stat_short == "spdef":
+            stat_key = "iv_spdef"
+        await _ivstone_execute(query, user_id, instance_id, stat_key)
         return
 
     if data == "item_use_gacha_ticket_5":
@@ -746,3 +790,184 @@ async def _execute_iv_reroll_one(query, user_id: int, instance_id: int, stat_key
     ]
 
     await query.edit_message_text("\n".join(lines), parse_mode="HTML")
+
+
+# ─── IV 스톤 UI ──────────────────────────────────────────
+
+_IVSTONE_PAGE_SIZE = 8
+
+
+async def _ivstone_show_pokemon(query, user_id: int, page: int):
+    """IV 스톤 사용 — 포켓몬 선택."""
+    stones = await queries.get_iv_stones(user_id)
+    if stones <= 0:
+        await query.edit_message_text("❌ IV스톤이 없습니다.")
+        return
+
+    pokemon_list = await queries.get_user_pokemon_list(user_id)
+    # IV가 31 미만인 스탯이 1개라도 있는 포켓몬만
+    eligible = []
+    for p in pokemon_list:
+        ivs = [p.get(k) for k in config.IV_STAT_KEYS]
+        if any((v or 0) < config.IV_MAX for v in ivs):
+            eligible.append(p)
+
+    if not eligible:
+        await query.edit_message_text("❌ IV를 강화할 수 있는 포켓몬이 없습니다. (모두 최대)")
+        return
+
+    total = len(eligible)
+    total_pages = (total + _IVSTONE_PAGE_SIZE - 1) // _IVSTONE_PAGE_SIZE
+    page = max(0, min(page, total_pages - 1))
+    start = page * _IVSTONE_PAGE_SIZE
+    page_items = eligible[start:start + _IVSTONE_PAGE_SIZE]
+
+    lines = [
+        f"💠 <b>IV스톤 사용</b> (보유: {stones}개)",
+        f"IV를 강화할 포켓몬을 선택하세요.",
+        f"",
+    ]
+
+    buttons = []
+    for p in page_items:
+        iv_sum = sum(p.get(k) or 0 for k in config.IV_STAT_KEYS)
+        grade = _iv_grade_letter(iv_sum)
+        shiny = "✨" if p.get("is_shiny") else ""
+        name = p.get("name_ko", p.get("name", "???"))
+        buttons.append([InlineKeyboardButton(
+            f"{shiny}{name} [{grade}]{iv_sum}",
+            callback_data=f"ivstone_pk_{p['id']}"
+        )])
+
+    # 페이지네이션
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("◀️ 이전", callback_data=f"ivstone_pg_{page - 1}"))
+    nav.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="noop"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton("▶️ 다음", callback_data=f"ivstone_pg_{page + 1}"))
+    if nav:
+        buttons.append(nav)
+
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data="item_close")])
+    await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+
+
+def _iv_grade_letter(total: int) -> str:
+    for threshold, letter, _ in config.IV_GRADE_THRESHOLDS:
+        if total >= threshold:
+            return letter
+    return "D"
+
+
+async def _ivstone_show_stats(query, user_id: int, instance_id: int):
+    """IV 스톤 — 스탯 선택."""
+    pool = await queries.get_db()
+    poke = await pool.fetchrow(
+        """SELECT up.*, pm.name_ko FROM user_pokemon up
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE up.id = $1 AND up.user_id = $2 AND up.is_active = 1""",
+        instance_id, user_id)
+    if not poke:
+        await query.edit_message_text("❌ 포켓몬을 찾을 수 없습니다.")
+        return
+
+    shiny = "✨" if poke.get("is_shiny") else ""
+    lines = [
+        f"💠 <b>IV스톤 — 스탯 선택</b>",
+        f"",
+        f"대상: {shiny}<b>{poke['name_ko']}</b>",
+        f"강화할 스탯을 선택하세요. (+3, 최대 31)",
+        f"",
+    ]
+
+    buttons = []
+    for stat_key in config.IV_STAT_KEYS:
+        val = poke.get(stat_key) or 0
+        name = config.IV_STAT_NAMES[stat_key]
+        short_key = stat_key.replace("iv_", "")
+        if val >= config.IV_MAX:
+            lines.append(f"  {name}: {val}/31 ✅ MAX")
+        else:
+            new_val = min(val + 3, config.IV_MAX)
+            lines.append(f"  {name}: {val} → {new_val}")
+            buttons.append([InlineKeyboardButton(
+                f"{name} ({val}→{new_val})",
+                callback_data=f"ivstone_st_{instance_id}_{short_key}"
+            )])
+
+    buttons.append([InlineKeyboardButton("◀️ 돌아가기", callback_data="ivstone_pg_0")])
+    await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+
+
+async def _ivstone_confirm(query, user_id: int, instance_id: int, stat_key: str):
+    """IV 스톤 — 확인."""
+    pool = await queries.get_db()
+    poke = await pool.fetchrow(
+        """SELECT up.*, pm.name_ko FROM user_pokemon up
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE up.id = $1 AND up.user_id = $2 AND up.is_active = 1""",
+        instance_id, user_id)
+    if not poke:
+        await query.edit_message_text("❌ 포켓몬을 찾을 수 없습니다.")
+        return
+
+    val = poke.get(stat_key) or 0
+    new_val = min(val + 3, config.IV_MAX)
+    stat_name = config.IV_STAT_NAMES.get(stat_key, stat_key)
+    shiny = "✨" if poke.get("is_shiny") else ""
+    short_key = stat_key.replace("iv_", "")
+
+    lines = [
+        f"💠 <b>IV스톤 사용 확인</b>",
+        f"",
+        f"대상: {shiny}<b>{poke['name_ko']}</b>",
+        f"스탯: {stat_name} {val} → <b>{new_val}</b>",
+        f"",
+        f"IV스톤 1개를 사용합니다. 진행할까요?",
+    ]
+
+    buttons = [
+        [InlineKeyboardButton("✅ 사용", callback_data=f"ivstone_yes_{instance_id}_{short_key}"),
+         InlineKeyboardButton("❌ 취소", callback_data=f"ivstone_pk_{instance_id}")],
+    ]
+    await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+
+
+async def _ivstone_execute(query, user_id: int, instance_id: int, stat_key: str):
+    """IV 스톤 적용."""
+    result = await queries.apply_iv_stone(user_id, instance_id, stat_key)
+    if not result:
+        await query.edit_message_text("❌ IV스톤이 부족하거나 포켓몬을 찾을 수 없습니다.")
+        return
+
+    pool = await queries.get_db()
+    poke = await pool.fetchrow(
+        """SELECT pm.name_ko, up.is_shiny FROM user_pokemon up
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE up.id = $1""",
+        instance_id)
+
+    stat_name = config.IV_STAT_NAMES.get(stat_key, stat_key)
+    new_val = result.get(stat_key, 0)
+    iv_sum = sum(result.get(k) or 0 for k in config.IV_STAT_KEYS)
+    grade = _iv_grade_letter(iv_sum)
+    shiny = "✨" if (poke and poke.get("is_shiny")) else ""
+    name = poke["name_ko"] if poke else "???"
+    remaining = await queries.get_iv_stones(user_id)
+
+    lines = [
+        f"💠 <b>IV스톤 적용 완료!</b>",
+        f"",
+        f"대상: {shiny}<b>{name}</b>",
+        f"  {stat_name}: → <b>{new_val}</b>",
+        f"  총 IV: {iv_sum}/186 [{grade}]",
+        f"",
+        f"남은 IV스톤: {remaining}개",
+    ]
+
+    buttons = []
+    if remaining > 0:
+        buttons.append([InlineKeyboardButton("💠 계속 사용", callback_data="ivstone_start")])
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data="item_close")])
+    await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")

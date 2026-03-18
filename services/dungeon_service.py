@@ -636,6 +636,9 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
     bp = floor_reached * config.DUNGEON_BP_PER_FLOOR
     fragments = 0
     tickets = 0
+    crystals = 0
+    rainbow = 0
+    iv_stones = 0
     milestones = []
 
     # 마일스톤 보상 합산
@@ -644,6 +647,9 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
             bp += rewards.get("bp", 0)
             fragments += rewards.get("fragments", 0)
             tickets += rewards.get("tickets", 0)
+            crystals += rewards.get("crystals", 0)
+            rainbow += rewards.get("rainbow", 0)
+            iv_stones += rewards.get("iv_stones", 0)
             milestones.append(milestone_floor)
 
     # 구독 배율
@@ -651,6 +657,9 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
         bp = int(bp * 1.5)
     elif sub_tier == "basic":
         bp = int(bp * 1.2)
+
+    # 던전 테마 → 캠프 필드 매핑
+    field_type = config.DUNGEON_THEME_TO_FIELD.get(theme, "forest")
 
     # 칭호 체크
     new_titles = []
@@ -662,6 +671,10 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
         "bp": bp,
         "fragments": fragments,
         "tickets": tickets,
+        "crystals": crystals,
+        "rainbow": rainbow,
+        "iv_stones": iv_stones,
+        "field_type": field_type,
         "milestones": milestones,
         "new_titles": new_titles,
     }

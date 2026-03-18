@@ -9,6 +9,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from database import dungeon_queries as dq
+from database import camp_queries as cq
 from services import dungeon_service as ds
 from utils.battle_calc import calc_battle_stats, calc_power, get_normalized_base_stats, EVO_STAGE_MAP, iv_total
 from utils.helpers import icon_emoji, shiny_emoji, rarity_badge
@@ -587,6 +588,18 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
     if rewards.get("tickets", 0) > 0:
         await dq.add_dungeon_tickets(user_id, rewards["tickets"])
 
+    # 조각 지급 (던전 테마에 맞는 캠프 필드타입)
+    if rewards.get("fragments", 0) > 0:
+        await cq.add_fragments(user_id, rewards["field_type"], rewards["fragments"])
+
+    # 결정 / 무지개결정 지급
+    if rewards.get("crystals", 0) > 0 or rewards.get("rainbow", 0) > 0:
+        await cq.add_crystals(user_id, rewards.get("crystals", 0), rewards.get("rainbow", 0))
+
+    # IV 스톤 지급
+    if rewards.get("iv_stones", 0) > 0:
+        await queries.add_iv_stones(user_id, rewards["iv_stones"])
+
     # 칭호 해금
     unlocked_titles = []
     for t_info in rewards.get("new_titles", []):
@@ -622,7 +635,14 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
         f"  BP +{rewards['bp']}\n"
     )
     if rewards["fragments"] > 0:
-        text += f"  🧩 조각 ×{rewards['fragments']}\n"
+        field_name = config.CAMP_FIELDS.get(rewards["field_type"], {}).get("name", "")
+        text += f"  🧩 {field_name} 조각 ×{rewards['fragments']}\n"
+    if rewards.get("crystals", 0) > 0:
+        text += f"  💎 결정 ×{rewards['crystals']}\n"
+    if rewards.get("rainbow", 0) > 0:
+        text += f"  🌈 무지개결정 ×{rewards['rainbow']}\n"
+    if rewards.get("iv_stones", 0) > 0:
+        text += f"  💠 IV스톤 ×{rewards['iv_stones']}\n"
     if rewards.get("tickets", 0) > 0:
         text += f"  {TICKET} 입장권 ×{rewards['tickets']}\n"
     for t_info in unlocked_titles:
