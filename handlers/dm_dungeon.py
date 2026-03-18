@@ -357,49 +357,9 @@ async def _process_floor(query, context, user_id: int, run: dict):
     if result.get("revive_used"):
         buffs = [b for b in buffs if b.get("id") != "revive"]
 
-    # 배틀 이미지 생성 — 관장전만 Canvas GIF, 일반층은 PIL 정적 이미지
-    import asyncio as _aio
-
+    # 배틀 결과 — 전 층 텍스트만 (Canvas GIF 비활성화 — 1GB VM OOM 방지)
     floor_type = "★ 관장전" if enemy["is_boss"] else ("⚡ 엘리트" if enemy["is_elite"] else "")
-    battle_card = None
-    is_boss = enemy["is_boss"]
-
-    loop = _aio.get_event_loop()
-
-    if is_boss:
-        # 관장전: Canvas GIF 1개만 생성 (반격 GIF 없음)
-        try:
-            from utils.battle_canvas import render_battle_gif
-            from models.pokemon_skills import get_primary_skill
-            from models.pokemon_battle_data import POKEMON_BATTLE_DATA
-
-            _floor_label = f"{floor}F"
-            if floor_type:
-                _floor_label += f" {floor_type}"
-
-            _p_hp_after = remaining_hp / run["max_hp"] if run["max_hp"] else 0.0
-            _enemy_hp_after = 0.0 if won else 0.15
-            _skill_name, _ = get_primary_skill(pokemon["pokemon_id"])
-            _atk_type = POKEMON_BATTLE_DATA.get(pokemon["pokemon_id"], ("normal",))[0]
-
-            battle_card, _ = await loop.run_in_executor(
-                None, render_battle_gif,
-                pokemon["pokemon_id"], run["pokemon_name"],
-                enemy["id"], enemy["name_ko"],
-                _skill_name, _atk_type, result["total_damage_dealt"],
-                bool(run["is_shiny"]), False,
-                False,
-                pokemon["rarity"], enemy["rarity"],
-                1.0, _enemy_hp_after,
-                _p_hp_after,
-                _floor_label,
-            )
-        except Exception:
-            import logging
-            logging.getLogger(__name__).error("Canvas GIF 실패, PIL 폴백", exc_info=True)
-
-    # 일반층: 이미지 없이 텍스트만 (Canvas GIF 폴백도 생략)
-    _result_gif = battle_card  # 관장전이면 GIF, 아니면 None
+    _result_gif = None
 
     if won:
         # 층간 회복 적용
