@@ -1299,9 +1299,13 @@ DUNGEON_MILESTONE_REWARDS = {
     5:  {"bp": 50,  "fragments": 1},
     10: {"bp": 100, "fragments": 2, "tickets": 1},
     15: {"bp": 150, "fragments": 2},
-    20: {"bp": 200, "fragments": 3},
-    25: {"bp": 250},
-    30: {"bp": 300},
+    20: {"bp": 200, "fragments": 3, "tickets": 1},
+    25: {"bp": 250, "fragments": 3},
+    30: {"bp": 300, "fragments": 4},
+    35: {"bp": 350, "fragments": 4},
+    40: {"bp": 400, "fragments": 5, "tickets": 1},
+    45: {"bp": 450, "fragments": 5},
+    50: {"bp": 500, "fragments": 6, "tickets": 2},
 }
 
 # --- 마일스톤 칭호 ---
