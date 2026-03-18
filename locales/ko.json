@@ -230,7 +230,12 @@
     "expired": "교환 요청이 만료되었습니다.",
     "cost_info": "교환 비용: {cost} BP",
     "daily_limit": "일일 교환 제한: {used}/{max}",
-    "limit_reached": "오늘 교환 횟수를 모두 사용했습니다. ({max}회)"
+    "limit_reached": "오늘 교환 횟수를 모두 사용했습니다. ({max}회)",
+    "usage": "사용법: 교환 @유저 포켓몬이름",
+    "usage_duplicate": "같은 포켓몬이 여러 마리면 번호를 붙여주세요. (예: 교환 @유저 피카츄2)",
+    "not_found_user": "@{username} 유저를 찾을 수 없습니다.",
+    "not_found_pokemon": "{name}을(를) 찾을 수 없습니다.",
+    "self_trade": "자기 자신과 교환할 수 없습니다."
   },
   "market": {
     "title": "거래소",
@@ -372,7 +377,8 @@
     "invalid_choice": "잘못된 선택입니다.",
     "skip_limit_reached": "스킵 횟수를 모두 사용했습니다.",
     "only_owner": "본인만 사용할 수 있습니다!",
-    "error": "오류가 발생했습니다."
+    "error": "오류가 발생했습니다.",
+    "fragment_reward": "보상 조각: {field_emoji} {field}"
   },
   "camp": {
     "title": "캠프",
@@ -537,7 +543,8 @@
     "result": "결과: {item}",
     "bp_insufficient": "BP가 부족합니다!",
     "reward_list": "보상 목록",
-    "item_bag": "아이템 가방"
+    "item_bag": "아이템 가방",
+    "fragments_header": "캠프 조각"
   },
   "settings": {
     "language": "언어 설정",
