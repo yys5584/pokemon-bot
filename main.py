@@ -194,6 +194,39 @@ async def post_init(application: Application):
         job_kwargs={"misfire_grace_time": None},  # 절대 스킵 방지
     )
 
+    # 던전 진행 중 유저에게 재시작 안내 (봇 시작 20초 후)
+    async def _notify_dungeon_users(context):
+        from database import dungeon_queries as dq_notify
+        from database.connection import get_db as _get_db
+        pool = await _get_db()
+        try:
+            active_runs = await pool.fetch(
+                "SELECT DISTINCT user_id, pokemon_name, floor_reached FROM dungeon_runs "
+                "WHERE status = 'active'"
+            )
+            for run in active_runs:
+                try:
+                    await context.bot.send_message(
+                        chat_id=run["user_id"],
+                        text=(
+                            f"🏰 서버 점검이 완료되었습니다!\n\n"
+                            f"진행 중이던 던전 ({run['pokemon_name']}, {run['floor_reached']}층)이 "
+                            f"저장되어 있습니다.\n"
+                            f"\"던전\"을 입력하면 이어서 진행할 수 있어요!"
+                        ),
+                    )
+                except Exception:
+                    pass
+            if active_runs:
+                logger.info(f"Notified {len(active_runs)} dungeon users about restart")
+        except Exception as e:
+            logger.warning(f"dungeon restart notify skipped: {e}")
+
+    application.job_queue.run_once(
+        _notify_dungeon_users, when=20, name="dungeon_restart_notify",
+        job_kwargs={"misfire_grace_time": None},
+    )
+
     # 가챠 미전달 보상 복구 — 재시작 직전 2분 이내 뽑기 기록이 있으면 DM 발송
     try:
         recent_gacha = await queries.get_recent_gacha_by_user(minutes=2)
