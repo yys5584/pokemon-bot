@@ -22,6 +22,24 @@ _dungeon_locks: set[int] = set()
 # 유틸리티
 # ══════════════════════════════════════════════════════════
 
+async def _send_fresh(query, context, user_id: int, text: str, reply_markup=None):
+    """이전 메시지 삭제 후 새 메시지 전송 (항상 최하단 유지)."""
+    st = _state(context)
+    # 이전 메시지 삭제 시도
+    old_msg_id = st.get("msg_id")
+    if old_msg_id:
+        try:
+            await context.bot.delete_message(chat_id=user_id, message_id=old_msg_id)
+        except Exception:
+            pass
+    # 새 메시지 전송
+    msg = await context.bot.send_message(
+        chat_id=user_id, text=text, reply_markup=reply_markup, parse_mode="HTML"
+    )
+    st["msg_id"] = msg.message_id
+    return msg
+
+
 def _hp_bar(current: int, maximum: int, length: int = 10) -> str:
     ratio = max(0, min(1, current / maximum)) if maximum > 0 else 0
     filled = int(ratio * length)
@@ -272,7 +290,7 @@ async def _process_floor(query, context, user_id: int, run: dict):
     # 플레이어 스탯
     pokemon = await _load_pokemon(run["pokemon_instance_id"])
     if not pokemon:
-        await query.edit_message_text("포켓몬 정보를 불러올 수 없습니다.")
+        await _send_fresh(query, context, user_id, "포켓몬 정보를 불러올 수 없습니다.")
         return
 
     player_stats, player_types = ds.build_player_stats(pokemon)
@@ -349,14 +367,14 @@ async def _process_floor(query, context, user_id: int, run: dict):
                     f"⏭ 스킵 (HP 5% 회복) [{skips}/{config.DUNGEON_MAX_SKIPS}]",
                     callback_data=f"dg_skip_{user_id}"
                 )])
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+            await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
         else:
             # 버프 없이 다음 층
             buttons = [
                 [InlineKeyboardButton("⚔️ 다음 층으로!", callback_data=f"dg_go_{user_id}")],
                 [InlineKeyboardButton("🏳️ 포기", callback_data=f"dg_quit_{user_id}")],
             ]
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+            await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
     else:
         # 패배 — 도달 층은 마지막 클리어 층 (이번 층은 실패)
         await _finish_run(query, context, user_id, run, run["floor_reached"])
@@ -425,7 +443,7 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int)
         InlineKeyboardButton("❌ 닫기", callback_data=f"dg_close_{user_id}"),
     ])
 
-    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+    await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
     _state(context).pop("run_id", None)
 
 
@@ -512,7 +530,7 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         # 입장 화면으로
         await query.answer()
         text, kb = await _build_entry_screen(user_id)
-        await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+        await _send_fresh(query, context, user_id, text, reply_markup=kb)
         return
 
     elif action == "list":
@@ -522,7 +540,7 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         await query.answer()
         theme = ds.get_today_theme()
         text, kb = await _build_pokemon_list(user_id, filter_key, page, theme)
-        await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+        await _send_fresh(query, context, user_id, text, reply_markup=kb)
         return
 
     elif action == "flt":
@@ -531,7 +549,7 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         await query.answer()
         theme = ds.get_today_theme()
         text, kb = await _build_pokemon_list(user_id, filter_key, 0, theme)
-        await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+        await _send_fresh(query, context, user_id, text, reply_markup=kb)
         return
 
     elif action == "sel":
@@ -611,7 +629,7 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             [InlineKeyboardButton("⚔️ 다음 층으로!", callback_data=f"dg_go_{user_id}")],
             [InlineKeyboardButton("🏳️ 포기", callback_data=f"dg_quit_{user_id}")],
         ]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+        await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
         return
 
     elif action == "skip":
@@ -649,7 +667,7 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             [InlineKeyboardButton("⚔️ 다음 층으로!", callback_data=f"dg_go_{user_id}")],
             [InlineKeyboardButton("🏳️ 포기", callback_data=f"dg_quit_{user_id}")],
         ]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+        await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
         return
 
     elif action == "buy":
@@ -670,7 +688,7 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
 
         await query.answer(f"🎫 입장권 1장 구매! (-{bp_cost}BP)")
         text, kb = await _build_entry_screen(user_id)
-        await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+        await _send_fresh(query, context, user_id, text, reply_markup=kb)
         return
 
     elif action == "quit":
@@ -686,7 +704,7 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         # 재도전 → 입장 화면
         await query.answer()
         text, kb = await _build_entry_screen(user_id)
-        await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+        await _send_fresh(query, context, user_id, text, reply_markup=kb)
         return
 
     elif action == "rank":
@@ -707,7 +725,7 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             text = "\n".join(lines)
 
         buttons = [[InlineKeyboardButton("🔙 돌아가기", callback_data=f"dg_back_{user_id}")]]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+        await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
         return
 
     else:
@@ -723,14 +741,14 @@ async def _start_run(query, context, user_id: int, instance_id: int):
     # 입장권 차감
     success = await dq.deduct_dungeon_ticket(user_id)
     if not success:
-        await query.edit_message_text("🎫 입장권이 부족합니다!")
+        await _send_fresh(query, context, user_id, "🎫 입장권이 부족합니다!")
         return
 
     # 포켓몬 로드 (소유권 검증)
     pokemon = await _load_pokemon(instance_id, user_id=user_id)
     if not pokemon:
         await dq.add_dungeon_tickets(user_id, 1)  # 환불
-        await query.edit_message_text("포켓몬을 찾을 수 없습니다.")
+        await _send_fresh(query, context, user_id, "포켓몬을 찾을 수 없습니다.")
         return
 
     # 스탯 계산
@@ -777,4 +795,4 @@ async def _start_run(query, context, user_id: int, instance_id: int):
         [InlineKeyboardButton("⚔️ 1층 시작!", callback_data=f"dg_go_{user_id}")],
         [InlineKeyboardButton("🏳️ 포기", callback_data=f"dg_quit_{user_id}")],
     ]
-    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+    await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
