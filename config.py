@@ -1261,7 +1261,7 @@ DUNGEON_SKIP_HEAL = 0.50         # 버프 스킵 시 HP 50% 회복
 DUNGEON_MAX_SKIPS = 2            # 런당 스킵 횟수
 DUNGEON_MAX_BUFFS = 8            # 버프 슬롯 상한
 DUNGEON_BP_PER_FLOOR = 10        # 층당 기본 BP
-DUNGEON_MAX_DAILY_RUNS = 5       # 일일 런 횟수 제한
+DUNGEON_MAX_DAILY_RUNS = {"free": 3, "basic": 3, "channel_owner": 5}  # 일일 런 횟수 (구독별)
 
 # --- 스킬 배율 (희귀도별, 던전 간소화) ---
 DUNGEON_SKILL_MULT = {
@@ -1309,17 +1309,18 @@ DUNGEON_THEME_TO_FIELD = {
 
 # --- 마일스톤 보상 ---
 DUNGEON_MILESTONE_REWARDS = {
-    5:  {"bp": 50,  "fragments": 1},
-    10: {"bp": 100, "fragments": 2},
-    15: {"bp": 150, "fragments": 2},
-    20: {"bp": 200, "fragments": 3, "crystals": 1},
-    25: {"bp": 250, "fragments": 3, "crystals": 1},
-    30: {"bp": 300, "fragments": 4, "crystals": 2, "rainbow": 1},
-    35: {"bp": 350, "fragments": 4},
-    40: {"bp": 400, "fragments": 5, "crystals": 3, "rainbow": 1, "iv_stones": 1},
-    45: {"bp": 450, "fragments": 5},
-    50: {"bp": 500, "fragments": 6, "tickets": 1, "rainbow": 2, "iv_stones": 1},
+    5:  {"bp": 30,  "fragments": 1},
+    10: {"bp": 50,  "fragments": 2},
+    15: {"bp": 80,  "fragments": 2},
+    20: {"bp": 100, "fragments": 3, "crystals": 1},
+    25: {"bp": 120, "fragments": 3, "crystals": 1},
+    30: {"bp": 150, "fragments": 4, "crystals": 2, "rainbow": 1},
+    35: {"bp": 180, "fragments": 4},
+    40: {"bp": 200, "fragments": 5, "crystals": 3, "rainbow": 1, "iv_stones": 1, "tickets": 1},
+    45: {"bp": 230, "fragments": 5},
+    50: {"bp": 280, "fragments": 6, "rainbow": 2, "iv_stones": 1},
 }
+DUNGEON_MAX_BP = 2000             # BP 상한
 
 # --- 마일스톤 칭호 ---
 DUNGEON_MILESTONE_TITLES = {

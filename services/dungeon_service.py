@@ -668,6 +668,9 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
     elif sub_tier == "basic":
         bp = int(bp * 1.2)
 
+    # BP 상한
+    bp = min(bp, config.DUNGEON_MAX_BP)
+
     # 던전 테마 → 캠프 필드 매핑
     field_type = config.DUNGEON_THEME_TO_FIELD.get(theme, "forest")
 

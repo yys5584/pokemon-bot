@@ -131,7 +131,7 @@ async def _build_entry_screen(user_id: int) -> tuple[str, InlineKeyboardMarkup]:
     BOLT = icon_emoji("bolt")
 
     daily_count = await dq.get_daily_run_count(user_id)
-    daily_max = config.DUNGEON_MAX_DAILY_RUNS
+    daily_max = config.DUNGEON_MAX_DAILY_RUNS.get(sub_tier or "free", 3)
     daily_left = max(0, daily_max - daily_count)
 
     text = (
@@ -927,11 +927,13 @@ async def _start_run(query, context, user_id: int, instance_id: int):
         await _send_fresh(query, context, user_id, "⚠️ 이미 진행 중인 던전이 있습니다!")
         return
 
-    # 일일 런 제한
+    # 일일 런 제한 (구독별)
+    sub_tier = await _get_sub_tier(user_id)
+    max_runs = config.DUNGEON_MAX_DAILY_RUNS.get(sub_tier or "free", 3)
     daily_count = await dq.get_daily_run_count(user_id)
-    if daily_count >= config.DUNGEON_MAX_DAILY_RUNS:
+    if daily_count >= max_runs:
         await _send_fresh(query, context, user_id,
-            f"⚠️ 오늘 던전 횟수를 모두 소진했습니다. ({daily_count}/{config.DUNGEON_MAX_DAILY_RUNS})")
+            f"⚠️ 오늘 던전 횟수를 모두 소진했습니다. ({daily_count}/{max_runs})")
         return
 
     # 입장권 차감
