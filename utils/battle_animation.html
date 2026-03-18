@@ -1124,12 +1124,12 @@ window.renderFrame=function(fi){
   let sx=0,sy=0;
   // 셰이크
   if(fi>=P4&&fi<P5){const si=fi-P4;if(si<SHAKES.length){sx=SHAKES[si][0];sy=SHAKES[si][1]}}
-  // 적 HP 보간
+  // 적 HP 보간 — 임팩트(P3)부터 데미지표시(P6)까지 부드럽게
   let enemyHp=DATA.hpBefore;
-  if(fi>=P4){
-    const t=Math.min(1,(fi-P4)/(P6-P4));
-    // ease out
-    const et=1-Math.pow(1-t,3);
+  if(fi>=P3){
+    const t=Math.min(1,(fi-P3)/(P6-P3));
+    // smooth ease-out (더 부드러운 감속)
+    const et=t<0.5?2*t*t:(1-Math.pow(-2*t+2,3)/2);
     enemyHp=DATA.hpBefore+(DATA.hpAfter-DATA.hpBefore)*et;
   }
 
