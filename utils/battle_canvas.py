@@ -110,8 +110,8 @@ def render_battle_gif(
     idx_end = template.index(marker_end) + len(marker_end)
     html = template[:idx_start] + data_json + template[idx_end:]
 
-    # 960x540에서 렌더 후 480x270으로 축소 (GIF 용량 절감)
-    OUT_W, OUT_H = 480, 270
+    # 960x540에서 렌더 후 축소 (GIF 용량 절감)
+    OUT_W, OUT_H = 400, 225
     page = browser.new_page(viewport={"width": 960, "height": 540})
     try:
         page.set_content(html)
@@ -123,6 +123,8 @@ def render_battle_gif(
             screenshot = page.screenshot(type="png")
             img = Image.open(io.BytesIO(screenshot)).convert("RGB")
             img = img.resize((OUT_W, OUT_H), Image.LANCZOS)
+            # 192색 팔레트로 변환 (GIF 용량 절감 + 화질 유지)
+            img = img.quantize(colors=192, method=Image.Quantize.FASTOCTREE).convert("RGB")
             frames.append(img)
     finally:
         page.close()
