@@ -32,13 +32,15 @@ def get_today_theme() -> dict:
 def enemy_scaling(floor: int) -> float:
     """층별 적 스탯 배율."""
     if floor <= 10:
-        return 1.0 + floor * 0.06
+        return 1.0 + floor * 0.02      # 1.02 ~ 1.20
     elif floor <= 20:
-        return 1.60 + (floor - 10) * 0.10
+        return 1.20 + (floor - 10) * 0.03  # 1.23 ~ 1.50
     elif floor <= 30:
-        return 2.60 + (floor - 20) * 0.15
+        return 1.50 + (floor - 20) * 0.05  # 1.55 ~ 2.00
+    elif floor <= 40:
+        return 2.00 + (floor - 30) * 0.08  # 2.08 ~ 2.80
     else:
-        return 4.10 + (floor - 30) * 0.20
+        return 2.80 + (floor - 40) * 0.12  # 2.92 ~
 
 
 # ══════════════════════════════════════════════════════════
