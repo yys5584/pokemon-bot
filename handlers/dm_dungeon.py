@@ -510,7 +510,12 @@ async def _process_floor(query, context, user_id: int, run: dict):
                 # 8버프 포화 → 로그라이크 랜덤 이벤트 (선택지)
                 event = ds.generate_roguelike_event()
                 st["rogue_event"] = event
-                text += f"\n\n🎲 <b>랜덤 이벤트!</b>\n{event['name']}\n   {event['desc']}"
+                type_tag = "✅" if event["type"] == "positive" else "⚠️"
+                one_floor_note = "\n   <i>💡 스탯 효과는 다음 층 1턴만 적용됩니다</i>" if event["action"] == "stat_mult" else ""
+                text += (
+                    f"\n\n🎲 <b>버프 슬롯 가득! — 랜덤 이벤트 발생</b>\n"
+                    f"{type_tag} {event['name']}\n   {event['desc']}{one_floor_note}"
+                )
                 buttons = [
                     [InlineKeyboardButton(
                         f"✅ 적용하기",

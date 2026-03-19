@@ -707,7 +707,7 @@ def resolve_dungeon_battle(
             p_hp = int(p_max_hp * 0.30)
             revive_available = False
             revive_used = True
-            log_lines.append("💫 부활의 깃털 발동! HP 30% 회복")
+            log_lines.append("💫 부활의 깃털 발동! HP 30% 회복 (런당 1회 — 소멸)")
 
     won = p_hp > 0 and e_hp <= 0
 
