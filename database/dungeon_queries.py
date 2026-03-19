@@ -109,7 +109,7 @@ async def get_daily_run_count(user_id: int) -> int:
     pool = await get_db()
     return await pool.fetchval(
         "SELECT COUNT(*) FROM dungeon_runs WHERE user_id = $1 "
-        "AND started_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date AT TIME ZONE 'Asia/Seoul'",
+        "AND started_at >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul'",
         user_id,
     ) or 0
 
