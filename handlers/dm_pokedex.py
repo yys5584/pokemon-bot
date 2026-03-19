@@ -408,7 +408,7 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     # Check if a name search was given: "내포켓몬 리자몽"
     import re
-    name_match = re.sub(r"^(📦\s*)?내포켓몬\s*", "", text).strip()
+    name_match = re.sub(r"(?i)^(📦\s*)?(내포켓몬|mypokemon|my\s*pokemon|我的宝可梦|我的寶可夢)\s*", "", text).strip()
     if name_match:
         matches = [
             (i, p) for i, p in enumerate(pokemon_list)
