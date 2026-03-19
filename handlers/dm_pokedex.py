@@ -2487,15 +2487,15 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         badge = resolve_title_badge(title_emoji_raw, title)
         title_text = f"「{badge} {title}」"
     else:
-        title_text = "없음"
+        title_text = t(lang, "common.none")
 
-    lines = [f"{icon_emoji('bookmark')} {display_name}님의 상태창\n"]
+    lines = [f"{icon_emoji('bookmark')} {t(lang, 'status_view.header', name=display_name)}\n"]
 
     # 기본 정보
-    lines.append(f"🏷️ 칭호: {title_text}")
-    lines.append(f"{ball_emoji('masterball')} 마스터볼: {master_balls}개")
+    lines.append(f"🏷️ {t(lang, 'status_view.title_label')} {title_text}")
+    lines.append(f"{ball_emoji('masterball')} {t(lang, 'status_view.masterball_label')} {t(lang, 'status_view.count_unit', n=master_balls)}")
     lines.append(f"{icon_emoji('coin')} BP: {bp}")
-    lines.append(f"{icon_emoji('container')} 보유 포켓몬: {len(pokemon_list)}마리")
+    lines.append(f"{icon_emoji('container')} {t(lang, 'status_view.pokemon_count', n=len(pokemon_list))}")
 
     # 도감 수 (pokedex 테이블 기준 — 방생해도 유지) — 팀2/활성팀도 미리 로드
     pokedex_count, active_num, team2 = await asyncio.gather(
@@ -2504,9 +2504,9 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bq.get_battle_team(user_id, 2),
     )
     shiny_count = sum(1 for p in pokemon_list if p.get("is_shiny"))
-    lines.append(f"{icon_emoji('pokedex')} 도감: {pokedex_count}/493종")
+    lines.append(f"{icon_emoji('pokedex')} {t(lang, 'status_view.pokedex_count', n=pokedex_count)}")
     if shiny_count > 0:
-        lines.append(f"{shiny_emoji()} 이로치: {shiny_count}마리")
+        lines.append(f"{shiny_emoji()} {t(lang, 'status_view.shiny_count', n=shiny_count)}")
 
     # 배틀 전적
     wins = battle_stats.get("battle_wins", 0)
@@ -2514,9 +2514,9 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total = wins + losses
     win_rate = f"{wins / total * 100:.0f}%" if total > 0 else "-"
     best = battle_stats.get("best_streak", 0)
-    lines.append(f"\n{icon_emoji('battle')} 배틀 전적: {wins}승 {losses}패 (승률 {win_rate})")
+    lines.append(f"\n{icon_emoji('battle')} {t(lang, 'status_view.battle_record', w=wins, l=losses, rate=win_rate)}")
     if best > 0:
-        lines.append(f"🔥 최고 연승: {best}연승")
+        lines.append(f"🔥 {t(lang, 'status_view.best_streak', n=best)}")
 
     # 파트너
     lines.append("")
@@ -2534,48 +2534,48 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tb = type_badge(partner["pokemon_id"], partner["pokemon_type"])
         pbs = POKEMON_BASE_STATS.get(partner["pokemon_id"])
         if pbs:
-            type_name = "/".join(config.TYPE_NAME_KO.get(t, t) for t in pbs[-1])
+            type_name = "/".join(t(lang, f"type.{tp}") for tp in pbs[-1])
         else:
-            type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
+            type_name = t(lang, f"type.{partner['pokemon_type']}")
         from models.pokemon_skills import get_skill_display
         _skill_disp = get_skill_display(partner["pokemon_id"])
-        lines.append(f"{icon_emoji('pokemon-love')} 파트너: {tb} {poke_name(partner, lang)}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}")
-        lines.append(f"   {icon_emoji('favorite')} 친밀도: {hearts_display(partner['friendship'])}")
-        lines.append(f"   {icon_emoji('stationery')} {format_stats_line(stats, base)}")
-        lines.append(f"   {icon_emoji('skill')} 기술: {_skill_disp}")
+        lines.append(f"{icon_emoji('pokemon-love')} {t(lang, 'status_view.partner_label')} {tb} {poke_name(partner, lang)}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}")
+        lines.append(f"   {icon_emoji('favorite')} {t(lang, 'status_view.friendship_label')} {hearts_display(partner['friendship'])}")
+        lines.append(f"   {icon_emoji('stationery')} {format_stats_line(stats, base, lang=lang)}")
+        lines.append(f"   {icon_emoji('skill')} {t(lang, 'status_view.skill_label')} {_skill_disp}")
     else:
-        lines.append(f"{icon_emoji('pokemon-love')} 파트너: 미지정 ('파트너' 명령어로 설정)")
+        lines.append(f"{icon_emoji('pokemon-love')} {t(lang, 'status_view.partner_label')} {t(lang, 'status_view.partner_none')}")
 
     # 팀 (active_num, team2는 위에서 미리 로드됨)
     lines.append("")
     if team:
-        lines.append(f"{icon_emoji('battle')} 배틀팀 {active_num} ({len(team)}/6)")
+        lines.append(f"{icon_emoji('battle')} {t(lang, 'status_view.team_header', num=active_num, count=len(team))}")
         total_power = 0
         total_base_power = 0
-        for i, t in enumerate(team, 1):
-            _t_base = get_normalized_base_stats(t["pokemon_id"])
-            evo = 3 if _t_base else EVO_STAGE_MAP.get(t["pokemon_id"], 3)
+        for i, tm in enumerate(team, 1):
+            _t_base = get_normalized_base_stats(tm["pokemon_id"])
+            evo = 3 if _t_base else EVO_STAGE_MAP.get(tm["pokemon_id"], 3)
             stats = calc_battle_stats(
-                t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo,
-                iv_hp=t.get("iv_hp"), iv_atk=t.get("iv_atk"),
-                iv_def=t.get("iv_def"), iv_spa=t.get("iv_spa"),
-                iv_spdef=t.get("iv_spdef"), iv_spd=t.get("iv_spd"),
+                tm["rarity"], tm["stat_type"], tm["friendship"], evo_stage=evo,
+                iv_hp=tm.get("iv_hp"), iv_atk=tm.get("iv_atk"),
+                iv_def=tm.get("iv_def"), iv_spa=tm.get("iv_spa"),
+                iv_spdef=tm.get("iv_spdef"), iv_spd=tm.get("iv_spd"),
                 **(_t_base or {}),
             )
-            tbase = calc_battle_stats(t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo, **(_t_base or {}))
+            tbase = calc_battle_stats(tm["rarity"], tm["stat_type"], tm["friendship"], evo_stage=evo, **(_t_base or {}))
             total_power += calc_power(stats)
             total_base_power += calc_power(tbase)
             from models.pokemon_skills import get_skill_display
-            _skill_disp = get_skill_display(t["pokemon_id"])
-            ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
-            lines.append(f"  {i}. {ttb} {poke_name(t, lang)}  {icon_emoji('skill')}{_skill_disp}  {icon_emoji('bolt')}{format_power(stats, tbase)}")
+            _skill_disp = get_skill_display(tm["pokemon_id"])
+            ttb = type_badge(tm["pokemon_id"], tm.get("pokemon_type"))
+            lines.append(f"  {i}. {ttb} {poke_name(tm, lang)}  {icon_emoji('skill')}{_skill_disp}  {icon_emoji('bolt')}{format_power(stats, tbase)}")
         iv_diff = total_power - total_base_power
         total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
-        lines.append(f"  {icon_emoji('bolt')} 팀 전투력: {total_tag}")
+        lines.append(f"  {icon_emoji('bolt')} {t(lang, 'status_view.team_power', power=total_tag)}")
         if team2:
-            lines.append(f"  (팀2 등록됨: {len(team2)}마리)")
+            lines.append(f"  {t(lang, 'status_view.team2_info', n=len(team2))}")
     else:
-        lines.append(f"{icon_emoji('battle')} 배틀팀: 미등록 ('팀등록' 명령어로 설정)")
+        lines.append(f"{icon_emoji('battle')} {t(lang, 'status_view.team_none')}")
 
     # 아이템
     arcade_tickets = await queries.get_arcade_tickets(user_id)
@@ -2583,9 +2583,9 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if arcade_tickets > 0 or hyper_balls > 0:
         lines.append("")
     if arcade_tickets > 0:
-        lines.append(f"{icon_emoji('game')} 아케이드 티켓: {arcade_tickets}개")
+        lines.append(f"{icon_emoji('game')} {t(lang, 'status_view.arcade_ticket', n=arcade_tickets)}")
     if hyper_balls > 0:
-        lines.append(f"{ball_emoji('hyperball')} 하이퍼볼: {hyper_balls}개")
+        lines.append(f"{ball_emoji('hyperball')} {t(lang, 'status_view.hyperball_label', n=hyper_balls)}")
 
     # 조각 / 결정
     fragments = await cq.get_user_fragments(user_id)
@@ -2598,18 +2598,18 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append("")
         frag_parts = []
         if total_frags > 0:
-            frag_parts.append(f"🧩 조각 {total_frags}개")
+            frag_parts.append(f"🧩 {t(lang, 'status_view.fragment_label', n=total_frags)}")
         if crystal_count > 0:
-            frag_parts.append(f"💎 결정 {crystal_count}개")
+            frag_parts.append(f"💎 {t(lang, 'status_view.crystal_label', n=crystal_count)}")
         if rainbow_count > 0:
-            frag_parts.append(f"🌈 무지개 {rainbow_count}개")
-        lines.append(" / ".join(frag_parts) + " (상세: '아이템')")
+            frag_parts.append(f"🌈 {t(lang, 'status_view.rainbow_label', n=rainbow_count)}")
+        lines.append(" / ".join(frag_parts) + f" {t(lang, 'status_view.item_detail_hint')}")
 
     # 상태창 인라인 버튼 (칭호 바로가기)
     inline_kb = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("🏷️ 칭호", callback_data=f"status_title_{user_id}"),
-            InlineKeyboardButton("📖 도감", callback_data=f"status_dex_{user_id}"),
+            InlineKeyboardButton(f"🏷️ {t(lang, 'status_view.btn_title')}", callback_data=f"status_title_{user_id}"),
+            InlineKeyboardButton(f"📖 {t(lang, 'status_view.btn_pokedex')}", callback_data=f"status_dex_{user_id}"),
         ],
     ])
 
@@ -2631,15 +2631,14 @@ async def status_inline_callback(update: Update, context: ContextTypes.DEFAULT_T
         from utils.title_checker import check_and_unlock_titles
         await check_and_unlock_titles(user_id)
 
+        lang = await get_user_lang(user_id)
         unlocked = await queries.get_user_titles(user_id)
         user = await queries.get_user(user_id)
         current_title = user.get("title", "") if user else ""
 
         if not unlocked:
             await query.edit_message_text(
-                "🏷️ 아직 해금된 칭호가 없습니다!\n\n"
-                "포켓몬을 잡고, 활동하면 칭호가 해금돼요.\n"
-                "예: 첫 포획, 도감 15종, 잡기 실패 50회 등"
+                f"🏷️ {t(lang, 'status_view.no_titles')}"
             )
             return
 

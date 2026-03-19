@@ -715,5 +715,33 @@
     "cancelled": "❌ 야차가 취소되었습니다.",
     "declined": "❌ 야차가 거절되었습니다."
   },
-  "release": {"title":"포켓몬 방생","select_filter":"필터를 선택한 후 [미리보기]를 눌러주세요.","selected_rarity":"선택된 등급","selected_iv":"선택된 IV등급","selected_gen":"선택된 세대","select_hint":"최소 등급 또는 IV등급 1개를 선택하세요","filter_all":"전체","keep_one_label":"도감용 1마리 남기기","preview":"미리보기","preview_title":"방생 미리보기","filter_label":"필터","target_count":"방생 대상","reward_hyperball":"보상: 하이퍼볼","warning":"방생한 포켓몬은 되돌릴 수 없습니다!","execute":"방생 실행","calculating":"계산 중...","no_candidates":"조건에 맞는 포켓몬이 없습니다!","filter_reset":"필터가 초기화되었습니다. 다시 시도해주세요.","complete":"{count}마리 방생 완료! 하이퍼볼 {count}개를 획득했습니다!","cancelled":"방생이 취소되었습니다."}
+  "release": {"title":"포켓몬 방생","select_filter":"필터를 선택한 후 [미리보기]를 눌러주세요.","selected_rarity":"선택된 등급","selected_iv":"선택된 IV등급","selected_gen":"선택된 세대","select_hint":"최소 등급 또는 IV등급 1개를 선택하세요","filter_all":"전체","keep_one_label":"도감용 1마리 남기기","preview":"미리보기","preview_title":"방생 미리보기","filter_label":"필터","target_count":"방생 대상","reward_hyperball":"보상: 하이퍼볼","warning":"방생한 포켓몬은 되돌릴 수 없습니다!","execute":"방생 실행","calculating":"계산 중...","no_candidates":"조건에 맞는 포켓몬이 없습니다!","filter_reset":"필터가 초기화되었습니다. 다시 시도해주세요.","complete":"{count}마리 방생 완료! 하이퍼볼 {count}개를 획득했습니다!","cancelled":"방생이 취소되었습니다."},
+  "status_view": {
+    "header": "{name}님의 상태창",
+    "title_label": "칭호:",
+    "masterball_label": "마스터볼:",
+    "count_unit": "{n}개",
+    "pokemon_count": "보유 포켓몬: {n}마리",
+    "pokedex_count": "도감: {n}/493종",
+    "shiny_count": "이로치: {n}마리",
+    "battle_record": "배틀 전적: {w}승 {l}패 (승률 {rate})",
+    "best_streak": "최고 연승: {n}연승",
+    "partner_label": "파트너:",
+    "partner_none": "미지정 ('파트너' 명령어로 설정)",
+    "friendship_label": "친밀도:",
+    "skill_label": "기술:",
+    "team_header": "배틀팀 {num} ({count}/6)",
+    "team_power": "팀 전투력: {power}",
+    "team2_info": "(팀2 등록됨: {n}마리)",
+    "team_none": "배틀팀: 미등록 ('팀등록' 명령어로 설정)",
+    "arcade_ticket": "아케이드 티켓: {n}개",
+    "hyperball_label": "하이퍼볼: {n}개",
+    "fragment_label": "조각 {n}개",
+    "crystal_label": "결정 {n}개",
+    "rainbow_label": "무지개 {n}개",
+    "item_detail_hint": "(상세: '아이템')",
+    "btn_title": "칭호",
+    "btn_pokedex": "도감",
+    "no_titles": "아직 해금된 칭호가 없습니다!\n\n포켓몬을 잡고, 활동하면 칭호가 해금돼요.\n예: 첫 포획, 도감 15종, 잡기 실패 50회 등"
+  }
 }

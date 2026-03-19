@@ -777,5 +777,33 @@
     "declined": "❌ 賭博對戰已拒絕。"
   },
   "nurture_dm": {"no_partner":"沒有夥伴寶可夢！請先設定夥伴。","friendship_boost":"親密度強化","friendship_max":"親密度已滿！"},
-  "tutorial_dm": {"first_catch_intro":"您剛進行了第一次捕捉！\n這個機器人還有許多功能：","nurture_summary":"培育 — 餵食/玩耍提升親密度","battle_summary":"對戰 — 組隊與其他訓練師對戰","pokedex_summary":"圖鑑 — 收集寶可夢 & 解鎖稱號","will_guide":"讓我一一為您介紹！","title_unlock":"稱號解鎖！","tips_header":"實用小貼士","tip_appraise":"鑑定 [名稱] — 查看IV","tip_type_matchup":"屬性 [類型] — 屬性相剋表","tip_attendance":"簽到 — 每日簽到獎勵","tip_weather":"天氣會提升特定屬性的捕獲率！","official_channel":"官方頻道","spawn_rate":"每30秒出現一隻寶可夢！","tournament_schedule":"每天晚上9點報名，10點大賽！","help_hint":"隨時輸入幫助取得指引！","premium_hint":"💎 輸入'premium'查看訂閱福利：精靈球無限、BP 1.5倍等！"}
+  "tutorial_dm": {"first_catch_intro":"您剛進行了第一次捕捉！\n這個機器人還有許多功能：","nurture_summary":"培育 — 餵食/玩耍提升親密度","battle_summary":"對戰 — 組隊與其他訓練師對戰","pokedex_summary":"圖鑑 — 收集寶可夢 & 解鎖稱號","will_guide":"讓我一一為您介紹！","title_unlock":"稱號解鎖！","tips_header":"實用小貼士","tip_appraise":"鑑定 [名稱] — 查看IV","tip_type_matchup":"屬性 [類型] — 屬性相剋表","tip_attendance":"簽到 — 每日簽到獎勵","tip_weather":"天氣會提升特定屬性的捕獲率！","official_channel":"官方頻道","spawn_rate":"每30秒出現一隻寶可夢！","tournament_schedule":"每天晚上9點報名，10點大賽！","help_hint":"隨時輸入幫助取得指引！","premium_hint":"💎 輸入'premium'查看訂閱福利：精靈球無限、BP 1.5倍等！"},
+  "status_view": {
+    "header": "{name}的狀態",
+    "title_label": "稱號:",
+    "masterball_label": "大師球:",
+    "count_unit": "{n}個",
+    "pokemon_count": "持有寶可夢: {n}隻",
+    "pokedex_count": "圖鑑: {n}/493種",
+    "shiny_count": "異色: {n}隻",
+    "battle_record": "對戰戰績: {w}勝 {l}負 (勝率 {rate})",
+    "best_streak": "最高連勝: {n}連勝",
+    "partner_label": "夥伴:",
+    "partner_none": "未指定 (使用'夥伴'指令設定)",
+    "friendship_label": "親密度:",
+    "skill_label": "技能:",
+    "team_header": "對戰隊伍 {num} ({count}/6)",
+    "team_power": "隊伍戰鬥力: {power}",
+    "team2_info": "(隊伍2已註冊: {n}隻)",
+    "team_none": "對戰隊伍: 未註冊 (使用'組隊'指令設定)",
+    "arcade_ticket": "街機入場券: {n}張",
+    "hyperball_label": "高級球: {n}個",
+    "fragment_label": "碎片 {n}個",
+    "crystal_label": "結晶 {n}個",
+    "rainbow_label": "彩虹 {n}個",
+    "item_detail_hint": "(詳情: '物品')",
+    "btn_title": "稱號",
+    "btn_pokedex": "圖鑑",
+    "no_titles": "還沒有解鎖任何稱號！\n\n捕捉寶可夢並積極活動即可解鎖稱號。\n例：首次捕捉、圖鑑15種、捕捉失敗50次等"
+  }
 }
