@@ -41,9 +41,9 @@ _LANG_SELECT_MSG = (
 # Confirmation messages per language (hardcoded, no locale file dependency)
 _LANG_CONFIRM = {
     "ko": "✅ 언어가 한국어로 설정되었습니다!",
-    "en": "✅ Language has been set to English!",
-    "zh-hans": "✅ 语言已设置为简体中文！",
-    "zh-hant": "✅ 語言已設置為繁體中文！",
+    "en": "✅ Language has been set to English!\n⚠️ Some menus are still in Korean. More translations coming soon!",
+    "zh-hans": "✅ 语言已设置为简体中文！\n⚠️ 部分菜单仍为韩语，更多翻译即将推出！",
+    "zh-hant": "✅ 語言已設置為繁體中文！\n⚠️ 部分選單仍為韓語，更多翻譯即將推出！",
 }
 
 
@@ -554,6 +554,7 @@ async def settings_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"⚙️ <b>설정</b>\n"
         f"━━━━━━━━━━━━━━━\n\n"
         f"🌐 현재 언어: <b>{current_label}</b>\n"
+        f"{'⚠️ <i>현재 던전, 포획 등 일부 메뉴만 다국어 지원됩니다.</i>' if lang != 'ko' else ''}\n"
     )
     await update.message.reply_text(
         msg,
