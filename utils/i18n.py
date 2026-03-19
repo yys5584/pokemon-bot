@@ -157,10 +157,10 @@ def poke_name(pokemon: dict, lang: str) -> str:
 
 # Language display names
 LANG_LABELS = {
-    "ko": "\ud83c\uddf0\ud83c\uddf7 \ud55c\uad6d\uc5b4",
-    "en": "\ud83c\uddfa\ud83c\uddf8 English",
-    "zh-hans": "\ud83c\udde8\ud83c\uddf3 \u7b80\u4f53\u4e2d\u6587",
-    "zh-hant": "\ud83c\uddf9\ud83c\uddfc \u7e41\u9ad4\u4e2d\u6587",
+    "ko": "🇰🇷 한국어",
+    "en": "🇺🇸 English",
+    "zh-hans": "🇨🇳 简体中文",
+    "zh-hant": "🇹🇼 繁體中文",
 }
 
 # Load locales on import
