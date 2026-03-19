@@ -507,22 +507,19 @@ async def _process_floor(query, context, user_id: int, run: dict):
             st["buff_choices"] = choices
 
             if not choices:
-                # 8버프 포화 → 로그라이크 랜덤 이벤트 (선택지)
-                event = ds.generate_roguelike_event()
-                st["rogue_event"] = event
-                type_tag = "✅" if event["type"] == "positive" else "⚠️"
-                one_floor_note = "\n   <i>💡 스탯 효과는 다음 층 1턴만 적용됩니다</i>" if event["action"] == "stat_mult" else ""
+                # 8버프 포화 → 로그라이크: 누르면 그때 랜덤 결정
                 text += (
-                    f"\n\n🎲 <b>버프 슬롯 가득! — 랜덤 이벤트 발생</b>\n"
-                    f"{type_tag} {event['name']}\n   {event['desc']}{one_floor_note}"
+                    f"\n\n🎲 <b>버프 슬롯 가득!</b>\n"
+                    f"<i>랜덤 이벤트를 발동하시겠습니까?\n"
+                    f"좋은 일이 생길 수도, 나쁜 일이 생길 수도 있습니다...</i>"
                 )
                 buttons = [
                     [InlineKeyboardButton(
-                        f"✅ 적용하기",
-                        callback_data=f"dg_rogue_{user_id}_accept"
+                        "🎲 랜덤 이벤트 발동!",
+                        callback_data=f"dg_rogue_{user_id}_roll"
                     )],
                     [InlineKeyboardButton(
-                        f"➡️ 지나가기",
+                        "➡️ 지나가기",
                         callback_data=f"dg_rogue_{user_id}_pass"
                     )],
                 ]
@@ -925,27 +922,37 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             await query.answer(t(lang, "dungeon.no_active_run"), show_alert=True)
             return
 
-        st = _state(context)
-        event = st.pop("rogue_event", None)
-        choice = parts[3] if len(parts) > 3 else "pass"  # dg_rogue_{uid}_{accept|pass}
+        choice = parts[3] if len(parts) > 3 else "pass"  # dg_rogue_{uid}_{roll|pass}
         buffs = run.get("buffs_json", [])
         new_hp = run["current_hp"]
 
-        if choice == "accept" and event:
+        if choice == "roll":
+            # 지금 랜덤 결정 + 즉시 적용
+            event = ds.generate_roguelike_event()
             new_hp, buffs, event_msg = ds.apply_roguelike_event(
                 event, run["current_hp"], run["max_hp"], buffs
             )
             await dq.update_run_progress(run["id"], run["floor_reached"], new_hp, buffs)
-            await query.answer(f"🎲 {event['name']} 적용!")
+            type_tag = "✅" if event["type"] == "positive" else "⚠️"
+            one_floor_note = "\n💡 다음 층 1턴만 적용" if event["action"] == "stat_mult" else ""
+            await query.answer(f"🎲 {event['name']}!", show_alert=True)
         else:
+            event = None
             await query.answer("➡️ 지나갑니다!")
 
         hp_bar = _hp_bar(new_hp, run["max_hp"])
         hp_pct = int(new_hp / run["max_hp"] * 100) if run["max_hp"] else 0
         buff_display = _format_buffs(buffs, lang)
+        # 이벤트 결과 표시
+        event_result = ""
+        if event:
+            type_tag = "✅" if event["type"] == "positive" else "⚠️"
+            one_floor = " (다음 층 1턴)" if event["action"] == "stat_mult" else ""
+            event_result = f"\n🎲 {type_tag} {event['name']}\n   {event['desc']}{one_floor}\n"
         text = (
             f"{t(lang, 'dungeon.floor_label', floor=run['floor_reached'])}\n"
             f"{hp_bar} {hp_pct}% ({new_hp}/{run['max_hp']})\n"
+            f"{event_result}"
             f"{buff_display}\n"
         )
         buttons = [
