@@ -193,10 +193,88 @@ BUFF_DEFS = {
                "levels": [{"rate": 0.10, "desc": "매층 10% 실드"}, {"rate": 0.15, "desc": "매층 15% 실드"}, {"rate": 0.20, "desc": "매층 20% 실드"}]},
     # ── 1회성 (레벨 없음) ──
     "revive": {"name": "부활의 깃털", "category": "unique", "max_lv": 1,
-               "levels": [{"desc": "사망 시 1회 부활 (30%)"}]},
+               "levels": [{"desc": "사망 시 1회 부활 (30%) — 런당 1회"}]},
     "allstat":{"name": "전능의 기운", "category": "unique", "max_lv": 1,
                "levels": [{"mult": 1.15, "desc": "전스탯 +15%"}]},
 }
+
+# ── 로그라이크 랜덤 이벤트 (8버프 포화 후) ──
+# positive: 좋은 효과, negative: 디버프
+ROGUELIKE_EVENTS = [
+    # ── 긍정 (60%) ──
+    {"id": "rogue_heal", "name": "🌿 신비한 샘물", "type": "positive",
+     "desc": "HP 25% 회복!", "action": "heal", "value": 0.25},
+    {"id": "rogue_atk_up", "name": "⚔️ 전사의 축복", "type": "positive",
+     "desc": "공격력 +20% (이번 런)", "action": "stat_mult", "stat": "atk", "value": 1.20},
+    {"id": "rogue_def_up", "name": "🛡️ 수호자의 축복", "type": "positive",
+     "desc": "방어력 +20% (이번 런)", "action": "stat_mult", "stat": "def", "value": 1.20},
+    {"id": "rogue_spd_up", "name": "💨 바람의 가호", "type": "positive",
+     "desc": "속도 +20% (이번 런)", "action": "stat_mult", "stat": "spd", "value": 1.20},
+    {"id": "rogue_crit_up", "name": "🎯 예리한 눈", "type": "positive",
+     "desc": "크리 확률 +15%", "action": "buff_boost", "buff_id": "crit", "value": 0.15},
+    {"id": "rogue_full_heal", "name": "✨ 기적의 빛", "type": "positive",
+     "desc": "HP 전체 회복!", "action": "heal", "value": 1.0, "weight": 0.3},
+    # ── 부정 (40%) ──
+    {"id": "rogue_hp_drain", "name": "🩸 저주의 안개", "type": "negative",
+     "desc": "HP 20% 감소!", "action": "damage", "value": 0.20},
+    {"id": "rogue_atk_down", "name": "😵 약화의 주문", "type": "negative",
+     "desc": "공격력 -15% (이번 런)", "action": "stat_mult", "stat": "atk", "value": 0.85},
+    {"id": "rogue_def_down", "name": "💀 갑옷 부식", "type": "negative",
+     "desc": "방어력 -15% (이번 런)", "action": "stat_mult", "stat": "def", "value": 0.85},
+    {"id": "rogue_spd_down", "name": "🕸️ 거미줄 함정", "type": "negative",
+     "desc": "속도 -15% (이번 런)", "action": "stat_mult", "stat": "spd", "value": 0.85},
+    {"id": "rogue_heavy_drain", "name": "☠️ 죽음의 손길", "type": "negative",
+     "desc": "HP 35% 감소!", "action": "damage", "value": 0.35, "weight": 0.5},
+]
+
+
+def generate_roguelike_event() -> dict:
+    """8버프 포화 후 랜덤 이벤트 생성 (로그라이크 방식)."""
+    # weight가 없으면 기본 1.0
+    weighted = [(e, e.get("weight", 1.0)) for e in ROGUELIKE_EVENTS]
+    total = sum(w for _, w in weighted)
+    r = random.random() * total
+    cumulative = 0
+    for event, w in weighted:
+        cumulative += w
+        if r <= cumulative:
+            return event
+    return ROGUELIKE_EVENTS[0]
+
+
+def apply_roguelike_event(event: dict, current_hp: int, max_hp: int, buffs: list[dict]) -> tuple[int, list[dict], str]:
+    """로그라이크 이벤트 적용. Returns (new_hp, new_buffs, log_message)."""
+    action = event["action"]
+    msg = f"🎲 {event['name']}\n   {event['desc']}"
+
+    if action == "heal":
+        heal = int(max_hp * event["value"])
+        new_hp = min(max_hp, current_hp + heal)
+        return new_hp, buffs, msg
+
+    elif action == "damage":
+        dmg = int(max_hp * event["value"])
+        new_hp = max(1, current_hp - dmg)  # 최소 1 HP 보장
+        return new_hp, buffs, msg
+
+    elif action == "stat_mult":
+        # 스탯 배율 버프를 buffs에 추가 (런 동안 유지)
+        stat = event["stat"]
+        mult = event["value"]
+        marker_id = f"_rogue_{stat}_{mult}"
+        buffs = [b for b in buffs if b.get("id") != marker_id]  # 중복 방지
+        buffs.append({
+            "id": marker_id, "name": event["name"], "lv": 0,
+            "rogue_stat": stat, "rogue_mult": mult,
+        })
+        return current_hp, buffs, msg
+
+    elif action == "buff_boost":
+        # 기존 버프 강화 (해당 버프 없으면 그냥 패스)
+        return current_hp, buffs, msg
+
+    return current_hp, buffs, msg
+
 
 # 히든 시너지: 조건 충족 시 자동 발동
 SYNERGIES = {
@@ -266,7 +344,10 @@ def generate_buff_choices(
 
     # 아직 없는 버프들 (슬롯 상한 + 생존 배타 체크)
     owned_ids = {b["id"] for b in current_buffs}
-    at_cap = len(current_buffs) >= config.DUNGEON_MAX_BUFFS
+    # 부활 사용 완료 마커가 있으면 revive 재등장 차단
+    if "_revive_consumed" in owned_ids:
+        owned_ids.add("revive")
+    at_cap = len([b for b in current_buffs if not b["id"].startswith("_")]) >= config.DUNGEON_MAX_BUFFS
 
     # 생존 계열 배타: 1개 선택하면 나머지 2개 차단
     _SURVIVAL_EXCLUSIVE = {"lifesteal", "heal", "shield"}
@@ -609,7 +690,7 @@ def resolve_dungeon_battle(
                         heal = int(reflect * lifesteal)
                         p_hp = min(p_max_hp, p_hp + heal)
 
-        # 턴 종료 후 부활 체크
+        # 턴 종료 후 부활 체크 (런당 1회 — 발동 후 버프에서 제거)
         if p_hp <= 0 and revive_available:
             p_hp = int(p_max_hp * 0.30)
             revive_available = False
@@ -633,6 +714,7 @@ def resolve_dungeon_battle(
         "type_mult_player": type_mult_p,
         "log": log_lines,
         "revive_used": revive_used,
+        "revive_consumed": revive_used,  # 핸들러에서 버프 리스트에서 revive 제거용
     }
 
 

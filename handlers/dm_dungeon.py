@@ -398,9 +398,12 @@ async def _process_floor(query, context, user_id: int, run: dict):
     remaining_hp = result["remaining_hp"]
     won = result["won"]
 
-    # 부활이 사용됐으면 버프에서 제거
+    # 부활이 사용됐으면 버프에서 제거 + 마커 추가 (런당 1회 제한)
     if result.get("revive_used"):
         buffs = [b for b in buffs if b.get("id") != "revive"]
+        # 마커: 이미 부활 사용함 → generate_buff_choices에서 revive 제외
+        if not any(b.get("id") == "_revive_consumed" for b in buffs):
+            buffs.append({"id": "_revive_consumed", "name": "", "lv": 0})
 
     _result_gif = None
 
@@ -492,6 +495,16 @@ async def _process_floor(query, context, user_id: int, run: dict):
         if ds.should_offer_buff(floor, cost):
             choices = ds.generate_buff_choices(floor, buffs)
             st["buff_choices"] = choices
+
+            if not choices:
+                # 8버프 포화 → 로그라이크 랜덤 이벤트 자동 적용
+                event = ds.generate_roguelike_event()
+                new_hp, buffs, event_msg = ds.apply_roguelike_event(
+                    event, remaining_hp, run["max_hp"], buffs
+                )
+                remaining_hp = new_hp
+                await dq.update_run_progress(run["id"], floor, remaining_hp, buffs)
+                text += f"\n\n🎲 <b>랜덤 이벤트!</b>\n{event_msg}"
 
             if choices:
                 text += f"\n\n{icon_emoji('gotcha')} <b>{t(lang, 'dungeon.buff_select_title')}</b>"
