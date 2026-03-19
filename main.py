@@ -2086,7 +2086,7 @@ def main():
     # Korean commands via MessageHandler + Regex (DM only)
     # English/Chinese aliases added with | alternation — Korean commands always work
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(❓\s*)?(도움말|help)$"), help_handler))
-    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^(📖\s*)?(도감|pokedex)(\s+\S+)?$"), pokedex_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"(?i)^(📖\s*)?(도감|pokedex|图鉴|圖鑑)(\s+\S+)?$"), pokedex_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^날씨$"), weather_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(📦\s*)?(내포켓몬|mypokemon|my\s*pokemon|我的宝可梦|我的寶可夢)(\s+.+)?$"), my_pokemon_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(💪\s*)?친밀도강화$"), nurture_menu_handler))
