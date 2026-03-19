@@ -15,7 +15,7 @@ from services.event_service import get_spawn_boost, get_rarity_weights, get_catc
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
 from utils.helpers import schedule_delete, close_button, rarity_badge, type_badge, ball_emoji, shiny_emoji, icon_emoji
-from utils.i18n import t, get_group_lang, get_user_lang
+from utils.i18n import t, get_group_lang, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -457,7 +457,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
 
         # Get pokemon info
         _prow = await pool.fetchrow(
-            "SELECT pm.id, pm.name_ko, pm.emoji, pm.rarity, pm.catch_rate, "
+            "SELECT pm.id, pm.name_ko, pm.name_en, pm.emoji, pm.rarity, pm.catch_rate, "
             "pm.stat_type, ss.is_shiny "
             "FROM spawn_sessions ss "
             "JOIN pokemon_master pm ON ss.pokemon_id = pm.id "
@@ -572,7 +572,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny=shiny_tag, badge=rbadge, tb=tb, name=pokemon_name),
+                text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny=shiny_tag, badge=rbadge, tb=tb, name=poke_name(pokemon, _lang)),
                 parse_mode="HTML",
             )
             await queries.close_spawn_session(session_id)
@@ -678,15 +678,16 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
 
         _catch = _hon_verb(t(_lang, "spawn_msg.catch_verb"), _winner_tier)
         _catch_confirm = _hon_verb(t(_lang, "spawn_msg.catch_verb_confirm"), _winner_tier)
+        _pname = poke_name(pokemon, _lang)
         if is_newbie_spawn and winner.get("_tier", 99) < 2:
-            msg = t(_lang, "spawn_msg.catch_newbie", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=pokemon_name, verb=_catch, iv=iv_tag)
+            msg = t(_lang, "spawn_msg.catch_newbie", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)
         elif winner.get("used_master_ball"):
-            msg = f"{be_master} {t(_lang, 'spawn_msg.catch_masterball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=pokemon_name, verb=_catch_confirm, iv=iv_tag)}"
+            msg = f"{be_master} {t(_lang, 'spawn_msg.catch_masterball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch_confirm, iv=iv_tag)}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
-            msg = f"{be_hyper} {t(_lang, 'spawn_msg.catch_hyperball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=pokemon_name, verb=_catch, iv=iv_tag)}"
+            msg = f"{be_hyper} {t(_lang, 'spawn_msg.catch_hyperball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)}"
         else:
-            msg = f"{be_pokeball} {t(_lang, 'spawn_msg.catch_normal', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=pokemon_name, verb=_catch, iv=iv_tag)}"
+            msg = f"{be_pokeball} {t(_lang, 'spawn_msg.catch_normal', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)}"
 
         if is_shiny:
             _se = shiny_emoji()
@@ -756,6 +757,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 rarity, stat_type, 0, evo_stage=evo_stage, **base_kwargs,
             )
             _dm_lang = await get_user_lang(winner_id)
+            _dm_pname = poke_name(pokemon, _dm_lang)
             shiny_dm = f" {shiny_emoji()}{t(_dm_lang, 'spawn_msg.shiny_label').strip()}" if is_shiny else ""
             iv_line = (f"IV: {caught_ivs['iv_hp']}/{caught_ivs['iv_atk']}/{caught_ivs['iv_def']}"
                        f"/{caught_ivs['iv_spa']}/{caught_ivs['iv_spdef']}/{caught_ivs['iv_spd']}"
@@ -769,7 +771,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             else:
                 dm_ball = f"{ball_emoji('pokeball')} "
             dm_text = (
-                f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=pokemon_name)}{shiny_dm} [{iv_grade}]\n"
+                f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
                 f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
                 f"{format_stats_line(stats_with_iv, stats_base)}\n\n"
@@ -1022,7 +1024,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             newbie_tag = t(_lang, "spawn_msg.newbie_tag")
         caption = t(_lang, "spawn_msg.wild_appeared",
                      icon=icon_emoji('footsteps'), shiny=shiny_text, tb=tb,
-                     name=pokemon['name_ko'], bonus=bonus_text, weather=weather_tag,
+                     name=poke_name(pokemon, _lang), bonus=bonus_text, weather=weather_tag,
                      window=window, newbie=newbie_tag)
 
         # Generate card image (run in executor to avoid blocking event loop)
@@ -1075,6 +1077,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 "session_id": session_id,
                 "pokemon_id": pokemon["id"],
                 "pokemon_name": pokemon["name_ko"],
+                "pokemon_name_en": pokemon.get("name_en", ""),
                 "pokemon_emoji": pokemon["emoji"],
                 "rarity": rarity,
                 "is_shiny": is_shiny,
@@ -1123,10 +1126,13 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
     session_id = data["session_id"]
     pokemon_id = data["pokemon_id"]
     pokemon_name = data["pokemon_name"]
+    pokemon_name_en = data.get("pokemon_name_en", "")
     pokemon_emoji = data["pokemon_emoji"]
     rarity = data["rarity"]
     is_shiny = data.get("is_shiny", False)
     is_newbie_spawn = data.get("is_newbie_spawn", False)
+    # Mini-dict for poke_name() until full pokemon dict is loaded
+    _poke_mini = {"name_ko": pokemon_name, "name_en": pokemon_name_en}
 
     # 포획 메시지 전송 완료까지 다음 스폰 차단
     lock = _get_chat_lock(chat_id)
@@ -1164,7 +1170,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny=shiny_tag, badge=rbadge, tb=tb, name=pokemon_name),
+                text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny=shiny_tag, badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang)),
                 parse_mode="HTML",
             )
             lock.release()  # 도망 메시지 전송 완료 → 다음 스폰 허용
@@ -1275,7 +1281,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny=shiny_tag, badge=rbadge, tb=tb, name=pokemon_name),
+                text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny=shiny_tag, badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang)),
                 parse_mode="HTML",
             )
             lock.release()  # 도망 메시지 전송 완료 → 다음 스폰 허용
@@ -1398,17 +1404,18 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         be_hyper = ball_emoji("hyperball")
         _catch = _hon_verb(t(_lang, "spawn_msg.catch_verb"), _winner_tier)
         _catch_confirm = _hon_verb(t(_lang, "spawn_msg.catch_verb_confirm"), _winner_tier)
+        _pname = poke_name(pokemon or _poke_mini, _lang)
         if is_newbie_spawn and winner.get("_tier", 99) < 2:
-            msg = t(_lang, "spawn_msg.catch_newbie", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=pokemon_name, verb=_catch, iv=iv_tag)
+            msg = t(_lang, "spawn_msg.catch_newbie", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)
         elif winner.get("used_master_ball"):
-            msg = f"{be_master} {t(_lang, 'spawn_msg.catch_masterball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=pokemon_name, verb=_catch_confirm, iv=iv_tag)}"
+            msg = f"{be_master} {t(_lang, 'spawn_msg.catch_masterball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch_confirm, iv=iv_tag)}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
-            msg = f"{be_hyper} {t(_lang, 'spawn_msg.catch_hyperball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=pokemon_name, verb=_catch, iv=iv_tag)}"
+            msg = f"{be_hyper} {t(_lang, 'spawn_msg.catch_hyperball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)}"
         elif rarity in ("epic", "legendary", "ultra_legendary") and is_first:
-            msg = t(_lang, "spawn_msg.catch_first", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=pokemon_name, verb=_catch, iv=iv_tag)
+            msg = t(_lang, "spawn_msg.catch_first", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)
         else:
-            msg = f"{be_pokeball} {t(_lang, 'spawn_msg.catch_normal', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=pokemon_name, verb=_catch, iv=iv_tag)}"
+            msg = f"{be_pokeball} {t(_lang, 'spawn_msg.catch_normal', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)}"
 
         # Shiny catch announcement
         if is_shiny:
@@ -1481,6 +1488,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             )
 
             _dm_lang = await get_user_lang(winner_id)
+            _dm_pname = poke_name(pokemon or _poke_mini, _dm_lang)
             shiny_dm = f" {shiny_emoji()}{t(_dm_lang, 'spawn_msg.shiny_label').strip()}" if is_shiny else ""
             iv_line = (f"IV: {caught_ivs['iv_hp']}/{caught_ivs['iv_atk']}/{caught_ivs['iv_def']}"
                        f"/{caught_ivs['iv_spa']}/{caught_ivs['iv_spdef']}/{caught_ivs['iv_spd']}"
@@ -1494,7 +1502,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             else:
                 dm_ball = f"{ball_emoji('pokeball')} "
             dm_text = (
-                f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=pokemon_name)}{shiny_dm} [{iv_grade}]\n"
+                f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
                 f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
                 f"{format_stats_line(stats_with_iv, stats_base)}\n\n"
@@ -1581,7 +1589,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
     pool = await get_db()
     # Find unresolved sessions with pokemon info
     sessions = await pool.fetch("""
-        SELECT ss.id, ss.chat_id, ss.pokemon_id, pm.name_ko, pm.emoji,
+        SELECT ss.id, ss.chat_id, ss.pokemon_id, pm.name_ko, pm.name_en, pm.emoji,
                pm.rarity, pm.catch_rate, ss.is_shiny,
                CASE WHEN ss.spawned_at < NOW() - INTERVAL '5 minutes' THEN 1 ELSE 0 END as too_old
         FROM spawn_sessions ss
@@ -1598,6 +1606,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
         chat_id = sess["chat_id"]
         pokemon_id = sess["pokemon_id"]
         pokemon_name = sess["name_ko"]
+        _poke_mini = {"name_ko": sess["name_ko"], "name_en": sess.get("name_en", "")}
         rarity = sess["rarity"]
         catch_rate = sess["catch_rate"]
         is_shiny = bool(sess.get("is_shiny"))
@@ -1639,7 +1648,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                 tb = type_badge(pokemon_id)
                 await bot.send_message(
                     chat_id=chat_id,
-                    text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny="", badge=rbadge, tb=tb, name=pokemon_name),
+                    text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny="", badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang)),
                     parse_mode="HTML",
                 )
                 await queries.log_spawn(
@@ -1692,7 +1701,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                 tb = type_badge(pokemon_id)
                 await bot.send_message(
                     chat_id=chat_id,
-                    text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny="", badge=rbadge, tb=tb, name=pokemon_name),
+                    text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny="", badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang)),
                     parse_mode="HTML",
                 )
                 await queries.log_spawn(
@@ -1749,7 +1758,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                  ball_emoji("pokeball")
             _lang = await get_group_lang(chat_id)
             shiny_label = f"{shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label')}" if is_shiny else ""
-            msg = t(_lang, "spawn_msg.server_recover", ball=be, user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=pokemon_name, iv=iv_tag)
+            msg = t(_lang, "spawn_msg.server_recover", ball=be, user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang), iv=iv_tag)
 
             # Catch BP reward (하루 포획 성공 100마리까지만, KST 자정 기준)
             from database.battle_queries import add_bp
