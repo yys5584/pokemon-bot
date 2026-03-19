@@ -913,7 +913,7 @@ async def get_active_spawn(chat_id: int) -> dict | None:
     async def _do():
         pool = await get_db()
         row = await pool.fetchrow(
-            """SELECT ss.*, pm.name_ko, pm.emoji, pm.rarity, pm.catch_rate
+            """SELECT ss.*, pm.name_ko, pm.name_en, pm.emoji, pm.rarity, pm.catch_rate
                FROM spawn_sessions ss
                JOIN pokemon_master pm ON ss.pokemon_id = pm.id
                WHERE ss.chat_id = $1 AND ss.is_resolved = 0
@@ -1534,7 +1534,7 @@ async def get_active_listings(
     params.append(page * page_size)
     rows = await pool.fetch(
         f"""SELECT ml.*, u.display_name AS seller_name,
-                  pm.emoji, pm.rarity,
+                  pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
                   up.iv_hp, up.iv_atk, up.iv_def,
                   up.iv_spa, up.iv_spdef, up.iv_spd,
                   up.friendship
@@ -1654,7 +1654,7 @@ async def get_listing_by_id(listing_id: int) -> dict | None:
     pool = await get_db()
     row = await pool.fetchrow(
         """SELECT ml.*, u.display_name AS seller_name,
-                  pm.emoji, pm.rarity,
+                  pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
                   pm.evolution_method, pm.evolves_to,
                   up.iv_hp, up.iv_atk, up.iv_def,
                   up.iv_spa, up.iv_spdef, up.iv_spd,
@@ -1673,7 +1673,7 @@ async def get_user_active_listings(user_id: int) -> list[dict]:
     """Get all active listings by a specific user."""
     pool = await get_db()
     rows = await pool.fetch(
-        """SELECT ml.*, pm.emoji, pm.rarity
+        """SELECT ml.*, pm.name_ko, pm.name_en, pm.emoji, pm.rarity
            FROM market_listings ml
            JOIN pokemon_master pm ON ml.pokemon_id = pm.id
            WHERE ml.seller_id = $1 AND ml.status = 'active'
@@ -1713,7 +1713,7 @@ async def search_listings(pokemon_name: str, page: int = 0, page_size: int = 5) 
     total = count_row["cnt"]
     rows = await pool.fetch(
         """SELECT ml.*, u.display_name AS seller_name,
-                  pm.emoji, pm.rarity,
+                  pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
                   up.iv_hp, up.iv_atk, up.iv_def,
                   up.iv_spa, up.iv_spdef, up.iv_spd,
                   up.friendship

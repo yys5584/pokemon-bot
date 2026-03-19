@@ -16,11 +16,12 @@ from utils.i18n import t, get_user_lang, poke_name
 logger = logging.getLogger(__name__)
 
 
-def _listing_line(ml: dict) -> str:
+def _listing_line(ml: dict, lang: str = "ko") -> str:
     """Single-line listing summary."""
     shiny = " ✨이로치" if ml.get("is_shiny") else ""
     iv = _iv_tag(ml)
-    return f"#{ml['id']} {type_badge(ml['pokemon_id'])} {ml['pokemon_name']}{shiny}{iv} — {ml['price_bp']:,} BP"
+    name = poke_name(ml, lang)
+    return f"#{ml['id']} {type_badge(ml['pokemon_id'])} {name}{shiny}{iv} — {ml['price_bp']:,} BP"
 
 
 RARITY_LABELS = {
@@ -49,6 +50,7 @@ def _build_listing_page(
     listings: list[dict], total: int, page: int, page_size: int,
     search_name: str | None = None,
     rarity: str = "", iv_grade: str = "",
+    lang: str = "ko",
 ) -> tuple[str, InlineKeyboardMarkup]:
     """Build listing display text + inline keyboard."""
     total_pages = max(1, (total + page_size - 1) // page_size)
@@ -77,7 +79,7 @@ def _build_listing_page(
 
     lines = [header, ""]
     for ml in listings:
-        lines.append(_listing_line(ml))
+        lines.append(_listing_line(ml, lang))
         lines.append(f"  판매자: {ml.get('seller_name', '???')}")
 
     lines.append(f"\n({page+1}/{total_pages} 페이지)")
@@ -94,7 +96,7 @@ def _build_listing_page(
     # Buy buttons
     for ml in listings:
         shiny = " ✨이로치" if ml.get("is_shiny") else ""
-        label = f"#{ml['id']} {ml['pokemon_name']}{shiny} {ml['price_bp']:,}BP 구매"
+        label = f"#{ml['id']} {poke_name(ml, lang)}{shiny} {ml['price_bp']:,}BP 구매"
         buttons.append([InlineKeyboardButton(label, callback_data=f"mkt_buy_{ml['id']}")])
 
     # Pagination row
@@ -136,8 +138,9 @@ async def market_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     await queries.ensure_user(user_id, update.effective_user.first_name or "트레이너", update.effective_user.username)
 
+    lang = await get_user_lang(user_id)
     listings, total = await queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
-    text, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE)
+    text, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE, lang=lang)
     await update.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
 
 
@@ -148,6 +151,7 @@ async def market_register_handler(update: Update, context: ContextTypes.DEFAULT_
     user_id = update.effective_user.id
     await queries.ensure_user(user_id, update.effective_user.first_name or "트레이너", update.effective_user.username)
 
+    lang = await get_user_lang(user_id)
     text = (update.message.text or "").strip()
     # Parse: 거래소 등록 피카츄 500
     # or: 거래소 등록 피카츄 #2 500
@@ -193,7 +197,7 @@ async def market_register_handler(update: Update, context: ContextTypes.DEFAULT_
         return
 
     success, msg, listing_id, duplicates = await create_listing(
-        user_id, pokemon_name, price_bp, instance_id,
+        user_id, pokemon_name, price_bp, instance_id, lang=lang,
     )
 
     if duplicates:
@@ -203,7 +207,7 @@ async def market_register_handler(update: Update, context: ContextTypes.DEFAULT_
         for i, p in enumerate(duplicates, 1):
             shiny = " ✨이로치" if p.get("is_shiny") else ""
             iv = _iv_tag(p)
-            label = f"#{i} {p['name_ko']}{shiny}{iv}"
+            label = f"#{i} {poke_name(p, lang)}{shiny}{iv}"
             buttons.append([InlineKeyboardButton(
                 label, callback_data=f"mkt_sel_{p['id']}_{price_bp}"
             )])
@@ -225,6 +229,7 @@ async def market_my_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     await queries.ensure_user(user_id, update.effective_user.first_name or "트레이너", update.effective_user.username)
 
+    lang = await get_user_lang(user_id)
     listings = await queries.get_user_active_listings(user_id)
     if not listings:
         await update.message.reply_text("🏪 등록된 매물이 없습니다.")
@@ -234,7 +239,7 @@ async def market_my_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = []
     for ml in listings:
         shiny = " ✨이로치" if ml.get("is_shiny") else ""
-        lines.append(f"#{ml['id']} {type_badge(ml['pokemon_id'])} {ml['pokemon_name']}{shiny} — {ml['price_bp']:,} BP")
+        lines.append(f"#{ml['id']} {type_badge(ml['pokemon_id'])} {poke_name(ml, lang)}{shiny} — {ml['price_bp']:,} BP")
         buttons.append([InlineKeyboardButton(
             f"#{ml['id']} 취소", callback_data=f"mkt_cancel_{ml['id']}"
         )])
@@ -248,6 +253,7 @@ async def market_cancel_handler(update: Update, context: ContextTypes.DEFAULT_TY
     if not update.effective_user or not update.message:
         return
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
 
     text = (update.message.text or "").strip()
     parts = text.split()
@@ -261,7 +267,7 @@ async def market_cancel_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("매물 번호를 입력하세요. 예: 거래소 취소 42")
         return
 
-    success, msg = await cancel_listing_for_user(user_id, listing_id)
+    success, msg = await cancel_listing_for_user(user_id, listing_id, lang=lang)
     await update.message.reply_text(msg)
 
 
@@ -271,6 +277,7 @@ async def market_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     user_id = update.effective_user.id
     await queries.ensure_user(user_id, update.effective_user.first_name or "트레이너", update.effective_user.username)
+    lang = await get_user_lang(user_id)
 
     text = (update.message.text or "").strip()
     parts = text.split()
@@ -304,7 +311,7 @@ async def market_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ]
     await update.message.reply_text(
         f"🏪 구매 확인\n\n"
-        f"{type_badge(listing['pokemon_id'])} {listing['pokemon_name']}{shiny}{iv}\n"
+        f"{type_badge(listing['pokemon_id'])} {poke_name(listing, lang)}{shiny}{iv}\n"
         f"💰 가격: {listing['price_bp']:,} BP\n"
         f"판매자: {listing.get('seller_name', '???')}\n\n"
         f"구매하시겠습니까?",
@@ -319,6 +326,7 @@ async def market_search_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return
     user_id = update.effective_user.id
     await queries.ensure_user(user_id, update.effective_user.first_name or "트레이너", update.effective_user.username)
+    lang = await get_user_lang(user_id)
 
     text = (update.message.text or "").strip()
     parts = text.split()
@@ -328,7 +336,7 @@ async def market_search_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
     search_name = parts[2]
     listings, total = await queries.search_listings(search_name, page=0, page_size=config.MARKET_PAGE_SIZE)
-    text_out, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE, search_name)
+    text_out, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE, search_name, lang=lang)
     await update.message.reply_text(text_out, reply_markup=markup, parse_mode="HTML")
 
 
@@ -342,6 +350,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     await query.answer()
     user_id = query.from_user.id
     data = query.data or ""
+    lang = await get_user_lang(user_id)
 
     # ── Filter menu: show rarity options ──
     if data.startswith("mkt_fmenu_r_"):
@@ -383,7 +392,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             page=0, page_size=config.MARKET_PAGE_SIZE,
             rarity=rarity_val or None, iv_grade=iv_val or None,
         )
-        text, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE, rarity=rarity_val, iv_grade=iv_val)
+        text, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE, rarity=rarity_val, iv_grade=iv_val, lang=lang)
         try:
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
@@ -393,7 +402,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     # ── Filter reset ──
     if data == "mkt_fr":
         listings, total = await queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
-        text, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE)
+        text, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE, lang=lang)
         try:
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
@@ -420,7 +429,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             page=page, page_size=config.MARKET_PAGE_SIZE,
             rarity=rarity_val or None, iv_grade=iv_val or None,
         )
-        text, markup = _build_listing_page(listings, total, page, config.MARKET_PAGE_SIZE, rarity=rarity_val, iv_grade=iv_val)
+        text, markup = _build_listing_page(listings, total, page, config.MARKET_PAGE_SIZE, rarity=rarity_val, iv_grade=iv_val, lang=lang)
         try:
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
@@ -434,7 +443,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         except (ValueError, IndexError):
             return
         listings, total = await queries.get_active_listings(page=page, page_size=config.MARKET_PAGE_SIZE)
-        text, markup = _build_listing_page(listings, total, page, config.MARKET_PAGE_SIZE)
+        text, markup = _build_listing_page(listings, total, page, config.MARKET_PAGE_SIZE, lang=lang)
         try:
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
@@ -451,7 +460,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             except ValueError:
                 return
             listings, total = await queries.search_listings(search_name, page=page, page_size=config.MARKET_PAGE_SIZE)
-            text, markup = _build_listing_page(listings, total, page, config.MARKET_PAGE_SIZE, search_name)
+            text, markup = _build_listing_page(listings, total, page, config.MARKET_PAGE_SIZE, search_name, lang=lang)
             try:
                 await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
             except Exception:
@@ -490,7 +499,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         try:
             await query.edit_message_text(
                 f"🏪 구매 확인\n\n"
-                f"{type_badge(listing['pokemon_id'])} {listing['pokemon_name']}{shiny}{iv}\n"
+                f"{type_badge(listing['pokemon_id'])} {poke_name(listing, lang)}{shiny}{iv}\n"
                 f"💰 가격: {listing['price_bp']:,} BP\n"
                 f"판매자: {listing.get('seller_name', '???')}\n\n"
                 f"구매하시겠습니까?",
@@ -508,7 +517,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         except (ValueError, IndexError):
             return
 
-        success, msg, info = await buy_listing(user_id, listing_id)
+        success, msg, info = await buy_listing(user_id, listing_id, lang=lang)
 
         # 구매자에게 스펙 포함 메시지 표시
         if success and info:
@@ -539,7 +548,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
                 spec_msg = (
                     f"🎉 거래소 구매 완료!\n\n"
-                    f"{type_badge(info['pokemon_id'])} <b>{info['pokemon_name']}{shiny_tag}</b>\n"
+                    f"{type_badge(info['pokemon_id'])} <b>{poke_name(info, lang)}{shiny_tag}</b>\n"
                     f"💰 {info['price']:,} BP 지불\n\n"
                     f"📊 IV: {total_iv}/186 [{grade}]\n"
                     f"  HP {iv_hp or 0} / ATK {iv_atk or 0} / DEF {iv_def or 0}\n"
@@ -565,10 +574,12 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         # Send DM notification to seller
         if success and info:
             try:
+                seller_lang = await get_user_lang(info["seller_id"])
                 shiny_tag = " ✨이로치" if info["is_shiny"] else ""
+                sold_name = poke_name(info, seller_lang)
                 seller_msg = (
                     f"💰 거래소 판매 알림!\n\n"
-                    f"{type_badge(info['pokemon_id'])} {info['pokemon_name']}{shiny_tag}이(가) 판매되었습니다.\n"
+                    f"{type_badge(info['pokemon_id'])} {sold_name}{shiny_tag}이(가) 판매되었습니다.\n"
                     f"💵 수익: {info['seller_gets']:,} BP (수수료 {info['fee']:,} BP)"
                 )
                 # Show remaining listings
@@ -577,7 +588,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                     seller_msg += f"\n\n📋 남은 매물 ({len(remaining)}개):"
                     for ml in remaining[:5]:
                         s = " ✨이로치" if ml.get("is_shiny") else ""
-                        seller_msg += f"\n  #{ml['id']} {type_badge(ml['pokemon_id'])} {ml['pokemon_name']}{s} — {ml['price_bp']:,} BP"
+                        seller_msg += f"\n  #{ml['id']} {type_badge(ml['pokemon_id'])} {poke_name(ml, seller_lang)}{s} — {ml['price_bp']:,} BP"
                     if len(remaining) > 5:
                         seller_msg += f"\n  … 외 {len(remaining) - 5}개"
                 else:
@@ -595,8 +606,8 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                     if source and target:
                         evo_text = (
                             f"✨ 교환 진화 가능!\n\n"
-                            f"{type_badge(source['id'])} {source['name_ko']}을(를)\n"
-                            f"{type_badge(target['id'])} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
+                            f"{type_badge(source['id'])} {poke_name(source, lang)}을(를)\n"
+                            f"{type_badge(target['id'])} {poke_name(target, lang)}(으)로 진화시킬 수 있습니다!\n\n"
                             f"진화하시겠습니까?"
                         )
                         evo_buttons = [[
@@ -651,7 +662,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             try:
                 await query.edit_message_text(
                     f"🏪 거래소 등록 확인\n\n"
-                    f"{type_badge(pokemon['pokemon_id'])} {pokemon['name_ko']}{shiny}{iv}\n"
+                    f"{type_badge(pokemon['pokemon_id'])} {poke_name(pokemon, lang)}{shiny}{iv}\n"
                     f"💰 판매가: {price_bp:,} BP\n"
                     f"📋 수수료: {fee:,} BP\n"
                     f"💵 수익 예상: {price_bp - fee:,} BP\n\n"
@@ -682,7 +693,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 return
 
             success, msg, listing_id, _ = await create_listing(
-                user_id, pokemon["name_ko"], price_bp, instance_id,
+                user_id, pokemon["name_ko"], price_bp, instance_id, lang=lang,
             )
             try:
                 await query.edit_message_text(msg)
@@ -705,7 +716,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         except (ValueError, IndexError):
             return
 
-        success, msg = await cancel_listing_for_user(user_id, listing_id)
+        success, msg = await cancel_listing_for_user(user_id, listing_id, lang=lang)
         try:
             await query.edit_message_text(msg)
         except Exception:

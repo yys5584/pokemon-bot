@@ -144,16 +144,20 @@ async def set_group_lang(chat_id: int, lang: str):
     except Exception as e:
         logger.error(f"Failed to set group language for {chat_id}: {e}")
 
-def poke_name(pokemon: dict, lang: str) -> str:
-    """Get pokemon name in the correct language."""
+def poke_name(pokemon: dict | None, lang: str) -> str:
+    """Get pokemon name in the correct language.
+    빈 문자열/None 방어: 항상 fallback chain으로 유효한 이름 반환."""
+    if not pokemon:
+        return "???"
+    ko = pokemon.get("name_ko") or pokemon.get("name") or "???"
     if lang == "ko":
-        return pokemon.get("name_ko", pokemon.get("name", "???"))
+        return ko
     elif lang == "en":
-        return pokemon.get("name_en", pokemon.get("name_ko", "???"))
+        return pokemon.get("name_en") or ko
     elif lang in ("zh-hans", "zh-hant"):
         key = f"name_{lang.replace('-', '_')}"
-        return pokemon.get(key, pokemon.get("name_en", pokemon.get("name_ko", "???")))
-    return pokemon.get("name_ko", "???")
+        return pokemon.get(key) or pokemon.get("name_en") or ko
+    return ko
 
 # Language display names
 LANG_LABELS = {

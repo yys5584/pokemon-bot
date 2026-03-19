@@ -918,7 +918,7 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text(t(lang, "group.my_pokemon_none"))
         return
 
-    matches = [p for p in pokemon_list if name_query in p["name_ko"]]
+    matches = [p for p in pokemon_list if name_query in p["name_ko"] or name_query.lower() in poke_name(p, lang).lower()]
     if not matches:
         msg = await update.message.reply_text(t(lang, "group.my_pokemon_not_found", name=name_query))
         schedule_delete(msg, 30)
@@ -944,7 +944,7 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
             iv_tag = f" [{grade}]"
         team_tag = f" 🎯{t(lang, 'team.team_title', num=p['team_num'])}" if p.get("team_num") else ""
         rl = rarity_labels.get(p.get("rarity", ""), "")
-        lines.append(f"{i+1}. {rb}{tb}{s} {p['name_ko']} ({rl}){iv_tag}{team_tag}")
+        lines.append(f"{i+1}. {rb}{tb}{s} {poke_name(p, lang)} ({rl}){iv_tag}{team_tag}")
 
     if len(matches) > 15:
         lines.append(t(lang, "group.my_pokemon_more", count=len(matches) - 15))
@@ -1081,7 +1081,7 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
         active = await queries.get_active_spawn(chat_id)
         if active:
             resp = await update.message.reply_text(
-                t(lang, "group.already_spawned", tb=type_badge(active['pokemon_id']), name=active['name_ko']),
+                t(lang, "group.already_spawned", tb=type_badge(active['pokemon_id']), name=poke_name(active, lang)),
                 parse_mode="HTML",
             )
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
