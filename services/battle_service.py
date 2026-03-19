@@ -6,7 +6,8 @@ import logging
 
 import config
 from database import battle_queries as bq
-from database import queries
+
+from database import title_queries
 from utils.battle_calc import calc_battle_stats, calc_power, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
 from utils.helpers import type_badge, icon_emoji, rarity_badge, shiny_emoji
 from models.pokemon_skills import POKEMON_SKILLS, get_skill_effect
@@ -984,7 +985,7 @@ async def execute_battle(
 
 async def _check_battle_titles(user_id: int, stats: dict, perfect_win: bool):
     """Check and unlock battle-related titles."""
-    from database import queries
+    from database import queries, title_queries
 
     total_battles = stats["battle_wins"] + stats["battle_losses"]
     wins = stats["battle_wins"]
@@ -1004,9 +1005,9 @@ async def _check_battle_titles(user_id: int, stats: dict, perfect_win: bool):
 
     for title_id, condition in title_checks:
         if condition and title_id in config.BATTLE_TITLES:
-            already = await queries.has_title(user_id, title_id)
+            already = await title_queries.has_title(user_id, title_id)
             if not already:
-                await queries.unlock_title(user_id, title_id)
+                await title_queries.unlock_title(user_id, title_id)
                 logger.info(f"Battle title unlocked: {user_id} -> {title_id}")
 
 

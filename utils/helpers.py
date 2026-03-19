@@ -13,8 +13,8 @@ from config import (
     UNLOCKABLE_TITLES,
 )
 from utils.battle_calc import iv_total
-from database import queries
 
+from database import queries, title_queries
 _logger = logging.getLogger(__name__)
 
 
@@ -218,7 +218,7 @@ async def update_title(user_id: int):
         current = user.get("title", "")
         if current:
             # Check if current title matches any unlocked title from user_titles
-            unlocked = await queries.get_user_titles(user_id)
+            unlocked = await title_queries.get_user_titles(user_id)
             unlocked_ids = {r["title_id"] for r in unlocked}
             for tid, (name, *_) in UNLOCKABLE_TITLES.items():
                 if name == current and tid in unlocked_ids:

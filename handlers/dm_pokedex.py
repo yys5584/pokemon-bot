@@ -7,7 +7,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKe
 from telegram.ext import ContextTypes
 
 import config
-from database import queries
+
+from database import queries, item_queries, title_queries
 from database import camp_queries as cq
 from utils.helpers import hearts_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji, shiny_emoji, icon_emoji, ball_emoji, resolve_title_badge, pokemon_iv_total as _iv_sum, iv_grade
 from utils.card_generator import generate_card, generate_pokedex_card
@@ -2231,7 +2232,7 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         update.effective_user.username,
     )
 
-    unlocked = await queries.get_user_titles(user_id)
+    unlocked = await title_queries.get_user_titles(user_id)
     unlocked_ids = {ut["title_id"] for ut in unlocked}
 
     text, markup = _build_title_list_page(unlocked_ids, 0)
@@ -2259,7 +2260,7 @@ async def title_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     user_id = query.from_user.id
     lang = await get_user_lang(user_id)
-    unlocked = await queries.get_user_titles(user_id)
+    unlocked = await title_queries.get_user_titles(user_id)
     unlocked_ids = {ut["title_id"] for ut in unlocked}
 
     text, markup = _build_title_list_page(unlocked_ids, page)
@@ -2348,7 +2349,7 @@ async def title_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from utils.title_checker import check_and_unlock_titles
     await check_and_unlock_titles(user_id)
 
-    unlocked = await queries.get_user_titles(user_id)
+    unlocked = await title_queries.get_user_titles(user_id)
     user = await queries.get_user(user_id)
     current_title = user.get("title", "") if user else ""
 
@@ -2385,7 +2386,7 @@ async def title_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     user_id = query.from_user.id
     lang = await get_user_lang(user_id)
-    unlocked = await queries.get_user_titles(user_id)
+    unlocked = await title_queries.get_user_titles(user_id)
     user = await queries.get_user(user_id)
     current_title = user.get("title", "") if user else ""
 
@@ -2413,7 +2414,7 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = await queries.get_user(user_id)
         old_title = user.get("title", "") if user else ""
         old_buff = config.get_title_buff_by_name(old_title) if old_title else None
-        await queries.equip_title(user_id, "", "")
+        await title_queries.equip_title(user_id, "", "")
         warn = ""
         if old_buff:
             warn = "\n\n⚠️ 칭호 효과가 비활성화됩니다!"
@@ -2421,7 +2422,7 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Check if user has this title
-    if not await queries.has_title(user_id, title_id):
+    if not await title_queries.has_title(user_id, title_id):
         await query.edit_message_text("❌ 해금되지 않은 칭호입니다.")
         return
 
@@ -2430,7 +2431,7 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     name, emoji, desc, _, _ = t_info
-    await queries.equip_title(user_id, name, emoji)
+    await title_queries.equip_title(user_id, name, emoji)
     badge = icon_emoji(emoji) if emoji in config.ICON_CUSTOM_EMOJI else emoji
 
     buff = config.TITLE_BUFFS.get(title_id)
@@ -2589,7 +2590,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 조각 / 결정
     fragments = await cq.get_user_fragments(user_id)
-    uni_frags = await queries.get_universal_fragments(user_id)
+    uni_frags = await item_queries.get_universal_fragments(user_id)
     crystals = await cq.get_crystals(user_id)
     total_frags = sum(fragments.values()) + uni_frags
     crystal_count = crystals.get("crystal", 0)
@@ -2632,7 +2633,7 @@ async def status_inline_callback(update: Update, context: ContextTypes.DEFAULT_T
         await check_and_unlock_titles(user_id)
 
         lang = await get_user_lang(user_id)
-        unlocked = await queries.get_user_titles(user_id)
+        unlocked = await title_queries.get_user_titles(user_id)
         user = await queries.get_user(user_id)
         current_title = user.get("title", "") if user else ""
 

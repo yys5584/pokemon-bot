@@ -17,7 +17,8 @@ from aiohttp import web
 from asyncpg import InterfaceError
 
 import config
-from database import queries
+
+from database import queries, stats_queries
 from database import battle_queries as bq
 from utils.battle_calc import (
     calc_battle_stats, calc_power, iv_total,
@@ -2124,20 +2125,20 @@ async def api_camp_list(request):
 # --- API Handlers ---
 
 async def api_overview(request):
-    total = await queries.get_total_stats()
-    today = await queries.get_today_stats()
+    total = await stats_queries.get_total_stats()
+    today = await stats_queries.get_today_stats()
     return pg_json_response({**total, **today})
 
 
 async def api_chats(request):
-    rooms = await queries.get_all_chat_rooms()
+    rooms = await stats_queries.get_all_chat_rooms()
     # Hide private chats (no title) and small rooms (< 10 members)
     rooms = [r for r in rooms if r.get("chat_title") and r.get("member_count", 0) >= 10]
     return pg_json_response(rooms)
 
 
 async def api_users(request):
-    users = await queries.get_user_rankings(20)
+    users = await stats_queries.get_user_rankings(20)
     for u in users:
         if u.get("title_emoji"):
             u["title_emoji"] = _web_emoji(u["title_emoji"])
@@ -2147,12 +2148,12 @@ async def api_users(request):
 
 
 async def api_spawns_recent(request):
-    spawns = await queries.get_recent_spawns_global(50)
+    spawns = await stats_queries.get_recent_spawns_global(50)
     return pg_json_response(spawns)
 
 
 async def api_pokemon_stats(request):
-    stats = await queries.get_top_pokemon_caught(20)
+    stats = await stats_queries.get_top_pokemon_caught(20)
     return pg_json_response(stats)
 
 
@@ -2179,19 +2180,19 @@ async def api_fun_kpis(request):
         love_leaders,
         shiny_holders,
     ) = await asyncio.gather(
-        queries.get_global_catch_rate(),
-        queries.get_total_master_balls_used(),
-        queries.get_longest_streak_user(),
-        queries.get_rare_pokemon_holders(20),
-        queries.get_escape_masters(5),
-        queries.get_night_owls(5),
-        queries.get_masterball_rich(5),
-        queries.get_pokeball_addicts(5),
-        queries.get_user_catch_rates(10),
-        queries.get_trade_kings(5),
-        queries.get_most_escaped_pokemon(5),
-        queries.get_love_leaders(5),
-        queries.get_shiny_holders(20),
+        stats_queries.get_global_catch_rate(),
+        stats_queries.get_total_master_balls_used(),
+        stats_queries.get_longest_streak_user(),
+        stats_queries.get_rare_pokemon_holders(20),
+        stats_queries.get_escape_masters(5),
+        stats_queries.get_night_owls(5),
+        stats_queries.get_masterball_rich(5),
+        stats_queries.get_pokeball_addicts(5),
+        stats_queries.get_user_catch_rates(10),
+        stats_queries.get_trade_kings(5),
+        stats_queries.get_most_escaped_pokemon(5),
+        stats_queries.get_love_leaders(5),
+        stats_queries.get_shiny_holders(20),
     )
 
     # Split catch rates into lucky (top) and unlucky (bottom)
@@ -2449,11 +2450,11 @@ async def api_dashboard_kpi(request):
     one_hour_ago = now - __import__('datetime').timedelta(hours=1)
 
     dau, dau_hist, retention, economy, top_channels, new_today, active_1h = await asyncio.gather(
-        queries.get_dau(),
-        queries.get_dau_history(7),
-        queries.get_retention_d1(),
-        queries.get_economy_health(),
-        queries.get_active_chat_rooms_top(5),
+        stats_queries.get_dau(),
+        stats_queries.get_dau_history(7),
+        stats_queries.get_retention_d1(),
+        stats_queries.get_economy_health(),
+        stats_queries.get_active_chat_rooms_top(5),
         pool.fetchrow("SELECT COUNT(*) as cnt FROM users WHERE registered_at >= $1", today),
         pool.fetchrow("SELECT COUNT(*) as cnt FROM users WHERE last_active_at >= $1", one_hour_ago),
     )

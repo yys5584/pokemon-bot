@@ -9,7 +9,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import config
-from database import queries
+
+from database import queries, item_queries, spawn_queries, title_queries
 from database import battle_queries as bq
 from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
@@ -158,7 +159,7 @@ async def on_chat_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         invite_link = await context.bot.export_chat_invite_link(chat_id)
                 except Exception:
                     pass  # 봇이 관리자가 아니면 실패 — 무시
-            await queries.increment_activity(chat_id, hour_bucket)
+            await spawn_queries.increment_activity(chat_id, hour_bucket)
             await queries.ensure_chat_room(chat_id, title=chat_title,
                                            invite_link=invite_link)
         except Exception as e:
@@ -189,7 +190,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Phase 1: ensure_user + get_active_spawn in parallel
         _, session = await asyncio.gather(
             queries.ensure_user(user_id, display_name, username),
-            queries.get_active_spawn(chat_id),
+            spawn_queries.get_active_spawn(chat_id),
         )
 
         if session is None:
@@ -206,7 +207,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
             try:
-                await queries.update_login_streak(user_id)
+                await title_queries.update_login_streak(user_id)
             except Exception:
                 pass
         asyncio.create_task(_bg_tutorial_streak())
@@ -222,7 +223,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from services.ranked_service import current_season_id
             from database import ranked_queries as rq
             already, (allowed, reason, remaining, max_today), user, sub_tier, season_rec = await asyncio.gather(
-                queries.has_attempted_session(session["id"], user_id),
+                spawn_queries.has_attempted_session(session["id"], user_id),
                 can_attempt_catch(user_id),
                 queries.get_user(user_id),
                 get_user_tier(user_id),
@@ -303,7 +304,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Phase 1: ensure_user + get_active_spawn in parallel
         _, session = await asyncio.gather(
             queries.ensure_user(user_id, display_name, username),
-            queries.get_active_spawn(chat_id),
+            spawn_queries.get_active_spawn(chat_id),
         )
         if session is None:
             return
@@ -327,7 +328,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             pool = await get_db()
             row, already, balls = await asyncio.gather(
                 pool.fetchrow("SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]),
-                queries.has_attempted_session(session["id"], user_id),
+                spawn_queries.has_attempted_session(session["id"], user_id),
                 queries.get_master_balls(user_id),
             )
             if not row or row["is_resolved"] == 1:
@@ -350,7 +351,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             from services.ranked_service import current_season_id
             from database import ranked_queries as rq
             _, user, sub_tier, season_rec = await asyncio.gather(
-                queries.record_catch_attempt(session["id"], user_id, used_master_ball=True),
+                spawn_queries.record_catch_attempt(session["id"], user_id, used_master_ball=True),
                 queries.get_user(user_id),
                 get_user_tier(user_id),
                 rq.get_season_record(user_id, current_season_id()),
@@ -405,7 +406,7 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # Phase 1: ensure_user + get_active_spawn in parallel
         _, session = await asyncio.gather(
             queries.ensure_user(user_id, display_name, username),
-            queries.get_active_spawn(chat_id),
+            spawn_queries.get_active_spawn(chat_id),
         )
         if session is None:
             return
@@ -429,7 +430,7 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             pool = await get_db()
             row, already = await asyncio.gather(
                 pool.fetchrow("SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]),
-                queries.has_attempted_session(session["id"], user_id),
+                spawn_queries.has_attempted_session(session["id"], user_id),
             )
             if not row or row["is_resolved"] == 1:
                 return
@@ -451,7 +452,7 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             from services.ranked_service import current_season_id
             from database import ranked_queries as rq
             _, user, remaining, sub_tier, season_rec = await asyncio.gather(
-                queries.record_catch_attempt(session["id"], user_id, used_hyper_ball=True),
+                spawn_queries.record_catch_attempt(session["id"], user_id, used_hyper_ball=True),
                 queries.get_user(user_id),
                 queries.get_hyper_balls(user_id),
                 get_user_tier(user_id),
@@ -532,7 +533,7 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
     # Check cap (max 100 bonus)
-    bonus = await queries.get_bonus_catches(user_id, today)
+    bonus = await spawn_queries.get_bonus_catches(user_id, today)
     if bonus >= 100:
         await update.message.reply_text(
             f"{ball_emoji('pokeball')} {t(lang, 'group.recharge_max')}",
@@ -541,7 +542,7 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Grant +10 bonus catches
-    await queries.add_bonus_catches(user_id, today, 10)
+    await spawn_queries.add_bonus_catches(user_id, today, 10)
     bonus = min(bonus + 10, 100)
     total = config.MAX_CATCH_ATTEMPTS_PER_DAY + bonus
 
@@ -554,7 +555,7 @@ async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Title tracking in background (non-blocking)
     async def _bg_title_check():
         try:
-            await queries.increment_title_stat(user_id, "love_count")
+            await title_queries.increment_title_stat(user_id, "love_count")
             from utils.title_checker import check_and_unlock_titles
             new_titles = await check_and_unlock_titles(user_id)
             if new_titles:
@@ -643,7 +644,7 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     async def _bg_title_check():
         try:
             await queries.ensure_user(user_id, display_name, update.effective_user.username)
-            await queries.increment_title_stat(user_id, "love_count")
+            await title_queries.increment_title_stat(user_id, "love_count")
             from utils.title_checker import check_and_unlock_titles
             new_titles = await check_and_unlock_titles(user_id)
             if new_titles:
@@ -777,7 +778,7 @@ async def log_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = await get_group_lang(chat_id)
 
     try:
-        logs = await queries.get_recent_logs(chat_id, limit=10)
+        logs = await spawn_queries.get_recent_logs(chat_id, limit=10)
 
         if not logs:
             await update.message.reply_text(t(lang, "group.log_no_data"))
@@ -1053,7 +1054,7 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
         return
 
     # 티켓 보유 확인
-    ticket_count = await queries.get_shiny_spawn_tickets(user_id)
+    ticket_count = await item_queries.get_shiny_spawn_tickets(user_id)
     if ticket_count <= 0:
         resp = await update.message.reply_text(f"✨ {t(lang, 'dungeon.no_tickets')}")
         schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
@@ -1078,7 +1079,7 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
             return
 
         # 활성 스폰 체크
-        active = await queries.get_active_spawn(chat_id)
+        active = await spawn_queries.get_active_spawn(chat_id)
         if active:
             resp = await update.message.reply_text(
                 t(lang, "group.already_spawned", tb=type_badge(active['pokemon_id']), name=poke_name(active, lang)),
@@ -1098,7 +1099,7 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
             return
 
         # 티켓 차감 (atomic)
-        ok = await queries.use_shiny_spawn_ticket(user_id)
+        ok = await item_queries.use_shiny_spawn_ticket(user_id)
         if not ok:
             resp = await update.message.reply_text(t(lang, "group.shiny_ticket_empty"))
             schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
@@ -1132,7 +1133,7 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
             logger.info(f"shiny_ticket_spawn: user {user_id} used ticket in chat {chat_id}")
         except Exception as e:
             # 스폰 실패 시 티켓 복구
-            await queries.add_shiny_spawn_ticket(user_id, 1)
+            await item_queries.add_shiny_spawn_ticket(user_id, 1)
             logger.error(f"shiny_ticket_spawn FAILED in chat {chat_id}: {e}", exc_info=True)
             try:
                 resp = await context.bot.send_message(chat_id=chat_id, text=t(lang, "group.shiny_ticket_fail"))
@@ -1202,7 +1203,7 @@ async def challenge_callback_handler(update: Update, context: ContextTypes.DEFAU
                 pass
 
             # 그룹 채팅에 던졌다 메시지 전송
-            sess_row = await queries.get_spawn_session_by_id(session_id)
+            sess_row = await spawn_queries.get_spawn_session_by_id(session_id)
             if sess_row and not sess_row.get("is_resolved"):
                 chat_id = sess_row["chat_id"]
                 _chat_lang = await get_group_lang(chat_id) if chat_id else "ko"

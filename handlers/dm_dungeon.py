@@ -7,7 +7,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 import config
-from database import queries
+
+from database import queries, item_queries, title_queries
 from database import dungeon_queries as dq
 from database import camp_queries as cq
 from services import dungeon_service as ds
@@ -609,7 +610,7 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
 
     try:
         if rewards.get("iv_stones", 0) > 0:
-            await queries.add_iv_stones(user_id, rewards["iv_stones"])
+            await item_queries.add_iv_stones(user_id, rewards["iv_stones"])
     except Exception as e:
         reward_errors.append(f"iv_stones: {e}")
 
@@ -621,9 +622,9 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
     for t_info in rewards.get("new_titles", []):
         title_id = f"dungeon_{t_info['floor']}"
         try:
-            has = await queries.has_title(user_id, title_id)
+            has = await title_queries.has_title(user_id, title_id)
             if not has:
-                await queries.unlock_title(user_id, title_id)
+                await title_queries.unlock_title(user_id, title_id)
                 unlocked_titles.append(t_info)
         except Exception as e:
             logger.error(f"dungeon title unlock error: {e}")

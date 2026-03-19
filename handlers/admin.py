@@ -8,7 +8,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 import config
-from database import queries
+
+from database import queries, spawn_queries, stats_queries
 from services.spawn_service import schedule_spawns_for_chat
 from services.event_service import invalidate_event_cache
 from services.abuse_service import get_flagged_users, get_user_abuse_detail, admin_reset_score
@@ -131,7 +132,7 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
 
         # Check if there's already an active spawn
-        active = await queries.get_active_spawn(chat_id)
+        active = await spawn_queries.get_active_spawn(chat_id)
         if active:
             resp = await update.message.reply_text(
                 f"⚠️ 이미 스폰 중인 포켓몬이 있습니다!\n"
@@ -184,7 +185,7 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                  AND caught_by_user_id IS NOT NULL""",
             chat_id,
         )
-        fs_count_now = await queries.get_force_spawn_count(chat_id)
+        fs_count_now = await spawn_queries.get_force_spawn_count(chat_id)
         if (unique_catchers or 0) <= 2 and fs_count_now >= 50:
             await _pool.execute(
                 """INSERT INTO force_spawn_bans (chat_id, banned_until, reason)
@@ -201,7 +202,7 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
 
         # Check force spawn limit (50 per chat) — 구독자 무제한 체크
-        count = await queries.get_force_spawn_count(chat_id)
+        count = await spawn_queries.get_force_spawn_count(chat_id)
         force_spawn_unlimited = False
         try:
             from services.subscription_service import has_benefit
@@ -239,7 +240,7 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             await execute_spawn(fake_ctx)
 
             # Increment count and show remaining
-            await queries.increment_force_spawn(chat_id)
+            await spawn_queries.increment_force_spawn(chat_id)
             used = count + 1
             try:
                 count_txt = f"({used}/∞)" if force_spawn_unlimited else f"({used}/50회)"
@@ -281,7 +282,7 @@ async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAU
         return
 
     # Reset force spawn count for this chat
-    await queries.reset_force_spawn_for_chat(chat_id)
+    await spawn_queries.reset_force_spawn_for_chat(chat_id)
 
     remaining = await queries.get_force_spawn_tickets(user_id)
     display_name = update.effective_user.first_name or "트레이너"
@@ -308,7 +309,7 @@ async def force_spawn_reset_handler(update: Update, context: ContextTypes.DEFAUL
     if not is_admin(user_id):
         return
 
-    await queries.reset_force_spawn_counts()
+    await spawn_queries.reset_force_spawn_counts()
     await update.message.reply_text(f"{icon_emoji('check')} 모든 방의 강제스폰 횟수가 초기화되었습니다!", parse_mode="HTML")
 
 
@@ -324,7 +325,7 @@ async def pokeball_reset_handler(update: Update, context: ContextTypes.DEFAULT_T
     if not is_admin(user_id):
         return
 
-    await queries.reset_catch_limits()
+    await spawn_queries.reset_catch_limits()
     await update.message.reply_text(f"{icon_emoji('check')} 모든 유저의 포켓볼(잡기 횟수)이 초기화되었습니다!", parse_mode="HTML")
 
 
@@ -562,10 +563,10 @@ async def stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("관리자만 사용할 수 있습니다.")
         return
 
-    total = await queries.get_total_stats()
-    today = await queries.get_today_stats()
-    top_users = await queries.get_rankings(3)
-    top_pokemon = await queries.get_top_pokemon_caught(5)
+    total = await stats_queries.get_total_stats()
+    today = await stats_queries.get_today_stats()
+    top_users = await stats_queries.get_rankings(3)
+    top_pokemon = await stats_queries.get_top_pokemon_caught(5)
 
     lines = [
         "📊 봇 전체 통계\n",
@@ -601,7 +602,7 @@ async def channel_list_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text("관리자만 사용할 수 있습니다.")
         return
 
-    rooms = await queries.get_all_chat_rooms()
+    rooms = await stats_queries.get_all_chat_rooms()
 
     if not rooms:
         await update.message.reply_text("등록된 채팅방이 없습니다.")

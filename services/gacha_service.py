@@ -5,7 +5,8 @@ import datetime as dt
 import logging
 
 import config
-from database import queries
+
+from database import queries, item_queries
 from database.battle_queries import get_bp, spend_bp
 from database.connection import get_db
 
@@ -49,7 +50,7 @@ async def roll_gacha(user_id: int, free: bool = False) -> dict:
     detail = await _grant_reward(user_id, result_key)
 
     # 로그
-    await queries.log_gacha(user_id, result_key, 0 if free else config.GACHA_COST)
+    await item_queries.log_gacha(user_id, result_key, 0 if free else config.GACHA_COST)
 
     return {
         "success": True,
@@ -89,7 +90,7 @@ async def _grant_reward(user_id: int, result_key: str) -> str:
         return "마스터볼 1개 획득!"
 
     elif result_key == "iv_reroll_all":
-        await queries.add_user_item(user_id, "iv_reroll_all", 1)
+        await item_queries.add_user_item(user_id, "iv_reroll_all", 1)
         return "개체값 재설정권 1개 획득! (DM에서 '아이템' 입력)"
 
     elif result_key == "bp_jackpot":
@@ -106,14 +107,14 @@ async def _grant_reward(user_id: int, result_key: str) -> str:
         return f"+{config.GACHA_BP_JACKPOT} BP 잭팟!!"
 
     elif result_key == "iv_reroll_one":
-        await queries.add_user_item(user_id, "iv_reroll_one", 1)
+        await item_queries.add_user_item(user_id, "iv_reroll_one", 1)
         return "IV 선택 리롤 1개 획득! (DM에서 '아이템' 입력)"
 
     elif result_key == "shiny_egg":
         return await _create_shiny_egg(user_id)
 
     elif result_key == "shiny_spawn":
-        await queries.add_shiny_spawn_ticket(user_id, 1)
+        await item_queries.add_shiny_spawn_ticket(user_id, 1)
         return "이로치 강스권 1개 획득! (강제스폰 시 자동 적용)"
 
     return ""
@@ -139,7 +140,7 @@ async def _create_shiny_egg(user_id: int) -> str:
     pokemon = await pick_random_pokemon(rarity)
     hatches_at = config.get_kst_now() + dt.timedelta(seconds=config.SHINY_EGG_HATCH_SECONDS)
 
-    egg_id = await queries.create_shiny_egg(user_id, pokemon["id"], rarity, hatches_at)
+    egg_id = await item_queries.create_shiny_egg(user_id, pokemon["id"], rarity, hatches_at)
 
     rarity_labels = {"common": "일반", "rare": "레어", "epic": "에픽",
                      "legendary": "전설", "ultra_legendary": "초전설"}
@@ -151,7 +152,7 @@ async def _create_shiny_egg(user_id: int) -> str:
 
 async def hatch_ready_eggs(bot) -> list[dict]:
     """부화 시간이 된 알을 처리하고 DM 발송용 데이터 반환."""
-    eggs = await queries.get_ready_eggs()
+    eggs = await item_queries.get_ready_eggs()
     results = []
 
     for egg in eggs:
@@ -167,7 +168,7 @@ async def hatch_ready_eggs(bot) -> list[dict]:
         # 도감 등록
         await queries.register_pokedex(user_id, pokemon_id, method="catch")
 
-        await queries.mark_egg_hatched(egg["id"])
+        await item_queries.mark_egg_hatched(egg["id"])
 
         results.append({
             "user_id": user_id,

@@ -9,7 +9,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFi
 from telegram.ext import ContextTypes
 
 import config
-from database import queries
+
+from database import queries, item_queries
 from database import camp_queries as cq
 from database.battle_queries import get_bp
 from utils.helpers import icon_emoji
@@ -301,14 +302,14 @@ async def item_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     lang = await get_user_lang(user_id)
 
-    items = await queries.get_all_user_items(user_id)
-    shiny_tickets = await queries.get_shiny_spawn_tickets(user_id)
-    eggs = await queries.get_user_eggs(user_id)
+    items = await item_queries.get_all_user_items(user_id)
+    shiny_tickets = await item_queries.get_shiny_spawn_tickets(user_id)
+    eggs = await item_queries.get_user_eggs(user_id)
 
     lines = [f"🎒 <b>{t(lang, 'gacha.item_bag')}</b>", ""]
 
-    iv_stones = await queries.get_iv_stones(user_id)
-    uni_frags = await queries.get_universal_fragments(user_id)
+    iv_stones = await item_queries.get_iv_stones(user_id)
+    uni_frags = await item_queries.get_universal_fragments(user_id)
     has_items = False
 
     for item in items:
@@ -519,13 +520,13 @@ async def _use_gacha_ticket_5(query, user_id: int):
 
     result_sent = False
     try:
-        qty = await queries.get_user_item(user_id, "gacha_ticket_5")
+        qty = await item_queries.get_user_item(user_id, "gacha_ticket_5")
         if qty <= 0:
             await query.edit_message_text("❌ 5연뽑기권이 없습니다.")
             return
 
         # 아이템 차감
-        ok = await queries.use_user_item(user_id, "gacha_ticket_5", 1)
+        ok = await item_queries.use_user_item(user_id, "gacha_ticket_5", 1)
         if not ok:
             await query.edit_message_text("❌ 아이템 사용에 실패했습니다.")
             return
@@ -586,7 +587,7 @@ async def _use_gacha_ticket_5(query, user_id: int):
                 lines.append(f"  {g}")
             lines.append("")
 
-        remaining_tickets = await queries.get_user_item(user_id, "gacha_ticket_5")
+        remaining_tickets = await item_queries.get_user_item(user_id, "gacha_ticket_5")
         lines.append(f"{icon_emoji('coin')} 남은 BP: <b>{bp_after:,}</b>")
         if remaining_tickets > 0:
             lines.append(f"🎰 남은 5연뽑기권: {remaining_tickets}개")
@@ -613,7 +614,7 @@ PAGE_SIZE = 8
 async def _start_iv_reroll(query, user_id: int, mode: str):
     """IV 리롤 — 포켓몬 선택 화면."""
     item_key = f"iv_reroll_{mode}"
-    qty = await queries.get_user_item(user_id, item_key)
+    qty = await item_queries.get_user_item(user_id, item_key)
     if qty <= 0:
         await query.edit_message_text("❌ 아이템이 부족합니다.")
         return
@@ -703,7 +704,7 @@ async def _show_pokemon_list(query, user_id: int, mode: str, page: int, rarity_f
 
 async def _execute_iv_reroll_all(query, user_id: int, instance_id: int):
     """개체값 재설정권 사용 — 6종 전부 리롤."""
-    ok = await queries.use_user_item(user_id, "iv_reroll_all")
+    ok = await item_queries.use_user_item(user_id, "iv_reroll_all")
     if not ok:
         await query.edit_message_text("❌ 아이템이 부족합니다.")
         return
@@ -729,7 +730,7 @@ async def _execute_iv_reroll_all(query, user_id: int, instance_id: int):
     new_ivs = generate_ivs(is_shiny=is_shiny)
     new_sum = sum(new_ivs.values())
 
-    await queries.update_pokemon_all_ivs(instance_id, new_ivs)
+    await item_queries.update_pokemon_all_ivs(instance_id, new_ivs)
 
     shiny = "✨" if is_shiny else ""
     lines = [
@@ -794,7 +795,7 @@ async def _execute_iv_reroll_one(query, user_id: int, instance_id: int, stat_key
         await query.edit_message_text("❌ 잘못된 스탯입니다.")
         return
 
-    ok = await queries.use_user_item(user_id, "iv_reroll_one")
+    ok = await item_queries.use_user_item(user_id, "iv_reroll_one")
     if not ok:
         await query.edit_message_text("❌ 아이템이 부족합니다.")
         return
@@ -814,7 +815,7 @@ async def _execute_iv_reroll_one(query, user_id: int, instance_id: int, stat_key
     low = config.IV_SHINY_MIN if is_shiny else config.IV_MIN
     new_val = random.randint(low, config.IV_MAX)
 
-    await queries.update_pokemon_iv(instance_id, stat_key, new_val)
+    await item_queries.update_pokemon_iv(instance_id, stat_key, new_val)
 
     stat_name = config.IV_STAT_NAMES[stat_key]
     diff = new_val - old_val
@@ -839,7 +840,7 @@ _IVSTONE_PAGE_SIZE = 8
 
 async def _ivstone_show_pokemon(query, user_id: int, page: int, rarity_filter: str = "all"):
     """IV 스톤 사용 — 포켓몬 선택 (등급 필터 + 페이지네이션)."""
-    stones = await queries.get_iv_stones(user_id)
+    stones = await item_queries.get_iv_stones(user_id)
     if stones <= 0:
         await query.edit_message_text("❌ IV스톤이 없습니다.")
         return
@@ -995,7 +996,7 @@ async def _ivstone_confirm(query, user_id: int, instance_id: int, stat_key: str)
 
 async def _ivstone_execute(query, user_id: int, instance_id: int, stat_key: str):
     """IV 스톤 적용."""
-    result = await queries.apply_iv_stone(user_id, instance_id, stat_key)
+    result = await item_queries.apply_iv_stone(user_id, instance_id, stat_key)
     if not result:
         await query.edit_message_text("❌ IV스톤이 부족하거나 포켓몬을 찾을 수 없습니다.")
         return
@@ -1013,7 +1014,7 @@ async def _ivstone_execute(query, user_id: int, instance_id: int, stat_key: str)
     grade = _iv_grade_letter(iv_sum)
     shiny = "✨" if (poke and poke.get("is_shiny")) else ""
     name = poke["name_ko"] if poke else "???"
-    remaining = await queries.get_iv_stones(user_id)
+    remaining = await item_queries.get_iv_stones(user_id)
 
     lines = [
         f"💠 <b>IV스톤 적용 완료!</b>",

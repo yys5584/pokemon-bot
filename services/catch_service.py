@@ -2,9 +2,8 @@
 
 import asyncio
 import config
-from database import queries
 
-
+from database import spawn_queries
 async def can_attempt_catch(user_id: int) -> tuple[bool, str, int, int]:
     """Check if a user can attempt to catch.
 
@@ -24,8 +23,8 @@ async def can_attempt_catch(user_id: int) -> tuple[bool, str, int, int]:
 
     today = config.get_kst_today()
     limit, bonus = await asyncio.gather(
-        queries.get_catch_limit(user_id, today),
-        queries.get_bonus_catches(user_id, today),
+        spawn_queries.get_catch_limit(user_id, today),
+        spawn_queries.get_bonus_catches(user_id, today),
     )
     max_today = config.MAX_CATCH_ATTEMPTS_PER_DAY + bonus
     used = limit["attempt_count"]
@@ -50,6 +49,6 @@ async def record_attempt(session_id: int, user_id: int):
     today = config.get_kst_today()
     # Parallel: record + increment are independent
     await asyncio.gather(
-        queries.record_catch_attempt(session_id, user_id),
-        queries.increment_attempt(user_id, today),
+        spawn_queries.record_catch_attempt(session_id, user_id),
+        spawn_queries.increment_attempt(user_id, today),
     )

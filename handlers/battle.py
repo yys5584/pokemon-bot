@@ -10,7 +10,8 @@ from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 import config
-from database import queries
+
+from database import queries, spawn_queries, title_queries
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, EVO_STAGE_MAP, iv_total, get_normalized_base_stats
 from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge, icon_emoji, ball_emoji, iv_grade_tag
@@ -227,8 +228,8 @@ async def _set_partner_and_reply(message, user_id: int, chosen: dict):
     )
 
     # Unlock partner title
-    if not await queries.has_title(user_id, "partner_set"):
-        await queries.unlock_title(user_id, "partner_set")
+    if not await title_queries.has_title(user_id, "partner_set"):
+        await title_queries.unlock_title(user_id, "partner_set")
 
 
 async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -284,8 +285,8 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         await bq.set_partner(owner_id, chosen["id"])
 
         # Unlock partner title
-        if not await queries.has_title(owner_id, "partner_set"):
-            await queries.unlock_title(owner_id, "partner_set")
+        if not await title_queries.has_title(owner_id, "partner_set"):
+            await title_queries.unlock_title(owner_id, "partner_set")
 
         tb = type_badge(chosen["pokemon_id"], chosen.get("pokemon_type"))
         _c_base = get_normalized_base_stats(chosen["pokemon_id"])
@@ -1487,7 +1488,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         today = config.get_kst_today()
-        await queries.reset_bonus_catches(user_id, today)
+        await spawn_queries.reset_bonus_catches(user_id, today)
         await bq.log_bp_purchase(user_id, "pokeball_reset", 1)
         bp = await bq.get_bp(user_id)
         await update.message.reply_text(
@@ -1617,7 +1618,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             await query.answer(t(lang, "shop.popup_bp_insufficient", have=bp, need=cost), show_alert=True)
             return
         today = config.get_kst_today()
-        await queries.reset_bonus_catches(user_id, today)
+        await spawn_queries.reset_bonus_catches(user_id, today)
         await bq.log_bp_purchase(user_id, "pokeball_reset", 1)
         bp = await bq.get_bp(user_id)
         await query.answer(t(lang, "shop.popup_pokeball_ok", bp=bp), show_alert=True)
@@ -2742,9 +2743,9 @@ async def _check_ranked_titles(user_id: int, ranked_info: dict, is_winner: bool)
 
     for title_id, condition in checks:
         if condition and title_id in config.RANKED_TITLES:
-            already = await queries.has_title(user_id, title_id)
+            already = await title_queries.has_title(user_id, title_id)
             if not already:
-                await queries.unlock_title(user_id, title_id)
+                await title_queries.unlock_title(user_id, title_id)
                 logger.info(f"Ranked title unlocked: {user_id} -> {title_id}")
 
 

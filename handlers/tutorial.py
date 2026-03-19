@@ -14,7 +14,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 import config
 from telegram.ext import ContextTypes
 
-from database import queries
+
+from database import queries, title_queries
 from utils.card_generator import generate_card
 from utils.helpers import ball_emoji, icon_emoji
 from utils.i18n import t, get_user_lang, poke_name
@@ -326,7 +327,7 @@ async def _send_step(context, user_id: int, step: int):
     elif step == 8:
         # 졸업! 보상 지급 + 칭호 해금
         await _give_graduation_rewards(user_id)
-        await queries.unlock_title(user_id, "tutorial_grad")
+        await title_queries.unlock_title(user_id, "tutorial_grad")
         await queries.update_tutorial_step(user_id, 99)
         pikachu = icon_emoji("pikachu")
         masterball = ball_emoji("masterball")

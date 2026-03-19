@@ -12,7 +12,8 @@ from telegram.ext import ContextTypes
 from telegram.error import RetryAfter
 
 import config
-from database import queries
+
+from database import queries, title_queries
 from database import battle_queries as bq
 from database.connection import get_db
 from services.battle_service import _prepare_combatant, _resolve_battle, _hp_bar
@@ -1900,7 +1901,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         await bq.add_bp(winner_id, config.TOURNAMENT_PRIZE_1ST_BP, "tournament")
     except Exception:
         logger.error(f"Failed to give BP to winner {winner_id}")
-    await queries.increment_title_stat(winner_id, "tournament_wins")
+    await title_queries.increment_title_stat(winner_id, "tournament_wins")
     shiny_1st_id, shiny_1st_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_1ST_SHINY)
     shiny_1st_ivs = {}
     try:

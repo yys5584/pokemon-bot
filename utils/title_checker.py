@@ -1,7 +1,8 @@
 """Check and unlock titles based on user activity."""
 
 import logging
-from database import queries
+
+from database import title_queries
 import config
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
     existing_titles = {r["title_id"] for r in rows}
 
     # 2. Get title stats + pokedex counts + other counts in parallel
-    stats = await queries.get_title_stats(user_id)
+    stats = await title_queries.get_title_stats(user_id)
 
     # 3. Batch-fetch all counts we might need (single multi-column query)
     counts = await pool.fetchrow("""
@@ -148,7 +149,7 @@ async def check_and_unlock_titles(user_id: int) -> list[tuple[str, str, str]]:
                 unlocked = not first_exists
 
         if unlocked:
-            was_new = await queries.unlock_title(user_id, title_id)
+            was_new = await title_queries.unlock_title(user_id, title_id)
             if was_new:
                 newly_unlocked.append((title_id, name, emoji))
                 logger.info(f"Title unlocked: {name} for user {user_id}")

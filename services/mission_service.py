@@ -4,7 +4,8 @@ import logging
 import random
 
 import config
-from database import queries
+
+from database import queries, mission_queries
 from database import battle_queries as bq
 from utils.helpers import ball_emoji
 
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 async def ensure_daily_missions(user_id: int) -> list[dict]:
     """Return today's missions; create them lazily if not yet generated."""
     date = config.get_kst_today()
-    missions = await queries.get_daily_missions(user_id, date)
+    missions = await mission_queries.get_daily_missions(user_id, date)
     if missions:
         return missions
 
@@ -22,8 +23,8 @@ async def ensure_daily_missions(user_id: int) -> list[dict]:
     pool_items = list(config.MISSION_POOL.items())
     selected = random.sample(pool_items, min(config.MISSION_COUNT, len(pool_items)))
     mission_list = [{"key": k, "target": v["target"]} for k, v in selected]
-    await queries.create_daily_missions(user_id, date, mission_list)
-    return await queries.get_daily_missions(user_id, date)
+    await mission_queries.create_daily_missions(user_id, date, mission_list)
+    return await mission_queries.get_daily_missions(user_id, date)
 
 
 async def check_mission_progress(user_id: int, mission_key: str) -> str | None:
@@ -35,7 +36,7 @@ async def check_mission_progress(user_id: int, mission_key: str) -> str | None:
     date = config.get_kst_today()
     # Lazily ensure missions exist for today before incrementing
     await ensure_daily_missions(user_id)
-    result = await queries.increment_mission_progress(user_id, date, mission_key)
+    result = await mission_queries.increment_mission_progress(user_id, date, mission_key)
     if not result:
         return None  # 해당 미션이 오늘 없거나 이미 완료됨
     if not result["completed_now"]:
@@ -56,7 +57,7 @@ async def check_mission_progress(user_id: int, mission_key: str) -> str | None:
 
     await bq.add_bp(user_id, bp_reward, "mission")
     await queries.add_hyper_ball(user_id, hyper_reward)
-    await queries.claim_mission_reward(user_id, date, mission_key)
+    await mission_queries.claim_mission_reward(user_id, date, mission_key)
 
     label = config.MISSION_POOL.get(mission_key, {}).get("label", mission_key)
     msg = (
@@ -66,7 +67,7 @@ async def check_mission_progress(user_id: int, mission_key: str) -> str | None:
 
     # ── 전체 완료 체크 ──
     if result["all_done"]:
-        claimed = await queries.claim_allclear_reward(user_id, date)
+        claimed = await mission_queries.claim_allclear_reward(user_id, date)
         if claimed:
             await queries.add_master_ball(user_id, config.MISSION_ALLCLEAR_MASTER)
             msg += (

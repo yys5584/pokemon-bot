@@ -7,7 +7,8 @@ Phase 2: After graduation, daily tips for 7 days on first catch of the day.
 import logging
 
 import config
-from database import queries
+
+from database import queries, title_queries
 from database.connection import get_db
 from utils.helpers import ball_emoji, icon_emoji
 
@@ -113,7 +114,7 @@ async def check_journey(user_id: int) -> str | None:
                     await queries.add_battle_points(user_id, value)
                     reward_lines.append(f"{icon_emoji('bolt')} BP +{value}")
                 elif reward_type == "title":
-                    await queries.unlock_title(user_id, value)
+                    await title_queries.unlock_title(user_id, value)
 
             # Advance step
             new_step = step + 1

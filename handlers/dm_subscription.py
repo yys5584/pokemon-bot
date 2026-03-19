@@ -811,7 +811,7 @@ async def _handle_premium_gacha_ticket_buy(query, user_id: int):
         await query.edit_message_text("🔒 프리미엄 상점은 구독자 전용입니다.")
         return
 
-    from database import queries, battle_queries as bq
+    from database import queries, item_queries, battle_queries as bq
 
     # 일일 한도 체크
     bought = await bq.get_bp_purchases_today(user_id, "gacha_ticket_5")
@@ -829,11 +829,11 @@ async def _handle_premium_gacha_ticket_buy(query, user_id: int):
 
     # BP 차감 + 아이템 지급 + 로그
     await bq.add_bp(user_id, -cost, "shop_gacha_ticket")
-    await queries.add_user_item(user_id, "gacha_ticket_5", 1)
+    await item_queries.add_user_item(user_id, "gacha_ticket_5", 1)
     await bq.log_bp_purchase(user_id, "gacha_ticket_5", 1)
 
     new_bp = bp - cost
-    qty = await queries.get_user_item(user_id, "gacha_ticket_5")
+    qty = await item_queries.get_user_item(user_id, "gacha_ticket_5")
 
     await query.edit_message_text(
         f"✅ 5연뽑기권 구매 완료!\n\n"

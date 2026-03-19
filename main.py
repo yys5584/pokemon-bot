@@ -19,8 +19,8 @@ from telegram.ext import (
 from database.connection import get_db, close_db
 from database.schema import create_tables
 from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types, migrate_assign_ivs, migrate_rarity_v2, migrate_ultra_legendary, migrate_catch_rates_v3, migrate_add_nurture_locked, migrate_trade_evo_fix
-from database import queries
 
+from database import queries, item_queries, kpi_queries, mission_queries, spawn_queries, title_queries
 from handlers.start import start_handler, help_handler, help_callback_handler, language_callback_handler, language_command_handler, settings_handler, settings_callback_handler
 from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, daily_money_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, my_pokemon_group_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback, shiny_ticket_spawn_handler, group_lang_handler
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, title_list_callback, title_page_callback, status_handler, status_inline_callback, appraisal_handler, type_chart_handler
@@ -229,7 +229,7 @@ async def post_init(application: Application):
 
     # 가챠 미전달 보상 복구 — 재시작 직전 2분 이내 뽑기 기록이 있으면 DM 발송
     try:
-        recent_gacha = await queries.get_recent_gacha_by_user(minutes=2)
+        recent_gacha = await item_queries.get_recent_gacha_by_user(minutes=2)
         if recent_gacha:
             _GACHA_NAMES = {item[1]: item[2] for item in config.GACHA_TABLE}
             for uid, keys in recent_gacha.items():
@@ -349,11 +349,11 @@ async def _check_missed_reset():
     from database import dungeon_queries as dq
     await asyncio.gather(
         queries.reset_daily_nurture(),
-        queries.reset_catch_limits(),
-        queries.reset_force_spawn_counts(),
-        queries.reset_daily_spawn_counts(),
-        queries.cleanup_old_activity(days=7),
-        queries.cleanup_old_missions(days=7),
+        spawn_queries.reset_catch_limits(),
+        spawn_queries.reset_force_spawn_counts(),
+        spawn_queries.reset_daily_spawn_counts(),
+        spawn_queries.cleanup_old_activity(days=7),
+        mission_queries.cleanup_old_missions(days=7),
         queries.cleanup_expired_listings(),
         queries.reset_daily_cxp(),
         _grant_title_buffs(),
@@ -409,7 +409,7 @@ async def _grant_subscription_daily_no_dm():
                 await queries.add_arcade_ticket(uid, daily_arcade)
             daily_shiny = benefits.get("daily_shiny_ticket", 0)
             if daily_shiny:
-                await queries.add_shiny_spawn_ticket(uid, daily_shiny)
+                await item_queries.add_shiny_spawn_ticket(uid, daily_shiny)
         logger.info(f"Subscription daily benefits granted (no DM) to {len(subs)} subscribers")
     except Exception as e:
         logger.error(f"Subscription daily grant (no DM) error: {e}")
@@ -451,7 +451,7 @@ async def _grant_subscription_daily(bot):
             # 채널장: 일일 이로치 강스권
             daily_shiny_ticket = benefits.get("daily_shiny_ticket", 0)
             if daily_shiny_ticket:
-                await queries.add_shiny_spawn_ticket(uid, daily_shiny_ticket)
+                await item_queries.add_shiny_spawn_ticket(uid, daily_shiny_ticket)
                 reward_lines.append(f"✨ 이로치 강스권 +{daily_shiny_ticket}")
 
             # DM 알림
@@ -841,21 +841,21 @@ async def _send_daily_kpi_report(context, target_date=None):
     """매일 23:55 KST: 일일 KPI 리포트 v2 — 유저 동향 중심. target_date로 특정 날짜 조회."""
     import io
     try:
-        d = await queries.kpi_daily_snapshot(target_date=target_date)
+        d = await kpi_queries.kpi_daily_snapshot(target_date=target_date)
         eco = d["economy"]
 
         if target_date:
             # 수동 트리거: 스냅샷 저장 스킵, 리텐션/전일 데이터 없음
             d1_ret = None
             d7_ret = None
-            prev = await queries.get_previous_snapshot()
+            prev = await kpi_queries.get_previous_snapshot()
             today = target_date
         else:
             # 스냅샷 저장 + D+1/D+7 리텐션 계산
-            retention = await queries.save_kpi_snapshot(d)
+            retention = await kpi_queries.save_kpi_snapshot(d)
             d1_ret = retention.get("d1_retention")
             d7_ret = retention.get("d7_retention")
-            prev = await queries.get_previous_snapshot()
+            prev = await kpi_queries.get_previous_snapshot()
             today = config.get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         catch_rate = d["catch_rate"]
@@ -867,16 +867,16 @@ async def _send_daily_kpi_report(context, target_date=None):
             sub_changes, chat_health, checkin_stats,
             new_user_sources,
         ) = await asyncio.gather(
-            queries.report_new_users_detail(today),
-            queries.report_churned_users(today),
-            queries.report_top_active_users(today),
-            queries.report_shiny_catches(today),
-            queries.report_market_trends(today),
-            queries.report_battle_meta(today),
-            queries.report_subscription_changes(today),
-            queries.report_chat_health(today),
-            queries.report_checkin_stats(today),
-            queries.report_new_user_sources(today),
+            kpi_queries.report_new_users_detail(today),
+            kpi_queries.report_churned_users(today),
+            kpi_queries.report_top_active_users(today),
+            kpi_queries.report_shiny_catches(today),
+            kpi_queries.report_market_trends(today),
+            kpi_queries.report_battle_meta(today),
+            kpi_queries.report_subscription_changes(today),
+            kpi_queries.report_chat_health(today),
+            kpi_queries.report_checkin_stats(today),
+            kpi_queries.report_new_user_sources(today),
         )
 
         # ── 핵심 DAU (출석/문유사랑해/방문) ──
@@ -1648,7 +1648,7 @@ async def _send_weekly_kpi_report(context):
     if now.weekday() != 0:
         return
     try:
-        w = await queries.kpi_weekly_snapshot()
+        w = await kpi_queries.kpi_weekly_snapshot()
 
         dau_hist = w.get("dau_history", [])
         weekdays = ["월", "화", "수", "목", "금", "토", "일"]
@@ -1748,12 +1748,12 @@ async def midnight_reset(context):
     from database import dungeon_queries as dq
     await asyncio.gather(
         queries.reset_daily_nurture(),
-        queries.reset_catch_limits(),
-        queries.reset_force_spawn_counts(),
+        spawn_queries.reset_catch_limits(),
+        spawn_queries.reset_force_spawn_counts(),
         queries.cleanup_expired_listings(),
-        queries.reset_daily_spawn_counts(),
-        queries.cleanup_old_activity(days=7),
-        queries.cleanup_old_missions(days=7),
+        spawn_queries.reset_daily_spawn_counts(),
+        spawn_queries.cleanup_old_activity(days=7),
+        mission_queries.cleanup_old_missions(days=7),
         queries.reset_daily_cxp(),
         _grant_title_buffs(),
         _grant_subscription_daily(context.bot),
@@ -1795,7 +1795,7 @@ async def _activate_auto_arcades(app):
 async def catch_recharge_job(context):
     """Recharge 50% of used catches every 3 hours (between full resets)."""
     logger.info("Running 3-hourly catch recharge (50%)...")
-    await queries.recharge_catch_limits()
+    await spawn_queries.recharge_catch_limits()
     logger.info("Catch recharge complete.")
 
 
@@ -1842,7 +1842,7 @@ async def ranked_weekly_reset_job(context):
             champion_uid = await rs.get_season_champion(prev_season["season_id"])
             if champion_uid:
                 try:
-                    await queries.unlock_title(champion_uid, "ranked_champion")
+                    await title_queries.unlock_title(champion_uid, "ranked_champion")
                     logger.info(f"Season champion title unlocked for {champion_uid}")
                 except Exception:
                     pass

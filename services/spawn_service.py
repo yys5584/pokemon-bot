@@ -10,7 +10,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import config
-from database import queries
+
+from database import queries, spawn_queries, stats_queries, title_queries
 from services.event_service import get_spawn_boost, get_rarity_weights, get_catch_boost, get_shiny_boost
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
@@ -464,7 +465,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             "WHERE ss.id = $1", session_id
         )
         if not _prow:
-            await queries.close_spawn_session(session_id)
+            await spawn_queries.close_spawn_session(session_id)
             return
         pokemon = dict(_prow)
 
@@ -474,13 +475,13 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         is_shiny = bool(pokemon.get("is_shiny"))
 
         # Get catch attempts
-        attempts = await queries.get_session_attempts(session_id)
+        attempts = await spawn_queries.get_session_attempts(session_id)
         _attempt_messages.pop(session_id, None)
 
         if not attempts:
             # Nobody tried — just close silently (don't spam "ran away" in arcade)
-            await queries.close_spawn_session(session_id)
-            await queries.log_spawn(
+            await spawn_queries.close_spawn_session(session_id)
+            await spawn_queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon["emoji"],
                 rarity, None, None, 0, is_shiny=is_shiny,
             )
@@ -495,7 +496,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         # 🌱 뉴비 스폰: 도감 수 기준 우선순위
         if is_newbie_spawn:
             all_user_ids = [a["user_id"] for a in attempts]
-            pokedex_counts = await queries.count_pokedex_bulk(all_user_ids) if all_user_ids else {}
+            pokedex_counts = await stats_queries.count_pokedex_bulk(all_user_ids) if all_user_ids else {}
             thresholds = config.NEWBIE_TIER_THRESHOLDS
 
             results = []
@@ -534,7 +535,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 a["user_id"] for a in attempts
                 if not a.get("used_master_ball") and not a.get("used_hyper_ball")
             ]
-            catch_counts = await queries.count_total_catches_bulk(normal_user_ids) if normal_user_ids else {}
+            catch_counts = await stats_queries.count_total_catches_bulk(normal_user_ids) if normal_user_ids else {}
 
             # Roll for each catcher
             results = []
@@ -575,8 +576,8 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny=shiny_tag, badge=rbadge, tb=tb, name=poke_name(pokemon, _lang)),
                 parse_mode="HTML",
             )
-            await queries.close_spawn_session(session_id)
-            await queries.log_spawn(
+            await spawn_queries.close_spawn_session(session_id)
+            await spawn_queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon["emoji"],
                 rarity, None, None, participants, is_shiny=is_shiny,
             )
@@ -683,7 +684,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             msg = t(_lang, "spawn_msg.catch_newbie", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)
         elif winner.get("used_master_ball"):
             msg = f"{be_master} {t(_lang, 'spawn_msg.catch_masterball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch_confirm, iv=iv_tag)}"
-            await queries.increment_title_stat(winner_id, "master_ball_used")
+            await title_queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
             msg = f"{be_hyper} {t(_lang, 'spawn_msg.catch_hyperball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)}"
         else:
@@ -697,10 +698,10 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         # Track midnight catch for title
         hour = config.get_kst_hour()
         if 2 <= hour < 5:
-            await queries.increment_title_stat(winner_id, "midnight_catch_count")
+            await title_queries.increment_title_stat(winner_id, "midnight_catch_count")
         if failed_ids:
             await asyncio.gather(
-                *(queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
+                *(title_queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
             )
 
         # Catch BP reward (하루 포획 성공 100마리까지만, KST 자정 기준)
@@ -819,7 +820,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             )
 
         # Log
-        await queries.log_spawn(
+        await spawn_queries.log_spawn(
             chat_id, pokemon_id, pokemon_name, pokemon["emoji"],
             rarity, winner_id, winner_name, participants, is_shiny=is_shiny,
         )
@@ -827,7 +828,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
 
     except Exception as e:
         logger.error(f"Overlap resolve failed for session {session_id}: {e}")
-        await queries.close_spawn_session(session_id)
+        await spawn_queries.close_spawn_session(session_id)
 
 
 async def _auto_keep_pokemon(context: ContextTypes.DEFAULT_TYPE):
@@ -866,7 +867,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
     try:
         # 1. Activity check (skip if force spawn or arcade)
         if not force and not arcade:
-            activity = await queries.get_recent_activity(chat_id, hours=1)
+            activity = await spawn_queries.get_recent_activity(chat_id, hours=1)
             if activity < 1:
                 # No activity — retry later
                 # Cancel existing retry jobs for this chat to prevent accumulation
@@ -888,7 +889,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 return
 
         # 2. Check if there's already an active spawn
-        active = await queries.get_active_spawn(chat_id)
+        active = await spawn_queries.get_active_spawn(chat_id)
         if active:
             if not arcade and not force:
                 return  # Normal spawn: skip if active spawn exists
@@ -910,7 +911,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         # 2.5 Cooldown: skip if last spawn was within 5 minutes (skip for arcade and force)
         if not arcade and not force:
-            last_spawn = await queries.get_last_spawn_time(chat_id)
+            last_spawn = await spawn_queries.get_last_spawn_time(chat_id)
             if last_spawn:
                 if last_spawn.tzinfo is None:
                     import datetime as _dt
@@ -969,8 +970,8 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             # 2) 최근 10회 스폰 전부 미포획(도망)
             if (force or arcade) and shiny_rate > 0:
                 try:
-                    catch_users = await queries.get_recent_catch_user_count(chat_id, minutes=30)
-                    caught, total = await queries.get_recent_spawn_catch_rate(chat_id, limit=10)
+                    catch_users = await spawn_queries.get_recent_catch_user_count(chat_id, minutes=30)
+                    caught, total = await spawn_queries.get_recent_spawn_catch_rate(chat_id, limit=10)
                     if total >= 2 and catch_users <= 1:
                         shiny_rate = 0.0
                         logger.info(f"Shiny blocked in {chat_id}: only {catch_users} catcher(s) in last 30min")
@@ -1051,7 +1052,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # 6. Create spawn session AFTER image is sent
         expires = (config.get_kst_now() + timedelta(seconds=window))
 
-        session_id = await queries.create_spawn_session(
+        session_id = await spawn_queries.create_spawn_session(
             chat_id, pokemon["id"], expires, is_shiny=is_shiny,
             is_newbie_spawn=is_newbie_spawn,
         )
@@ -1065,7 +1066,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         )
 
         # 7. Record spawn
-        await queries.record_spawn_in_chat(chat_id)
+        await spawn_queries.record_spawn_in_chat(chat_id)
 
         # 8. Schedule resolution
         context.job_queue.run_once(
@@ -1156,7 +1157,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         )
 
         # Get all catch attempts
-        attempts = await queries.get_session_attempts(session_id)
+        attempts = await spawn_queries.get_session_attempts(session_id)
 
         # Clean up tracking (but keep messages visible)
         _attempt_messages.pop(session_id, None)
@@ -1173,8 +1174,8 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
             )
             lock.release()  # 도망 메시지 전송 완료 → 다음 스폰 허용
-            await queries.close_spawn_session(session_id)
-            await queries.log_spawn(
+            await spawn_queries.close_spawn_session(session_id)
+            await spawn_queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
                 rarity, None, None, 0, is_shiny=is_shiny,
             )
@@ -1189,7 +1190,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # 🌱 뉴비 스폰: 도감 수 기준 우선순위
         if is_newbie_spawn:
             all_user_ids = [a["user_id"] for a in attempts]
-            pokedex_counts = await queries.count_pokedex_bulk(all_user_ids) if all_user_ids else {}
+            pokedex_counts = await stats_queries.count_pokedex_bulk(all_user_ids) if all_user_ids else {}
             thresholds = config.NEWBIE_TIER_THRESHOLDS  # [100, 200, 300]
             logger.info(f"🌱 Newbie spawn resolve: {len(attempts)} attempts, pokedex={pokedex_counts}")
 
@@ -1237,7 +1238,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 a["user_id"] for a in attempts
                 if not a.get("used_master_ball") and not a.get("used_hyper_ball")
             ]
-            catch_counts2 = await queries.count_total_catches_bulk(normal_user_ids2) if normal_user_ids2 else {}
+            catch_counts2 = await stats_queries.count_total_catches_bulk(normal_user_ids2) if normal_user_ids2 else {}
 
             # Roll for each catcher (master ball > hyper ball > newbie > regular)
             results = []
@@ -1284,8 +1285,8 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
             )
             lock.release()  # 도망 메시지 전송 완료 → 다음 스폰 허용
-            await queries.close_spawn_session(session_id)
-            await queries.log_spawn(
+            await spawn_queries.close_spawn_session(session_id)
+            await spawn_queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
                 rarity, None, None, participants, is_shiny=is_shiny,
             )
@@ -1408,7 +1409,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             msg = t(_lang, "spawn_msg.catch_newbie", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)
         elif winner.get("used_master_ball"):
             msg = f"{be_master} {t(_lang, 'spawn_msg.catch_masterball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch_confirm, iv=iv_tag)}"
-            await queries.increment_title_stat(winner_id, "master_ball_used")
+            await title_queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
             msg = f"{be_hyper} {t(_lang, 'spawn_msg.catch_hyperball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)}"
         elif rarity in ("epic", "legendary", "ultra_legendary") and is_first:
@@ -1425,12 +1426,12 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Track midnight catch for title
         hour = config.get_kst_hour()
         if 2 <= hour < 5:
-            await queries.increment_title_stat(winner_id, "midnight_catch_count")
+            await title_queries.increment_title_stat(winner_id, "midnight_catch_count")
 
         # Track catch failures for title (batch)
         if failed_ids:
             await asyncio.gather(
-                *(queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
+                *(title_queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
             )
 
         # Catch BP reward (하루 포획 성공 100마리까지만, KST 자정 기준)
@@ -1561,7 +1562,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             asyncio.create_task(_bg_check_failed())
 
         # Log
-        await queries.log_spawn(
+        await spawn_queries.log_spawn(
             chat_id, pokemon_id, pokemon_name, pokemon_emoji,
             rarity, winner_id, winner_name, participants, is_shiny=is_shiny,
         )
@@ -1572,7 +1573,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Spawn resolution failed for session {session_id}: {e}")
-        await queries.close_spawn_session(session_id)
+        await spawn_queries.close_spawn_session(session_id)
     finally:
         # 어떤 경로로든 락이 아직 잡혀있으면 해제
         if lock.locked():
@@ -1639,7 +1640,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                 continue
 
             # Get attempts
-            attempts = await queries.get_session_attempts(session_id)
+            attempts = await spawn_queries.get_session_attempts(session_id)
             if not attempts:
                 _lang = await get_group_lang(chat_id)
                 rbadge = rarity_badge(rarity)
@@ -1649,7 +1650,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                     text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny="", badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang)),
                     parse_mode="HTML",
                 )
-                await queries.log_spawn(
+                await spawn_queries.log_spawn(
                     chat_id, pokemon_id, pokemon_name, sess["emoji"],
                     rarity, None, None, 0,
                 )
@@ -1664,7 +1665,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                 a["user_id"] for a in attempts
                 if not a.get("used_master_ball") and not a.get("used_hyper_ball")
             ]
-            cc_r = await queries.count_total_catches_bulk(normal_ids_r) if normal_ids_r else {}
+            cc_r = await stats_queries.count_total_catches_bulk(normal_ids_r) if normal_ids_r else {}
 
             results = []
             for attempt in attempts:
@@ -1702,7 +1703,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                     text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny="", badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang)),
                     parse_mode="HTML",
                 )
-                await queries.log_spawn(
+                await spawn_queries.log_spawn(
                     chat_id, pokemon_id, pokemon_name, sess["emoji"],
                     rarity, None, None, participants,
                 )
@@ -1780,7 +1781,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             await bot.send_message(
                 chat_id=chat_id, text=msg, parse_mode="HTML",
             )
-            await queries.log_spawn(
+            await spawn_queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, sess["emoji"],
                 rarity, winner_id, winner_name, participants,
             )
@@ -1822,7 +1823,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                 logger.info(f"[startup resolve] session {session_id}: refunded {len(refund_rows)} balls on error")
             except Exception as refund_err:
                 logger.error(f"[startup resolve] session {session_id} refund also failed: {refund_err}")
-            await queries.close_spawn_session(session_id)
+            await spawn_queries.close_spawn_session(session_id)
 
     if refunded:
         logger.info(f"[startup resolve] Refunded {len(refunded)} balls")

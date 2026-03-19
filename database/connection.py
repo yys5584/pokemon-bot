@@ -105,6 +105,25 @@ async def _force_reconnect():
         _pool = None
 
 
+async def _retry(fn):
+    """Retry a DB operation on transient connection errors."""
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            return await fn()
+        except (OSError, ConnectionResetError, Exception) as e:
+            err_name = type(e).__name__
+            # Only retry on connection-related errors
+            if any(kw in err_name for kw in ("Connection", "Interface", "Pool")) or \
+               any(kw in str(e) for kw in ("connection", "pool", "timeout", "reset", "closed")):
+                logger.warning(f"DB retry {attempt}/{MAX_RETRIES}: {err_name}: {e}")
+                if attempt == MAX_RETRIES:
+                    raise
+                await _force_reconnect()
+                await asyncio.sleep(RETRY_DELAY * attempt)
+            else:
+                raise
+
+
 async def close_db():
     """Close the connection pool."""
     global _pool
