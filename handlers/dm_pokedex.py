@@ -741,10 +741,11 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     if nav_row:
         select_buttons.append(nav_row)
 
-    # Action row: 팀설정 + 방생
+    # Action row: 팀설정 + 방생 + 파트너
     select_buttons.append([
         InlineKeyboardButton("⚔️ 팀설정", callback_data=f"mypoke_team_{user_id}"),
         InlineKeyboardButton("🔄 방생", callback_data=f"mypoke_rel_{user_id}"),
+        InlineKeyboardButton("🤝 파트너", callback_data=f"mypoke_partner_{user_id}"),
     ])
 
     markup = InlineKeyboardMarkup(select_buttons)
@@ -1216,6 +1217,12 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
             else:
                 await query.edit_message_text(t(lang, "my_pokemon.no_pokemon"))
+
+        elif action == "partner":
+            # mypoke_partner_{user_id} — 파트너 선택 리스트
+            from handlers.battle import _build_partner_list
+            text_msg, markup = _build_partner_list(user_id, pokemon_list, 0, lang=lang)
+            await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
 
     except Exception:
         pass
@@ -2597,21 +2604,65 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             frag_parts.append(f"🌈 무지개 {rainbow_count}개")
         lines.append(" / ".join(frag_parts) + " (상세: '아이템')")
 
-    # DM 메뉴 키보드
-    menu_keyboard = ReplyKeyboardMarkup(
+    # 상태창 인라인 버튼 (칭호 바로가기)
+    inline_kb = InlineKeyboardMarkup([
         [
-            ["📋 상태창", "📦 내포켓몬"],
-            ["🏕 캠프", "🎰 뽑기"],
-            ["📌 미션", "🏪 상점"],
-            ["🏷️ 칭호", "⚔️ 랭크전"],
-            ["💎 프리미엄", "🤝 파트너"],
-            ["🛒 거래소", "❓ 도움말"],
+            InlineKeyboardButton("🏷️ 칭호", callback_data=f"status_title_{user_id}"),
+            InlineKeyboardButton("📖 도감", callback_data=f"status_dex_{user_id}"),
         ],
-        resize_keyboard=True,
-        input_field_placeholder="명령어를 선택하세요",
-    )
+    ])
 
-    await update.message.reply_text("\n".join(lines), reply_markup=menu_keyboard, parse_mode="HTML")
+    await update.message.reply_text("\n".join(lines), reply_markup=inline_kb, parse_mode="HTML")
+
+
+async def status_inline_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle status_title / status_dex inline button callbacks."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+    await query.answer()
+
+    data = query.data
+    user_id = query.from_user.id
+
+    if data.startswith("status_title_"):
+        # 칭호 선택 페이지 표시
+        from utils.title_checker import check_and_unlock_titles
+        await check_and_unlock_titles(user_id)
+
+        unlocked = await queries.get_user_titles(user_id)
+        user = await queries.get_user(user_id)
+        current_title = user.get("title", "") if user else ""
+
+        if not unlocked:
+            await query.edit_message_text(
+                "🏷️ 아직 해금된 칭호가 없습니다!\n\n"
+                "포켓몬을 잡고, 활동하면 칭호가 해금돼요.\n"
+                "예: 첫 포획, 도감 15종, 잡기 실패 50회 등"
+            )
+            return
+
+        text, markup = _build_title_select_page(unlocked, current_title, 0)
+        await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+    elif data.startswith("status_dex_"):
+        # 도감 첫 페이지를 새 메시지로 전송
+        lang = await get_user_lang(user_id)
+        display_name = query.from_user.first_name or t(lang, "common.trainer")
+        filt = _get_dex_filter(context)
+
+        pokedex, user, all_pokemon = await asyncio.gather(
+            queries.get_user_pokedex(user_id),
+            queries.get_user(user_id),
+            queries.get_all_pokemon(),
+        )
+        caught_ids = {p["pokemon_id"]: p for p in pokedex}
+        title_part = f" {user['title_emoji']} {user['title']}" if user and user["title"] else ""
+
+        text_msg, markup = _build_dex_view(
+            user_id, display_name, title_part, all_pokemon, caught_ids, 0, filt,
+        )
+        await query.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
 
 
 # ============================================================

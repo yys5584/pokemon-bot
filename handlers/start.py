@@ -55,9 +55,9 @@ def _build_menu_keyboard(lang: str) -> ReplyKeyboardMarkup:
                 ["📋 상태창", "📦 내포켓몬"],
                 ["🏕 캠프", "🎰 뽑기"],
                 ["📌 미션", "🏪 상점"],
-                ["🏷️ 칭호", "⚔️ 랭크전"],
-                ["💎 프리미엄", "🤝 파트너"],
-                ["🛒 거래소", "❓ 도움말"],
+                ["🎒 아이템", "🏰 던전"],
+                ["⚔️ 랭크전", "💎 프리미엄"],
+                ["⚙️ 설정"],
             ],
             resize_keyboard=True,
             input_field_placeholder="명령어를 선택하세요",
@@ -68,9 +68,9 @@ def _build_menu_keyboard(lang: str) -> ReplyKeyboardMarkup:
                 ["📋 Status", "📦 My Pokemon"],
                 ["🏕 Camp", "🎰 Gacha"],
                 ["📌 Mission", "🏪 Shop"],
-                ["🏷️ Titles", "⚔️ Ranked"],
-                ["💎 Premium", "🤝 Partner"],
-                ["🛒 Market", "❓ Help"],
+                ["🎒 Items", "🏰 Dungeon"],
+                ["⚔️ Ranked", "💎 Premium"],
+                ["⚙️ Settings"],
             ],
             resize_keyboard=True,
             input_field_placeholder="Select a command",
@@ -81,9 +81,9 @@ def _build_menu_keyboard(lang: str) -> ReplyKeyboardMarkup:
                 ["📋 状态", "📦 我的宝可梦"],
                 ["🏕 营地", "🎰 扭蛋"],
                 ["📌 任务", "🏪 商店"],
-                ["🏷️ 称号", "⚔️ 排位赛"],
-                ["💎 高级", "🤝 伙伴"],
-                ["🛒 交易所", "❓ 帮助"],
+                ["🎒 道具", "🏰 地牢"],
+                ["⚔️ 排位赛", "💎 高级"],
+                ["⚙️ 设置"],
             ],
             resize_keyboard=True,
             input_field_placeholder="请选择指令",
@@ -94,9 +94,9 @@ def _build_menu_keyboard(lang: str) -> ReplyKeyboardMarkup:
                 ["📋 狀態", "📦 我的寶可夢"],
                 ["🏕 營地", "🎰 轉蛋"],
                 ["📌 任務", "🏪 商店"],
-                ["🏷️ 稱號", "⚔️ 排位賽"],
-                ["💎 高級", "🤝 夥伴"],
-                ["🛒 交易所", "❓ 幫助"],
+                ["🎒 道具", "🏰 地牢"],
+                ["⚔️ 排位賽", "💎 高級"],
+                ["⚙️ 設定"],
             ],
             resize_keyboard=True,
             input_field_placeholder="請選擇指令",
@@ -528,3 +528,65 @@ async def help_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         parse_mode="HTML",
         reply_markup=back_keyboard,
     )
+
+
+# ─── 설정 (Settings) ───────────────────────────────
+
+_SETTINGS_KEYBOARD = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton("❓ 도움말", callback_data="settings_help"),
+        InlineKeyboardButton("🌐 언어 변경", callback_data="settings_lang"),
+    ],
+])
+
+
+async def settings_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '설정' / 'settings' command — show settings menu."""
+    if not update.effective_user or not update.message:
+        return
+
+    user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
+    current_label = LANG_LABELS.get(lang, LANG_LABELS["ko"])
+
+    msg = (
+        f"⚙️ <b>설정</b>\n"
+        f"━━━━━━━━━━━━━━━\n\n"
+        f"🌐 현재 언어: <b>{current_label}</b>\n"
+    )
+    await update.message.reply_text(
+        msg,
+        parse_mode="HTML",
+        reply_markup=_SETTINGS_KEYBOARD,
+    )
+
+
+async def settings_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle settings inline button callbacks."""
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data == "settings_help":
+        await query.edit_message_text(
+            _HELP_MAIN,
+            parse_mode="HTML",
+            reply_markup=_HELP_KEYBOARD,
+        )
+    elif data == "settings_lang":
+        user_id = update.effective_user.id
+        lang = await get_user_lang(user_id)
+        current_label = LANG_LABELS.get(lang, LANG_LABELS["ko"])
+        context.user_data["_lang_change"] = True
+        msg = (
+            f"🌐 <b>언어 설정 / Language Settings</b>\n"
+            f"━━━━━━━━━━━━━━━\n\n"
+            f"현재 / Current: <b>{current_label}</b>\n\n"
+            f"변경할 언어를 선택하세요.\n"
+            f"Select your language."
+        )
+        await query.edit_message_text(
+            msg,
+            parse_mode="HTML",
+            reply_markup=_LANG_SELECT_KEYBOARD,
+        )

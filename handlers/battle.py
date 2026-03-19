@@ -1421,6 +1421,9 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             InlineKeyboardButton(f"🎮 아케이드 티켓", callback_data="shop_arcade"),
         ],
+        [
+            InlineKeyboardButton("🛒 거래소", callback_data="shop_market"),
+        ],
     ])
 
     await update.message.reply_text("\n".join(lines), reply_markup=buttons, parse_mode="HTML")
@@ -1592,6 +1595,15 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "hyperball3": "하이퍼볼3",
         "arcade": "아케이드",
     }
+    # 거래소 바로가기
+    if item_key == "market":
+        await query.answer()
+        from handlers.dm_market import _build_listing_page
+        listings, total = await queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
+        text_msg, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE)
+        await query.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        return
+
     item = item_map.get(item_key)
     if not item:
         await query.answer("알 수 없는 상품입니다.", show_alert=True)

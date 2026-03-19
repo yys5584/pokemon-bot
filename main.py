@@ -21,9 +21,9 @@ from database.schema import create_tables
 from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types, migrate_assign_ivs, migrate_rarity_v2, migrate_ultra_legendary, migrate_catch_rates_v3, migrate_add_nurture_locked, migrate_trade_evo_fix
 from database import queries
 
-from handlers.start import start_handler, help_handler, help_callback_handler, language_callback_handler, language_command_handler
+from handlers.start import start_handler, help_handler, help_callback_handler, language_callback_handler, language_command_handler, settings_handler, settings_callback_handler
 from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, daily_money_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, my_pokemon_group_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback, shiny_ticket_spawn_handler
-from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, title_list_callback, title_page_callback, status_handler, appraisal_handler, type_chart_handler
+from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, title_list_callback, title_page_callback, status_handler, status_inline_callback, appraisal_handler, type_chart_handler
 from handlers.battle import (
     partner_handler, partner_callback_handler,
     team_handler, team_register_handler, team_clear_handler, team_select_handler,
@@ -879,6 +879,58 @@ async def _send_daily_kpi_report(context, target_date=None):
             queries.report_new_user_sources(today),
         )
 
+        # ── 핵심 DAU (출석/문유사랑해/방문) ──
+        _pool = await get_db()
+        _kst_today = today if isinstance(today, datetime) else datetime.strptime(str(today).split()[0], "%Y-%m-%d").replace(tzinfo=config.KST)
+        _kst_end = _kst_today + timedelta(days=1)
+        _checkin_users = await _pool.fetchval(
+            "SELECT COUNT(DISTINCT user_id) FROM bp_log WHERE source = 'daily_checkin' AND created_at >= $1 AND created_at < $2",
+            _kst_today, _kst_end) or 0
+        _love_users = 0
+        try:
+            _love_users = await _pool.fetchval(
+                "SELECT COUNT(DISTINCT user_id) FROM bp_purchase_log WHERE item = 'love_hidden_reward' AND purchased_at >= $1 AND purchased_at < $2",
+                _kst_today, _kst_end) or 0
+        except Exception:
+            pass
+        _visit_users = 0
+        try:
+            _cv_exists = await _pool.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='camp_visits')")
+            if _cv_exists:
+                _visit_users = await _pool.fetchval(
+                    "SELECT COUNT(DISTINCT user_id) FROM camp_visits WHERE visited_at = $1::date",
+                    _kst_today) or 0
+        except Exception:
+            pass
+        # union으로 핵심 DAU 계산
+        _core_ids = set()
+        for _src, _icol, _tbl, _tcol in [
+            ("daily_checkin", "source", "bp_log", "created_at"),
+        ]:
+            _rows = await _pool.fetch(
+                f"SELECT DISTINCT user_id FROM {_tbl} WHERE {_icol} = $1 AND {_tcol} >= $2 AND {_tcol} < $3",
+                _src, _kst_today, _kst_end)
+            _core_ids.update(r["user_id"] for r in _rows)
+        try:
+            _rows = await _pool.fetch(
+                "SELECT DISTINCT user_id FROM bp_purchase_log WHERE item = 'love_hidden_reward' AND purchased_at >= $1 AND purchased_at < $2",
+                _kst_today, _kst_end)
+            _core_ids.update(r["user_id"] for r in _rows)
+        except Exception:
+            pass
+        try:
+            _cv_exists2 = await _pool.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='camp_visits')")
+            if _cv_exists2:
+                _rows = await _pool.fetch(
+                    "SELECT DISTINCT user_id FROM camp_visits WHERE visited_at = $1::date", _kst_today)
+                _core_ids.update(r["user_id"] for r in _rows)
+        except Exception:
+            pass
+        _core_dau = len(_core_ids)
+        _core_dau_pct = round(_core_dau / max(d["dau"], 1) * 100) if d["dau"] else 0
+
         # ── 전일 대비 섹션 ──
         if prev:
             delta_html = f"""
@@ -1500,6 +1552,19 @@ async def _send_daily_kpi_report(context, target_date=None):
 <div style="margin-top:8px"><div class="card"><div class="label">D+7 리텐션</div><div class="value" style="color:#ff9800">{f'{d7_ret}%' if d7_ret is not None else '수집 중'}</div><div class="sub">7일 후부터 표시</div></div></div>
 </div>
 
+<div class="section">
+<div class="section-title">🔥 핵심 DAU (출석/!돈/문유사랑해/방문)</div>
+<div class="grid">
+<div class="card"><div class="label">핵심 DAU</div><div class="value accent">{_core_dau}</div><div class="sub">전체 DAU의 {_core_dau_pct}%</div></div>
+<div class="card"><div class="label">전체 DAU</div><div class="value">{d['dau']}</div></div>
+</div>
+<div class="grid grid-3" style="margin-top:8px">
+<div class="card"><div class="label">💰 출석(!돈)</div><div class="value" style="font-size:18px">{_checkin_users}</div></div>
+<div class="card"><div class="label">💕 문유사랑해</div><div class="value" style="font-size:18px">{_love_users}</div></div>
+<div class="card"><div class="label">🏕️ 방문</div><div class="value" style="font-size:18px">{_visit_users}</div></div>
+</div>
+</div>
+
 {top_users_html}
 {new_users_html}
 {churned_html}
@@ -2053,6 +2118,7 @@ def main():
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?(칭호목록|titles)$"), title_list_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?(칭호|title)$"), title_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(📋\s*)?(상태창|status)$"), status_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(⚙️\s*)?(설정|settings)$"), settings_handler))
 
     # Camp system v2 (DM)
     if HAS_CAMP:
@@ -2177,6 +2243,12 @@ def main():
 
     # Language selection callback
     app.add_handler(CallbackQueryHandler(language_callback_handler, pattern=r"^lang_"))
+
+    # Settings callback
+    app.add_handler(CallbackQueryHandler(settings_callback_handler, pattern=r"^settings_"))
+
+    # Status inline callback (칭호/도감 바로가기)
+    app.add_handler(CallbackQueryHandler(status_inline_callback, pattern=r"^status_"))
 
     # Close message callback (❌ button)
     app.add_handler(CallbackQueryHandler(close_message_callback, pattern=r"^close_msg$"))
