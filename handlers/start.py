@@ -296,8 +296,14 @@ async def language_callback_handler(update: Update, context: ContextTypes.DEFAUL
         await query.edit_message_text(confirm_msg)
         await _send_welcome(update, context, user_id, display_name, lang_code)
     elif is_lang_change:
-        # Language change command — just confirm
-        await query.edit_message_text(confirm_msg)
+        # Language change — confirm + /start 안내
+        restart_hint = {
+            "ko": "\n\n💡 /start 를 입력하면 메뉴 버튼이 갱신됩니다.",
+            "en": "\n\n💡 Type /start to refresh your menu buttons.",
+            "zh-hans": "\n\n💡 输入 /start 刷新菜单按钮。",
+            "zh-hant": "\n\n💡 輸入 /start 刷新選單按鈕。",
+        }
+        await query.edit_message_text(confirm_msg + restart_hint.get(lang_code, ""))
     else:
         # Generic language change
         await query.edit_message_text(confirm_msg)
