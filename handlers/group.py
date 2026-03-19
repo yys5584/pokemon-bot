@@ -267,7 +267,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             # 구독자 존칭 적용
-            throw_text = format_actor(decorated, t(lang, "group.threw_pokeball"), sub_tier)
+            throw_text = format_actor(decorated, t(lang, "group.threw_pokeball"), sub_tier, lang=lang)
             attempt_msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"{ball_emoji('pokeball')} {throw_text}{ball_count_tag}",
@@ -372,7 +372,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 html=True,
                 ranked_badge=r_badge,
             )
-            throw_text = format_actor(decorated, t(lang, "group.threw_masterball"), sub_tier)
+            throw_text = format_actor(decorated, t(lang, "group.threw_masterball"), sub_tier, lang=lang)
             msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"{ball_emoji('masterball')} {throw_text} ({t(lang, 'group.remaining_count', count=remaining)})",
@@ -474,7 +474,7 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 html=True,
                 ranked_badge=r_badge,
             )
-            throw_text = format_actor(decorated, t(lang, "group.threw_hyperball"), sub_tier)
+            throw_text = format_actor(decorated, t(lang, "group.threw_hyperball"), sub_tier, lang=lang)
             hyper_msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"{ball_emoji('hyperball')} {throw_text} ({t(lang, 'group.remaining_count', count=remaining)})",
@@ -1234,7 +1234,7 @@ async def challenge_callback_handler(update: Update, context: ContextTypes.DEFAU
                     html=True,
                     ranked_badge=r_badge,
                 )
-                throw_text = format_actor(decorated, t(_chat_lang, "group.threw_pokeball"), sub_tier)
+                throw_text = format_actor(decorated, t(_chat_lang, "group.threw_pokeball"), sub_tier, lang=_chat_lang)
                 attempt_msg = await context.bot.send_message(
                     chat_id=chat_id,
                     text=f"{ball_emoji('pokeball')} {throw_text}",

@@ -22,17 +22,22 @@ def _get_honorific(tier: str | None) -> str | None:
     return tier_cfg.get("benefits", {}).get("honorific")
 
 
-def format_actor(name: str, verb_casual: str, tier: str | None) -> str:
+def format_actor(name: str, verb_casual: str, tier: str | None, lang: str = "ko") -> str:
     """행위자 존칭 포맷.
 
     Args:
         name: 유저 이름 (decorated name, HTML 포함 가능)
         verb_casual: 반말 동사구 (예: "포켓볼을 던졌다!")
         tier: 구독 티어 ("basic", "channel_owner", None)
+        lang: 유저 언어 — 한국어 외에는 존칭 미적용
 
     Returns:
         "문유 포켓볼을 던졌다!" / "문유님이 포켓볼을 던졌습니다!" / "문유님께서 포켓볼을 던지셨습니다!"
     """
+    # 한국어 외에는 존칭 미적용 — 영어/중국어에 한국어 조사 붙으면 깨짐
+    if lang != "ko":
+        return f"{name} {verb_casual}"
+
     honorific = _get_honorific(tier)
 
     if honorific == "supreme":
