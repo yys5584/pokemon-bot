@@ -488,15 +488,16 @@ async def get_user_pokemon_by_index(user_id: int, index: int) -> dict | None:
 
 
 async def get_user_pokemon_by_name(user_id: int, name: str) -> dict | None:
-    """Get user's Pokemon by name (Korean). Returns first match."""
+    """Get user's Pokemon by name (Korean or English). Returns first match."""
     pokemon_list = await get_user_pokemon_list(user_id)
     name_lower = name.strip().lower()
+    # Exact match (ko or en)
     for p in pokemon_list:
-        if p["name_ko"].lower() == name_lower:
+        if p["name_ko"].lower() == name_lower or p.get("name_en", "").lower() == name_lower:
             return p
     # Partial match fallback
     for p in pokemon_list:
-        if name_lower in p["name_ko"].lower():
+        if name_lower in p["name_ko"].lower() or name_lower in p.get("name_en", "").lower():
             return p
     return None
 
@@ -709,14 +710,15 @@ async def get_lv8_plus_chats():
 
 
 async def find_user_pokemon_by_name(user_id: int, name: str) -> dict | None:
-    """Find a user's active Pokemon by Korean name."""
+    """Find a user's active Pokemon by name (Korean or English)."""
     pool = await get_db()
     row = await pool.fetchrow(
         """SELECT up.*, pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
                   pm.evolves_to, pm.evolution_method
            FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
-           WHERE up.user_id = $1 AND up.is_active = 1 AND pm.name_ko = $2
+           WHERE up.user_id = $1 AND up.is_active = 1
+             AND (pm.name_ko = $2 OR LOWER(pm.name_en) = LOWER($2))
            ORDER BY up.id LIMIT 1""",
         user_id, name,
     )
@@ -724,14 +726,15 @@ async def find_user_pokemon_by_name(user_id: int, name: str) -> dict | None:
 
 
 async def find_all_user_pokemon_by_name(user_id: int, name: str) -> list[dict]:
-    """Find ALL active Pokemon of a user by Korean name (for duplicates)."""
+    """Find ALL active Pokemon of a user by name (Korean or English)."""
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT up.*, pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
                   pm.evolves_to, pm.evolution_method
            FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
-           WHERE up.user_id = $1 AND up.is_active = 1 AND pm.name_ko = $2
+           WHERE up.user_id = $1 AND up.is_active = 1
+             AND (pm.name_ko = $2 OR LOWER(pm.name_en) = LOWER($2))
            ORDER BY up.id""",
         user_id, name,
     )
@@ -1715,9 +1718,11 @@ async def search_listings(pokemon_name: str, page: int = 0, page_size: int = 5) 
     pool = await get_db()
     pattern = f"%{pokemon_name}%"
     count_row = await pool.fetchrow(
-        """SELECT COUNT(*) AS cnt FROM market_listings
-           WHERE status = 'active' AND pokemon_name LIKE $1
-           AND created_at > NOW() - INTERVAL '7 days'""",
+        """SELECT COUNT(*) AS cnt FROM market_listings ml
+           JOIN pokemon_master pm ON ml.pokemon_id = pm.id
+           WHERE ml.status = 'active'
+             AND (ml.pokemon_name LIKE $1 OR pm.name_en ILIKE $1)
+             AND ml.created_at > NOW() - INTERVAL '7 days'""",
         pattern,
     )
     total = count_row["cnt"]
@@ -1731,8 +1736,9 @@ async def search_listings(pokemon_name: str, page: int = 0, page_size: int = 5) 
            JOIN users u ON ml.seller_id = u.user_id
            JOIN pokemon_master pm ON ml.pokemon_id = pm.id
            JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
-           WHERE ml.status = 'active' AND ml.pokemon_name LIKE $1
-           AND ml.created_at > NOW() - INTERVAL '7 days'
+           WHERE ml.status = 'active'
+             AND (ml.pokemon_name LIKE $1 OR pm.name_en ILIKE $1)
+             AND ml.created_at > NOW() - INTERVAL '7 days'
            ORDER BY ml.created_at DESC
            LIMIT $2 OFFSET $3""",
         pattern, page_size, page * page_size,
