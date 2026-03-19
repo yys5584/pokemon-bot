@@ -201,28 +201,28 @@ BUFF_DEFS = {
 # ── 로그라이크 랜덤 이벤트 (8버프 포화 후) ──
 # positive: 좋은 효과, negative: 디버프
 ROGUELIKE_EVENTS = [
-    # ── 긍정 (60%) ──
+    # ── 긍정 ──
     {"id": "rogue_heal", "name": "🌿 신비한 샘물", "type": "positive",
      "desc": "HP 25% 회복!", "action": "heal", "value": 0.25},
     {"id": "rogue_atk_up", "name": "⚔️ 전사의 축복", "type": "positive",
-     "desc": "공격력 +20% (이번 런)", "action": "stat_mult", "stat": "atk", "value": 1.20},
+     "desc": "다음 층 공격력 +20%", "action": "stat_mult", "stat": "atk", "value": 1.20},
     {"id": "rogue_def_up", "name": "🛡️ 수호자의 축복", "type": "positive",
-     "desc": "방어력 +20% (이번 런)", "action": "stat_mult", "stat": "def", "value": 1.20},
+     "desc": "다음 층 방어력 +20%", "action": "stat_mult", "stat": "def", "value": 1.20},
     {"id": "rogue_spd_up", "name": "💨 바람의 가호", "type": "positive",
-     "desc": "속도 +20% (이번 런)", "action": "stat_mult", "stat": "spd", "value": 1.20},
+     "desc": "다음 층 속도 +20%", "action": "stat_mult", "stat": "spd", "value": 1.20},
     {"id": "rogue_crit_up", "name": "🎯 예리한 눈", "type": "positive",
-     "desc": "크리 확률 +15%", "action": "buff_boost", "buff_id": "crit", "value": 0.15},
+     "desc": "다음 층 크리 확률 +15%", "action": "stat_mult", "stat": "crit", "value": 0.15},
     {"id": "rogue_full_heal", "name": "✨ 기적의 빛", "type": "positive",
      "desc": "HP 전체 회복!", "action": "heal", "value": 1.0, "weight": 0.3},
-    # ── 부정 (40%) ──
+    # ── 부정 ──
     {"id": "rogue_hp_drain", "name": "🩸 저주의 안개", "type": "negative",
      "desc": "HP 20% 감소!", "action": "damage", "value": 0.20},
     {"id": "rogue_atk_down", "name": "😵 약화의 주문", "type": "negative",
-     "desc": "공격력 -15% (이번 런)", "action": "stat_mult", "stat": "atk", "value": 0.85},
+     "desc": "다음 층 공격력 -15%", "action": "stat_mult", "stat": "atk", "value": 0.85},
     {"id": "rogue_def_down", "name": "💀 갑옷 부식", "type": "negative",
-     "desc": "방어력 -15% (이번 런)", "action": "stat_mult", "stat": "def", "value": 0.85},
+     "desc": "다음 층 방어력 -15%", "action": "stat_mult", "stat": "def", "value": 0.85},
     {"id": "rogue_spd_down", "name": "🕸️ 거미줄 함정", "type": "negative",
-     "desc": "속도 -15% (이번 런)", "action": "stat_mult", "stat": "spd", "value": 0.85},
+     "desc": "다음 층 속도 -15%", "action": "stat_mult", "stat": "spd", "value": 0.85},
     {"id": "rogue_heavy_drain", "name": "☠️ 죽음의 손길", "type": "negative",
      "desc": "HP 35% 감소!", "action": "damage", "value": 0.35, "weight": 0.5},
 ]
@@ -243,7 +243,8 @@ def generate_roguelike_event() -> dict:
 
 
 def apply_roguelike_event(event: dict, current_hp: int, max_hp: int, buffs: list[dict]) -> tuple[int, list[dict], str]:
-    """로그라이크 이벤트 적용. Returns (new_hp, new_buffs, log_message)."""
+    """로그라이크 이벤트 적용. Returns (new_hp, new_buffs, log_message).
+    스탯 버프/디버프는 다음 층 1턴만 적용 (_rogue_next 마커)."""
     action = event["action"]
     msg = f"🎲 {event['name']}\n   {event['desc']}"
 
@@ -258,22 +259,33 @@ def apply_roguelike_event(event: dict, current_hp: int, max_hp: int, buffs: list
         return new_hp, buffs, msg
 
     elif action == "stat_mult":
-        # 스탯 배율 버프를 buffs에 추가 (런 동안 유지)
+        # 1턴용 마커: 다음 층 전투에서 적용 후 자동 제거
         stat = event["stat"]
         mult = event["value"]
-        marker_id = f"_rogue_{stat}_{mult}"
-        buffs = [b for b in buffs if b.get("id") != marker_id]  # 중복 방지
+        # 기존 로그 마커 제거 후 새로 추가
+        buffs = [b for b in buffs if not (b.get("id", "").startswith("_rogue_") and b.get("rogue_stat") == stat)]
         buffs.append({
-            "id": marker_id, "name": event["name"], "lv": 0,
+            "id": f"_rogue_{stat}", "name": event["name"], "lv": 0,
             "rogue_stat": stat, "rogue_mult": mult,
+            "one_floor": True,  # 1턴 후 제거 플래그
         })
         return current_hp, buffs, msg
 
-    elif action == "buff_boost":
-        # 기존 버프 강화 (해당 버프 없으면 그냥 패스)
-        return current_hp, buffs, msg
-
     return current_hp, buffs, msg
+
+
+def get_rogue_stat_mults(buffs: list[dict]) -> dict:
+    """현재 로그라이크 스탯 배율 반환. {stat: mult}"""
+    mults = {}
+    for b in buffs:
+        if b.get("id", "").startswith("_rogue_") and b.get("rogue_stat"):
+            mults[b["rogue_stat"]] = b.get("rogue_mult", 1.0)
+    return mults
+
+
+def consume_rogue_buffs(buffs: list[dict]) -> list[dict]:
+    """1턴용 로그라이크 버프 제거 (전투 후 호출)."""
+    return [b for b in buffs if not b.get("one_floor")]
 
 
 # 히든 시너지: 조건 충족 시 자동 발동

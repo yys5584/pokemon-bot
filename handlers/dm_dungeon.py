@@ -390,6 +390,13 @@ async def _process_floor(query, context, user_id: int, run: dict):
         import json
         buffs = json.loads(buffs)
 
+    # 로그라이크 1턴 스탯 적용
+    rogue_mults = ds.get_rogue_stat_mults(buffs)
+    if rogue_mults:
+        for stat, mult in rogue_mults.items():
+            if stat in player_stats:
+                player_stats[stat] = int(player_stats[stat] * mult)
+
     # 배틀 실행 (carry-over HP를 엔진에 전달 — 단일 진실 소스)
     result = ds.resolve_dungeon_battle(
         player_stats, player_types, pokemon["rarity"], enemy, buffs,
@@ -397,6 +404,9 @@ async def _process_floor(query, context, user_id: int, run: dict):
     )
     remaining_hp = result["remaining_hp"]
     won = result["won"]
+
+    # 로그라이크 1턴 버프 소모 (전투 후 제거)
+    buffs = ds.consume_rogue_buffs(buffs)
 
     # 부활이 사용됐으면 버프에서 제거 + 마커 추가 (런당 1회 제한)
     if result.get("revive_used"):
@@ -497,14 +507,21 @@ async def _process_floor(query, context, user_id: int, run: dict):
             st["buff_choices"] = choices
 
             if not choices:
-                # 8버프 포화 → 로그라이크 랜덤 이벤트 자동 적용
+                # 8버프 포화 → 로그라이크 랜덤 이벤트 (선택지)
                 event = ds.generate_roguelike_event()
-                new_hp, buffs, event_msg = ds.apply_roguelike_event(
-                    event, remaining_hp, run["max_hp"], buffs
-                )
-                remaining_hp = new_hp
-                await dq.update_run_progress(run["id"], floor, remaining_hp, buffs)
-                text += f"\n\n🎲 <b>랜덤 이벤트!</b>\n{event_msg}"
+                st["rogue_event"] = event
+                text += f"\n\n🎲 <b>랜덤 이벤트!</b>\n{event['name']}\n   {event['desc']}"
+                buttons = [
+                    [InlineKeyboardButton(
+                        f"✅ 적용하기",
+                        callback_data=f"dg_rogue_{user_id}_accept"
+                    )],
+                    [InlineKeyboardButton(
+                        f"➡️ 지나가기",
+                        callback_data=f"dg_rogue_{user_id}_pass"
+                    )],
+                ]
+                await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=_result_gif)
 
             if choices:
                 text += f"\n\n{icon_emoji('gotcha')} <b>{t(lang, 'dungeon.buff_select_title')}</b>"
@@ -520,13 +537,11 @@ async def _process_floor(query, context, user_id: int, run: dict):
                         f"{lv_emoji} {buff['name']} [{tag}] — {buff['desc']}",
                         callback_data=f"dg_buf_{user_id}_{i}"
                     )])
-                # 스킵 옵션
-                skips = run.get("skips_used", 0)
-                if skips < config.DUNGEON_MAX_SKIPS:
-                    buttons.append([InlineKeyboardButton(
-                        t(lang, "dungeon.buff_skip_btn", used=skips, max=config.DUNGEON_MAX_SKIPS),
-                        callback_data=f"dg_skip_{user_id}"
-                    )])
+                # 지나가기 옵션 (스킵 대체)
+                buttons.append([InlineKeyboardButton(
+                    "➡️ 지나가기",
+                    callback_data=f"dg_skip_{user_id}"
+                )])
                 await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=_result_gif)
             else:
                 # 모든 버프가 MAX — 자동 스킵, 다음 층으로
@@ -898,26 +913,52 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
         return
 
-    elif action == "skip":
-        # 버프 스킵 + HP 5% 회복
+    elif action == "rogue":
+        # 로그라이크 이벤트 선택: accept / pass
         run = await dq.get_active_run(user_id)
         if not run:
             await query.answer(t(lang, "dungeon.no_active_run"), show_alert=True)
             return
 
-        skips = run.get("skips_used", 0)
-        if skips >= config.DUNGEON_MAX_SKIPS:
-            await query.answer(t(lang, "dungeon.skip_limit_reached"), show_alert=True)
+        st = _state(context)
+        event = st.pop("rogue_event", None)
+        choice = parts[3] if len(parts) > 3 else "pass"  # dg_rogue_{uid}_{accept|pass}
+        buffs = run.get("buffs_json", [])
+        new_hp = run["current_hp"]
+
+        if choice == "accept" and event:
+            new_hp, buffs, event_msg = ds.apply_roguelike_event(
+                event, run["current_hp"], run["max_hp"], buffs
+            )
+            await dq.update_run_progress(run["id"], run["floor_reached"], new_hp, buffs)
+            await query.answer(f"🎲 {event['name']} 적용!")
+        else:
+            await query.answer("➡️ 지나갑니다!")
+
+        hp_bar = _hp_bar(new_hp, run["max_hp"])
+        hp_pct = int(new_hp / run["max_hp"] * 100) if run["max_hp"] else 0
+        buff_display = _format_buffs(buffs, lang)
+        text = (
+            f"{t(lang, 'dungeon.floor_label', floor=run['floor_reached'])}\n"
+            f"{hp_bar} {hp_pct}% ({new_hp}/{run['max_hp']})\n"
+            f"{buff_display}\n"
+        )
+        buttons = [
+            [InlineKeyboardButton(t(lang, "dungeon.btn_next_floor"), callback_data=f"dg_go_{user_id}")],
+            [InlineKeyboardButton(t(lang, "dungeon.btn_give_up"), callback_data=f"dg_quit_{user_id}")],
+        ]
+        await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
+        return
+
+    elif action == "skip":
+        # 지나가기 — 버프 선택 안 하고 다음 층
+        run = await dq.get_active_run(user_id)
+        if not run:
+            await query.answer(t(lang, "dungeon.no_active_run"), show_alert=True)
             return
 
-        heal = int(run["max_hp"] * config.DUNGEON_SKIP_HEAL)
-        new_hp = min(run["max_hp"], run["current_hp"] + heal)
-        skips += 1
-
-        await dq.update_run_progress(run["id"], run["floor_reached"], new_hp, run.get("buffs_json", []))
-        await dq.update_run_skips(run["id"], skips)
-
-        await query.answer(t(lang, "dungeon.skip_heal_popup", hp=heal))
+        new_hp = run["current_hp"]
+        await query.answer("➡️ 지나갑니다!")
 
         hp_bar = _hp_bar(new_hp, run["max_hp"])
         hp_pct = int(new_hp / run["max_hp"] * 100) if run["max_hp"] else 0
