@@ -1,0 +1,17 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: 느린 테스트 (deselect: -m 'not slow')",
+]
+
+[tool.coverage.run]
+source = ["utils", "models", "services", "database"]
+omit = ["scripts/*", "docs/*", "dashboard/*", "assets/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 0
