@@ -774,7 +774,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
                 f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
-                f"{format_stats_line(stats_with_iv, stats_base)}\n\n"
+                f"{format_stats_line(stats_with_iv, stats_base, lang=_dm_lang)}\n\n"
                 f"{own_tag}"
             )
             catch_buttons = InlineKeyboardMarkup([[
@@ -1505,7 +1505,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
                 f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
-                f"{format_stats_line(stats_with_iv, stats_base)}\n\n"
+                f"{format_stats_line(stats_with_iv, stats_base, lang=_dm_lang)}\n\n"
                 f"{own_tag}"
             )
             catch_buttons = InlineKeyboardMarkup([[
