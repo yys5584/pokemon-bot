@@ -542,6 +542,7 @@ _SETTINGS_KEYBOARD = InlineKeyboardMarkup([
 
 async def settings_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '설정' / 'settings' command — show settings menu."""
+    logger.info(f"settings_handler triggered by {update.effective_user.id if update.effective_user else '?'}, text={update.message.text if update.message else '?'}")
     if not update.effective_user or not update.message:
         return
 

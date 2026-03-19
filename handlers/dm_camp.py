@@ -1046,7 +1046,7 @@ async def decompose_handler(update, context):
 async def camp_welcome_input_handler(update, context):
     """DM에서 환영 멘트 입력 처리 (camp_welcome_input 상태일 때)."""
     if not context.user_data.get("camp_welcome_input"):
-        return  # 상태가 아니면 무시 — 다른 핸들러로 전달
+        return None  # 상태가 아니면 무시 — 다른 핸들러로 전달
 
     context.user_data.pop("camp_welcome_input", None)
     user_id = update.effective_user.id
