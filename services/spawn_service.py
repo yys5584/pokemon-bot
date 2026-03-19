@@ -647,6 +647,8 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         from utils.honorific import honorific_name as _hon_name, honorific_catch_verb as _hon_verb
         user_data = await queries.get_user(winner_id)
 
+        _lang = await get_user_lang(winner_id)  # 포획자 개인 언어
+
         # 구독자 존칭 적용
         _winner_tier = None
         try:
@@ -667,8 +669,6 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                           caught_ivs["iv_spdef"], caught_ivs["iv_spd"])
         iv_grade, _ = config.get_iv_grade(iv_sum)
         iv_tag = f" [{iv_grade}]"
-
-        _lang = await get_user_lang(winner_id)  # 포획자 개인 언어
         rbadge = rarity_badge(rarity)
         tb = type_badge(pokemon_id)
         shiny_label = f"{shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label')}" if is_shiny else ""
@@ -1369,6 +1369,8 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         from utils.honorific import honorific_name as _hon_name, honorific_catch_verb as _hon_verb
         user_data = await queries.get_user(winner_id)
 
+        _lang = await get_user_lang(winner_id)  # 포획자 개인 언어
+
         # 구독자 존칭 적용
         _winner_tier = None
         try:
@@ -1385,8 +1387,6 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             winner.get("username"),
             html=True,
         )
-
-        _lang = await get_user_lang(winner_id)  # 포획자 개인 언어
         shiny_label = f"{shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label')}" if is_shiny else ""
 
         # IV grade display
