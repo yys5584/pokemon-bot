@@ -654,7 +654,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             _winner_tier = await get_user_tier(winner_id)
         except Exception:
             pass
-        _display = _hon_name(winner_name, _winner_tier) if _winner_tier else winner_name
+        _display = _hon_name(winner_name, _winner_tier, lang=_lang) if _winner_tier else winner_name
 
         decorated = get_decorated_name(
             _display,
@@ -676,8 +676,8 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         be_master = ball_emoji("masterball")
         be_hyper = ball_emoji("hyperball")
 
-        _catch = _hon_verb(t(_lang, "spawn_msg.catch_verb"), _winner_tier)
-        _catch_confirm = _hon_verb(t(_lang, "spawn_msg.catch_verb_confirm"), _winner_tier)
+        _catch = _hon_verb(t(_lang, "spawn_msg.catch_verb"), _winner_tier, lang=_lang)
+        _catch_confirm = _hon_verb(t(_lang, "spawn_msg.catch_verb_confirm"), _winner_tier, lang=_lang)
         _pname = poke_name(pokemon, _lang)
         if is_newbie_spawn and winner.get("_tier", 99) < 2:
             msg = t(_lang, "spawn_msg.catch_newbie", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)
@@ -691,7 +691,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
 
         if is_shiny:
             _se = shiny_emoji()
-            _shiny_verb = _hon_verb(t(_lang, "spawn_msg.shiny_verb"), _winner_tier) if _winner_tier else t(_lang, "spawn_msg.shiny_verb")
+            _shiny_verb = _hon_verb(t(_lang, "spawn_msg.shiny_verb"), _winner_tier, lang=_lang) if _winner_tier else t(_lang, "spawn_msg.shiny_verb")
             msg += f"\n\n{_se}{_se}{_se} {t(_lang, 'spawn_msg.shiny_announcement', verb=_shiny_verb)}"
 
         # Track midnight catch for title
@@ -1376,7 +1376,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             _winner_tier = await get_user_tier(winner_id)
         except Exception:
             pass
-        _display = _hon_name(winner_name, _winner_tier) if _winner_tier else winner_name
+        _display = _hon_name(winner_name, _winner_tier, lang=_lang) if _winner_tier else winner_name
 
         decorated = get_decorated_name(
             _display,
@@ -1402,8 +1402,8 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         be_pokeball = ball_emoji("pokeball")
         be_master = ball_emoji("masterball")
         be_hyper = ball_emoji("hyperball")
-        _catch = _hon_verb(t(_lang, "spawn_msg.catch_verb"), _winner_tier)
-        _catch_confirm = _hon_verb(t(_lang, "spawn_msg.catch_verb_confirm"), _winner_tier)
+        _catch = _hon_verb(t(_lang, "spawn_msg.catch_verb"), _winner_tier, lang=_lang)
+        _catch_confirm = _hon_verb(t(_lang, "spawn_msg.catch_verb_confirm"), _winner_tier, lang=_lang)
         _pname = poke_name(pokemon or _poke_mini, _lang)
         if is_newbie_spawn and winner.get("_tier", 99) < 2:
             msg = t(_lang, "spawn_msg.catch_newbie", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)
@@ -1420,7 +1420,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Shiny catch announcement
         if is_shiny:
             _se = shiny_emoji()
-            _shiny_verb = _hon_verb(t(_lang, "spawn_msg.shiny_verb"), _winner_tier) if _winner_tier else t(_lang, "spawn_msg.shiny_verb")
+            _shiny_verb = _hon_verb(t(_lang, "spawn_msg.shiny_verb"), _winner_tier, lang=_lang) if _winner_tier else t(_lang, "spawn_msg.shiny_verb")
             msg += f"\n\n{_se}{_se}{_se} {t(_lang, 'spawn_msg.shiny_announcement', verb=_shiny_verb)}"
 
         # Track midnight catch for title

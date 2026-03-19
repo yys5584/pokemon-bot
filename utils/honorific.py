@@ -100,14 +100,18 @@ def honorific_name(name: str, tier: str | None, lang: str = "ko") -> str:
     return name
 
 
-def honorific_catch_verb(verb: str, tier: str | None) -> str:
+def honorific_catch_verb(verb: str, tier: str | None, lang: str = "ko") -> str:
     """포획 동사 존칭 변환.
 
     "포획!" → "포획했습니다!" / "포획하셨습니다!"
-    "확정 포획!" → "확정 포획했습니다!" / "확정 포획하셨습니다!"
-    "잡았다!" → "잡았습니다!" / "잡으셨습니다!"
+    영어: verb stays as-is (no conjugation needed)
     """
     honorific = _get_honorific(tier)
+
+    # 비한국어: 동사 변환 없이 그대로 반환
+    if lang != "ko":
+        return verb
+
     if not honorific:
         return verb
 
