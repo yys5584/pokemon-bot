@@ -161,16 +161,29 @@ async def _build_entry_screen(user_id: int, lang: str | None = None) -> tuple[st
     )
 
     buttons = []
-    if tickets > 0 and daily_left > 0:
-        buttons.append([InlineKeyboardButton(t(lang, "dungeon.btn_select_pokemon"), callback_data=f"dg_list_{user_id}_all_0")])
-    else:
-        buttons.append([InlineKeyboardButton(t(lang, "dungeon.btn_no_tickets"), callback_data=f"dg_noop_{user_id}")])
-
-    # BP 구매
+    # BP 구매 정보
     bp_cost = config.DUNGEON_TICKET_BP_COST.get(sub_tier or "free", 50)
     bought = await dq.get_bought_today(user_id)
     buy_limit = config.DUNGEON_DAILY_BUY_LIMIT.get(sub_tier or "free", 3)
-    if bought < buy_limit:
+    can_buy = bought < buy_limit
+
+    if tickets > 0 and daily_left > 0:
+        buttons.append([InlineKeyboardButton(t(lang, "dungeon.btn_select_pokemon"), callback_data=f"dg_list_{user_id}_all_0")])
+    elif daily_left == 0:
+        # 횟수 소진
+        buttons.append([InlineKeyboardButton(f"⚠️ 오늘 횟수 소진 ({daily_max}/{daily_max})", callback_data=f"dg_noop_{user_id}")])
+    else:
+        # 입장권 0, 횟수 남아있음 → 구매 유도
+        if can_buy:
+            buttons.append([InlineKeyboardButton(
+                f"🎫 입장권 구매하고 입장 ({bp_cost}BP)",
+                callback_data=f"dg_buy_{user_id}"
+            )])
+        else:
+            buttons.append([InlineKeyboardButton(f"🎫 오늘 구매 한도 소진 ({buy_limit}/{buy_limit})", callback_data=f"dg_noop_{user_id}")])
+
+    # BP 구매 (입장권 있어도 추가 구매 가능하도록)
+    if tickets > 0 and can_buy:
         buttons.append([InlineKeyboardButton(
             t(lang, "dungeon.btn_buy_ticket", cost=bp_cost, bought=bought, limit=buy_limit),
             callback_data=f"dg_buy_{user_id}"
