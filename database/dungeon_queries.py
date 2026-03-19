@@ -45,16 +45,18 @@ async def get_bought_today(user_id: int) -> int:
     return val or 0
 
 
-async def buy_ticket_with_bp(user_id: int, bp_cost: int) -> bool:
-    """Atomic: deduct BP + increment bought_today + add ticket."""
+async def buy_ticket_with_bp(user_id: int, bp_cost: int, buy_limit: int = 3) -> bool:
+    """Atomic: deduct BP + increment bought_today + add ticket.
+    buy_limit 체크도 SQL 안에서 원자적으로 수행."""
     pool = await get_db()
     row = await pool.fetchrow(
         "UPDATE users SET battle_points = battle_points - $1, "
         "dungeon_tickets = dungeon_tickets + 1, "
         "dungeon_tickets_bought_today = dungeon_tickets_bought_today + 1 "
         "WHERE user_id = $2 AND battle_points >= $1 "
+        "AND dungeon_tickets_bought_today < $3 "
         "RETURNING battle_points",
-        bp_cost, user_id,
+        bp_cost, user_id, buy_limit,
     )
     return row is not None
 

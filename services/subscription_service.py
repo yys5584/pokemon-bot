@@ -296,6 +296,20 @@ async def _process_transfer(log, bot) -> None:
     tier_name = tier_cfg.get("name", matched["tier"])
     exp_kst = expires_at.astimezone(config.KST).strftime("%Y-%m-%d %H:%M")
 
+    # 구독 업그레이드 시 던전 입장권 차액 즉시 지급
+    try:
+        old_tier = existing["tier"] if existing else "free"
+        new_tier = matched["tier"]
+        old_tickets = config.DUNGEON_DAILY_TICKETS.get(old_tier, 1)
+        new_tickets = config.DUNGEON_DAILY_TICKETS.get(new_tier, 1)
+        extra_tickets = new_tickets - old_tickets
+        if extra_tickets > 0:
+            from database.dungeon_queries import add_dungeon_tickets
+            await add_dungeon_tickets(matched["user_id"], extra_tickets)
+            logger.info(f"Dungeon ticket upgrade: user={matched['user_id']} +{extra_tickets} tickets ({old_tier}→{new_tier})")
+    except Exception as e:
+        logger.error(f"Dungeon ticket upgrade failed: {e}")
+
     logger.info(
         f"Subscription activated: user={matched['user_id']} "
         f"tier={matched['tier']} paid={amount_usd} {token} expires={expires_at}"

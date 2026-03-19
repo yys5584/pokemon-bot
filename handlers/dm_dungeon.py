@@ -85,7 +85,8 @@ async def _get_sub_tier(user_id: int) -> str | None:
     try:
         from services.subscription_service import get_user_tier
         return await get_user_tier(user_id)
-    except Exception:
+    except Exception as e:
+        logger.error(f"_get_sub_tier failed for {user_id}: {e}")
         return None
 
 
@@ -937,7 +938,7 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             await query.answer(t(lang, "dungeon.buy_limit_exceeded"), show_alert=True)
             return
 
-        success = await dq.buy_ticket_with_bp(user_id, bp_cost)
+        success = await dq.buy_ticket_with_bp(user_id, bp_cost, buy_limit)
         if not success:
             await query.answer(t(lang, "dungeon.bp_insufficient", cost=bp_cost), show_alert=True)
             return
@@ -1028,7 +1029,6 @@ async def _start_run(query, context, user_id: int, instance_id: int):
 
     # 스탯 계산
     stats, types = ds.build_player_stats(pokemon)
-    hp_mult = getattr(config, 'BATTLE_HP_MULTIPLIER', 1)
     max_hp = stats["hp"]
 
     grade = _iv_grade(pokemon)
