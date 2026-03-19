@@ -1309,8 +1309,17 @@ async def group_lang_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     m = re.match(r"^(?:언어설정|setlang|语言设置|語言設定)\s+(\S+)$", text, re.IGNORECASE)
     if not m:
         await update.message.reply_text(
-            "사용법: <code>언어설정 ko</code>\n"
-            "지원: ko, en, zh-hans, zh-hant",
+            "🌐 <b>그룹 언어 설정</b>\n"
+            "━━━━━━━━━━━━━━━\n\n"
+            "그룹의 기본 언어를 변경합니다.\n"
+            "스폰 출현/도주 등 공통 메시지에 적용됩니다.\n"
+            "(포획 메시지는 각 유저의 개인 언어로 표시)\n\n"
+            "📝 <b>사용법</b>\n"
+            "<code>언어설정 ko</code> — 🇰🇷 한국어\n"
+            "<code>언어설정 en</code> — 🇺🇸 English\n"
+            "<code>언어설정 zh-hans</code> — 🇨🇳 简体中文\n"
+            "<code>언어설정 zh-hant</code> — 🇹🇼 繁體中文\n\n"
+            "⚠️ 관리자만 변경 가능합니다.",
             parse_mode="HTML",
         )
         return
