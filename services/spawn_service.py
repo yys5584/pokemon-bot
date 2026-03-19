@@ -707,8 +707,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         from database.battle_queries import add_bp
         today_catches = await pool.fetchval(
             "SELECT COUNT(*) FROM spawn_log WHERE caught_by_user_id = $1 "
-            "AND spawned_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
-            "AT TIME ZONE 'Asia/Seoul'",
+            "AND spawned_at >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul'",
             winner_id,
         )
         if today_catches < config.CATCH_BP_DAILY_LIMIT:
@@ -1438,8 +1437,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         from database.battle_queries import add_bp
         today_catches = await pool.fetchval(
             "SELECT COUNT(*) FROM spawn_log WHERE caught_by_user_id = $1 "
-            "AND spawned_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
-            "AT TIME ZONE 'Asia/Seoul'",
+            "AND spawned_at >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul'",
             winner_id,
         )
         if today_catches < config.CATCH_BP_DAILY_LIMIT:
