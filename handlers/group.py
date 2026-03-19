@@ -174,7 +174,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    lang = await get_group_lang(chat_id)
+    lang = await get_user_lang(user_id)  # 포획자 개인 언어
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
@@ -288,7 +288,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    lang = await get_group_lang(chat_id)
+    lang = await get_user_lang(user_id)  # 포획자 개인 언어
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
@@ -393,7 +393,7 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    lang = await get_group_lang(chat_id)
+    lang = await get_user_lang(user_id)  # 포획자 개인 언어
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
