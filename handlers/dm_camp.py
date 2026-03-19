@@ -803,7 +803,7 @@ async def my_camp_handler(update, context):
             InlineKeyboardButton("🏠 거점캠프", callback_data=f"cdm_hub_home_{user_id}"),
         ],
         [
-            InlineKeyboardButton("👣 방문하기", callback_data=f"cdm_visit_{user_id}_0"),
+            InlineKeyboardButton("👣 방문하기", callback_data=f"cdm_visitlang_{user_id}"),
         ],
     ]
 
@@ -2060,6 +2060,8 @@ async def camp_dm_callback_handler(update, context):
 
         home_chat_id = owned_camp["chat_id"]
         welcome = await cq.get_welcome_message(home_chat_id)
+        camp_lang = await cq.get_camp_language(home_chat_id)
+        lang_info = config.CAMP_LANGUAGES.get(camp_lang, config.CAMP_LANGUAGES["ko"])
         lines = [
             "⚙️ <b>캠프 관리</b>",
             "",
@@ -2069,6 +2071,8 @@ async def camp_dm_callback_handler(update, context):
             lines.append(f"  현재: \"{welcome}\"")
         else:
             lines.append("  현재: (미설정)")
+        lines.append("")
+        lines.append(f"🌐 <b>캠프 언어</b>: {lang_info['flag']} {lang_info['name']}")
         lines.append("")
         lines.append("방문자가 올 때 보여지는 메시지입니다.")
 
@@ -2083,6 +2087,9 @@ async def camp_dm_callback_handler(update, context):
             mbuttons.append([
                 InlineKeyboardButton("🗑 멘트 삭제", callback_data=f"cdm_mng_delwelc_{uid}"),
             ])
+        mbuttons.append([
+            InlineKeyboardButton(f"🌐 언어 변경", callback_data=f"cdm_mng_lang_{uid}"),
+        ])
         mbuttons.append([InlineKeyboardButton("◀ 캠프 메뉴", callback_data=f"cdm_hub_back_{uid}")])
 
         try:
@@ -2125,6 +2132,68 @@ async def camp_dm_callback_handler(update, context):
         await query.answer("🗑 환영 멘트가 삭제되었습니다!", show_alert=True)
         # 관리 화면으로 돌아가기
         # 위의 manage 로직을 재실행 — 간단히 콜백 데이터 변경
+        query.data = f"cdm_hub_manage_{uid}"
+        await camp_dm_callback_handler(update, context)
+
+    # ── cdm_mng_lang_{uid} — 캠프 언어 선택 화면 ──
+    elif data.startswith("cdm_mng_lang_"):
+        uid = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+
+        owned_camp = await cq.get_camp_by_owner(uid)
+        if not owned_camp:
+            return
+        current_lang = await cq.get_camp_language(owned_camp["chat_id"])
+
+        lines = [
+            "🌐 <b>캠프 언어 설정</b>",
+            "",
+            "캠프의 언어를 선택하세요.",
+            "방문하기에서 언어별로 분류됩니다.",
+            "",
+        ]
+        lbuttons = []
+        for lk, lv in config.CAMP_LANGUAGES.items():
+            check = " ✅" if lk == current_lang else ""
+            lbuttons.append([InlineKeyboardButton(
+                f"{lv['flag']} {lv['name']}{check}",
+                callback_data=f"cdm_setlang_{uid}_{lk}",
+            )])
+        lbuttons.append([InlineKeyboardButton("◀ 캠프 관리", callback_data=f"cdm_hub_manage_{uid}")])
+
+        try:
+            await query.edit_message_text(
+                "\n".join(lines),
+                reply_markup=InlineKeyboardMarkup(lbuttons),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    # ── cdm_setlang_{uid}_{lang} — 캠프 언어 적용 ──
+    elif data.startswith("cdm_setlang_"):
+        uid = int(parts[2])
+        lang_code = parts[3]
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        if lang_code not in config.CAMP_LANGUAGES:
+            await query.answer("지원하지 않는 언어입니다!", show_alert=True)
+            return
+
+        owned_camp = await cq.get_camp_by_owner(uid)
+        if not owned_camp:
+            await query.answer("소유한 캠프가 없습니다!", show_alert=True)
+            return
+
+        await cq.set_camp_language(owned_camp["chat_id"], lang_code)
+        lang_info = config.CAMP_LANGUAGES[lang_code]
+        await query.answer(f"{lang_info['flag']} 캠프 언어가 {lang_info['name']}(으)로 변경되었습니다!", show_alert=True)
+        # 관리 화면으로 돌아가기
         query.data = f"cdm_hub_manage_{uid}"
         await camp_dm_callback_handler(update, context)
 
@@ -2316,10 +2385,9 @@ async def camp_dm_callback_handler(update, context):
         except Exception:
             pass
 
-    # ── cdm_visit_{uid}_{page} — 방문 가능 캠프 목록 ──
-    elif data.startswith("cdm_visit_"):
+    # ── cdm_visitlang_{uid} — 방문하기 언어 선택 화면 ──
+    elif data.startswith("cdm_visitlang_"):
         uid = int(parts[2])
-        page = int(parts[3])
         if query.from_user.id != uid:
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
             return
@@ -2334,12 +2402,82 @@ async def camp_dm_callback_handler(update, context):
                 home_ids.add(settings["home_chat_id_2"])
 
         all_camps = await cq.get_available_camps()
-        # 거점 제외
         camps = [c for c in all_camps if c["chat_id"] not in home_ids]
+        visited_ids = await cq.get_today_visited_chat_ids(uid)
+
+        # 언어별 캠프 수 / 방문 수 집계
+        lang_stats = {}
+        for lk in config.CAMP_LANGUAGES:
+            lang_camps = [c for c in camps if c.get("language", "ko") == lk]
+            lang_visited = len([c for c in lang_camps if c["chat_id"] in visited_ids])
+            lang_stats[lk] = (len(lang_camps), lang_visited)
+
+        total_visited = len([c for c in camps if c["chat_id"] in visited_ids])
+        lines = [
+            "👣 <b>캠프 방문하기</b>",
+            "",
+            f"오늘 방문: {total_visited}/{len(camps)}",
+            "",
+            "언어를 선택하세요!",
+            "",
+        ]
+
+        lbuttons = []
+        for lk, lv in config.CAMP_LANGUAGES.items():
+            total, visited = lang_stats.get(lk, (0, 0))
+            if total == 0:
+                continue  # 캠프 없는 언어는 숨김
+            check = "✅" if visited == total and total > 0 else ""
+            lbuttons.append([InlineKeyboardButton(
+                f"{lv['flag']} {lv['name']} ({visited}/{total}) {check}",
+                callback_data=f"cdm_visit_{uid}_{lk}_0",
+            )])
+        if not lbuttons:
+            lines.append("방문할 수 있는 캠프가 없습니다.")
+        lbuttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
+
+        try:
+            await query.edit_message_text(
+                "\n".join(lines),
+                reply_markup=InlineKeyboardMarkup(lbuttons),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    # ── cdm_visit_{uid}_{lang}_{page} — 언어별 방문 캠프 목록 ──
+    elif data.startswith("cdm_visit_"):
+        uid = int(parts[2])
+        lang_code = parts[3]
+        page = int(parts[4]) if len(parts) > 4 else 0
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+
+        settings = await cq.get_user_camp_settings(uid)
+        home_ids = set()
+        if settings:
+            if settings.get("home_chat_id"):
+                home_ids.add(settings["home_chat_id"])
+            if settings.get("home_chat_id_2"):
+                home_ids.add(settings["home_chat_id_2"])
+
+        all_camps = await cq.get_available_camps()
+        # 거점 제외 + 언어 필터
+        camps = [c for c in all_camps
+                 if c["chat_id"] not in home_ids and c.get("language", "ko") == lang_code]
+
+        lang_info = config.CAMP_LANGUAGES.get(lang_code, config.CAMP_LANGUAGES["ko"])
 
         if not camps:
             try:
-                await query.edit_message_text("방문할 수 있는 캠프가 없습니다.")
+                await query.edit_message_text(
+                    f"{lang_info['flag']} {lang_info['name']} 캠프가 없습니다.",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("◀ 언어 선택", callback_data=f"cdm_visitlang_{uid}")],
+                    ]),
+                )
             except Exception:
                 pass
             return
@@ -2352,7 +2490,7 @@ async def camp_dm_callback_handler(update, context):
 
         visited_count = len([c for c in camps if c["chat_id"] in visited_ids])
         lines = [
-            "👣 <b>캠프 방문하기</b>",
+            f"👣 <b>캠프 방문하기</b> — {lang_info['flag']} {lang_info['name']}",
             "",
             f"오늘 방문: {visited_count}/{len(camps)}",
             "",
@@ -2361,7 +2499,7 @@ async def camp_dm_callback_handler(update, context):
         ]
 
         for c in page_items:
-            title = c.get("chat_title") or f"채팅방"
+            title = c.get("chat_title") or "채팅방"
             lv = c.get("level", 1)
             members = c.get("member_count") or 0
             done = "✅" if c["chat_id"] in visited_ids else "⬜"
@@ -2387,11 +2525,12 @@ async def camp_dm_callback_handler(update, context):
 
         nav = []
         if page > 0:
-            nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_visit_{uid}_{page - 1}"))
+            nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_visit_{uid}_{lang_code}_{page - 1}"))
         if page < total_pages - 1:
-            nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_visit_{uid}_{page + 1}"))
+            nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_visit_{uid}_{lang_code}_{page + 1}"))
         if nav:
             buttons.append(nav)
+        buttons.append([InlineKeyboardButton("◀ 언어 선택", callback_data=f"cdm_visitlang_{uid}")])
         buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
 
         try:

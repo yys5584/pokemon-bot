@@ -760,7 +760,8 @@ async def get_available_camps() -> list[dict]:
     """Get all active camps with chat info for home camp selection."""
     pool = await get_db()
     rows = await pool.fetch(
-        """SELECT c.chat_id, c.level, cr.chat_title, cr.member_count, cr.invite_link
+        """SELECT c.chat_id, c.level, cr.chat_title, cr.member_count, cr.invite_link,
+                  COALESCE(c.language, 'ko') AS language
            FROM camps c
            JOIN chat_rooms cr ON cr.chat_id = c.chat_id
            WHERE cr.is_active = 1
@@ -768,6 +769,25 @@ async def get_available_camps() -> list[dict]:
            LIMIT 50""",
     )
     return [dict(r) for r in rows]
+
+
+async def set_camp_language(chat_id: int, language: str):
+    """캠프 언어 설정."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE camps SET language = $1 WHERE chat_id = $2",
+        language, chat_id,
+    )
+
+
+async def get_camp_language(chat_id: int) -> str:
+    """캠프 언어 조회 (기본값 'ko')."""
+    pool = await get_db()
+    val = await pool.fetchval(
+        "SELECT COALESCE(language, 'ko') FROM camps WHERE chat_id = $1",
+        chat_id,
+    )
+    return val or "ko"
 
 
 # ═══════════════════════════════════════════════════════

@@ -1470,6 +1470,15 @@ CAMP_VISIT_REWARD = {
 }
 CAMP_WELCOME_MSG_MAX_LEN = 100  # 환영 멘트 최대 길이
 
+# ── 캠프 언어 설정 ──
+CAMP_LANGUAGES = {
+    "ko": {"name": "한국어", "flag": "🇰🇷"},
+    "en": {"name": "English", "flag": "🇺🇸"},
+    "zh_cn": {"name": "简体中文", "flag": "🇨🇳"},
+    "zh_tw": {"name": "繁體中文", "flag": "🇹🇼"},
+}
+CAMP_LANGUAGE_DEFAULT = "ko"
+
 # ── 소식 템플릿 ──
 CAMP_NEWS_TEMPLATES = {
     "forest": [

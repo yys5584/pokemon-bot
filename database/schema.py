@@ -1211,6 +1211,16 @@ async def create_tables():
         except Exception:
             pass
 
+    # 캠프 언어 설정
+    camp_lang_migs = [
+        "ALTER TABLE camps ADD COLUMN language VARCHAR(10) DEFAULT 'ko'",
+    ]
+    for mig in camp_lang_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
     # KPI 스냅샷 확장 (BP 유통량/소각 저장)
     kpi_extend_migs = [
         "ALTER TABLE kpi_daily_snapshots ADD COLUMN bp_circulation BIGINT DEFAULT 0",
