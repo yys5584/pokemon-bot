@@ -668,7 +668,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         iv_grade, _ = config.get_iv_grade(iv_sum)
         iv_tag = f" [{iv_grade}]"
 
-        _lang = await get_group_lang(chat_id)
+        _lang = await get_user_lang(winner_id)  # 포획자 개인 언어
         rbadge = rarity_badge(rarity)
         tb = type_badge(pokemon_id)
         shiny_label = f"{shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label')}" if is_shiny else ""
@@ -1380,7 +1380,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             html=True,
         )
 
-        _lang = await get_group_lang(chat_id)
+        _lang = await get_user_lang(winner_id)  # 포획자 개인 언어
         shiny_label = f"{shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label')}" if is_shiny else ""
 
         # IV grade display

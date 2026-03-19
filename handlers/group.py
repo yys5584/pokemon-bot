@@ -1289,3 +1289,53 @@ async def _notify_admin_if_needed(user_id: int, context: ContextTypes.DEFAULT_TY
             )
     except Exception as e:
         logger.warning(f"_notify_admin_if_needed error: {e}")
+
+
+# ─── 그룹 언어 설정 ─────────────────────────────────
+
+async def group_lang_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """그룹 관리자/채널장이 '언어설정 en' 등으로 그룹 언어 변경."""
+    if not update.effective_user or not update.message:
+        return
+    if update.effective_chat.type == "private":
+        return
+
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    text = (update.message.text or "").strip()
+
+    # 파싱: "언어설정 en" / "setlang en" / "语言设置 en"
+    import re
+    m = re.match(r"^(?:언어설정|setlang|语言设置|語言設定)\s+(\S+)$", text, re.IGNORECASE)
+    if not m:
+        await update.message.reply_text(
+            "사용법: <code>언어설정 ko</code>\n"
+            "지원: ko, en, zh-hans, zh-hant",
+            parse_mode="HTML",
+        )
+        return
+
+    new_lang = m.group(1).lower()
+    from utils.i18n import SUPPORTED_LANGS, set_group_lang, LANG_LABELS
+    if new_lang not in SUPPORTED_LANGS:
+        await update.message.reply_text(
+            f"❌ 지원하지 않는 언어: {new_lang}\n"
+            f"지원: {', '.join(SUPPORTED_LANGS)}",
+        )
+        return
+
+    # 관리자 권한 확인
+    try:
+        member = await context.bot.get_chat_member(chat_id, user_id)
+        if member.status not in ("creator", "administrator") and user_id not in config.ADMIN_IDS:
+            await update.message.reply_text("❌ 관리자만 언어를 변경할 수 있습니다.")
+            return
+    except Exception:
+        pass
+
+    await set_group_lang(chat_id, new_lang)
+    label = LANG_LABELS.get(new_lang, new_lang)
+    await update.message.reply_text(
+        f"✅ 그룹 언어가 <b>{label}</b>로 변경되었습니다!",
+        parse_mode="HTML",
+    )

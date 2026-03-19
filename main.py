@@ -22,7 +22,7 @@ from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types,
 from database import queries
 
 from handlers.start import start_handler, help_handler, help_callback_handler, language_callback_handler, language_command_handler, settings_handler, settings_callback_handler
-from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, daily_money_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, my_pokemon_group_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback, shiny_ticket_spawn_handler
+from handlers.group import catch_handler, master_ball_handler, hyper_ball_handler, love_easter_egg, love_hidden_handler, attendance_handler, daily_money_handler, ranking_handler, log_handler, dashboard_handler, room_info_handler, my_pokemon_group_handler, on_chat_activity, close_message_callback, catch_keep_callback, catch_release_callback, shiny_ticket_spawn_handler, group_lang_handler
 from handlers.dm_pokedex import pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback, title_handler, title_callback, title_list_handler, title_list_callback, title_page_callback, status_handler, status_inline_callback, appraisal_handler, type_chart_handler
 from handlers.battle import (
     partner_handler, partner_callback_handler,
@@ -2196,6 +2196,9 @@ def main():
         app.add_handler(MessageHandler(group & filters.Regex(r"^캠프설정$"), camp_settings_handler))
         app.add_handler(MessageHandler(group & filters.Regex(r"^캠프맵$"), camp_map_handler))
         app.add_handler(MessageHandler(group & filters.Regex(r"^방문$"), camp_visit_handler))
+
+    # Group language setting
+    app.add_handler(MessageHandler(group & filters.Regex(r"(?i)^(언어설정|setlang|语言设置|語言設定)(\s+\S+)?$"), group_lang_handler))
 
     # Battle system (Group)
     app.add_handler(MessageHandler(group & filters.Regex(r"^배틀$"), battle_challenge_handler))
