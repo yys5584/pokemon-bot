@@ -391,11 +391,16 @@ def _extract_mvp(turn_data: list[dict], winner_side: str) -> str | None:
 
 
 async def _safe_send(bot, chat_id, text, **kwargs):
-    """send_message with RetryAfter/TimedOut/NetworkError auto-retry."""
-    from telegram.error import TimedOut, NetworkError
+    """send_message with RetryAfter/TimedOut/NetworkError auto-retry + auto-split."""
+    from telegram.error import TimedOut, NetworkError, BadRequest
     for attempt in range(5):
         try:
             return await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+        except BadRequest as e:
+            if "too long" in str(e).lower():
+                # 메시지가 너무 길면 분할 전송
+                return await _split_send(bot, chat_id, text, **kwargs)
+            raise
         except RetryAfter as e:
             wait = e.retry_after + 1
             logger.warning(f"Flood control, waiting {wait}s (attempt {attempt+1})")
@@ -406,6 +411,62 @@ async def _safe_send(bot, chat_id, text, **kwargs):
             await asyncio.sleep(wait)
     # last attempt without catch
     return await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+
+
+async def _split_send(bot, chat_id, text, **kwargs):
+    """긴 메시지를 4000자 단위로 분할 전송."""
+    MAX_LEN = 4000
+    lines = text.split("\n")
+    chunks = []
+    current = []
+    current_len = 0
+
+    for line in lines:
+        # 한 줄이 MAX_LEN 초과 시 강제 분할
+        while len(line) > MAX_LEN:
+            if current:
+                chunks.append("\n".join(current))
+                current = []
+                current_len = 0
+            chunks.append(line[:MAX_LEN])
+            line = line[MAX_LEN:]
+
+        line_len = len(line) + 1  # +1 for \n
+        if current_len + line_len > MAX_LEN and current:
+            chunks.append("\n".join(current))
+            current = [line]
+            current_len = line_len
+        else:
+            current.append(line)
+            current_len += line_len
+    if current:
+        chunks.append("\n".join(current))
+
+    # HTML 태그 보정: <pre> 등이 청크 사이에서 잘리면 닫기/열기 보정
+    if kwargs.get("parse_mode", "").upper() == "HTML":
+        for i in range(len(chunks)):
+            c = chunks[i]
+            open_pre = c.count("<pre>")
+            close_pre = c.count("</pre>")
+            if open_pre > close_pre:
+                chunks[i] = c + "</pre>"
+            elif close_pre > open_pre:
+                chunks[i] = "<pre>" + c
+
+    from telegram.error import TimedOut, NetworkError, RetryAfter
+    last_msg = None
+    for chunk in chunks:
+        for attempt in range(5):
+            try:
+                last_msg = await bot.send_message(chat_id=chat_id, text=chunk, **kwargs)
+                break
+            except RetryAfter as e:
+                await asyncio.sleep(e.retry_after + 1)
+            except (TimedOut, NetworkError):
+                await asyncio.sleep(3 * (attempt + 1))
+        else:
+            last_msg = await bot.send_message(chat_id=chat_id, text=chunk, **kwargs)
+    return last_msg
 
 
 async def _safe_send_photo(bot, chat_id, photo, caption="", **kwargs):
@@ -706,6 +767,151 @@ async def _run_preliminary_round(context, chat_id: int, players: list, target: i
     return prelim_winners + seeded_players
 
 
+# ── Group Stage (for 33+ players → 4 groups, 17+ → 2 groups) ──
+
+GROUP_LABELS = ["A", "B", "C", "D"]
+
+
+async def _run_group_stage(context, chat_id: int, players: list, num_groups: int) -> list:
+    """Run group stage: divide into groups, run single-elimination per group.
+
+    Returns list of (uid, data) tuples — top 2 from each group.
+    """
+    random.shuffle(players)
+    groups = [[] for _ in range(num_groups)]
+    for i, p in enumerate(players):
+        groups[i % num_groups].append(p)
+
+    # Announce groups
+    lines = [
+        f"🏟️ 그룹 스테이지 시작!",
+        f"━━━━━━━━━━━━━━━",
+        f"참가자: {len(players)}명 → {num_groups}그룹",
+        "",
+    ]
+    for gi, group in enumerate(groups):
+        label = GROUP_LABELS[gi]
+        names = ", ".join(p[1]["name"] for p in group)
+        lines.append(f"🔹 {label}조 ({len(group)}명): {names}")
+    await _safe_send(context.bot, chat_id, text="\n".join(lines))
+    await asyncio.sleep(5)
+
+    # Run each group
+    all_qualifiers = []  # (uid, data, group_label, place)
+
+    for gi, group in enumerate(groups):
+        label = GROUP_LABELS[gi]
+        await _safe_send(context.bot, chat_id,
+            text=f"\n🔷 {label}조 토너먼트 시작! ({len(group)}명)",
+        )
+        await asyncio.sleep(2)
+
+        bracket = _generate_bracket(group)
+
+        # Run single-elimination within group
+        current_round = 1
+        runner_up_id = None  # Track the player who lost in the final
+
+        while len(bracket) > 0:
+            is_group_final = (len(bracket) == 1 and bracket[0][0] is not None and bracket[0][1] is not None)
+            round_size = len(bracket) * 2
+
+            winners = []
+            match_num = 0
+            match_count = sum(1 for a, b in bracket if a is not None or b is not None)
+
+            for p1, p2 in bracket:
+                if p1 is None and p2 is None:
+                    continue
+                match_num += 1
+                match_label = f"[{label}조 {match_num}/{match_count}] " if not is_group_final else f"[{label}조 결승] "
+
+                if p1 is None:
+                    await _safe_send(context.bot, chat_id,
+                        text=f"{match_label}🏃 {p2[1]['name']} — 부전승!")
+                    winners.append(p2)
+                    await asyncio.sleep(1)
+                elif p2 is None:
+                    await _safe_send(context.bot, chat_id,
+                        text=f"{match_label}🏃 {p1[1]['name']} — 부전승!")
+                    winners.append(p1)
+                    await asyncio.sleep(1)
+                else:
+                    winner_id, winner_data = await _run_match(
+                        context, chat_id,
+                        p1[0], p1[1], p2[0], p2[1],
+                        is_final=False,
+                        is_semi=False,
+                        is_quarter=is_group_final,  # Show some detail for group finals
+                        match_label=match_label,
+                    )
+                    winners.append((winner_id, winner_data))
+
+                    # Track runner-up in group final
+                    if is_group_final:
+                        loser = p1 if winner_id != p1[0] else p2
+                        runner_up_id = loser[0]
+                        all_qualifiers.append((*loser, label, 2))
+
+                    await asyncio.sleep(2)
+
+            if is_group_final and winners:
+                winner_tuple = winners[0]
+                all_qualifiers.append((*winner_tuple, label, 1))
+                await _safe_send(context.bot, chat_id,
+                    text=f"🏆 {label}조 우승: {winner_tuple[1]['name']}!")
+                await asyncio.sleep(3)
+                break
+
+            # Build next round bracket
+            next_bracket = []
+            for i in range(0, len(winners), 2):
+                if i + 1 < len(winners):
+                    next_bracket.append((winners[i], winners[i + 1]))
+                else:
+                    next_bracket.append((winners[i], None))
+
+            bracket = next_bracket
+            current_round += 1
+
+    # Summary of qualifiers
+    qualifier_tuples = [(uid, data) for uid, data, _, _ in all_qualifiers]
+    lines = [
+        f"\n🏆 본선 진출자 ({len(qualifier_tuples)}명)",
+        "━━━━━━━━━━━━━━━",
+    ]
+    for uid, data, label, place in all_qualifiers:
+        rank = "👑" if place == 1 else "🥈"
+        lines.append(f"{rank} {label}조 {place}위: {data['name']}")
+    await _safe_send(context.bot, chat_id, text="\n".join(lines))
+    await asyncio.sleep(5)
+
+    # Cross-match: A1 vs B2, B1 vs A2, C1 vs D2, D1 vs C2 (for 4 groups)
+    # For 2 groups: A1 vs B2, B1 vs A2
+    seeded = []
+    if num_groups == 4:
+        # Group winners vs other group's runners-up (cross-seed)
+        g = {label: {} for label in GROUP_LABELS[:num_groups]}
+        for uid, data, label, place in all_qualifiers:
+            g[label][place] = (uid, data)
+        seeded = [
+            (g["A"][1], g["B"][2]),
+            (g["C"][1], g["D"][2]),
+            (g["B"][1], g["A"][2]),
+            (g["D"][1], g["C"][2]),
+        ]
+    elif num_groups == 2:
+        g = {"A": {}, "B": {}}
+        for uid, data, label, place in all_qualifiers:
+            g[label][place] = (uid, data)
+        seeded = [
+            (g["A"][1], g["B"][2]),
+            (g["B"][1], g["A"][2]),
+        ]
+
+    return seeded
+
+
 # ── Bracket Generation ──────────────────────────────────────────
 
 def _generate_bracket(players: list) -> list:
@@ -730,6 +936,204 @@ def _generate_bracket(players: list) -> list:
         matches.append((padded[i], padded[i + 1]))
 
     return matches
+
+
+# ── GIF Round Builder ──────────────────────────────────────────
+
+def _make_round_comment(rd: dict, r_idx: int, total_rounds: int,
+                        p1_score: int, p2_score: int,
+                        p1_name: str, p2_name: str) -> str:
+    """배틀 상황 기반 멘트. 트레이너 본인이 한마디 하는 느낌.
+
+    Returns: "이름: 멘트" 형식 문자열.
+    """
+    import random as _rnd
+
+    winner_poke = rd["p1_poke"] if rd["winner"] == "p1" else rd["p2_poke"]
+    loser_poke = rd["p2_poke"] if rd["winner"] == "p1" else rd["p1_poke"]
+    winner_name = p1_name if rd["winner"] == "p1" else p2_name
+    loser_name = p2_name if rd["winner"] == "p1" else p1_name
+    type_adv = rd.get("type_advantage", 1.0)
+    crit = rd.get("crit", False)
+    dmg_dealt = rd.get("damage_dealt", 0)
+    dmg_taken = rd.get("damage_taken", 0)
+    turn_count = rd.get("turn_count", 3)
+
+    # (speaker: "winner"/"loser", 멘트)
+    pool: list[tuple[str, str]] = []
+
+    # 상성
+    if type_adv >= 2.0:
+        pool += [
+            ("loser", f"{loser_poke} 상성이 안 좋았어"),
+            ("loser", f"상성 매치가 너무 안 좋다"),
+            ("winner", f"{winner_poke}으로 잡으려고 했어"),
+        ]
+    elif type_adv <= 0.5:
+        pool += [
+            ("winner", f"상성 안 좋은 거 알았는데 믿었어"),
+            ("winner", f"{winner_poke}가 해줄 줄 알았어"),
+            ("loser", f"상성 좋았는데 못 잡았네"),
+        ]
+
+    # 크리티컬
+    if crit:
+        pool += [
+            ("winner", f"크리티컬 터져줬다"),
+            ("loser", f"크리티컬 안 터졌으면 잡았는데"),
+            ("winner", f"운이 좋았어"),
+        ]
+
+    # 원턴
+    if turn_count <= 1:
+        pool += [
+            ("winner", f"{winner_poke} 화력 믿고 갔다"),
+            ("loser", f"한 턴도 못 버텼네"),
+            ("winner", f"바로 정리됐다"),
+        ]
+    elif turn_count >= 5:
+        pool += [
+            ("winner", f"오래 걸렸다"),
+            ("loser", f"버텼는데 결국 졌다"),
+            ("winner", f"끝까지 긴장했다"),
+        ]
+
+    # 데미지 차이
+    if dmg_dealt > 0 and dmg_taken > 0:
+        ratio = dmg_dealt / max(dmg_taken, 1)
+        if ratio >= 3.0:
+            pool += [
+                ("winner", f"무난했다"),
+                ("loser", f"데미지를 못 넣었다"),
+            ]
+        elif ratio <= 0.5:
+            pool += [
+                ("winner", f"솔직히 위험했다"),
+                ("loser", f"거의 잡을 뻔했는데"),
+                ("winner", f"겨우 이겼다"),
+            ]
+
+    # 스코어
+    if p1_score == 0 and p2_score == 0:
+        pool += [
+            ("winner", f"좋은 출발이다"),
+            ("loser", f"아직 시작이야"),
+        ]
+    elif abs(p1_score - p2_score) >= 3:
+        leading = "winner" if (
+            (p1_score > p2_score and rd["winner"] == "p1") or
+            (p2_score > p1_score and rd["winner"] == "p2")
+        ) else "loser"
+        if leading == "winner":
+            pool += [("winner", "이대로 가면 된다")]
+        else:
+            pool += [("loser", "아직 포기 안 했어")]
+    elif r_idx == total_rounds - 1:
+        pool += [
+            ("winner", f"마지막이다 집중하자"),
+            ("loser", f"여기서 지면 끝이다"),
+        ]
+
+    # 이로치
+    if rd.get("p1_shiny") or rd.get("p2_shiny"):
+        shiny_poke = rd["p1_poke"] if rd.get("p1_shiny") else rd["p2_poke"]
+        is_winner_shiny = (rd.get("p1_shiny") and rd["winner"] == "p1") or \
+                          (rd.get("p2_shiny") and rd["winner"] == "p2")
+        if is_winner_shiny:
+            pool += [("winner", f"이로치 {shiny_poke} 믿고 있었어")]
+        else:
+            pool += [("loser", f"이로치였는데 아쉽다")]
+
+    if not pool:
+        pool = [
+            ("winner", "좋았어"),
+            ("loser", "다음에 잡는다"),
+        ]
+
+    side, comment = _rnd.choice(pool)
+    name = winner_name if side == "winner" else loser_name
+    return f"{name}: {comment}"
+
+
+def _build_gif_rounds(turn_data: list[dict], p1_data: dict, p2_data: dict) -> list[dict]:
+    """turn_data → make_round_gif용 rounds 리스트 변환."""
+    rounds = []
+    current_matchup = None
+    current_turns = []
+
+    for td in turn_data:
+        if td["type"] == "matchup":
+            if current_matchup and current_turns:
+                rounds.append(_matchup_to_round(current_matchup, current_turns, p1_data, p2_data))
+            current_matchup = td
+            current_turns = []
+        elif td["type"] == "turn":
+            current_turns.append(td)
+        elif td["type"] == "ko":
+            current_turns.append(td)
+
+    if current_matchup and current_turns:
+        rounds.append(_matchup_to_round(current_matchup, current_turns, p1_data, p2_data))
+
+    # 상황기반 멘트 생성
+    p1_name = p1_data["name"]
+    p2_name = p2_data["name"]
+    p1_score, p2_score = 0, 0
+    total = len(rounds)
+    for i, rd in enumerate(rounds):
+        rd["comment"] = _make_round_comment(
+            rd, i, total, p1_score, p2_score, p1_name, p2_name,
+        )
+        if rd["winner"] == "p1":
+            p1_score += 1
+        else:
+            p2_score += 1
+
+    return rounds
+
+
+def _matchup_to_round(matchup: dict, turns: list[dict], p1_data: dict, p2_data: dict) -> dict:
+    """단일 매치업(1v1)의 turn_data → GIF round dict 변환."""
+    actual_turns = [t for t in turns if t["type"] == "turn"]
+    total_c_dmg = sum(t.get("c_dmg", 0) for t in actual_turns)
+    total_d_dmg = sum(t.get("d_dmg", 0) for t in actual_turns)
+    has_crit = any(t.get("c_crit") or t.get("d_crit") for t in actual_turns)
+
+    # 상성 배율 (첫 턴 기준)
+    type_adv = 1.0
+    if actual_turns:
+        type_adv = actual_turns[0].get("c_type_mult", 1.0)
+
+    # KO 판정
+    ko_side = None
+    for t in turns:
+        if t["type"] == "ko":
+            ko_side = t["side"]
+            break
+
+    if ko_side == "defender":
+        winner = "p1"
+    elif ko_side == "challenger":
+        winner = "p2"
+    else:
+        winner = "p1"
+
+    return {
+        "p1_id": matchup.get("c_pokemon_id", 1),
+        "p1_poke": matchup["c_name"],
+        "p1_rarity": matchup.get("c_rarity", "common"),
+        "p1_shiny": matchup.get("c_shiny", False),
+        "p2_id": matchup.get("d_pokemon_id", 1),
+        "p2_poke": matchup["d_name"],
+        "p2_rarity": matchup.get("d_rarity", "common"),
+        "p2_shiny": matchup.get("d_shiny", False),
+        "winner": winner,
+        "damage_dealt": total_c_dmg,
+        "damage_taken": total_d_dmg,
+        "crit": has_crit,
+        "type_advantage": type_adv,
+        "turn_count": len(actual_turns),
+    }
 
 
 # ── Match Execution ─────────────────────────────────────────────
@@ -870,11 +1274,11 @@ async def _run_match(
             _last_switch_idx[_td["side"]] = _i
 
     if is_final:
-        # ── Finals: each hit as separate message (3s delay) ──
+        # ── Finals: 턴별 텍스트+이미지 + 상황기반 멘트 ──
         p1_name = p1_data['name']
         p2_name = p2_data['name']
 
-        # Lineup card image
+        # 라인업 카드
         try:
             lineup_data_1 = [
                 {"pokemon_id": m["pokemon_id"], "name": m["name"],
@@ -907,8 +1311,38 @@ async def _run_match(
             )
         await asyncio.sleep(3)
 
+        # 상황기반 멘트 준비 (매치업별 멘트 미리 생성)
+        _comment_rounds = _build_gif_rounds(result["turn_data"], p1_data, p2_data)
+        _comment_map = {}  # matchup_idx → comment
+        _matchup_count = 0
+        for td in result["turn_data"]:
+            if td["type"] == "matchup":
+                if _matchup_count < len(_comment_rounds):
+                    _comment_map[_matchup_count] = _comment_rounds[_matchup_count].get("comment", "")
+                _matchup_count += 1
+        _current_matchup_idx = -1
+
+        # HP 추적: 턴 시작 시점의 HP를 기록 (GIF hp_before 용)
+        _running_c_hp = None  # 현재 challenger HP
+        _running_d_hp = None  # 현재 defender HP
+        _score_c = 0  # challenger KO 수
+        _score_d = 0  # defender KO 수
+
         for _i, td in enumerate(result["turn_data"]):
             if td["type"] == "matchup":
+                _current_matchup_idx += 1
+                # 매치업 시작 시 HP 초기화
+                _running_c_hp = td["c_hp"]
+                _running_d_hp = td["d_hp"]
+
+                # 매치업 시작 전 상황기반 멘트
+                _comment = _comment_map.get(_current_matchup_idx, "")
+                if _comment and _current_matchup_idx > 0:
+                    await _safe_send(context.bot, chat_id,
+                        text=f"💬 {_comment}",
+                    )
+                    await asyncio.sleep(2)
+
                 await _safe_send(context.bot, chat_id,
                     text=f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})!",
                     parse_mode="HTML",
@@ -926,6 +1360,13 @@ async def _run_match(
                     first_target_mark, second_target_mark = D, C
                     first_pid, first_rarity, first_shiny = td.get("c_pokemon_id"), td.get("c_rarity", "common"), td.get("c_shiny", False)
                     second_pid, second_rarity, second_shiny = td.get("d_pokemon_id"), td.get("d_rarity", "common"), td.get("d_shiny", False)
+                    # GIF용 HP: 첫 공격 대상 = defender
+                    _gif_hp_before = (_running_d_hp or 0) / td["d_max_hp"] if td["d_max_hp"] else 1.0
+                    _gif_hp_after = max(0, (_running_d_hp or 0) - first_dmg) / td["d_max_hp"] if td["d_max_hp"] else 0.0
+                    _gif_atk_hp = (_running_c_hp or 0) / td["c_max_hp"] if td["c_max_hp"] else 1.0
+                    _gif_def_pid = td.get("d_pokemon_id")
+                    _gif_def_shiny = td.get("d_shiny", False)
+                    _gif_def_rarity = td.get("d_rarity", "common")
                 else:
                     first_mark, second_mark = D, C
                     first_name, first_dmg, first_crit, first_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
@@ -936,64 +1377,79 @@ async def _run_match(
                     first_target_mark, second_target_mark = C, D
                     first_pid, first_rarity, first_shiny = td.get("d_pokemon_id"), td.get("d_rarity", "common"), td.get("d_shiny", False)
                     second_pid, second_rarity, second_shiny = td.get("c_pokemon_id"), td.get("c_rarity", "common"), td.get("c_shiny", False)
+                    # GIF용 HP: 첫 공격 대상 = challenger
+                    _gif_hp_before = (_running_c_hp or 0) / td["c_max_hp"] if td["c_max_hp"] else 1.0
+                    _gif_hp_after = max(0, (_running_c_hp or 0) - first_dmg) / td["c_max_hp"] if td["c_max_hp"] else 0.0
+                    _gif_atk_hp = (_running_d_hp or 0) / td["d_max_hp"] if td["d_max_hp"] else 1.0
+                    _gif_def_pid = td.get("c_pokemon_id")
+                    _gif_def_shiny = td.get("c_shiny", False)
+                    _gif_def_rarity = td.get("c_rarity", "common")
 
-                # First attack — battle scene image for skills
+                # HP 비율 클램핑
+                _gif_hp_before = max(0.0, min(1.0, _gif_hp_before))
+                _gif_hp_after = max(0.0, min(1.0, _gif_hp_after))
+                _gif_atk_hp = max(0.0, min(1.0, _gif_atk_hp))
+
+                # First attack — Canvas GIF 연출
                 crit_label = " 크리티컬!" if first_crit else ""
                 skill_label = f" {first_eff}!" if first_eff else " 공격!"
                 bar = _hp_bar(first_target_hp, first_target_max)
                 caption1 = f"{td['turn_num']}턴 ─ {first_name}{skill_label}{crit_label}\n  → {first_target_name} {bar} {first_target_hp}/{first_target_max} (-{first_dmg})"
-                if first_eff and first_pid:
-                    # Extract skill name from eff string (e.g. "「화염방사」효과는..." → "화염방사")
-                    _skill_name = first_eff
-                    if "「" in _skill_name:
-                        _skill_name = _skill_name.split("「")[1].split("」")[0]
-                    # Get attacker type for FX
-                    from models.pokemon_battle_data import POKEMON_BATTLE_DATA
-                    _atk_type = POKEMON_BATTLE_DATA.get(first_pid, ("normal",))[0]
-                    # Target pokemon id
-                    _def_pid = td.get("d_pokemon_id") if td["first_is_challenger"] else td.get("c_pokemon_id")
-                    _def_shiny = td.get("d_shiny", False) if td["first_is_challenger"] else td.get("c_shiny", False)
-                    loop = asyncio.get_event_loop()
-                    card_buf = await loop.run_in_executor(
-                        None, generate_battle_card,
-                        first_pid, first_name, _def_pid, first_target_name,
-                        _skill_name, _atk_type, first_dmg,
-                        first_shiny, _def_shiny,
-                    )
-                    await _safe_send_photo(context.bot, chat_id, photo=card_buf, caption=caption1, parse_mode="HTML")
+
+                _gif_sent = False
+                _is_skill = first_eff and "「" in first_eff
+                _is_high_rarity = first_rarity in ("legendary", "ultra_legendary")
+                if _is_skill and _is_high_rarity and first_pid:
+                    # 미리 생성된 프레임 + 상대 스프라이트 합성 (Playwright 없음, ~0.3초)
+                    try:
+                        from utils.skill_gif import compose_skill_gif, has_skill_gif
+                        if has_skill_gif(first_pid):
+                            loop = asyncio.get_event_loop()
+                            gif_buf = await loop.run_in_executor(
+                                None, compose_skill_gif, first_pid, _gif_def_pid,
+                            )
+                            if gif_buf:
+                                for _retry in range(3):
+                                    try:
+                                        await context.bot.send_animation(
+                                            chat_id=chat_id, animation=gif_buf,
+                                            caption=caption1, parse_mode="HTML",
+                                        )
+                                        _gif_sent = True
+                                        break
+                                    except RetryAfter as e:
+                                        await asyncio.sleep(e.retry_after + 1)
+                                    except Exception:
+                                        break
+                    except Exception:
+                        logger.error("스킬 GIF 합성 실패", exc_info=True)
+
+                    if not _gif_sent:
+                        await _safe_send(context.bot, chat_id, text=caption1, parse_mode="HTML")
                     await asyncio.sleep(3)
                 else:
                     await _safe_send(context.bot, chat_id, text=caption1, parse_mode="HTML")
                     await asyncio.sleep(3)
 
-                # Counter attack — battle scene image for skills
+                # Counter attack (텍스트로 이어감)
                 if second_dmg > 0:
                     crit2_label = " 크리티컬!" if second_crit else ""
                     skill2_label = f" {second_eff}!" if second_eff else " 반격!"
                     bar2 = _hp_bar(second_target_hp, second_target_max)
                     caption2 = f"{second_name}{skill2_label}{crit2_label}\n  → {second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})"
-                    if second_eff and second_pid:
-                        _skill_name2 = second_eff
-                        if "「" in _skill_name2:
-                            _skill_name2 = _skill_name2.split("「")[1].split("」")[0]
-                        from models.pokemon_battle_data import POKEMON_BATTLE_DATA
-                        _atk_type2 = POKEMON_BATTLE_DATA.get(second_pid, ("normal",))[0]
-                        _def_pid2 = td.get("c_pokemon_id") if td["first_is_challenger"] else td.get("d_pokemon_id")
-                        _def_shiny2 = td.get("c_shiny", False) if td["first_is_challenger"] else td.get("d_shiny", False)
-                        loop = asyncio.get_event_loop()
-                        card_buf2 = await loop.run_in_executor(
-                            None, generate_battle_card,
-                            second_pid, second_name, _def_pid2, second_target_name,
-                            _skill_name2, _atk_type2, second_dmg,
-                            second_shiny, _def_shiny2,
-                        )
-                        await _safe_send_photo(context.bot, chat_id, photo=card_buf2, caption=caption2, parse_mode="HTML")
-                        await asyncio.sleep(3)
-                    else:
-                        await _safe_send(context.bot, chat_id, text=caption2, parse_mode="HTML")
-                        await asyncio.sleep(3)
+                    await _safe_send(context.bot, chat_id, text=caption2, parse_mode="HTML")
+                    await asyncio.sleep(2)
+
+                # 턴 끝: running HP 갱신 (다음 턴의 hp_before 용)
+                _running_c_hp = max(0, td["c_hp"])
+                _running_d_hp = max(0, td["d_hp"])
 
             elif td["type"] == "ko":
+                # 스코어 업데이트 (GIF round_text 용)
+                if td["side"] == "challenger":
+                    _score_d += 1  # defender가 challenger 포켓몬 KO
+                else:
+                    _score_c += 1  # challenger가 defender 포켓몬 KO
                 m = _mark(td["side"])
                 trainer = p1_name if td["side"] == "challenger" else p2_name
                 if td["next_name"]:
@@ -1005,10 +1461,19 @@ async def _run_match(
                 await _safe_send(context.bot, chat_id, text=text, parse_mode="HTML")
                 await asyncio.sleep(3)
 
+        # 마지막 라운드 멘트 (KO 후)
+        if _comment_rounds:
+            _last_comment = _comment_rounds[-1].get("comment", "")
+            if _last_comment:
+                await _safe_send(context.bot, chat_id, text=f"💬 {_last_comment}")
+                await asyncio.sleep(1)
+
         win_text = f"\n🎉 {winner_data['name']} 우승! (남은 {remaining}마리)"
         if mvp_line:
             win_text += f"\n{mvp_line}"
         await _safe_send(context.bot, chat_id, text=win_text)
+
+        # 🎬 결승전 GIF 하이라이트 — 비활성화 (품질 이슈)
 
         # 🎤 우승 인터뷰
         await asyncio.sleep(3)
@@ -1129,10 +1594,19 @@ async def _run_match(
 
 async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     """JobQueue callback — 22:00 KST: close registration, run tournament."""
+    # Fallback: if state was lost (bot restart), reload from DB
+    if not _tournament_state["participants"]:
+        db_participants = await _load_registrations_db()
+        if db_participants:
+            _tournament_state["participants"] = db_participants
+            logger.info(f"Loaded {len(db_participants)} participants from DB (restart recovery)")
+    if not _tournament_state["chat_id"]:
+        _tournament_state["chat_id"] = config.TOURNAMENT_CHAT_ID
+
     chat_id = _tournament_state["chat_id"]
 
-    if not _tournament_state["chat_id"] or not _tournament_state["participants"]:
-        # Tournament wasn't set up properly
+    if not chat_id or not _tournament_state["participants"]:
+        logger.warning("start_tournament: no chat_id or participants — aborting")
         return
 
     _tournament_state["registering"] = False
@@ -1168,62 +1642,85 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     player_list = [(uid, data) for uid, data in participants.items()]
     total_players = len(player_list)
 
-    # Find target bracket size (largest power of 2 ≤ total_players)
-    target = 1
-    while target * 2 <= total_players:
-        target *= 2
-    excess = total_players - target
+    # ── Group Stage: 33+ → 4 groups, 17~32 → 2 groups, ≤16 → direct bracket ──
+    use_groups = 0
+    if total_players > 32:
+        use_groups = 4
+    elif total_players > 16:
+        use_groups = 2
 
-    round_labels = {16: "16강", 8: "8강", 4: "4강", 2: "결승"}
-    round_label = round_labels.get(target, f"{target}강")
+    if use_groups > 0:
+        # Group stage → returns seeded bracket for knockout
+        seeded_bracket = await _run_group_stage(context, chat_id, player_list, use_groups)
+        bracket = seeded_bracket  # Already paired as [(p1, p2), ...]
 
-    if excess > 0:
-        # ── Preliminary round to reduce to clean bracket ──
-        await _safe_send(context.bot, chat_id,
-            text=(
-                f"🏟️ 토너먼트 시작!\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"참가자: {count}명\n"
-                f"방식: 예선 {excess}경기 → {round_label} 본선\n\n"
-                f"예선전을 시작합니다..."
-            ),
-        )
-        await asyncio.sleep(3)
+        knockout_size = len(bracket) * 2
+        round_label = {8: "8강", 4: "4강", 2: "결승"}.get(knockout_size, f"{knockout_size}강")
 
-        qualifiers = await _run_preliminary_round(context, chat_id, player_list, target)
-
-        q_names = ", ".join(q[1]["name"] for q in qualifiers)
-        await _safe_send(context.bot, chat_id,
-            text=f"🏆 {round_label} 진출자\n━━━━━━━━━━━━━━━\n{q_names}",
-        )
+        # Show knockout bracket
+        tree = _render_bracket(bracket)
+        if tree and len(tree) < 4000:
+            await _safe_send(context.bot, chat_id,
+                text=f"📋 {round_label} 대진표 (본선)\n{tree}",
+                parse_mode="HTML",
+            )
         await asyncio.sleep(5)
-
-        bracket = _generate_bracket(qualifiers)
     else:
-        # ── Perfect power of 2 — no prelims needed ──
-        await _safe_send(context.bot, chat_id,
-            text=(
-                f"🏟️ 토너먼트 시작!\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"참가자: {count}명\n"
-                f"방식: 싱글 엘리미네이션\n\n"
-                f"대진표를 생성합니다..."
-            ),
-        )
-        await asyncio.sleep(3)
-        bracket = _generate_bracket(player_list)
+        # ── Small tournament: direct single elimination ──
+        # Find target bracket size (largest power of 2 ≤ total_players)
+        target = 1
+        while target * 2 <= total_players:
+            target *= 2
+        excess = total_players - target
+
+        round_labels = {16: "16강", 8: "8강", 4: "4강", 2: "결승"}
+        round_label = round_labels.get(target, f"{target}강")
+
+        if excess > 0:
+            await _safe_send(context.bot, chat_id,
+                text=(
+                    f"🏟️ 토너먼트 시작!\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"참가자: {count}명\n"
+                    f"방식: 예선 {excess}경기 → {round_label} 본선\n\n"
+                    f"예선전을 시작합니다..."
+                ),
+            )
+            await asyncio.sleep(3)
+
+            qualifiers = await _run_preliminary_round(context, chat_id, player_list, target)
+
+            q_names = ", ".join(q[1]["name"] for q in qualifiers)
+            await _safe_send(context.bot, chat_id,
+                text=f"🏆 {round_label} 진출자\n━━━━━━━━━━━━━━━\n{q_names}",
+            )
+            await asyncio.sleep(5)
+
+            bracket = _generate_bracket(qualifiers)
+        else:
+            await _safe_send(context.bot, chat_id,
+                text=(
+                    f"🏟️ 토너먼트 시작!\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"참가자: {count}명\n"
+                    f"방식: 싱글 엘리미네이션\n\n"
+                    f"대진표를 생성합니다..."
+                ),
+            )
+            await asyncio.sleep(3)
+            bracket = _generate_bracket(player_list)
+
+        # Show bracket (ASCII tree)
+        tree = _render_bracket(bracket)
+        if tree and len(tree) < 4000:
+            await _safe_send(context.bot, chat_id,
+                text=f"📋 {round_label + ' ' if excess > 0 else ''}대진표\n{tree}",
+                parse_mode="HTML",
+            )
+        await asyncio.sleep(7 if excess > 0 else 3)
 
     original_bracket = list(bracket)
     round_results = {}
-
-    # Show bracket (ASCII tree)
-    tree = _render_bracket(bracket)
-    if tree:
-        await _safe_send(context.bot, chat_id,
-            text=f"📋 {round_label + ' ' if excess > 0 else ''}대진표\n{tree}",
-            parse_mode="HTML",
-        )
-    await asyncio.sleep(7 if excess > 0 else 3)
 
     # Run rounds
     total_rounds = int(math.log2(len(bracket) * 2))
@@ -1400,7 +1897,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     except Exception:
         logger.error(f"Failed to give master balls to winner {winner_id}")
     try:
-        await bq.add_bp(winner_id, config.TOURNAMENT_PRIZE_1ST_BP)
+        await bq.add_bp(winner_id, config.TOURNAMENT_PRIZE_1ST_BP, "tournament")
     except Exception:
         logger.error(f"Failed to give BP to winner {winner_id}")
     await queries.increment_title_stat(winner_id, "tournament_wins")
@@ -1438,7 +1935,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give master balls to runner-up {runner_up_id}")
         try:
-            await bq.add_bp(runner_up_id, config.TOURNAMENT_PRIZE_2ND_BP)
+            await bq.add_bp(runner_up_id, config.TOURNAMENT_PRIZE_2ND_BP, "tournament")
         except Exception:
             logger.error(f"Failed to give BP to runner-up {runner_up_id}")
         s2_id, s2_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_2ND_SHINY)
@@ -1468,7 +1965,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give master balls to semi-finalist {uid}")
         try:
-            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_SEMI_BP)
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_SEMI_BP, "tournament")
         except Exception:
             logger.error(f"Failed to give BP to semi-finalist {uid}")
         s_id, s_name = _random_shiny_pokemon(config.TOURNAMENT_PRIZE_SEMI_SHINY)
@@ -1488,7 +1985,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give master ball to quarter-finalist {uid}")
         try:
-            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_QUARTER_BP)
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_QUARTER_BP, "tournament")
         except Exception:
             logger.error(f"Failed to give BP to quarter-finalist {uid}")
     already_rewarded |= quarter_losers
@@ -1501,7 +1998,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give master ball to R16 participant {uid}")
         try:
-            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_R16_BP)
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_R16_BP, "tournament")
         except Exception:
             logger.error(f"Failed to give BP to R16 participant {uid}")
     already_rewarded |= r16_losers
@@ -1514,7 +2011,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give master ball to participant {uid}")
         try:
-            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_PARTICIPANT_BP)
+            await bq.add_bp(uid, config.TOURNAMENT_PRIZE_PARTICIPANT_BP, "tournament")
         except Exception:
             logger.error(f"Failed to give BP to participant {uid}")
 

@@ -15,6 +15,7 @@ from services.event_service import get_spawn_boost, get_rarity_weights, get_catc
 from services.weather_service import get_weather_pokemon_boost, get_weather_display
 from utils.card_generator import generate_card
 from utils.helpers import schedule_delete, close_button, rarity_badge, type_badge, ball_emoji, shiny_emoji, icon_emoji
+from utils.i18n import t, get_group_lang, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -43,22 +44,23 @@ async def _add_cxp_bg(context, chat_id: int, amount: int, action: str, user_id: 
 
         new_level = await queries.add_chat_cxp(chat_id, amount, action, user_id)
         if new_level:
+            lang = await get_group_lang(chat_id)
             info = config.get_chat_level_info(0)  # just for display
             # Re-fetch actual info for the new level
             row = await queries.get_chat_level(chat_id)
             info = config.get_chat_level_info(row["cxp"])
-            bonus_txt = f"+{info['spawn_bonus']} 스폰" if info["spawn_bonus"] else ""
-            shiny_txt = f"+{info['shiny_boost_pct']:.1f}% 이로치" if info["shiny_boost_pct"] else ""
+            bonus_txt = t(lang, "spawn_msg.level_spawn_bonus", count=info["spawn_bonus"]) if info["spawn_bonus"] else ""
+            shiny_txt = t(lang, "spawn_msg.level_shiny_boost", pct=f"{info['shiny_boost_pct']:.1f}") if info["shiny_boost_pct"] else ""
             parts = [p for p in [bonus_txt, shiny_txt] if p]
             perks = f" ({', '.join(parts)})" if parts else ""
             special = ""
             if "daily_shiny" in info["specials"]:
-                special = "\n✨ 일일 이로치 스폰 해금!"
+                special = t(lang, "spawn_msg.level_daily_shiny")
             if "auto_arcade" in info["specials"]:
-                special = "\n🎰 일일 자동 아케이드 해금!"
+                special = t(lang, "spawn_msg.level_auto_arcade")
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"🎊 채팅방 레벨 UP! Lv.{new_level}{perks}{special}",
+                text=t(lang, "spawn_msg.level_up", level=new_level, perks=perks, special=special),
                 parse_mode="HTML",
             )
     except Exception as e:
@@ -438,6 +440,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
 
     session_id = active["id"]
     chat_id = active["chat_id"]
+    is_newbie_spawn = bool(active.get("is_newbie_spawn"))
 
     try:
         pool = await get_db()
@@ -454,7 +457,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
 
         # Get pokemon info
         _prow = await pool.fetchrow(
-            "SELECT pm.id, pm.name_ko, pm.emoji, pm.rarity, pm.catch_rate, "
+            "SELECT pm.id, pm.name_ko, pm.name_en, pm.emoji, pm.rarity, pm.catch_rate, "
             "pm.stat_type, ss.is_shiny "
             "FROM spawn_sessions ss "
             "JOIN pokemon_master pm ON ss.pokemon_id = pm.id "
@@ -489,49 +492,87 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         catch_boost = await get_catch_boost()
         catch_rate = min(1.0, base_rate * catch_boost)
 
-        # Pre-fetch catch counts for newbie boost (batch)
-        normal_user_ids = [
-            a["user_id"] for a in attempts
-            if not a.get("used_master_ball") and not a.get("used_hyper_ball")
-        ]
-        catch_counts = await queries.count_total_catches_bulk(normal_user_ids) if normal_user_ids else {}
+        # 🌱 뉴비 스폰: 도감 수 기준 우선순위
+        if is_newbie_spawn:
+            all_user_ids = [a["user_id"] for a in attempts]
+            pokedex_counts = await queries.count_pokedex_bulk(all_user_ids) if all_user_ids else {}
+            thresholds = config.NEWBIE_TIER_THRESHOLDS
 
-        # Roll for each catcher
-        results = []
-        for attempt in attempts:
-            if attempt.get("used_master_ball"):
-                roll, success = -1.0, True
-            elif attempt.get("used_hyper_ball"):
-                hyper_rate = min(1.0, catch_rate * config.HYPER_BALL_CATCH_MULTIPLIER)
+            results = []
+            for attempt in attempts:
+                pdex = pokedex_counts.get(attempt["user_id"], 0)
+                tier = 0 if pdex < thresholds[0] else (1 if pdex < thresholds[1] else (2 if pdex < thresholds[2] else 3))
                 roll = random.random()
-                success = roll < hyper_rate
-            else:
-                total = catch_counts.get(attempt["user_id"], 0)
-                if total < 2:
-                    roll, success = 0.0, True
+                if attempt.get("used_master_ball"):
+                    await queries.add_master_balls_bulk([attempt["user_id"]])
+                    logger.info(f"Newbie spawn (overlap): refunded master ball to {attempt['user_id']}")
+                if attempt.get("used_hyper_ball"):
+                    await queries.add_hyper_balls_bulk([attempt["user_id"]])
+                    logger.info(f"Newbie spawn (overlap): refunded hyper ball to {attempt['user_id']}")
+                # 뉴비(tier 0,1,2)는 포획 보장, 고인물(tier 3)은 일반 확률
+                if tier < 3:
+                    success = True
                 else:
-                    roll = random.random()
                     success = roll < catch_rate
-            results.append({
-                "user_id": attempt["user_id"],
-                "display_name": attempt["display_name"],
-                "username": attempt["username"],
-                "roll": roll, "success": success,
-                "used_master_ball": bool(attempt.get("used_master_ball")),
-                "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
-            })
+                results.append({
+                    "user_id": attempt["user_id"],
+                    "display_name": attempt["display_name"],
+                    "username": attempt["username"],
+                    "roll": roll,
+                    "success": success,
+                    "used_master_ball": False,
+                    "used_hyper_ball": False,
+                    "_tier": tier,
+                })
+            winners = sorted(
+                [r for r in results if r["success"]],
+                key=lambda x: (x["_tier"], x["roll"]),
+            )
+        else:
+            # Pre-fetch catch counts for newbie boost (batch)
+            normal_user_ids = [
+                a["user_id"] for a in attempts
+                if not a.get("used_master_ball") and not a.get("used_hyper_ball")
+            ]
+            catch_counts = await queries.count_total_catches_bulk(normal_user_ids) if normal_user_ids else {}
 
-        winners = [r for r in results if r["success"]]
+            # Roll for each catcher
+            results = []
+            for attempt in attempts:
+                if attempt.get("used_master_ball"):
+                    roll, success = -1.0, True
+                elif attempt.get("used_hyper_ball"):
+                    hyper_rate = min(1.0, catch_rate * config.HYPER_BALL_CATCH_MULTIPLIER)
+                    roll = random.random()
+                    success = roll < hyper_rate
+                else:
+                    total = catch_counts.get(attempt["user_id"], 0)
+                    if total < 2:
+                        roll, success = 0.0, True
+                    else:
+                        roll = random.random()
+                        success = roll < catch_rate
+                results.append({
+                    "user_id": attempt["user_id"],
+                    "display_name": attempt["display_name"],
+                    "username": attempt["username"],
+                    "roll": roll, "success": success,
+                    "used_master_ball": bool(attempt.get("used_master_ball")),
+                    "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
+                })
+
+            winners = [r for r in results if r["success"]]
         participants = len(attempts)
 
         if not winners:
             # Everyone failed
-            shiny_tag = f" {shiny_emoji()}이로치" if is_shiny else ""
+            _lang = await get_group_lang(chat_id)
+            shiny_tag = f" {shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label').strip()}" if is_shiny else ""
             rbadge = rarity_badge(rarity)
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"흔들흔들... {icon_emoji('windy')}{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
+                text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny=shiny_tag, badge=rbadge, tb=tb, name=poke_name(pokemon, _lang)),
                 parse_mode="HTML",
             )
             await queries.close_spawn_session(session_id)
@@ -543,32 +584,36 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             return
 
         # Pick winner
-        winners.sort(key=lambda x: x["roll"])
-        winner = winners[0]
+        if is_newbie_spawn:
+            winner = winners[0]  # 이미 (tier, roll) 정렬됨
+        else:
+            winners.sort(key=lambda x: x["roll"])
+            winner = winners[0]
         winner_id = winner["user_id"]
         winner_name = winner["display_name"]
 
-        # Refund master balls to losers (batch)
+        # Refund master balls to losers (batch) — 뉴비 스폰에서는 이미 환불 완료
         master_refund_ids = [
             r["user_id"] for r in results
             if r["used_master_ball"] and r["user_id"] != winner_id
-        ]
+        ] if not is_newbie_spawn else []
         if master_refund_ids:
             await queries.add_master_balls_bulk(master_refund_ids)
             for loser in results:
                 if loser["used_master_ball"] and loser["user_id"] != winner_id:
                     logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
                     try:
+                        _loser_lang = await get_user_lang(loser["user_id"])
                         await context.bot.send_message(
                             chat_id=loser["user_id"],
-                            text=f"{ball_emoji('masterball')} 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
+                            text=f"{ball_emoji('masterball')} {t(_loser_lang, 'spawn_msg.masterball_refund')}",
                             parse_mode="HTML",
                         )
                     except Exception:
                         pass
 
         # Refund hyper balls when master ball user wins (hyper had no chance)
-        if winner.get("used_master_ball"):
+        if not is_newbie_spawn and winner.get("used_master_ball"):
             hyper_refund_ids = [
                 r["user_id"] for r in results
                 if r["used_hyper_ball"] and r["user_id"] != winner_id
@@ -579,9 +624,10 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                     if loser["used_hyper_ball"] and loser["user_id"] != winner_id:
                         logger.info(f"Refunded hyper ball to {loser['display_name']} (master ball override, overlap)")
                         try:
+                            _loser_lang = await get_user_lang(loser["user_id"])
                             await context.bot.send_message(
                                 chat_id=loser["user_id"],
-                                text=f"{ball_emoji('hyperball')} 하이퍼볼이 환불되었습니다. (마스터볼 포획으로 자동 환불)",
+                                text=f"{ball_emoji('hyperball')} {t(_loser_lang, 'spawn_msg.hyperball_refund')}",
                                 parse_mode="HTML",
                             )
                         except Exception:
@@ -601,6 +647,8 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         from utils.honorific import honorific_name as _hon_name, honorific_catch_verb as _hon_verb
         user_data = await queries.get_user(winner_id)
 
+        _lang = await get_user_lang(winner_id)  # 포획자 개인 언어
+
         # 구독자 존칭 적용
         _winner_tier = None
         try:
@@ -608,7 +656,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             _winner_tier = await get_user_tier(winner_id)
         except Exception:
             pass
-        _display = _hon_name(winner_name, _winner_tier) if _winner_tier else winner_name
+        _display = _hon_name(winner_name, _winner_tier, lang=_lang) if _winner_tier else winner_name
 
         decorated = get_decorated_name(
             _display,
@@ -621,28 +669,30 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                           caught_ivs["iv_spdef"], caught_ivs["iv_spd"])
         iv_grade, _ = config.get_iv_grade(iv_sum)
         iv_tag = f" [{iv_grade}]"
-
         rbadge = rarity_badge(rarity)
         tb = type_badge(pokemon_id)
-        shiny_label = f"{shiny_emoji()}이로치 " if is_shiny else ""
+        shiny_label = f"{shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label')}" if is_shiny else ""
         be_pokeball = ball_emoji("pokeball")
         be_master = ball_emoji("masterball")
         be_hyper = ball_emoji("hyperball")
 
-        _catch = _hon_verb("포획!", _winner_tier)
-        _catch_confirm = _hon_verb("확정 포획!", _winner_tier)
-        if winner.get("used_master_ball"):
-            msg = f"{be_master} 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch_confirm}{iv_tag}"
+        _catch = _hon_verb(t(_lang, "spawn_msg.catch_verb"), _winner_tier, lang=_lang)
+        _catch_confirm = _hon_verb(t(_lang, "spawn_msg.catch_verb_confirm"), _winner_tier, lang=_lang)
+        _pname = poke_name(pokemon, _lang)
+        if is_newbie_spawn and winner.get("_tier", 99) < 2:
+            msg = t(_lang, "spawn_msg.catch_newbie", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)
+        elif winner.get("used_master_ball"):
+            msg = f"{be_master} {t(_lang, 'spawn_msg.catch_masterball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch_confirm, iv=iv_tag)}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
-            msg = f"{be_hyper} 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch}{iv_tag}"
+            msg = f"{be_hyper} {t(_lang, 'spawn_msg.catch_hyperball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)}"
         else:
-            msg = f"딸깍! {be_pokeball} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch}{iv_tag}"
+            msg = f"{be_pokeball} {t(_lang, 'spawn_msg.catch_normal', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)}"
 
         if is_shiny:
             _se = shiny_emoji()
-            _shiny_verb = _hon_verb("잡았다!", _winner_tier) if _winner_tier else "잡았다!"
-            msg += f"\n\n{_se}{_se}{_se} 이로치 포켓몬을 {_shiny_verb}"
+            _shiny_verb = _hon_verb(t(_lang, "spawn_msg.shiny_verb"), _winner_tier, lang=_lang) if _winner_tier else t(_lang, "spawn_msg.shiny_verb")
+            msg += f"\n\n{_se}{_se}{_se} {t(_lang, 'spawn_msg.shiny_announcement', verb=_shiny_verb)}"
 
         # Track midnight catch for title
         hour = config.get_kst_hour()
@@ -653,16 +703,22 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 *(queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
             )
 
-        # Catch BP reward
+        # Catch BP reward (하루 포획 성공 100마리까지만, KST 자정 기준)
         from database.battle_queries import add_bp
-        catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
-        await add_bp(winner_id, catch_bp)
-        msg += f"\n{icon_emoji('coin')} +{catch_bp} BP"
+        today_catches = await pool.fetchval(
+            "SELECT COUNT(*) FROM spawn_log WHERE caught_by_user_id = $1 "
+            "AND spawned_at >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul'",
+            winner_id,
+        )
+        if today_catches < config.CATCH_BP_DAILY_LIMIT:
+            catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
+            await add_bp(winner_id, catch_bp, "catch")
+            msg += f"\n{icon_emoji('coin')} +{catch_bp} BP"
 
         # Master Ball random drop
         if random.random() < 0.02:
             await queries.add_master_ball(winner_id)
-            msg += f"\n\n{ball_emoji('masterball')} 마스터볼을 획득했다!"
+            msg += f"\n\n{ball_emoji('masterball')} {t(_lang, 'spawn_msg.masterball_drop')}"
 
         # Journey system check
         from services.journey_service import check_journey
@@ -699,28 +755,30 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             stats_base = calc_battle_stats(
                 rarity, stat_type, 0, evo_stage=evo_stage, **base_kwargs,
             )
-            shiny_dm = f" {shiny_emoji()}이로치" if is_shiny else ""
+            _dm_lang = await get_user_lang(winner_id)
+            _dm_pname = poke_name(pokemon, _dm_lang)
+            shiny_dm = f" {shiny_emoji()}{t(_dm_lang, 'spawn_msg.shiny_label').strip()}" if is_shiny else ""
             iv_line = (f"IV: {caught_ivs['iv_hp']}/{caught_ivs['iv_atk']}/{caught_ivs['iv_def']}"
                        f"/{caught_ivs['iv_spa']}/{caught_ivs['iv_spdef']}/{caught_ivs['iv_spd']}"
                        f" ({iv_sum}/186)")
             own_count = await queries.count_user_pokemon_species(winner_id, pokemon_id)
-            own_tag = f"📦 보유: {own_count}마리" if own_count > 1 else "🆕 새로운 포켓몬!"
+            own_tag = t(_dm_lang, "spawn_msg.dm_owned_count", count=own_count) if own_count > 1 else t(_dm_lang, "spawn_msg.dm_owned_new")
             if winner.get("used_master_ball"):
-                dm_ball = f"{ball_emoji('masterball')} 마스터볼! "
+                dm_ball = f"{ball_emoji('masterball')} "
             elif winner.get("used_hyper_ball"):
-                dm_ball = f"{ball_emoji('hyperball')} 하이퍼볼! "
+                dm_ball = f"{ball_emoji('hyperball')} "
             else:
                 dm_ball = f"{ball_emoji('pokeball')} "
             dm_text = (
-                f"{dm_ball}{rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
+                f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
                 f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
-                f"{format_stats_line(stats_with_iv, stats_base)}\n\n"
+                f"{format_stats_line(stats_with_iv, stats_base, lang=_dm_lang)}\n\n"
                 f"{own_tag}"
             )
             catch_buttons = InlineKeyboardMarkup([[
-                InlineKeyboardButton("가방에 넣기 ✅", callback_data=f"catch_keep_{_inst_id}"),
-                InlineKeyboardButton("방생하기 🔄", callback_data=f"catch_release_{_inst_id}"),
+                InlineKeyboardButton(t(_dm_lang, "group.catch_keep_btn"), callback_data=f"catch_keep_{_inst_id}"),
+                InlineKeyboardButton(t(_dm_lang, "group.catch_release_btn"), callback_data=f"catch_release_{_inst_id}"),
             ]])
             try:
                 dm_msg = await context.bot.send_message(
@@ -890,11 +948,16 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # 4. Pick random Pokemon
         pokemon = await pick_random_pokemon(rarity)
 
-        # 4.5 Shiny determination (자연 스폰은 확정만, 강스/아케이드는 랜덤 유지)
+        # 4.5 뉴비 스폰 판정 (관리자 아케이드 전용, 10% 확률) — shiny 판정 전에 결정
+        is_newbie_spawn = (chat_id in config.ARCADE_CHAT_IDS) and random.random() < config.NEWBIE_SPAWN_CHANCE
+
+        # 4.6 Shiny determination (자연 스폰은 확정만, 강스/아케이드는 랜덤 유지)
         if force_shiny:
             is_shiny = True
         else:
-            if arcade:
+            if is_newbie_spawn:
+                shiny_rate = config.NEWBIE_SPAWN_SHINY_RATE
+            elif arcade:
                 shiny_rate = config.SHINY_RATE_ARCADE
             elif force:
                 shiny_rate = config.SHINY_RATE_FORCE
@@ -930,7 +993,8 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             is_shiny = random.random() < min(1.0, shiny_rate * shiny_mult + level_shiny_add)
 
         # 5. Generate card image FIRST (before creating session)
-        shiny_text = f" {shiny_emoji()}이로치" if is_shiny else ""
+        _lang = await get_group_lang(chat_id)
+        shiny_text = f" {shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label').strip()}" if is_shiny else ""
         from utils.helpers import _type_emoji
         bonus_text = f" {_type_emoji('dark')}" if midnight else ""
 
@@ -954,10 +1018,13 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             window = config.SPAWN_WINDOW_SECONDS
 
         tb = type_badge(pokemon["id"], pokemon.get("pokemon_type"))
-        caption = (
-            f"{icon_emoji('footsteps')} 야생의{shiny_text} {tb} {pokemon['name_ko']}이(가) 나타났다!{bonus_text}{weather_tag}\n"
-            f"ㅊ 입력으로 잡기 ({window}초)"
-        )
+        newbie_tag = ""
+        if is_newbie_spawn:
+            newbie_tag = t(_lang, "spawn_msg.newbie_tag")
+        caption = t(_lang, "spawn_msg.wild_appeared",
+                     icon=icon_emoji('footsteps'), shiny=shiny_text, tb=tb,
+                     name=poke_name(pokemon, _lang), bonus=bonus_text, weather=weather_tag,
+                     window=window, newbie=newbie_tag)
 
         # Generate card image (run in executor to avoid blocking event loop)
         loop = asyncio.get_event_loop()
@@ -986,6 +1053,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         session_id = await queries.create_spawn_session(
             chat_id, pokemon["id"], expires, is_shiny=is_shiny,
+            is_newbie_spawn=is_newbie_spawn,
         )
 
         # Update session with message_id
@@ -1008,9 +1076,11 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 "session_id": session_id,
                 "pokemon_id": pokemon["id"],
                 "pokemon_name": pokemon["name_ko"],
+                "pokemon_name_en": pokemon.get("name_en", ""),
                 "pokemon_emoji": pokemon["emoji"],
                 "rarity": rarity,
                 "is_shiny": is_shiny,
+                "is_newbie_spawn": is_newbie_spawn,
             },
             name=f"resolve_{session_id}",
         )
@@ -1055,9 +1125,13 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
     session_id = data["session_id"]
     pokemon_id = data["pokemon_id"]
     pokemon_name = data["pokemon_name"]
+    pokemon_name_en = data.get("pokemon_name_en", "")
     pokemon_emoji = data["pokemon_emoji"]
     rarity = data["rarity"]
     is_shiny = data.get("is_shiny", False)
+    is_newbie_spawn = data.get("is_newbie_spawn", False)
+    # Mini-dict for poke_name() until full pokemon dict is loaded
+    _poke_mini = {"name_ko": pokemon_name, "name_en": pokemon_name_en}
 
     # 포획 메시지 전송 완료까지 다음 스폰 차단
     lock = _get_chat_lock(chat_id)
@@ -1089,12 +1163,13 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         if not attempts:
             # Nobody tried
-            shiny_tag = f" {shiny_emoji()}이로치" if is_shiny else ""
+            _lang = await get_group_lang(chat_id)
+            shiny_tag = f" {shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label').strip()}" if is_shiny else ""
             rbadge = rarity_badge(rarity)
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"흔들흔들... {icon_emoji('windy')}{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
+                text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny=shiny_tag, badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang)),
                 parse_mode="HTML",
             )
             lock.release()  # 도망 메시지 전송 완료 → 다음 스폰 허용
@@ -1111,54 +1186,101 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         catch_boost = await get_catch_boost()
         catch_rate = min(1.0, base_rate * catch_boost)
 
-        # Pre-fetch catch counts for newbie boost (batch)
-        normal_user_ids2 = [
-            a["user_id"] for a in attempts
-            if not a.get("used_master_ball") and not a.get("used_hyper_ball")
-        ]
-        catch_counts2 = await queries.count_total_catches_bulk(normal_user_ids2) if normal_user_ids2 else {}
+        # 🌱 뉴비 스폰: 도감 수 기준 우선순위
+        if is_newbie_spawn:
+            all_user_ids = [a["user_id"] for a in attempts]
+            pokedex_counts = await queries.count_pokedex_bulk(all_user_ids) if all_user_ids else {}
+            thresholds = config.NEWBIE_TIER_THRESHOLDS  # [100, 200, 300]
+            logger.info(f"🌱 Newbie spawn resolve: {len(attempts)} attempts, pokedex={pokedex_counts}")
 
-        # Roll for each catcher (master ball > hyper ball > newbie > regular)
-        results = []
-        for attempt in attempts:
-            if attempt.get("used_master_ball"):
-                roll = -1.0  # Highest priority
-                success = True
-            elif attempt.get("used_hyper_ball"):
-                # Hyper ball: 3x catch rate
-                hyper_rate = min(1.0, catch_rate * config.HYPER_BALL_CATCH_MULTIPLIER)
+            results = []
+            for attempt in attempts:
+                pdex = pokedex_counts.get(attempt["user_id"], 0)
+                # 티어: 0(도감<100) > 1(도감<200) > 2(도감<300) > 3(도감≥300)
+                tier = 0 if pdex < thresholds[0] else (1 if pdex < thresholds[1] else (2 if pdex < thresholds[2] else 3))
                 roll = random.random()
-                success = roll < hyper_rate
-            else:
-                # Newbie boost: first 2 catches are guaranteed
-                total = catch_counts2.get(attempt["user_id"], 0)
-                if total < 2:
-                    roll = 0.0  # Lower priority than master ball
+                # 마볼/하볼 사용자: 환불 처리, 일반 포획으로 전환
+                if attempt.get("used_master_ball"):
+                    await queries.add_master_balls_bulk([attempt["user_id"]])
+                    logger.info(f"Newbie spawn: refunded master ball to {attempt['user_id']}")
+                if attempt.get("used_hyper_ball"):
+                    await queries.add_hyper_balls_bulk([attempt["user_id"]])
+                    logger.info(f"Newbie spawn: refunded hyper ball to {attempt['user_id']}")
+                # 뉴비(tier 0,1,2)는 포획 보장, 고인물(tier 3)은 일반 확률
+                if tier < 3:
                     success = True
                 else:
-                    roll = random.random()
                     success = roll < catch_rate
-            results.append({
-                "user_id": attempt["user_id"],
-                "display_name": attempt["display_name"],
-                "username": attempt["username"],
-                "roll": roll,
-                "success": success,
-                "used_master_ball": bool(attempt.get("used_master_ball")),
-                "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
-            })
+                results.append({
+                    "user_id": attempt["user_id"],
+                    "display_name": attempt["display_name"],
+                    "username": attempt["username"],
+                    "roll": roll,
+                    "success": success,
+                    "used_master_ball": False,  # 환불 후 일반 전환
+                    "used_hyper_ball": False,
+                    "_tier": tier,
+                })
+            # 성공한 사람 중 도감 적은 사람(tier 낮은) 우선, 같은 티어면 roll 낮은 사람
+            winners = sorted(
+                [r for r in results if r["success"]],
+                key=lambda x: (x["_tier"], x["roll"]),
+            )
+            for r in results:
+                logger.info(f"  🌱 {r['display_name']}: tier={r['_tier']}, roll={r['roll']:.4f}, success={r['success']}")
+            if winners:
+                logger.info(f"  🌱 Winner: {winners[0]['display_name']} (tier={winners[0]['_tier']})")
+        else:
+            # ── 기존 포획 로직 ──
+            # Pre-fetch catch counts for newbie boost (batch)
+            normal_user_ids2 = [
+                a["user_id"] for a in attempts
+                if not a.get("used_master_ball") and not a.get("used_hyper_ball")
+            ]
+            catch_counts2 = await queries.count_total_catches_bulk(normal_user_ids2) if normal_user_ids2 else {}
 
-        winners = [r for r in results if r["success"]]
+            # Roll for each catcher (master ball > hyper ball > newbie > regular)
+            results = []
+            for attempt in attempts:
+                if attempt.get("used_master_ball"):
+                    roll = -1.0  # Highest priority
+                    success = True
+                elif attempt.get("used_hyper_ball"):
+                    # Hyper ball: 3x catch rate
+                    hyper_rate = min(1.0, catch_rate * config.HYPER_BALL_CATCH_MULTIPLIER)
+                    roll = random.random()
+                    success = roll < hyper_rate
+                else:
+                    # Newbie boost: first 2 catches are guaranteed
+                    total = catch_counts2.get(attempt["user_id"], 0)
+                    if total < 2:
+                        roll = 0.0  # Lower priority than master ball
+                        success = True
+                    else:
+                        roll = random.random()
+                        success = roll < catch_rate
+                results.append({
+                    "user_id": attempt["user_id"],
+                    "display_name": attempt["display_name"],
+                    "username": attempt["username"],
+                    "roll": roll,
+                    "success": success,
+                    "used_master_ball": bool(attempt.get("used_master_ball")),
+                    "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
+                })
+
+            winners = [r for r in results if r["success"]]
         participants = len(attempts)
 
         if not winners:
             # Everyone failed
-            shiny_tag = f" {shiny_emoji()}이로치" if is_shiny else ""
+            _lang = await get_group_lang(chat_id)
+            shiny_tag = f" {shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label').strip()}" if is_shiny else ""
             rbadge = rarity_badge(rarity)
             tb = type_badge(pokemon_id)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"흔들흔들... {icon_emoji('windy')}{shiny_tag} {rbadge}{tb} {pokemon_name} 도망갔다!",
+                text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny=shiny_tag, badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang)),
                 parse_mode="HTML",
             )
             lock.release()  # 도망 메시지 전송 완료 → 다음 스폰 허용
@@ -1169,26 +1291,32 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # Pick winner (lowest roll = luckiest)
-        winners.sort(key=lambda x: x["roll"])
-        winner = winners[0]
+        # Pick winner
+        if is_newbie_spawn:
+            # 뉴비 스폰: 이미 (tier, roll) 기준 정렬됨
+            winner = winners[0]
+        else:
+            # 일반: lowest roll = luckiest
+            winners.sort(key=lambda x: x["roll"])
+            winner = winners[0]
         winner_id = winner["user_id"]
         winner_name = winner["display_name"]
 
-        # Refund master balls to losers (batch)
+        # Refund master balls to losers (batch) — 뉴비 스폰에서는 이미 환불 완료
         master_refund_ids2 = [
             r["user_id"] for r in results
             if r["used_master_ball"] and r["user_id"] != winner_id
-        ]
+        ] if not is_newbie_spawn else []
         if master_refund_ids2:
             await queries.add_master_balls_bulk(master_refund_ids2)
             for loser in results:
                 if loser["used_master_ball"] and loser["user_id"] != winner_id:
                     logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
                     try:
+                        _loser_lang = await get_user_lang(loser["user_id"])
                         await context.bot.send_message(
                             chat_id=loser["user_id"],
-                            text=f"{ball_emoji('masterball')} 마스터볼이 환불되었습니다. (타 트레이너가 포획)",
+                            text=f"{ball_emoji('masterball')} {t(_loser_lang, 'spawn_msg.masterball_refund')}",
                             parse_mode="HTML",
                         )
                     except Exception:
@@ -1206,9 +1334,10 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                     if loser["used_hyper_ball"] and loser["user_id"] != winner_id:
                         logger.info(f"Refunded hyper ball to {loser['display_name']} (master ball override)")
                         try:
+                            _loser_lang = await get_user_lang(loser["user_id"])
                             await context.bot.send_message(
                                 chat_id=loser["user_id"],
-                                text=f"{ball_emoji('hyperball')} 하이퍼볼이 환불되었습니다. (마스터볼 포획으로 자동 환불)",
+                                text=f"{ball_emoji('hyperball')} {t(_loser_lang, 'spawn_msg.hyperball_refund')}",
                                 parse_mode="HTML",
                             )
                         except Exception:
@@ -1239,6 +1368,8 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         from utils.honorific import honorific_name as _hon_name, honorific_catch_verb as _hon_verb
         user_data = await queries.get_user(winner_id)
 
+        _lang = await get_user_lang(winner_id)  # 포획자 개인 언어
+
         # 구독자 존칭 적용
         _winner_tier = None
         try:
@@ -1246,7 +1377,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             _winner_tier = await get_user_tier(winner_id)
         except Exception:
             pass
-        _display = _hon_name(winner_name, _winner_tier) if _winner_tier else winner_name
+        _display = _hon_name(winner_name, _winner_tier, lang=_lang) if _winner_tier else winner_name
 
         decorated = get_decorated_name(
             _display,
@@ -1255,8 +1386,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             winner.get("username"),
             html=True,
         )
-
-        shiny_label = f"{shiny_emoji()}이로치 " if is_shiny else ""
+        shiny_label = f"{shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label')}" if is_shiny else ""
 
         # IV grade display
         from utils.battle_calc import iv_total
@@ -1271,23 +1401,26 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         be_pokeball = ball_emoji("pokeball")
         be_master = ball_emoji("masterball")
         be_hyper = ball_emoji("hyperball")
-        _catch = _hon_verb("포획!", _winner_tier)
-        _catch_confirm = _hon_verb("확정 포획!", _winner_tier)
-        if winner.get("used_master_ball"):
-            msg = f"{be_master} 마스터볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch_confirm}{iv_tag}"
+        _catch = _hon_verb(t(_lang, "spawn_msg.catch_verb"), _winner_tier, lang=_lang)
+        _catch_confirm = _hon_verb(t(_lang, "spawn_msg.catch_verb_confirm"), _winner_tier, lang=_lang)
+        _pname = poke_name(pokemon or _poke_mini, _lang)
+        if is_newbie_spawn and winner.get("_tier", 99) < 2:
+            msg = t(_lang, "spawn_msg.catch_newbie", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)
+        elif winner.get("used_master_ball"):
+            msg = f"{be_master} {t(_lang, 'spawn_msg.catch_masterball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch_confirm, iv=iv_tag)}"
             await queries.increment_title_stat(winner_id, "master_ball_used")
         elif winner.get("used_hyper_ball"):
-            msg = f"{be_hyper} 하이퍼볼! {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch}{iv_tag}"
+            msg = f"{be_hyper} {t(_lang, 'spawn_msg.catch_hyperball', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)}"
         elif rarity in ("epic", "legendary", "ultra_legendary") and is_first:
-            msg = f"🌟 {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch} (이 방 최초){iv_tag}"
+            msg = t(_lang, "spawn_msg.catch_first", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)
         else:
-            msg = f"딸깍! {be_pokeball} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} {_catch}{iv_tag}"
+            msg = f"{be_pokeball} {t(_lang, 'spawn_msg.catch_normal', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)}"
 
         # Shiny catch announcement
         if is_shiny:
             _se = shiny_emoji()
-            _shiny_verb = _hon_verb("잡았다!", _winner_tier) if _winner_tier else "잡았다!"
-            msg += f"\n\n{_se}{_se}{_se} 이로치 포켓몬을 {_shiny_verb}"
+            _shiny_verb = _hon_verb(t(_lang, "spawn_msg.shiny_verb"), _winner_tier, lang=_lang) if _winner_tier else t(_lang, "spawn_msg.shiny_verb")
+            msg += f"\n\n{_se}{_se}{_se} {t(_lang, 'spawn_msg.shiny_announcement', verb=_shiny_verb)}"
 
         # Track midnight catch for title
         hour = config.get_kst_hour()
@@ -1300,17 +1433,23 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 *(queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
             )
 
-        # Catch BP reward
+        # Catch BP reward (하루 포획 성공 100마리까지만, KST 자정 기준)
         from database.battle_queries import add_bp
-        catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
-        await add_bp(winner_id, catch_bp)
-        msg += f"\n{icon_emoji('coin')} +{catch_bp} BP"
+        today_catches = await pool.fetchval(
+            "SELECT COUNT(*) FROM spawn_log WHERE caught_by_user_id = $1 "
+            "AND spawned_at >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul'",
+            winner_id,
+        )
+        if today_catches < config.CATCH_BP_DAILY_LIMIT:
+            catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
+            await add_bp(winner_id, catch_bp, "catch")
+            msg += f"\n{icon_emoji('coin')} +{catch_bp} BP"
 
         # Master Ball random drop (2% chance on catch)
         master_ball_drop = random.random() < 0.02
         if master_ball_drop:
             await queries.add_master_ball(winner_id)
-            msg += f"\n\n{ball_emoji('masterball')} 마스터볼을 획득했다!"
+            msg += f"\n\n{ball_emoji('masterball')} {t(_lang, 'spawn_msg.masterball_drop')}"
 
         # Journey system check
         from services.journey_service import check_journey
@@ -1346,28 +1485,30 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 **base_kwargs,
             )
 
-            shiny_dm = f" {shiny_emoji()}이로치" if is_shiny else ""
+            _dm_lang = await get_user_lang(winner_id)
+            _dm_pname = poke_name(pokemon or _poke_mini, _dm_lang)
+            shiny_dm = f" {shiny_emoji()}{t(_dm_lang, 'spawn_msg.shiny_label').strip()}" if is_shiny else ""
             iv_line = (f"IV: {caught_ivs['iv_hp']}/{caught_ivs['iv_atk']}/{caught_ivs['iv_def']}"
                        f"/{caught_ivs['iv_spa']}/{caught_ivs['iv_spdef']}/{caught_ivs['iv_spd']}"
                        f" ({iv_sum}/186)")
             own_count = await queries.count_user_pokemon_species(winner_id, pokemon_id)
-            own_tag = f"📦 보유: {own_count}마리" if own_count > 1 else "🆕 새로운 포켓몬!"
+            own_tag = t(_dm_lang, "spawn_msg.dm_owned_count", count=own_count) if own_count > 1 else t(_dm_lang, "spawn_msg.dm_owned_new")
             if winner.get("used_master_ball"):
-                dm_ball = f"{ball_emoji('masterball')} 마스터볼! "
+                dm_ball = f"{ball_emoji('masterball')} "
             elif winner.get("used_hyper_ball"):
-                dm_ball = f"{ball_emoji('hyperball')} 하이퍼볼! "
+                dm_ball = f"{ball_emoji('hyperball')} "
             else:
                 dm_ball = f"{ball_emoji('pokeball')} "
             dm_text = (
-                f"{dm_ball}{rbadge}{tb} {pokemon_name} 포획!{shiny_dm} [{iv_grade}]\n"
+                f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
                 f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
-                f"{format_stats_line(stats_with_iv, stats_base)}\n\n"
+                f"{format_stats_line(stats_with_iv, stats_base, lang=_dm_lang)}\n\n"
                 f"{own_tag}"
             )
             catch_buttons = InlineKeyboardMarkup([[
-                InlineKeyboardButton("가방에 넣기 ✅", callback_data=f"catch_keep_{_inst_id}"),
-                InlineKeyboardButton("방생하기 🔄", callback_data=f"catch_release_{_inst_id}"),
+                InlineKeyboardButton(t(_dm_lang, "group.catch_keep_btn"), callback_data=f"catch_keep_{_inst_id}"),
+                InlineKeyboardButton(t(_dm_lang, "group.catch_release_btn"), callback_data=f"catch_release_{_inst_id}"),
             ]])
 
             try:
@@ -1446,7 +1587,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
     pool = await get_db()
     # Find unresolved sessions with pokemon info
     sessions = await pool.fetch("""
-        SELECT ss.id, ss.chat_id, ss.pokemon_id, pm.name_ko, pm.emoji,
+        SELECT ss.id, ss.chat_id, ss.pokemon_id, pm.name_ko, pm.name_en, pm.emoji,
                pm.rarity, pm.catch_rate, ss.is_shiny,
                CASE WHEN ss.spawned_at < NOW() - INTERVAL '5 minutes' THEN 1 ELSE 0 END as too_old
         FROM spawn_sessions ss
@@ -1463,6 +1604,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
         chat_id = sess["chat_id"]
         pokemon_id = sess["pokemon_id"]
         pokemon_name = sess["name_ko"]
+        _poke_mini = {"name_ko": sess["name_ko"], "name_en": sess.get("name_en", "")}
         rarity = sess["rarity"]
         catch_rate = sess["catch_rate"]
         is_shiny = bool(sess.get("is_shiny"))
@@ -1499,11 +1641,12 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             # Get attempts
             attempts = await queries.get_session_attempts(session_id)
             if not attempts:
+                _lang = await get_group_lang(chat_id)
                 rbadge = rarity_badge(rarity)
                 tb = type_badge(pokemon_id)
                 await bot.send_message(
                     chat_id=chat_id,
-                    text=f"흔들흔들... {icon_emoji('windy')} {rbadge}{tb} {pokemon_name} 도망갔다!",
+                    text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny="", badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang)),
                     parse_mode="HTML",
                 )
                 await queries.log_spawn(
@@ -1551,11 +1694,12 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             participants = len(attempts)
 
             if not winners:
+                _lang = await get_group_lang(chat_id)
                 rbadge = rarity_badge(rarity)
                 tb = type_badge(pokemon_id)
                 await bot.send_message(
                     chat_id=chat_id,
-                    text=f"흔들흔들... {icon_emoji('windy')} {rbadge}{tb} {pokemon_name} 도망갔다!",
+                    text=t(_lang, "spawn_msg.escaped", icon=icon_emoji('windy'), shiny="", badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang)),
                     parse_mode="HTML",
                 )
                 await queries.log_spawn(
@@ -1610,14 +1754,22 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             be = ball_emoji("masterball") if winner["used_master_ball"] else \
                  ball_emoji("hyperball") if winner["used_hyper_ball"] else \
                  ball_emoji("pokeball")
-            shiny_label = f"{shiny_emoji()}이로치 " if is_shiny else ""
-            msg = f"🔄 서버 복구 — {be} {decorated} — {shiny_label}{rbadge}{tb} {pokemon_name} 포획!{iv_tag}"
+            _lang = await get_group_lang(chat_id)
+            shiny_label = f"{shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label')}" if is_shiny else ""
+            msg = t(_lang, "spawn_msg.server_recover", ball=be, user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=poke_name(_poke_mini, _lang), iv=iv_tag)
 
-            # Catch BP reward
+            # Catch BP reward (하루 포획 성공 100마리까지만, KST 자정 기준)
             from database.battle_queries import add_bp
-            catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
-            await add_bp(winner_id, catch_bp)
-            msg += f"\n+{catch_bp} BP"
+            today_catches = await pool.fetchval(
+                "SELECT COUNT(*) FROM spawn_log WHERE caught_by_user_id = $1 "
+                "AND spawned_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date "
+                "AT TIME ZONE 'Asia/Seoul'",
+                winner_id,
+            )
+            if today_catches < config.CATCH_BP_DAILY_LIMIT:
+                catch_bp = random.randint(config.CATCH_BP_MIN, config.CATCH_BP_MAX)
+                await add_bp(winner_id, catch_bp, "catch")
+                msg += f"\n+{catch_bp} BP"
 
             # Journey system check
             from services.journey_service import check_journey
@@ -1646,6 +1798,30 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
 
         except Exception as e:
             logger.error(f"[startup resolve] session {session_id} failed: {e}")
+            # 실패해도 볼 환불은 해줘야 함
+            try:
+                refund_rows = await pool.fetch(
+                    """SELECT user_id, used_master_ball, used_hyper_ball
+                       FROM catch_attempts WHERE session_id = $1
+                       AND (used_master_ball = 1 OR used_hyper_ball = 1)""",
+                    session_id,
+                )
+                for r in refund_rows:
+                    if r["used_master_ball"]:
+                        await pool.execute(
+                            "UPDATE users SET master_balls = master_balls + 1 WHERE user_id = $1",
+                            r["user_id"],
+                        )
+                        refunded.append((r["user_id"], "master"))
+                    if r["used_hyper_ball"]:
+                        await pool.execute(
+                            "UPDATE users SET hyper_balls = hyper_balls + 1 WHERE user_id = $1",
+                            r["user_id"],
+                        )
+                        refunded.append((r["user_id"], "hyper"))
+                logger.info(f"[startup resolve] session {session_id}: refunded {len(refund_rows)} balls on error")
+            except Exception as refund_err:
+                logger.error(f"[startup resolve] session {session_id} refund also failed: {refund_err}")
             await queries.close_spawn_session(session_id)
 
     if refunded:
@@ -1689,10 +1865,10 @@ async def _check_returning_user(context, chat_id: int, user_id: int, display_nam
             return
 
         from utils.helpers import icon_emoji
+        _lang = await get_group_lang(chat_id)
         msg = (
-            f"{icon_emoji('pokecenter')} <b>복귀 트레이너 환영!</b>\n\n"
-            f"{display_name}님이 {days_away}일 만에 돌아왔습니다!\n"
-            f"다시 만나서 반갑습니다 {icon_emoji('heart')}"
+            f"{icon_emoji('pokecenter')} {t(_lang, 'spawn_msg.returning_welcome')}\n\n"
+            f"{display_name} — {days_away}d {icon_emoji('heart')}"
         )
         await context.bot.send_message(
             chat_id=chat_id, text=msg, parse_mode="HTML",

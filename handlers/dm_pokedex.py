@@ -8,10 +8,12 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
+from database import camp_queries as cq
 from utils.helpers import hearts_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji, shiny_emoji, icon_emoji, ball_emoji, resolve_title_badge, pokemon_iv_total as _iv_sum, iv_grade
 from utils.card_generator import generate_card, generate_pokedex_card
 from utils.parse import parse_number, parse_name_arg
 from utils.battle_calc import iv_total
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,8 @@ def _apply_dex_filters(all_pokemon: list, caught_ids: dict, filt: dict) -> list:
         filtered = [p for p in filtered if 152 <= p["id"] <= 251]
     elif gen == 3:
         filtered = [p for p in filtered if 252 <= p["id"] <= 386]
+    elif gen == 4:
+        filtered = [p for p in filtered if 387 <= p["id"] <= 493]
 
     # Caught status filter
     status = filt.get("status", "all")
@@ -77,7 +81,7 @@ def _apply_dex_filters(all_pokemon: list, caught_ids: dict, filt: dict) -> list:
 
 def _build_dex_view(user_id: int, display_name: str, title_part: str,
                     all_pokemon: list, caught_ids: dict, page: int,
-                    filt: dict) -> tuple[str, InlineKeyboardMarkup | None]:
+                    filt: dict, lang: str = "ko") -> tuple[str, InlineKeyboardMarkup | None]:
     """Build the pokedex display text and inline keyboard."""
     original_total = len(caught_ids)
 
@@ -117,15 +121,17 @@ def _build_dex_view(user_id: int, display_name: str, title_part: str,
     if has_filter:
         count_str = f"{caught_in_filtered}/{total_filtered}"
     else:
-        count_str = f"{original_total}/386"
+        count_str = f"{original_total}/493"
 
     gen1 = sum(1 for pid in caught_ids if pid <= 151)
     gen2 = sum(1 for pid in caught_ids if 152 <= pid <= 251)
     gen3 = sum(1 for pid in caught_ids if 252 <= pid <= 386)
+    gen4 = sum(1 for pid in caught_ids if 387 <= pid <= 493)
 
     lines = [f"🏅 {escape_html(display_name)}의 도감 ({count_str}){title_part}"]
     if not has_filter:
-        lines.append(f"1세대: {gen1}/151 | 2세대: {gen2}/100 | 3세대: {gen3}/135")
+        lines.append(f"1세대: {gen1}/151 | 2세대: {gen2}/100")
+        lines.append(f"3세대: {gen3}/135 | 4세대: {gen4}/107")
     lines.append("")
 
     for pm in page_pokemon:
@@ -136,7 +142,7 @@ def _build_dex_view(user_id: int, display_name: str, title_part: str,
             trade_mark = " 🔄교환" if entry["method"] == "trade" else ""
             rb = rarity_badge(pm["rarity"])
             tb = type_badge(pid)
-            lines.append(f"{pid:03d} {rb}{tb} {pm['name_ko']}{evo_mark}{trade_mark}")
+            lines.append(f"{pid:03d} {rb}{tb} {poke_name(pm, lang)}{evo_mark}{trade_mark}")
         else:
             lines.append(f"{pid:03d} ・ ???")
 
@@ -152,6 +158,7 @@ def _build_dex_view(user_id: int, display_name: str, title_part: str,
         InlineKeyboardButton(f"{'✓' if gen_on == 1 else ''}1세대", callback_data=f"dex_gen_{user_id}_1"),
         InlineKeyboardButton(f"{'✓' if gen_on == 2 else ''}2세대", callback_data=f"dex_gen_{user_id}_2"),
         InlineKeyboardButton(f"{'✓' if gen_on == 3 else ''}3세대", callback_data=f"dex_gen_{user_id}_3"),
+        InlineKeyboardButton(f"{'✓' if gen_on == 4 else ''}4세대", callback_data=f"dex_gen_{user_id}_4"),
     ])
 
     # Row 2: Status + Rarity
@@ -201,7 +208,8 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(user_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
 
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
@@ -219,7 +227,7 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for fn in _FUTURE_GEN_POKEMON
         )
         if pokemon or is_future:
-            await _show_pokemon_detail(update, user_id, name_query)
+            await _show_pokemon_detail(update, user_id, name_query, lang=lang)
         return  # Non-pokemon text → silently ignore (no response)
 
     # Page handling
@@ -242,7 +250,7 @@ async def pokedex_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     title_part = f" {user['title_emoji']} {user['title']}" if user and user["title"] else ""
 
     text_msg, markup = _build_dex_view(user_id, display_name, title_part,
-                                        all_pokemon, caught_ids, page, filt)
+                                        all_pokemon, caught_ids, page, filt, lang=lang)
 
     await update.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
 
@@ -254,6 +262,7 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await query.answer()
+    lang = await get_user_lang(query.from_user.id)
 
     data = query.data
     parts = data.split("_")
@@ -279,7 +288,7 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             page = int(parts[3])
 
         elif action == "gen":
-            # Generation toggle: dex_gen_{user_id}_{1/2/3}
+            # Generation toggle: dex_gen_{user_id}_{1/2/3/4}
             gen_num = int(parts[3])
             filt["gen"] = None if filt.get("gen") == gen_num else gen_num
 
@@ -357,7 +366,7 @@ async def pokedex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     title_part = f" {user['title_emoji']} {user['title']}" if user and user["title"] else ""
 
     text_msg, markup = _build_dex_view(user_id, display_name, title_part,
-                                        all_pokemon, caught_ids, page, filt)
+                                        all_pokemon, caught_ids, page, filt, lang=lang)
 
     try:
         await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
@@ -371,19 +380,17 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
 
     if not pokemon_list:
-        await update.message.reply_text(
-            "보유한 포켓몬이 없습니다.\n"
-            "그룹 채팅방에서 ㅊ 으로 잡아보세요!"
-        )
+        await update.message.reply_text(t(lang, "my_pokemon.no_pokemon"))
         return
 
     # Check if a specific index was given: "내포켓몬 3"
@@ -395,17 +402,17 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # Direct detail view for a specific pokemon
         idx = max(0, min(num - 1, len(pokemon_list) - 1))
         page = idx // MYPOKE_PAGE_SIZE
-        detail_text, detail_markup = _build_detail_view(user_id, pokemon_list, idx, page)
+        detail_text, detail_markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
         await update.message.reply_text(detail_text, reply_markup=detail_markup, parse_mode="HTML")
         return
 
     # Check if a name search was given: "내포켓몬 리자몽"
     import re
-    name_match = re.sub(r"^(📦\s*)?내포켓몬\s*", "", text).strip()
+    name_match = re.sub(r"(?i)^(📦\s*)?(내포켓몬|mypokemon|my\s*pokemon|我的宝可梦|我的寶可夢)\s*", "", text).strip()
     if name_match:
         matches = [
             (i, p) for i, p in enumerate(pokemon_list)
-            if name_match in p["name_ko"]
+            if name_match in p["name_ko"] or name_match.lower() in (p.get("name_en") or "").lower()
         ]
         if not matches:
             await update.message.reply_text(f"'{name_match}' 이름의 포켓몬을 보유하고 있지 않습니다.")
@@ -414,7 +421,7 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             # Single match → detail view
             idx = matches[0][0]
             page = idx // MYPOKE_PAGE_SIZE
-            detail_text, detail_markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            detail_text, detail_markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
             await update.message.reply_text(detail_text, reply_markup=detail_markup, parse_mode="HTML")
         else:
             # Multiple matches → show list with select buttons
@@ -429,10 +436,10 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     grade, _ = config.get_iv_grade(_iv_sum(p))
                     iv_tag = f" [{grade}]"
                 team_tag = f" 🎯팀{p['team_num']}" if p.get("team_num") else ""
-                lines.append(f"{i+1}. {rb}{tb}{s} {p['name_ko']}{iv_tag}{team_tag}")
+                lines.append(f"{i+1}. {rb}{tb}{s} {poke_name(p, lang)}{iv_tag}{team_tag}")
                 page = idx // MYPOKE_PAGE_SIZE
                 buttons.append([InlineKeyboardButton(
-                    f"{i+1}. {p['name_ko']}{' ✨' if p.get('is_shiny') else ''}",
+                    f"{i+1}. {poke_name(p, lang)}{' ✨' if p.get('is_shiny') else ''}",
                     callback_data=f"mypoke_v_{user_id}_{idx}_{page}",
                 )])
             from telegram import InlineKeyboardMarkup
@@ -445,7 +452,7 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     # Default: show list view page 0
     filt = _get_filter(context)
-    list_text, list_markup = _build_list_view(user_id, pokemon_list, page=0, filt=filt)
+    list_text, list_markup = _build_list_view(user_id, pokemon_list, page=0, filt=filt, lang=lang)
     await update.message.reply_text(list_text, reply_markup=list_markup, parse_mode="HTML")
 
 
@@ -482,6 +489,8 @@ def _apply_filters(pokemon_list: list, filt: dict) -> list:
         filtered = [p for p in filtered if 152 <= p["pokemon_id"] <= 251]
     elif gen == 3:
         filtered = [p for p in filtered if 252 <= p["pokemon_id"] <= 386]
+    elif gen == 4:
+        filtered = [p for p in filtered if 387 <= p["pokemon_id"] <= 493]
 
     # Type filter
     if filt.get("type"):
@@ -512,7 +521,7 @@ def _apply_filters(pokemon_list: list, filt: dict) -> list:
 
 
 def _build_list_view(user_id: int, pokemon_list: list, page: int,
-                     filt: dict = None) -> tuple[str, InlineKeyboardMarkup]:
+                     filt: dict = None, lang: str = "ko") -> tuple[str, InlineKeyboardMarkup]:
     """Build a text-based list of pokemon with inline buttons.
     Shows team pokemon first, then groups duplicate species.
     """
@@ -604,7 +613,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 if p.get("iv_hp") is not None:
                     grade, _ = config.get_iv_grade(_iv_sum(p))
                     iv_tag = f" [{grade}]"
-                lines.append(f"{se} {rb}{tb}{shiny} {p['name_ko']}{iv_tag}")
+                lines.append(f"{se} {rb}{tb}{shiny} {poke_name(p, lang)}{iv_tag}")
         lines.append("━━━━━━━")
 
     lines.append("")
@@ -634,12 +643,12 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 rb = rarity_badge(p.get("rarity", ""))
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
                 team_tag = f" 🎯{p['team_num']}" if p.get("team_num") else ""
-                lines.append(f"{item_num}. {rb}{tb}{shiny} {p['name_ko']}{iv_tag}  {hearts}{evo_mark}{team_tag}")
+                lines.append(f"{item_num}. {rb}{tb}{shiny} {poke_name(p, lang)}{iv_tag}  {hearts}{evo_mark}{team_tag}")
             else:  # group
                 _, pid, indices, first, count = item
                 rb = rarity_badge(first.get("rarity", ""))
                 tb = type_badge(first["pokemon_id"], first.get("pokemon_type"))
-                lines.append(f"{item_num}. {rb}{tb} {first['name_ko']}  x{count}")
+                lines.append(f"{item_num}. {rb}{tb} {poke_name(first, lang)}  x{count}")
             item_num += 1
 
     # Build buttons
@@ -696,6 +705,10 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 f"{'✓' if gen_on == 3 else ''}3세대",
                 callback_data=f"mypoke_gen_{user_id}_3",
             ),
+            InlineKeyboardButton(
+                f"{'✓' if gen_on == 4 else ''}4세대",
+                callback_data=f"mypoke_gen_{user_id}_4",
+            ),
             InlineKeyboardButton("← 닫기", callback_data=f"mypoke_genc_{user_id}"),
         ]
         select_buttons.append(gen_sub_row)
@@ -706,11 +719,11 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
         num = start + i + 1
         if item[0] == "single":
             _, idx, p = item
-            label = f"{num}. {p['name_ko']}"
+            label = f"{num}. {poke_name(p, lang)}"
             cb = f"mypoke_v_{user_id}_{idx}_{page}"
         else:
             _, pid, indices, first, count = item
-            label = f"{num}. {first['name_ko']} x{count}"
+            label = f"{num}. {poke_name(first, lang)} x{count}"
             cb = f"mypoke_g_{user_id}_{pid}_{page}"
         row.append(InlineKeyboardButton(label, callback_data=cb))
         if len(row) == 2:
@@ -728,26 +741,27 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
     if nav_row:
         select_buttons.append(nav_row)
 
-    # Action row: 팀설정 + 방생
+    # Action row: 팀설정 + 방생 + 파트너
     select_buttons.append([
         InlineKeyboardButton("⚔️ 팀설정", callback_data=f"mypoke_team_{user_id}"),
         InlineKeyboardButton("🔄 방생", callback_data=f"mypoke_rel_{user_id}"),
+        InlineKeyboardButton("🤝 파트너", callback_data=f"mypoke_partner_{user_id}"),
     ])
 
     markup = InlineKeyboardMarkup(select_buttons)
     return "\n".join(lines), markup
 
 
-def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: int) -> tuple[str, InlineKeyboardMarkup]:
+def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: int, lang: str = "ko") -> tuple[str, InlineKeyboardMarkup]:
     """Show individual pokemon within a duplicate group."""
     members = [p for p in pokemon_list if p["pokemon_id"] == pokemon_id]
     if not members:
-        return "해당 포켓몬을 찾을 수 없습니다.", InlineKeyboardMarkup([])
+        return t(lang, "error.pokemon_not_found"), InlineKeyboardMarkup([])
 
     first = members[0]
     rb = rarity_badge(first.get("rarity", ""))
     tb = type_badge(first["pokemon_id"], first.get("pokemon_type"))
-    lines = [f"{rb}{tb} {first['name_ko']} 보유 목록 ({len(members)}마리)\n"]
+    lines = [f"{rb}{tb} {poke_name(first, lang)} 보유 목록 ({len(members)}마리)\n"]
 
     buttons = []
     row = []
@@ -768,7 +782,7 @@ def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: i
             iv_tag = f" [{grade}]"
 
         team_mark = f" ⚔{p.get('team_num') or 1}" if p.get("team_slot") is not None else ""
-        lines.append(f"#{num}  {first['name_ko']}{shiny}  {hearts}{iv_tag}{team_mark}")
+        lines.append(f"#{num}  {poke_name(first, lang)}{shiny}  {hearts}{iv_tag}{team_mark}")
 
         label = f"#{num}{shiny[:1]}{iv_tag}"
         row.append(InlineKeyboardButton(label, callback_data=f"mypoke_v_{user_id}_{idx}_{page}"))
@@ -782,7 +796,7 @@ def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: i
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 
-def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) -> tuple[str, InlineKeyboardMarkup]:
+def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int, lang: str = "ko") -> tuple[str, InlineKeyboardMarkup]:
     """Build detail text for a single pokemon with action buttons."""
     p = pokemon_list[idx]
     total = len(pokemon_list)
@@ -852,7 +866,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int) ->
 
     lines = [
         f"내 포켓몬 상세 ({num}/{total})\n",
-        f"{shiny_mark}{tb} {p['name_ko']}{shiny_text}",
+        f"{shiny_mark}{tb} {poke_name(p, lang)}{shiny_text}",
         f"등급: {rarity_text}{type_display}",
         f"친밀도: {hearts} ({p['friendship']}/{max_f}){evo_text}{iv_line}{stats_line}",
     ]
@@ -908,16 +922,20 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     parts = data.split("_")
     action = parts[1]
     user_id = int(parts[2])
+    lang = await get_user_lang(user_id)
 
     if query.from_user.id != user_id:
         return
 
-    await query.answer()
+    # feed/play/evo/relconf 등 show_alert 필요한 액션은 자체 answer
+    _self_answer_actions = {"feed", "play", "evo", "relconf", "tact", "tset"}
+    if action not in _self_answer_actions:
+        await query.answer()
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
         try:
-            await query.edit_message_text("보유한 포켓몬이 없습니다.")
+            await query.edit_message_text(t(lang, "my_pokemon.no_pokemon"))
         except Exception:
             pass
         return
@@ -927,7 +945,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     try:
         if action == "l":
             page = int(parts[3])
-            text, markup = _build_list_view(user_id, pokemon_list, page, filt=filt)
+            text, markup = _build_list_view(user_id, pokemon_list, page, filt=filt, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "sort":
@@ -937,7 +955,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 filt["sort"] = "default"  # toggle off
             else:
                 filt["sort"] = mode
-            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "gen":
@@ -947,25 +965,25 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 filt["gen"] = None  # toggle off
             else:
                 filt["gen"] = gen_num
-            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "genm":
             # mypoke_genm_{user_id} — open generation sub-filter
             filt["gen_open"] = True
-            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "genc":
             # mypoke_genc_{user_id} — close generation sub-filter
             filt["gen_open"] = False
-            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "shiny":
             # mypoke_shiny_{user_id} — toggle shiny filter
             filt["shiny"] = not filt.get("shiny", False)
-            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
 
@@ -976,7 +994,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 filt["type"] = None
             else:
                 filt["type"] = type_key
-            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt)
+            text, markup = _build_list_view(user_id, pokemon_list, 0, filt=filt, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "tmore":
@@ -1004,14 +1022,14 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             idx = int(parts[3])
             page = int(parts[4]) if len(parts) > 4 else idx // MYPOKE_PAGE_SIZE
             idx = max(0, min(idx, len(pokemon_list) - 1))
-            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            text, markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "g":
             # Group view: mypoke_g_{user_id}_{pokemon_id}_{page}
             pokemon_id = int(parts[3])
             page = int(parts[4]) if len(parts) > 4 else 0
-            text, markup = _build_group_view(user_id, pokemon_list, pokemon_id, page)
+            text, markup = _build_group_view(user_id, pokemon_list, pokemon_id, page, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "appr":
@@ -1020,7 +1038,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             page = int(parts[4]) if len(parts) > 4 else 0
             idx = max(0, min(idx, len(pokemon_list) - 1))
             p = pokemon_list[idx]
-            text = _format_appraisal(p)
+            text = _format_appraisal(p, lang=lang)
             # Back button to detail
             markup = InlineKeyboardMarkup([[
                 InlineKeyboardButton("◀ 돌아가기", callback_data=f"mypoke_v_{user_id}_{idx}_{page}")
@@ -1032,7 +1050,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             page = int(parts[4]) if len(parts) > 4 else 0
             idx = max(0, min(idx, len(pokemon_list) - 1))
             p = pokemon_list[idx]
-            result, fed = await _do_feed(p, user_id)
+            result, fed = await _do_feed(p, user_id, lang=lang)
             await query.answer(result, show_alert=True)
             if fed:
                 async def _feed_mission():
@@ -1049,7 +1067,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             # Refresh detail
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             idx = max(0, min(idx, len(pokemon_list) - 1))
-            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            text, markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "play":
@@ -1057,7 +1075,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             page = int(parts[4]) if len(parts) > 4 else 0
             idx = max(0, min(idx, len(pokemon_list) - 1))
             p = pokemon_list[idx]
-            result, played = await _do_play(p, user_id)
+            result, played = await _do_play(p, user_id, lang=lang)
             await query.answer(result, show_alert=True)
             if played:
                 async def _play_mission():
@@ -1073,7 +1091,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 asyncio.create_task(_play_mission())
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             idx = max(0, min(idx, len(pokemon_list) - 1))
-            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            text, markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "evo":
@@ -1081,11 +1099,11 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             page = int(parts[4]) if len(parts) > 4 else 0
             idx = max(0, min(idx, len(pokemon_list) - 1))
             p = pokemon_list[idx]
-            result = await _do_evolve(p, user_id)
+            result = await _do_evolve(p, user_id, lang=lang)
             await query.answer(result, show_alert=True)
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             idx = max(0, min(idx, len(pokemon_list) - 1))
-            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            text, markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action in ("t1", "t2"):
@@ -1094,7 +1112,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             idx = max(0, min(idx, len(pokemon_list) - 1))
             p = pokemon_list[idx]
             team_num = 1 if action == "t1" else 2
-            text, markup = await _build_slot_picker(user_id, p, idx, page, team_num)
+            text, markup = await _build_slot_picker(user_id, p, idx, page, team_num, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "tset":
@@ -1105,11 +1123,11 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             team_num = int(parts[6])
             idx = max(0, min(idx, len(pokemon_list) - 1))
             p = pokemon_list[idx]
-            result = await _do_set_slot(p, user_id, team_num, slot)
+            result = await _do_set_slot(p, user_id, team_num, slot, lang=lang)
             await query.answer(result, show_alert=True)
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             idx = max(0, min(idx, len(pokemon_list) - 1))
-            text, markup = _build_detail_view(user_id, pokemon_list, idx, page)
+            text, markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "team":
@@ -1147,7 +1165,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             rb_label = rarity_badge_label(p["rarity"])
             text = (
                 f"🔄 <b>방생 확인</b>\n\n"
-                f"{shiny_mark}{rb_label} <b>{p['name_ko']}</b>을(를)\n"
+                f"{shiny_mark}{rb_label} <b>{poke_name(p, lang)}</b>을(를)\n"
                 f"정말 방생하시겠습니까?\n\n"
                 f"보상: 하이퍼볼 1개\n\n"
                 f"⚠️ <b>방생한 포켓몬은 되돌릴 수 없습니다!</b>"
@@ -1172,7 +1190,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                     target = p
                     break
             if not target:
-                await query.answer("이미 방생된 포켓몬입니다!", show_alert=True)
+                await query.answer(t(lang, "my_pokemon.already_released"), show_alert=True)
                 return
 
             if target.get("team_slot") is not None:
@@ -1189,22 +1207,28 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             if released > 0:
                 await queries.add_hyper_ball(user_id, 1)
 
-            name = target.get("name_ko", "???")
+            name = poke_name(target, lang)
             await query.answer(f"🔄 {name}을(를) 방생했습니다! 하이퍼볼 +1", show_alert=True)
 
             # 목록으로 복귀
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             if pokemon_list:
-                text, markup = _build_list_view(user_id, pokemon_list, page, filt=filt)
+                text, markup = _build_list_view(user_id, pokemon_list, page, filt=filt, lang=lang)
                 await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
             else:
-                await query.edit_message_text("보유한 포켓몬이 없습니다.")
+                await query.edit_message_text(t(lang, "my_pokemon.no_pokemon"))
+
+        elif action == "partner":
+            # mypoke_partner_{user_id} — 파트너 선택 리스트
+            from handlers.battle import _build_partner_list
+            text_msg, markup = _build_partner_list(user_id, pokemon_list, 0, lang=lang)
+            await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
 
     except Exception:
         pass
 
 
-def _format_appraisal(p: dict) -> str:
+def _format_appraisal(p: dict, lang: str = "ko") -> str:
     """Format IV appraisal text for a pokemon."""
     shiny = shiny_emoji() if p.get("is_shiny") else ""
     rb = rarity_badge(p.get("rarity", "common"))
@@ -1217,7 +1241,7 @@ def _format_appraisal(p: dict) -> str:
     pct = round(total / 186 * 100, 1)
 
     stat_labels = {"HP": "HP   ", "ATK": "공격 ", "DEF": "방어 ", "SPA": "특공 ", "SPDEF": "특방 ", "SPD": "스피드"}
-    lines = [f"{icon_emoji('bookmark')} {shiny}{rb} {p['name_ko']} 감정 결과\n"]
+    lines = [f"{icon_emoji('bookmark')} {shiny}{rb} {poke_name(p, lang)} 감정 결과\n"]
     for key in ("HP", "ATK", "DEF", "SPA", "SPDEF", "SPD"):
         v = ivs[key] if ivs[key] is not None else 15
         filled = round(v / 31 * 6)
@@ -1231,7 +1255,7 @@ def _format_appraisal(p: dict) -> str:
     return "\n".join(lines)
 
 
-async def _do_feed(p: dict, user_id: int) -> tuple[str, bool]:
+async def _do_feed(p: dict, user_id: int, lang: str = "ko") -> tuple[str, bool]:
     """Execute feed action, return (result message, success)."""
     # 칭호 버프: 밥주기 추가 횟수
     feed_limit = config.FEED_PER_DAY
@@ -1245,7 +1269,7 @@ async def _do_feed(p: dict, user_id: int) -> tuple[str, bool]:
         return f"오늘은 이미 밥을 {feed_limit}번 줬습니다!", False
     max_f = config.get_max_friendship(p)
     if p["friendship"] >= max_f:
-        return f"{p['name_ko']} 친밀도 MAX!", False
+        return f"{poke_name(p, lang)} 친밀도 MAX!", False
     from services.event_service import get_friendship_boost
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_FEED * boost
@@ -1253,16 +1277,16 @@ async def _do_feed(p: dict, user_id: int) -> tuple[str, bool]:
     if new_f is None:
         return "오류가 발생했습니다.", False
     remaining = feed_limit - p["fed_today"] - 1
-    return f"🍖 {p['name_ko']}에게 밥! 친밀도 {new_f}/{max_f} (남은: {remaining}회)", True
+    return f"🍖 {poke_name(p, lang)}에게 밥! 친밀도 {new_f}/{max_f} (남은: {remaining}회)", True
 
 
-async def _do_play(p: dict, user_id: int) -> tuple[str, bool]:
+async def _do_play(p: dict, user_id: int, lang: str = "ko") -> tuple[str, bool]:
     """Execute play action, return (result message, success)."""
     if p["played_today"] >= config.PLAY_PER_DAY:
         return f"오늘은 이미 {config.PLAY_PER_DAY}번 놀아줬습니다!", False
     max_f = config.get_max_friendship(p)
     if p["friendship"] >= max_f:
-        return f"{p['name_ko']} 친밀도 MAX!", False
+        return f"{poke_name(p, lang)} 친밀도 MAX!", False
     from services.event_service import get_friendship_boost
     boost = await get_friendship_boost()
     gain = config.FRIENDSHIP_PER_PLAY * boost
@@ -1270,16 +1294,18 @@ async def _do_play(p: dict, user_id: int) -> tuple[str, bool]:
     if new_f is None:
         return "오류가 발생했습니다.", False
     remaining = config.PLAY_PER_DAY - p["played_today"] - 1
-    return f"🎾 {p['name_ko']}와 놀기! 친밀도 {new_f}/{max_f} (남은: {remaining}회)", True
+    return f"🎾 {poke_name(p, lang)}와 놀기! 친밀도 {new_f}/{max_f} (남은: {remaining}회)", True
 
 
 async def _build_team_settings(user_id: int) -> tuple[str, InlineKeyboardMarkup]:
     """Build unified team settings menu (팀설정)."""
     from database import battle_queries as bq
 
-    team1 = await bq.get_battle_team(user_id, 1)
-    team2 = await bq.get_battle_team(user_id, 2)
-    active = await bq.get_active_team_number(user_id)
+    team1, team2, active = await asyncio.gather(
+        bq.get_battle_team(user_id, 1),
+        bq.get_battle_team(user_id, 2),
+        bq.get_active_team_number(user_id),
+    )
 
     t1_info = f"({len(team1)}마리)" if team1 else "(비어있음)"
     t2_info = f"({len(team2)}마리)" if team2 else "(비어있음)"
@@ -1318,25 +1344,39 @@ async def _build_team_settings(user_id: int) -> tuple[str, InlineKeyboardMarkup]
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 
-async def _do_evolve(p: dict, user_id: int) -> str:
+async def _do_evolve(p: dict, user_id: int, lang: str = "ko") -> str:
     """Execute evolution, return result message."""
-    if not p["evolves_to"]:
-        return "이 포켓몬은 진화할 수 없습니다."
+    pokemon_id = p.get("pokemon_id") or p.get("id")
+    has_branch = pokemon_id in config.BRANCH_EVOLUTIONS
+    is_eevee = pokemon_id == config.EEVEE_ID
+
+    if not p["evolves_to"] and not has_branch and not is_eevee:
+        return t(lang, "my_pokemon.cannot_evolve")
     if p["evolution_method"] == "trade":
-        return "이 포켓몬은 교환으로만 진화합니다."
+        return t(lang, "my_pokemon.trade_evolve_only")
     max_f = config.get_max_friendship(p)
     if p["friendship"] < max_f:
         return f"친밀도가 부족합니다 ({p['friendship']}/{max_f})"
-    # Perform evolution
-    evo_target = await queries.get_pokemon_master(p["evolves_to"])
+
+    # Determine target (분기진화 / 이브이 / 일반)
+    if is_eevee:
+        import random
+        target_id = random.choice(config.EEVEE_EVOLUTIONS)
+    elif has_branch:
+        import random
+        target_id = random.choice(config.BRANCH_EVOLUTIONS[pokemon_id])
+    else:
+        target_id = p["evolves_to"]
+
+    evo_target = await queries.get_pokemon_master(target_id)
     if not evo_target:
-        return "진화 대상을 찾을 수 없습니다."
-    await queries.evolve_pokemon(p["id"], p["evolves_to"])
-    return f"🎉 {p['name_ko']}이(가) {evo_target['name_ko']}(으)로 진화했습니다!"
+        return t(lang, "my_pokemon.evolve_target_not_found")
+    await queries.evolve_pokemon(p["id"], target_id)
+    return f"🎉 {poke_name(p, lang)}이(가) {poke_name(evo_target, lang)}(으)로 진화했습니다!"
 
 
 async def _build_slot_picker(user_id: int, p: dict, idx: int, page: int,
-                             team_num: int) -> tuple[str, InlineKeyboardMarkup]:
+                             team_num: int, lang: str = "ko") -> tuple[str, InlineKeyboardMarkup]:
     """Show 6 team slots for placing a pokemon."""
     from database import battle_queries as bq
     team = await bq.get_battle_team(user_id, team_num)
@@ -1346,7 +1386,7 @@ async def _build_slot_picker(user_id: int, p: dict, idx: int, page: int,
 
     shiny = shiny_emoji() if p.get("is_shiny") else ""
     tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-    lines = [f"{icon_emoji('battle')} 팀{team_num}에 {tb}{shiny} {p['name_ko']} 배치", "슬롯을 선택하세요:\n"]
+    lines = [f"{icon_emoji('battle')} 팀{team_num}에 {tb}{shiny} {poke_name(p, lang)} 배치", "슬롯을 선택하세요:\n"]
 
     buttons = []
     for s in range(1, 7):
@@ -1360,8 +1400,8 @@ async def _build_slot_picker(user_id: int, p: dict, idx: int, page: int,
                 t_iv = f" [{grade}]{total}"
             ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
             t_shiny = shiny_emoji() if t.get("is_shiny") else ""
-            lines.append(f"{slot_emojis[s-1]} {ttb}{t_shiny} {t['name_ko']}{t_iv}")
-            label = f"{slot_plain[s-1]} {t['name_ko']} → 교체"
+            lines.append(f"{slot_emojis[s-1]} {ttb}{t_shiny} {poke_name(t, lang)}{t_iv}")
+            label = f"{slot_plain[s-1]} {poke_name(t, lang)} → 교체"
         else:
             lines.append(f"{slot_emojis[s-1]} (빈 슬롯)")
             label = f"{slot_plain[s-1]} 빈 슬롯 ← 배치"
@@ -1373,7 +1413,7 @@ async def _build_slot_picker(user_id: int, p: dict, idx: int, page: int,
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 
-async def _do_set_slot(p: dict, user_id: int, team_num: int, slot: int) -> str:
+async def _do_set_slot(p: dict, user_id: int, team_num: int, slot: int, lang: str = "ko") -> str:
     """Place pokemon into a specific team slot. Returns result message."""
     from database import battle_queries as bq
     team = await bq.get_battle_team(user_id, team_num)
@@ -1390,7 +1430,7 @@ async def _do_set_slot(p: dict, user_id: int, team_num: int, slot: int) -> str:
     replaced_name = None
     for t in team:
         if t["slot"] == slot:
-            replaced_name = t["name_ko"]
+            replaced_name = poke_name(t, lang)
     slot_map[slot] = p["id"]
 
     # Validate: ultra_legendary limit (1 per team)
@@ -1422,8 +1462,8 @@ async def _do_set_slot(p: dict, user_id: int, team_num: int, slot: int) -> str:
     await bq.set_battle_team(user_id, instance_ids, team_num)
 
     if replaced_name:
-        return f"{icon_emoji('check')} 슬롯{slot}: {replaced_name} → {p['name_ko']} 교체!"
-    return f"{icon_emoji('check')} {p['name_ko']}을(를) 슬롯 {slot}에 배치!"
+        return f"슬롯{slot}: {replaced_name} → {poke_name(p, lang)} 교체!"
+    return f"{poke_name(p, lang)}(를) 슬롯 {slot}에 배치!"
 
 
 # --- Pokemon TMI data (웃긴 버전) ---
@@ -1815,20 +1855,120 @@ POKEMON_TMI = {
     384: "레쿠쟈는 메가진화 종족값 780으로 너무 강해서 Uber에서도 추방, AG(Anything Goes) 티어가 새로 만들어짐. 기상잠금 특성으로 날씨를 무효화하는 하늘의 중재자.",
     385: "지라치는 천년에 7일만 깨어나서 소원을 들어주는 포켓몬. 극장판에서 아이와 7일간의 우정이 눈물샘 자극. 배의 세 번째 눈이 열리면 소원을 이루는데, 그 눈이 좀 무서움.",
     386: "테오키스는 우주 바이러스가 레이저에 변이된 포켓몬. 어택폼 특공 180은 유리대포의 정석이고, 스피드폼 스피드 180은 역대 최빠. 4개 폼이 각각 극단적이라 취향 타는 외계인.",
+    # --- Gen 4 (387-493) ---
+    387: "모부기는 4세대 풀 스타터. 등에 나무가 자라는 설정인데 최종진화하면 대륙을 등에 짊어짐. 스타팅 3인방 중 가장 느리지만 가장 듬직한 녀석.",
+    388: "수풀부기는 등의 덤불에서 열매가 열리는 중간진화. 존재감은 솔직히 없고 토대부기 되려고 경험치 먹는 구간.",
+    389: "토대부기는 등에 대지를 짊어진 대륙거북. 풀/땅이라 얼음 4배가 치명적. 그래도 스텔스록+지진 조합은 꽤 쓸만함. 디자인은 4세대 스타터 중 최고라는 평.",
+    390: "불꽃숭이는 4세대 불 스타터. 원숭이+불 조합인데 결국 또 불/격투가 됨. 엉덩이에 불이 붙어있어서 DP 초반 불 포켓몬 부족할 때 유일한 희망.",
+    391: "파이숭이는 불꽃숭이의 중간진화. 불/격투 시작점인데 블레이즈킥 배우면서 슬슬 강해짐. 그냥 초염몽 가는 길목.",
+    392: "초염몽은 4세대 불 스타터 최종. 손오공 모티브에 불/격투. 인파+오버히트+풀묶기로 범용성 최강. 속도 108이라 웬만한 애들 다 선빵. 오우삼 에이스.",
+    393: "팽도리는 4세대 물 스타터. 자존심이 세서 트레이너 말을 안 듣는 설정. 애니에서 빛나의 팽도리가 귀여움으로 인기 폭발. 팽도리 걷기 짤은 영원한 밈.",
+    394: "팽태자는 팽도리의 중간진화. 왕자 컨셉인데 디자인이 애매해서 팬덤에서도 존재감 없음. 그냥 빨리 엠페르트 돼라.",
+    395: "엠페르트는 물/강철 황제펭귄. 타입 조합이 독특해서 약점이 땅/격투/전기 3개뿐. 특공 111에 급소찌르기+냉동빔 조합이 쏠쏠함. 나폴레옹 모티브.",
+    396: "찌르꼬는 4세대 초반새. 매 세대 있는 노말/비행 국룰 포켓몬인데 최종진화가 역대급이라 키울 가치 있음.",
+    397: "찌르버드는 찌르꼬 중간진화. 위협 특성 발현 시작. 아직은 평범한 새.",
+    398: "찌르호크는 역대 초반새 중 최강. 위협+인파이트+브레이브버드 조합이 미침. 초반새 주제에 OU급 화력. 닫기버튼 쓰면 자폭이지만 그전에 상대가 먼저 죽음.",
+    399: "비버니는 밈의 신. HM 노예 출신에서 인터넷 컬트로 성장. 포켓몬 레전즈 아르세우스에서 신과 동급 취급받는 사실상 창조신. 비버니교 영원하라.",
+    400: "비버통은 비버니의 진화형. HM 노예 종결자로 풀베기+파도타기+바위깨기+괴력 전부 가능. 실전에서는 쓸 일 없지만 스토리 공헌도는 MVP.",
+    401: "귀뚤뚜기는 4세대 초반벌레. 할 수 있는 게 거의 없고 울기밖에 못함. 그런데 그 울음소리가 전설이 됨.",
+    402: "귀뚤톡크는 DELELELELE WOOOOOP 울음소리로 전 세계적 밈 등극. 실전 성능은 처참하지만 울음소리 하나로 포켓몬 역사에 이름을 남긴 레전드.",
+    403: "꼬링크는 4세대 대표 귀여운 전기 포켓몬. 디자인 인기가 어마어마해서 피카클론도 아닌데 팬아트 양산형. 스토리 초반에 잡으면 끝까지 데려가게 됨.",
+    404: "럭시오는 꼬링크 중간진화. 사춘기 느낌의 디자인인데 렌트라 되기 전 과도기. 위협 특성이 여기서부터.",
+    405: "렌트라는 엑스레이 눈으로 벽 너머를 보는 전기 사자. 디자인 인기 최상위권인데 실전에서는 기술폭이 좁아서 아쉬움. 팬들이 매 세대 메가진화 청원하는 포켓몬.",
+    406: "꼬몽울은 로젤리아의 베이비 포켓몬. 자연회복 특성에 독/풀인데 그냥 빨리 진화시키는 게 답.",
+    407: "로즈레이드는 특공 125에 독찌르기+리프스톰 쏘는 암살자. 꽃다발 들고 있는데 사실 독 뿌리는 킬러. 4세대에서 갑자기 강해진 대표적 케이스.",
+    408: "두개도스는 화석 포켓몬. 공격 125로 높은 편인데 진화하면 역대급 물리 화력이 됨. 머리로 박는 것만 하는 단세포.",
+    409: "램펄드는 비전설 공격 1위(165). 머리만 개발한 공룡인데 그 대가로 내구와 스피드를 전부 버림. 돌머리+박치기로 올인하는 로망형 포켓몬.",
+    410: "방패톱스는 방어 특화 화석 포켓몬. 람펄드와 정반대로 얼굴이 방패. 공격력이 처참해서 상대를 잡지 못하고 같이 고통받는 타입.",
+    411: "바리톱스는 방어 168+특방 138의 철벽 요새. 근데 4배 약점이 격투/땅이라 인파이트 한방에 녹음. 못 때리고 못 잡는 비운의 탱커.",
+    412: "도롱충이는 환경에 따라 외투가 바뀌는 벌레. 풀/모래/쓰레기 세 종류인데 실전에선 셋 다 안 씀.",
+    413: "도롱마담은 암컷만 진화하는 폼체인지 포켓몬. 모래외투가 땅/벌레로 그나마 독특한데 스탯이 전부 애매해서 대전에선 안 보임.",
+    414: "나메일은 수컷 도롱충이의 진화형. 벌레/비행이라 평범하고 존재감도 평범. 4세대에서 가장 기억 안 나는 포켓몬 후보.",
+    415: "세꿀버리는 암컷만 비퀸으로 진화하고 수컷은 진화 불가. 암컷 확률이 12.5%라 잡을 때마다 성별 확인하는 고통. 수벌의 비애.",
+    416: "비퀸은 여왕벌 포켓몬. 전용기 3종(공격지시/방어지시/회복지시) 있는데 스탯이 애매해서 활용이 어려움. 컨셉은 좋은데 실전이 안 따라주는 타입.",
+    417: "파치리스는 2014년 VGC 세계대회 우승 포켓몬! 박세준 선수가 따라하기+뺨치기로 세계를 충격에 빠뜨림. 마스코트급 귀여움인데 세계 챔피언이라니.",
+    418: "브이젤은 물수달 포켓몬. 애니에서 지우의 포켓몬으로 꽤 활약했는데 게임에선 플로젤 쓰는 게 나음.",
+    419: "플로젤은 스위프트스윔+아쿠아제트 조합으로 비 팀에서 가끔 보임. 디자인은 귀여운데 수치가 부족해서 NU급.",
+    420: "체리버는 체리 모양 풀 포켓몬. 도감 채우기 외에 쓸 일이 없는 귀여운 과일.",
+    421: "체리꼬는 햇살 폼 바뀌면 꽃이 만개하는데 쾌청 팀 외에는 볼 일 없음. 폼체인지 중에서 가장 임팩트 없는 편.",
+    422: "깝질무는 동해/서해 폼이 있는 바다달팽이. 파란색과 분홍색 두 종류인데 트리토돈으로 가면 색 차이가 더 뚜렷해짐.",
+    423: "트리토돈은 폭풍의배수구 특성으로 물 기술 무효+특공 상승하는 대전 스테디셀러. 물/땅이라 약점 풀 하나뿐. 매 세대 OU~UU에서 꾸준히 활약하는 갓.",
+    424: "겟핸보숭은 테크니션+가짜울음+더블어택 쓰는 원숭이. 에이팜이 갑자기 꼬리가 두 개 되면서 진화. 근데 쓰는 사람을 별로 못 봄.",
+    425: "흔들풍손은 어린이를 납치하는 풍선 유령. 도감 설명이 소름끼치는데 디자인은 귀여움. 금요일에만 나타나는 설정 때문에 잡기 귀찮았던 기억.",
+    426: "둥실라이드는 HP가 높은 풍선 유령. 열풍+도깨비불 조합으로 운영하는데 수치가 애매해서 NU급. 날려버리기 특성 덕에 가끔 기습용으로 쓰임.",
+    427: "이어롤은 귀여운 토끼 포켓몬. 친밀도 진화라 껴안고 다녀야 하는데 진화하면 분위기가 확 바뀜.",
+    428: "이어롭은 메가진화하면 노말/격투가 되면서 대전 최상위급으로 등극. 메가이어롭의 돌격조끼+인파이트가 미쳤었음. 디자인이 너무 섹시해서 논란도 있었던.",
+    429: "무우마직은 마녀 컨셉 고스트. 특공 105에 기술폭 넓어서 트릭+구슬 조합으로 운영. 4세대에서 무우마가 드디어 진화 받아서 팬들 환호.",
+    430: "돈크로우는 마피아 보스 컨셉 새. 야미카라스한테 모자 하나 씌웠더니 갑자기 대부가 됨. 자신만만+불의일격 조합이 낭만. 속도가 아쉬움.",
+    431: "나옹마는 갤럭시단 화성의 포켓몬. 고양이 포켓몬 중에서는 존재감 약한 편. 그냥 귀여운 고양이.",
+    432: "몬냥이는 뚱뚱한 고양이인데 스피드 112가 말이 안 됨. 이 체형에 어떻게? 후불곰 표정에 치타 속도. 스탯 사기.",
+    433: "랑딸랑은 치렁 베이비 포켓몬. 울음소리가 딸랑딸랑해서 귀엽긴 한데 치렁 자체가 약해서 키울 이유가 없음.",
+    434: "스컹뿡은 스컹크 포켓몬. 독/악 타입인데 아기 때부터 악취가 진동. 4세대 초반에 잡으면 독 기술이 의외로 유용.",
+    435: "스컹탱크는 갤럭시단 목성의 에이스. 독/악이라 약점이 땅 하나뿐(요정 전). 대전에서도 의외로 쓸만한 깡 어태커. 냄새나는 놈이 강한 법.",
+    436: "동미러는 부유 특성 강철/에스퍼 거울. 약점 줄여주는 부유가 핵심인데 내열도 좋아서 뭘 쓸지 고민됨.",
+    437: "동탁군은 부유/내열 이중택일로 약점 관리하는 방어형 강자. 스텔스록+최면술+자이로볼 세팅이 악랄. 4세대 OU 철벽 세팅맨.",
+    438: "꼬지지는 울보 베이비 포켓몬. 눈물처럼 보이는 건 사실 체내 수분 조절용. 아무도 안 키우고 바로 나무돌이로 진화시킴.",
+    439: "흉내내는 마임맨 베이비. 따라하기가 귀엽긴 한데 마임맨으로 키울 거 아니면 의미 없음. 갈라르 마임맨은 인기 있었는데 원조는 글쎄.",
+    440: "핑복은 해피너스의 베이비. 둥근돌 들려야 진화하는데 럭키 자체가 대전에서 진화의휘석로 쓰여서 핑복은 묻힘.",
+    441: "페라페는 사람 말을 따라하는 음표 새. 경쟁전에서 마이크 어뷰징으로 밴당한 유일한 포켓몬. 수다 기술이 음성 녹음이라 욕설 송출 사건 발생.",
+    442: "화강돌은 108개 영혼이 합쳐진 유령. 페어리 나오기 전까지 약점 0개로 무적이었음. 신오의 봉인 이벤트가 미칠듯이 귀찮았던 추억.",
+    443: "딥상어동은 귀여운 아기 상어. 근데 이게 한카리아스가 된다? 디자인 갭이 역대급. 챔피언 난천의 에이스 출신이라 팬덤 인기 폭발.",
+    444: "한바이트는 딥상어동의 중간진화. 한카리아스 가는 경험치 구간인데 동굴에서 야생으로 나오면 짜증남.",
+    445: "한카리아스는 난천(시로나)의 에이스이자 4세대 600족. 102스피드+130공격에 칼춤 한번 추면 게임 끝. 메가진화까지 받아서 우버급. 역대 챔피언 에이스 중 가장 트라우마.",
+    446: "먹고자는 잠만보의 베이비. 설정상 자기 체중만큼 매일 먹음. 4세대 사전 공개 포켓몬으로 화제였는데 실전에선 잠만보가 나음.",
+    447: "리오르는 루카리오의 베이비. 친밀도+낮 조건 진화라 손이 많이 감. 파동 능력을 가진 아기인데 귀여워서 인형 판매량 최상위.",
+    448: "루카리오는 포켓몬 인기투표 부동의 Top 3. 파동 사용자 컨셉에 영화 주인공, 스매시 참전, 메가진화까지. 격투/강철에 적응력 메가진화는 대전에서도 최상위.",
+    449: "히포포타스는 모래날림 특성으로 날씨 세팅하는 하마. 입에 모래 가득한 디자인이 귀여움. 암수 색이 다른 것도 특징.",
+    450: "하마돈은 영구 모래바람 세팅맨. 게을러터+스텔스록+하품으로 깔짝대는 게 본업. 매 세대 모래 팀의 핵심. 입 크기가 경악 수준.",
+    451: "스콜피는 독/벌레 전갈 포켓몬. 진화하면 타입이 완전히 바뀌는 특이한 케이스.",
+    452: "드래피온은 독/악으로 벌레 타입이 사라진 전갈. 약점이 땅 하나뿐이라 의외로 단단함. 갤럭시단 화성의 에이스.",
+    453: "삐딱구리는 애니에서 웅이를 주먹으로 제압하는 개그 담당. 웅이가 여자한테 작업 걸 때마다 독찌르기로 저지. 포켓몬 역사상 최고의 츳코미.",
+    454: "독개굴은 건조피부+비 팀 조합으로 대전에서 활약. 독/격투에 진공파로 선제공격 가능. 삐딱구리 때의 개그는 온데간데없이 진지한 킬러.",
+    455: "무스틈니는 애니에서 로이(코지로)를 물어뜯는 파리채꽃. 우츠보트 이후 코지로 학대 전통 계승자. 실전에선 안 씀.",
+    456: "형광어는 네온 물고기 포켓몬. 존재감이 너무 없어서 4세대 통틀어 가장 잊혀진 포켓몬 후보.",
+    457: "네오라이트는 '가장 기억에 남지 않는 포켓몬' 투표 만년 1위. 디자인도 예쁜데 모든 면에서 평범해서 기억이 안 됨. 역설적으로 그게 밈이 됨.",
+    458: "타만타는 만타인의 베이비. 텟사이드를 파티에 넣어야 진화하는 조건이 독특. 귀여운데 그뿐.",
+    459: "눈쓰개는 싸라기눈 세팅용 풀/얼음. 4배 약점이 불이라 화력 기술 한방에 녹음. 눈설왕의 아기 버전.",
+    460: "눈설왕은 눈보라경고로 영구 싸라기눈. 메가진화 시 종족값 604로 준전설급. 4배 약점이 불이라 교체 타이밍이 중요. 싸라기눈 팀의 유일한 희망.",
+    461: "포푸니라는 속도 125+공격 120 물리 암살자. 얼음/악에 칼등치기+고드름침으로 선제 암살. 냉동펀치가 없어도 압도적 스피드로 밀어붙이는 타입.",
+    462: "자포코일은 특수 자석 지대에서 진화하는 코일 최종. 특공 130에 자력+10만볼트 화력이 미침. 강철/전기 방어 타입도 우수. 디자인이 UFO.",
+    463: "내루미는 아무도 안 원했던 진화. 혀가 뭐든 핥는 설정인데 디자인이 그냥 둥글어진 베로링가. 4세대 불필요한 진화 대표 주자.",
+    464: "거대코뿌리는 하드록 특성으로 효과발군 데미지 75%로 줄임. 공격 140에 HP 115로 우직하게 밀어붙이는 물리탱딜. 코뿌리에 프로텍터 교환진화.",
+    465: "덩쿠림보는 재생력 특성으로 교체만 해도 HP 회복하는 물리 수비 탱커. 잎사귀 촉수가 기분나쁘게 생김.",
+    466: "에레키블은 애니에서 진철(폴)의 에이스. 전기/크로스찹+불꽃펀치 범위 넓은 물리 어태커. 콘센트 꼬리 디자인이 독특한데 호불호 갈림.",
+    467: "마그마번은 팔에서 2000도 화염탄 발사하는 대포 포켓몬. 부스터보다 낫지만 에레키블보다 인기 없는 비운의 불꽃. 허리 뚱뚱한 게 아저씨 느낌.",
+    468: "토게키스는 천은+에어슬래시 6할 풀죽음 콤보의 악명. 운빨 게임의 상징. 맞으면서 못 움직이는 상대의 고통이 실시간으로 느껴지는 전법. 시로나도 씀.",
+    469: "메가자리는 가속 특성으로 매턴 속도 올리는 벌레/비행. 속도 올라가면서 벌레의떨림+에어슬래시로 밀어붙임. 잠자리가 거대화하면 이렇게 됨.",
+    470: "리피아는 이브이 풀 진화형. 이끼바위 근처에서 진화하는 독특한 조건. 리프블레이드+칼춤이 주력인데 얼음 기술에 한방 감이라 아쉬움.",
+    471: "글레이시아는 이브이 얼음 진화형. 특공 130이 높은데 얼음 타입 자체가 방어적으로 최악이라 쓰기 힘듦. 예쁜데 약한 비운의 브이즈.",
+    472: "글라이온은 독치유+독독구슬로 매턴 HP 12.5% 회복하는 스톨의 제왕. 지진+아이스팽 쓰면서 보호+칼등치기 깔짝. 지우의 포켓몬이기도 했는데 대전에선 악마.",
+    473: "맘모꾸리는 얼음/땅 매머드. 빛나의 포켓몬으로 애니 출연. 지진+고드름침+얼음뭉치 선제기로 드래곤 킬러 역할. 두꺼운지방 특성으로 불/얼음 반감.",
+    474: "폴리곤Z는 버그난 폴리곤. 적응력 특성으로 노말 기술 위력이 2배. 트릭룸 깔고 파괴광선 쏘면 뭐든 증발함. 설정상 오류 데이터라 움직임이 이상.",
+    475: "엘레이드는 가디안의 남성 대응. 기사 컨셉에 팔이 칼날. 메가진화 시 공격 165로 사이코커터+인파이트가 강력. 칼잡이인데 에스퍼라는 게 멋있음.",
+    476: "대코파스는 코파스에 철가루 콧수염이 달린 나침반. 디자인이 너무 웃겨서 밈 소재. 마리오 닮았다는 말도 있음. 자력 특성으로 교체 방지.",
+    477: "야느와르몽은 애니에서 배신 아크로 유명. 밤유랑에 진화의기묘한선물 줬더니 갑자기 강해진 케이스. 트릭룸+격투예지 세팅이 강력한 고스트.",
+    478: "눈여아는 설녀 모티브 얼음/고스트. 미모에 속아 접근하면 얼려 죽이는 설정. 원래 버려진 여성의 원혼이라는 무서운 도감 설명. 도깨비불+저주.",
+    479: "로토무는 가전제품에 빙의하는 유령 포켓몬. 세탁기/전자레인지/선풍기/냉장고/잔디깎이 폼 중 세탁기가 대전 최강. 8세대부턴 도감이 됨. 로또무또또무.",
+    480: "유크시는 지식의 호수 정령. 눈을 마주치면 기억이 사라진다는 설정. 스텔스록+하품+순풍 서포터로 쓰이는데 3마리 중 가장 방어적.",
+    481: "엠라이트는 감정의 호수 정령. 돌아다닌다는 설정 때문에 DP에서 배회 전설로 잡기 귀찮았음. 3호수 정령 중 가장 잡기 어려운 놈.",
+    482: "아그놈은 의지의 호수 정령. 3마리 중 공격 스탯이 가장 높아서 대전에서도 가장 많이 쓰임. 대폭발+스텔스록 리드가 주특기.",
+    483: "디아루가는 시간을 지배하는 신. 드래곤/강철이라 약점이 격투/땅뿐으로 방어 타입 최강급. 시간의포효가 간지. 레전즈 아르세우스에서 기원의 모습으로 재조명.",
+    484: "펄기아는 공간을 지배하는 신인데 팔 디자인이 밈. 아쿠아링 끼고 있는 것처럼 보여서 '하이펄기아' 짤 양산. 레전즈 아르세우스 기원폼은 평가가 더 갈림.",
+    485: "히드런은 화산 전설 포켓몬. 불/강철에 불꽃방사+대지의힘+용의파동 범위가 넓음. 매 세대 OU 꾸준히 활약하는 대전 스테디셀러. 엉덩이로 기어다니는 게 특징.",
+    486: "레지기가스는 종족값 670인데 슬로스타트 때문에 5턴간 공격/스피드 반감. 설정상 대륙을 끌었는데 게임프릭이 너프를 너무 함. 역대급 특성 저주 피해자.",
+    487: "기라티나는 반물질 세계의 지배자. 포켓몬판 사탄으로 아르세우스에게 추방당한 설정. 오리진폼은 부유+그림자뛰기로 OU~우버에서 활약. 플라티나 표지 전설.",
+    488: "크레세리아는 반달 전설. HP+방어+특방 전부 높아서 독독+달의빛 스톨이 악명 높음. 상대하면 10분은 기본. 다크라이와 대비되는 꿈의 수호자.",
+    489: "피오네는 마나피 알에서 태어나는데 전설이냐 아니냐 논쟁이 끝나지 않음. 환상이면서 종족값 480이라 아무도 안 씀. 정체성 위기의 포켓몬.",
+    490: "마나피는 극장판 주인공. 하트스왑으로 능력 교환하는 게 시그니처. 바다의 왕자 설정인데 실전에선 꼬리물기+비 팀 조합으로 운영. 귀여운 물방울.",
+    491: "다크라이는 다크홀+나이트메어 콤보로 대전에서 밴. 잠재우고 매턴 HP 깎는 악몽 같은 전법 때문에 우버에서도 금지. 극장판 악역이 역대급으로 간지.",
+    492: "쉐이미는 땅 폼은 귀여운 고슴도치인데 스카이폼은 속도 127+에어슬래시 풀죽음. 시드플레어로 특방 2단계 다운시키는 개사기. 폼 차이가 극단적.",
+    493: "아르세우스는 포켓몬 세계의 창조신. 종족값 720에 심판의뭉치로 모든 타입 가능. 레전즈 아르세우스로 단독 게임까지 받은 갓갓. 비버니와 동급이라는 건 밈.",
 }
 
 
 
 # 4~9세대 대표 포켓몬 이름 (한국어) — "아직 업데이트 안 됨" 안내용
 _FUTURE_GEN_POKEMON = {
-    # 4세대
-    "모부기", "수풀부기", "토대부기", "불꽃숭이", "파이숭이", "초염몽", "팽도리", "팽태자", "엠페르트",
-    "찌르꼬", "찌르버드", "찌르레기", "비달", "비버네일", "코링크", "럭시오", "렌트라",
-    "두꺼비", "독개굴", "파치리스", "브이젤", "플로젤", "체리버", "체리꼬",
-    "동풍박쥐", "동풍바구", "루카리오", "리올루", "히포포타스", "하마돈", "스콜피", "드래피온",
-    "삐뚤기", "대포탑", "진화기", "드래", "갈레이드", "뚜벅쵸", "무장조",
-    "로토무", "유크시", "에무리트", "아그놈", "디아루가", "펄기아", "기라티나",
-    "크레세리아", "다크라이", "쉐이미", "아르세우스",
     # 5세대
     "주리비얀", "샤비", "염무왕", "뚜꾸리", "챠오꾸리", "대검귀",
     "수댕이", "쌍검귀", "대검귀", "조로아", "조로아크",
@@ -1851,14 +1991,14 @@ _FUTURE_GEN_POKEMON = {
 }
 
 
-async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
+async def _show_pokemon_detail(update: Update, user_id: int, name_query: str, lang: str = "ko"):
     """Show detailed info for a specific Pokemon."""
     # Check if it's a future-gen pokemon
     for future_name in _FUTURE_GEN_POKEMON:
         if name_query == future_name or (len(name_query) >= 2 and name_query in future_name):
             await update.message.reply_text(
-                f"'{name_query}' 포켓몬은 현재 3세대(호연)까지만 업데이트되어 있습니다.\n"
-                "4세대 이후 포켓몬은 추후 업데이트 예정입니다!"
+                f"'{name_query}' 포켓몬은 현재 4세대(신오)까지만 업데이트되어 있습니다.\n"
+                "5세대 이후 포켓몬은 추후 업데이트 예정입니다!"
             )
             return
 
@@ -1877,7 +2017,7 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
     owned = f"{icon_emoji('check')} 보유 중" if pid in caught_ids else "❌ 미보유"
 
     # Evolution chain
-    evo_line = await _build_evo_chain(pokemon)
+    evo_line = await _build_evo_chain(pokemon, lang=lang)
 
     # TMI
     tmi = POKEMON_TMI.get(pid, "")
@@ -1901,7 +2041,7 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
         stage_label = "단일"
 
     lines = [
-        f"No.{pid:03d} {pokemon['name_ko']} ({pokemon['name_en']})",
+        f"No.{pid:03d} {poke_name(pokemon, lang)} ({pokemon['name_en']})",
         f"등급: {rarity_text}",
         f"타입: {tb}{type_names}",
         f"포획률: {int(pokemon['catch_rate'] * 100)}% (하이퍼볼 {min(100, int(pokemon['catch_rate'] * config.HYPER_BALL_CATCH_MULTIPLIER * 100))}%)",
@@ -1909,9 +2049,20 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
     ]
 
     if evo_line:
-        # Bold the current pokemon in the chain (토큰 단위로 정확히 매칭)
+        # Bold the current pokemon in the chain (분기진화 "A / B" 지원)
         parts = evo_line.split(" → ")
-        evo_parts = [f"<b>[{p}]</b>" if p == pokemon['name_ko'] else p for p in parts]
+        evo_parts = []
+        _my_name = poke_name(pokemon, lang)
+        for p in parts:
+            if p == _my_name:
+                evo_parts.append(f"<b>[{p}]</b>")
+            elif "/" in p and _my_name in p:
+                # 분기진화: "가디안 / 엘레이드" 에서 현재 포켓몬만 bold
+                branch_names = [n.strip() for n in p.split("/")]
+                bolded = [f"<b>[{n}]</b>" if n == _my_name else n for n in branch_names]
+                evo_parts.append(" / ".join(bolded))
+            else:
+                evo_parts.append(p)
         evo_display = " → ".join(evo_parts)
         lines.append(f"\n📊 진화: {evo_display} ({stage_label})")
 
@@ -1936,8 +2087,10 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str):
     await update.message.reply_photo(photo=card_buf, caption=caption, parse_mode="HTML")
 
 
-async def _build_evo_chain(pokemon: dict) -> str:
-    """Build evolution chain string like 파이리 → 리자드 → 리자몽"""
+async def _build_evo_chain(pokemon: dict, lang: str = "ko") -> str:
+    """Build evolution chain string like 파이리 → 리자드 → 리자몽
+    분기진화(킬리아→가디안/엘레이드 등) 지원.
+    """
     chain = []
 
     # Go to the base form
@@ -1948,14 +2101,41 @@ async def _build_evo_chain(pokemon: dict) -> str:
             break
         current = prev
 
-    # Walk forward
+    # Walk forward (분기진화 처리)
     while current:
-        chain.append(current['name_ko'])
-        if current.get("evolves_to"):
+        pid = current.get("id") or current.get("pokemon_id")
+        chain.append(poke_name(current, lang))
+
+        # 분기진화 체크
+        branch_targets = config.BRANCH_EVOLUTIONS.get(pid)
+        if branch_targets and len(branch_targets) > 1:
+            # 분기진화: "가디안 / 엘레이드" 형태
+            names = []
+            for tid in branch_targets:
+                t = await queries.get_pokemon(tid)
+                if t:
+                    names.append(poke_name(t, lang))
+            if names:
+                chain.append(" / ".join(names))
+            break
+        elif current.get("evolves_to"):
             nxt = await queries.get_pokemon(current["evolves_to"])
             current = nxt
         else:
             break
+
+    # 현재 포켓몬이 분기진화 결과물인데 chain에 안 들어간 경우 보정
+    # (예: 엘레이드 → evolves_from=킬리아이지만, 킬리아의 evolves_to=가디안)
+    target_pid = pokemon.get("id") or pokemon.get("pokemon_id")
+    target_name = poke_name(pokemon, lang)
+    if target_name not in " / ".join(chain) and target_name not in chain:
+        # 분기진화 결과물인지 확인
+        for _base_id, _targets in config.BRANCH_EVOLUTIONS.items():
+            if target_pid in _targets:
+                # 체인 마지막 요소가 "가디안 / 엘레이드" 형태이면 이미 포함됨
+                if chain and "/" in chain[-1] and target_name in chain[-1]:
+                    break
+                break
 
     return " → ".join(chain) if len(chain) > 1 else ""
 
@@ -2044,9 +2224,10 @@ async def title_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -2077,6 +2258,7 @@ async def title_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = query.from_user.id
+    lang = await get_user_lang(user_id)
     unlocked = await queries.get_user_titles(user_id)
     unlocked_ids = {ut["title_id"] for ut in unlocked}
 
@@ -2158,7 +2340,8 @@ async def title_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(user_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
     # Check and unlock any new titles first
@@ -2201,6 +2384,7 @@ async def title_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = query.from_user.id
+    lang = await get_user_lang(user_id)
     unlocked = await queries.get_user_titles(user_id)
     user = await queries.get_user(user_id)
     current_title = user.get("title", "") if user else ""
@@ -2221,6 +2405,7 @@ async def title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.answer()
     user_id = query.from_user.id
+    lang = await get_user_lang(user_id)
     title_id = query.data.replace("title_", "")
 
     if title_id == "none":
@@ -2276,7 +2461,8 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(user_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
     from database import battle_queries as bq
@@ -2284,11 +2470,13 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from models.pokemon_skills import POKEMON_SKILLS
     from models.pokemon_base_stats import POKEMON_BASE_STATS
 
-    user = await queries.get_user(user_id)
-    pokemon_list = await queries.get_user_pokemon_list(user_id)
-    partner = await bq.get_partner(user_id)
-    team = await bq.get_battle_team(user_id)
-    battle_stats = await bq.get_battle_stats(user_id)
+    user, pokemon_list, partner, team, battle_stats = await asyncio.gather(
+        queries.get_user(user_id),
+        queries.get_user_pokemon_list(user_id),
+        bq.get_partner(user_id),
+        bq.get_battle_team(user_id),
+        bq.get_battle_stats(user_id),
+    )
     master_balls = user.get("master_balls", 0) if user else 0
     bp = battle_stats.get("battle_points", 0)
 
@@ -2299,22 +2487,26 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         badge = resolve_title_badge(title_emoji_raw, title)
         title_text = f"「{badge} {title}」"
     else:
-        title_text = "없음"
+        title_text = t(lang, "common.none")
 
-    lines = [f"{icon_emoji('bookmark')} {display_name}님의 상태창\n"]
+    lines = [f"{icon_emoji('bookmark')} {t(lang, 'status_view.header', name=display_name)}\n"]
 
     # 기본 정보
-    lines.append(f"🏷️ 칭호: {title_text}")
-    lines.append(f"{ball_emoji('masterball')} 마스터볼: {master_balls}개")
+    lines.append(f"🏷️ {t(lang, 'status_view.title_label')} {title_text}")
+    lines.append(f"{ball_emoji('masterball')} {t(lang, 'status_view.masterball_label')} {t(lang, 'status_view.count_unit', n=master_balls)}")
     lines.append(f"{icon_emoji('coin')} BP: {bp}")
-    lines.append(f"{icon_emoji('container')} 보유 포켓몬: {len(pokemon_list)}마리")
+    lines.append(f"{icon_emoji('container')} {t(lang, 'status_view.pokemon_count', n=len(pokemon_list))}")
 
-    # 도감 수 (pokedex 테이블 기준 — 방생해도 유지)
-    pokedex_count = await queries.count_pokedex(user_id)
+    # 도감 수 (pokedex 테이블 기준 — 방생해도 유지) — 팀2/활성팀도 미리 로드
+    pokedex_count, active_num, team2 = await asyncio.gather(
+        queries.count_pokedex(user_id),
+        bq.get_active_team_number(user_id),
+        bq.get_battle_team(user_id, 2),
+    )
     shiny_count = sum(1 for p in pokemon_list if p.get("is_shiny"))
-    lines.append(f"{icon_emoji('pokedex')} 도감: {pokedex_count}/386종")
+    lines.append(f"{icon_emoji('pokedex')} {t(lang, 'status_view.pokedex_count', n=pokedex_count)}")
     if shiny_count > 0:
-        lines.append(f"{shiny_emoji()} 이로치: {shiny_count}마리")
+        lines.append(f"{shiny_emoji()} {t(lang, 'status_view.shiny_count', n=shiny_count)}")
 
     # 배틀 전적
     wins = battle_stats.get("battle_wins", 0)
@@ -2322,9 +2514,9 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total = wins + losses
     win_rate = f"{wins / total * 100:.0f}%" if total > 0 else "-"
     best = battle_stats.get("best_streak", 0)
-    lines.append(f"\n{icon_emoji('battle')} 배틀 전적: {wins}승 {losses}패 (승률 {win_rate})")
+    lines.append(f"\n{icon_emoji('battle')} {t(lang, 'status_view.battle_record', w=wins, l=losses, rate=win_rate)}")
     if best > 0:
-        lines.append(f"🔥 최고 연승: {best}연승")
+        lines.append(f"🔥 {t(lang, 'status_view.best_streak', n=best)}")
 
     # 파트너
     lines.append("")
@@ -2342,50 +2534,48 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tb = type_badge(partner["pokemon_id"], partner["pokemon_type"])
         pbs = POKEMON_BASE_STATS.get(partner["pokemon_id"])
         if pbs:
-            type_name = "/".join(config.TYPE_NAME_KO.get(t, t) for t in pbs[-1])
+            type_name = "/".join(t(lang, f"type.{tp}") for tp in pbs[-1])
         else:
-            type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
+            type_name = t(lang, f"type.{partner['pokemon_type']}")
         from models.pokemon_skills import get_skill_display
         _skill_disp = get_skill_display(partner["pokemon_id"])
-        lines.append(f"{icon_emoji('pokemon-love')} 파트너: {tb} {partner['name_ko']}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}")
-        lines.append(f"   {icon_emoji('favorite')} 친밀도: {hearts_display(partner['friendship'])}")
-        lines.append(f"   {icon_emoji('stationery')} {format_stats_line(stats, base)}")
-        lines.append(f"   {icon_emoji('skill')} 기술: {_skill_disp}")
+        lines.append(f"{icon_emoji('pokemon-love')} {t(lang, 'status_view.partner_label')} {tb} {poke_name(partner, lang)}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}")
+        lines.append(f"   {icon_emoji('favorite')} {t(lang, 'status_view.friendship_label')} {hearts_display(partner['friendship'])}")
+        lines.append(f"   {icon_emoji('stationery')} {format_stats_line(stats, base, lang=lang)}")
+        lines.append(f"   {icon_emoji('skill')} {t(lang, 'status_view.skill_label')} {_skill_disp}")
     else:
-        lines.append(f"{icon_emoji('pokemon-love')} 파트너: 미지정 ('파트너' 명령어로 설정)")
+        lines.append(f"{icon_emoji('pokemon-love')} {t(lang, 'status_view.partner_label')} {t(lang, 'status_view.partner_none')}")
 
-    # 팀
-    active_num = await bq.get_active_team_number(user_id)
-    team2 = await bq.get_battle_team(user_id, 2)
+    # 팀 (active_num, team2는 위에서 미리 로드됨)
     lines.append("")
     if team:
-        lines.append(f"{icon_emoji('battle')} 배틀팀 {active_num} ({len(team)}/6)")
+        lines.append(f"{icon_emoji('battle')} {t(lang, 'status_view.team_header', num=active_num, count=len(team))}")
         total_power = 0
         total_base_power = 0
-        for i, t in enumerate(team, 1):
-            _t_base = get_normalized_base_stats(t["pokemon_id"])
-            evo = 3 if _t_base else EVO_STAGE_MAP.get(t["pokemon_id"], 3)
+        for i, tm in enumerate(team, 1):
+            _t_base = get_normalized_base_stats(tm["pokemon_id"])
+            evo = 3 if _t_base else EVO_STAGE_MAP.get(tm["pokemon_id"], 3)
             stats = calc_battle_stats(
-                t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo,
-                iv_hp=t.get("iv_hp"), iv_atk=t.get("iv_atk"),
-                iv_def=t.get("iv_def"), iv_spa=t.get("iv_spa"),
-                iv_spdef=t.get("iv_spdef"), iv_spd=t.get("iv_spd"),
+                tm["rarity"], tm["stat_type"], tm["friendship"], evo_stage=evo,
+                iv_hp=tm.get("iv_hp"), iv_atk=tm.get("iv_atk"),
+                iv_def=tm.get("iv_def"), iv_spa=tm.get("iv_spa"),
+                iv_spdef=tm.get("iv_spdef"), iv_spd=tm.get("iv_spd"),
                 **(_t_base or {}),
             )
-            tbase = calc_battle_stats(t["rarity"], t["stat_type"], t["friendship"], evo_stage=evo, **(_t_base or {}))
+            tbase = calc_battle_stats(tm["rarity"], tm["stat_type"], tm["friendship"], evo_stage=evo, **(_t_base or {}))
             total_power += calc_power(stats)
             total_base_power += calc_power(tbase)
             from models.pokemon_skills import get_skill_display
-            _skill_disp = get_skill_display(t["pokemon_id"])
-            ttb = type_badge(t["pokemon_id"], t.get("pokemon_type"))
-            lines.append(f"  {i}. {ttb} {t['name_ko']}  {icon_emoji('skill')}{_skill_disp}  {icon_emoji('bolt')}{format_power(stats, tbase)}")
+            _skill_disp = get_skill_display(tm["pokemon_id"])
+            ttb = type_badge(tm["pokemon_id"], tm.get("pokemon_type"))
+            lines.append(f"  {i}. {ttb} {poke_name(tm, lang)}  {icon_emoji('skill')}{_skill_disp}  {icon_emoji('bolt')}{format_power(stats, tbase)}")
         iv_diff = total_power - total_base_power
         total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
-        lines.append(f"  {icon_emoji('bolt')} 팀 전투력: {total_tag}")
+        lines.append(f"  {icon_emoji('bolt')} {t(lang, 'status_view.team_power', power=total_tag)}")
         if team2:
-            lines.append(f"  (팀2 등록됨: {len(team2)}마리)")
+            lines.append(f"  {t(lang, 'status_view.team2_info', n=len(team2))}")
     else:
-        lines.append(f"{icon_emoji('battle')} 배틀팀: 미등록 ('팀등록' 명령어로 설정)")
+        lines.append(f"{icon_emoji('battle')} {t(lang, 'status_view.team_none')}")
 
     # 아이템
     arcade_tickets = await queries.get_arcade_tickets(user_id)
@@ -2393,25 +2583,86 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if arcade_tickets > 0 or hyper_balls > 0:
         lines.append("")
     if arcade_tickets > 0:
-        lines.append(f"{icon_emoji('game')} 아케이드 티켓: {arcade_tickets}개")
+        lines.append(f"{icon_emoji('game')} {t(lang, 'status_view.arcade_ticket', n=arcade_tickets)}")
     if hyper_balls > 0:
-        lines.append(f"{ball_emoji('hyperball')} 하이퍼볼: {hyper_balls}개")
+        lines.append(f"{ball_emoji('hyperball')} {t(lang, 'status_view.hyperball_label', n=hyper_balls)}")
 
-    # DM 메뉴 키보드
-    menu_keyboard = ReplyKeyboardMarkup(
+    # 조각 / 결정
+    fragments = await cq.get_user_fragments(user_id)
+    uni_frags = await queries.get_universal_fragments(user_id)
+    crystals = await cq.get_crystals(user_id)
+    total_frags = sum(fragments.values()) + uni_frags
+    crystal_count = crystals.get("crystal", 0)
+    rainbow_count = crystals.get("rainbow", 0)
+    if total_frags > 0 or crystal_count > 0 or rainbow_count > 0:
+        lines.append("")
+        frag_parts = []
+        if total_frags > 0:
+            frag_parts.append(f"🧩 {t(lang, 'status_view.fragment_label', n=total_frags)}")
+        if crystal_count > 0:
+            frag_parts.append(f"💎 {t(lang, 'status_view.crystal_label', n=crystal_count)}")
+        if rainbow_count > 0:
+            frag_parts.append(f"🌈 {t(lang, 'status_view.rainbow_label', n=rainbow_count)}")
+        lines.append(" / ".join(frag_parts) + f" {t(lang, 'status_view.item_detail_hint')}")
+
+    # 상태창 인라인 버튼 (칭호 바로가기)
+    inline_kb = InlineKeyboardMarkup([
         [
-            ["📋 상태창", "📦 내포켓몬"],
-            ["🏕 캠프", "🎰 뽑기"],
-            ["📌 미션", "🏪 상점"],
-            ["🏷️ 칭호", "⚔️ 랭크전"],
-            ["💎 프리미엄", "🤝 파트너"],
-            ["🛒 거래소", "❓ 도움말"],
+            InlineKeyboardButton(f"🏷️ {t(lang, 'status_view.btn_title')}", callback_data=f"status_title_{user_id}"),
+            InlineKeyboardButton(f"📖 {t(lang, 'status_view.btn_pokedex')}", callback_data=f"status_dex_{user_id}"),
         ],
-        resize_keyboard=True,
-        input_field_placeholder="명령어를 선택하세요",
-    )
+    ])
 
-    await update.message.reply_text("\n".join(lines), reply_markup=menu_keyboard, parse_mode="HTML")
+    await update.message.reply_text("\n".join(lines), reply_markup=inline_kb, parse_mode="HTML")
+
+
+async def status_inline_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle status_title / status_dex inline button callbacks."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+    await query.answer()
+
+    data = query.data
+    user_id = query.from_user.id
+
+    if data.startswith("status_title_"):
+        # 칭호 선택 페이지 표시
+        from utils.title_checker import check_and_unlock_titles
+        await check_and_unlock_titles(user_id)
+
+        lang = await get_user_lang(user_id)
+        unlocked = await queries.get_user_titles(user_id)
+        user = await queries.get_user(user_id)
+        current_title = user.get("title", "") if user else ""
+
+        if not unlocked:
+            await query.edit_message_text(
+                f"🏷️ {t(lang, 'status_view.no_titles')}"
+            )
+            return
+
+        text, markup = _build_title_select_page(unlocked, current_title, 0)
+        await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+    elif data.startswith("status_dex_"):
+        # 도감 첫 페이지를 새 메시지로 전송
+        lang = await get_user_lang(user_id)
+        display_name = query.from_user.first_name or t(lang, "common.trainer")
+        filt = _get_dex_filter(context)
+
+        pokedex, user, all_pokemon = await asyncio.gather(
+            queries.get_user_pokedex(user_id),
+            queries.get_user(user_id),
+            queries.get_all_pokemon(),
+        )
+        caught_ids = {p["pokemon_id"]: p for p in pokedex}
+        title_part = f" {user['title_emoji']} {user['title']}" if user and user["title"] else ""
+
+        text_msg, markup = _build_dex_view(
+            user_id, display_name, title_part, all_pokemon, caught_ids, 0, filt, lang=lang,
+        )
+        await query.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
 
 
 # ============================================================
@@ -2424,9 +2675,10 @@ async def appraisal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -2470,7 +2722,7 @@ async def appraisal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Build display
     shiny = shiny_emoji() if pokemon.get("is_shiny") else ""
     rb = rarity_badge(pokemon.get("rarity", "common"))
-    name = pokemon["name_ko"]
+    name = poke_name(pokemon, lang)
 
     stat_labels = {
         "HP": "HP   ", "ATK": "공격 ", "DEF": "방어 ",
@@ -2518,6 +2770,7 @@ async def type_chart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Handle '상성 [타입]' command — show type effectiveness."""
     if not update.effective_user or not update.message:
         return
+    lang = await get_user_lang(update.effective_user.id)
 
     text = update.message.text or ""
     name_arg = parse_name_arg(text)

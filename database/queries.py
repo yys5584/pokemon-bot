@@ -364,16 +364,26 @@ async def get_pokemon(pokemon_id: int) -> dict | None:
 
 
 async def search_pokemon_by_name(name: str) -> dict | None:
-    """Search pokemon_master by Korean name (exact or partial, min 2 chars)."""
+    """Search pokemon_master by name (Korean or English, exact or partial, min 2 chars)."""
     await _load_pokemon_cache()
-    # Exact match
+    # Exact match (Korean)
     if name in _pokemon_by_name:
         return _pokemon_by_name[name]
-    # Partial match (require at least 2 characters to avoid over-matching)
+    # Exact match (English, case-insensitive)
+    name_lower = name.lower()
+    for pid, p in _pokemon_cache.items():
+        if p.get("name_en", "").lower() == name_lower:
+            return p
+    # Partial match (require at least 2 characters)
     if len(name) >= 2:
+        # Korean partial
         for k, v in _pokemon_by_name.items():
             if name in k:
                 return v
+        # English partial (case-insensitive)
+        for pid, p in _pokemon_cache.items():
+            if name_lower in p.get("name_en", "").lower():
+                return p
     return None
 
 
@@ -478,15 +488,16 @@ async def get_user_pokemon_by_index(user_id: int, index: int) -> dict | None:
 
 
 async def get_user_pokemon_by_name(user_id: int, name: str) -> dict | None:
-    """Get user's Pokemon by name (Korean). Returns first match."""
+    """Get user's Pokemon by name (Korean or English). Returns first match."""
     pokemon_list = await get_user_pokemon_list(user_id)
     name_lower = name.strip().lower()
+    # Exact match (ko or en)
     for p in pokemon_list:
-        if p["name_ko"].lower() == name_lower:
+        if p["name_ko"].lower() == name_lower or p.get("name_en", "").lower() == name_lower:
             return p
     # Partial match fallback
     for p in pokemon_list:
-        if name_lower in p["name_ko"].lower():
+        if name_lower in p["name_ko"].lower() or name_lower in p.get("name_en", "").lower():
             return p
     return None
 
@@ -699,14 +710,15 @@ async def get_lv8_plus_chats():
 
 
 async def find_user_pokemon_by_name(user_id: int, name: str) -> dict | None:
-    """Find a user's active Pokemon by Korean name."""
+    """Find a user's active Pokemon by name (Korean or English)."""
     pool = await get_db()
     row = await pool.fetchrow(
         """SELECT up.*, pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
                   pm.evolves_to, pm.evolution_method
            FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
-           WHERE up.user_id = $1 AND up.is_active = 1 AND pm.name_ko = $2
+           WHERE up.user_id = $1 AND up.is_active = 1
+             AND (pm.name_ko = $2 OR LOWER(pm.name_en) = LOWER($2))
            ORDER BY up.id LIMIT 1""",
         user_id, name,
     )
@@ -714,14 +726,15 @@ async def find_user_pokemon_by_name(user_id: int, name: str) -> dict | None:
 
 
 async def find_all_user_pokemon_by_name(user_id: int, name: str) -> list[dict]:
-    """Find ALL active Pokemon of a user by Korean name (for duplicates)."""
+    """Find ALL active Pokemon of a user by name (Korean or English)."""
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT up.*, pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
                   pm.evolves_to, pm.evolution_method
            FROM user_pokemon up
            JOIN pokemon_master pm ON up.pokemon_id = pm.id
-           WHERE up.user_id = $1 AND up.is_active = 1 AND pm.name_ko = $2
+           WHERE up.user_id = $1 AND up.is_active = 1
+             AND (pm.name_ko = $2 OR LOWER(pm.name_en) = LOWER($2))
            ORDER BY up.id""",
         user_id, name,
     )
@@ -889,7 +902,7 @@ async def record_spawn_in_chat(chat_id: int):
 
 async def create_spawn_session(
     chat_id: int, pokemon_id: int, expires_at, message_id: int | None = None,
-    is_shiny: bool = False,
+    is_shiny: bool = False, is_newbie_spawn: bool = False,
 ) -> int:
     async def _do():
         pool = await get_db()
@@ -899,9 +912,9 @@ async def create_spawn_session(
         else:
             exp = expires_at
         row = await pool.fetchrow(
-            """INSERT INTO spawn_sessions (chat_id, pokemon_id, expires_at, message_id, is_shiny)
-               VALUES ($1, $2, $3, $4, $5) RETURNING id""",
-            chat_id, pokemon_id, exp, message_id, 1 if is_shiny else 0,
+            """INSERT INTO spawn_sessions (chat_id, pokemon_id, expires_at, message_id, is_shiny, is_newbie_spawn)
+               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""",
+            chat_id, pokemon_id, exp, message_id, 1 if is_shiny else 0, 1 if is_newbie_spawn else 0,
         )
         return row["id"]
     return await _retry(_do)
@@ -913,7 +926,7 @@ async def get_active_spawn(chat_id: int) -> dict | None:
     async def _do():
         pool = await get_db()
         row = await pool.fetchrow(
-            """SELECT ss.*, pm.name_ko, pm.emoji, pm.rarity, pm.catch_rate
+            """SELECT ss.*, pm.name_ko, pm.name_en, pm.emoji, pm.rarity, pm.catch_rate
                FROM spawn_sessions ss
                JOIN pokemon_master pm ON ss.pokemon_id = pm.id
                WHERE ss.chat_id = $1 AND ss.is_resolved = 0
@@ -923,6 +936,15 @@ async def get_active_spawn(chat_id: int) -> dict | None:
         )
         return dict(row) if row else None
     return await _retry(_do)
+
+
+async def get_spawn_session_by_id(session_id: int) -> dict | None:
+    """Get spawn session by ID (for challenge verification)."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT * FROM spawn_sessions WHERE id = $1", session_id,
+    )
+    return dict(row) if row else None
 
 
 async def close_spawn_session(session_id: int, caught_by: int | None = None):
@@ -1525,7 +1547,7 @@ async def get_active_listings(
     params.append(page * page_size)
     rows = await pool.fetch(
         f"""SELECT ml.*, u.display_name AS seller_name,
-                  pm.emoji, pm.rarity,
+                  pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
                   up.iv_hp, up.iv_atk, up.iv_def,
                   up.iv_spa, up.iv_spdef, up.iv_spd,
                   up.friendship
@@ -1645,7 +1667,7 @@ async def get_listing_by_id(listing_id: int) -> dict | None:
     pool = await get_db()
     row = await pool.fetchrow(
         """SELECT ml.*, u.display_name AS seller_name,
-                  pm.emoji, pm.rarity,
+                  pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
                   pm.evolution_method, pm.evolves_to,
                   up.iv_hp, up.iv_atk, up.iv_def,
                   up.iv_spa, up.iv_spdef, up.iv_spd,
@@ -1664,7 +1686,7 @@ async def get_user_active_listings(user_id: int) -> list[dict]:
     """Get all active listings by a specific user."""
     pool = await get_db()
     rows = await pool.fetch(
-        """SELECT ml.*, pm.emoji, pm.rarity
+        """SELECT ml.*, pm.name_ko, pm.name_en, pm.emoji, pm.rarity
            FROM market_listings ml
            JOIN pokemon_master pm ON ml.pokemon_id = pm.id
            WHERE ml.seller_id = $1 AND ml.status = 'active'
@@ -1696,15 +1718,17 @@ async def search_listings(pokemon_name: str, page: int = 0, page_size: int = 5) 
     pool = await get_db()
     pattern = f"%{pokemon_name}%"
     count_row = await pool.fetchrow(
-        """SELECT COUNT(*) AS cnt FROM market_listings
-           WHERE status = 'active' AND pokemon_name LIKE $1
-           AND created_at > NOW() - INTERVAL '7 days'""",
+        """SELECT COUNT(*) AS cnt FROM market_listings ml
+           JOIN pokemon_master pm ON ml.pokemon_id = pm.id
+           WHERE ml.status = 'active'
+             AND (ml.pokemon_name LIKE $1 OR pm.name_en ILIKE $1)
+             AND ml.created_at > NOW() - INTERVAL '7 days'""",
         pattern,
     )
     total = count_row["cnt"]
     rows = await pool.fetch(
         """SELECT ml.*, u.display_name AS seller_name,
-                  pm.emoji, pm.rarity,
+                  pm.name_ko, pm.name_en, pm.emoji, pm.rarity,
                   up.iv_hp, up.iv_atk, up.iv_def,
                   up.iv_spa, up.iv_spdef, up.iv_spd,
                   up.friendship
@@ -1712,8 +1736,9 @@ async def search_listings(pokemon_name: str, page: int = 0, page_size: int = 5) 
            JOIN users u ON ml.seller_id = u.user_id
            JOIN pokemon_master pm ON ml.pokemon_id = pm.id
            JOIN user_pokemon up ON ml.pokemon_instance_id = up.id
-           WHERE ml.status = 'active' AND ml.pokemon_name LIKE $1
-           AND ml.created_at > NOW() - INTERVAL '7 days'
+           WHERE ml.status = 'active'
+             AND (ml.pokemon_name LIKE $1 OR pm.name_en ILIKE $1)
+             AND ml.created_at > NOW() - INTERVAL '7 days'
            ORDER BY ml.created_at DESC
            LIMIT $2 OFFSET $3""",
         pattern, page_size, page * page_size,
@@ -2059,6 +2084,7 @@ async def get_user_rankings(limit: int = 20) -> list[dict]:
                   COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id <= 151) as gen1_count,
                   COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id >= 152 AND p.pokemon_id <= 251) as gen2_count,
                   COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id >= 252 AND p.pokemon_id <= 386) as gen3_count,
+                  COUNT(p.pokemon_id) FILTER (WHERE p.pokemon_id >= 387 AND p.pokemon_id <= 493) as gen4_count,
                   COUNT(p.pokemon_id) as pokedex_count
            FROM users u
            LEFT JOIN pokedex p ON u.user_id = p.user_id
@@ -2573,15 +2599,33 @@ async def count_total_catches_bulk(user_ids: list[int]) -> dict[int, int]:
     return {r["user_id"]: r["cnt"] for r in rows}
 
 
+async def count_pokedex_bulk(user_ids: list[int]) -> dict[int, int]:
+    """유저별 도감 보유 종 수 (뉴비 스폰 티어 판별용)."""
+    if not user_ids:
+        return {}
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT user_id, COUNT(DISTINCT pokemon_id) AS cnt
+           FROM user_pokemon
+           WHERE user_id = ANY($1::bigint[])
+           GROUP BY user_id""",
+        user_ids,
+    )
+    return {r["user_id"]: r["cnt"] for r in rows}
+
+
 # ============================================================
 # KPI Report Queries (일일/주간 리포트용)
 # ============================================================
 
-async def kpi_daily_snapshot() -> dict:
-    """일일 KPI 스냅샷 — midnight_reset 직전에 호출."""
+async def kpi_daily_snapshot(target_date=None) -> dict:
+    """일일 KPI 스냅샷 — midnight_reset 직전에 호출. target_date로 특정 날짜 조회 가능."""
     pool = await get_db()
     now = _cfg.get_kst_now()
-    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if target_date:
+        today = target_date
+    else:
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     one_hour_ago = now - timedelta(hours=1)
 
     (
@@ -2616,7 +2660,7 @@ async def kpi_daily_snapshot() -> dict:
                WHERE created_at >= $1 AND bp_earned > 0
                  AND EXISTS (SELECT 1 FROM season_records)""", today),
         pool.fetchrow(
-            "SELECT COALESCE(SUM(bp_earned), 0) as total FROM battle_records WHERE created_at >= $1", today),
+            "SELECT COALESCE(SUM(amount), 0) as total FROM bp_log WHERE amount > 0 AND created_at >= $1", today),
         # 거래소
         pool.fetchrow(
             "SELECT COUNT(*) as cnt FROM market_listings WHERE created_at >= $1", today),
@@ -2659,6 +2703,30 @@ async def kpi_daily_snapshot() -> dict:
     )
     hourly = {r["hr"]: r["users"] for r in hourly_rows}
 
+    # BP 소스별 분포
+    try:
+        bp_source_rows = await pool.fetch(
+            """SELECT source,
+                      COALESCE(SUM(amount) FILTER (WHERE amount > 0), 0) as earned,
+                      COALESCE(SUM(ABS(amount)) FILTER (WHERE amount < 0), 0) as spent
+               FROM bp_log WHERE created_at >= $1
+               GROUP BY source ORDER BY earned DESC""",
+            today,
+        )
+        bp_sources = {r["source"]: {"earned": int(r["earned"]), "spent": int(r["spent"])} for r in bp_source_rows}
+    except Exception:
+        bp_sources = {}
+
+    # BP 총 소각 (shop + gacha 등 음수 합)
+    try:
+        bp_spent_row = await pool.fetchrow(
+            "SELECT COALESCE(SUM(ABS(amount)), 0) as total FROM bp_log WHERE amount < 0 AND created_at >= $1",
+            today,
+        )
+        bp_total_spent = int(bp_spent_row["total"]) if bp_spent_row else 0
+    except Exception:
+        bp_total_spent = 0
+
     return {
         "date": today.strftime("%Y-%m-%d"),
         "weekday": ["월", "화", "수", "목", "금", "토", "일"][today.weekday()],
@@ -2693,7 +2761,252 @@ async def kpi_daily_snapshot() -> dict:
         "gacha_bp_spent": int(gacha_bp_row["total"]) if gacha_bp_row else 0,
         "gacha_pulls": int(gacha_bp_row["pulls"]) if gacha_bp_row else 0,
         "gacha_distribution": {r["result_key"]: r["cnt"] for r in gacha_dist_rows} if gacha_dist_rows else {},
+        # BP 소스별
+        "bp_sources": bp_sources,
+        "bp_total_spent": bp_total_spent,
     }
+
+
+# ─── 리포트 v2: 상세 데이터 수집 ──────────────────
+
+
+async def report_new_users_detail(today) -> list[dict]:
+    """오늘 가입한 유저 상세 (닉네임, 포획수, 배틀수)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT u.user_id, u.display_name, u.username,
+                  COALESCE(c.catches, 0) as catches,
+                  COALESCE(b.battles, 0) as battles
+           FROM users u
+           LEFT JOIN (
+               SELECT user_id, COUNT(*) as catches
+               FROM catch_attempts WHERE attempted_at >= $1
+               GROUP BY user_id
+           ) c ON u.user_id = c.user_id
+           LEFT JOIN (
+               SELECT uid as user_id, COUNT(*) as battles
+               FROM (
+                   SELECT winner_id as uid FROM battle_records WHERE created_at >= $1
+                   UNION ALL
+                   SELECT loser_id as uid FROM battle_records WHERE created_at >= $1
+               ) _bp
+               GROUP BY uid
+           ) b ON u.user_id = b.user_id
+           WHERE u.registered_at >= $1
+           ORDER BY c.catches DESC NULLS LAST
+           LIMIT 20""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_churned_users(today) -> list[dict]:
+    """최근 7일 활성이었으나 오늘 미접속 유저 (이탈 징후)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT u.user_id, u.display_name, u.username,
+                  u.last_active_at,
+                  COALESCE(s.total_catches, 0) as week_catches
+           FROM users u
+           LEFT JOIN (
+               SELECT user_id, COUNT(*) as total_catches
+               FROM catch_attempts
+               WHERE attempted_at >= $1 - INTERVAL '7 days'
+               GROUP BY user_id
+           ) s ON u.user_id = s.user_id
+           WHERE u.last_active_at >= $1 - INTERVAL '7 days'
+             AND u.last_active_at < $1
+             AND NOT EXISTS (
+                 SELECT 1 FROM catch_attempts ca
+                 WHERE ca.user_id = u.user_id AND ca.attempted_at >= $1
+             )
+           ORDER BY s.total_catches DESC NULLS LAST
+           LIMIT 10""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_top_active_users(today, limit: int = 10) -> list[dict]:
+    """오늘 활동량 Top 유저 (포획 + 배틀)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT u.user_id, u.display_name, u.username,
+                  COALESCE(c.catches, 0) as catches,
+                  COALESCE(b.battles, 0) as battles,
+                  COALESCE(b.wins, 0) as wins,
+                  COALESCE(c.catches, 0) + COALESCE(b.battles, 0) as total_actions
+           FROM users u
+           LEFT JOIN (
+               SELECT user_id, COUNT(*) as catches
+               FROM catch_attempts WHERE attempted_at >= $1
+               GROUP BY user_id
+           ) c ON u.user_id = c.user_id
+           LEFT JOIN (
+               SELECT uid as user_id, COUNT(*) as battles,
+                      COUNT(*) FILTER (WHERE is_win) as wins
+               FROM (
+                   SELECT winner_id as uid, true as is_win FROM battle_records WHERE created_at >= $1
+                   UNION ALL
+                   SELECT loser_id as uid, false as is_win FROM battle_records WHERE created_at >= $1
+               ) bp
+               GROUP BY uid
+           ) b ON u.user_id = b.user_id
+           WHERE COALESCE(c.catches, 0) + COALESCE(b.battles, 0) > 0
+           ORDER BY total_actions DESC
+           LIMIT $2""",
+        today, limit,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_shiny_catches(today) -> list[dict]:
+    """이로치 포획 요약 — Top 포획자 + 총 수."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT sl.caught_by_user_id as user_id,
+                  u.display_name,
+                  COUNT(*) as cnt
+           FROM spawn_log sl
+           LEFT JOIN users u ON sl.caught_by_user_id = u.user_id
+           WHERE sl.spawned_at >= $1
+             AND sl.is_shiny = 1
+             AND sl.caught_by_user_id IS NOT NULL
+           GROUP BY sl.caught_by_user_id, u.display_name
+           ORDER BY cnt DESC
+           LIMIT 10""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_new_user_sources(today) -> list[dict]:
+    """신규 유저의 첫 포획 채널별 분류 (유입 소스 분석)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """WITH new_users AS (
+               SELECT user_id FROM users WHERE registered_at >= $1
+           ),
+           first_catch AS (
+               SELECT DISTINCT ON (ca.user_id)
+                      ca.user_id, ss.chat_id
+               FROM catch_attempts ca
+               JOIN spawn_sessions ss ON ca.session_id = ss.id
+               WHERE ca.user_id IN (SELECT user_id FROM new_users)
+                 AND ca.attempted_at >= $1
+               ORDER BY ca.user_id, ca.attempted_at ASC
+           )
+           SELECT cr.chat_id, cr.chat_title, COUNT(*) as cnt
+           FROM first_catch fc
+           JOIN chat_rooms cr ON fc.chat_id = cr.chat_id
+           GROUP BY cr.chat_id, cr.chat_title
+           ORDER BY cnt DESC
+           LIMIT 10""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_market_trends(today) -> list[dict]:
+    """오늘 거래소 거래 완료 건 (인기 매물, 가격)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT ml.pokemon_name as name_ko, ml.pokemon_id,
+                  ml.price_bp as price, ml.is_shiny,
+                  seller.display_name as seller_name,
+                  buyer.display_name as buyer_name
+           FROM market_listings ml
+           LEFT JOIN users seller ON ml.seller_id = seller.user_id
+           LEFT JOIN users buyer ON ml.buyer_id = buyer.user_id
+           WHERE ml.sold_at >= $1 AND ml.status = 'sold'
+           ORDER BY ml.price_bp DESC
+           LIMIT 15""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_battle_meta(today) -> list[dict]:
+    """오늘 배틀에서 많이 사용된 포켓몬 (승자팀 기준)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT pm.name_ko, pm.id as pokemon_id,
+                  COUNT(*) as uses, 0.0 as win_rate
+           FROM battle_records br
+           JOIN battle_teams bt ON br.winner_id = bt.user_id AND bt.team_number = 1
+           JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE br.created_at >= $1
+           GROUP BY pm.name_ko, pm.id
+           ORDER BY uses DESC
+           LIMIT 10""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_subscription_changes(today) -> dict:
+    """오늘 구독 변동 (신규, 해지, 갱신)."""
+    pool = await get_db()
+    new_subs = await pool.fetch(
+        """SELECT s.user_id, u.display_name, s.tier
+           FROM subscriptions s
+           JOIN users u ON s.user_id = u.user_id
+           WHERE s.started_at >= $1 AND s.is_active = 1""",
+        today,
+    )
+    expired = await pool.fetch(
+        """SELECT s.user_id, u.display_name, s.tier
+           FROM subscriptions s
+           JOIN users u ON s.user_id = u.user_id
+           WHERE s.expires_at >= $1 AND s.expires_at < $1 + INTERVAL '1 day'
+             AND s.is_active = 0""",
+        today,
+    )
+    return {
+        "new": [dict(r) for r in new_subs],
+        "expired": [dict(r) for r in expired],
+    }
+
+
+async def report_chat_health(today) -> list[dict]:
+    """채팅방 활성도 (오늘 vs 어제 스폰 비교)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT cr.chat_id, cr.chat_title, cr.member_count,
+                  COALESCE(t.today_spawns, 0) as today_spawns,
+                  COALESCE(y.yesterday_spawns, 0) as yesterday_spawns
+           FROM chat_rooms cr
+           LEFT JOIN (
+               SELECT chat_id, COUNT(*) as today_spawns
+               FROM spawn_log WHERE spawned_at >= $1
+               GROUP BY chat_id
+           ) t ON cr.chat_id = t.chat_id
+           LEFT JOIN (
+               SELECT chat_id, COUNT(*) as yesterday_spawns
+               FROM spawn_log WHERE spawned_at >= $1 - INTERVAL '1 day'
+                 AND spawned_at < $1
+               GROUP BY chat_id
+           ) y ON cr.chat_id = y.chat_id
+           WHERE COALESCE(t.today_spawns, 0) + COALESCE(y.yesterday_spawns, 0) > 0
+           ORDER BY t.today_spawns DESC
+           LIMIT 15""",
+        today,
+    )
+    return [dict(r) for r in rows]
+
+
+async def report_checkin_stats(today) -> dict:
+    """!돈 출석 체크 통계."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """SELECT COUNT(*) as checkins
+           FROM bp_log
+           WHERE source = 'daily_checkin'
+             AND created_at >= $1""",
+        today,
+    )
+    return {"checkins": row["checkins"] if row else 0}
 
 
 async def kpi_weekly_snapshot() -> dict:
@@ -2812,24 +3125,28 @@ async def save_kpi_snapshot(data: dict):
             returned = len(w_set & set(active_ids))
             d7_retention = round(returned / len(w_set) * 100, 1)
 
+    bp_circ = data.get("economy", {}).get("bp_circulation", 0)
+    bp_spent = data.get("bp_total_spent", 0)
+
     await pool.execute("""
         INSERT INTO kpi_daily_snapshots
             (date, dau, new_users, spawns, catches, shiny_caught,
              battles, ranked_battles, bp_earned, active_user_ids,
-             d1_retention, d7_retention)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             d1_retention, d7_retention, bp_circulation, bp_total_spent)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT (date) DO UPDATE SET
             dau = EXCLUDED.dau, new_users = EXCLUDED.new_users,
             spawns = EXCLUDED.spawns, catches = EXCLUDED.catches,
             shiny_caught = EXCLUDED.shiny_caught, battles = EXCLUDED.battles,
             ranked_battles = EXCLUDED.ranked_battles, bp_earned = EXCLUDED.bp_earned,
             active_user_ids = EXCLUDED.active_user_ids,
-            d1_retention = EXCLUDED.d1_retention, d7_retention = EXCLUDED.d7_retention
+            d1_retention = EXCLUDED.d1_retention, d7_retention = EXCLUDED.d7_retention,
+            bp_circulation = EXCLUDED.bp_circulation, bp_total_spent = EXCLUDED.bp_total_spent
     """,
         today, data.get("dau", 0), data.get("new_users", 0),
         data.get("spawns", 0), data.get("catches", 0), data.get("shiny_caught", 0),
         data.get("battles", 0), data.get("ranked_battles", 0), data.get("bp_earned", 0),
-        active_ids, d1_retention, d7_retention,
+        active_ids, d1_retention, d7_retention, bp_circ, bp_spent,
     )
 
     return {"d1_retention": d1_retention, "d7_retention": d7_retention}
@@ -3087,9 +3404,31 @@ async def get_daily_trade_count(user_id: int, role: str = "sender") -> int:
     pool = await get_db()
     col = "from_user_id" if role == "sender" else "to_user_id"
     return await pool.fetchval(
-        f"SELECT COUNT(*) FROM trades WHERE {col} = $1 AND created_at >= CURRENT_DATE",
+        f"SELECT COUNT(*) FROM trades WHERE {col} = $1 AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul'",
         user_id,
     ) or 0
+
+
+async def expire_old_pending_trades(expire_minutes: int = 5) -> list[int]:
+    """만료된 pending 교환을 cancelled로 변경하고 BP 환불. 환불된 user_id 리스트 반환."""
+    import config
+    pool = await get_db()
+    expired = await pool.fetch(
+        """UPDATE trades SET status = 'cancelled'
+           WHERE status = 'pending'
+             AND created_at < NOW() - make_interval(mins => $1)
+           RETURNING id, from_user_id, trade_type""",
+        expire_minutes,
+    )
+    refunded_users = []
+    for r in expired:
+        cost = config.GROUP_TRADE_BP_COST if r["trade_type"] == "group" else config.TRADE_BP_COST
+        await pool.execute(
+            "UPDATE users SET battle_points = battle_points + $1 WHERE user_id = $2",
+            cost, r["from_user_id"],
+        )
+        refunded_users.append(r["from_user_id"])
+    return refunded_users
 
 
 # ─── Gacha / Item System ─────────────────────────────────
@@ -3235,3 +3574,74 @@ async def use_shiny_spawn_ticket(user_id: int) -> bool:
         "UPDATE users SET shiny_spawn_tickets = shiny_spawn_tickets - 1 WHERE user_id = $1 AND shiny_spawn_tickets > 0 RETURNING shiny_spawn_tickets",
         user_id)
     return row is not None
+
+
+# ─── IV 스톤 & 만능 조각 ─────────────────────────────────
+
+async def get_iv_stones(user_id: int) -> int:
+    pool = await get_db()
+    return await pool.fetchval(
+        "SELECT iv_stones FROM users WHERE user_id = $1",
+        user_id) or 0
+
+
+async def add_iv_stones(user_id: int, amount: int = 1):
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET iv_stones = iv_stones + $2 WHERE user_id = $1",
+        user_id, amount)
+
+
+async def use_iv_stone(user_id: int) -> bool:
+    """IV 스톤 1개 차감. 부족하면 False."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "UPDATE users SET iv_stones = iv_stones - 1 WHERE user_id = $1 AND iv_stones > 0 RETURNING iv_stones",
+        user_id)
+    return row is not None
+
+
+async def get_universal_fragments(user_id: int) -> int:
+    pool = await get_db()
+    return await pool.fetchval(
+        "SELECT universal_fragments FROM users WHERE user_id = $1",
+        user_id) or 0
+
+
+async def add_universal_fragments(user_id: int, amount: int = 1):
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE users SET universal_fragments = universal_fragments + $2 WHERE user_id = $1",
+        user_id, amount)
+
+
+async def use_universal_fragments(user_id: int, amount: int) -> bool:
+    """만능 조각 차감. 부족하면 False."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "UPDATE users SET universal_fragments = universal_fragments - $2 WHERE user_id = $1 AND universal_fragments >= $2 RETURNING universal_fragments",
+        user_id, amount)
+    return row is not None
+
+
+async def apply_iv_stone(user_id: int, instance_id: int, stat: str) -> dict | None:
+    """IV 스톤 적용: 해당 스탯 +3 (최대 31). 성공 시 업데이트된 row 반환."""
+    pool = await get_db()
+    valid_stats = {"iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"}
+    if stat not in valid_stats:
+        return None
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            # IV 스톤 차감
+            used = await conn.fetchrow(
+                "UPDATE users SET iv_stones = iv_stones - 1 WHERE user_id = $1 AND iv_stones > 0 RETURNING iv_stones",
+                user_id)
+            if not used:
+                return None
+            # IV 적용
+            row = await conn.fetchrow(
+                f"UPDATE user_pokemon SET {stat} = LEAST(COALESCE({stat}, 15) + 3, 31) "
+                f"WHERE id = $1 AND user_id = $2 "
+                f"RETURNING id, pokemon_id, iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd",
+                instance_id, user_id)
+            return dict(row) if row else None

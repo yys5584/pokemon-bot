@@ -22,18 +22,23 @@ def _get_honorific(tier: str | None) -> str | None:
     return tier_cfg.get("benefits", {}).get("honorific")
 
 
-def format_actor(name: str, verb_casual: str, tier: str | None) -> str:
+def format_actor(name: str, verb_casual: str, tier: str | None, lang: str = "ko") -> str:
     """행위자 존칭 포맷.
 
     Args:
         name: 유저 이름 (decorated name, HTML 포함 가능)
         verb_casual: 반말 동사구 (예: "포켓볼을 던졌다!")
         tier: 구독 티어 ("basic", "channel_owner", None)
+        lang: 유저 언어 — 한국어 외에는 존칭 미적용
 
     Returns:
         "문유 포켓볼을 던졌다!" / "문유님이 포켓볼을 던졌습니다!" / "문유님께서 포켓볼을 던지셨습니다!"
     """
     honorific = _get_honorific(tier)
+
+    # 한국어 외 — 각 언어별 존칭 패턴 적용
+    if lang != "ko":
+        return _format_actor_i18n(name, verb_casual, honorific, lang)
 
     if honorific == "supreme":
         # 채널장: 님께서 + ~셨습니다
@@ -81,22 +86,32 @@ def format_target_action(
         return f"{actor_subj} {target_name}에게 {verb_casual}"
 
 
-def honorific_name(name: str, tier: str | None) -> str:
-    """이름에 존칭 접미사. "문유" → "문유님"."""
+def honorific_name(name: str, tier: str | None, lang: str = "ko") -> str:
+    """이름에 존칭 접미사. "문유" → "문유님" / "MoonYu" → "Sir MoonYu"."""
     honorific = _get_honorific(tier)
-    if honorific in ("polite", "supreme"):
+    if not honorific or honorific not in ("polite", "supreme"):
+        return name
+    if lang == "ko":
         return f"{name}님"
+    elif lang == "en":
+        return f"Sir {name}" if honorific == "supreme" else f"Mr. {name}"
+    elif lang in ("zh-hans", "zh-hant"):
+        return f"{name}先生"
     return name
 
 
-def honorific_catch_verb(verb: str, tier: str | None) -> str:
+def honorific_catch_verb(verb: str, tier: str | None, lang: str = "ko") -> str:
     """포획 동사 존칭 변환.
 
     "포획!" → "포획했습니다!" / "포획하셨습니다!"
-    "확정 포획!" → "확정 포획했습니다!" / "확정 포획하셨습니다!"
-    "잡았다!" → "잡았습니다!" / "잡으셨습니다!"
+    영어: verb stays as-is (no conjugation needed)
     """
     honorific = _get_honorific(tier)
+
+    # 비한국어: 동사 변환 없이 그대로 반환
+    if lang != "ko":
+        return verb
+
     if not honorific:
         return verb
 
@@ -115,6 +130,34 @@ def honorific_catch_verb(verb: str, tier: str | None) -> str:
     elif honorific == "polite":
         return f"{v}했습니다!"
     return verb
+
+
+# ─── 다국어 존칭 헬퍼 ────────────────────────────
+
+def _format_actor_i18n(name: str, verb: str, honorific: str | None, lang: str) -> str:
+    """영어/중국어 등 비한국어 존칭 포맷."""
+    if lang == "en":
+        if honorific == "supreme":
+            return f"Sir {name} {verb}"
+        elif honorific == "polite":
+            return f"Mr. {name} {verb}"
+        else:
+            return f"{name} {verb}"
+    elif lang == "zh-hans":
+        if honorific == "supreme":
+            return f"尊贵的{name} {verb}"
+        elif honorific == "polite":
+            return f"{name}先生 {verb}"
+        else:
+            return f"{name} {verb}"
+    elif lang == "zh-hant":
+        if honorific == "supreme":
+            return f"尊貴的{name} {verb}"
+        elif honorific == "polite":
+            return f"{name}先生 {verb}"
+        else:
+            return f"{name} {verb}"
+    return f"{name} {verb}"
 
 
 # ─── 한국어 변환 헬퍼 ────────────────────────────

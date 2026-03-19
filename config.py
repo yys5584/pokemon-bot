@@ -128,6 +128,7 @@ FRIENDSHIP_PER_PLAY = 1            # +1 per play
 # --- Trade ---
 TRADE_BP_COST = 150                # 교환 시 BP 비용
 TRADE_DAILY_LIMIT = 10             # 일일 교환 제한 (보내기/받기 각각)
+TRADE_EXPIRE_MINUTES = 5           # pending 교환 자동 만료 (분)
 
 # --- Marketplace ---
 MARKET_FEE_RATE = 0.05             # 5% 판매 수수료
@@ -156,7 +157,7 @@ GROUP_TRADE_BP_COST = 50           # 그룹 교환 비용 (BP)
 # --- Title System ---
 TITLES = [
     # (min_pokemon_count, title_text, emoji)
-    (386, "그랜드마스터", "💫"),
+    (493, "그랜드마스터", "💫"),
     (151, "챔피언", "👑"),
     (120, "포켓몬 마스터", "🏆"),
     (75, "포켓몬 트레이너", "⭐"),
@@ -191,8 +192,13 @@ UNLOCKABLE_TITLES = {
     "gen3_collector": ("호연 수집가",    "abra",       "3세대 도감 45종 달성",   "pokedex_gen3", 45),
     "gen3_trainer":   ("호연 트레이너",  "snorlax",    "3세대 도감 75종 달성",   "pokedex_gen3", 75),
     "gen3_master":    ("호연 마스터",    "moltres",    "3세대 도감 135종 완성!", "pokedex_gen3", 135),
+    # 4세대 도감 기반 (신오)
+    "gen4_starter":   ("신오의 초보",    "squirtle",   "4세대 도감 15종 달성",   "pokedex_gen4", 15),
+    "gen4_collector": ("신오 수집가",    "abra",       "4세대 도감 45종 달성",   "pokedex_gen4", 45),
+    "gen4_trainer":   ("신오 트레이너",  "snorlax",    "4세대 도감 75종 달성",   "pokedex_gen4", 75),
+    "gen4_master":    ("신오 마스터",    "moltres",    "4세대 도감 107종 완성!", "pokedex_gen4", 107),
     # 전체 도감
-    "grand_master":   ("그랜드마스터",   "mew",        "전체 도감 386종 완성!",  "pokedex_all", 386),
+    "grand_master":   ("그랜드마스터",   "mew",        "전체 도감 493종 완성!",  "pokedex_all", 493),
     # 전설
     "legend_hunter":("레전드 헌터",    "dratini",    "전설 포켓몬 3마리 포획",   "legendary", 3),
     # 활동 기반
@@ -245,7 +251,20 @@ TRADE_EVOLUTION_MAP = {
 
 # --- Eevee Evolution ---
 EEVEE_ID = 133
-EEVEE_EVOLUTIONS = [134, 135, 136, 196, 197]  # 샤미드, 쥬피썬더, 부스터, 에브이, 블래키
+EEVEE_EVOLUTIONS = [134, 135, 136, 196, 197, 470, 471]  # 샤미드, 쥬피썬더, 부스터, 에브이, 블래키, 리피아, 글레이시아
+
+# --- Branching Evolution (랜덤 분기진화) ---
+BRANCH_EVOLUTIONS = {
+    44:  [45, 182],                            # 냄새꼬 → 라플레시아 / 아르코
+    61:  [62, 186],                            # 슈륙챙이 → 강챙이 / 왕구리
+    79:  [80, 199],                            # 야돈 → 야도란 / 야도킹
+    133: [134, 135, 136, 196, 197, 470, 471],  # 이브이 → 전체 분기
+    265: [266, 268],                           # 개무소 → 실쿤 / 카스쿤
+    281: [282, 475],                           # 킬리아 → 가디안 / 엘레이드
+    361: [362, 478],                           # 눈꼬마 → 얼음귀신 / 눈여아
+    366: [367, 368],                           # 진주몽 → 헌테일 / 분홍장이
+    412: [413, 414],                           # 도롱충이 → 도롱마담 / 나메일
+}
 
 # --- Message Templates ---
 MSG_SPAWN = "🌿 야생의 {emoji} {name}이(가) 나타났다!\nㅊ 입력으로 잡기 (60초)"
@@ -469,6 +488,9 @@ BATTLE_PARTNER_ATK_BONUS = 0.05     # 파트너 ATK 보너스 5%
 BATTLE_SKILL_RATE = 0.30             # 고유기술 발동 확률 30%
 BATTLE_BASE_POWER = 130              # 기본 기술위력 (본가 스타일 데미지 공식)
 
+# 격턴 스킵 (나태/슬로우스타트): 첫 턴 공격, 둘째 턴 스킵, 반복
+TRUANT_POKEMON = {289, 486}          # 게을킹, 레지기가스
+
 # --- BP (Battle Points) ---
 BP_WIN_BASE = 20                    # 승리 기본 BP
 BP_WIN_PER_ENEMY = 2               # 상대 팀 사이즈당 추가 BP
@@ -477,11 +499,16 @@ BP_PERFECT_WIN = 50                 # 무피해 완승 보너스
 BP_STREAK_BONUS = 10                # 3연승마다 추가
 BP_MASTERBALL_COST = 200            # 마스터볼 1개 가격
 BP_MASTERBALL_DAILY_LIMIT = 3       # 마스터볼 일일 구매 제한
-BP_MASTERBALL_PRICES = [200, 300, 500]  # 점진적 가격 (1/2/3번째)
+BP_MASTERBALL_PRICES = [200, 200, 200, 200, 200]  # 일괄 200BP
 BP_FORCE_SPAWN_TICKET_COST = 500      # 강제스폰권 가격 (이벤트: 무료, 원래 500)
 BP_POKEBALL_RESET_COST = 200          # 포켓볼 초기화(100개) 가격 (이벤트: 무료, 원래 200)
 BP_HYPER_BALL_COST = 20              # 하이퍼볼 1회 사용 BP
 HYPER_BALL_CATCH_MULTIPLIER = 3.0    # 하이퍼볼 포획률 배수
+
+# --- Newbie Spawn (아케이드 전용) ---
+NEWBIE_SPAWN_CHANCE = 0.20           # 아케이드 스폰 중 뉴비 스폰 확률 (20%, 5번 중 1번)
+NEWBIE_SPAWN_SHINY_RATE = 1 / 30     # 뉴비 스폰 이로치 확률 (~3.33%)
+NEWBIE_TIER_THRESHOLDS = [100, 200, 300]  # 도감 수 기준 티어 경계
 
 # --- Arcade Pass ---
 ARCADE_PASS_COST = 200               # 아케이드 이용권 가격 (BP)
@@ -490,7 +517,7 @@ ARCADE_PASS_DAILY_LIMIT = 3          # 일일 구매 제한
 
 # --- Shiny System ---
 SHINY_RATE_NATURAL = 0.0             # 자연 스폰 이로치 확률 0% (확정 스폰만)
-SHINY_RATE_FORCE = 0.02              # 강제스폰 이로치 확률 2%
+SHINY_RATE_FORCE = 0.01              # 강제스폰 이로치 확률 1%
 SHINY_RATE_ARCADE = 0.01             # 아케이드 이로치 확률 1%
 
 # ─── 채팅방 레벨 시스템 ─────────────────────────────────
@@ -571,7 +598,7 @@ SUBSCRIPTION_COMING_SOON = {
 
 # 블록체인 결제 설정
 SUBSCRIPTION_WALLET = os.getenv("SUBSCRIPTION_WALLET", "")
-BASE_RPC_URL = os.getenv("BASE_RPC_URL", "https://mainnet.base.org")
+BASE_RPC_URL = os.getenv("BASE_RPC_URL", "https://base.llamarpc.com")
 USDC_CONTRACT = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 USDT_CONTRACT = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"
 TOKEN_DECIMALS = 6
@@ -1212,6 +1239,99 @@ ICON_CUSTOM_EMOJI = {
     "psyduck": "6143060400272317013",
 }
 
+# ============================================================
+# Dungeon System (로그라이크 던전)
+# ============================================================
+
+# --- 입장권 ---
+DUNGEON_DAILY_TICKETS = {"free": 1, "basic": 2, "channel_owner": 3}
+DUNGEON_TICKET_BP_COST = {"free": 300, "basic": 250, "channel_owner": 200}
+DUNGEON_DAILY_BUY_LIMIT = {"free": 1, "basic": 1, "channel_owner": 3}
+
+# --- 버프 주기 (코스트별) ---
+DUNGEON_BUFF_FREQUENCY = {1: 1, 2: 1, 4: 2, 5: 3, 6: 4}
+
+# --- 배틀 ---
+DUNGEON_MAX_ROUNDS = 50
+DUNGEON_CRIT_RATE = 0.10
+DUNGEON_CRIT_MULT = 1.5
+DUNGEON_SKILL_RATE = 0.30
+DUNGEON_IMMUNITY_MULT = 0.3      # 면역 0x → 0.3x (던전 전용)
+DUNGEON_SKIP_HEAL = 0.50         # 버프 스킵 시 HP 50% 회복
+DUNGEON_MAX_SKIPS = 2            # 런당 스킵 횟수
+DUNGEON_MAX_BUFFS = 8            # 버프 슬롯 상한
+DUNGEON_BP_PER_FLOOR = 10        # 층당 기본 BP
+DUNGEON_MAX_DAILY_RUNS = {"free": 3, "basic": 3, "channel_owner": 5}  # 일일 런 횟수 (구독별)
+
+# --- 스킬 배율 (희귀도별, 던전 간소화) ---
+DUNGEON_SKILL_MULT = {
+    "common": 1.2, "rare": 1.3, "epic": 1.4,
+    "legendary": 1.8, "ultra_legendary": 2.0,
+}
+
+# --- 테마 (요일별 로테이션, 월=0) ---
+DUNGEON_THEMES = [
+    {"name": "고대 숲", "emoji": "🌿", "types": ["grass", "poison", "bug"],
+     "advantage": ["fire", "flying", "ice"], "bonus": "fire"},
+    {"name": "화산", "emoji": "🔥", "types": ["fire", "dragon", "fighting"],
+     "advantage": ["water", "ground", "rock"], "bonus": "water"},
+    {"name": "심해", "emoji": "🌊", "types": ["water", "ice", "flying"],
+     "advantage": ["electric", "grass"], "bonus": "electric"},
+    {"name": "발전소", "emoji": "⚡", "types": ["electric", "steel", "normal"],
+     "advantage": ["ground", "fighting", "fire"], "bonus": "ground"},
+    {"name": "동굴", "emoji": "🪨", "types": ["ground", "rock", "ghost"],
+     "advantage": ["water", "grass", "ice"], "bonus": "ice"},
+    {"name": "신전", "emoji": "🔮", "types": ["psychic", "dark", "fairy"],
+     "advantage": ["dark", "steel", "poison"], "bonus": "dark"},
+    {"name": "용의 둥지", "emoji": "🐉", "types": ["dragon"],
+     "advantage": ["fairy", "ice"], "bonus": "fairy"},
+]
+
+# --- 버프 등급 확률 (층 구간별) ---
+DUNGEON_BUFF_GRADE_PROB = {
+    5:   {"normal": 70, "advanced": 25, "rare": 5, "legendary": 0},
+    10:  {"normal": 50, "advanced": 35, "rare": 13, "legendary": 2},
+    20:  {"normal": 35, "advanced": 35, "rare": 25, "legendary": 5},
+    30:  {"normal": 20, "advanced": 35, "rare": 35, "legendary": 10},
+    999: {"normal": 10, "advanced": 30, "rare": 40, "legendary": 20},
+}
+
+# --- 던전 테마 → 캠프 필드 매핑 ---
+DUNGEON_THEME_TO_FIELD = {
+    "고대 숲": "forest",
+    "화산": "volcano",
+    "심해": "lake",
+    "발전소": "city",
+    "동굴": "cave",
+    "신전": "temple",
+    "용의 둥지": "volcano",  # 드래곤 → 화산(fire/dragon/fighting)
+}
+
+# --- 마일스톤 보상 ---
+DUNGEON_MILESTONE_REWARDS = {
+    5:  {"bp": 30,  "fragments": 1},
+    10: {"bp": 50,  "fragments": 2},
+    15: {"bp": 80,  "fragments": 2},
+    20: {"bp": 100, "fragments": 3, "crystals": 1},
+    25: {"bp": 120, "fragments": 3, "crystals": 1},
+    30: {"bp": 150, "fragments": 4, "crystals": 2, "rainbow": 1},
+    35: {"bp": 180, "fragments": 4},
+    40: {"bp": 200, "fragments": 5, "crystals": 3, "rainbow": 1, "iv_stones": 1, "tickets": 1},
+    45: {"bp": 230, "fragments": 5},
+    50: {"bp": 280, "fragments": 6, "rainbow": 2, "iv_stones": 1},
+}
+DUNGEON_MAX_BP = 2000             # BP 상한
+
+# --- 마일스톤 칭호 ---
+DUNGEON_MILESTONE_TITLES = {
+    5:  ("던전 입문자", "🏰"),
+    10: ("던전 탐험가", "⚔️"),
+    20: ("던전 정복자", "🗡"),
+    30: ("던전 마스터", "🔥"),
+    40: ("던전 레전드", "💎"),
+    50: ("던전 챔피언", "👑"),
+}
+
 # ─── Camp System v2 (포켓몬 캠프) ────────────────────────
 # 최소 참여 조건
 CAMP_MIN_MEMBERS = 100
@@ -1233,16 +1353,16 @@ CAMP_STARTER_FIELDS = {"forest", "volcano", "lake"}
 # ── 캠프 레벨 테이블 (Lv.1~10) ──
 # (레벨, 필드수, 기본슬롯/필드, 캡/필드/소식, 필요XP, 레벨명)
 CAMP_LEVEL_TABLE = [
-    (1,  1, 10, 3,  0,     "🏜️ 빈 터"),
-    (2,  2, 10, 3,  48,    "⛺ 작은 텐트"),
-    (3,  2, 12, 4,  96,    "🔥 모닥불"),
-    (4,  3, 12, 4,  250,   "🎪 텐트촌"),
-    (5,  3, 14, 5,  400,   "🏚️ 통나무집"),
-    (6,  4, 14, 5,  550,   "🌱 작은 정원"),
-    (7,  4, 16, 6,  700,   "🏡 울타리집"),
-    (8,  5, 16, 6,  900,   "💧 물레방아"),
-    (9,  5, 18, 7,  1100,  "🏘️ 작은 마을"),
-    (10, 6, 18, 8,  1500,  "🏛️ 광장"),
+    (1,  1, 10, 6,   0,     "🏜️ 빈 터"),
+    (2,  2, 10, 7,   48,    "⛺ 작은 텐트"),
+    (3,  2, 12, 8,   96,    "🔥 모닥불"),
+    (4,  3, 12, 9,   250,   "🎪 텐트촌"),
+    (5,  3, 14, 10,  400,   "🏚️ 통나무집"),
+    (6,  4, 14, 11,  550,   "🌱 작은 정원"),
+    (7,  4, 16, 12,  700,   "🏡 울타리집"),
+    (8,  5, 16, 13,  900,   "💧 물레방아"),
+    (9,  5, 18, 14,  1100,  "🏘️ 작은 마을"),
+    (10, 6, 18, 15,  1500,  "🏛️ 광장"),
 ]
 CAMP_MAX_LEVEL = 10
 
@@ -1255,11 +1375,11 @@ def get_camp_level_info(level):
     return CAMP_LEVEL_TABLE[-1]
 
 # ── 점수 시스템 ──
-CAMP_SCORE_TYPE_ONLY = 1        # 타입만 맞음
-CAMP_SCORE_BONUS_POKEMON = 2    # 보너스 포켓몬
-CAMP_SCORE_BONUS_IV = 4         # 보너스 + 개체값 충족
-CAMP_SCORE_BONUS_SHINY = 4      # 보너스 + 이로치
-CAMP_SCORE_BONUS_FULL = 7       # 보너스 + 개체값 + 이로치
+CAMP_SCORE_TYPE_ONLY = 2        # 타입만 맞음
+CAMP_SCORE_BONUS_POKEMON = 4    # 보너스 포켓몬
+CAMP_SCORE_BONUS_IV = 7         # 보너스 + 개체값 충족
+CAMP_SCORE_BONUS_SHINY = 7      # 보너스 + 이로치
+CAMP_SCORE_BONUS_FULL = 12      # 보너스 + 개체값 + 이로치
 
 # ── 라운드 스케줄 (KST) ──
 CAMP_ROUND_HOURS = [9, 12, 15, 18, 21, 0]  # 6회/일
@@ -1340,6 +1460,25 @@ CAMP_WEATHER_MULTIPLIER = 1.5  # 날씨 부스트 배수
 CAMP_RETURN_DAYS = 7  # N일 이상 미포획 → 복귀 유저
 CAMP_BATTLE_BONUS = 0.03  # 캠프 배치 포켓몬 배틀 스탯 +3%
 
+# ── 방문 시스템 ──
+# 캠프 레벨별 방문 보상 (조각 min, max)
+CAMP_VISIT_REWARD = {
+    1: (1, 1), 2: (1, 1), 3: (1, 2),
+    4: (1, 2), 5: (1, 2), 6: (1, 2),
+    7: (2, 2), 8: (2, 2), 9: (2, 3),
+    10: (2, 3),
+}
+CAMP_WELCOME_MSG_MAX_LEN = 100  # 환영 멘트 최대 길이
+
+# ── 캠프 언어 설정 ──
+CAMP_LANGUAGES = {
+    "ko": {"name": "한국어", "flag": "🇰🇷"},
+    "en": {"name": "English", "flag": "🇺🇸"},
+    "zh_cn": {"name": "简体中文", "flag": "🇨🇳"},
+    "zh_tw": {"name": "繁體中文", "flag": "🇹🇼"},
+}
+CAMP_LANGUAGE_DEFAULT = "ko"
+
 # ── 소식 템플릿 ──
 CAMP_NEWS_TEMPLATES = {
     "forest": [
@@ -1378,6 +1517,10 @@ CAMP_NEWS_TEMPLATES = {
 # ─── 포획 BP 보상 ─────────────────────────────────────────
 CATCH_BP_MIN = 5
 CATCH_BP_MAX = 30
+CATCH_BP_DAILY_LIMIT = 100  # 하루 포획 100마리 이후 BP 미지급
+
+# ─── 일일 출석 ────────────────────────────────────────────
+DAILY_CHECKIN_BP = 200  # !돈 출석 보상 BP
 
 # ─── 가챠 (BP 뽑기) ──────────────────────────────────────
 GACHA_COST = 100  # 1회 뽑기 비용

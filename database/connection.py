@@ -44,13 +44,21 @@ async def _create_pool() -> asyncpg.Pool:
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
+            # Test connection first with short timeout
+            test_conn = await asyncio.wait_for(
+                asyncpg.connect(dsn=dsn, ssl=_make_ssl(), statement_cache_size=0, timeout=10),
+                timeout=12
+            )
+            await test_conn.close()
+            logger.info("DB connection test OK")
             pool = await asyncpg.create_pool(
                 dsn=dsn,
-                min_size=int(os.getenv("DB_POOL_MIN", "2")),
-                max_size=int(os.getenv("DB_POOL_MAX", "7")),
+                min_size=0,
+                max_size=int(os.getenv("DB_POOL_MAX", "5")),
                 ssl=_make_ssl(),
                 statement_cache_size=0,  # Supabase uses PgBouncer (no prepared statements)
                 command_timeout=30,
+                timeout=10,  # per-connection timeout within pool
             )
             if attempt > 1:
                 logger.info(f"DB pool created (attempt {attempt})")

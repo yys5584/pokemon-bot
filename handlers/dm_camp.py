@@ -1,16 +1,20 @@
 """Camp v2 DM handlers — 거점캠프, 내캠프, 이로치전환, 분해, 캠프알림, 캠프가이드."""
 
+import asyncio
 import time
 import logging
 from datetime import timedelta
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationHandlerStop
 
 import config
 from database import camp_queries as cq
 from database import queries
 from services import camp_service as cs
 from utils.helpers import rarity_badge, shiny_emoji, icon_emoji, _type_emoji
+from utils.card_generator import generate_card
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +79,10 @@ def _next_round_countdown() -> str:
 async def camp_hub_handler(update, context):
     """DM '캠프' — 캠프 메인 허브 메뉴."""
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     user = await queries.get_user(user_id)
     if not user:
-        await update.message.reply_text("먼저 포켓몬을 잡아보세요!")
+        await update.message.reply_text(t(lang, "camp.no_pokemon"))
         return
 
     settings = await cq.get_user_camp_settings(user_id)
@@ -145,10 +150,19 @@ async def camp_hub_handler(update, context):
         buttons.append([
             InlineKeyboardButton("🔔 알림설정", callback_data=f"cdm_hub_notify_{user_id}"),
         ])
+        # 소유자면 캠프 관리 버튼 추가
+        owned_camp = await cq.get_camp_by_owner(user_id)
+        if owned_camp:
+            buttons.append([
+                InlineKeyboardButton("⚙️ 캠프 관리", callback_data=f"cdm_hub_manage_{user_id}"),
+            ])
     else:
         buttons.append([InlineKeyboardButton("🏕 거점 설정하기", callback_data=f"cdm_hub_home_{user_id}")])
 
-    buttons.append([InlineKeyboardButton("📖 캠프 가이드", callback_data=f"cdm_guide_{user_id}_0")])
+    buttons.append([
+        InlineKeyboardButton("📖 캠프 가이드", callback_data=f"cdm_guide_{user_id}_0"),
+        InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{user_id}"),
+    ])
 
     await update.message.reply_text(
         "\n".join(lines),
@@ -516,6 +530,9 @@ _GUIDE_STEPS = [
 
 
 DM_PAGE_SIZE = 8
+DECOMPOSE_PAGE_SIZE = 8
+CONVERT_PAGE_SIZE = 8
+VISIT_PAGE_SIZE = 6
 
 
 async def _build_dm_field_buttons(user_id: int, chat_id: int, fields: list[dict], camp: dict) -> tuple[str, InlineKeyboardMarkup]:
@@ -775,12 +792,157 @@ async def my_camp_handler(update, context):
     if hints:
         lines.extend(hints)
 
-    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    # 버튼
+    buttons = [
+        [
+            InlineKeyboardButton("🏕 배치하기", callback_data=f"cdm_place_{user_id}"),
+            InlineKeyboardButton("✨ 이로치전환", callback_data=f"cdm_hub_convert_{user_id}"),
+        ],
+        [
+            InlineKeyboardButton("🔨 분해", callback_data=f"cdm_hub_decompose_{user_id}"),
+            InlineKeyboardButton("🏠 거점캠프", callback_data=f"cdm_hub_home_{user_id}"),
+        ],
+        [
+            InlineKeyboardButton("👣 방문하기", callback_data=f"cdm_visitlang_{user_id}"),
+        ],
+    ]
+
+    # 소유자면 캠프 관리 버튼 추가
+    owned_camp = await cq.get_camp_by_owner(user_id)
+    if owned_camp:
+        buttons.append([
+            InlineKeyboardButton("⚙️ 캠프 관리", callback_data=f"cdm_hub_manage_{user_id}"),
+        ])
+
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{user_id}")])
+
+    await update.message.reply_text(
+        "\n".join(lines),
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="HTML",
+    )
 
 
 # ═══════════════════════════════════════════════════════
 # DM 명령: 이로치전환
 # ═══════════════════════════════════════════════════════
+
+def _build_convert_eligible(pokemon_list: list, frags: dict, crystals: dict) -> list:
+    """이로치 전환 가능 포켓몬 목록 빌드."""
+    eligible = []
+    for p in pokemon_list:
+        if p.get("is_shiny"):
+            continue
+        matching_fields = cs.get_matching_fields(p["pokemon_id"])
+        if not matching_fields:
+            continue
+        rarity = p.get("rarity", "common")
+        frag_cost = config.CAMP_SHINY_COST.get(rarity, 12)
+        crystal_cost = config.CAMP_CRYSTAL_COST.get(rarity, 0)
+        rainbow_cost = config.CAMP_RAINBOW_COST.get(rarity, 0)
+        can_afford_frags = any(frags.get(f, 0) >= frag_cost for f in matching_fields)
+        can_afford_crystal = crystals["crystal"] >= crystal_cost
+        can_afford_rainbow = crystals["rainbow"] >= rainbow_cost
+        can_afford = can_afford_frags and can_afford_crystal and can_afford_rainbow
+        from utils.helpers import pokemon_iv_total
+        iv_sum = pokemon_iv_total(p)
+        eligible.append({
+            "instance_id": p["id"],
+            "pokemon_id": p["pokemon_id"],
+            "name_ko": p["name_ko"],
+            "rarity": rarity,
+            "frag_cost": frag_cost,
+            "crystal_cost": crystal_cost,
+            "rainbow_cost": rainbow_cost,
+            "can_afford": can_afford,
+            "matching_fields": matching_fields,
+            "iv_sum": iv_sum,
+        })
+    # 전환 가능한 것 먼저, IV 내림차순
+    eligible.sort(key=lambda e: (0 if e["can_afford"] else 1, -e["iv_sum"], e["name_ko"]))
+    return eligible
+
+
+_RARITY_FILTER_MAP = {
+    "all": ("전체", None),
+    "ul": ("초전설", "ultra_legendary"),
+    "leg": ("전설", "legendary"),
+    "ep": ("에픽", "epic"),
+    "ra": ("레어", "rare"),
+    "co": ("커먼", "common"),
+}
+
+
+def _build_convert_page(eligible: list, uid: int, frags: dict, crystals: dict,
+                         page: int = 0, rarity_filter: str = "all") -> tuple[str, InlineKeyboardMarkup]:
+    """이로치 전환 목록 페이지 빌드."""
+    # 희귀도 필터 적용
+    if rarity_filter != "all":
+        target_rarity = _RARITY_FILTER_MAP.get(rarity_filter, (None, None))[1]
+        filtered = [e for e in eligible if e["rarity"] == target_rarity] if target_rarity else eligible
+    else:
+        filtered = eligible
+
+    total_pages = max(1, (len(filtered) + CONVERT_PAGE_SIZE - 1) // CONVERT_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * CONVERT_PAGE_SIZE
+    page_items = filtered[start:start + CONVERT_PAGE_SIZE]
+
+    total_frags = sum(frags.values())
+    filter_label = _RARITY_FILTER_MAP.get(rarity_filter, ("전체", None))[0]
+    # 필드별 조각 요약
+    frag_detail = " / ".join(
+        f"{config.CAMP_FIELDS[fk]['emoji']}{amt}"
+        for fk, amt in frags.items() if amt > 0
+    )
+    lines = [
+        f"{shiny_emoji()} 이로치 전환",
+        "",
+        f"🧩 보유 조각: {total_frags}개" + (f"  ({frag_detail})" if frag_detail else ""),
+        f"💎 결정: {crystals['crystal']}개 | 🌈 무지개: {crystals['rainbow']}개",
+        "",
+    ]
+
+    # 희귀도 탭 버튼
+    tab_row = []
+    for key, (label, _) in _RARITY_FILTER_MAP.items():
+        display = f"[{label}]" if key == rarity_filter else label
+        tab_row.append(InlineKeyboardButton(display, callback_data=f"cdm_cf_{uid}_{key}"))
+    buttons = [tab_row[:3], tab_row[3:]]  # 2줄로 나눔
+
+    if not filtered:
+        lines.append(f"해당 희귀도의 전환 가능 포켓몬이 없습니다.")
+    else:
+        for e in page_items:
+            cost_parts = [f"{e['frag_cost']}조각"]
+            if e["crystal_cost"]:
+                cost_parts.append(f"결정{e['crystal_cost']}")
+            if e["rainbow_cost"]:
+                cost_parts.append(f"무지개{e['rainbow_cost']}")
+            rarity_tag = rarity_badge(e.get("rarity", ""))
+            iv_tag = f" ({e['iv_sum']}/186)" if e.get("iv_sum") else ""
+            if e["can_afford"]:
+                lines.append(f"{icon_emoji('check')} {rarity_tag}{e['name_ko']}{iv_tag} — {'+'.join(cost_parts)}")
+                buttons.append([InlineKeyboardButton(
+                    f"✨ {e['name_ko']} 전환",
+                    callback_data=f"cdm_conv_{uid}_{e['instance_id']}",
+                )])
+            else:
+                lines.append(f"❌ {rarity_tag}{e['name_ko']}{iv_tag} — {'+'.join(cost_parts)}")
+
+    if total_pages > 1:
+        lines.append(f"\n📄 {page + 1}/{total_pages} ({len(filtered)}마리)")
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_convpg_{uid}_{page - 1}_{rarity_filter}"))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_convpg_{uid}_{page + 1}_{rarity_filter}"))
+        buttons.append(nav)
+
+    lines.append("")
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
 
 async def shiny_convert_handler(update, context):
     """DM '이로치전환' — 전환 가능 포켓몬 리스트."""
@@ -792,37 +954,8 @@ async def shiny_convert_handler(update, context):
 
     frags = await cq.get_user_fragments(user_id)
     crystals = await cq.get_crystals(user_id)
-
     pokemon_list = await queries.get_user_pokemon_list(user_id)
-    eligible = []
-    for p in pokemon_list:
-        if p.get("is_shiny"):
-            continue
-        matching_fields = cs.get_matching_fields(p["pokemon_id"])
-        if not matching_fields:
-            continue
-
-        rarity = p.get("rarity", "common")
-        frag_cost = config.CAMP_SHINY_COST.get(rarity, 12)
-        crystal_cost = config.CAMP_CRYSTAL_COST.get(rarity, 0)
-        rainbow_cost = config.CAMP_RAINBOW_COST.get(rarity, 0)
-
-        can_afford_frags = any(frags.get(f, 0) >= frag_cost for f in matching_fields)
-        can_afford_crystal = crystals["crystal"] >= crystal_cost
-        can_afford_rainbow = crystals["rainbow"] >= rainbow_cost
-        can_afford = can_afford_frags and can_afford_crystal and can_afford_rainbow
-
-        eligible.append({
-            "instance_id": p["id"],
-            "pokemon_id": p["pokemon_id"],
-            "name_ko": p["name_ko"],
-            "rarity": rarity,
-            "frag_cost": frag_cost,
-            "crystal_cost": crystal_cost,
-            "rainbow_cost": rainbow_cost,
-            "can_afford": can_afford,
-            "matching_fields": matching_fields,
-        })
+    eligible = _build_convert_eligible(pokemon_list, frags, crystals)
 
     if not eligible:
         await update.message.reply_text(
@@ -832,52 +965,59 @@ async def shiny_convert_handler(update, context):
         )
         return
 
-    affordable = [e for e in eligible if e["can_afford"]][:10]
-    unaffordable = [e for e in eligible if not e["can_afford"]][:5]
-
-    total_frags = sum(frags.values())
-    lines = [
-        f"{shiny_emoji()} 이로치 전환",
-        "",
-        f"🧩 보유 조각: {total_frags}개",
-        f"💎 결정: {crystals['crystal']}개 | 🌈 무지개: {crystals['rainbow']}개",
-        "",
-    ]
-
-    buttons = []
-    if affordable:
-        lines.append("── 전환 가능 ──")
-        for e in affordable:
-            cost_parts = [f"{e['frag_cost']}조각"]
-            if e["crystal_cost"]:
-                cost_parts.append(f"결정{e['crystal_cost']}")
-            if e["rainbow_cost"]:
-                cost_parts.append(f"무지개{e['rainbow_cost']}")
-            rarity_tag = rarity_badge(e.get("rarity", ""))
-            lines.append(f"{icon_emoji('check')} {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
-            buttons.append([InlineKeyboardButton(
-                f"✨ {e['name_ko']} 전환",
-                callback_data=f"cdm_conv_{user_id}_{e['instance_id']}",
-            )])
-
-    if unaffordable:
-        lines.append("\n── 자원 부족 ──")
-        for e in unaffordable:
-            cost_parts = [f"{e['frag_cost']}조각"]
-            if e["crystal_cost"]:
-                cost_parts.append(f"결정{e['crystal_cost']}")
-            rarity_tag = rarity_badge(e.get("rarity", ""))
-            lines.append(f"❌ {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
-
-    lines.append("")
-
-    markup = InlineKeyboardMarkup(buttons) if buttons else None
-    await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+    text, markup = _build_convert_page(eligible, user_id, frags, crystals, 0)
+    await update.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
 
 
 # ═══════════════════════════════════════════════════════
 # DM 명령: 분해
 # ═══════════════════════════════════════════════════════
+
+def _build_decompose_page(shinies: list, uid: int, crystals: dict, page: int = 0) -> tuple[str, InlineKeyboardMarkup]:
+    """분해 목록 페이지 빌드 (공용)."""
+    total_pages = max(1, (len(shinies) + DECOMPOSE_PAGE_SIZE - 1) // DECOMPOSE_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * DECOMPOSE_PAGE_SIZE
+    page_items = shinies[start:start + DECOMPOSE_PAGE_SIZE]
+
+    lines = [
+        "🔨 이로치 분해",
+        "",
+        f"💎 결정: {crystals['crystal']}개 | 🌈 무지개: {crystals['rainbow']}개",
+        "",
+        "⚠️ 분해하면 이로치가 해제됩니다!",
+        "",
+    ]
+
+    buttons = []
+    for p in page_items:
+        rarity = p.get("rarity", "common")
+        crystal_gain = config.CAMP_DECOMPOSE_CRYSTAL.get(rarity, 1)
+        rainbow_gain = config.CAMP_DECOMPOSE_RAINBOW.get(rarity, 0)
+        gain_parts = [f"💎+{crystal_gain}"]
+        if rainbow_gain:
+            gain_parts.append(f"🌈+{rainbow_gain}")
+        rarity_tag = rarity_badge(rarity or "")
+        iv_total = sum(p.get(k, 0) for k in ("iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"))
+        lines.append(f"{shiny_emoji()} {rarity_tag}{p['name_ko']} (IV:{iv_total}) → {' '.join(gain_parts)}")
+        buttons.append([InlineKeyboardButton(
+            f"🔨 {p['name_ko']} (IV:{iv_total}) 분해",
+            callback_data=f"cdm_dec_{uid}_{p['id']}",
+        )])
+
+    if total_pages > 1:
+        lines.append(f"\n📄 {page + 1}/{total_pages} ({len(shinies)}마리)")
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_decpg_{uid}_{page - 1}"))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_decpg_{uid}_{page + 1}"))
+        buttons.append(nav)
+
+    lines.append("")
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
 
 async def decompose_handler(update, context):
     """DM '분해' — 이로치 분해로 결정 획득."""
@@ -895,36 +1035,48 @@ async def decompose_handler(update, context):
         return
 
     crystals = await cq.get_crystals(user_id)
+    text, markup = _build_decompose_page(shinies, user_id, crystals, 0)
+    await update.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
 
-    lines = [
-        "🔨 이로치 분해",
-        "",
-        f"💎 결정: {crystals['crystal']}개 | 🌈 무지개: {crystals['rainbow']}개",
-        "",
-        "⚠️ 분해하면 이로치가 해제됩니다!",
-        "",
-    ]
 
-    buttons = []
-    for p in shinies[:15]:
-        rarity = p.get("rarity", "common")
-        crystal_gain = config.CAMP_DECOMPOSE_CRYSTAL.get(rarity, 1)
-        rainbow_gain = config.CAMP_DECOMPOSE_RAINBOW.get(rarity, 0)
+# ═══════════════════════════════════════════════════════
+# DM 메시지 핸들러: 환영 멘트 입력
+# ═══════════════════════════════════════════════════════
 
-        gain_parts = [f"💎+{crystal_gain}"]
-        if rainbow_gain:
-            gain_parts.append(f"🌈+{rainbow_gain}")
+async def camp_welcome_input_handler(update, context):
+    """DM에서 환영 멘트 입력 처리 (camp_welcome_input 상태일 때)."""
+    if not context.user_data.get("camp_welcome_input"):
+        return None  # 상태가 아니면 무시 — 다른 핸들러로 전달
 
-        rarity_tag = rarity_badge(rarity or "")
-        lines.append(f"{shiny_emoji()} {rarity_tag}{p['name_ko']} → {' '.join(gain_parts)}")
-        buttons.append([InlineKeyboardButton(
-            f"🔨 {p['name_ko']} 분해",
-            callback_data=f"cdm_dec_{user_id}_{p['id']}",
-        )])
+    context.user_data.pop("camp_welcome_input", None)
+    user_id = update.effective_user.id
+    text = (update.message.text or "").strip()
 
-    lines.append("")
+    if text == "취소":
+        await update.message.reply_text("✅ 환영 멘트 설정이 취소되었습니다.")
+        raise ApplicationHandlerStop()
 
-    await update.message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+    if len(text) > config.CAMP_WELCOME_MSG_MAX_LEN:
+        await update.message.reply_text(
+            f"❌ 멘트가 너무 깁니다! ({len(text)}자/{config.CAMP_WELCOME_MSG_MAX_LEN}자)\n"
+            "다시 설정하려면 캠프 메뉴 → 캠프 관리에서 시도하세요."
+        )
+        raise ApplicationHandlerStop()
+
+    if not text:
+        await update.message.reply_text("❌ 빈 멘트는 설정할 수 없습니다.")
+        raise ApplicationHandlerStop()
+
+    owned_camp = await cq.get_camp_by_owner(user_id)
+    if not owned_camp:
+        await update.message.reply_text("소유한 캠프가 없습니다.")
+        raise ApplicationHandlerStop()
+
+    await cq.set_welcome_message(owned_camp["chat_id"], text)
+    await update.message.reply_text(
+        f"✅ 환영 멘트가 설정되었습니다!\n\n💬 \"{text}\"\n\n방문자에게 이 멘트가 보여집니다 🏕"
+    )
+    raise ApplicationHandlerStop()
 
 
 # ═══════════════════════════════════════════════════════
@@ -1325,12 +1477,60 @@ async def camp_dm_callback_handler(update, context):
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
             return
 
-        success, msg, info = await cs.convert_to_shiny(uid, instance_id)
-        await query.answer(msg[:200], show_alert=True)
+        # 포켓몬 이름 미리 가져오기 (연출용)
+        poke = await queries.get_user_pokemon_by_id(instance_id)
+        poke_name = poke["name_ko"] if poke else "포켓몬"
+
+        # 연출 1: 심상치 않다
+        await query.answer()
         try:
-            await query.edit_message_text(msg, parse_mode="HTML")
+            await query.edit_message_text(
+                f"⚡ <b>{poke_name}</b>이(가) 심상치 않다..!", parse_mode="HTML")
         except Exception:
             pass
+        await asyncio.sleep(1.5)
+
+        # 연출 2: 빛나기 시작
+        try:
+            await query.edit_message_text(
+                f"✨ <b>{poke_name}</b>이(가)... 빛나기 시작한다...!", parse_mode="HTML")
+        except Exception:
+            pass
+        await asyncio.sleep(1.5)
+
+        # 실제 전환 실행
+        success, msg, info = await cs.convert_to_shiny(uid, instance_id)
+
+        if success and info:
+            # 이로치 카드 이미지 생성 후 전송
+            try:
+                loop = asyncio.get_event_loop()
+                card_buf = await loop.run_in_executor(
+                    None, generate_card,
+                    info["pokemon_id"], info["name"], info["rarity"], "", True
+                )
+                # 기존 텍스트 메시지 삭제하고 이미지로 교체
+                try:
+                    await query.message.delete()
+                except Exception:
+                    pass
+                await context.bot.send_photo(
+                    chat_id=query.message.chat_id,
+                    photo=card_buf,
+                    caption=msg,
+                    parse_mode="HTML",
+                )
+            except Exception:
+                # 이미지 실패 시 텍스트만
+                try:
+                    await query.edit_message_text(msg, parse_mode="HTML")
+                except Exception:
+                    pass
+        else:
+            try:
+                await query.edit_message_text(msg, parse_mode="HTML")
+            except Exception:
+                pass
 
         # 성공 시 거점캠프 채팅방에 축하 공지
         if success and info:
@@ -1550,27 +1750,10 @@ async def camp_dm_callback_handler(update, context):
             return
 
         await query.answer()
-        # 기존 shiny_convert_handler 로직을 인라인으로 실행
         frags = await cq.get_user_fragments(uid)
         crystals_data = await cq.get_crystals(uid)
         pokemon_list = await queries.get_user_pokemon_list(uid)
-        eligible = []
-        for p in pokemon_list:
-            if p.get("is_shiny"):
-                continue
-            matching_fields = cs.get_matching_fields(p["pokemon_id"])
-            if not matching_fields:
-                continue
-            rarity = p.get("rarity", "common")
-            frag_cost = config.CAMP_SHINY_COST.get(rarity, 12)
-            crystal_cost = config.CAMP_CRYSTAL_COST.get(rarity, 0)
-            rainbow_cost = config.CAMP_RAINBOW_COST.get(rarity, 0)
-            can_afford_frags = any(frags.get(f, 0) >= frag_cost for f in matching_fields)
-            can_afford = can_afford_frags and crystals_data["crystal"] >= crystal_cost and crystals_data["rainbow"] >= rainbow_cost
-            eligible.append({
-                "instance_id": p["id"], "name_ko": p["name_ko"], "rarity": rarity,
-                "frag_cost": frag_cost, "crystal_cost": crystal_cost, "can_afford": can_afford,
-            })
+        eligible = _build_convert_eligible(pokemon_list, frags, crystals_data)
 
         if not eligible:
             try:
@@ -1583,30 +1766,9 @@ async def camp_dm_callback_handler(update, context):
                 pass
             return
 
-        affordable = [e for e in eligible if e["can_afford"]][:10]
-        total_frags = sum(frags.values())
-        lines = [
-            f"{shiny_emoji()} 이로치 전환", "",
-            f"{icon_emoji('gotcha')} 보유 조각: {total_frags}개",
-            f"{icon_emoji('crystal')} 결정: {crystals_data['crystal']}개 | 🌈 무지개: {crystals_data['rainbow']}개", "",
-        ]
-        buttons = []
-        if affordable:
-            lines.append("── 전환 가능 ──")
-            for e in affordable:
-                cost_parts = [f"{e['frag_cost']}조각"]
-                if e["crystal_cost"]:
-                    cost_parts.append(f"결정{e['crystal_cost']}")
-                rarity_tag = rarity_badge(e.get("rarity", ""))
-                lines.append(f"{icon_emoji('check')} {rarity_tag}{e['name_ko']} — {'+'.join(cost_parts)}")
-                buttons.append([InlineKeyboardButton(
-                    f"✨ {e['name_ko']} 전환",
-                    callback_data=f"cdm_conv_{uid}_{e['instance_id']}",
-                )])
-        lines.append("")
-        markup = InlineKeyboardMarkup(buttons) if buttons else None
+        text, markup = _build_convert_page(eligible, uid, frags, crystals_data, 0)
         try:
-            await query.edit_message_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -1629,28 +1791,9 @@ async def camp_dm_callback_handler(update, context):
             return
 
         crystals_data = await cq.get_crystals(uid)
-        lines = [
-            "🔨 이로치 분해", "",
-            f"{icon_emoji('crystal')} 결정: {crystals_data['crystal']}개 | 🌈 무지개: {crystals_data['rainbow']}개",
-            "", "⚠️ 분해하면 이로치가 해제됩니다!", "",
-        ]
-        buttons = []
-        for p in shinies[:15]:
-            rarity = p.get("rarity", "common")
-            crystal_gain = config.CAMP_DECOMPOSE_CRYSTAL.get(rarity, 1)
-            rainbow_gain = config.CAMP_DECOMPOSE_RAINBOW.get(rarity, 0)
-            gain_parts = [f"💎+{crystal_gain}"]
-            if rainbow_gain:
-                gain_parts.append(f"🌈+{rainbow_gain}")
-            rarity_tag = rarity_badge(rarity or "")
-            lines.append(f"{shiny_emoji()} {rarity_tag}{p['name_ko']} → {' '.join(gain_parts)}")
-            buttons.append([InlineKeyboardButton(
-                f"🔨 {p['name_ko']} 분해",
-                callback_data=f"cdm_dec_{uid}_{p['id']}",
-            )])
-        lines.append("")
+        text, markup = _build_decompose_page(shinies, uid, crystals_data, 0)
         try:
-            await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
         except Exception:
             pass
 
@@ -1899,6 +2042,161 @@ async def camp_dm_callback_handler(update, context):
         else:
             await query.answer("🔕 캠프 정산 알림이 꺼졌습니다.", show_alert=True)
 
+    # ── cdm_hub_manage_{uid} — 캠프 관리 (소유자) ──
+    elif data.startswith("cdm_hub_manage_"):
+        uid = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+
+        owned_camp = await cq.get_camp_by_owner(uid)
+        if not owned_camp:
+            try:
+                await query.edit_message_text("소유한 캠프가 없습니다!")
+            except Exception:
+                pass
+            return
+
+        home_chat_id = owned_camp["chat_id"]
+        welcome = await cq.get_welcome_message(home_chat_id)
+        camp_lang = await cq.get_camp_language(home_chat_id)
+        lang_info = config.CAMP_LANGUAGES.get(camp_lang, config.CAMP_LANGUAGES["ko"])
+        lines = [
+            "⚙️ <b>캠프 관리</b>",
+            "",
+            "💬 <b>환영 멘트</b> (캠꾸)",
+        ]
+        if welcome:
+            lines.append(f"  현재: \"{welcome}\"")
+        else:
+            lines.append("  현재: (미설정)")
+        lines.append("")
+        lines.append(f"🌐 <b>캠프 언어</b>: {lang_info['flag']} {lang_info['name']}")
+        lines.append("")
+        lines.append("방문자가 올 때 보여지는 메시지입니다.")
+
+        mbuttons = []
+        mbuttons.append([
+            InlineKeyboardButton(
+                "✏️ 멘트 설정" if not welcome else "✏️ 멘트 변경",
+                callback_data=f"cdm_mng_welcome_{uid}",
+            ),
+        ])
+        if welcome:
+            mbuttons.append([
+                InlineKeyboardButton("🗑 멘트 삭제", callback_data=f"cdm_mng_delwelc_{uid}"),
+            ])
+        mbuttons.append([
+            InlineKeyboardButton(f"🌐 언어 변경", callback_data=f"cdm_mng_lang_{uid}"),
+        ])
+        mbuttons.append([InlineKeyboardButton("◀ 캠프 메뉴", callback_data=f"cdm_hub_back_{uid}")])
+
+        try:
+            await query.edit_message_text(
+                "\n".join(lines),
+                reply_markup=InlineKeyboardMarkup(mbuttons),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    # ── cdm_mng_welcome_{uid} — 환영 멘트 입력 대기 ──
+    elif data.startswith("cdm_mng_welcome_"):
+        uid = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        # 유저 데이터에 상태 저장 (다음 메시지를 환영 멘트로 처리)
+        context.user_data["camp_welcome_input"] = True
+        try:
+            await query.edit_message_text(
+                f"💬 환영 멘트를 입력해주세요! (최대 {config.CAMP_WELCOME_MSG_MAX_LEN}자)\n\n"
+                "예: 피카츄가 반겨줍니다! ⚡\n\n"
+                "취소하려면 '취소'를 입력하세요.",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    # ── cdm_mng_delwelc_{uid} — 환영 멘트 삭제 ──
+    elif data.startswith("cdm_mng_delwelc_"):
+        uid = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        owned_camp = await cq.get_camp_by_owner(uid)
+        if owned_camp:
+            await cq.set_welcome_message(owned_camp["chat_id"], None)
+        await query.answer("🗑 환영 멘트가 삭제되었습니다!", show_alert=True)
+        # 관리 화면으로 돌아가기
+        # 위의 manage 로직을 재실행 — 간단히 콜백 데이터 변경
+        query.data = f"cdm_hub_manage_{uid}"
+        await camp_dm_callback_handler(update, context)
+
+    # ── cdm_mng_lang_{uid} — 캠프 언어 선택 화면 ──
+    elif data.startswith("cdm_mng_lang_"):
+        uid = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+
+        owned_camp = await cq.get_camp_by_owner(uid)
+        if not owned_camp:
+            return
+        current_lang = await cq.get_camp_language(owned_camp["chat_id"])
+
+        lines = [
+            "🌐 <b>캠프 언어 설정</b>",
+            "",
+            "캠프의 언어를 선택하세요.",
+            "방문하기에서 언어별로 분류됩니다.",
+            "",
+        ]
+        lbuttons = []
+        for lk, lv in config.CAMP_LANGUAGES.items():
+            check = " ✅" if lk == current_lang else ""
+            lbuttons.append([InlineKeyboardButton(
+                f"{lv['flag']} {lv['name']}{check}",
+                callback_data=f"cdm_setlang_{uid}_{lk}",
+            )])
+        lbuttons.append([InlineKeyboardButton("◀ 캠프 관리", callback_data=f"cdm_hub_manage_{uid}")])
+
+        try:
+            await query.edit_message_text(
+                "\n".join(lines),
+                reply_markup=InlineKeyboardMarkup(lbuttons),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    # ── cdm_setlang_{uid}_{lang} — 캠프 언어 적용 ──
+    elif data.startswith("cdm_setlang_"):
+        uid = int(parts[2])
+        lang_code = parts[3]
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+
+        if lang_code not in config.CAMP_LANGUAGES:
+            await query.answer("지원하지 않는 언어입니다!", show_alert=True)
+            return
+
+        owned_camp = await cq.get_camp_by_owner(uid)
+        if not owned_camp:
+            await query.answer("소유한 캠프가 없습니다!", show_alert=True)
+            return
+
+        await cq.set_camp_language(owned_camp["chat_id"], lang_code)
+        lang_info = config.CAMP_LANGUAGES[lang_code]
+        await query.answer(f"{lang_info['flag']} 캠프 언어가 {lang_info['name']}(으)로 변경되었습니다!", show_alert=True)
+        # 관리 화면으로 돌아가기
+        query.data = f"cdm_hub_manage_{uid}"
+        await camp_dm_callback_handler(update, context)
+
     # ── cdm_hub_mvp_{uid} — 주간 MVP 랭킹 ──
     elif data.startswith("cdm_hub_mvp_"):
         uid = int(parts[3])
@@ -2013,9 +2311,18 @@ async def camp_dm_callback_handler(update, context):
             btns.append([
                 InlineKeyboardButton("🔔 알림설정", callback_data=f"cdm_hub_notify_{uid}"),
             ])
+            # 소유자면 관리 버튼
+            owned_camp = await cq.get_camp_by_owner(uid)
+            if owned_camp:
+                btns.append([
+                    InlineKeyboardButton("⚙️ 캠프 관리", callback_data=f"cdm_hub_manage_{uid}"),
+                ])
         else:
             btns.append([InlineKeyboardButton("🏕 거점 설정하기", callback_data=f"cdm_hub_home_{uid}")])
-        btns.append([InlineKeyboardButton("📖 캠프 가이드", callback_data=f"cdm_guide_{uid}_0")])
+        btns.append([
+            InlineKeyboardButton("📖 캠프 가이드", callback_data=f"cdm_guide_{uid}_0"),
+            InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}"),
+        ])
 
         try:
             await query.edit_message_text(
@@ -2078,7 +2385,213 @@ async def camp_dm_callback_handler(update, context):
         except Exception:
             pass
 
-    # ── cdm_cancel_{uid} — 취소 ──
+    # ── cdm_visitlang_{uid} — 방문하기 언어 선택 화면 ──
+    elif data.startswith("cdm_visitlang_"):
+        uid = int(parts[2])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+
+        settings = await cq.get_user_camp_settings(uid)
+        home_ids = set()
+        if settings:
+            if settings.get("home_chat_id"):
+                home_ids.add(settings["home_chat_id"])
+            if settings.get("home_chat_id_2"):
+                home_ids.add(settings["home_chat_id_2"])
+
+        all_camps = await cq.get_available_camps()
+        camps = [c for c in all_camps if c["chat_id"] not in home_ids]
+        visited_ids = await cq.get_today_visited_chat_ids(uid)
+
+        # 언어별 캠프 수 / 방문 수 집계
+        lang_stats = {}
+        for lk in config.CAMP_LANGUAGES:
+            lang_camps = [c for c in camps if c.get("language", "ko") == lk]
+            lang_visited = len([c for c in lang_camps if c["chat_id"] in visited_ids])
+            lang_stats[lk] = (len(lang_camps), lang_visited)
+
+        total_visited = len([c for c in camps if c["chat_id"] in visited_ids])
+        lines = [
+            "👣 <b>캠프 방문하기</b>",
+            "",
+            f"오늘 방문: {total_visited}/{len(camps)}",
+            "",
+            "언어를 선택하세요!",
+            "",
+        ]
+
+        lbuttons = []
+        for lk, lv in config.CAMP_LANGUAGES.items():
+            total, visited = lang_stats.get(lk, (0, 0))
+            if total == 0:
+                continue  # 캠프 없는 언어는 숨김
+            check = "✅" if visited == total and total > 0 else ""
+            lbuttons.append([InlineKeyboardButton(
+                f"{lv['flag']} {lv['name']} ({visited}/{total}) {check}",
+                callback_data=f"cdm_visit_{uid}_{lk}_0",
+            )])
+        if not lbuttons:
+            lines.append("방문할 수 있는 캠프가 없습니다.")
+        lbuttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
+
+        try:
+            await query.edit_message_text(
+                "\n".join(lines),
+                reply_markup=InlineKeyboardMarkup(lbuttons),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    # ── cdm_visit_{uid}_{lang}_{page} — 언어별 방문 캠프 목록 ──
+    elif data.startswith("cdm_visit_"):
+        uid = int(parts[2])
+        lang_code = parts[3]
+        page = int(parts[4]) if len(parts) > 4 else 0
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+
+        settings = await cq.get_user_camp_settings(uid)
+        home_ids = set()
+        if settings:
+            if settings.get("home_chat_id"):
+                home_ids.add(settings["home_chat_id"])
+            if settings.get("home_chat_id_2"):
+                home_ids.add(settings["home_chat_id_2"])
+
+        all_camps = await cq.get_available_camps()
+        # 거점 제외 + 언어 필터
+        camps = [c for c in all_camps
+                 if c["chat_id"] not in home_ids and c.get("language", "ko") == lang_code]
+
+        lang_info = config.CAMP_LANGUAGES.get(lang_code, config.CAMP_LANGUAGES["ko"])
+
+        if not camps:
+            try:
+                await query.edit_message_text(
+                    f"{lang_info['flag']} {lang_info['name']} 캠프가 없습니다.",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("◀ 언어 선택", callback_data=f"cdm_visitlang_{uid}")],
+                    ]),
+                )
+            except Exception:
+                pass
+            return
+
+        visited_ids = await cq.get_today_visited_chat_ids(uid)
+        total_pages = max(1, (len(camps) + VISIT_PAGE_SIZE - 1) // VISIT_PAGE_SIZE)
+        page = max(0, min(page, total_pages - 1))
+        start = page * VISIT_PAGE_SIZE
+        page_items = camps[start:start + VISIT_PAGE_SIZE]
+
+        visited_count = len([c for c in camps if c["chat_id"] in visited_ids])
+        lines = [
+            f"👣 <b>캠프 방문하기</b> — {lang_info['flag']} {lang_info['name']}",
+            "",
+            f"오늘 방문: {visited_count}/{len(camps)}",
+            "",
+            "해당 채팅방에서 <b>방문</b>을 입력하세요!",
+            "",
+        ]
+
+        for c in page_items:
+            title = c.get("chat_title") or "채팅방"
+            lv = c.get("level", 1)
+            members = c.get("member_count") or 0
+            done = "✅" if c["chat_id"] in visited_ids else "⬜"
+            reward_range = config.CAMP_VISIT_REWARD.get(lv, (1, 1))
+            reward_str = f"{reward_range[0]}~{reward_range[1]}" if reward_range[0] != reward_range[1] else str(reward_range[0])
+            lines.append(f"{done} <b>{title}</b>")
+            lines.append(f"    Lv.{lv} | {members}명 | 조각 {reward_str}개")
+
+        if total_pages > 1:
+            lines.append(f"\n📄 {page + 1}/{total_pages}")
+
+        lines.append("")
+
+        buttons = []
+        # 초대링크 있는 캠프는 바로가기 버튼
+        for c in page_items:
+            if c.get("invite_link") and c["chat_id"] not in visited_ids:
+                title = c.get("chat_title") or "캠프"
+                buttons.append([InlineKeyboardButton(
+                    f"👣 {title} 가기",
+                    url=c["invite_link"],
+                )])
+
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton("◀ 이전", callback_data=f"cdm_visit_{uid}_{lang_code}_{page - 1}"))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton("다음 ▶", callback_data=f"cdm_visit_{uid}_{lang_code}_{page + 1}"))
+        if nav:
+            buttons.append(nav)
+        buttons.append([InlineKeyboardButton("◀ 언어 선택", callback_data=f"cdm_visitlang_{uid}")])
+        buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
+
+        try:
+            await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+        except Exception:
+            pass
+
+    # ── cdm_decpg_{uid}_{page} — 분해 페이지네이션 ──
+    elif data.startswith("cdm_decpg_"):
+        uid = int(parts[2])
+        page = int(parts[3])
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        pokemon_list = await queries.get_user_pokemon_list(uid)
+        shinies = [p for p in pokemon_list if p.get("is_shiny")]
+        crystals_data = await cq.get_crystals(uid)
+        text, markup = _build_decompose_page(shinies, uid, crystals_data, page)
+        try:
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            pass
+
+    # ── cdm_convpg_{uid}_{page}_{filter} — 이로치전환 페이지네이션 ──
+    elif data.startswith("cdm_convpg_"):
+        uid = int(parts[2])
+        page = int(parts[3])
+        rarity_filter = parts[4] if len(parts) > 4 else "all"
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        frags = await cq.get_user_fragments(uid)
+        crystals_data = await cq.get_crystals(uid)
+        pokemon_list = await queries.get_user_pokemon_list(uid)
+        eligible = _build_convert_eligible(pokemon_list, frags, crystals_data)
+        text, markup = _build_convert_page(eligible, uid, frags, crystals_data, page, rarity_filter)
+        try:
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            pass
+
+    # ── cdm_cf_{uid}_{filter} — 이로치전환 희귀도 필터 ──
+    elif data.startswith("cdm_cf_"):
+        uid = int(parts[2])
+        rarity_filter = parts[3] if len(parts) > 3 else "all"
+        if query.from_user.id != uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        frags = await cq.get_user_fragments(uid)
+        crystals_data = await cq.get_crystals(uid)
+        pokemon_list = await queries.get_user_pokemon_list(uid)
+        eligible = _build_convert_eligible(pokemon_list, frags, crystals_data)
+        text, markup = _build_convert_page(eligible, uid, frags, crystals_data, 0, rarity_filter)
+        try:
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            pass
+
     elif data.startswith("cdm_cancel_"):
         uid = int(parts[2])
         if query.from_user.id != uid:

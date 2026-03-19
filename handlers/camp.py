@@ -7,6 +7,7 @@
 """
 
 import time
+import random
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
@@ -46,8 +47,20 @@ def _is_duplicate_callback(query) -> bool:
 
 def _build_field_buttons(user_id: int, fields: list[dict], placements: list[dict], camp: dict) -> tuple[str, InlineKeyboardMarkup]:
     """필드 선택 화면 빌드."""
-    level_info = cs.get_level_info(camp["level"])
+    level = camp["level"]
+    level_info = cs.get_level_info(level)
     level_name = level_info[5]
+    current_xp = camp.get("xp", 0)
+
+    # XP 진행도
+    if level >= config.CAMP_MAX_LEVEL:
+        xp_line = f"⭐ Lv.{level} MAX"
+    else:
+        next_info = cs.get_level_info(level + 1)
+        next_xp = next_info[4]
+        filled = min(10, int(current_xp / max(next_xp, 1) * 10))
+        bar = "█" * filled + "░" * (10 - filled)
+        xp_line = f"Lv.{level} [{bar}] {current_xp}/{next_xp}"
 
     placed_fields = {p["field_id"] for p in placements}
     field_lines = []
@@ -58,6 +71,7 @@ def _build_field_buttons(user_id: int, fields: list[dict], placements: list[dict
 
     text = (
         f"🏕 포켓몬 캠프 — {level_name}\n"
+        f"{xp_line}\n"
         f"\n"
         f"필드: {' '.join(field_lines)}\n"
         f"내 배치: {len(placements)}마리\n"
@@ -257,6 +271,90 @@ async def camp_handler(update, context):
     resp = await update.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
     schedule_delete(update.message, 3)
     schedule_delete(resp, 120)
+
+
+# ═══════════════════════════════════════════════════════
+# 그룹 명령: 방문
+# ═══════════════════════════════════════════════════════
+
+async def camp_visit_handler(update, context):
+    """그룹에서 '방문' 입력 시 — 캠프 방문 출석 + 조각 보상."""
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+
+    user = await queries.get_user(user_id)
+    if not user:
+        resp = await update.message.reply_text("먼저 포켓몬을 잡아보세요!")
+        schedule_delete(resp, 5)
+        schedule_delete(update.message, 3)
+        return
+
+    camp = await cq.get_camp(chat_id)
+    if not camp:
+        resp = await update.message.reply_text("이 채팅방에는 캠프가 없습니다.")
+        schedule_delete(resp, 10)
+        schedule_delete(update.message, 3)
+        return
+
+    # 거점캠프이면 배치로 조각 받으니 방문 불필요
+    settings = await cq.get_user_camp_settings(user_id)
+    is_home = settings and (
+        settings.get("home_chat_id") == chat_id
+        or settings.get("home_chat_id_2") == chat_id
+    )
+    if is_home:
+        resp = await update.message.reply_text("🏕 여기는 내 거점캠프입니다! 배치로 조각을 받으세요.")
+        schedule_delete(resp, 10)
+        schedule_delete(update.message, 3)
+        return
+
+    # 오늘 이미 방문했는지 체크
+    already = await cq.has_visited_today(user_id, chat_id)
+    if already:
+        resp = await update.message.reply_text("오늘은 이미 이 캠프를 방문했습니다! 내일 다시 오세요 🏕")
+        schedule_delete(resp, 10)
+        schedule_delete(update.message, 3)
+        return
+
+    # 활성 필드에서 랜덤 조각 선택
+    fields = await cq.get_fields(chat_id)
+    if not fields:
+        resp = await update.message.reply_text("이 캠프에 활성화된 필드가 없습니다.")
+        schedule_delete(resp, 10)
+        schedule_delete(update.message, 3)
+        return
+
+    field = random.choice(fields)
+    frag_type = field["field_type"]
+
+    # 캠프 레벨별 보상
+    level = camp.get("level", 1)
+    reward_range = config.CAMP_VISIT_REWARD.get(level, (1, 1))
+    amount = random.randint(reward_range[0], reward_range[1])
+
+    # 기록 + 조각 지급
+    await cq.record_visit(user_id, chat_id, frag_type, amount)
+
+    # 환영 멘트
+    welcome = await cq.get_welcome_message(chat_id)
+    field_info = config.CAMP_FIELDS.get(frag_type, {})
+    field_name = field_info.get("name", frag_type)
+    field_emoji = field_info.get("emoji", "🏕")
+
+    display_name = user.get("display_name", "트레이너")
+    level_info = config.get_camp_level_info(level)
+    camp_name = level_info[5] if level_info else "캠프"
+
+    lines = [f"🏕 <b>{display_name}</b>님이 캠프를 방문했습니다!"]
+    if welcome:
+        lines.append(f"💬 \"{welcome}\"")
+    lines.append("")
+    lines.append(f"{field_emoji} {field_name} 조각 +{amount}개 획득!")
+    lines.append(f"📍 캠프 Lv.{level} {camp_name}")
+
+    resp = await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    schedule_delete(update.message, 3)
+    schedule_delete(resp, 60)
 
 
 # ═══════════════════════════════════════════════════════
@@ -985,6 +1083,45 @@ async def camp_round_job(context):
                     chat_id=chat_id, text=text, parse_mode="HTML",
                 )
                 schedule_delete(msg, config.CAMP_MSG_DELETE_DELAY)
+
+                # 레벨업 축하 메시지
+                if result.get("level_up"):
+                    new_lv = result["level_up"]
+                    lv_info = cs.get_level_info(new_lv)
+                    lv_name = lv_info[5] if lv_info else ""
+                    lv_fields = lv_info[1] if lv_info else 0
+                    lv_cap = lv_info[3] if lv_info else 0
+                    levelup_text = (
+                        f"🎉🎉🎉 <b>캠프 레벨업!</b> 🎉🎉🎉\n\n"
+                        f"📈 Lv.{new_lv} {lv_name}\n"
+                        f"🗺 필드 {lv_fields}개 | 캡 {lv_cap}\n\n"
+                        f"모두 축하합니다! 🏕"
+                    )
+                    try:
+                        lv_msg = await context.bot.send_message(
+                            chat_id=chat_id, text=levelup_text, parse_mode="HTML",
+                        )
+                        schedule_delete(lv_msg, config.CAMP_MSG_DELETE_DELAY)
+                    except Exception:
+                        pass
+
+                    # 새 필드 슬롯이 열렸으면 소유자에게 DM 안내
+                    old_lv_info = cs.get_level_info(new_lv - 1)
+                    if lv_fields > old_lv_info[1] and camp.get("created_by"):
+                        try:
+                            chat_room_info = await queries.get_chat_room(chat_id)
+                            ct = (chat_room_info.get("chat_title") if chat_room_info else None) or "캠프"
+                            await context.bot.send_message(
+                                chat_id=camp["created_by"],
+                                text=(
+                                    f"🆕 캠프 레벨업으로 새 필드를 추가할 수 있습니다!\n\n"
+                                    f"🏕 {ct} — Lv.{new_lv} {lv_name}\n"
+                                    f"🗺 필드: {len(fields)}개 → 최대 {lv_fields}개\n\n"
+                                    f"채팅방에서 '캠프설정' → '필드 추가'로 새 필드를 열어주세요!"
+                                ),
+                            )
+                        except Exception:
+                            pass
 
                 # 거점캠프 유저에게 정산 DM
                 try:

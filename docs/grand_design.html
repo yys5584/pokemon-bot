@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TGPoke 세계관 확장 종합 기획서 v2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --card: #1a1a2e;
+    --card2: #16213e;
+    --accent: #e94560;
+    --accent2: #0f3460;
+    --gold: #f5c518;
+    --green: #00d26a;
+    --blue: #4fc3f7;
+    --purple: #bb86fc;
+    --orange: #ff9800;
+    --red: #ff5252;
+    --text: #e0e0e0;
+    --muted: #888;
+    --border: #2a2a4a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.8;
+    padding: 0;
+  }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 40%, #e94560 100%);
+    padding: 80px 40px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle at 30% 50%, rgba(233,69,96,0.15) 0%, transparent 50%),
+                radial-gradient(circle at 70% 50%, rgba(79,195,247,0.1) 0%, transparent 50%);
+    animation: float 20s ease-in-out infinite;
+  }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+  .hero h1 { font-size: 3em; font-weight: 900; position: relative; z-index: 1; }
+  .hero h1 span { color: var(--gold); }
+  .hero .subtitle { font-size: 1.2em; color: #ccc; margin-top: 12px; position: relative; z-index: 1; }
+  .hero .meta { margin-top: 20px; color: #999; font-size: 0.9em; position: relative; z-index: 1; }
+
+  /* Layout */
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+
+  /* Section */
+  .section { margin-bottom: 60px; }
+  .section-title {
+    font-size: 2em; font-weight: 900;
+    border-left: 5px solid var(--accent);
+    padding-left: 16px;
+    margin-bottom: 24px;
+  }
+  .section-title .num { color: var(--accent); }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card.highlight {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, var(--card) 0%, rgba(233,69,96,0.08) 100%);
+  }
+  .card.blue { border-color: var(--blue); background: linear-gradient(135deg, var(--card) 0%, rgba(79,195,247,0.08) 100%); }
+  .card.gold { border-color: var(--gold); background: linear-gradient(135deg, var(--card) 0%, rgba(245,197,24,0.08) 100%); }
+  .card.green { border-color: var(--green); background: linear-gradient(135deg, var(--card) 0%, rgba(0,210,106,0.08) 100%); }
+  .card.purple { border-color: var(--purple); background: linear-gradient(135deg, var(--card) 0%, rgba(187,134,252,0.08) 100%); }
+  .card h3 { font-size: 1.3em; margin-bottom: 12px; }
+  .card h4 { font-size: 1.1em; margin: 16px 0 8px; color: var(--blue); }
+
+  /* Commentary - 사족/해설 */
+  .commentary {
+    background: rgba(187,134,252,0.08);
+    border-left: 3px solid var(--purple);
+    padding: 16px 20px;
+    margin: 16px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.95em;
+  }
+  .commentary::before {
+    content: '💬 왜 이런 결정을?';
+    display: block;
+    font-weight: 700;
+    color: var(--purple);
+    margin-bottom: 8px;
+  }
+  .commentary.data::before { content: '📊 데이터가 말하는 것'; color: var(--blue); }
+  .commentary.warning::before { content: '⚠️ 주의'; color: var(--orange); }
+  .commentary.vision::before { content: '🔭 비전'; color: var(--gold); }
+  .commentary.lesson::before { content: '📖 다른 게임에서 배운 것'; color: var(--green); }
+  .commentary.reality::before { content: '🎯 현실 체크'; color: var(--red); }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.92em;
+  }
+  th, td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    text-align: left;
+  }
+  th { background: var(--card2); font-weight: 700; white-space: nowrap; }
+  tr:hover { background: rgba(255,255,255,0.03); }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 700;
+  }
+  .tag.red { background: rgba(255,82,82,0.2); color: var(--red); }
+  .tag.green { background: rgba(0,210,106,0.2); color: var(--green); }
+  .tag.yellow { background: rgba(245,197,24,0.2); color: var(--gold); }
+  .tag.blue { background: rgba(79,195,247,0.2); color: var(--blue); }
+  .tag.purple { background: rgba(187,134,252,0.2); color: var(--purple); }
+
+  /* Roadmap */
+  .roadmap { position: relative; padding-left: 40px; }
+  .roadmap::before {
+    content: '';
+    position: absolute;
+    left: 15px; top: 0; bottom: 0;
+    width: 3px;
+    background: linear-gradient(to bottom, var(--accent), var(--blue), var(--green), var(--gold));
+    border-radius: 3px;
+  }
+  .phase {
+    position: relative;
+    margin-bottom: 40px;
+  }
+  .phase::before {
+    content: '';
+    position: absolute;
+    left: -33px; top: 8px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 3px solid var(--accent);
+    background: var(--bg);
+  }
+  .phase.done::before { background: var(--green); border-color: var(--green); }
+  .phase.current::before { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .phase-title { font-size: 1.2em; font-weight: 700; }
+  .phase-period { color: var(--muted); font-size: 0.9em; }
+
+  /* Lists */
+  ul { padding-left: 20px; margin: 8px 0; }
+  li { margin: 4px 0; }
+
+  /* Diagram */
+  .diagram {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 20px 0;
+    font-family: monospace;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.5;
+    font-size: 0.9em;
+  }
+
+  /* Highlight text */
+  .hl { color: var(--gold); font-weight: 700; }
+  .hl-red { color: var(--red); font-weight: 700; }
+  .hl-green { color: var(--green); font-weight: 700; }
+  .hl-blue { color: var(--blue); font-weight: 700; }
+
+  /* TOC */
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 32px;
+    margin: 40px 0;
+  }
+  .toc h2 { margin-bottom: 16px; }
+  .toc a { color: var(--blue); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin: 6px 0; }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .stat-box {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-box .num { font-size: 2em; font-weight: 900; }
+  .stat-box .label { color: var(--muted); font-size: 0.85em; margin-top: 4px; }
+  .stat-box.danger .num { color: var(--red); }
+  .stat-box.warn .num { color: var(--gold); }
+  .stat-box.ok .num { color: var(--green); }
+
+  /* Separator */
+  hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--border), transparent);
+    margin: 40px 0;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    font-size: 0.85em;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 2em; }
+    .hero { padding: 40px 20px; }
+    .container { padding: 20px 16px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== HERO ==================== -->
+<div class="hero">
+  <h1>🏛️ TGPoke <span>세계관 확장</span> 종합 기획서</h1>
+  <div class="subtitle">캠프 → 길드전 → 영토 → 세계대전 — 텔레그램 포켓몬 봇의 다음 스텝</div>
+  <div class="meta">
+    v2.0 | 2026-03-15 | 런칭 14일차 | 800+ 유저 | 30+ 채팅방<br>
+    참고 게임: CoC, 리니지, GW2, 클래시로얄, RoK, 포켓몬GO
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ==================== TOC ==================== -->
+<div class="toc">
+  <h2>📋 목차</h2>
+  <ol>
+    <li><a href="#s1">지금 우리가 어디에 있는가 — 현실 진단</a></li>
+    <li><a href="#s2">우리가 가려는 곳 — 비전과 로드맵</a></li>
+    <li><a href="#s3">BP 경제 — 인플레이션과의 전쟁</a></li>
+    <li><a href="#s4">길드전(캠프전) — 핵심 컨텐츠</a></li>
+    <li><a href="#s5">영토 시스템 — 세계를 먹어라</a></li>
+    <li><a href="#s6">어뷰징 방지 — 공정한 세계를 위해</a></li>
+    <li><a href="#s7">비즈니스 모델 — 지속 가능한 수익</a></li>
+    <li><a href="#s8">유저 성장 전략 — 고인물 넘어서</a></li>
+    <li><a href="#s9">구현 로드맵 — 뭘 먼저 하냐</a></li>
+    <li><a href="#s10">절대 하지 말아야 할 것들</a></li>
+  </ol>
+</div>
+
+<!-- ==================== 1. 현실 진단 ==================== -->
+<div class="section" id="s1">
+  <h2 class="section-title"><span class="num">01.</span> 지금 우리가 어디에 있는가</h2>
+
+  <div class="stats-grid">
+    <div class="stat-box ok"><div class="num">800+</div><div class="label">가입 유저</div></div>
+    <div class="stat-box warn"><div class="num">~400</div><div class="label">활성 유저</div></div>
+    <div class="stat-box danger"><div class="num">695K</div><div class="label">BP 유통량</div></div>
+    <div class="stat-box danger"><div class="num">39%</div><div class="label">소각률 (유입 대비)</div></div>
+    <div class="stat-box warn"><div class="num">30+</div><div class="label">등록 채팅방</div></div>
+    <div class="stat-box ok"><div class="num">14일</div><div class="label">런칭 후 경과</div></div>
+  </div>
+
+  <div class="commentary data">
+    Top 50 유저 실데이터를 분석해봤어 (3월 초 기준). 결론부터 말하면 — <span class="hl-red">경제가 인플레이션 직전</span>이었어.<br><br>
+    일일 BP 유입이 ~76,500인데 소각이 ~30,000밖에 안 됐어. 매일 46,500 BP가 순증가.
+    12일 만에 1위가 10,058 BP를 모았고, 중앙값은 ~500 BP. <span class="hl">20배 차이</span>.<br><br>
+    가챠를 쓰는 고인물이 Top 50 중 16%밖에 안 됐고, 거래소도 14%.
+    <span class="hl-red">BP를 쓸 곳이 없어서 쌓이기만 하는 구조</span>였어.<br><br>
+    <span class="hl-green">📌 3/14 BP 뽑기 도입 후 24시간 만에 인플레 추세 반전 확인.</span>
+    도파민 기반 싱크(뽑기)가 이론적 추정치를 크게 상회하는 소각을 만들어냄.
+  </div>
+
+  <div class="card">
+    <h3>유저 세그먼트 — 누가 뭘 하고 있나</h3>
+    <table>
+      <tr><th>세그먼트</th><th>인원</th><th>보유 BP</th><th>행동 패턴</th><th>우리에게 의미</th></tr>
+      <tr>
+        <td>🐋 웨일 (Top 5)</td><td>~10명</td><td>6,000~10,000</td>
+        <td>일 100전+, 배틀로 BP 벌고 상점에서 소비</td>
+        <td><span class="hl">이 사람들이 메타를 정의함. 길드전의 핵심 전력.</span></td>
+      </tr>
+      <tr>
+        <td>🐬 돌핀 (Top 6~20)</td><td>~30명</td><td>3,000~5,500</td>
+        <td>일 30~100전, 배틀+포획 병행</td>
+        <td>가장 건강한 유저층. 콘텐츠를 만들면 제일 먼저 반응.</td>
+      </tr>
+      <tr>
+        <td>🐟 미노우 (Top 21~50)</td><td>~60명</td><td>2,000~3,000</td>
+        <td>일 5~30전, 포획 위주</td>
+        <td>캠프 배치/정산으로 참여시킬 수 있는 핵심 타겟.</td>
+      </tr>
+      <tr>
+        <td>🌊 캐주얼</td><td>~300명</td><td>100~2,000</td>
+        <td>포획만, 배틀 거의 안 함</td>
+        <td>채팅방 인구. 이 사람들이 있어야 스폰이 돌아감.</td>
+      </tr>
+      <tr>
+        <td>👻 유령</td><td>~400명</td><td>0~100</td>
+        <td>가입만 하고 비활성</td>
+        <td>튜토리얼/온보딩 개선이 필요하다는 신호.</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="commentary vision">
+    지금 TGPoke는 "포켓몬을 잡고 배틀하는 봇"이야. 근데 그걸로는 2주 지나면 할 게 없어져.
+    고인물들은 이미 도감 절반 이상 채웠고, 팀도 짜놨고, 배틀도 비슷한 상대랑 반복하고 있어.<br><br>
+    <span class="hl">캠프 시스템이 이 문제를 해결할 수 있어.</span>
+    캠프 = 길드. 채팅방이 곧 길드홀이야.
+    100명짜리 채팅방이 하나의 세력이 되고, 그 세력끼리 전쟁하고, 영토를 먹고, 세계지도에서 세력을 확장하는 거야.<br><br>
+    포획만 하던 캐주얼이 "우리 캠프를 위해" 배치를 하게 되고,
+    배틀만 하던 웨일이 "우리 캠프의 에이스"로서 캠프전에 나가게 되는 거지.
+    <span class="hl-green">소속감이 행동을 바꾼다</span> — 이건 CoC부터 리니지까지 모든 쟁게임이 증명한 거야.
+  </div>
+
+  <div class="card highlight">
+    <h3>핵심 문제 5가지</h3>
+    <table>
+      <tr><th>#</th><th>문제</th><th>심각도</th><th>영향</th></tr>
+      <tr><td>1</td><td><strong>BP 싱크 부족</strong> — 유입의 39%만 소각 <span style="color:#4CAF50;font-size:11px">→ 3/14 뽑기 도입으로 개선중 ✅</span></td><td><span class="tag yellow">개선중</span></td><td>인플레 → 경제 붕괴</td></tr>
+      <tr><td>2</td><td><strong>고인물 콘텐츠 부족</strong> — 배틀과 포획 외 할 게 없음</td><td><span class="tag red">긴급</span></td><td>이탈 → 생태계 붕괴</td></tr>
+      <tr><td>3</td><td><strong>고인물 격차 확대</strong> — 12일 만에 20배 차이</td><td><span class="tag yellow">높음</span></td><td>신규 유저 좌절</td></tr>
+      <tr><td>4</td><td><strong>어뷰징 방어 없음</strong> — 다계정, 봇 탐지 부재</td><td><span class="tag yellow">높음</span></td><td>공정성 훼손</td></tr>
+      <tr><td>5</td><td><strong>BM 부재</strong> — 구독 외 수익 경로 없음</td><td><span class="tag blue">보통</span></td><td>지속가능성</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== 2. 비전과 로드맵 ==================== -->
+<div class="section" id="s2">
+  <h2 class="section-title"><span class="num">02.</span> 우리가 가려는 곳</h2>
+
+  <div class="card gold">
+    <h3>🔭 최종 비전</h3>
+    <p style="font-size:1.15em; line-height:2;">
+      <span class="hl">거점캠프 = 길드.</span> 100명+ 채팅방이 하나의 세력이 된다.<br>
+      <span class="hl">캠프끼리 전쟁</span>해서 영토를 먹고, <span class="hl">세계지도</span>에서 세력을 확장한다.<br>
+      포켓몬이 말을 걸고, 친밀도가 쌓이고, <span class="hl">캠프를 위해 싸우는 세계관</span>.<br>
+      단순 수집봇이 아니라, <span class="hl-green">텔레그램 위의 작은 MMO</span>.
+    </p>
+  </div>
+
+  <div class="commentary">
+    처음에 캠프는 "필드에 포켓몬을 배치해서 점수를 올리는 시스템"이었어.
+    근데 여기에 "길드"라는 껍데기를 씌우면 완전히 다른 게임이 돼.<br><br>
+    캠프에서 거점을 키우고 → 다른 캠프를 지원(출장)하고 → 캠프끼리 전쟁하고 → 이긴 캠프가 영토를 먹고 →
+    영토에서 나오는 보너스로 캠프가 더 강해지는 선순환.<br><br>
+    핵심은 <span class="hl">모든 유저 행동(포획, 배틀, 배치, 교환)이 캠프에 기여</span>하는 구조를 만드는 거야.
+    그래야 캐주얼도, 배틀러도, 수집가도 각자 방식으로 캠프에 참여할 수 있어.
+  </div>
+
+  <h3 style="margin:30px 0 20px;">로드맵</h3>
+  <div class="roadmap">
+    <div class="phase done">
+      <div class="phase-title">Phase 1~2 — 캠프 기초 <span class="tag green">완료</span></div>
+      <div class="phase-period">~2026-03-15 (런칭 후 2주)</div>
+      <div class="card" style="margin-top:12px;">
+        <ul>
+          <li>거점캠프 시스템 (채팅방 = 캠프)</li>
+          <li>필드 6종 + 포켓몬 배치 + 3시간 정산</li>
+          <li>캠프 레벨 1~10 + XP 시스템</li>
+          <li>배치 추천, 튜토리얼, 대시보드 캠프탭</li>
+          <li>이로치 분해/변환 시스템</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase current">
+      <div class="phase-title">Phase 3 — BP 싱크 + 포켓몬 인터랙션 <span class="tag yellow">다음</span></div>
+      <div class="phase-period">1~2주 (2026-03 후반)</div>
+      <div class="card" style="margin-top:12px;">
+        <h4>🔥 BP 싱크 (최우선)</h4>
+        <ul>
+          <li><strong>스킬 리롤</strong> — 300→500→800 BP (점진적). 고인물이 가장 원하는 기능</li>
+          <li><strong>IV 강화 물약</strong> — 500 BP로 IV +1 (상한 31)</li>
+          <li><strong>포켓몬 닉네임</strong> — 200 BP. 감정 이입 유도</li>
+          <li>일일 수익 체감 (고인물 인플레 방지)</li>
+          <li>일일 할인 로테이션 (요일별 반값 세일)</li>
+        </ul>
+        <h4>🐣 포켓몬 인터랙션</h4>
+        <ul>
+          <li>배치된 포켓몬이 주기적으로 DM 메시지 (밥 달라, 놀아달라, 캠프 소식 등)</li>
+          <li>성격/타입별 대사 차별화</li>
+          <li>친밀도 기반 이벤트</li>
+        </ul>
+      </div>
+      <div class="commentary">
+        왜 스킬 리롤이 1순위냐면 — 고인물 Top 50 데이터를 보면 배틀을 100전+ 하는 사람들이야.
+        이 사람들이 가장 원하는 건 "내 에이스 포켓몬의 스킬이 쓰레기인 걸 바꾸고 싶다"거든.
+        300 BP면 배틀 15번 수익인데, 이걸 스킬 리롤에 쓸 거야. 자연스러운 BP 싱크.<br><br>
+        그리고 리롤할 때마다 가격이 올라가는 건 <span class="hl">리니지의 강화 시스템</span>에서 따온 거야.
+        "한 번 더... 한 번만 더..."하는 심리가 BP를 녹이는 최고의 싱크거든.
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-title">Phase 4 — 어뷰징 방지 + 출장 시스템</div>
+      <div class="phase-period">3~4주 (2026-04 초)</div>
+      <div class="card" style="margin-top:12px;">
+        <ul>
+          <li>봇 탐지 (반응속도 분석)</li>
+          <li>신규 계정 7일 제한 (교환/마켓)</li>
+          <li>다계정 탐지 (교환 그래프)</li>
+          <li>마켓 수수료 누진제</li>
+          <li><strong>출장 시스템</strong> — 다른 캠프에 포켓몬 파견하여 지원</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-title">Phase 5 — 캠프전(길드전) 🏆</div>
+      <div class="phase-period">2개월 (2026-04~05)</div>
+      <div class="card" style="margin-top:12px;">
+        <ul>
+          <li>주간 매칭 (리그 기반, 4캠프 그룹)</li>
+          <li>비동기 캠프 대결 (DM 공격)</li>
+          <li>캠프전 점수 = 배치 + 배틀 + 포획 기여</li>
+          <li>방어 라인업 시스템</li>
+          <li>월간 시즌 + 승강제</li>
+          <li>시즌 보상 (칭호, BP, 특별 아이템)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-title">Phase 6 — 영토 대전쟁 + BM</div>
+      <div class="phase-period">3개월+ (2026-06~)</div>
+      <div class="card" style="margin-top:12px;">
+        <ul>
+          <li>세계지도 7개 영토 노드</li>
+          <li>영토 점령/유지비 (누진 체감)</li>
+          <li>다이아 화폐 + 코스메틱 상점</li>
+          <li>배틀 패스 시스템</li>
+          <li>동맹/연합, 보스 레이드</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 3. BP 경제 ==================== -->
+<div class="section" id="s3">
+  <h2 class="section-title"><span class="num">03.</span> BP 경제 — 인플레이션과의 전쟁</h2>
+
+  <div class="commentary reality">
+    경제 설계는 게임의 근간이야. 아무리 길드전이 재밌어도 BP가 무한히 쌓이면 의미가 없어.
+    3월 초 기준으로 매일 46,500 BP가 순증가하고 있었어. 한 달이면 140만 BP가 더 풀리는 상황이었지.<br><br>
+    문제는 "돈을 벌 방법은 많은데 쓸 곳이 없다"는 거였어.
+    배틀하면 BP 벌고, 포획하면 BP 벌고, 캠프 정산으로 BP 벌고.
+    근데 쓸 곳은? 마스터볼(200 BP), 하이퍼볼(20 BP)... 끝.
+    <span class="hl-red">고인물이 하루에 2,800 BP를 버는데, 쓸 이유가 없었어.</span>
+  </div>
+
+  <div class="card" style="border-left:4px solid #4CAF50;background:linear-gradient(135deg,rgba(76,175,80,.04),rgba(255,255,255,0))">
+    <h3>🎰 실전 결과 — BP 뽑기 도입 24시간 (2026-03-14)</h3>
+    <div class="commentary vision">
+      <strong>3월 14일 BP 뽑기(가챠) 시스템 도입.</strong> 결과는 예상을 뛰어넘었어.<br><br>
+
+      도입 전 예상: "Top 50 중 가챠에 BP 쓰는 유저가 16%밖에 안 돼. 나머지 84%는 안 쓸 거야."<br>
+      <span class="hl-green">실제 결과: 도입 24시간 만에 BP 인플레가 눈에 띄게 해소됨.</span><br><br>
+
+      왜? 뽑기가 BP 싱크로서 <strong>정확히 맞는 심리</strong>를 건드렸거든:<br>
+      • "한 번만 더..." 심리 → 연속 소비 유도<br>
+      • 레어/에픽 포켓몬이 나올 수 있다는 기대감<br>
+      • BP를 쌓아두는 것보다 "써서 뭔가 얻는" 쾌감<br><br>
+
+      이게 리니지의 강화나 메이플의 큐브와 같은 원리야.
+      <span class="hl">소수의 고인물이 "정신 없이" 뽑기를 돌리면서 대량의 BP를 소각함.</span>
+      지금까지 이론으로만 있던 "가챠가 최고의 BP 싱크"라는 가설이 24시간 만에 증명된 거야.<br><br>
+
+      <strong>핵심 교훈:</strong> BP 싱크는 "의무적 소비"보다 <span class="hl-green">"자발적 도파민 소비"</span>가 100배 효과적이야.
+      스킬 리롤이나 IV 강화는 "필요할 때만" 쓰지만, 뽑기는 "그냥 돌리고 싶어서" 써.
+      이 차이가 엄청나.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>신규 BP 싱크 — 우선순위순</h3>
+
+    <h4>Tier 0 — 구현 완료 ✅</h4>
+    <table>
+      <tr><th>싱크</th><th>비용</th><th>효과</th><th>일일 실제 소각</th><th>상태</th></tr>
+      <tr><td><strong>🎰 BP 뽑기 (가챠)</strong></td><td>100 BP/회</td><td>랜덤 포켓몬 획득</td><td>도입 24h 만에 대규모 소각 확인</td><td><span class="tag green">✅ 라이브</span></td></tr>
+    </table>
+    <div class="commentary vision">
+      <strong>3/14 라이브 결과:</strong> 이론적 추정치를 크게 상회. "한 번만 더" 심리가
+      고인물 BP 재고를 빠르게 소각중. 이 하나로 인플레 추세가 반전됨.<br>
+      <span class="hl-green">교훈: 도파민 기반 싱크 > 필요 기반 싱크</span>
+    </div>
+
+    <h4>Tier 1 — 다음 구현 (1~2주)</h4>
+    <table>
+      <tr><th>싱크</th><th>비용</th><th>효과</th><th>일일 예상 소각</th><th>대상</th></tr>
+      <tr><td><strong>스킬 리롤</strong></td><td>300→500→800 BP (점진적)</td><td>스킬 1개 재추첨</td><td>~15,000 BP</td><td>배틀러</td></tr>
+      <tr><td><strong>IV 강화</strong></td><td>500 BP</td><td>IV +1 (상한 31)</td><td>~5,000 BP</td><td>수집가/배틀러</td></tr>
+      <tr><td><strong>닉네임</strong></td><td>200 BP</td><td>커스텀 이름</td><td>~2,000 BP</td><td>전체</td></tr>
+    </table>
+
+    <div class="commentary">
+      뽑기가 "자발적 도파민 소비"로 엄청난 소각을 만들었다면,
+      스킬 리롤은 "전략적 필요 소비"로 꾸준한 소각을 만들 거야. 이 둘의 조합이 핵심.<br><br>
+      뽑기는 초반 열풍 후 안정화될 거고, 스킬 리롤은 배틀 메타가 바뀔 때마다 수요가 생겨.
+      <span class="hl">단발성 싱크(뽑기) + 지속성 싱크(리롤)의 투 트랙 전략.</span>
+    </div>
+
+    <h4>Tier 2 — 1개월 내</h4>
+    <table>
+      <tr><th>싱크</th><th>비용</th><th>효과</th><th>일일 예상 소각</th></tr>
+      <tr><td><strong>카드 스킨</strong></td><td>1,000~3,000 BP</td><td>배틀카드 외형 변경</td><td>~3,000 BP</td></tr>
+      <tr><td><strong>합성 보호권</strong></td><td>800 BP</td><td>합성 실패 시 재료 반환</td><td>~4,000 BP</td></tr>
+      <tr><td><strong>캠프 꾸미기</strong></td><td>500~2,000 BP</td><td>캠프 배너, 테마</td><td>~2,000 BP</td></tr>
+    </table>
+
+    <h4>Tier 3 — 길드전과 함께</h4>
+    <table>
+      <tr><th>싱크</th><th>비용</th><th>효과</th><th>일일 예상 소각</th></tr>
+      <tr><td><strong>길드 금고 기부</strong></td><td>자유 (10% 세금)</td><td>길드 자원 축적</td><td>~5,000 BP</td></tr>
+      <tr><td><strong>전쟁 참가비</strong></td><td>200 BP/인</td><td>캠프전 참여</td><td>~3,000 BP</td></tr>
+      <tr><td><strong>영토 유지비</strong></td><td>500~10,000 BP/주</td><td>영토 보유 비용</td><td>~7,000 BP</td></tr>
+    </table>
+  </div>
+
+  <div class="card blue">
+    <h3>인플레이션 제어 장치들</h3>
+
+    <h4>1. 동적 보상 배율</h4>
+    <p>전체 BP 유통량을 기준으로 자동 보상 조절. 인플레가 심해지면 배틀/포획 BP가 자동으로 줄어들어.</p>
+    <table>
+      <tr><th>유통량 / 목표</th><th>배율</th><th>상태</th></tr>
+      <tr><td>0.8 미만</td><td>×1.3</td><td><span class="tag green">경제 위축 → 보상 증가</span></td></tr>
+      <tr><td>0.8~1.0</td><td>×1.0</td><td><span class="tag green">건강</span></td></tr>
+      <tr><td>1.0~1.5</td><td>×0.8</td><td><span class="tag yellow">약한 인플레</span></td></tr>
+      <tr><td>1.5~2.0</td><td>×0.6</td><td><span class="tag red">강한 인플레</span></td></tr>
+      <tr><td>2.0 이상</td><td>×0.5</td><td><span class="tag red">비상 브레이크</span></td></tr>
+    </table>
+    <p style="color:var(--muted);margin-top:8px;">현재: 695,450 / (400 × 1,500) = 1.16 → 배율 0.8</p>
+
+    <h4>2. 일일 수익 체감</h4>
+    <p>하루에 버는 BP가 많을수록 효율이 줄어들어. 고인물 인플레 방지.</p>
+    <table>
+      <tr><th>일일 수익 구간</th><th>효율</th></tr>
+      <tr><td>0~500 BP</td><td>100% (기본)</td></tr>
+      <tr><td>500~1,000</td><td>70%</td></tr>
+      <tr><td>1,000~2,000</td><td>40%</td></tr>
+      <tr><td>2,000+</td><td>20%</td></tr>
+    </table>
+
+    <div class="commentary">
+      이 체감 시스템이 없으면 1위 유저가 하루 2,800+ BP를 벌어.
+      이걸 적용하면 실수익이 ~1,000 BP로 제한돼. 캐주얼과의 격차가 자연스럽게 줄어들지.
+      <br><br>
+      근데 조심해야 해 — 체감을 너무 세게 걸면 고인물이 "왜 열심히 하는데 보상이 없냐"고 이탈해.
+      <span class="hl">CoC의 교훈: 하드코어 유저가 떠나면 캐주얼도 따라 떠난다.</span>
+      이 사람들이 채팅방의 분위기 메이커이자 콘텐츠 소비자거든.
+    </div>
+
+    <h4>3. 주간 소비 보너스 (벌금 대신 보상)</h4>
+    <table>
+      <tr><th>주간 BP 소비</th><th>다음 주 보너스</th></tr>
+      <tr><td>500+ BP</td><td>+10% BP 수익</td></tr>
+      <tr><td>1,500+ BP</td><td>+20% BP 수익</td></tr>
+      <tr><td>3,000+ BP</td><td>+30% BP 수익</td></tr>
+    </table>
+
+    <h4>4. 일일 할인 로테이션</h4>
+    <table>
+      <tr><th>요일</th><th>50% 할인 대상</th><th>노리는 효과</th></tr>
+      <tr><td>월</td><td>가챠</td><td>주초 소비 시작</td></tr>
+      <tr><td>화</td><td>마스터볼</td><td>포획 욕구</td></tr>
+      <tr><td>수</td><td>스킬 리롤</td><td>배틀러 유인</td></tr>
+      <tr><td>목</td><td>하이퍼볼</td><td>저렴하게 스톡</td></tr>
+      <tr><td>금</td><td>IV 강화</td><td>주말 대비 육성</td></tr>
+      <tr><td>토</td><td>아케이드 패스</td><td>주말 활동</td></tr>
+      <tr><td>일</td><td>카드 스킨 렌탈 (200BP/7일)</td><td>코스메틱 맛보기</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>장기 경제 전망</h3>
+    <table>
+      <tr><th>시점</th><th>유저 수</th><th>인당 목표 BP</th><th>총 유통 목표</th><th>주요 싱크</th></tr>
+      <tr><td>현재 (3월)</td><td>800</td><td>1,500</td><td>600K</td><td>상점, 가챠</td></tr>
+      <tr><td>3개월 후</td><td>1,500</td><td>1,200</td><td>1.2M</td><td>+스킬리롤, IV강화, 캠프전</td></tr>
+      <tr><td>6개월 후</td><td>3,000</td><td>1,000</td><td>3M</td><td>+영토 유지, 배틀패스</td></tr>
+      <tr><td>12개월 후</td><td>5,000+</td><td>800</td><td>4M</td><td>+경매, 길드전 전비</td></tr>
+    </table>
+    <div class="commentary reality">
+      유저가 늘면 인당 목표 BP를 줄여야 해. 안 그러면 전체 유통량이 기하급수적으로 늘어나거든.
+      인당 BP가 줄어들어도 괜찮은 이유 — 콘텐츠가 늘어나면서 "BP의 가치"가 올라가니까.
+      800명일 때 1,500 BP로 할 수 있는 게 마스터볼 7개뿐이었는데,
+      5,000명일 때 800 BP로 스킬 리롤 + 캠프전 참가 + 영토 유지가 가능하면 체감 가치는 오히려 올라가.
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 4. 길드전 ==================== -->
+<div class="section" id="s4">
+  <h2 class="section-title"><span class="num">04.</span> 길드전(캠프전) — 핵심 컨텐츠</h2>
+
+  <div class="card gold">
+    <h3>핵심 컨셉</h3>
+    <p style="font-size:1.1em;">
+      <span class="hl">캠프 = 길드. 채팅방이 곧 길드홀.</span><br>
+      주간 사이클로 캠프끼리 경쟁. <span class="hl">비동기 참여. 텔레그램 DM으로 공격.</span><br>
+      실시간 접속 강요 없음 — 기한 내 자유 참여.
+    </p>
+  </div>
+
+  <div class="commentary lesson">
+    <strong>CoC</strong>: 준비일+전투일 분리 → 전략 논의가 커뮤니케이션을 만든다<br>
+    <strong>리니지</strong>: 성을 가진 혈맹이 세금을 걷는다 → 영토의 실질적 가치가 동기를 만든다<br>
+    <strong>GW2</strong>: 주간 리셋 + 수확 체감 → 영구 독점 방지<br>
+    <strong>클래시로얄</strong>: 개인 기여 상한 → 웨일 1명 캐리 불가, 참여 인원이 중요<br>
+    <strong>RoK</strong>: 동맹 시스템 → 약한 길드도 연합하면 강한 길드를 이길 수 있다<br>
+    <strong>포켓몬GO</strong>: 레이드 협동 → PvE 컨텐츠가 사회적 유대를 만든다<br><br>
+    <span class="hl">이 모든 교훈을 텔레그램 봇이라는 제약 안에서 구현하는 게 도전이야.</span>
+    실시간 전투는 불가능하지만, 비동기 시스템은 오히려 장점이 될 수 있어.
+    "출근길에 DM으로 공격 3번" — 이게 텔레그램에 최적화된 길드전이야.
+  </div>
+
+  <div class="card">
+    <h3>주간 캠프전 사이클</h3>
+    <div class="diagram">
+  월~금 : 평상시 캠프 활동
+    ├─ 배치 정산 (기존 3시간 사이클)
+    ├─ 캠프전 포인트 축적 (배치·배틀·포획)
+    └─ 상대 캠프 정찰 가능 (방어 라인업 열람)
+
+  토~일 : 🔥 캠프전 대결
+    ├─ 상대 캠프 방어라인 공격 (DM 비동기)
+    ├─ 1인 일일 3회 공격 제한
+    └─ 결과가 캠프전 점수에 반영
+
+  일 24:00 KST : 📊 주간 정산
+    ├─ 리그 내 순위 결정
+    ├─ 보상 분배 (캠프 금고 + 개인)
+    └─ 영토 변동 (Phase 6)
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>캠프전 매칭 — 리그제</h3>
+    <table>
+      <tr><th>리그</th><th>캠프 레벨</th><th>그룹 규모</th><th>시즌</th></tr>
+      <tr><td>🥉 브론즈</td><td>Lv.1~3</td><td>4캠프/그룹</td><td>월간</td></tr>
+      <tr><td>🥈 실버</td><td>Lv.4~6</td><td>4캠프/그룹</td><td>월간</td></tr>
+      <tr><td>🥇 골드</td><td>Lv.7~8</td><td>4캠프/그룹</td><td>월간</td></tr>
+      <tr><td>💎 마스터</td><td>Lv.9~10</td><td>4캠프/그룹</td><td>월간</td></tr>
+    </table>
+    <p style="margin-top:12px;">시즌 종료: 그룹 1등 → 승격 / 꼴등 → 강등 / 나머지 → 잔류</p>
+
+    <div class="commentary">
+      4캠프 그룹으로 한 이유 — 지금 활성 캠프가 10~15개 정도야. 리그당 4캠프씩 묶으면
+      브론즈에 2~3그룹, 실버에 1~2그룹 정도 되거든. 이게 적정 규모야.<br><br>
+      <span class="hl">CoC CWL처럼 라운드 로빈</span>이면 1패해도 시즌이 망하지 않아.
+      한 주 못 참여해도 다음 주에 만회할 수 있다는 게 캐주얼 유저 유지에 핵심이야.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>캠프전 점수 기여 — 모든 활동이 캠프를 위해</h3>
+    <table>
+      <tr><th>활동</th><th>포인트</th><th>일일 상한</th><th>대상 유저</th></tr>
+      <tr><td>캠프 배치 정산</td><td>배치 점수의 100%</td><td>기존 제한</td><td>배치 유저</td></tr>
+      <tr><td>랭크 배틀 승리</td><td>+3</td><td>10전</td><td>배틀러</td></tr>
+      <tr><td>일반 배틀 승리</td><td>+1</td><td>10전</td><td>배틀러</td></tr>
+      <tr><td>포켓몬 포획</td><td>+1</td><td>20회</td><td>수집가</td></tr>
+      <tr><td><strong>캠프전 공격 (주말)</strong></td><td><strong>+5~15</strong></td><td><strong>3회</strong></td><td>전사</td></tr>
+    </table>
+
+    <div class="commentary">
+      <span class="hl">개인 기여 상한이 있어서 웨일 1명이 캐리할 수 없어.</span>
+      웨일이 배틀 10전 상한을 다 채워도 30포인트.
+      캐주얼 10명이 각각 포획 20회씩 해도 200포인트.
+      <span class="hl-green">참여 인원이 전투력보다 중요한 구조</span> — 이게 길드전의 핵심이야.<br><br>
+      이 구조가 왜 좋냐면, 채팅방 운영자가 "우리 방 사람들 다 같이 포획 좀 하자!"라고
+      독려할 동기가 생겨. 길드전이 커뮤니티 활성화 엔진이 되는 거지.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>캠프전 대결 메카닉 — 비동기 배틀</h3>
+    <div class="diagram">
+  [공격 흐름]
+
+  1. 상대 캠프의 "방어 라인업" 확인
+     → 방어 라인업 = 상대 캠프에 배치된 포켓몬들
+
+  2. DM에서 /캠프전공격 명령
+     → 상대 캠프 선택
+     → 공격 대상 선택 (중복 불가)
+     → 자기 팀(3마리)으로 상대 방어 포켓몬과 자동 배틀
+
+  3. 결과: ★☆☆ ~ ★★★
+     ★☆☆ = 1pt (간신히 승리 or 일부 승리)
+     ★★☆ = 2pt (깔끔한 승리)
+     ★★★ = 3pt (완승, HP 50%+ 잔여)
+
+  4. 결과가 캠프전 점수에 합산
+    </div>
+
+    <h4>방어 측 보너스 (리니지 성벽 개념)</h4>
+    <ul>
+      <li>방어 포켓몬 HP <strong>+20%</strong> 보정</li>
+      <li>연속 방어 시 피로도 <strong>-5%/회</strong> (PoGO CP 감소 참고)</li>
+      <li>→ 방어 유리하지만 영구 독점은 안 됨</li>
+    </ul>
+
+    <div class="commentary lesson">
+      방어에 +20% 보너스를 주는 이유 — 리니지 공성전에서 성벽이 없으면 공격자가 항상 유리해서
+      "강한 혈맹이 약한 혈맹을 매주 털어먹는" 구조가 돼버려. 방어 보너스가 있어야
+      <span class="hl">"잘 키운 캠프는 쉽게 안 뚫린다"는 보상감</span>이 생겨.<br><br>
+      근데 영구 방어는 막아야 하니까 피로도를 넣었어. 매주 방어할 때마다 5%씩 약해져서
+      언젠가는 뚫릴 수밖에 없어. GW2의 수확 체감과 같은 원리야.
+    </div>
+  </div>
+
+  <div class="card green">
+    <h3>보상 체계 — 져도 받아야 다음에 참여함</h3>
+
+    <h4>주간 보상</h4>
+    <table>
+      <tr><th>순위</th><th>캠프 보상</th><th>개인 보상 (기여도 비례)</th></tr>
+      <tr><td>🥇 1등</td><td>캠프 금고 1,000 BP + 영토 선택권</td><td>100~300 BP</td></tr>
+      <tr><td>🥈 2등</td><td>캠프 금고 600 BP</td><td>60~180 BP</td></tr>
+      <tr><td>🥉 3등</td><td>캠프 금고 300 BP</td><td>30~100 BP</td></tr>
+      <tr><td>4등</td><td>캠프 금고 100 BP</td><td>15~50 BP</td></tr>
+    </table>
+
+    <h4>시즌(월간) 보상</h4>
+    <ul>
+      <li>리그 승격: 특별 칭호 + BP</li>
+      <li>시즌 MVP: 개인 최다 기여 → 한정 칭호</li>
+      <li><strong>참여 보상: 최소 기여 달성 시 전원 보장</strong></li>
+    </ul>
+
+    <div class="commentary">
+      <span class="hl">"져도 최소 보상이 있어야 다음에도 참여한다"</span> — 이건 모든 게임에서 검증된 원칙이야.
+      CoC에서도 패배한 클랜에게 소량의 워 보너스를 줘.
+      안 주면 "어차피 질 건데 왜 해?" 하고 포기하거든.<br><br>
+      그리고 개인 보상이 기여도 비례인 게 중요해. 캠프가 이겨도 공격 1번도 안 한 사람은
+      보상이 적어야 해. <span class="hl">무임승차 방지</span>.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>안티 스노볼 메카닉 — 강한 놈이 영원히 이기면 안 돼</h3>
+    <table>
+      <tr><th>메카닉</th><th>설명</th><th>참고</th></tr>
+      <tr><td>수확 체감</td><td>영토 많을수록 유지비 급증</td><td>GW2</td></tr>
+      <tr><td>도전자 보너스</td><td>하위가 상위를 이기면 보상 ×2</td><td>CoC</td></tr>
+      <tr><td>주간 리셋</td><td>영토 외 점수는 매주 초기화</td><td>GW2, CR</td></tr>
+      <tr><td>리그 승강</td><td>자연스러운 레벨 분리</td><td>CoC CWL</td></tr>
+      <tr><td>인원 보정</td><td>점수 = 총점 ÷ √참여인원</td><td>CR</td></tr>
+    </table>
+
+    <div class="commentary">
+      인원 보정이 왜 √(루트)냐면 — 단순 나누기하면 5명 캠프가 50명 캠프를 이길 수도 있어.
+      그건 비현실적이지. 루트를 쓰면 50명 캠프(÷7.07)가 5명 캠프(÷2.24)보다
+      여전히 유리하지만, <span class="hl">소수 정예가 불가능하진 않은 정도</span>야.
+      30명이 열심히 하면 100명 중 20명만 참여하는 캠프를 이길 수 있어.
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 5. 영토 시스템 ==================== -->
+<div class="section" id="s5">
+  <h2 class="section-title"><span class="num">05.</span> 영토 시스템 — 세계를 먹어라</h2>
+
+  <div class="card">
+    <h3>세계지도 — 7개 영토</h3>
+    <div style="position:relative;width:100%;max-width:680px;margin:16px auto;aspect-ratio:16/11;background:linear-gradient(180deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08)">
+      <!-- 별 배경 -->
+      <div style="position:absolute;inset:0;background:radial-gradient(1px 1px at 10% 15%,rgba(255,255,255,.4),transparent),radial-gradient(1px 1px at 30% 8%,rgba(255,255,255,.3),transparent),radial-gradient(1px 1px at 55% 12%,rgba(255,255,255,.35),transparent),radial-gradient(1px 1px at 75% 5%,rgba(255,255,255,.25),transparent),radial-gradient(1px 1px at 90% 18%,rgba(255,255,255,.3),transparent),radial-gradient(1.5px 1.5px at 20% 25%,rgba(255,255,255,.2),transparent),radial-gradient(1px 1px at 65% 22%,rgba(255,255,255,.25),transparent)"></div>
+      <!-- 연결선 -->
+      <svg style="position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none" viewBox="0 0 700 480">
+        <line x1="350" y1="85" x2="175" y2="210" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
+        <line x1="350" y1="85" x2="350" y2="210" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
+        <line x1="350" y1="85" x2="525" y2="210" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
+        <line x1="175" y1="245" x2="175" y2="360" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
+        <line x1="525" y1="245" x2="525" y2="360" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
+        <line x1="350" y1="245" x2="350" y2="400" stroke="rgba(255,255,255,.15)" stroke-width="2" stroke-dasharray="6,4"/>
+      </svg>
+      <!-- 설산 -->
+      <div style="position:absolute;top:4%;left:50%;transform:translateX(-50%);z-index:2;text-align:center">
+        <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#E3F2FD,#BBDEFB);border:2px solid #90CAF9;box-shadow:0 0 20px rgba(144,202,249,.4);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto">🏔️</div>
+        <div style="font-size:11px;font-weight:700;color:#90CAF9;margin-top:4px;text-shadow:0 1px 4px rgba(0,0,0,.5)">설산</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.6)">이로치 +1%</div>
+      </div>
+      <!-- 깊은숲 -->
+      <div style="position:absolute;top:36%;left:18%;z-index:2;text-align:center">
+        <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border:2px solid #81C784;box-shadow:0 0 20px rgba(129,199,132,.4);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto">🌲</div>
+        <div style="font-size:11px;font-weight:700;color:#81C784;margin-top:4px;text-shadow:0 1px 4px rgba(0,0,0,.5)">깊은숲</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.6)">포획률 +5%</div>
+      </div>
+      <!-- 중앙광장 -->
+      <div style="position:absolute;top:36%;left:50%;transform:translateX(-50%);z-index:3;text-align:center">
+        <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#FFF8E1,#FFE082);border:2px solid #FFD54F;box-shadow:0 0 30px rgba(255,213,79,.5);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto;animation:wmPulse 2s ease-in-out infinite">🏛️</div>
+        <div style="font-size:13px;font-weight:800;color:#FFD54F;margin-top:4px;text-shadow:0 1px 4px rgba(0,0,0,.5)">중앙광장</div>
+        <div style="font-size:9px;color:#FFD54F">전체 +5% ⚔️</div>
+      </div>
+      <!-- 화산 -->
+      <div style="position:absolute;top:36%;right:13%;z-index:2;text-align:center">
+        <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#FBE9E7,#FFAB91);border:2px solid #FF8A65;box-shadow:0 0 20px rgba(255,138,101,.4);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto">🌋</div>
+        <div style="font-size:11px;font-weight:700;color:#FF8A65;margin-top:4px;text-shadow:0 1px 4px rgba(0,0,0,.5)">화산</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.6)">BP +15%</div>
+      </div>
+      <!-- 초원 -->
+      <div style="position:absolute;top:68%;left:18%;z-index:2;text-align:center">
+        <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#F1F8E9,#DCEDC8);border:2px solid #AED581;box-shadow:0 0 20px rgba(174,213,129,.4);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto">🌿</div>
+        <div style="font-size:11px;font-weight:700;color:#AED581;margin-top:4px;text-shadow:0 1px 4px rgba(0,0,0,.5)">초원</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.6)">스폰 +1</div>
+      </div>
+      <!-- 사막 -->
+      <div style="position:absolute;top:68%;right:13%;z-index:2;text-align:center">
+        <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border:2px solid #FFB74D;box-shadow:0 0 20px rgba(255,183,77,.4);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto">🏜️</div>
+        <div style="font-size:11px;font-weight:700;color:#FFB74D;margin-top:4px;text-shadow:0 1px 4px rgba(0,0,0,.5)">사막</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.6)">경험치 +10%</div>
+      </div>
+      <!-- 바다 -->
+      <div style="position:absolute;top:78%;left:50%;transform:translateX(-50%);z-index:2;text-align:center">
+        <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#E0F7FA,#B2EBF2);border:2px solid #4DD0E1;box-shadow:0 0 20px rgba(77,208,225,.4);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto">🌊</div>
+        <div style="font-size:11px;font-weight:700;color:#4DD0E1;margin-top:4px;text-shadow:0 1px 4px rgba(0,0,0,.5)">바다</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.6)">거래세 면제</div>
+      </div>
+    </div>
+    <style>@keyframes wmPulse{0%,100%{box-shadow:0 0 30px rgba(255,213,79,.5)}50%{box-shadow:0 0 45px rgba(255,213,79,.7)}}</style>
+
+    <table>
+      <tr><th>영토</th><th>보너스</th><th>전략적 가치</th><th>노리는 유저</th></tr>
+      <tr><td>🏔️ 설산</td><td>이로치 확률 +1%</td><td>수집가 최우선</td><td>수집가</td></tr>
+      <tr><td>🌲 깊은숲</td><td>포획률 +5%</td><td>초보 친화</td><td>캐주얼</td></tr>
+      <tr><td>🏛️ 중앙광장</td><td>전체 보너스 +5%</td><td>최고 쟁탈지</td><td>전체</td></tr>
+      <tr><td>🌋 화산</td><td>배틀 BP +15%</td><td>배틀러 필수</td><td>배틀러</td></tr>
+      <tr><td>🌿 초원</td><td>일일 스폰 +1</td><td>채팅방 활성화</td><td>운영자</td></tr>
+      <tr><td>🏜️ 사막</td><td>경험치 +10%</td><td>육성 특화</td><td>육성러</td></tr>
+      <tr><td>🌊 바다</td><td>교환/거래 수수료 면제</td><td>거래 특화</td><td>거래꾼</td></tr>
+    </table>
+
+    <div class="commentary vision">
+      영토마다 보너스가 다른 게 핵심이야. 모든 캠프가 "중앙광장"만 노리는 게 아니라,
+      수집 위주 캠프는 "설산"을, 배틀 위주 캠프는 "화산"을 노리게 돼.
+      <span class="hl">캠프마다 전략적 선택이 달라지는 구조.</span><br><br>
+      그리고 tgpoke.com 대시보드에 세계지도를 시각화해서 보여줄 거야.
+      어느 캠프가 어느 영토를 먹고 있는지 실시간으로 보이면 —
+      <span class="hl-green">"저 캠프가 설산을 먹었네, 우리도 뺏자!"</span> 하는 경쟁 심리가 생겨.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>영토 유지비 — 독점 방지</h3>
+    <table>
+      <tr><th>보유 영토 수</th><th>영토당 유지비 (주)</th><th>총 유지비</th></tr>
+      <tr><td>1개</td><td>300 BP</td><td>300 BP</td></tr>
+      <tr><td>2개</td><td>500 BP</td><td>1,000 BP</td></tr>
+      <tr><td>3개</td><td>1,000 BP</td><td>3,000 BP</td></tr>
+      <tr><td>4개+</td><td>2,000 BP</td><td>8,000+ BP</td></tr>
+    </table>
+
+    <div class="commentary">
+      영토 4개를 유지하려면 주당 8,000 BP가 캠프 금고에서 빠져나가.
+      캠프전 1등 보상이 1,000 BP + 개인 기부를 합쳐도 감당하기 빡빡해.
+      <span class="hl">3개가 사실상 상한</span>이 되도록 설계한 거야. 7개 영토 중 3개까지는 가능하지만
+      그 이상은 유지비 때문에 포기해야 해. 나머지 4개는 다른 캠프가 먹을 수 있어.
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 6. 어뷰징 방지 ==================== -->
+<div class="section" id="s6">
+  <h2 class="section-title"><span class="num">06.</span> 어뷰징 방지 — 공정한 세계를 위해</h2>
+
+  <div class="card highlight">
+    <h3>위협 분석</h3>
+    <table>
+      <tr><th>위협</th><th>위험도</th><th>탐지 가능성</th><th>예상 빈도</th></tr>
+      <tr><td>다계정 BP 파밍</td><td><span class="tag red">높음</span></td><td><span class="tag yellow">중간</span></td><td>이미 의심 사례 있음</td></tr>
+      <tr><td>봇 자동 포획</td><td><span class="tag red">높음</span></td><td><span class="tag green">높음</span></td><td>반응속도로 잡힘</td></tr>
+      <tr><td>마켓 BP 세탁</td><td><span class="tag yellow">중간</span></td><td><span class="tag green">높음</span></td><td>거래 패턴 분석</td></tr>
+      <tr><td>소규모방 독점</td><td><span class="tag yellow">중간</span></td><td><span class="tag green">높음</span></td><td>캠프 시스템으로 완화</td></tr>
+      <tr><td>캠프전 담합</td><td><span class="tag yellow">중간</span></td><td><span class="tag yellow">중간</span></td><td>길드전 시작 시 대비</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>탐지 시스템</h3>
+
+    <h4>1. 봇 탐지 (반응속도)</h4>
+    <p><code>catch_attempts</code>에 <code>reaction_ms</code> 컬럼 추가. 주간 배치로 분석.</p>
+    <table>
+      <tr><th>신호</th><th>조건</th><th>확신도</th></tr>
+      <tr><td>표준편차 < 100ms (15회+)</td><td>로봇적 일관성</td><td>0.8</td></tr>
+      <tr><td>평균 < 300ms</td><td>인간 불가능 속도</td><td>0.7</td></tr>
+      <tr><td>50%+ 500ms 미만</td><td>자동화 의심</td><td>0.6</td></tr>
+      <tr><td>3개 모두 해당</td><td>확정적</td><td>0.95</td></tr>
+    </table>
+
+    <h4>2. 다계정 탐지 (교환 그래프)</h4>
+    <p>A→B로만 일방적 교환이 5회+ 있고 B→A가 0이면 부계정 의심.</p>
+
+    <h4>3. 마켓 가격 이상치</h4>
+    <p>같은 판매자-구매자 쌍이 30일 내 3회+ 거래하면서 총액 1,000 BP 이상이면 세탁 의심.</p>
+  </div>
+
+  <div class="card">
+    <h3>단계적 제재</h3>
+    <table>
+      <tr><th>레벨</th><th>조건</th><th>조치</th></tr>
+      <tr><td>0 (정상)</td><td>—</td><td>제한 없음</td></tr>
+      <tr><td>1 (경고)</td><td>점수 > 0.5</td><td>DM 경고 + 관리자 통보</td></tr>
+      <tr><td>2 (제한)</td><td>점수 > 0.7</td><td>교환 3회/일, 마켓 3건</td></tr>
+      <tr><td>3 (중제한)</td><td>점수 > 0.85</td><td>교환/마켓 차단, 포획만</td></tr>
+      <tr><td>4 (임시밴)</td><td>점수 > 0.95</td><td>전 기능 7일 차단</td></tr>
+      <tr><td>5 (영구밴)</td><td>—</td><td><span class="hl-red">관리자 수동 결정만. 자동 불가.</span></td></tr>
+    </table>
+
+    <div class="commentary warning">
+      <span class="hl-red">Level 5 영구밴은 절대 자동화하지 않아.</span>
+      오탐으로 진짜 유저를 영구밴하면 돌이킬 수 없어.
+      구독자는 임계값을 +0.1 상향해 — 돈 내는 유저를 오탐으로 밴하면 피해가 더 크니까.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>예방적 설계 — 탐지보다 예방이 싸다</h3>
+
+    <h4>신규 계정 제한 (가장 효과적)</h4>
+    <table>
+      <tr><th>제한</th><th>신규 (7일 미만)</th><th>일반</th></tr>
+      <tr><td>교환</td><td>3회/일</td><td>10회/일</td></tr>
+      <tr><td>마켓 등록</td><td>2건</td><td>10건</td></tr>
+      <tr><td>마켓 구매</td><td>1,000 BP/일</td><td>무제한</td></tr>
+    </table>
+    <p style="color:var(--muted);margin-top:8px;">다계정 운영 시 계정당 7일 숙성 필요 → 어뷰징 비용 대폭 증가</p>
+
+    <h4>포획 챌린지 (봇 방지)</h4>
+    <p>10% 확률로 "ㅊ" 대신 포켓몬 이름 타이핑 요구. 단순 매크로 무력화.</p>
+  </div>
+</div>
+
+<!-- ==================== 7. BM ==================== -->
+<div class="section" id="s7">
+  <h2 class="section-title"><span class="num">07.</span> 비즈니스 모델</h2>
+
+  <div class="card highlight">
+    <h3>⚠️ 핵심 원칙</h3>
+    <p style="font-size:1.15em;">
+      <span class="hl-red">BP를 현금으로 직접 판매하지 말 것.</span><br>
+      BP = 노력과 스킬의 지표. 돈으로 사면 P2W가 되고 밸런스가 붕괴돼.<br>
+      대신 별도 프리미엄 화폐(💎 다이아)로 <span class="hl">코스메틱과 편의</span>만 판매.
+    </p>
+  </div>
+
+  <div class="commentary">
+    왜 BP를 안 팔냐면 — 지금 Top 5 유저가 12일간 열심히 해서 모은 10,000 BP를
+    누가 $5 내고 바로 사면? 그 유저들이 바로 떠나.
+    <span class="hl">"돈 내면 이기는 게임"은 텔레그램 커뮤니티에서 가장 빠르게 죽는 모델</span>이야.<br><br>
+    대신 "돈 내면 예쁘게 보이는 것"은 괜찮아. 카드 스킨, 프로필 프레임, 닉네임 변경 같은 거.
+    이건 전투력에 영향을 안 주니까 공정성 문제가 없어.
+  </div>
+
+  <div class="card blue">
+    <h3>이중 화폐 시스템</h3>
+    <table>
+      <tr><th>화폐</th><th>획득</th><th>용도</th><th>거래</th></tr>
+      <tr><td><strong>BP</strong></td><td>게임플레이</td><td>전투력, 강화, 경쟁</td><td>거래소 가능</td></tr>
+      <tr><td><strong>💎 다이아</strong></td><td>현금 구매 / 구독 보너스</td><td>코스메틱, 편의</td><td><span class="hl-red">거래 불가</span></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>배틀 패스 — BP 소비 엔진</h3>
+    <p>시즌 30일. <strong>진행 기준 = BP 소비량.</strong> BP를 쓸수록 패스가 진행돼.<br>
+    배틀패스 자체가 BP 소비를 유도하는 인센티브 엔진 역할.</p>
+    <table>
+      <tr><th>Tier</th><th>무료 트랙</th><th>프리미엄 트랙 (50💎)</th></tr>
+      <tr><td>5</td><td>포켓볼 3개</td><td>포켓볼 10개 + 프로필 보더</td></tr>
+      <tr><td>10</td><td>하이퍼볼 1개</td><td>하이퍼볼 3개 + 카드스킨 체험(7일)</td></tr>
+      <tr><td>15</td><td>가챠 티켓 1장</td><td>가챠 3장 + 마스터볼</td></tr>
+      <tr><td>20</td><td>50 BP 환급</td><td>에픽+ 포켓몬 확정 + 시즌 트로피</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>구독 통합</h3>
+    <table>
+      <tr><th>구독</th><th>기존 혜택</th><th>+ 다이아</th><th>+ 배틀패스</th><th>+ 기타</th></tr>
+      <tr><td>베이직 $3.9/월</td><td>포켓볼 무한 등</td><td>50💎/월</td><td>프리미엄 포함</td><td>스킬리롤 1회/일 무료</td></tr>
+      <tr><td>채널장 $9.9/월</td><td>강스/아케이드 등</td><td>150💎/월</td><td>프리미엄 포함</td><td>리롤 3회/일 + 금고 500BP/주</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>매출 전망</h3>
+    <table>
+      <tr><th>시점</th><th>유저</th><th>구독</th><th>다이아</th><th>배틀패스</th><th>월 총액</th></tr>
+      <tr><td>3개월</td><td>1,500</td><td>~$300</td><td>~$200</td><td>~$100</td><td><span class="hl">~$600</span></td></tr>
+      <tr><td>6개월</td><td>3,000</td><td>~$800</td><td>~$500</td><td>~$300</td><td><span class="hl">~$1,600</span></td></tr>
+      <tr><td>12개월</td><td>5,000+</td><td>~$2,000</td><td>~$1,500</td><td>~$800</td><td><span class="hl">~$4,300</span></td></tr>
+    </table>
+
+    <div class="commentary reality">
+      솔직히 이 매출 전망은 낙관적이야. 텔레그램 봇에서 과금 유저 비율이 2~3%면 잘하는 거야.
+      800명 중 20명이 구독하면 $78~$198. 현실적인 3개월 목표는 $200~$400 수준.
+      <br><br>
+      근데 이게 Supabase Pro ($25) + Compute ($10) 비용을 커버할 수 있는 수준이면 되는 거야.
+      <span class="hl">처음부터 대박을 노리는 게 아니라, 지속 가능한 운영 비용을 확보하는 게 목표.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 8. 유저 성장 ==================== -->
+<div class="section" id="s8">
+  <h2 class="section-title"><span class="num">08.</span> 유저 성장 전략 — 고인물 넘어서</h2>
+
+  <div class="commentary reality">
+    지금 TGPoke의 현실은 — <span class="hl">소수의 고인물이 이끄는 커뮤니티</span>야.
+    800명 가입자 중 활성이 400명이고, 진짜 열심히 하는 건 50명 정도.
+    이 50명이 채팅방을 활성화시키고, 배틀 메타를 형성하고, 신규 유저를 가르치고 있어.<br><br>
+    문제는 이 구조가 <span class="hl-red">고인물이 1명만 빠져도 흔들린다</span>는 거야.
+    그리고 신규 유저가 들어와도 "고인물이랑 격차가 너무 크다"고 느끼면 바로 떠나.
+  </div>
+
+  <div class="card">
+    <h3>성장 전략 3단계</h3>
+
+    <h4>1단계: 고인물 잠금 (Retention) — 지금~1개월</h4>
+    <ul>
+      <li><strong>길드전(캠프전)</strong>이 핵심. "우리 캠프를 위해"라는 소속감이 이탈을 막아.</li>
+      <li>스킬 리롤, IV 강화 등 <strong>엔드게임 콘텐츠</strong>로 할 거리 제공</li>
+      <li>시즌 칭호, MVP 등 <strong>명예 보상</strong></li>
+      <li>고인물이 머물면 캐주얼도 머물어. 생태계 유지.</li>
+    </ul>
+
+    <h4>2단계: 신규 유입 (Acquisition) — 1~3개월</h4>
+    <ul>
+      <li>기존 채팅방에서 <strong>자연 바이럴</strong> — 포켓몬 스폰 메시지가 광고 역할</li>
+      <li>대시보드(tgpoke.com) 공유 — "내 랭킹 봐" SNS 효과</li>
+      <li>채널장 구독에 <strong>스폰 부스트</strong> — 방장이 봇을 추가할 동기</li>
+      <li><strong>초대 보상</strong> — 새 유저 초대 시 양쪽에 포켓볼/BP</li>
+    </ul>
+
+    <h4>3단계: 확장 (Expansion) — 3개월+</h4>
+    <ul>
+      <li>다국어 지원 (영어, 일어)</li>
+      <li>크로스 서버 영토전 (한국 서버 vs 해외 서버)</li>
+      <li>인플루언서 채팅방 유치</li>
+    </ul>
+  </div>
+
+  <div class="card blue">
+    <h3>신규 유저 온보딩 개선</h3>
+    <p>현재 유령 유저가 400명(50%)이야. 가입은 했는데 뭘 해야 할지 몰라서 떠나는 거.</p>
+    <ul>
+      <li><strong>첫 포획 가이드</strong> — "포켓몬이 나타나면 ㅊ을 눌러보세요"</li>
+      <li><strong>첫 7일 미션</strong> — 포획 10회 → 보상, 배틀 3회 → 보상, 캠프 배치 → 보상</li>
+      <li><strong>멘토 시스템</strong> — 고인물이 신규 유저를 1:1 안내 (멘토에게 BP 보상)</li>
+      <li><strong>튜토리얼 개선</strong> — 현재 DM 튜토리얼을 더 친절하게</li>
+    </ul>
+
+    <div class="commentary">
+      멘토 시스템이 괜찮은 이유 — 고인물에게 "할 거리"를 주면서 동시에 신규 유저 이탈을 줄여.
+      고인물이 자기 캠프 사람들을 가르치면서 캠프 충성도도 올라가고.
+      <span class="hl">포켓몬GO의 커뮤니티 데이가 이 역할을 했어</span> — 고인물과 신규가 함께 모이는 이벤트.
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 9. 구현 로드맵 ==================== -->
+<div class="section" id="s9">
+  <h2 class="section-title"><span class="num">09.</span> 구현 로드맵</h2>
+
+  <div class="card">
+    <h3>Phase 3 — 지금 바로 시작 (1~2주)</h3>
+    <table>
+      <tr><th>#</th><th>기능</th><th>복잡도</th><th>효과</th><th>비고</th></tr>
+      <tr><td>1</td><td>스킬 리롤</td><td><span class="tag yellow">중</span></td><td><span class="tag red">높음</span></td><td>BP 싱크 1순위</td></tr>
+      <tr><td>2</td><td>IV 강화 물약</td><td><span class="tag green">낮</span></td><td><span class="tag yellow">중</span></td><td>간단 구현</td></tr>
+      <tr><td>3</td><td>포켓몬 닉네임</td><td><span class="tag green">낮</span></td><td><span class="tag green">낮</span></td><td>감정 이입</td></tr>
+      <tr><td>4</td><td>일일 수익 체감</td><td><span class="tag yellow">중</span></td><td><span class="tag red">높음</span></td><td>인플레 방지 핵심</td></tr>
+      <tr><td>5</td><td>주간 소비 보너스</td><td><span class="tag green">낮</span></td><td><span class="tag yellow">중</span></td><td>소비 유도</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Phase 4 — 그 다음 (3~4주)</h3>
+    <table>
+      <tr><th>#</th><th>기능</th><th>복잡도</th><th>효과</th><th>비고</th></tr>
+      <tr><td>1</td><td>반응속도 추적</td><td><span class="tag green">낮</span></td><td><span class="tag yellow">중</span></td><td>봇 탐지 기반</td></tr>
+      <tr><td>2</td><td>신규 계정 제한</td><td><span class="tag green">낮</span></td><td><span class="tag red">높음</span></td><td>다계정 방지 핵심</td></tr>
+      <tr><td>3</td><td>출장 시스템</td><td><span class="tag red">높</span></td><td><span class="tag yellow">중</span></td><td>캠프 간 협력</td></tr>
+      <tr><td>4</td><td>마켓 누진 수수료</td><td><span class="tag green">낮</span></td><td><span class="tag yellow">중</span></td><td>세탁 방지 + 싱크</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Phase 5 — 길드전 본격 (2개월)</h3>
+    <table>
+      <tr><th>#</th><th>기능</th><th>복잡도</th><th>효과</th></tr>
+      <tr><td>1</td><td>주간 매칭 시스템</td><td><span class="tag red">높</span></td><td><span class="tag red">높음</span></td></tr>
+      <tr><td>2</td><td>캠프전 점수 축적</td><td><span class="tag yellow">중</span></td><td><span class="tag red">높음</span></td></tr>
+      <tr><td>3</td><td>비동기 캠프 대결</td><td><span class="tag red">높</span></td><td><span class="tag red">높음</span></td></tr>
+      <tr><td>4</td><td>방어 라인업</td><td><span class="tag yellow">중</span></td><td><span class="tag yellow">중</span></td></tr>
+      <tr><td>5</td><td>주간 정산 + 보상</td><td><span class="tag yellow">중</span></td><td><span class="tag red">높음</span></td></tr>
+      <tr><td>6</td><td>월간 시즌 + 승강</td><td><span class="tag yellow">중</span></td><td><span class="tag red">높음</span></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Phase 6 — 영토 + BM (3개월+)</h3>
+    <table>
+      <tr><th>#</th><th>기능</th><th>복잡도</th><th>효과</th></tr>
+      <tr><td>1</td><td>세계지도 7개 노드</td><td><span class="tag red">높</span></td><td><span class="tag red">높음</span></td></tr>
+      <tr><td>2</td><td>영토 점령/유지비</td><td><span class="tag yellow">중</span></td><td><span class="tag red">높음</span></td></tr>
+      <tr><td>3</td><td>다이아 화폐</td><td><span class="tag yellow">중</span></td><td><span class="tag yellow">중</span></td></tr>
+      <tr><td>4</td><td>배틀 패스</td><td><span class="tag red">높</span></td><td><span class="tag red">높음</span></td></tr>
+      <tr><td>5</td><td>대시보드 세계지도</td><td><span class="tag yellow">중</span></td><td><span class="tag yellow">중</span></td></tr>
+      <tr><td>6</td><td>동맹 시스템</td><td><span class="tag yellow">중</span></td><td><span class="tag yellow">중</span></td></tr>
+      <tr><td>7</td><td>보스 레이드</td><td><span class="tag red">높</span></td><td><span class="tag red">높음</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== 10. 금지 목록 ==================== -->
+<div class="section" id="s10">
+  <h2 class="section-title"><span class="num">10.</span> 절대 하지 말아야 할 것들</h2>
+
+  <div class="card highlight">
+    <h3>⛔ 금지 목록</h3>
+    <table>
+      <tr><th>#</th><th>절대 금지</th><th>이유</th></tr>
+      <tr><td>1</td><td><span class="hl-red">BP를 현금으로 직접 판매</span></td><td>P2W 확정. 고인물 이탈. 밸런스 붕괴.</td></tr>
+      <tr><td>2</td><td><span class="hl-red">800명 규모에서 BP 세금/디케이</span></td><td>유저 이탈. "벌금 맞는 느낌". 규모가 더 커진 후 검토.</td></tr>
+      <tr><td>3</td><td><span class="hl-red">실시간 필수 콘텐츠</span></td><td>텔레그램 봇은 비동기가 본질. "몇 시에 접속하세요"는 죽음.</td></tr>
+      <tr><td>4</td><td><span class="hl-red">자동 영구밴</span></td><td>오탐 시 돌이킬 수 없음. Level 5는 수동만.</td></tr>
+      <tr><td>5</td><td><span class="hl-red">한 번에 너무 많은 변경</span></td><td>Phase 단위로 검증. 한꺼번에 바꾸면 뭐가 문제인지 모름.</td></tr>
+    </table>
+  </div>
+
+  <div class="card green">
+    <h3>✅ 반드시 해야 할 것</h3>
+    <table>
+      <tr><th>#</th><th>필수</th><th>이유</th></tr>
+      <tr><td>1</td><td><strong>BP 싱크부터 먼저</strong></td><td>경제가 건강해야 BM도 돌아감</td></tr>
+      <tr><td>2</td><td><strong>소비 인센티브 > 벌금</strong></td><td>보상으로 유도. 처벌은 최후 수단.</td></tr>
+      <tr><td>3</td><td><strong>점진적 확장</strong></td><td>Phase 단위로 검증하며 진행</td></tr>
+      <tr><td>4</td><td><strong>데이터 기반 결정</strong></td><td>일일 KPI로 경제 건강도 모니터링</td></tr>
+      <tr><td>5</td><td><strong>고인물 소통</strong></td><td>변경 전 핵심 유저에게 의견 수렴</td></tr>
+    </table>
+  </div>
+
+  <div class="card purple">
+    <h3>📖 전 게임 공통 검증된 설계 원칙</h3>
+    <ol style="padding-left:20px;">
+      <li><strong>비동기 참여가 핵심</strong> — 기한 내 자유 참여. 실시간 강제 ✕ → 텔레그램 봇에 완벽 부합</li>
+      <li><strong>개인 기여 상한</strong> — 웨일 1명 캐리 방지. 참여 인원이 중요</li>
+      <li><strong>최소 보상 보장</strong> — 져도 뭔가 받아야 다음에도 참여함</li>
+      <li><strong>주기적 리셋</strong> — 영구 독점 방지, 새로운 기회 제공</li>
+      <li><strong>다양한 기여 방식</strong> — 전투 외에도 포획·배치·교환으로 기여 → 캐주얼 유지</li>
+      <li><strong>시각적 진행</strong> — 점수판, 영토 맵, 리그 순위를 가시화</li>
+      <li><strong>사회적 유대</strong> — "길드원에게 피해주기 싫다"는 마음이 자발적 참여를 만듦</li>
+      <li><strong>준비 + 실행 분리</strong> — 전략 수립 시간이 커뮤니케이션을 촉진</li>
+    </ol>
+  </div>
+</div>
+
+<hr>
+
+<!-- ==================== FOOTER ==================== -->
+<div class="footer">
+  <p><strong>TGPoke 세계관 확장 종합 기획서 v2.0</strong></p>
+  <p>2026-03-15 | 리서치: CoC, 리니지, GW2, 클래시로얄, RoK, 포켓몬GO</p>
+  <p>실데이터 기반: 800+ 유저, Top 50 분석, 14일 운영 데이터</p>
+  <p style="margin-top:12px;color:#555;">이 문서는 살아있는 문서입니다. Phase가 진행될 때마다 업데이트됩니다.</p>
+</div>
+
+</div>
+</body>
+</html>

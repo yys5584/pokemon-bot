@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body { margin:0; background:#000; overflow:hidden }
+canvas { display:block }
+@font-face { font-family:'MG'; src:local('Malgun Gothic'),local('Nanum Gothic'),local('sans-serif') }
+</style>
+</head>
+<body>
+<canvas id="c" width="960" height="540"></canvas>
+<script>
+const DATA = /*__DATA__*/{
+  atkSprite:"", defSprite:"",
+  atkPokemonId:150,
+  skillType:"fire", skillName:"화염방사",
+  atkName:"리자몽", defName:"거북왕",
+  atkRarity:"legendary", defRarity:"epic",
+  atkShiny:false, defShiny:false,
+  damage:320, isCrit:false,
+  hpBefore:1.0, hpAfter:0.35,
+  atkHp:0.8,
+  typeColors:[[255,70,20],[255,140,30],[255,200,60]],
+  roundText:"R1 [0-0]"
+}/*__END__*/;
+
+const W=960, H=540;
+const ctx=document.getElementById('c').getContext('2d');
+
+// 배치: 적=우상, 아군=좌하 (게임보이 스타일)
+const ATK_CX=200, ATK_CY=320;
+const DEF_CX=720, DEF_CY=180;
+
+const TOTAL_FRAMES=24;
+const RARITY_KO={common:"C",uncommon:"U",rare:"R",epic:"E",legendary:"L",mythic:"M"};
+const RARITY_COLOR={common:"#aaa",uncommon:"#5b5",rare:"#58f",epic:"#c5f",legendary:"#fa0",mythic:"#f55"};
+
+// ---- PRNG ----
+function mulberry32(s){return function(){s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const rng=mulberry32(42);
+function rngRange(a,b){return a+(b-a)*rng()}
+function rngInt(a,b){return Math.floor(rngRange(a,b+1))}
+
+// ---- 스프라이트 ----
+let atkImg=null, defImg=null, imagesLoaded=0;
+function loadSprites(cb){
+  function onDone(){imagesLoaded++;if(imagesLoaded>=2)cb()}
+  if(DATA.atkSprite){atkImg=new Image();atkImg.onload=atkImg.onerror=onDone;atkImg.src=DATA.atkSprite}else{onDone()}
+  if(DATA.defSprite){defImg=new Image();defImg.onload=defImg.onerror=onDone;defImg.src=DATA.defSprite}else{onDone()}
+}
+
+// ---- HP바 ----
+function drawHpBar(x,y,w,h,ratio,animated){
+  ratio=Math.max(0,Math.min(1,ratio));
+  // 배경
+  ctx.fillStyle='rgba(0,0,0,0.7)';
+  roundRect(x-2,y-2,w+4,h+4,4);
+  ctx.fillStyle='#222';
+  roundRect(x,y,w,h,3);
+  // HP
+  const fill=Math.max(0,Math.floor((w-4)*ratio));
+  if(fill>0){
+    let color;
+    if(ratio>0.5)color='#4cd137';
+    else if(ratio>0.2)color='#fbc531';
+    else color='#e84118';
+    // 글로우
+    ctx.shadowColor=color;
+    ctx.shadowBlur=animated?8:3;
+    ctx.fillStyle=color;
+    roundRect(x+2,y+2,fill,h-4,2);
+    ctx.shadowBlur=0;
+  }
+  // HP 라벨
+  ctx.fillStyle='#fcb005';
+  ctx.font='bold 11px MG,sans-serif';
+  ctx.fillText('HP',x-28,y+h-2);
+}
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.fill();
+}
+
+// ---- 정보 패널 ----
+function drawEnemyPanel(hpRatio){
+  // 배경 패널
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  roundRect(480,30,440,70,8);
+  // 이름 + 레어리티
+  ctx.font='bold 20px MG,sans-serif';
+  ctx.fillStyle='#fff';
+  ctx.fillText(DATA.defName,500,58);
+  const rl=RARITY_KO[DATA.defRarity]||"";
+  if(rl){
+    ctx.fillStyle=RARITY_COLOR[DATA.defRarity]||'#aaa';
+    ctx.font='bold 14px MG,sans-serif';
+    const nw=ctx.measureText(DATA.defName).width;
+    ctx.fillText(`[${rl}]`,500+nw+8,58);
+  }
+  // HP바
+  drawHpBar(540,72,360,14,hpRatio,hpRatio<1);
+}
+
+function drawPlayerPanel(hpRatio){
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  roundRect(20,380,440,80,8);
+  // 이름
+  ctx.font='bold 20px MG,sans-serif';
+  const shiny=DATA.atkShiny?'✨ ':'';
+  ctx.fillStyle='#fff';
+  ctx.fillText(shiny+DATA.atkName,40,408);
+  const rl=RARITY_KO[DATA.atkRarity]||"";
+  if(rl){
+    ctx.fillStyle=RARITY_COLOR[DATA.atkRarity]||'#aaa';
+    ctx.font='bold 14px MG,sans-serif';
+    const nw=ctx.measureText(shiny+DATA.atkName).width;
+    ctx.fillText(`[${rl}]`,40+nw+8,408);
+  }
+  drawHpBar(80,425,360,14,hpRatio);
+}
+
+// ---- 상단 바 ----
+function drawTopBar(){
+  ctx.fillStyle='rgba(0,0,0,0.5)';
+  ctx.fillRect(0,0,W,28);
+  ctx.font='bold 15px MG,sans-serif';
+  ctx.fillStyle='#ddd';
+  ctx.fillText(DATA.roundText,12,19);
+}
+
+// ---- 스프라이트 그리기 ----
+function drawSprite(img,cx,cy,maxS,opts){
+  if(!img)return;
+  opts=opts||{};
+  const a=opts.alpha!=null?opts.alpha:1;
+  const fw=opts.flashWhite||0;
+  const ox=opts.offsetX||0;
+  const oy=opts.offsetY||0;
+  const sc=opts.scale||1;
+  const ratio=Math.min(maxS/img.width,maxS/img.height);
+  const w=img.width*ratio*sc, h=img.height*ratio*sc;
+  const x=cx-w/2+ox, y=cy-h/2+oy;
+  ctx.save();
+  ctx.globalAlpha=a;
+  // 그림자
+  ctx.shadowColor='rgba(0,0,0,0.6)';
+  ctx.shadowBlur=12;
+  ctx.shadowOffsetY=4;
+  ctx.drawImage(img,x,y,w,h);
+  ctx.shadowColor='transparent';
+  // 흰색 플래시 — 오프스크린 캔버스 사용
+  if(fw>0){
+    const oc=document.createElement('canvas');
+    oc.width=Math.ceil(w);oc.height=Math.ceil(h);
+    const octx=oc.getContext('2d');
+    octx.drawImage(img,0,0,w,h);
+    octx.globalCompositeOperation='source-atop';
+    octx.fillStyle=`rgba(255,255,255,${fw})`;
+    octx.fillRect(0,0,w,h);
+    ctx.drawImage(oc,x,y);
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
+}
+
+// ---- 파티클 ----
+const chargePs=[], damagePs=[], impactPs=[], trailPs=[];
+function initParticles(){
+  const [r1,g1,b1]=DATA.typeColors[0],[r2,g2,b2]=DATA.typeColors[1],[r3,g3,b3]=DATA.typeColors[2];
+  const cols=[`rgb(${r1},${g1},${b1})`,`rgb(${r2},${g2},${b2})`,`rgb(${r3},${g3},${b3})`];
+  // 차징
+  for(let i=0;i<40;i++){
+    const ang=rng()*Math.PI*2, dist=60+rng()*150;
+    chargePs.push({sx:ATK_CX+Math.cos(ang)*dist,sy:ATK_CY+Math.sin(ang)*dist,
+      color:cols[rngInt(0,2)],size:2+rng()*5,delay:rngInt(0,7)});
+  }
+  // 데미지 (더 많이, 더 크게)
+  for(let i=0;i<40;i++){
+    const ang=rng()*Math.PI*2, spd=4+rng()*10;
+    damagePs.push({ox:DEF_CX+(rng()-0.5)*40,oy:DEF_CY+(rng()-0.5)*40,
+      vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd-3,
+      color:[`rgb(255,50,20)`,`rgb(255,100,15)`,`rgb(255,160,30)`,`rgb(200,20,5)`,`rgb(255,200,50)`][rngInt(0,4)],
+      maxLife:12+rngInt(0,18), size:2+rng()*6, gravity:0.5});
+  }
+  // 임팩트 스파크 (더 많이)
+  for(let i=0;i<35;i++){
+    const ang=rng()*Math.PI*2, spd=6+rng()*15;
+    impactPs.push({vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd,
+      color:rng()>0.4?'rgb(255,255,220)':'rgb(255,200,80)',
+      maxLife:6+rngInt(0,10), size:1+rng()*4});
+  }
+  // 트레일 파티클 (투사체 뒤에)
+  for(let i=0;i<25;i++){
+    trailPs.push({ox:(rng()-0.5)*20,oy:(rng()-0.5)*20,
+      color:cols[rngInt(0,2)],size:1+rng()*3,life:3+rngInt(0,5)});
+  }
+}
+
+function drawParticles(list,baseX,baseY,framesSince,opts){
+  opts=opts||{};
+  const fadeOut=opts.fadeOut||0;
+  for(const p of list){
+    let px=p.ox||baseX, py=p.oy||baseY;
+    const grav=p.gravity||0;
+    for(let s=0;s<framesSince;s++){
+      px+=p.vx; py+=p.vy+grav*s;
+    }
+    const life=Math.max(0,p.maxLife-framesSince);
+    if(life<=0)continue;
+    const a=life/p.maxLife*(1-fadeOut);
+    ctx.globalAlpha=a;
+    ctx.fillStyle=p.color;
+    ctx.beginPath();
+    ctx.arc(px,py,p.size*(0.3+0.7*a),0,Math.PI*2);
+    ctx.fill();
+    // 글로우
+    ctx.globalAlpha=a*0.3;
+    ctx.beginPath();
+    ctx.arc(px,py,p.size*2,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+// ---- 초전설 궁극기 ----
+const _LEGENDARY_IDS = new Set([
+  144,145,146,150,151,  // 1세대 전설
+  243,244,245,249,250,251, // 2세대 전설
+  380,381,382,383,384,385,386, // 3세대 전설
+  483,484,487,490,491,492,493, // 4세대 전설
+]);
+const _IS_ULTIMATE = _LEGENDARY_IDS.has(DATA.atkPokemonId);
+
+// 화면 암전 오버레이 (궁극기 전용)
+function drawUltimateDarken(intensity){
+  ctx.fillStyle=`rgba(0,0,0,${0.6*intensity})`;
+  ctx.fillRect(0,0,W,H);
+}
+
+// 화면 가장자리 에너지 (궁극기 차징)
+function drawEdgeEnergy(progress,cols){
+  const [r1,g1,b1]=cols[0],[r2,g2,b2]=cols[1],[r3,g3,b3]=cols[2];
+  ctx.save();
+  for(let i=0;i<4;i++){
+    const grd=i<2?
+      ctx.createLinearGradient(i===0?0:W,0,i===0?120:W-120,0):
+      ctx.createLinearGradient(0,i===2?0:H,0,i===2?100:H-100);
+    grd.addColorStop(0,`rgba(${r2},${g2},${b2},${0.5*progress})`);
+    grd.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+    ctx.fillStyle=grd;
+    if(i<2) ctx.fillRect(i===0?0:W-120,0,120,H);
+    else ctx.fillRect(0,i===2?0:H-100,W,100);
+  }
+  // 에너지 입자 (가장자리에서 중심으로)
+  for(let i=0;i<20;i++){
+    const ang=rng()*Math.PI*2;
+    const dist=350+rng()*200;
+    const px=W/2+Math.cos(ang)*dist*(1-progress*0.5);
+    const py=H/2+Math.sin(ang)*dist*(1-progress*0.5);
+    const sz=2+rng()*4;
+    ctx.globalAlpha=progress*(0.3+rng()*0.5);
+    ctx.fillStyle=`rgb(${r3},${g3},${b3})`;
+    ctx.beginPath();ctx.arc(px,py,sz,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
+}
+
+// ★ 뮤츠 사이코브레이크 — 사이코 구체 + 공간 왜곡 + 전방위 폭발
+function drawUlt_mewtwo(progress){
+  const cols=DATA.typeColors;
+  const [r1,g1,b1]=cols[0],[r2,g2,b2]=cols[1],[r3,g3,b3]=cols[2];
+  ctx.save();
+
+  if(progress<0.4){
+    // 사이코 구체 생성 (공격자 앞)
+    const p=progress/0.4;
+    const cx=ATK_CX+60,cy=ATK_CY-50;
+    const radius=20+p*50;
+    // 공간 왜곡 링
+    for(let ring=0;ring<5;ring++){
+      const rp=Math.max(0,p-ring*0.05);
+      const r=radius*(0.5+ring*0.3);
+      ctx.globalAlpha=rp*0.4*(1-ring*0.15);
+      ctx.strokeStyle=`rgb(${r2},${g2},${b2})`;
+      ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+    }
+    // 중심 구체 (다층 그라데이션)
+    ctx.globalAlpha=p;
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,radius);
+    g.addColorStop(0,'rgba(255,255,255,0.9)');
+    g.addColorStop(0.2,`rgba(${r3},${g3},${b3},0.8)`);
+    g.addColorStop(0.6,`rgba(${r2},${g2},${b2},0.5)`);
+    g.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();
+  } else if(progress<0.7){
+    // 구체가 화면 중앙으로 이동하며 팽창
+    const p=(progress-0.4)/0.3;
+    const cx=ATK_CX+60+(W/2-ATK_CX-60)*p;
+    const cy=ATK_CY-50+(H/2-ATK_CY+50)*p;
+    const radius=70+p*150;
+    // 화면 왜곡선 (동심원)
+    for(let ring=0;ring<8;ring++){
+      const rr=radius+ring*40;
+      ctx.globalAlpha=(1-p*0.3)*0.3*(1-ring*0.1);
+      ctx.strokeStyle=`rgb(${r2},${g2},${b2})`;
+      ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.stroke();
+    }
+    // 거대 구체
+    ctx.globalAlpha=0.9;
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,radius);
+    g.addColorStop(0,'rgba(255,255,255,0.8)');
+    g.addColorStop(0.15,`rgba(${r3},${g3},${b3},0.7)`);
+    g.addColorStop(0.5,`rgba(${r2},${g2},${b2},0.4)`);
+    g.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();
+    // 에너지 파편
+    for(let i=0;i<30;i++){
+      const ang=rng()*Math.PI*2;
+      const d=radius*0.3+rng()*radius*0.8;
+      const px=cx+Math.cos(ang)*d, py=cy+Math.sin(ang)*d;
+      ctx.globalAlpha=0.4+rng()*0.4;
+      ctx.fillStyle=`rgb(${[r2,r3][rngInt(0,1)]},${[g2,g3][rngInt(0,1)]},${[b2,b3][rngInt(0,1)]})`;
+      ctx.beginPath();ctx.arc(px,py,1+rng()*3,0,Math.PI*2);ctx.fill();
+    }
+  } else {
+    // 전방위 폭발 → 적에게 수렴
+    const p=(progress-0.7)/0.3;
+    // 폭발 충격파 (화면 전체)
+    for(let wave=0;wave<4;wave++){
+      const wp=Math.max(0,p-wave*0.08);
+      const r=wp*500;
+      ctx.globalAlpha=Math.max(0,(0.5-wave*0.1)*(1-wp));
+      ctx.strokeStyle=wave===0?'rgba(255,255,255,0.7)':`rgb(${r2},${g2},${b2})`;
+      ctx.lineWidth=4-wave;
+      ctx.beginPath();ctx.arc(DEF_CX,DEF_CY,r,0,Math.PI*2);ctx.stroke();
+    }
+    // 수렴 빔 (사방에서 적으로)
+    for(let beam=0;beam<12;beam++){
+      const ang=beam/12*Math.PI*2;
+      const startDist=400*(1-p);
+      const bx=DEF_CX+Math.cos(ang)*startDist;
+      const by=DEF_CY+Math.sin(ang)*startDist;
+      ctx.globalAlpha=0.6*p;
+      ctx.strokeStyle=`rgb(${r3},${g3},${b3})`;
+      ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(DEF_CX,DEF_CY);ctx.stroke();
+    }
+    // 피격점 폭발
+    const er=30+p*80;
+    ctx.globalAlpha=0.8*(1-p*0.3);
+    const g=ctx.createRadialGradient(DEF_CX,DEF_CY,0,DEF_CX,DEF_CY,er);
+    g.addColorStop(0,'rgba(255,255,255,0.9)');
+    g.addColorStop(0.3,`rgba(${r3},${g3},${b3},0.7)`);
+    g.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(DEF_CX,DEF_CY,er,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;ctx.restore();
+}
+
+// ★ 레쿠쟈 화룡점정 — 하늘에서 용 에너지 기둥 내리꽂기
+function drawUlt_rayquaza(progress){
+  const cols=DATA.typeColors;
+  const [r1,g1,b1]=cols[0],[r2,g2,b2]=cols[1],[r3,g3,b3]=cols[2];
+  ctx.save();
+
+  if(progress<0.35){
+    // 하늘에 용 에너지 모임
+    const p=progress/0.35;
+    // 화면 상단 에너지 소용돌이
+    const cx=DEF_CX, cy=-20;
+    for(let ring=0;ring<6;ring++){
+      const r=40+ring*30+p*50;
+      const rot=p*Math.PI*3+ring*0.5;
+      ctx.globalAlpha=p*0.4*(1-ring*0.12);
+      ctx.strokeStyle=`rgb(${r2},${g2},${b2})`;
+      ctx.lineWidth=3;
+      ctx.beginPath();
+      ctx.arc(cx,cy,r,rot,rot+Math.PI*1.5);
+      ctx.stroke();
+    }
+    // 중심 빛
+    ctx.globalAlpha=p*0.8;
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,80+p*60);
+    g.addColorStop(0,'rgba(255,255,255,0.9)');
+    g.addColorStop(0.3,`rgba(${r3},${g3},${b3},0.6)`);
+    g.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,80+p*60,0,Math.PI*2);ctx.fill();
+  } else if(progress<0.65){
+    // 거대 에너지 기둥 내리꽂기
+    const p=(progress-0.35)/0.3;
+    const topY=-30;
+    const botY=topY+(DEF_CY+80)*p;
+    const pillarW=40+p*30;
+    // 기둥 본체 (3층)
+    for(let layer=0;layer<3;layer++){
+      const lw=pillarW*(1.5-layer*0.3);
+      ctx.globalAlpha=[0.3,0.5,0.8][layer];
+      const grd=ctx.createLinearGradient(0,topY,0,botY);
+      grd.addColorStop(0,`rgba(${r3},${g3},${b3},0.9)`);
+      grd.addColorStop(0.5,`rgba(${r2},${g2},${b2},0.7)`);
+      grd.addColorStop(1,`rgba(${r1},${g1},${b1},0.5)`);
+      ctx.fillStyle=grd;
+      // 물결치는 기둥
+      ctx.beginPath();
+      ctx.moveTo(DEF_CX-lw/2,topY);
+      for(let s=0;s<=20;s++){
+        const t=s/20;
+        const y=topY+(botY-topY)*t;
+        const wave=Math.sin(t*Math.PI*6+layer)*lw*0.15;
+        ctx.lineTo(DEF_CX-lw/2+wave,y);
+      }
+      for(let s=20;s>=0;s--){
+        const t=s/20;
+        const y=topY+(botY-topY)*t;
+        const wave=Math.sin(t*Math.PI*6+layer+Math.PI)*lw*0.15;
+        ctx.lineTo(DEF_CX+lw/2+wave,y);
+      }
+      ctx.closePath();ctx.fill();
+    }
+    // 코어 라인
+    ctx.globalAlpha=0.7;ctx.strokeStyle='rgba(255,255,220,0.8)';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(DEF_CX,topY);ctx.lineTo(DEF_CX,botY);ctx.stroke();
+    // 파편
+    for(let i=0;i<20;i++){
+      const t=rng();
+      const py2=topY+(botY-topY)*t;
+      const px2=DEF_CX+(rng()-0.5)*pillarW*2;
+      ctx.globalAlpha=0.3+rng()*0.4;
+      ctx.fillStyle=`rgb(${r3},${g3},${b3})`;
+      ctx.beginPath();ctx.arc(px2,py2,1+rng()*3,0,Math.PI*2);ctx.fill();
+    }
+  } else {
+    // 착탄 폭발 + 지면 균열
+    const p=(progress-0.65)/0.35;
+    // 폭발 링
+    for(let ring=0;ring<5;ring++){
+      const rp=Math.max(0,p-ring*0.06);
+      const r=rp*300;
+      ctx.globalAlpha=Math.max(0,(0.6-ring*0.1)*(1-rp));
+      ctx.strokeStyle=ring===0?'rgba(255,255,255,0.8)':`rgb(${r2},${g2},${b2})`;
+      ctx.lineWidth=5-ring;
+      ctx.beginPath();ctx.arc(DEF_CX,DEF_CY,r,0,Math.PI*2);ctx.stroke();
+    }
+    // 지면 균열선
+    for(let crack=0;crack<8;crack++){
+      const ang=crack/8*Math.PI*2+(rng()-0.5)*0.3;
+      const len=p*200;
+      ctx.globalAlpha=0.6*p;
+      ctx.strokeStyle=`rgb(${r3},${g3},${b3})`;
+      ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(DEF_CX,DEF_CY);
+      const mx=DEF_CX+Math.cos(ang)*len*0.5;
+      const my=DEF_CY+Math.sin(ang)*len*0.5+(rng()-0.5)*20;
+      ctx.lineTo(mx,my);
+      ctx.lineTo(DEF_CX+Math.cos(ang)*len,DEF_CY+Math.sin(ang)*len);
+      ctx.stroke();
+    }
+    // 잔여 기둥 (사라져가는)
+    if(p<0.5){
+      ctx.globalAlpha=(1-p*2)*0.5;
+      const grd=ctx.createLinearGradient(0,-30,0,DEF_CY);
+      grd.addColorStop(0,`rgba(${r2},${g2},${b2},0.5)`);
+      grd.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+      ctx.fillStyle=grd;
+      ctx.fillRect(DEF_CX-25,-30,50,DEF_CY+30);
+    }
+  }
+  ctx.globalAlpha=1;ctx.restore();
+}
+
+// ★ 루기아 에어로블래스트 — 거대 폭풍 회오리 + 에너지 빔
+function drawUlt_lugia(progress){
+  const cols=DATA.typeColors;
+  const [r1,g1,b1]=cols[0],[r2,g2,b2]=cols[1],[r3,g3,b3]=cols[2];
+  ctx.save();
+
+  if(progress<0.4){
+    // 바람 소용돌이 형성 (공격자 중심)
+    const p=progress/0.4;
+    const cx=ATK_CX+80, cy=ATK_CY-30;
+    // 회전하는 바람 줄기
+    for(let arm=0;arm<6;arm++){
+      ctx.beginPath();
+      ctx.globalAlpha=p*0.5;
+      for(let s=0;s<=30;s++){
+        const t=s/30;
+        const r=20+t*100*p;
+        const ang=t*Math.PI*4+arm/6*Math.PI*2+p*Math.PI*2;
+        const x=cx+Math.cos(ang)*r;
+        const y=cy+Math.sin(ang)*r*0.6; // 원근감
+        if(s===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle=`rgb(${r3},${g3},${b3})`;
+      ctx.lineWidth=2+p*2;ctx.stroke();
+    }
+    // 중심 글로우
+    ctx.globalAlpha=p*0.6;
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,60*p);
+    g.addColorStop(0,'rgba(255,255,255,0.7)');
+    g.addColorStop(0.5,`rgba(${r3},${g3},${b3},0.4)`);
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,60*p,0,Math.PI*2);ctx.fill();
+  } else if(progress<0.7){
+    // 폭풍이 적을 향해 이동 + 에너지빔 발사
+    const p=(progress-0.4)/0.3;
+    const cx=ATK_CX+80+(DEF_CX-ATK_CX-80)*p;
+    const cy=ATK_CY-30+(DEF_CY-ATK_CY+30)*p;
+    // 이동하는 폭풍
+    for(let arm=0;arm<8;arm++){
+      ctx.beginPath();
+      const armAlpha=0.3+Math.sin(arm)*0.2;
+      ctx.globalAlpha=armAlpha;
+      for(let s=0;s<=25;s++){
+        const t=s/25;
+        const r=30+t*120;
+        const ang=t*Math.PI*3+arm/8*Math.PI*2+p*Math.PI*4;
+        const x=cx+Math.cos(ang)*r;
+        const y=cy+Math.sin(ang)*r*0.5;
+        if(s===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle=`rgb(${r2},${g2},${b2})`;
+      ctx.lineWidth=3;ctx.stroke();
+    }
+    // 중심 빔 (공격자→현재 위치)
+    ctx.globalAlpha=0.5;
+    ctx.strokeStyle=`rgba(${r3},${g3},${b3},0.6)`;
+    ctx.lineWidth=8;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(ATK_CX+60,ATK_CY-20);ctx.lineTo(cx,cy);ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(ATK_CX+60,ATK_CY-20);ctx.lineTo(cx,cy);ctx.stroke();
+    // 바람 파편
+    for(let i=0;i<25;i++){
+      const ang=rng()*Math.PI*2;
+      const d=40+rng()*120;
+      ctx.globalAlpha=0.3+rng()*0.3;
+      ctx.fillStyle=`rgb(${r3},${g3},${b3})`;
+      ctx.beginPath();ctx.arc(cx+Math.cos(ang)*d,cy+Math.sin(ang)*d*0.5,1+rng()*3,0,Math.PI*2);ctx.fill();
+    }
+  } else {
+    // 착탄 — 회오리 폭발
+    const p=(progress-0.7)/0.3;
+    // 폭발 소용돌이
+    for(let arm=0;arm<10;arm++){
+      ctx.beginPath();ctx.globalAlpha=(1-p)*0.4;
+      for(let s=0;s<=20;s++){
+        const t=s/20;
+        const r=(50+p*250)*t;
+        const ang=t*Math.PI*2+arm/10*Math.PI*2;
+        const x=DEF_CX+Math.cos(ang)*r;
+        const y=DEF_CY+Math.sin(ang)*r*0.5;
+        if(s===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle=`rgb(${r2},${g2},${b2})`;ctx.lineWidth=2;ctx.stroke();
+    }
+    // 충격파
+    for(let w=0;w<3;w++){
+      const wp=Math.max(0,p-w*0.1);
+      ctx.globalAlpha=Math.max(0,(0.5-w*0.15)*(1-wp));
+      ctx.strokeStyle=w===0?'rgba(255,255,255,0.6)':`rgb(${r3},${g3},${b3})`;
+      ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(DEF_CX,DEF_CY,wp*350,0,Math.PI*2);ctx.stroke();
+    }
+  }
+  ctx.globalAlpha=1;ctx.restore();
+}
+
+// ★ 칠색조 성스러운불꽃 — 무지개빛 성화 기둥 + 깃털 파티클
+function drawUlt_hooh(progress){
+  // 칠색조는 무지개 색상 사용
+  const rainbow=[
+    [255,60,60],[255,160,40],[255,230,50],
+    [80,220,80],[60,160,255],[140,80,220],[220,80,180]
+  ];
+  ctx.save();
+
+  if(progress<0.35){
+    // 성스러운 빛 모임 (공격자 위)
+    const p=progress/0.35;
+    const cx=ATK_CX, cy=ATK_CY-100;
+    // 무지개 오라 링
+    for(let i=0;i<7;i++){
+      const r=30+i*15+p*40;
+      const [cr,cg,cb]=rainbow[i];
+      ctx.globalAlpha=p*0.4;
+      ctx.strokeStyle=`rgb(${cr},${cg},${cb})`;
+      ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+    }
+    // 중심 성화
+    ctx.globalAlpha=p*0.8;
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,50+p*30);
+    g.addColorStop(0,'rgba(255,255,240,0.9)');
+    g.addColorStop(0.3,'rgba(255,200,60,0.7)');
+    g.addColorStop(0.7,'rgba(255,100,30,0.4)');
+    g.addColorStop(1,'rgba(200,40,10,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,50+p*30,0,Math.PI*2);ctx.fill();
+  } else if(progress<0.65){
+    // 화염 기둥 하강
+    const p=(progress-0.35)/0.3;
+    // 무지개 화염 기둥 (위→적)
+    const topY=ATK_CY-130;
+    const botY=topY+(DEF_CY-topY+60)*p;
+    for(let layer=0;layer<7;layer++){
+      const [cr,cg,cb]=rainbow[layer];
+      const lw=50-layer*4;
+      const offset=layer*5;
+      ctx.globalAlpha=0.3+layer*0.05;
+      ctx.beginPath();
+      ctx.moveTo(DEF_CX-lw/2+offset,topY);
+      for(let s=0;s<=15;s++){
+        const t=s/15;
+        const y=topY+(botY-topY)*t;
+        const wave=Math.sin(t*Math.PI*5+layer)*lw*0.2;
+        ctx.lineTo(DEF_CX-lw/2+wave+offset*(1-t),y);
+      }
+      for(let s=15;s>=0;s--){
+        const t=s/15;
+        const y=topY+(botY-topY)*t;
+        const wave=Math.sin(t*Math.PI*5+layer+Math.PI)*lw*0.2;
+        ctx.lineTo(DEF_CX+lw/2+wave-offset*(1-t),y);
+      }
+      ctx.closePath();
+      ctx.fillStyle=`rgba(${cr},${cg},${cb},0.5)`;ctx.fill();
+    }
+    // 깃털 파티클
+    for(let i=0;i<15;i++){
+      const [cr,cg,cb]=rainbow[rngInt(0,6)];
+      const t=rng();
+      const fy=topY+(botY-topY)*t;
+      const fx=DEF_CX+(rng()-0.5)*100;
+      ctx.globalAlpha=0.4+rng()*0.4;
+      // 깃털 모양 (작은 곡선)
+      ctx.strokeStyle=`rgb(${cr},${cg},${cb})`;
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(fx-5,fy);
+      ctx.quadraticCurveTo(fx,fy-8-rng()*5,fx+5,fy);
+      ctx.stroke();
+    }
+  } else {
+    // 착탄 — 무지개 폭발
+    const p=(progress-0.65)/0.35;
+    // 무지개 충격파
+    for(let i=0;i<7;i++){
+      const [cr,cg,cb]=rainbow[i];
+      const rp=Math.max(0,p-i*0.03);
+      const r=rp*280;
+      ctx.globalAlpha=Math.max(0,(0.4)*(1-rp));
+      ctx.strokeStyle=`rgb(${cr},${cg},${cb})`;
+      ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(DEF_CX,DEF_CY,r,0,Math.PI*2);ctx.stroke();
+    }
+    // 성화 폭발 중심
+    ctx.globalAlpha=0.7*(1-p);
+    const g=ctx.createRadialGradient(DEF_CX,DEF_CY,0,DEF_CX,DEF_CY,60+p*100);
+    g.addColorStop(0,'rgba(255,255,240,0.9)');
+    g.addColorStop(0.3,'rgba(255,180,40,0.6)');
+    g.addColorStop(1,'rgba(200,40,10,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(DEF_CX,DEF_CY,60+p*100,0,Math.PI*2);ctx.fill();
+    // 깃털 산란
+    for(let i=0;i<20;i++){
+      const [cr,cg,cb]=rainbow[rngInt(0,6)];
+      const ang=rng()*Math.PI*2;
+      const d=p*200*rng();
+      ctx.globalAlpha=(1-p)*0.5;
+      ctx.fillStyle=`rgb(${cr},${cg},${cb})`;
+      ctx.beginPath();ctx.arc(DEF_CX+Math.cos(ang)*d,DEF_CY+Math.sin(ang)*d,2+rng()*3,0,Math.PI*2);ctx.fill();
+    }
+  }
+  ctx.globalAlpha=1;ctx.restore();
+}
+
+// ★ 공통 초전설 궁극기 — 타입색 전방위 에너지 폭발
+function drawUlt_generic(progress){
+  const cols=DATA.typeColors;
+  const [r1,g1,b1]=cols[0],[r2,g2,b2]=cols[1],[r3,g3,b3]=cols[2];
+  ctx.save();
+
+  if(progress<0.35){
+    // 에너지 수집 (사방에서 공격자로)
+    const p=progress/0.35;
+    for(let i=0;i<30;i++){
+      const ang=rng()*Math.PI*2;
+      const maxDist=300+rng()*200;
+      const dist=maxDist*(1-p);
+      const px=ATK_CX+Math.cos(ang)*dist;
+      const py=ATK_CY+Math.sin(ang)*dist;
+      const sz=2+rng()*4;
+      ctx.globalAlpha=p*(0.3+rng()*0.5);
+      ctx.fillStyle=`rgb(${[r2,r3][rngInt(0,1)]},${[g2,g3][rngInt(0,1)]},${[b2,b3][rngInt(0,1)]})`;
+      ctx.beginPath();ctx.arc(px,py,sz,0,Math.PI*2);ctx.fill();
+    }
+    // 공격자 오라 강화
+    ctx.globalAlpha=p*0.6;
+    const g=ctx.createRadialGradient(ATK_CX,ATK_CY,0,ATK_CX,ATK_CY,100+p*80);
+    g.addColorStop(0,`rgba(255,255,255,0.5)`);
+    g.addColorStop(0.3,`rgba(${r3},${g3},${b3},0.4)`);
+    g.addColorStop(0.7,`rgba(${r2},${g2},${b2},0.2)`);
+    g.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(ATK_CX,ATK_CY,100+p*80,0,Math.PI*2);ctx.fill();
+  } else if(progress<0.65){
+    // 거대 에너지 빔 발사
+    const p=(progress-0.35)/0.3;
+    const sx2=ATK_CX+80, sy2=ATK_CY-30;
+    const ex2=DEF_CX-40, ey2=DEF_CY+10;
+    // 거대 빔 (3층, 일반보다 훨씬 두꺼움)
+    for(let layer=0;layer<3;layer++){
+      const lw=[60,35,15][layer];
+      ctx.globalAlpha=[0.3,0.55,0.8][layer];
+      ctx.lineWidth=lw;ctx.lineCap='round';
+      const grd=ctx.createLinearGradient(sx2,sy2,ex2,ey2);
+      grd.addColorStop(0,`rgba(${r3},${g3},${b3},0.9)`);
+      grd.addColorStop(0.5,`rgba(${r2},${g2},${b2},0.7)`);
+      grd.addColorStop(1,`rgba(${r1},${g1},${b1},0.5)`);
+      ctx.strokeStyle=grd;
+      ctx.beginPath();ctx.moveTo(sx2,sy2);
+      for(let s=0;s<=20;s++){
+        const t=s/20*p;
+        const wave=Math.sin(t*Math.PI*4+layer)*15;
+        ctx.lineTo(sx2+(ex2-sx2)*t,sy2+(ey2-sy2)*t+wave);
+      }
+      ctx.stroke();
+    }
+    // 코어
+    ctx.globalAlpha=0.6;ctx.strokeStyle='rgba(255,255,255,0.7)';ctx.lineWidth=4;
+    ctx.beginPath();ctx.moveTo(sx2,sy2);
+    const endX=sx2+(ex2-sx2)*p, endY=sy2+(ey2-sy2)*p;
+    ctx.lineTo(endX,endY);ctx.stroke();
+    // 빔 주변 파편
+    for(let i=0;i<20;i++){
+      const t=rng()*p;
+      const bx=sx2+(ex2-sx2)*t+(rng()-0.5)*80;
+      const by=sy2+(ey2-sy2)*t+(rng()-0.5)*60;
+      ctx.globalAlpha=0.3+rng()*0.4;
+      ctx.fillStyle=`rgb(${r3},${g3},${b3})`;
+      ctx.beginPath();ctx.arc(bx,by,1+rng()*4,0,Math.PI*2);ctx.fill();
+    }
+  } else {
+    // 착탄 폭발
+    const p=(progress-0.65)/0.35;
+    // 거대 충격파
+    for(let w=0;w<5;w++){
+      const wp=Math.max(0,p-w*0.06);
+      const r=wp*400;
+      ctx.globalAlpha=Math.max(0,(0.5-w*0.08)*(1-wp));
+      ctx.strokeStyle=w===0?'rgba(255,255,255,0.7)':`rgb(${r2},${g2},${b2})`;
+      ctx.lineWidth=4-w*0.5;
+      ctx.beginPath();ctx.arc(DEF_CX,DEF_CY,r,0,Math.PI*2);ctx.stroke();
+    }
+    // 폭발 코어
+    ctx.globalAlpha=0.8*(1-p);
+    const g=ctx.createRadialGradient(DEF_CX,DEF_CY,0,DEF_CX,DEF_CY,50+p*120);
+    g.addColorStop(0,'rgba(255,255,255,0.9)');
+    g.addColorStop(0.2,`rgba(${r3},${g3},${b3},0.7)`);
+    g.addColorStop(0.6,`rgba(${r2},${g2},${b2},0.4)`);
+    g.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(DEF_CX,DEF_CY,50+p*120,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;ctx.restore();
+}
+
+// 궁극기 디스패처
+const _ULT_MAP = {150:drawUlt_mewtwo, 384:drawUlt_rayquaza, 249:drawUlt_lugia, 250:drawUlt_hooh};
+function drawUltimate(progress){
+  const fn=_ULT_MAP[DATA.atkPokemonId];
+  if(fn) fn(progress);
+  else drawUlt_generic(progress);
+}
+
+// ---- 타입별 투사체 ----
+function drawProjectile(progress,type){
+  const [r1,g1,b1]=DATA.typeColors[0],[r2,g2,b2]=DATA.typeColors[1],[r3,g3,b3]=DATA.typeColors[2];
+  const sx=ATK_CX+100,sy=ATK_CY-30;
+  const ex=DEF_CX-60,ey=DEF_CY+20;
+  const px=sx+(ex-sx)*progress, py=sy+(ey-sy)*progress;
+  ctx.save();
+  if(type==='fire'){
+    // 화염 브레스 — 부채꼴로 퍼지면서 적을 덮는 불기둥
+    const breathWidth=20+progress*60; // 갈수록 넓어짐
+    const segments=40;
+    for(let layer=0;layer<3;layer++){
+      ctx.globalAlpha=[0.3,0.5,0.7][layer];
+      const layerW=breathWidth*(1.4-layer*0.3);
+      ctx.beginPath();
+      ctx.moveTo(sx,sy);
+      for(let s=0;s<=segments;s++){
+        const t=s/segments*progress;
+        const bx=sx+(ex-sx)*t;
+        const by=sy+(ey-sy)*t;
+        const spread=layerW*t; // 갈수록 넓어짐
+        const wave=Math.sin(t*Math.PI*8+layer*2)*spread*0.3;
+        ctx.lineTo(bx,by-spread/2+wave);
+      }
+      for(let s=segments;s>=0;s--){
+        const t=s/segments*progress;
+        const bx=sx+(ex-sx)*t;
+        const by=sy+(ey-sy)*t;
+        const spread=layerW*t;
+        const wave=Math.sin(t*Math.PI*8+layer*2+Math.PI)*spread*0.3;
+        ctx.lineTo(bx,by+spread/2+wave);
+      }
+      ctx.closePath();
+      const grd=ctx.createLinearGradient(sx,sy,px,py);
+      grd.addColorStop(0,`rgba(${r3},${g3},${b3},0.8)`);
+      grd.addColorStop(0.4,`rgba(${r2},${g2},${b2},0.9)`);
+      grd.addColorStop(0.8,`rgba(${r1},${g1},${b1},0.7)`);
+      grd.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+      ctx.fillStyle=grd;ctx.fill();
+    }
+    // 불기둥 코어 (흰색 중심선)
+    ctx.globalAlpha=0.6;
+    ctx.strokeStyle='rgba(255,255,200,0.8)';ctx.lineWidth=4;
+    ctx.beginPath();ctx.moveTo(sx,sy);
+    for(let s=0;s<=30;s++){
+      const t=s/30*progress;
+      const bx=sx+(ex-sx)*t;
+      const by=sy+(ey-sy)*t+Math.sin(t*Math.PI*6)*8;
+      ctx.lineTo(bx,by);
+    }
+    ctx.stroke();
+    // 불씨 파티클 (사방으로 튀기)
+    ctx.globalAlpha=1;
+    for(let i=0;i<30;i++){
+      const t=rng()*progress;
+      const bx=sx+(ex-sx)*t;
+      const by=sy+(ey-sy)*t;
+      const spread=(20+progress*60)*t;
+      const ox=(rng()-0.5)*spread*1.5;
+      const oy=(rng()-0.5)*spread*1.2-rng()*20;
+      const size=1+rng()*4;
+      ctx.globalAlpha=0.4+rng()*0.4;
+      const g=ctx.createRadialGradient(bx+ox,by+oy,0,bx+ox,by+oy,size*2);
+      g.addColorStop(0,`rgba(${r3},${g3},${b3},0.9)`);
+      g.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(bx+ox,by+oy,size*2,0,Math.PI*2);ctx.fill();
+    }
+    // 적 주변 화염 (임팩트 근처)
+    if(progress>0.6){
+      const ip=(progress-0.6)/0.4;
+      for(let i=0;i<15;i++){
+        const ang=rng()*Math.PI*2;
+        const dist=rng()*80*ip;
+        const fx=ex+Math.cos(ang)*dist;
+        const fy=ey+Math.sin(ang)*dist-rng()*30;
+        const fs=3+rng()*8;
+        ctx.globalAlpha=ip*0.5;
+        const fg=ctx.createRadialGradient(fx,fy,0,fx,fy,fs);
+        fg.addColorStop(0,`rgba(${r3},${g3},${b3},0.8)`);
+        fg.addColorStop(0.5,`rgba(${r2},${g2},${b2},0.5)`);
+        fg.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+        ctx.fillStyle=fg;ctx.beginPath();ctx.arc(fx,fy,fs,0,Math.PI*2);ctx.fill();
+      }
+    }
+  } else if(type==='electric'){
+    // 다갈래 번개 — 동시에 여러 경로로 내리치기
+    for(let bolt=0;bolt<6;bolt++){
+      const spread=(bolt-2.5)*18;
+      const jitter=bolt*137; // 골든 앵글로 분산
+      ctx.beginPath();
+      let bx=sx,by=sy+spread*0.3;
+      ctx.moveTo(bx,by);
+      const segs=12+Math.floor(rng()*6);
+      for(let s=1;s<=segs;s++){
+        const t=s/segs*progress;
+        bx=sx+(ex-sx)*t;
+        by=sy+(ey-sy)*t+spread*t+(rng()-0.5)*80;
+        ctx.lineTo(bx,by);
+      }
+      // 굵은 외곽
+      ctx.strokeStyle=`rgba(${r1},${g1},${b1},0.4)`;ctx.lineWidth=10;ctx.stroke();
+      // 중간
+      ctx.strokeStyle=`rgba(${r2},${g2},${b2},0.7)`;ctx.lineWidth=5;ctx.stroke();
+      // 코어
+      ctx.strokeStyle=`rgba(${r3},${g3},${b3},0.95)`;ctx.lineWidth=2;ctx.stroke();
+      // 흰 중심
+      ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=1;ctx.stroke();
+      // 가지치기
+      if(bolt<3){
+        for(let b=0;b<2;b++){
+          const bt=0.3+rng()*0.5;
+          const bpx=sx+(ex-sx)*bt*progress;
+          const bpy=sy+(ey-sy)*bt*progress+spread*bt*progress;
+          const ba=rng()*Math.PI-Math.PI/2;
+          const bl=40+rng()*60;
+          ctx.beginPath();ctx.moveTo(bpx,bpy);
+          ctx.lineTo(bpx+Math.cos(ba)*bl,bpy+Math.sin(ba)*bl);
+          ctx.strokeStyle=`rgba(${r2},${g2},${b2},0.5)`;ctx.lineWidth=2;ctx.stroke();
+        }
+      }
+    }
+    // 전기 글로우 (피격 지점)
+    ctx.globalAlpha=progress;
+    const eg=ctx.createRadialGradient(ex,ey,0,ex,ey,60);
+    eg.addColorStop(0,'rgba(255,255,255,0.6)');
+    eg.addColorStop(0.3,`rgba(${r3},${g3},${b3},0.4)`);
+    eg.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+    ctx.fillStyle=eg;ctx.beginPath();ctx.arc(ex,ey,60,0,Math.PI*2);ctx.fill();
+    // 스파크 파티클
+    for(let i=0;i<20;i++){
+      const t=rng()*progress;
+      const spx=sx+(ex-sx)*t+(rng()-0.5)*60;
+      const spy=sy+(ey-sy)*t+(rng()-0.5)*60;
+      ctx.globalAlpha=0.5+rng()*0.4;
+      ctx.fillStyle=`rgb(${r3},${g3},${b3})`;
+      ctx.beginPath();ctx.arc(spx,spy,1+rng()*2,0,Math.PI*2);ctx.fill();
+    }
+  } else if(type==='water'||type==='ice'){
+    // 굵은 수류 — 여러 겹이 꿈틀대며 적 강타
+    for(let layer=0;layer<3;layer++){
+      const lw=[35,22,10][layer];
+      const la=[0.3,0.55,0.8][layer];
+      ctx.globalAlpha=la;ctx.lineWidth=lw;ctx.lineCap='round';
+      const wg=ctx.createLinearGradient(sx,sy,px,py);
+      wg.addColorStop(0,`rgba(${r1},${g1},${b1},0.3)`);
+      wg.addColorStop(0.4,`rgba(${r2},${g2},${b2},0.7)`);
+      wg.addColorStop(1,`rgba(${r3},${g3},${b3},0.9)`);
+      ctx.strokeStyle=wg;ctx.beginPath();ctx.moveTo(sx,sy);
+      for(let s=0;s<30;s++){
+        const t=s/30*progress;
+        const wave=Math.sin(t*Math.PI*7+layer*1.5)*20*(0.5+t);
+        ctx.lineTo(sx+(ex-sx)*t,sy+(ey-sy)*t+wave);
+      }
+      ctx.stroke();
+    }
+    // 흰 코어라인
+    ctx.globalAlpha=0.5;ctx.strokeStyle='rgba(200,230,255,0.7)';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(sx,sy);
+    for(let s=0;s<30;s++){
+      const t=s/30*progress;
+      ctx.lineTo(sx+(ex-sx)*t,sy+(ey-sy)*t+Math.sin(t*Math.PI*7)*10);
+    }
+    ctx.stroke();
+    // 물방울 스프레이
+    ctx.globalAlpha=1;
+    for(let i=0;i<25;i++){
+      const t=rng()*progress;
+      const bx=sx+(ex-sx)*t, by=sy+(ey-sy)*t;
+      const spread=20+t*40;
+      const dx=bx+(rng()-0.5)*spread*1.5;
+      const dy=by+(rng()-0.5)*spread;
+      const ds=2+rng()*5;
+      ctx.globalAlpha=0.3+rng()*0.4;
+      ctx.fillStyle=`rgb(${r3},${g3},${b3})`;
+      ctx.beginPath();ctx.arc(dx,dy,ds,0,Math.PI*2);ctx.fill();
+    }
+    // 피격 지점 물보라
+    if(progress>0.7){
+      const sp=(progress-0.7)/0.3;
+      for(let i=0;i<12;i++){
+        const ang=rng()*Math.PI*2, dist=rng()*50*sp;
+        ctx.globalAlpha=sp*0.4;
+        ctx.fillStyle=`rgb(${r3},${g3},${b3})`;
+        ctx.beginPath();ctx.arc(ex+Math.cos(ang)*dist,ey+Math.sin(ang)*dist,2+rng()*4,0,Math.PI*2);ctx.fill();
+      }
+    }
+  } else if(type==='psychic'||type==='ghost'||type==='fairy'){
+    // 공간 왜곡 — 동심원 파동 + 에너지 나선
+    // 동심원 파동이 공격자→적 방향으로 밀려감
+    for(let wave=0;wave<6;wave++){
+      const wt=Math.max(0,progress-wave*0.08);
+      if(wt<=0)continue;
+      const wcx=sx+(ex-sx)*wt, wcy=sy+(ey-sy)*wt;
+      const wr=15+wave*8+Math.sin(wt*Math.PI*3)*8;
+      ctx.globalAlpha=Math.max(0,(0.6-wave*0.08)*(1-wt*0.3));
+      ctx.strokeStyle=`rgb(${r2},${g2},${b2})`;ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.arc(wcx,wcy,wr,0,Math.PI*2);ctx.stroke();
+      // 안쪽 글로우
+      ctx.globalAlpha*=0.3;
+      const wg=ctx.createRadialGradient(wcx,wcy,wr*0.3,wcx,wcy,wr);
+      wg.addColorStop(0,`rgba(${r3},${g3},${b3},0.4)`);
+      wg.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+      ctx.fillStyle=wg;ctx.beginPath();ctx.arc(wcx,wcy,wr,0,Math.PI*2);ctx.fill();
+    }
+    // 에너지 나선 (두 줄기)
+    for(let spiral=0;spiral<2;spiral++){
+      ctx.beginPath();
+      ctx.globalAlpha=0.6;
+      for(let s=0;s<=40;s++){
+        const t=s/40*progress;
+        const scx=sx+(ex-sx)*t;
+        const scy=sy+(ey-sy)*t;
+        const r=25*(1-t*0.3);
+        const ang=t*Math.PI*6+spiral*Math.PI;
+        const spx=scx+Math.cos(ang)*r;
+        const spy=scy+Math.sin(ang)*r;
+        if(s===0)ctx.moveTo(spx,spy);else ctx.lineTo(spx,spy);
+      }
+      ctx.strokeStyle=`rgb(${r3},${g3},${b3})`;ctx.lineWidth=3;ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;ctx.stroke();
+    }
+    // 에너지 코어
+    ctx.globalAlpha=0.9;
+    const pg=ctx.createRadialGradient(px,py,0,px,py,35);
+    pg.addColorStop(0,'rgba(255,255,255,0.7)');
+    pg.addColorStop(0.3,`rgb(${r3},${g3},${b3})`);
+    pg.addColorStop(0.7,`rgb(${r2},${g2},${b2})`);
+    pg.addColorStop(1,`rgba(${r1},${g1},${b1},0)`);
+    ctx.fillStyle=pg;ctx.beginPath();ctx.arc(px,py,35,0,Math.PI*2);ctx.fill();
+    // 에너지 입자
+    for(let i=0;i<15;i++){
+      const t=rng()*progress;
+      const epx=sx+(ex-sx)*t+(rng()-0.5)*50;
+      const epy=sy+(ey-sy)*t+(rng()-0.5)*50;
+      ctx.globalAlpha=0.4+rng()*0.3;
+      ctx.fillStyle=`rgb(${[r2,r3][rngInt(0,1)]},${[g2,g3][rngInt(0,1)]},${[b2,b3][rngInt(0,1)]})`;
+      ctx.beginPath();ctx.arc(epx,epy,2+rng()*3,0,Math.PI*2);ctx.fill();
+    }
+  } else {
+    // 제네릭 — 에너지 빔
+    for(let layer=0;layer<2;layer++){
+      ctx.globalAlpha=[0.4,0.7][layer];
+      ctx.lineWidth=[18,8][layer];ctx.lineCap='round';
+      ctx.strokeStyle=`rgba(${[r1,r2][layer]},${[g1,g2][layer]},${[b1,b2][layer]},0.7)`;
+      ctx.beginPath();ctx.moveTo(sx,sy);
+      for(let s=0;s<=20;s++){
+        const t=s/20*progress;
+        ctx.lineTo(sx+(ex-sx)*t,sy+(ey-sy)*t+Math.sin(t*Math.PI*3+layer)*12);
+      }
+      ctx.stroke();
+    }
+    for(let i=0;i<15;i++){
+      const t=rng()*progress;
+      const tx=sx+(ex-sx)*t+(rng()-0.5)*30;
+      const ty=sy+(ey-sy)*t+(rng()-0.5)*30;
+      ctx.globalAlpha=0.4+rng()*0.3;
+      ctx.fillStyle=`rgb(${r2},${g2},${b2})`;
+      ctx.beginPath();ctx.arc(tx,ty,2+rng()*4,0,Math.PI*2);ctx.fill();
+    }
+  }
+  ctx.globalAlpha=1;ctx.restore();
+}
+
+// ---- 오라 ----
+function drawAura(intensity){
+  const [r,g,b]=DATA.typeColors[1];
+  const grad=ctx.createRadialGradient(ATK_CX,ATK_CY,20,ATK_CX,ATK_CY,90+intensity*50);
+  grad.addColorStop(0,`rgba(${r},${g},${b},${0.35*intensity})`);
+  grad.addColorStop(0.5,`rgba(${r},${g},${b},${0.12*intensity})`);
+  grad.addColorStop(1,`rgba(${r},${g},${b},0)`);
+  ctx.fillStyle=grad;ctx.beginPath();ctx.arc(ATK_CX,ATK_CY,90+intensity*50,0,Math.PI*2);ctx.fill();
+}
+
+// ---- 충격파 ----
+function drawShockwave(progress){
+  const [cr,cg,cb]=DATA.typeColors[1];
+  for(let i=0;i<3;i++){
+    const p2=Math.max(0,progress-i*0.15);
+    if(p2<=0)continue;
+    const r=p2*180;
+    const a=Math.max(0,(1-p2)*(1-i*0.3));
+    ctx.strokeStyle=i===0?`rgba(255,255,255,${a*0.7})`:`rgba(${cr},${cg},${cb},${a*0.4})`;
+    ctx.lineWidth=3-i;
+    ctx.beginPath();ctx.arc(DEF_CX,DEF_CY,r,0,Math.PI*2);ctx.stroke();
+  }
+}
+
+// ---- 배경 ----
+function drawBg(sx,sy){
+  ctx.save();ctx.translate(sx||0,sy||0);
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#0c0e1a');grad.addColorStop(1,'#050508');
+  ctx.fillStyle=grad;ctx.fillRect(-20,-20,W+40,H+40);
+  // 바닥 그리드
+  ctx.strokeStyle='rgba(50,60,90,0.12)';ctx.lineWidth=1;
+  for(let y=340;y<H;y+=25){ctx.beginPath();ctx.moveTo(-20,y);ctx.lineTo(W+20,y);ctx.stroke();}
+  for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,340);ctx.lineTo(x+(H-340)*0.3,H);ctx.stroke();}
+  ctx.restore();
+}
+
+// ---- 스킬 배너 ----
+function drawBanner(progress){
+  const [r,g,b]=DATA.typeColors[0];
+  const alpha=Math.min(1,progress*3)*(progress<0.7?1:Math.max(0,1-(progress-0.7)/0.3));
+  ctx.save();ctx.globalAlpha=alpha;
+  ctx.fillStyle=`rgba(${r},${g},${b},0.6)`;
+  ctx.fillRect(0,30,W*Math.min(1,progress*4),50);
+  ctx.fillStyle=`rgba(255,255,255,${0.4*alpha})`;
+  ctx.fillRect(0,78,W*Math.min(1,progress*4),2);
+  const text=`${DATA.atkName}의 ${DATA.skillName}!`;
+  ctx.font='bold 28px MG,sans-serif';ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillText(text,W/2+2,62);
+  ctx.fillStyle='#fff';ctx.fillText(text,W/2,60);
+  ctx.textAlign='left';ctx.globalAlpha=1;ctx.restore();
+}
+
+// ---- 데미지 숫자 ----
+function drawDmgNum(progress){
+  const floatY=-progress*50;
+  const alpha=progress<0.8?1:Math.max(0,1-(progress-0.8)/0.2);
+  const scale=progress<0.1?progress/0.1*1.4:(progress<0.25?1.4-(progress-0.1)/0.15*0.4:1.0);
+  ctx.save();
+  ctx.translate(DEF_CX,DEF_CY-30+floatY);
+  ctx.scale(scale,scale);ctx.globalAlpha=alpha;
+  ctx.font='bold 48px MG,sans-serif';ctx.textAlign='center';
+  ctx.shadowColor='rgba(255,0,0,0.8)';ctx.shadowBlur=20;
+  ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillText(`-${DATA.damage}`,3,3);
+  ctx.fillStyle='#ff3030';ctx.fillText(`-${DATA.damage}`,0,0);
+  ctx.shadowBlur=0;
+  if(DATA.isCrit){
+    ctx.font='bold 24px MG,sans-serif';
+    ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillText('크리티컬!',2,35);
+    ctx.shadowColor='rgba(255,200,0,0.7)';ctx.shadowBlur=12;
+    ctx.fillStyle='#ffd700';ctx.fillText('크리티컬!',0,33);
+  }
+  ctx.textAlign='left';ctx.globalAlpha=1;ctx.restore();
+}
+
+// ---- 셰이크 ----
+const SHAKES=[[20,-12],[-14,10],[6,-4]];
+
+// ---- 메인 렌더 ----
+window.renderFrame=function(fi){
+  ctx.clearRect(0,0,W,H);
+  // Phase boundaries
+  const P1=3,P2=6,P3=11,P4=13,P5=16,P6=20,P7=24;
+  let sx=0,sy=0;
+  // 셰이크
+  if(fi>=P4&&fi<P5){const si=fi-P4;if(si<SHAKES.length){sx=SHAKES[si][0];sy=SHAKES[si][1]}}
+  // 적 HP 보간 — 임팩트(P3)부터 데미지표시(P6)까지 부드럽게
+  let enemyHp=DATA.hpBefore;
+  if(fi>=P3){
+    const t=Math.min(1,(fi-P3)/(P6-P3));
+    // smooth ease-out (더 부드러운 감속)
+    const et=t<0.5?2*t*t:(1-Math.pow(-2*t+2,3)/2);
+    enemyHp=DATA.hpBefore+(DATA.hpAfter-DATA.hpBefore)*et;
+  }
+
+  drawBg(sx,sy);
+  ctx.save();ctx.translate(sx,sy);
+  drawTopBar();
+
+  // === Phase 1: 등장 ===
+  if(fi<P1){
+    const p=fi/P1;
+    drawSprite(defImg,DEF_CX,DEF_CY,240);
+    drawSprite(atkImg,ATK_CX,ATK_CY,280,{scale:1+p*0.02});
+    drawEnemyPanel(DATA.hpBefore);
+    drawPlayerPanel(DATA.atkHp);
+    drawBanner(p);
+  }
+  // === Phase 2: 차징 ===
+  else if(fi<P2){
+    const p=(fi-P1)/(P2-P1);
+    // 궁극기: 화면 암전 + 가장자리 에너지
+    if(_IS_ULTIMATE){
+      drawUltimateDarken(p*0.7);
+      drawEdgeEnergy(p,DATA.typeColors);
+    }
+    drawAura(_IS_ULTIMATE?p*1.5:p);
+    // 차징 파티클
+    for(const cp of chargePs){
+      if(p*8<cp.delay)continue;
+      const t=Math.min(1,(p*8-cp.delay)/6);
+      const cx=cp.sx+(ATK_CX-cp.sx)*t, cy=cp.sy+(ATK_CY-cp.sy)*t;
+      ctx.globalAlpha=(t<0.8?1:Math.max(0,1-(t-0.8)/0.2))*0.8;
+      ctx.fillStyle=cp.color;
+      ctx.beginPath();ctx.arc(cx,cy,cp.size*(1-t*0.5)*(_IS_ULTIMATE?1.5:1),0,Math.PI*2);ctx.fill();
+      // 글로우
+      ctx.globalAlpha*=0.2;
+      ctx.beginPath();ctx.arc(cx,cy,cp.size*(_IS_ULTIMATE?3:2),0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    drawSprite(defImg,DEF_CX,DEF_CY,240);
+    drawSprite(atkImg,ATK_CX,ATK_CY,280,{scale:1+p*(_IS_ULTIMATE?0.12:0.06)});
+    drawEnemyPanel(DATA.hpBefore);
+    drawPlayerPanel(DATA.atkHp);
+    if(p<0.5)drawBanner(1-p);
+  }
+  // === Phase 3: 발사 ===
+  else if(fi<P3){
+    const p=(fi-P2)/(P3-P2);
+    if(_IS_ULTIMATE){
+      // 궁극기: 암전 유지 + 전용 이펙트
+      drawUltimateDarken(0.5+p*0.2);
+      drawAura(Math.max(0,1-p*1.2));
+      drawSprite(defImg,DEF_CX,DEF_CY,240);
+      drawSprite(atkImg,ATK_CX,ATK_CY,280,{scale:1.12-p*0.06});
+      drawUltimate(p);
+    } else {
+      drawAura(Math.max(0,1-p*1.5));
+      drawSprite(defImg,DEF_CX,DEF_CY,240);
+      drawSprite(atkImg,ATK_CX,ATK_CY,280,{scale:1.06-p*0.04});
+      drawProjectile(p,DATA.skillType);
+    }
+    drawEnemyPanel(DATA.hpBefore);
+    drawPlayerPanel(DATA.atkHp);
+  }
+  // === Phase 4: 임팩트 ===
+  else if(fi<P4){
+    const p=(fi-P3)/(P4-P3);
+    if(_IS_ULTIMATE) drawUltimateDarken(0.7*(1-p));
+    drawSprite(atkImg,ATK_CX,ATK_CY,280);
+    drawSprite(defImg,DEF_CX,DEF_CY,240,{flashWhite:Math.max(0,1-p),alpha:0.75,offsetX:-6*(1-p)});
+    drawShockwave(p);
+    drawEnemyPanel(enemyHp);
+    drawPlayerPanel(DATA.atkHp);
+  }
+  // === Phase 5: 셰이크 + 파티클 ===
+  else if(fi<P5){
+    const p=(fi-P4)/(P5-P4);
+    const pf=fi-P4;
+    drawSprite(atkImg,ATK_CX,ATK_CY,280);
+    drawSprite(defImg,DEF_CX,DEF_CY,240,{alpha:0.55+p*0.2,flashWhite:Math.max(0,0.3-p*0.4),offsetX:-10+p*10});
+    // 데미지 파티클
+    drawParticles(damagePs,DEF_CX,DEF_CY,pf);
+    drawParticles(impactPs,DEF_CX,DEF_CY,pf);
+    drawEnemyPanel(enemyHp);
+    drawPlayerPanel(DATA.atkHp);
+  }
+  // === Phase 6: 데미지 숫자 ===
+  else if(fi<P6){
+    const p=(fi-P5)/(P6-P5);
+    drawSprite(atkImg,ATK_CX,ATK_CY,280);
+    drawSprite(defImg,DEF_CX,DEF_CY,240,{alpha:0.7+p*0.2});
+    // 잔여 파티클
+    drawParticles(damagePs,DEF_CX,DEF_CY,8+Math.floor(p*6),{fadeOut:p});
+    drawEnemyPanel(enemyHp);
+    drawPlayerPanel(DATA.atkHp);
+    drawDmgNum(p);
+  }
+  // === Phase 7: 정리 ===
+  else {
+    const p=(fi-P6)/(P7-P6);
+    drawSprite(atkImg,ATK_CX,ATK_CY,280);
+    drawSprite(defImg,DEF_CX,DEF_CY,240,{alpha:0.85+p*0.15});
+    drawEnemyPanel(enemyHp);
+    drawPlayerPanel(DATA.atkHp);
+  }
+
+  // 스킬명 배너 — 모든 프레임에서 항상 표시
+  drawBanner(1);
+
+  ctx.restore();
+
+  // 화면 플래시 (셰이크 바깥)
+  if(fi>=P3&&fi<P4){
+    const p=(fi-P3)/(P4-P3);
+    const flashIntensity=_IS_ULTIMATE?0.85:0.65;
+    ctx.fillStyle=`rgba(255,255,255,${(1-p)*flashIntensity})`;
+    ctx.fillRect(0,0,W,H);
+  }
+  if((DATA.isCrit||_IS_ULTIMATE)&&fi>=P3&&fi<=P4){
+    const [cr,cg,cb]=DATA.typeColors[2];
+    ctx.fillStyle=`rgba(${cr},${cg},${cb},${_IS_ULTIMATE?0.35:0.25})`;
+    ctx.fillRect(0,0,W,H);
+  }
+};
+
+initParticles();
+loadSprites(()=>{window._ready=true});
+</script>
+</body>
+</html>

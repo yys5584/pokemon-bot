@@ -11,6 +11,7 @@ from services.evolution_service import try_evolve
 from services.event_service import get_friendship_boost
 from utils.helpers import hearts_display, icon_emoji, iv_grade_tag as _iv_grade_tag
 from utils.parse import parse_number, parse_name_arg, parse_select_index
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +94,10 @@ async def nurture_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -103,23 +105,22 @@ async def nurture_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     partner = await bq.get_partner(user_id)
     if not partner:
         await update.message.reply_text(
-            "🤝 파트너 포켓몬이 없습니다!\n"
-            "'파트너 [이름/번호]'로 먼저 설정하세요."
+            t(lang, "nurture.no_partner")
         )
         return
 
     inst_id = partner["instance_id"]
-    name = partner["name_ko"]
+    name = poke_name(partner, lang)
     max_f = config.get_max_friendship(partner)
     friendship = partner["friendship"]
     hearts = hearts_display(friendship, max_f)
 
     lines = [
-        f"💪 친밀도 강화 — {name}",
+        f"💪 {t(lang, 'nurture.friendship_boost')} — {name}",
         f"{hearts}  {friendship}/{max_f}",
     ]
     if friendship >= max_f:
-        lines.append("✅ 친밀도가 최대입니다!")
+        lines.append(f"✅ {t(lang, 'nurture.friendship_max')}")
 
     buttons = InlineKeyboardMarkup([
         [
@@ -136,9 +137,10 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -221,9 +223,10 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -303,9 +306,10 @@ async def evolve_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -315,7 +319,7 @@ async def evolve_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     success, message = await try_evolve(user_id, pokemon["id"])
-    await update.message.reply_text(message)
+    await update.message.reply_text(message, parse_mode="HTML")
 
 
 async def nurture_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -504,4 +508,4 @@ async def _do_play(query, user_id, pokemon):
 async def _do_evolve(query, user_id, pokemon):
     """Execute evolve logic from callback."""
     success, message = await try_evolve(user_id, pokemon["id"])
-    await query.edit_message_text(message)
+    await query.edit_message_text(message, parse_mode="HTML")

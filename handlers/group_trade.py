@@ -13,7 +13,7 @@ import config
 from database import queries
 from database import battle_queries as bq
 from services.evolution_service import build_trade_evo_info
-from utils.helpers import update_title, iv_grade_tag as _iv_tag
+from utils.helpers import update_title, iv_grade_tag as _iv_tag, type_badge
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     trade_msg = await msg.reply_text(
         f"🔄 {from_name}님이 {to_name}님에게 교환을 제안합니다!\n\n"
-        f"제안: {pokemon['emoji']} {pokemon['name_ko']}{shiny} {iv} {hearts}\n"
+        f"제안: {type_badge(pokemon['pokemon_id'])} {pokemon['name_ko']}{shiny} {iv} {hearts}\n"
         f"{to_name}님만 응답할 수 있습니다. (5분 내)",
         reply_markup=buttons,
         parse_mode="HTML",
@@ -180,7 +180,7 @@ async def _expire_group_trade(context: ContextTypes.DEFAULT_TYPE):
     # Refund BP
     cost = config.GROUP_TRADE_BP_COST
     if cost > 0:
-        await bq.add_bp(trade["from_user_id"], cost)
+        await bq.add_bp(trade["from_user_id"], cost, "trade_refund")
 
     try:
         refund_msg = f"\n💰 {cost:,} BP 환불됨" if cost > 0 else ""
@@ -188,7 +188,8 @@ async def _expire_group_trade(context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id,
             message_id=message_id,
             text=f"⏰ 교환 시간 초과\n\n"
-                 f"{trade['from_name']}님의 {trade['offer_emoji']} {trade['offer_name']} 교환 제안이 만료되었습니다.{refund_msg}",
+                 f"{trade['from_name']}님의 {type_badge(trade['offer_pokemon_id'])} {trade['offer_name']} 교환 제안이 만료되었습니다.{refund_msg}",
+            parse_mode="HTML",
         )
     except Exception:
         pass
@@ -304,13 +305,13 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
         shiny_tag = "✨" if is_shiny else ""
         result_text = (
             f"✅ 교환 성사!\n\n"
-            f"{trade['from_name']}님의 {trade['offer_emoji']} {trade['offer_name']}{shiny_tag}\n"
+            f"{trade['from_name']}님의 {type_badge(trade['offer_pokemon_id'])} {trade['offer_name']}{shiny_tag}\n"
             f"→ {trade['to_name']}님에게 전달되었습니다!"
         )
 
         await query.answer("교환 성사!")
         try:
-            await query.edit_message_text(result_text)
+            await query.edit_message_text(result_text, parse_mode="HTML")
         except Exception:
             pass
 
@@ -320,13 +321,13 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
         try:
             await context.bot.send_message(
                 chat_id=trade["from_user_id"],
-                text=f"{_ex} 그룹 교환 완료!\n{trade['offer_emoji']} {trade['offer_name']}{shiny_tag}을(를) {trade['to_name']}님에게 보냈습니다.",
+                text=f"{_ex} 그룹 교환 완료!\n{type_badge(trade['offer_pokemon_id'])} {trade['offer_name']}{shiny_tag}을(를) {trade['to_name']}님에게 보냈습니다.",
                 parse_mode="HTML",
             )
         except Exception:
             pass
         try:
-            recv_msg = f"{_ex} 그룹 교환 완료!\n{trade['offer_emoji']} {trade['offer_name']}{shiny_tag}을(를) 받았습니다!"
+            recv_msg = f"{_ex} 그룹 교환 완료!\n{type_badge(trade['offer_pokemon_id'])} {trade['offer_name']}{shiny_tag}을(를) 받았습니다!"
             await context.bot.send_message(chat_id=user_id, text=recv_msg, parse_mode="HTML")
         except Exception:
             pass
@@ -339,8 +340,8 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
                 if source and target:
                     evo_text = (
                         f"✨ 교환 진화 가능!\n\n"
-                        f"{source['emoji']} {source['name_ko']}을(를)\n"
-                        f"{target['emoji']} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
+                        f"{type_badge(source['id'])} {source['name_ko']}을(를)\n"
+                        f"{type_badge(target['id'])} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
                         f"진화하시겠습니까?"
                     )
                     evo_buttons = [[
@@ -380,7 +381,7 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
         # Refund BP
         cost = config.GROUP_TRADE_BP_COST
         if cost > 0:
-            await bq.add_bp(trade["from_user_id"], cost)
+            await bq.add_bp(trade["from_user_id"], cost, "trade_refund")
 
         # Cancel expire job
         jobs = context.job_queue.get_jobs_by_name(f"gtrade_expire_{trade_id}")
@@ -394,7 +395,8 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
             await query.edit_message_text(
                 f"❌ 교환 거절\n\n"
                 f"{trade['to_name']}님이 {trade['from_name']}님의\n"
-                f"{trade['offer_emoji']} {trade['offer_name']}{shiny_tag} 교환을 거절했습니다.{refund_msg}"
+                f"{type_badge(trade['offer_pokemon_id'])} {trade['offer_name']}{shiny_tag} 교환을 거절했습니다.{refund_msg}",
+                parse_mode="HTML",
             )
         except Exception:
             pass

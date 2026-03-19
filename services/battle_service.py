@@ -365,10 +365,18 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
             first, second = d_mon, c_mon
             first_is_challenger = False
 
+        # 나태/슬로우스타트: 격턴 스킵 (첫 턴 공격, 둘째 턴 스킵, 반복)
+        first_truant = first["pokemon_id"] in config.TRUANT_POKEMON and match_turn % 2 == 0
+        second_truant = second["pokemon_id"] in config.TRUANT_POKEMON and match_turn % 2 == 0
+
         # First attack
-        dmg1, eff1, crit1, tmult1, fx1 = _calc_damage(first, second)
-        # Rest: 공격 안 하고 HP 회복
         rest_lines = []
+        if first_truant:
+            dmg1, eff1, crit1, tmult1, fx1 = 0, "", "", 1.0, None
+            rest_lines.append(f"  😴 {first['name']}은(는) 게으름을 피우고 있다!")
+        else:
+            dmg1, eff1, crit1, tmult1, fx1 = _calc_damage(first, second)
+        # Rest: 공격 안 하고 HP 회복
         if fx1 and fx1["type"] == "rest":
             max_hp = first["stats"]["hp"]
             first["current_hp"] = min(max_hp, first["current_hp"] + fx1["heal"])
@@ -379,9 +387,12 @@ def _resolve_battle(challenger_team: list[dict], defender_team: list[dict]) -> d
         # Second attacks back if alive
         dmg2, eff2, crit2, tmult2, fx2 = 0, "", "", 1.0, None
         if second["current_hp"] > 0:
-            # 반격: 받은 데미지를 전달
-            received = dmg1 if (fx1 is None or fx1["type"] != "rest") else 0
-            dmg2, eff2, crit2, tmult2, fx2 = _calc_damage(second, first, received_dmg=received)
+            if second_truant:
+                rest_lines.append(f"  😴 {second['name']}은(는) 게으름을 피우고 있다!")
+            else:
+                # 반격: 받은 데미지를 전달
+                received = dmg1 if (fx1 is None or fx1["type"] != "rest") else 0
+                dmg2, eff2, crit2, tmult2, fx2 = _calc_damage(second, first, received_dmg=received)
             if fx2 and fx2["type"] == "rest":
                 max_hp = second["stats"]["hp"]
                 second["current_hp"] = min(max_hp, second["current_hp"] + fx2["heal"])
@@ -809,6 +820,19 @@ async def execute_battle(
     await bq.update_battle_stats_win(winner_id, bp_won)
     await bq.update_battle_stats_lose(loser_id, bp_lose)
 
+    # BP log for unified tracking
+    if bp_won > 0:
+        try:
+            src = "ranked_battle" if battle_type == "ranked" else "battle"
+            from database.connection import get_db
+            pool = await get_db()
+            await pool.execute(
+                "INSERT INTO bp_log (user_id, amount, source) VALUES ($1, $2, $3)",
+                winner_id, bp_won, src,
+            )
+        except Exception:
+            pass
+
     # Mission: battle win
     asyncio.create_task(_notify_battle_mission(winner_id, bot))
 
@@ -907,12 +931,15 @@ async def execute_battle(
     # Build simplified group chat display
     vs = icon_emoji('battle')
     trophy = icon_emoji('crown')
+    coin = icon_emoji('coin')
     lines = [
         f"{vs} 배틀 결과!",
         f"{rarity_badge('red')} {c_title_str}{c_name}  {vs}  {d_title_str}{d_name} {rarity_badge('blue')}",
         "━━━━━━━━━━━━━━━",
         f"{trophy} {winner_name} 승리!",
     ]
+    if not skip_bp and bp_won > 0:
+        lines.append(f"{coin} +{bp_won} BP")
 
     # Build detailed DM text from turn_data
     detail_dm = _build_battle_detail_dm(

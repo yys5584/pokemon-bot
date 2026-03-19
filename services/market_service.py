@@ -7,7 +7,8 @@ import config
 from database import queries
 from database import battle_queries as bq
 from services.evolution_service import build_trade_evo_info
-from utils.helpers import update_title
+from utils.helpers import update_title, type_badge
+from utils.i18n import poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ def calc_fee(price_bp: int) -> int:
 async def create_listing(
     user_id: int, pokemon_name: str, price_bp: int,
     instance_id: int | None = None,
+    lang: str = "ko",
 ) -> tuple[bool, str, int | None, list | None]:
     """Create a market listing.
 
@@ -77,9 +79,10 @@ async def create_listing(
     fee = calc_fee(price_bp)
     seller_gets = price_bp - fee
     shiny_tag = " ★이로치" if pokemon.get("is_shiny") else ""
+    display_name = poke_name(pokemon, lang)
     return True, (
         f"🏪 거래소 등록 완료!\n\n"
-        f"{pokemon['emoji']} {pokemon['name_ko']}{shiny_tag}\n"
+        f"{type_badge(pokemon['pokemon_id'])} {display_name}{shiny_tag}\n"
         f"💰 판매가: {price_bp:,} BP\n"
         f"📋 수수료: {fee:,} BP ({int(config.MARKET_FEE_RATE*100)}%)\n"
         f"💵 수익 예상: {seller_gets:,} BP\n\n"
@@ -89,6 +92,7 @@ async def create_listing(
 
 async def buy_listing(
     buyer_id: int, listing_id: int,
+    lang: str = "ko",
 ) -> tuple[bool, str, dict | None]:
     """Purchase a listed Pokemon.
 
@@ -152,9 +156,10 @@ async def buy_listing(
 
     shiny_tag = " ★이로치" if is_shiny else ""
     seller_gets = price - fee
+    display_name = poke_name(listing, lang)
     msg = (
         f"🎉 구매 완료!\n\n"
-        f"{listing['emoji']} {listing['pokemon_name']}{shiny_tag}\n"
+        f"{type_badge(listing['pokemon_id'])} {display_name}{shiny_tag}\n"
         f"💰 {price:,} BP 지불"
     )
 
@@ -162,9 +167,10 @@ async def buy_listing(
         "seller_id": listing["seller_id"],
         "seller_name": listing.get("seller_name", ""),
         "buyer_id": buyer_id,
-        "pokemon_name": listing["pokemon_name"],
+        "pokemon_name": listing.get("pokemon_name", ""),
+        "name_ko": listing.get("name_ko", ""),
+        "name_en": listing.get("name_en", ""),
         "pokemon_id": listing["pokemon_id"],
-        "emoji": listing["emoji"],
         "price": price,
         "fee": fee,
         "seller_gets": seller_gets,
@@ -177,6 +183,7 @@ async def buy_listing(
 
 async def cancel_listing_for_user(
     user_id: int, listing_id: int,
+    lang: str = "ko",
 ) -> tuple[bool, str]:
     """Cancel a listing owned by this user."""
     listing = await queries.get_listing_by_id(listing_id)
@@ -190,7 +197,8 @@ async def cancel_listing_for_user(
     await queries.cancel_listing(listing_id)
 
     shiny_tag = " ★이로치" if listing.get("is_shiny") else ""
+    display_name = poke_name(listing, lang)
     return True, (
         f"✅ 거래소 등록 취소!\n"
-        f"{listing['emoji']} {listing['pokemon_name']}{shiny_tag} (#{listing_id})"
+        f"{type_badge(listing['pokemon_id'])} {display_name}{shiny_tag} (#{listing_id})"
     )

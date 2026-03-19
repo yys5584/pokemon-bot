@@ -11,6 +11,7 @@ from services.evolution_service import try_trade_evolve
 from utils.parse import parse_args
 from utils.helpers import type_badge, hearts_display, shiny_emoji, icon_emoji
 from utils.battle_calc import iv_total
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -21,19 +22,17 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
     args = parse_args(update.message.text or "")
     if len(args) < 2:
         await update.message.reply_text(
-            "사용법: 교환 @상대닉네임 [포켓몬이름]\n"
-            "예: 교환 @철수 피카츄\n\n"
-            "중복 포켓몬이 있을 경우:\n"
-            "교환 @철수 피카츄 #2 (2번째 선택)"
+            t(lang, "trade.usage") + "\n" + t(lang, "trade.usage_duplicate")
         )
         return
 
@@ -68,22 +67,21 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not row:
         await update.message.reply_text(
-            f"@{target_username} 트레이너를 찾을 수 없습니다.\n"
-            "상대방이 봇에 /start 를 해야 합니다."
+            t(lang, "trade.not_found_user", username=target_username)
         )
         return
 
     to_user_id = row["user_id"]
 
     if to_user_id == user_id:
-        await update.message.reply_text("자기 자신과는 교환할 수 없습니다!")
+        await update.message.reply_text(t(lang, "trade.self_trade"))
         return
 
     # Check for duplicate Pokemon
     all_matches = await queries.find_all_user_pokemon_by_name(user_id, pokemon_name)
 
     if not all_matches:
-        await update.message.reply_text(f"'{pokemon_name}'을(를) 보유하고 있지 않습니다.")
+        await update.message.reply_text(t(lang, "trade.not_found_pokemon", name=pokemon_name))
         return
 
     instance_id = None
@@ -201,8 +199,8 @@ async def accept_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if source and target:
                     evo_text = (
                         f"✨ 교환 진화 가능!\n\n"
-                        f"{source['emoji']} {source['name_ko']}을(를)\n"
-                        f"{target['emoji']} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
+                        f"{type_badge(source['id'])} {source['name_ko']}을(를)\n"
+                        f"{type_badge(target['id'])} {target['name_ko']}(으)로 진화시킬 수 있습니다!\n\n"
                         f"진화하시겠습니까?"
                     )
                     evo_buttons = [[
@@ -323,7 +321,7 @@ async def trade_evo_choice_handler(update: Update, context: ContextTypes.DEFAULT
         evo_msg = await try_trade_evolve(user_id, instance_id, pokemon["pokemon_id"])
         try:
             if evo_msg:
-                await query.edit_message_text(f"🎉 진화 완료!{evo_msg}")
+                await query.edit_message_text(f"🎉 진화 완료!{evo_msg}", parse_mode="HTML")
             else:
                 await query.edit_message_text("진화할 수 없는 포켓몬입니다.")
         except Exception:

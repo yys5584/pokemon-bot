@@ -191,10 +191,20 @@ def _iv_tag(val: int, base: int) -> str:
     return str(val)
 
 
-def format_stats_line(stats: dict, base: dict = None) -> str:
-    """Format stats dict with Korean labels, optionally showing IV bonus."""
-    keys = [("hp", "체"), ("atk", "공"), ("def", "방"),
-            ("spa", "특공"), ("spdef", "특방"), ("spd", "속")]
+_STAT_LABELS = {
+    "ko": [("hp", "체"), ("atk", "공"), ("def", "방"),
+           ("spa", "특공"), ("spdef", "특방"), ("spd", "속")],
+    "en": [("hp", "HP"), ("atk", "Atk"), ("def", "Def"),
+           ("spa", "SpA"), ("spdef", "SpD"), ("spd", "Spd")],
+    "zh-hans": [("hp", "体"), ("atk", "攻"), ("def", "防"),
+                ("spa", "特攻"), ("spdef", "特防"), ("spd", "速")],
+    "zh-hant": [("hp", "體"), ("atk", "攻"), ("def", "防"),
+                ("spa", "特攻"), ("spdef", "特防"), ("spd", "速")],
+}
+
+def format_stats_line(stats: dict, base: dict = None, lang: str = "ko") -> str:
+    """Format stats dict with localized labels, optionally showing IV bonus."""
+    keys = _STAT_LABELS.get(lang, _STAT_LABELS["ko"])
     if base:
         return " ".join(f"{lb}{_iv_tag(stats[k], base[k])}" for k, lb in keys)
     return " ".join(f"{lb}{stats[k]}" for k, lb in keys)

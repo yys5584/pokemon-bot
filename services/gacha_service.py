@@ -72,6 +72,12 @@ async def _grant_reward(user_id: int, result_key: str) -> str:
         await pool.execute(
             "UPDATE users SET battle_points = battle_points + $2 WHERE user_id = $1",
             user_id, amount)
+        try:
+            await pool.execute(
+                "INSERT INTO bp_log (user_id, amount, source) VALUES ($1, $2, $3)",
+                user_id, amount, "gacha_refund")
+        except Exception:
+            pass
         return f"+{amount} BP 환급"
 
     elif result_key == "hyperball":
@@ -91,6 +97,12 @@ async def _grant_reward(user_id: int, result_key: str) -> str:
         await pool.execute(
             "UPDATE users SET battle_points = battle_points + $2 WHERE user_id = $1",
             user_id, config.GACHA_BP_JACKPOT)
+        try:
+            await pool.execute(
+                "INSERT INTO bp_log (user_id, amount, source) VALUES ($1, $2, $3)",
+                user_id, config.GACHA_BP_JACKPOT, "gacha_jackpot")
+        except Exception:
+            pass
         return f"+{config.GACHA_BP_JACKPOT} BP 잭팟!!"
 
     elif result_key == "iv_reroll_one":

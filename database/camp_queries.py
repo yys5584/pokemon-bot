@@ -514,11 +514,11 @@ async def set_home_camp(user_id: int, chat_id: int):
     pool = await get_db()
     await pool.execute(
         """INSERT INTO camp_user_settings (user_id, home_chat_id, home_changed_date, home_camp_set_at)
-           VALUES ($1, $2, CURRENT_DATE, NOW())
+           VALUES ($1, $2, (NOW() AT TIME ZONE 'Asia/Seoul')::date, NOW())
            ON CONFLICT (user_id)
            DO UPDATE SET
                home_chat_id = $2,
-               home_changed_date = CURRENT_DATE,
+               home_changed_date = (NOW() AT TIME ZONE 'Asia/Seoul')::date,
                home_camp_set_at = NOW()""",
         user_id, chat_id,
     )
@@ -760,7 +760,8 @@ async def get_available_camps() -> list[dict]:
     """Get all active camps with chat info for home camp selection."""
     pool = await get_db()
     rows = await pool.fetch(
-        """SELECT c.chat_id, c.level, cr.chat_title, cr.member_count, cr.invite_link
+        """SELECT c.chat_id, c.level, cr.chat_title, cr.member_count, cr.invite_link,
+                  COALESCE(c.language, 'ko') AS language
            FROM camps c
            JOIN chat_rooms cr ON cr.chat_id = c.chat_id
            WHERE cr.is_active = 1
@@ -768,3 +769,99 @@ async def get_available_camps() -> list[dict]:
            LIMIT 50""",
     )
     return [dict(r) for r in rows]
+
+
+async def set_camp_language(chat_id: int, language: str):
+    """캠프 언어 설정."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE camps SET language = $1 WHERE chat_id = $2",
+        language, chat_id,
+    )
+
+
+async def get_camp_language(chat_id: int) -> str:
+    """캠프 언어 조회 (기본값 'ko')."""
+    pool = await get_db()
+    val = await pool.fetchval(
+        "SELECT COALESCE(language, 'ko') FROM camps WHERE chat_id = $1",
+        chat_id,
+    )
+    return val or "ko"
+
+
+# ═══════════════════════════════════════════════════════
+# 방문 시스템
+# ═══════════════════════════════════════════════════════
+
+async def has_visited_today(user_id: int, chat_id: int) -> bool:
+    """오늘 이 캠프에 방문했는지 확인."""
+    pool = await get_db()
+    row = await pool.fetchval(
+        "SELECT 1 FROM camp_visits WHERE user_id = $1 AND chat_id = $2 AND visited_at = (NOW() AT TIME ZONE 'Asia/Seoul')::date",
+        user_id, chat_id,
+    )
+    return row is not None
+
+
+async def record_visit(user_id: int, chat_id: int, fragment_type: str, amount: int):
+    """방문 기록 저장 + 조각 지급."""
+    pool = await get_db()
+    await pool.execute(
+        """INSERT INTO camp_visits (user_id, chat_id, visited_at, fragment_type, amount)
+           VALUES ($1, $2, (NOW() AT TIME ZONE 'Asia/Seoul')::date, $3, $4)
+           ON CONFLICT DO NOTHING""",
+        user_id, chat_id, fragment_type, amount,
+    )
+    await add_fragments(user_id, fragment_type, amount)
+    await log_fragment(user_id, chat_id, fragment_type, amount, "visit")
+
+
+async def get_today_visit_count(user_id: int) -> int:
+    """오늘 총 방문 횟수."""
+    pool = await get_db()
+    return await pool.fetchval(
+        "SELECT COUNT(*) FROM camp_visits WHERE user_id = $1 AND visited_at = (NOW() AT TIME ZONE 'Asia/Seoul')::date",
+        user_id,
+    ) or 0
+
+
+async def get_today_visited_chat_ids(user_id: int) -> set[int]:
+    """오늘 방문한 chat_id 세트."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        "SELECT chat_id FROM camp_visits WHERE user_id = $1 AND visited_at = (NOW() AT TIME ZONE 'Asia/Seoul')::date",
+        user_id,
+    )
+    return {r["chat_id"] for r in rows}
+
+
+# ═══════════════════════════════════════════════════════
+# 캠프 환영 멘트 (캠꾸)
+# ═══════════════════════════════════════════════════════
+
+async def get_welcome_message(chat_id: int) -> str | None:
+    """캠프 환영 멘트 조회."""
+    pool = await get_db()
+    return await pool.fetchval(
+        "SELECT welcome_message FROM camps WHERE chat_id = $1",
+        chat_id,
+    )
+
+
+async def set_welcome_message(chat_id: int, message: str | None):
+    """캠프 환영 멘트 설정 (None이면 삭제)."""
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE camps SET welcome_message = $1 WHERE chat_id = $2",
+        message, chat_id,
+    )
+
+
+async def get_camp_by_owner(user_id: int):
+    """유저가 소유한 첫 번째 캠프 반환 (없으면 None)."""
+    pool = await get_db()
+    return await pool.fetchrow(
+        "SELECT * FROM camps WHERE created_by = $1 LIMIT 1",
+        user_id,
+    )

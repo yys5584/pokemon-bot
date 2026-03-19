@@ -17,6 +17,7 @@ from telegram.ext import ContextTypes
 from database import queries
 from utils.card_generator import generate_card
 from utils.helpers import ball_emoji, icon_emoji
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,7 @@ async def _give_graduation_rewards(user_id: int):
 async def _send_step(context, user_id: int, step: int):
     """Send tutorial messages for the given step."""
     bot = context.bot
+    lang = await get_user_lang(user_id)
 
     if step == 1:
         game = icon_emoji("game")
@@ -97,22 +99,21 @@ async def _send_step(context, user_id: int, step: int):
         await bot.send_message(
             chat_id=user_id,
             text=(
-                f"{game} <b>포켓몬 봇에 오신 걸 환영합니다!</b>\n"
+                f"{game} <b>{t(lang, 'tutorial.welcome')}</b>\n"
                 "\n"
-                "방금 첫 포획을 시도하셨네요!\n"
-                "이 봇에는 포획 외에도 다양한 시스템이 있어요:\n"
+                f"{t(lang, 'tutorial.first_catch_intro')}\n"
                 "\n"
-                f"{ham} 육성 — 밥/놀기로 친밀도 올리기\n"
-                f"{battle} 배틀 — 팀을 짜서 다른 트레이너와 대전\n"
-                f"{pokedex} 도감 — 포켓몬 수집 & 칭호 해금\n"
+                f"{ham} {t(lang, 'tutorial.nurture_summary')}\n"
+                f"{battle} {t(lang, 'tutorial.battle_summary')}\n"
+                f"{pokedex} {t(lang, 'tutorial.pokedex_summary')}\n"
                 "\n"
-                "하나씩 알려드릴게요!"
+                f"{t(lang, 'tutorial.will_guide')}"
             ),
             parse_mode="HTML",
         )
         await bot.send_message(
             chat_id=user_id,
-            text="💡 시작하려면 <b>\"튜토\"</b>를 입력하세요!",
+            text=f"💡 {t(lang, 'tutorial.step_prompt')}",
             parse_mode="HTML",
         )
 
@@ -336,22 +337,23 @@ async def _send_step(context, user_id: int, step: int):
         await bot.send_message(
             chat_id=user_id,
             text=(
-                "🎓 <b>튜토리얼 완료! 축하합니다!</b>\n\n"
-                "🎁 졸업 보상이 지급되었습니다:\n"
-                f"  {masterball} 마스터볼 x2\n"
+                f"🎓 <b>{t(lang, 'tutorial.graduation')}</b>\n\n"
+                f"🎁 {t(lang, 'tutorial.graduation_reward', mb=2, bp=200)}:\n"
+                f"  {masterball} x2\n"
                 "  💰 BP +200\n"
-                f"  {bookmark} 칭호 「{pikachu} 내 꿈은 피카츄!」 해금!\n\n"
+                f"  {bookmark} {t(lang, 'tutorial.title_unlock', title=t(lang, 'title.tutorial_grad'))}\n\n"
                 "━━━━━━━━━━━━━━━\n"
-                "📌 유용한 꿀팁:\n"
-                f"• 감정 [이름] — 개체값(IV) 확인\n"
-                f"• {battle} 상성 [타입] — 배틀 타입 상성표\n"
-                f"• 출석 — 매일 출석 보상\n"
-                f"• {windy} 날씨에 따라 특정 타입 포획률 UP!\n"
+                f"📌 {t(lang, 'tutorial.tips_header')}:\n"
+                f"• {t(lang, 'tutorial.tip_appraise')}\n"
+                f"• {battle} {t(lang, 'tutorial.tip_type_matchup')}\n"
+                f"• {t(lang, 'tutorial.tip_attendance')}\n"
+                f"• {windy} {t(lang, 'tutorial.tip_weather')}\n"
                 "━━━━━━━━━━━━━━━\n\n"
-                f"🏠 공식방: {config.BOT_CHANNEL_URL}\n"
-                f"{crystal} 30초마다 포켓몬이 출현해요!\n"
-                "🏆 매일 저녁 9시 대회 접수, 10시 포켓몬 마스터 대회!\n\n"
-                "도움이 필요하면 언제든 \"도움말\"을 입력하세요!"
+                f"🏠 {t(lang, 'tutorial.official_channel')}: {config.BOT_CHANNEL_URL}\n"
+                f"{crystal} {t(lang, 'tutorial.spawn_rate')}\n"
+                f"🏆 {t(lang, 'tutorial.tournament_schedule')}\n\n"
+                f"{t(lang, 'tutorial.help_hint')}\n\n"
+                f"{t(lang, 'tutorial.premium_hint')}"
             ),
             parse_mode="HTML",
         )

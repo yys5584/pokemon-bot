@@ -1,16 +1,16 @@
-"""Seed the pokemon_master table with 386 Gen1+Gen2+Gen3 Pokemon."""
+"""Seed the pokemon_master table with 493 Gen1~Gen4 Pokemon."""
 
 from database.connection import get_db
 from models.pokemon_data import ALL_POKEMON
 
 
 async def seed_pokemon_data():
-    """Insert all 386 Pokemon into pokemon_master if not already seeded."""
+    """Insert all 493 Pokemon into pokemon_master if not already seeded."""
     pool = await get_db()
 
     row = await pool.fetchrow("SELECT COUNT(*) as cnt FROM pokemon_master")
     count = row["cnt"] if row else 0
-    if count >= 386:
+    if count >= 493:
         return count
 
     for p in ALL_POKEMON:
@@ -31,7 +31,19 @@ async def seed_pokemon_data():
         "UPDATE pokemon_master SET evolves_to = 242 WHERE id = 113 AND evolves_to IS NULL"
     )
 
-    return 386
+    # Update cross-gen evolution links for Gen4
+    cross_gen_updates = [
+        (462, 82), (463, 108), (464, 112), (465, 114), (466, 125), (467, 126),
+        (468, 176), (424, 190), (469, 193), (430, 198), (429, 200), (472, 207),
+        (461, 215), (473, 221), (474, 233), (476, 299), (407, 315), (477, 356),
+    ]
+    for target_id, source_id in cross_gen_updates:
+        await pool.execute(
+            "UPDATE pokemon_master SET evolves_to = $1 WHERE id = $2",
+            target_id, source_id,
+        )
+
+    return 493
 
 
 async def seed_battle_data():
@@ -45,7 +57,9 @@ async def seed_battle_data():
         "SELECT COUNT(*) as cnt FROM pokemon_master WHERE pokemon_type != 'normal'"
     )
     if row and row["cnt"] > 50:
-        return  # Already seeded
+        # Still need to seed Gen4+ types not in POKEMON_BATTLE_DATA
+        await _seed_gen4_types(pool)
+        return
 
     batch_args = [(ptype, stype, pid) for pid, (ptype, stype) in POKEMON_BATTLE_DATA.items()]
     if batch_args:
@@ -53,6 +67,46 @@ async def seed_battle_data():
             """UPDATE pokemon_master
                SET pokemon_type = $1, stat_type = $2
                WHERE id = $3""",
+            batch_args,
+        )
+
+    # Seed Gen4 types from base stats
+    await _seed_gen4_types(pool)
+
+
+async def _seed_gen4_types(pool):
+    """Seed Gen4 pokemon_type from base stats (387-493)."""
+    from models.pokemon_base_stats import POKEMON_BASE_STATS
+
+    # Check if already done
+    row = await pool.fetchrow(
+        "SELECT COUNT(*) as cnt FROM pokemon_master WHERE id >= 387 AND pokemon_type != 'normal'"
+    )
+    if row and row["cnt"] > 30:
+        return
+
+    batch_args = []
+    for pid in range(387, 494):
+        entry = POKEMON_BASE_STATS.get(pid)
+        if entry:
+            types = entry[-1]  # last element is [type1, type2_or_None]
+            ptype = types[0]
+            # Determine stat_type from base stats
+            raw_atk = entry[1]
+            raw_spa = entry[3]
+            if raw_atk > raw_spa + 20:
+                stype = "physical"
+            elif raw_spa > raw_atk + 20:
+                stype = "special"
+            else:
+                stype = "balanced"
+            batch_args.append((ptype, stype, pid))
+
+    if batch_args:
+        await pool.executemany(
+            """UPDATE pokemon_master
+               SET pokemon_type = $1, stat_type = $2
+               WHERE id = $3 AND pokemon_type = 'normal'""",
             batch_args,
         )
 

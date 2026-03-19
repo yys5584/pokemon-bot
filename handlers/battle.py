@@ -1,5 +1,6 @@
 """Battle system handlers: partner, team, challenge, accept/decline, rankings, BP shop."""
 
+import asyncio
 import logging
 import re
 import time
@@ -13,6 +14,7 @@ from database import queries
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, EVO_STAGE_MAP, iv_total, get_normalized_base_stats
 from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge, icon_emoji, ball_emoji, iv_grade_tag
+from utils.i18n import t, get_user_lang, poke_name
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +50,8 @@ TEAM_MAX = 6
 # ============================================================
 
 def _build_partner_list(user_id: int, pokemon_list: list, page: int,
-                        current_partner_id: int | None = None) -> tuple[str, InlineKeyboardMarkup]:
+                        current_partner_id: int | None = None,
+                        lang: str = "ko") -> tuple[str, InlineKeyboardMarkup]:
     """Build partner selection list with inline buttons."""
     total = len(pokemon_list)
     total_pages = max(1, (total + PARTNER_PAGE_SIZE - 1) // PARTNER_PAGE_SIZE)
@@ -58,13 +61,13 @@ def _build_partner_list(user_id: int, pokemon_list: list, page: int,
     end = min(start + PARTNER_PAGE_SIZE, total)
     page_pokemon = pokemon_list[start:end]
 
-    lines = [f"🤝 파트너 선택  [{page + 1}/{total_pages}]\n"]
+    lines = [f"🤝 {t(lang, 'partner.title')}  [{page + 1}/{total_pages}]\n"]
     for i, p in enumerate(page_pokemon):
         num = start + i + 1
         mark = f" {icon_emoji('check')}" if p["id"] == current_partner_id else ""
         tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-        lines.append(f"{num}. {tb} {p['name_ko']}{mark}")
-    lines.append("\n포켓몬을 눌러 파트너로 지정!")
+        lines.append(f"{num}. {tb} {poke_name(p, lang)}{mark}")
+    lines.append(f"\n{t(lang, 'partner.select')}")
 
     # Buttons: 2 per row
     buttons = []
@@ -72,7 +75,7 @@ def _build_partner_list(user_id: int, pokemon_list: list, page: int,
     for i, p in enumerate(page_pokemon):
         idx = start + i
         row.append(InlineKeyboardButton(
-            f"{idx + 1}. {p['name_ko']}",
+            f"{idx + 1}. {poke_name(p, lang)}",
             callback_data=f"partner_s_{user_id}_{idx}_{page}",
         ))
         if len(row) == 2:
@@ -84,9 +87,9 @@ def _build_partner_list(user_id: int, pokemon_list: list, page: int,
     # Pagination
     nav_row = []
     if page > 0:
-        nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"partner_p_{user_id}_{page - 1}"))
+        nav_row.append(InlineKeyboardButton(t(lang, "common.prev"), callback_data=f"partner_p_{user_id}_{page - 1}"))
     if page < total_pages - 1:
-        nav_row.append(InlineKeyboardButton("다음 ▶", callback_data=f"partner_p_{user_id}_{page + 1}"))
+        nav_row.append(InlineKeyboardButton(t(lang, "common.next"), callback_data=f"partner_p_{user_id}_{page + 1}"))
     if nav_row:
         buttons.append(nav_row)
 
@@ -99,9 +102,10 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -117,9 +121,9 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # 파트너 없음 → 바로 선택 리스트
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             if not pokemon_list:
-                await update.message.reply_text("보유한 포켓몬이 없습니다.")
+                await update.message.reply_text(t(lang, "my_pokemon.no_pokemon"))
                 return
-            text_msg, markup = _build_partner_list(user_id, pokemon_list, 0)
+            text_msg, markup = _build_partner_list(user_id, pokemon_list, 0, lang=lang)
             await update.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
             return
 
@@ -141,17 +145,17 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from models.pokemon_base_stats import POKEMON_BASE_STATS
         pbs = POKEMON_BASE_STATS.get(partner["pokemon_id"])
         if pbs:
-            type_name = "/".join(config.TYPE_NAME_KO.get(t, t) for t in pbs[-1])
+            type_name = "/".join(t(lang, f"type.{tp}") for tp in pbs[-1])
         else:
-            type_name = config.TYPE_NAME_KO.get(partner["pokemon_type"], "")
+            type_name = t(lang, f"type.{partner['pokemon_type']}")
         buttons = InlineKeyboardMarkup([[
-            InlineKeyboardButton("🔄 변경", callback_data=f"partner_p_{user_id}_0"),
+            InlineKeyboardButton(f"🔄 {t(lang, 'common.change')}", callback_data=f"partner_p_{user_id}_0"),
         ]])
         await update.message.reply_text(
-            f"{icon_emoji('pokemon-love')} 나의 파트너\n\n"
-            f"{tb} {partner['name_ko']}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
+            f"{icon_emoji('pokemon-love')} {t(lang, 'partner.my_partner')}\n\n"
+            f"{tb} {poke_name(partner, lang)}  {type_name}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
             f"{icon_emoji('stationery')} {format_stats_line(stats, base)}\n\n"
-            f"💡 배틀 시 파트너가 팀에 포함되면 공격 +5%!",
+            f"💡 {t(lang, 'partner.bonus_info', pct=5)}",
             reply_markup=buttons,
             parse_mode="HTML",
         )
@@ -163,7 +167,7 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
-        await update.message.reply_text("보유한 포켓몬이 없습니다.")
+        await update.message.reply_text(t(lang, "my_pokemon.no_pokemon"))
         return
 
     chosen = None
@@ -186,17 +190,16 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(matches) == 1:
             chosen = matches[0]
         elif len(matches) > 1:
-            lines = [f"'{search_name}' 검색 결과가 {len(matches)}마리입니다:\n"]
+            lines = [t(lang, "partner.search_multiple", name=search_name, count=len(matches)) + "\n"]
             for p in matches:
                 idx = pokemon_list.index(p) + 1
-                lines.append(f"  {idx}. {p['name_ko']}")
-            lines.append("\n번호로 지정: 파트너 [번호]")
+                lines.append(f"  {idx}. {poke_name(p, lang)}")
+            lines.append(f"\n{t(lang, 'partner.specify_number')}")
             await update.message.reply_text("\n".join(lines))
             return
         else:
             await update.message.reply_text(
-                f"'{search_name}' 이름의 포켓몬을 보유하고 있지 않습니다.\n"
-                f"내포켓몬 으로 보유 목록을 확인하세요."
+                t(lang, "my_pokemon.not_found", name=search_name)
             )
             return
 
@@ -204,7 +207,7 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 인식 불가 → 선택 리스트 보여주기
         partner = await bq.get_partner(user_id)
         partner_id = partner["instance_id"] if partner else None
-        text_msg, markup = _build_partner_list(user_id, pokemon_list, 0, partner_id)
+        text_msg, markup = _build_partner_list(user_id, pokemon_list, 0, partner_id, lang=lang)
         await update.message.reply_text(text_msg, reply_markup=markup)
         return
 
@@ -213,12 +216,13 @@ async def partner_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def _set_partner_and_reply(message, user_id: int, chosen: dict):
     """Set partner and send confirmation."""
+    lang = await get_user_lang(user_id)
     await bq.set_partner(user_id, chosen["id"])
 
     tb = type_badge(chosen["pokemon_id"], chosen.get("pokemon_type"))
     await message.reply_text(
-        f"🤝 {tb} {chosen['name_ko']} 파트너로 지정!\n"
-        f"배틀 시 파트너가 팀에 포함되면 ATK +5% 보너스!",
+        f"🤝 {tb} {poke_name(chosen, lang)} {t(lang, 'partner.set_success_short')}!\n"
+        f"{t(lang, 'partner.bonus_info', pct=5)}",
         parse_mode="HTML",
     )
 
@@ -244,15 +248,16 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
     # partner_s_{user_id}_{idx}_{page}  — select pokemon
     action = parts[1]
     owner_id = int(parts[2])
+    lang = await get_user_lang(query.from_user.id)
 
     if query.from_user.id != owner_id:
-        await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "error.not_your_button"), show_alert=True)
         return
 
     pokemon_list = await queries.get_user_pokemon_list(owner_id)
     if not pokemon_list:
         try:
-            await query.edit_message_text("보유한 포켓몬이 없습니다.")
+            await query.edit_message_text(t(lang, "my_pokemon.no_pokemon"))
         except Exception:
             pass
         return
@@ -262,7 +267,7 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         page = int(parts[3])
         partner = await bq.get_partner(owner_id)
         partner_id = partner["instance_id"] if partner else None
-        text_msg, markup = _build_partner_list(owner_id, pokemon_list, page, partner_id)
+        text_msg, markup = _build_partner_list(owner_id, pokemon_list, page, partner_id, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except Exception:
@@ -272,7 +277,7 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         # Select partner
         idx = int(parts[3])
         if idx < 0 or idx >= len(pokemon_list):
-            await query.answer("잘못된 선택입니다.", show_alert=True)
+            await query.answer(t(lang, "dungeon.invalid_choice"), show_alert=True)
             return
 
         chosen = pokemon_list[idx]
@@ -299,10 +304,10 @@ async def partner_callback_handler(update: Update, context: ContextTypes.DEFAULT
         )
         try:
             await query.edit_message_text(
-                f"{icon_emoji('pokemon-love')} 파트너 지정 완료!\n\n"
-                f"{tb} {chosen['name_ko']}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
+                f"{icon_emoji('pokemon-love')} {t(lang, 'partner.set_complete')}!\n\n"
+                f"{tb} {poke_name(chosen, lang)}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
                 f"{icon_emoji('stationery')} {format_stats_line(stats, base)}\n\n"
-                f"💡 배틀 시 파트너가 팀에 포함되면 공격 +5%!",
+                f"💡 {t(lang, 'partner.bonus_info', pct=5)}",
                 parse_mode="HTML",
             )
         except Exception:
@@ -317,9 +322,9 @@ def _iv_grade_tag(p: dict) -> str:
     return iv_grade_tag(p, show_total=True)
 
 
-def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, InlineKeyboardMarkup]:
+def _build_team_slots(user_id: int, draft: dict, team_num: int, lang: str = "ko") -> tuple[str, InlineKeyboardMarkup]:
     """Build slot-first team editor main view.
-    Shows 6 slots as 3x2 grid buttons + 완료/취소.
+    Shows 6 slots as 3x2 grid buttons + done/cancel.
     Supports swap mode for reordering slots.
     """
     current = draft["current"]
@@ -329,6 +334,7 @@ def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, In
     swap_first = draft.get("swap_first")
     filled = sum(1 for v in current.values() if v is not None)
     slot_plain = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+    empty = t(lang, "team.empty_slot")
 
     # Calculate total cost
     total_cost = 0
@@ -337,14 +343,14 @@ def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, In
             rarity = rarities.get(inst_id, "")
             total_cost += config.RANKED_COST.get(rarity, 0)
 
-    cost_warn = " ⚠️초과!" if total_cost > config.RANKED_COST_LIMIT else ""
-    header = f"{icon_emoji('battle')} 배틀 팀 {team_num} 편집  ({filled}/{TEAM_MAX})  💰 {total_cost}/{config.RANKED_COST_LIMIT}{cost_warn}"
+    cost_warn = f" {t(lang, 'team.cost_exceeded_warn')}" if total_cost > config.RANKED_COST_LIMIT else ""
+    header = f"{icon_emoji('battle')} {t(lang, 'team.team_header', num=team_num, filled=filled, max=TEAM_MAX, cost=total_cost, limit=config.RANKED_COST_LIMIT)}{cost_warn}"
     if swap_mode:
         if swap_first is not None:
-            first_name = names.get(current.get(swap_first), "(빈)")
-            header += f"\n\n🔀 {slot_plain[swap_first-1]} {first_name} 선택됨 → 바꿀 슬롯을 선택하세요"
+            first_name = names.get(current.get(swap_first), empty)
+            header += f"\n\n🔀 {slot_plain[swap_first-1]} {t(lang, 'team.swap_selected', name=first_name)}"
         else:
-            header += "\n\n🔀 바꿀 첫 번째 슬롯을 선택하세요"
+            header += f"\n\n🔀 {t(lang, 'team.swap_first_prompt')}"
     lines = [header + "\n"]
 
     for s in range(1, 7):
@@ -354,10 +360,10 @@ def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, In
             mark = " ✓" if swap_mode and swap_first == s else ""
             lines.append(f"{slot_plain[s-1]} {names.get(inst_id, '???')} (💰{cost}){mark}")
         else:
-            lines.append(f"{slot_plain[s-1]} (빈)")
+            lines.append(f"{slot_plain[s-1]} {empty}")
 
     if not swap_mode:
-        lines.append("\n슬롯을 눌러 포켓몬을 배치/교체하세요.")
+        lines.append(f"\n{t(lang, 'team.slot_place_hint')}")
 
     # 3x2 grid buttons
     buttons = []
@@ -367,10 +373,9 @@ def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, In
         if inst_id:
             label = f"{slot_plain[s-1]} {names.get(inst_id, '???')}"
         else:
-            label = f"{slot_plain[s-1]} (빈)"
+            label = f"{slot_plain[s-1]} {empty}"
 
         if swap_mode:
-            # In swap mode, slot buttons trigger swap selection
             row.append(InlineKeyboardButton(
                 label, callback_data=f"tsw_{user_id}_{s}_{team_num}",
             ))
@@ -387,32 +392,37 @@ def _build_team_slots(user_id: int, draft: dict, team_num: int) -> tuple[str, In
     # Action row
     if swap_mode:
         buttons.append([
-            InlineKeyboardButton("↩ 취소", callback_data=f"tswap_cancel_{user_id}_{team_num}"),
+            InlineKeyboardButton(t(lang, "team.btn_swap_cancel"), callback_data=f"tswap_cancel_{user_id}_{team_num}"),
         ])
     else:
         buttons.append([
-            InlineKeyboardButton("🔀 순서변경", callback_data=f"tswap_{user_id}_{team_num}"),
+            InlineKeyboardButton(t(lang, "team.btn_swap_order"), callback_data=f"tswap_{user_id}_{team_num}"),
         ])
         buttons.append([
-            InlineKeyboardButton("✅ 완료", callback_data=f"tdone_{user_id}_{team_num}"),
-            InlineKeyboardButton("❌ 취소", callback_data=f"tcancel_{user_id}_{team_num}"),
+            InlineKeyboardButton(t(lang, "team.btn_done"), callback_data=f"tdone_{user_id}_{team_num}"),
+            InlineKeyboardButton(t(lang, "team.btn_cancel"), callback_data=f"tcancel_{user_id}_{team_num}"),
         ])
 
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
 
 
-_FILTER_MAP = {
-    "all": ("전체", None, "전체"),
-    "ul": ("🟧초전설", "ultra_legendary", "🟧초전"),
-    "leg": ("🟨전설", "legendary", "🟨전설"),
-    "epc": ("🟪에픽", "epic", "🟪에픽"),
-    "rar": ("🟦레어", "rare", "🟦레어"),
-    "com": ("⬜일반", "common", "⬜일반"),
+_FILTER_RARITY_MAP = {
+    "all": None, "ul": "ultra_legendary", "leg": "legendary",
+    "epc": "epic", "rar": "rare", "com": "common",
+}
+_FILTER_KEYS = {
+    "all": ("team.filter_all", "team.filter_all"),
+    "ul": ("team.filter_ul", "team.filter_ul_short"),
+    "leg": ("team.filter_leg", "team.filter_leg"),
+    "epc": ("team.filter_epc", "team.filter_epc"),
+    "rar": ("team.filter_rar", "team.filter_rar"),
+    "com": ("team.filter_com", "team.filter_com"),
 }
 
 
 async def _build_slot_pokemon_list(user_id: int, slot: int, draft: dict,
-                                   page: int, team_num: int) -> tuple[str, InlineKeyboardMarkup]:
+                                   page: int, team_num: int,
+                                   lang: str = "ko") -> tuple[str, InlineKeyboardMarkup]:
     """Build pokemon list for placing into a specific slot.
     Shows all pokemon (including those in other slots, marked with slot number).
     """
@@ -427,10 +437,10 @@ async def _build_slot_pokemon_list(user_id: int, slot: int, draft: dict,
         pokemon_list = await queries.get_user_pokemon_list(user_id)
         draft["pokemon_cache"] = pokemon_list
     if not pokemon_list:
-        return "보유한 포켓몬이 없습니다.", InlineKeyboardMarkup([])
+        return t(lang, "team.no_pokemon"), InlineKeyboardMarkup([])
 
     # Apply rarity filter
-    _, filter_rarity, _ = _FILTER_MAP.get(active_filter, ("전체", None, "전체"))
+    filter_rarity = _FILTER_RARITY_MAP.get(active_filter)
     if filter_rarity:
         pokemon_list = [p for p in pokemon_list if p.get("rarity") == filter_rarity]
 
@@ -448,19 +458,22 @@ async def _build_slot_pokemon_list(user_id: int, slot: int, draft: dict,
     page_items = pokemon_list[start:end]
 
     # Header
-    filter_label, _, _ = _FILTER_MAP.get(active_filter, ("전체", None, "전체"))
+    label_key, _ = _FILTER_KEYS.get(active_filter, ("team.filter_all", "team.filter_all"))
+    filter_label = t(lang, label_key)
     inst_id = current.get(slot)
     if inst_id:
-        lines = [f"{slot_plain[slot-1]} {names.get(inst_id, '???')} → 교체/제거  [{page+1}/{total_pages}]"]
+        lines = [t(lang, "team.slot_replace", slot=slot_plain[slot-1], name=names.get(inst_id, '???')) + f"  [{page+1}/{total_pages}]"]
     else:
-        lines = [f"{slot_plain[slot-1]} 빈 슬롯 ← 배치  [{page+1}/{total_pages}]"]
-    lines.append(f"필터: {filter_label} ({total}마리)\n")
+        lines = [t(lang, "team.slot_empty_place", slot=slot_plain[slot-1]) + f"  [{page+1}/{total_pages}]"]
+    lines.append(t(lang, "team.filter_label", label=filter_label, count=total) + "\n")
 
     buttons = []
 
     # Filter buttons row
     filter_row = []
-    for code, (label, _, short) in _FILTER_MAP.items():
+    for code in _FILTER_KEYS:
+        _, short_key = _FILTER_KEYS[code]
+        short = t(lang, short_key)
         mark = "✓" if code == active_filter else ""
         filter_row.append(InlineKeyboardButton(
             f"{mark}{short}",
@@ -471,7 +484,7 @@ async def _build_slot_pokemon_list(user_id: int, slot: int, draft: dict,
     # Remove button if slot is occupied
     if inst_id:
         buttons.append([InlineKeyboardButton(
-            "🗑 제거", callback_data=f"trem_{user_id}_{slot}_{team_num}",
+            t(lang, "team.btn_remove"), callback_data=f"trem_{user_id}_{slot}_{team_num}",
         )])
 
     # Pokemon list buttons (2 per row)
@@ -498,15 +511,15 @@ async def _build_slot_pokemon_list(user_id: int, slot: int, draft: dict,
     # Nav row
     nav_row = []
     if page > 0:
-        nav_row.append(InlineKeyboardButton("◀ 이전", callback_data=f"tp_{user_id}_{slot}_{page - 1}_{team_num}"))
+        nav_row.append(InlineKeyboardButton(t(lang, "team.btn_prev"), callback_data=f"tp_{user_id}_{slot}_{page - 1}_{team_num}"))
     if page < total_pages - 1:
-        nav_row.append(InlineKeyboardButton("다음 ▶", callback_data=f"tp_{user_id}_{slot}_{page + 1}_{team_num}"))
+        nav_row.append(InlineKeyboardButton(t(lang, "team.btn_next"), callback_data=f"tp_{user_id}_{slot}_{page + 1}_{team_num}"))
     if nav_row:
         buttons.append(nav_row)
 
     # Back button
     buttons.append([InlineKeyboardButton(
-        "↩ 돌아가기", callback_data=f"tcl_{user_id}_{team_num}",
+        t(lang, "team.btn_back"), callback_data=f"tcl_{user_id}_{team_num}",
     )])
 
     return "\n".join(lines), InlineKeyboardMarkup(buttons)
@@ -543,31 +556,33 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
     text = (update.message.text or "").strip()
     team_num = 2 if text.endswith("2") else 1
 
-    team = await bq.get_battle_team(user_id, team_num)
-    active_num = await bq.get_active_team_number(user_id)
+    team, active_num, partner = await asyncio.gather(
+        bq.get_battle_team(user_id, team_num),
+        bq.get_active_team_number(user_id),
+        bq.get_partner(user_id),
+    )
 
     if not team:
         # No team → go straight to slot editor
         draft = await _init_draft(context, user_id, team_num)
-        text_msg, markup = _build_team_slots(user_id, draft, team_num)
+        text_msg, markup = _build_team_slots(user_id, draft, team_num, lang=lang)
         await update.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
         return
-
-    partner = await bq.get_partner(user_id)
     partner_instance = partner["instance_id"] if partner else None
 
     active_mark = f" {icon_emoji('check')}" if team_num == active_num else ""
     slot_emojis = [icon_emoji(str(i)) for i in range(1, 7)]
-    lines = [f"{icon_emoji('battle')} 배틀 팀 {team_num}{active_mark}\n"]
+    lines = [f"{icon_emoji('battle')} {t(lang, 'team.team_header', num=team_num, filled=len(team), max=TEAM_MAX, cost=0, limit=config.RANKED_COST_LIMIT).split('💰')[0].strip()}{active_mark}\n"]
 
     total_power = 0
     total_base_power = 0
@@ -600,31 +615,25 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         iv_grade, _ = config.get_iv_grade(iv_sum)
         iv_tag = f"[{iv_grade}: {iv_sum}] " if iv_sum > 0 else ""
         shiny_mark = "✨" if p.get("is_shiny") else ""
+        display_name = poke_name(p, lang)
         lines.append(
-            f"{slot_emojis[i]} {rb}{tb} {p['name_ko']}{shiny_mark} ({rl}){partner_mark}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
-            f"    {iv_tag}{format_stats_line(stats, base)}  💰{cost}"
+            f"{slot_emojis[i]} {rb}{tb} {display_name}{shiny_mark} ({rl}){partner_mark}  {icon_emoji('bolt')}{format_power(stats, base)}\n"
+            f"    {iv_tag}{format_stats_line(stats, base, lang=lang)}  💰{cost}"
         )
     iv_diff = total_power - total_base_power
     total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
-    lines.append(f"\n{icon_emoji('bolt')} 팀 전투력: {total_tag}")
-    lines.append(f"💰 팀 코스트: {total_cost}/{config.RANKED_COST_LIMIT}")
+    lines.append(f"\n{icon_emoji('bolt')} {t(lang, 'team.team_power_label', power=total_tag)}")
+    lines.append(f"💰 {t(lang, 'team.team_cost_label', cost=total_cost, limit=config.RANKED_COST_LIMIT)}")
 
     if total_cost > config.RANKED_COST_LIMIT:
-        lines.append(
-            f"\n⚠️ <b>코스트 초과!</b> ({total_cost}/{config.RANKED_COST_LIMIT})\n"
-            "랭크전/토너먼트 참가가 불가합니다.\n"
-            "💡 '팀편집'으로 팀을 수정해주세요!\n"
-            "\n📋 등급별 코스트:\n"
-            "  ⬜일반 1 / 🟦레어 2 / 🟪에픽 4\n"
-            "  🟨전설 5 / 🟧초전설 6"
-        )
+        lines.append(f"\n{t(lang, 'team.cost_over_warning', cost=total_cost, limit=config.RANKED_COST_LIMIT)}")
 
     if team_num != active_num:
-        lines.append(f"\n💡 '팀선택 {team_num}'으로 이 팀을 배틀에 사용할 수 있습니다.")
+        lines.append(f"\n💡 {t(lang, 'team.team_use_hint', num=team_num)}")
 
     buttons = InlineKeyboardMarkup([[
-        InlineKeyboardButton("🔄 변경", callback_data=f"tedit_{user_id}_{team_num}"),
-        InlineKeyboardButton("🗑 해제", callback_data=f"tdel_{user_id}_{team_num}"),
+        InlineKeyboardButton(t(lang, "team.btn_edit"), callback_data=f"tedit_{user_id}_{team_num}"),
+        InlineKeyboardButton(t(lang, "team.btn_delete"), callback_data=f"tdel_{user_id}_{team_num}"),
     ]])
     await update.message.reply_text("\n".join(lines), reply_markup=buttons, parse_mode="HTML")
 
@@ -642,13 +651,16 @@ async def team_edit_menu_handler(update: Update, context: ContextTypes.DEFAULT_T
     if not update.effective_user or not update.message:
         return
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
 
-    team1 = await bq.get_battle_team(user_id, 1)
-    team2 = await bq.get_battle_team(user_id, 2)
-    active = await bq.get_active_team_number(user_id)
+    team1, team2, active = await asyncio.gather(
+        bq.get_battle_team(user_id, 1),
+        bq.get_battle_team(user_id, 2),
+        bq.get_active_team_number(user_id),
+    )
 
-    t1_label = f"팀1 ({len(team1)}마리)" if team1 else "팀1 (비어있음)"
-    t2_label = f"팀2 ({len(team2)}마리)" if team2 else "팀2 (비어있음)"
+    t1_label = t(lang, "team.team_label", num=1, count=len(team1)) if team1 else t(lang, "team.team_label_empty", num=1)
+    t2_label = t(lang, "team.team_label", num=2, count=len(team2)) if team2 else t(lang, "team.team_label_empty", num=2)
     if active == 1:
         t1_label += " ✅"
     else:
@@ -660,11 +672,11 @@ async def team_edit_menu_handler(update: Update, context: ContextTypes.DEFAULT_T
             InlineKeyboardButton(f"✏️ {t2_label}", callback_data=f"tedit_{user_id}_2"),
         ],
         [
-            InlineKeyboardButton("🔀 팀1↔팀2 교환", callback_data=f"tswap_teams_{user_id}"),
+            InlineKeyboardButton(t(lang, "team.btn_swap_teams"), callback_data=f"tswap_teams_{user_id}"),
         ],
     ])
     await update.message.reply_text(
-        f"{icon_emoji('battle')} 편집할 팀을 선택하세요:",
+        f"{icon_emoji('battle')} {t(lang, 'team.edit_select')}",
         reply_markup=buttons,
         parse_mode="HTML",
     )
@@ -676,9 +688,10 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     await queries.ensure_user(
         user_id,
-        update.effective_user.first_name or "트레이너",
+        update.effective_user.first_name or t(lang, "common.trainer"),
         update.effective_user.username,
     )
 
@@ -688,13 +701,13 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
-        await update.message.reply_text("보유한 포켓몬이 없습니다.")
+        await update.message.reply_text(t(lang, "team.no_pokemon"))
         return
 
     # "팀등록1" alone → show slot editor
     if len(parts) < 2:
         draft = await _init_draft(context, user_id, team_num)
-        text_msg, markup = _build_team_slots(user_id, draft, team_num)
+        text_msg, markup = _build_team_slots(user_id, draft, team_num, lang=lang)
         await update.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
         return
 
@@ -702,74 +715,62 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
     try:
         nums = [int(x) for x in parts[1:7]]
     except ValueError:
-        await update.message.reply_text("숫자만 입력해주세요. 예: 팀등록1 3 1 5 2")
+        await update.message.reply_text(t(lang, "team.numbers_only"))
         return
 
     if len(nums) != config.RANKED_TEAM_SIZE:
-        await update.message.reply_text(f"❌ 팀은 반드시 {config.RANKED_TEAM_SIZE}마리로 구성해야 합니다! (현재 {len(nums)}마리)")
+        await update.message.reply_text(f"❌ {t(lang, 'team.team_size_required', required=config.RANKED_TEAM_SIZE, current=len(nums))}")
         return
 
     if len(set(nums)) != len(nums):
-        await update.message.reply_text("중복된 번호가 있습니다.")
+        await update.message.reply_text(t(lang, "team.duplicate_numbers"))
         return
 
     for n in nums:
         if n < 1 or n > len(pokemon_list):
-            await update.message.reply_text(f"번호 {n}이(가) 범위 밖입니다. (1~{len(pokemon_list)})")
+            await update.message.reply_text(t(lang, "team.number_out_of_range", n=n, max=len(pokemon_list)))
             return
 
-    # 초전설 포켓몬 1마리 제한
+    # Ultra legendary 1 per team limit
     ultra_count = sum(1 for n in nums if pokemon_list[n - 1].get("rarity") == "ultra_legendary")
     if ultra_count > 1:
         ultra_names = [
-            pokemon_list[n-1]['name_ko']
+            poke_name(pokemon_list[n-1], lang)
             for n in nums if pokemon_list[n-1].get("rarity") == "ultra_legendary"
         ]
         await context.bot.send_message(
             chat_id=user_id,
-            text=(
-                f"⚠️ 초전설 포켓몬은 팀에 1마리만 넣을 수 있습니다!\n\n"
-                f"선택한 초전설: {', '.join(ultra_names)}\n"
-                f"초전설 포켓몬 중 1마리만 남기고 다시 등록해주세요."
-            ),
+            text=f"⚠️ {t(lang, 'team.ultra_limit_msg', names=', '.join(ultra_names))}",
         )
         return
 
-    # 에픽 이상 포켓몬 같은 종 중복 제한
+    # Epic+ same species duplicate limit
     high_seen: set[int] = set()
     high_dups: list[str] = []
     for n in nums:
         p = pokemon_list[n - 1]
         if p.get("rarity") in ("epic", "legendary", "ultra_legendary"):
             if p["pokemon_id"] in high_seen:
-                high_dups.append(p['name_ko'])
+                high_dups.append(poke_name(p, lang))
             high_seen.add(p["pokemon_id"])
     if high_dups:
         await context.bot.send_message(
             chat_id=user_id,
-            text=(
-                f"⚠️ 에픽 이상 포켓몬은 같은 종을 팀에 중복으로 넣을 수 없습니다!\n\n"
-                f"중복: {', '.join(high_dups)}\n"
-                f"같은 종은 1마리만 남기고 다시 등록해주세요."
-            ),
+            text=f"⚠️ {t(lang, 'team.epic_dup_msg', names=', '.join(high_dups))}",
         )
         return
 
-    # COST 검증
+    # COST validation
     total_cost = sum(config.RANKED_COST.get(pokemon_list[n - 1].get("rarity", ""), 0) for n in nums)
     if total_cost > config.RANKED_COST_LIMIT:
         cost_lines = []
         for n in nums:
             p = pokemon_list[n - 1]
             c = config.RANKED_COST.get(p.get("rarity", ""), 0)
-            cost_lines.append(f"  {p['name_ko']} 💰{c}")
+            cost_lines.append(f"  {poke_name(p, lang)} 💰{c}")
         await context.bot.send_message(
             chat_id=user_id,
-            text=(
-                f"❌ 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n\n"
-                + "\n".join(cost_lines)
-                + f"\n\n코스트 {config.RANKED_COST_LIMIT} 이하로 편성해주세요."
-            ),
+            text=f"❌ {t(lang, 'team.cost_over_detail', cost=total_cost, limit=config.RANKED_COST_LIMIT, lines=chr(10).join(cost_lines))}",
         )
         return
 
@@ -777,11 +778,11 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
     await bq.set_battle_team(user_id, instance_ids, team_num)
 
     slot_emojis = [icon_emoji(str(i)) for i in range(1, 7)]
-    lines = [f"{icon_emoji('battle')} 배틀 팀 {team_num} 등록 완료!\n"]
+    lines = [f"{icon_emoji('battle')} {t(lang, 'team.team_registered', num=team_num)}\n"]
     for i, n in enumerate(nums):
         p = pokemon_list[n - 1]
         tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
-        lines.append(f"{slot_emojis[i]} {tb} {p['name_ko']}")
+        lines.append(f"{slot_emojis[i]} {tb} {poke_name(p, lang)}")
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
 
@@ -791,10 +792,11 @@ async def team_clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     text = (update.message.text or "").strip()
     team_num = 2 if text.endswith("2") else 1
     await bq.clear_battle_team(user_id, team_num)
-    await update.message.reply_text(f"{icon_emoji('battle')} 배틀 팀 {team_num}이(가) 해제되었습니다.", parse_mode="HTML")
+    await update.message.reply_text(f"{icon_emoji('battle')} {t(lang, 'team.team_cleared', num=team_num)}", parse_mode="HTML")
 
 
 async def team_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -803,6 +805,7 @@ async def team_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     text = (update.message.text or "").strip()
     parts = text.split()
 
@@ -814,11 +817,11 @@ async def team_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     team = await bq.get_battle_team(user_id, team_num)
     if not team:
-        await update.message.reply_text(f"⚠️ 팀 {team_num}이(가) 비어있습니다. '팀등록{team_num}'으로 먼저 등록하세요.")
+        await update.message.reply_text(f"⚠️ {t(lang, 'team.team_empty_msg', num=team_num)}")
         return
 
     await bq.set_active_team(user_id, team_num)
-    await update.message.reply_text(f"{icon_emoji('check')} 배틀 팀 {team_num}을(를) 활성 팀으로 설정했습니다!", parse_mode="HTML")
+    await update.message.reply_text(f"{icon_emoji('check')} {t(lang, 'team.team_activated', num=team_num)}", parse_mode="HTML")
 
 
 async def team_swap_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -826,15 +829,18 @@ async def team_swap_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not update.message:
         return
     user_id = update.effective_user.id
-    team1 = await bq.get_battle_team(user_id, 1)
-    team2 = await bq.get_battle_team(user_id, 2)
+    lang = await get_user_lang(user_id)
+    team1, team2 = await asyncio.gather(
+        bq.get_battle_team(user_id, 1),
+        bq.get_battle_team(user_id, 2),
+    )
     if not team1 and not team2:
-        await update.message.reply_text("교환할 팀이 없습니다.")
+        await update.message.reply_text(t(lang, "team.no_teams_to_swap"))
         return
     await bq.swap_teams(user_id)
     active = await bq.get_active_team_number(user_id)
     await update.message.reply_text(
-        f"🔀 팀 1 ↔ 팀 2 교환 완료!\n활성 팀: 팀 {active}",
+        f"🔀 {t(lang, 'team.team_swapped', active=active)}",
         parse_mode="HTML",
     )
 
@@ -847,6 +853,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
     data = query.data
     parts = data.split("_")
+    lang = await get_user_lang(query.from_user.id)
 
     # Helper: ownership check
     def _check_owner(uid):
@@ -865,11 +872,11 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _init_draft(context, owner_id, tn)
-        text_msg, markup = _build_team_slots(owner_id, draft, tn)
+        text_msg, markup = _build_team_slots(owner_id, draft, tn, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except BadRequest as e:
@@ -885,11 +892,11 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         slot = int(parts[3])
         tn = int(parts[4])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
-        text_msg, markup = await _build_slot_pokemon_list(owner_id, slot, draft, 0, tn)
+        text_msg, markup = await _build_slot_pokemon_list(owner_id, slot, draft, 0, tn, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except BadRequest as e:
@@ -906,7 +913,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         page = int(parts[4])
         tn = int(parts[5])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         draft = await _get_draft(owner_id, tn)
 
@@ -939,7 +946,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
                     if p_info and p_info.get("rarity") == "ultra_legendary":
                         ul_count += 1
             if ul_count >= 1:
-                await query.answer("⚠️ 초전설 포켓몬은 1마리만!", show_alert=True)
+                await query.answer(f"⚠️ {t(lang, 'team.ultra_only_one')}", show_alert=True)
                 return
 
         # Validate same-species duplicate (epic/legendary/ultra_legendary)
@@ -948,7 +955,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 if s != slot and iid is not None and iid != inst_id:
                     p_info = await queries.get_user_pokemon_by_id(iid)
                     if p_info and p_info.get("rarity") in ("epic", "legendary", "ultra_legendary") and p_info.get("pokemon_id") == pokemon["pokemon_id"]:
-                        await query.answer("⚠️ 같은 종은 1마리만!", show_alert=True)
+                        await query.answer(f"⚠️ {t(lang, 'team.same_species_one')}", show_alert=True)
                         return
 
         # Place pokemon
@@ -959,7 +966,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
         await query.answer()
         # Return to slot main view
-        text_msg, markup = _build_team_slots(owner_id, draft, tn)
+        text_msg, markup = _build_team_slots(owner_id, draft, tn, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except BadRequest as e:
@@ -974,7 +981,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         slot = int(parts[2])
         tn = int(parts[3])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
@@ -982,7 +989,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         name = draft["names"].get(removed, "")
 
         # Return to slot main view
-        text_msg, markup = _build_team_slots(owner_id, draft, tn)
+        text_msg, markup = _build_team_slots(owner_id, draft, tn, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except BadRequest as e:
@@ -998,11 +1005,11 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         page = int(parts[3])
         tn = int(parts[4])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
-        text_msg, markup = await _build_slot_pokemon_list(owner_id, slot, draft, page, tn)
+        text_msg, markup = await _build_slot_pokemon_list(owner_id, slot, draft, page, tn, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except BadRequest as e:
@@ -1018,12 +1025,12 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         filter_code = parts[3]
         tn = int(parts[4])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
         draft["filter"] = filter_code
-        text_msg, markup = await _build_slot_pokemon_list(owner_id, slot, draft, 0, tn)
+        text_msg, markup = await _build_slot_pokemon_list(owner_id, slot, draft, 0, tn, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except BadRequest as e:
@@ -1037,11 +1044,11 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
-        text_msg, markup = _build_team_slots(owner_id, draft, tn)
+        text_msg, markup = _build_team_slots(owner_id, draft, tn, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except BadRequest as e:
@@ -1055,13 +1062,13 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
         draft["swap_mode"] = True
         draft["swap_first"] = None
-        text_msg, markup = _build_team_slots(owner_id, draft, tn)
+        text_msg, markup = _build_team_slots(owner_id, draft, tn, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except BadRequest as e:
@@ -1075,13 +1082,13 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[2])
         tn = int(parts[3])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
         draft["swap_mode"] = False
         draft["swap_first"] = None
-        text_msg, markup = _build_team_slots(owner_id, draft, tn)
+        text_msg, markup = _build_team_slots(owner_id, draft, tn, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except BadRequest as e:
@@ -1096,7 +1103,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         slot = int(parts[2])
         tn = int(parts[3])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         draft = await _get_draft(owner_id, tn)
@@ -1124,7 +1131,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             draft["swap_mode"] = False
             draft["swap_first"] = None
 
-        text_msg, markup = _build_team_slots(owner_id, draft, tn)
+        text_msg, markup = _build_team_slots(owner_id, draft, tn, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
         except BadRequest as e:
@@ -1137,19 +1144,19 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     elif data.startswith("tswap_teams_"):
         owner_id = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         team1 = await bq.get_battle_team(owner_id, 1)
         team2 = await bq.get_battle_team(owner_id, 2)
         if not team1 and not team2:
-            await query.answer("교환할 팀이 없습니다!", show_alert=True)
+            await query.answer(t(lang, "team.no_teams_to_swap"), show_alert=True)
             return
         await query.answer()
         await bq.swap_teams(owner_id)
         active = await bq.get_active_team_number(owner_id)
         try:
             await query.edit_message_text(
-                f"🔀 팀 1 ↔ 팀 2 교환 완료!\n활성 팀: 팀 {active}",
+                f"🔀 {t(lang, 'team.team_swapped', active=active)}",
                 parse_mode="HTML",
             )
         except BadRequest as e:
@@ -1163,31 +1170,29 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
 
         # Check if editing session is still alive (draft exists in memory)
         key = f"team_draft_{tn}"
         draft = context.user_data.get(key)
         if not draft:
-            await query.answer("편집 세션이 만료되었습니다. '팀편집'으로 다시 시작하세요.", show_alert=True)
+            await query.answer(t(lang, "team.session_expired"), show_alert=True)
             return
 
         await query.answer()
         current = draft["current"]
 
         if not current:
-            await query.answer("팀에 포켓몬이 없습니다!", show_alert=True)
+            await query.answer(t(lang, "team.team_empty_alert"), show_alert=True)
             return
 
-        # --- 6마리 필수 ---
+        # --- Team size required ---
         filled = sum(1 for v in current.values() if v is not None)
         if filled < config.RANKED_TEAM_SIZE:
             try:
                 await query.edit_message_text(
-                    f"❌ 팀은 반드시 {config.RANKED_TEAM_SIZE}마리로 구성해야 합니다!\n"
-                    f"현재 {filled}마리만 등록되어 있습니다.\n"
-                    f"'팀편집' 명령어로 빈 슬롯을 채워주세요.",
+                    f"❌ {t(lang, 'team.team_size_short', required=config.RANKED_TEAM_SIZE, current=filled)}",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -1208,9 +1213,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if total_cost > config.RANKED_COST_LIMIT:
             try:
                 await query.edit_message_text(
-                    f"❌ 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n\n"
-                    f"코스트 {config.RANKED_COST_LIMIT} 이하로 편성해주세요.\n"
-                    f"'팀편집' 명령어로 다시 시도하세요.",
+                    f"❌ {t(lang, 'team.cost_over_detail', cost=total_cost, limit=config.RANKED_COST_LIMIT, lines='')}",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -1220,8 +1223,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if ultra_count > config.RANKED_ULTRA_MAX:
             try:
                 await query.edit_message_text(
-                    f"❌ 초전설은 팀당 {config.RANKED_ULTRA_MAX}마리까지만 편성 가능합니다.\n"
-                    f"'팀편집' 명령어로 다시 시도하세요.",
+                    f"❌ {t(lang, 'team.ultra_max_msg', max=config.RANKED_ULTRA_MAX)}",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -1237,7 +1239,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         context.user_data.pop(f"team_draft_{tn}", None)
 
         slot_plain = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
-        lines = [f"{icon_emoji('battle')} 배틀 팀 {tn} 저장 완료!\n"]
+        lines = [f"{icon_emoji('battle')} {t(lang, 'team.team_saved', num=tn)}\n"]
         for s in sorted(current.keys()):
             lines.append(f"{slot_plain[s-1]} {draft['names'].get(current[s], '???')}")
         try:
@@ -1253,13 +1255,13 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         # Clean up draft — original team is still in DB
         context.user_data.pop(f"team_draft_{tn}", None)
         try:
-            await query.edit_message_text("팀 편집이 취소되었습니다.")
+            await query.edit_message_text(t(lang, "team.edit_cancelled"))
         except BadRequest as e:
             if "not modified" not in str(e).lower():
                 raise
@@ -1271,13 +1273,13 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         owner_id = int(parts[1])
         tn = int(parts[2])
         if not _check_owner(owner_id):
-            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "error.not_your_button"), show_alert=True)
             return
         await query.answer()
         await bq.clear_battle_team(owner_id, tn)
         context.user_data.pop(f"team_draft_{tn}", None)
         try:
-            await query.edit_message_text(f"{icon_emoji('battle')} 배틀 팀 {tn}이(가) 해제되었습니다.", parse_mode="HTML")
+            await query.edit_message_text(f"{icon_emoji('battle')} {t(lang, 'team.team_cleared', num=tn)}", parse_mode="HTML")
         except Exception:
             pass
 
@@ -1292,6 +1294,7 @@ async def battle_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     stats = await bq.get_battle_stats(user_id)
 
     wins = stats["battle_wins"]
@@ -1300,14 +1303,14 @@ async def battle_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     win_rate = round(wins / total * 100, 1) if total > 0 else 0
 
     lines = [
-        f"{icon_emoji('battle')} <b>나의 배틀 전적</b>\n",
-        f"🏆 {wins}승 {losses}패  ({win_rate}%)",
-        f"🔥 현재 연승: {stats['battle_streak']}",
-        f"💫 최고 연승: {stats['best_streak']}",
-        f"{icon_emoji('coin')} 보유 BP: {stats['battle_points']}",
+        f"{icon_emoji('battle')} <b>{t(lang, 'battle.my_record_title')}</b>\n",
+        f"🏆 {t(lang, 'battle.wins_losses', wins=wins, losses=losses, rate=win_rate)}",
+        f"🔥 {t(lang, 'battle.current_streak', n=stats['battle_streak'])}",
+        f"💫 {t(lang, 'battle.best_streak_label', n=stats['best_streak'])}",
+        f"{icon_emoji('coin')} {t(lang, 'battle.bp_balance', bp=stats['battle_points'])}",
     ]
 
-    # 시즌 랭크 정보
+    # Season ranked info
     try:
         from services import ranked_service as rs
         from database import ranked_queries as rq
@@ -1320,19 +1323,19 @@ async def battle_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 r_wr = round(rec["ranked_wins"] / r_total * 100, 1) if r_total > 0 else 0
                 lines.extend([
                     "",
-                    f"🏟️ 시즌 {season['season_id']}",
+                    f"🏟️ {t(lang, 'ranked.season_title', id=season['season_id'])}",
                     f"{tier_full}",
-                    f"랭크 {rec['ranked_wins']}승 {rec['ranked_losses']}패 ({r_wr}%)",
+                    f"{t(lang, 'battle.wins_losses', wins=rec['ranked_wins'], losses=rec['ranked_losses'], rate=r_wr)}",
                 ])
                 mmr_rec = await rq.get_user_mmr(user_id)
                 lines.append(f"📊 MMR: {mmr_rec['mmr']}")
     except Exception:
         pass
 
-    lines.append("\n💡 <code>랭전</code>을 입력하거나 아래 버튼으로 랭크전 도전!")
+    lines.append(f"\n💡 {t(lang, 'battle.ranked_hint')}")
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    buttons = [[InlineKeyboardButton("⚔️ 랭크전 도전", callback_data=f"ranked_auto_{user_id}")]]
+    buttons = [[InlineKeyboardButton(t(lang, "battle.ranked_challenge_btn"), callback_data=f"ranked_auto_{user_id}")]]
     await update.message.reply_text(
         "\n".join(lines),
         reply_markup=InlineKeyboardMarkup(buttons),
@@ -1346,8 +1349,9 @@ async def bp_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     bp = await bq.get_bp(user_id)
-    await update.message.reply_text(f"{icon_emoji('coin')} 보유 BP: {bp}\n\nBP상점 으로 교환 가능", parse_mode="HTML")
+    await update.message.reply_text(f"{icon_emoji('coin')} {t(lang, 'battle.bp_balance', bp=bp)}\n\n{t(lang, 'battle.bp_exchange_hint')}", parse_mode="HTML")
 
 
 def _masterball_price(bought_today: int) -> int:
@@ -1364,43 +1368,46 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
-    bp = await bq.get_bp(user_id)
+    lang = await get_user_lang(user_id)
+    bp, bought_today, tickets, hyper_balls, arcade_tickets = await asyncio.gather(
+        bq.get_bp(user_id),
+        bq.get_bp_purchases_today(user_id, "masterball"),
+        queries.get_force_spawn_tickets(user_id),
+        queries.get_hyper_balls(user_id),
+        queries.get_arcade_tickets(user_id),
+    )
 
-    bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
     remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today
     next_price = _masterball_price(bought_today)
-    price_str = f"{next_price} BP" if next_price else "매진"
+    price_str = f"{next_price} BP" if next_price else t(lang, "shop.sold_out")
 
-    tickets = await queries.get_force_spawn_tickets(user_id)
-    hyper_balls = await queries.get_hyper_balls(user_id)
-
-    fst_label = "🎉 무료!" if config.BP_FORCE_SPAWN_TICKET_COST == 0 else f"{config.BP_FORCE_SPAWN_TICKET_COST} BP"
-    pb_label = "🎉 무료!" if config.BP_POKEBALL_RESET_COST == 0 else f"{config.BP_POKEBALL_RESET_COST} BP"
-
-    # Arcade tickets
-    arcade_tickets = await queries.get_arcade_tickets(user_id)
+    fst_label = t(lang, "shop.free_label") if config.BP_FORCE_SPAWN_TICKET_COST == 0 else f"{config.BP_FORCE_SPAWN_TICKET_COST} BP"
+    pb_label = t(lang, "shop.free_label") if config.BP_POKEBALL_RESET_COST == 0 else f"{config.BP_POKEBALL_RESET_COST} BP"
 
     lines = [
-        f"{icon_emoji('shopping-bag')} BP 상점\n",
-        f"{icon_emoji('coin')} 보유 BP: {bp}\n",
-        f"{ball_emoji('masterball')} 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
-        f"{icon_emoji('bolt')} 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
-        f"{ball_emoji('pokeball')} 포켓볼 충전 리셋 — {pb_label}",
-        f"{ball_emoji('hyperball')} 하이퍼볼 x3 — {config.BP_HYPER_BALL_COST * 3} BP (보유: {hyper_balls}개, 포획률 3배)",
-        f"🎮 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
+        f"{icon_emoji('shopping-bag')} {t(lang, 'shop.shop_header')}\n",
+        f"{icon_emoji('coin')} {t(lang, 'shop.bp_owned', bp=bp)}\n",
+        f"{ball_emoji('masterball')} {t(lang, 'shop.masterball_item', price=price_str, remaining=remaining, limit=config.BP_MASTERBALL_DAILY_LIMIT)}",
+        f"{icon_emoji('bolt')} {t(lang, 'shop.forcespawn_item', price=fst_label, count=tickets)}",
+        f"{ball_emoji('pokeball')} {t(lang, 'shop.pokeball_reset_item', price=pb_label)}",
+        f"{ball_emoji('hyperball')} {t(lang, 'shop.hyperball_item', price=config.BP_HYPER_BALL_COST * 3, count=hyper_balls)}",
+        f"🎮 {t(lang, 'shop.arcade_item', price=config.ARCADE_PASS_COST, count=arcade_tickets)}",
     ]
 
     buttons = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton(f"🟣 마스터볼 ({price_str})", callback_data="shop_masterball"),
-            InlineKeyboardButton(f"⚡ 강스권", callback_data="shop_forcespawn"),
+            InlineKeyboardButton(t(lang, "shop.btn_masterball", price=price_str), callback_data="shop_masterball"),
+            InlineKeyboardButton(t(lang, "shop.btn_forcespawn"), callback_data="shop_forcespawn"),
         ],
         [
-            InlineKeyboardButton(f"🔴 포켓볼 리셋", callback_data="shop_pokeball"),
-            InlineKeyboardButton(f"🔵 하이퍼볼 x3 ({config.BP_HYPER_BALL_COST * 3}BP)", callback_data="shop_hyperball3"),
+            InlineKeyboardButton(t(lang, "shop.btn_pokeball_reset"), callback_data="shop_pokeball"),
+            InlineKeyboardButton(t(lang, "shop.btn_hyperball3", price=config.BP_HYPER_BALL_COST * 3), callback_data="shop_hyperball3"),
         ],
         [
-            InlineKeyboardButton(f"🎮 아케이드 티켓", callback_data="shop_arcade"),
+            InlineKeyboardButton(t(lang, "shop.btn_arcade"), callback_data="shop_arcade"),
+        ],
+        [
+            InlineKeyboardButton(t(lang, "shop.btn_market"), callback_data="shop_market"),
         ],
     ])
 
@@ -1413,11 +1420,12 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     text = (update.message.text or "").strip()
     parts = text.split()
 
     if len(parts) < 2:
-        await update.message.reply_text("사용법: 구매 마스터볼 / 구매 강제스폰 / 구매 포켓볼")
+        await update.message.reply_text(t(lang, "shop.buy_usage"))
         return
 
     item = parts[1]
@@ -1425,8 +1433,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
         if bought_today >= config.BP_MASTERBALL_DAILY_LIMIT:
             await update.message.reply_text(
-                f"🚫 오늘 마스터볼 구매 한도({config.BP_MASTERBALL_DAILY_LIMIT}개)를 초과했습니다.\n"
-                "내일 다시 구매할 수 있어요!"
+                f"🚫 {t(lang, 'shop.buy_masterball_limit', limit=config.BP_MASTERBALL_DAILY_LIMIT)}"
             )
             return
 
@@ -1435,7 +1442,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not success:
             bp = await bq.get_bp(user_id)
             await update.message.reply_text(
-                f"BP가 부족합니다. (보유: {bp} / 필요: {cost})"
+                t(lang, "shop.bp_insufficient", have=bp, need=cost)
             )
             return
 
@@ -1444,11 +1451,9 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today - 1
         bp = await bq.get_bp(user_id)
         next_price = _masterball_price(bought_today + 1)
-        next_str = f" (다음: {next_price} BP)" if next_price else ""
+        next_str = t(lang, "shop.buy_masterball_next", price=next_price) if next_price else ""
         await update.message.reply_text(
-            f"{ball_emoji('masterball')} 마스터볼 1개 구매 완료! ({cost} BP)\n"
-            f"{icon_emoji('coin')} 남은 BP: {bp}\n"
-            f"📦 오늘 남은 구매: {remaining}개{next_str}",
+            f"{ball_emoji('masterball')} {t(lang, 'shop.buy_masterball_ok', cost=cost, bp=bp, remaining=remaining, next=next_str)}",
             parse_mode="HTML",
         )
 
@@ -1458,7 +1463,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not success:
             bp = await bq.get_bp(user_id)
             await update.message.reply_text(
-                f"BP가 부족합니다. (보유: {bp} / 필요: {cost})"
+                t(lang, "shop.bp_insufficient", have=bp, need=cost)
             )
             return
 
@@ -1467,10 +1472,8 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bp = await bq.get_bp(user_id)
         tickets = await queries.get_force_spawn_tickets(user_id)
         await update.message.reply_text(
-            f"{icon_emoji('bolt')} 강스권 1개 구매 완료!\n"
-            f"{icon_emoji('coin')} 남은 BP: {bp}\n"
-            f"{icon_emoji('container')} 보유 강스권: {tickets}개\n\n"
-            "채팅방에서 '강스권' 입력으로 해당 채널의 강제스폰 50회를 초기화합니다!"
+            f"{icon_emoji('bolt')} {t(lang, 'shop.buy_forcespawn_ok', bp=bp, count=tickets)}",
+            parse_mode="HTML",
         )
 
     elif item in ("포켓볼", "볼"):
@@ -1479,7 +1482,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not success:
             bp = await bq.get_bp(user_id)
             await update.message.reply_text(
-                f"BP가 부족합니다. (보유: {bp} / 필요: {cost})"
+                t(lang, "shop.bp_insufficient", have=bp, need=cost)
             )
             return
 
@@ -1488,9 +1491,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await bq.log_bp_purchase(user_id, "pokeball_reset", 1)
         bp = await bq.get_bp(user_id)
         await update.message.reply_text(
-            f"{ball_emoji('pokeball')} 포켓볼 충전 한도 리셋 완료!\n"
-            f"{icon_emoji('coin')} 남은 BP: {bp}\n"
-            f"🔄 다시 포켓볼 충전 으로 10개씩 충전 가능! (최대 100개)",
+            f"{ball_emoji('pokeball')} {t(lang, 'shop.buy_pokeball_ok', bp=bp)}",
             parse_mode="HTML"
         )
 
@@ -1508,7 +1509,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not success:
             bp = await bq.get_bp(user_id)
             await update.message.reply_text(
-                f"BP가 부족합니다. (보유: {bp} / 필요: {cost})"
+                t(lang, "shop.bp_insufficient", have=bp, need=cost)
             )
             return
 
@@ -1517,10 +1518,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bp = await bq.get_bp(user_id)
         hyper_balls = await queries.get_hyper_balls(user_id)
         await update.message.reply_text(
-            f"{ball_emoji('hyperball')} 하이퍼볼 {qty}개 구매 완료! ({cost} BP)\n"
-            f"{icon_emoji('coin')} 남은 BP: {bp}\n"
-            f"📦 보유 하이퍼볼: {hyper_balls}개\n\n"
-            "채팅방에서 'ㅎ'으로 사용하세요!",
+            f"{ball_emoji('hyperball')} {t(lang, 'shop.buy_hyperball_ok', qty=qty, cost=cost, bp=bp, count=hyper_balls)}",
             parse_mode="HTML",
         )
 
@@ -1531,7 +1529,7 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not success:
             bp = await bq.get_bp(user_id)
             await update.message.reply_text(
-                f"BP가 부족합니다. (보유: {bp} / 필요: {cost})"
+                t(lang, "shop.bp_insufficient", have=bp, need=cost)
             )
             return
 
@@ -1540,15 +1538,12 @@ async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bp = await bq.get_bp(user_id)
         tickets = await queries.get_arcade_tickets(user_id)
         await update.message.reply_text(
-            f"🎮 아케이드 티켓 1개 구매 완료! ({cost} BP)\n"
-            f"{icon_emoji('coin')} 남은 BP: {bp}\n"
-            f"📦 보유 티켓: {tickets}개\n\n"
-            "채팅방에서 '아케이드 등록'으로 사용하세요!\n"
-            f"⏱ 사용 시 {config.ARCADE_PASS_DURATION // 60}분간 아케이드 채널화"
+            f"🎮 {t(lang, 'shop.buy_arcade_ok', cost=cost, bp=bp, count=tickets, minutes=config.ARCADE_PASS_DURATION // 60)}",
+            parse_mode="HTML",
         )
 
     else:
-        await update.message.reply_text("알 수 없는 상품입니다. 상점 으로 목록을 확인하세요.")
+        await update.message.reply_text(t(lang, "shop.unknown_item"))
 
 
 async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1558,6 +1553,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     user_id = query.from_user.id
+    lang = await get_user_lang(user_id)
     item_key = query.data.replace("shop_", "")
 
     # Map callback to item name for bp_buy logic
@@ -1569,53 +1565,62 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "hyperball3": "하이퍼볼3",
         "arcade": "아케이드",
     }
+    # 거래소 바로가기
+    if item_key == "market":
+        await query.answer()
+        from handlers.dm_market import _build_listing_page
+        listings, total = await queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
+        text_msg, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE)
+        await query.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        return
+
     item = item_map.get(item_key)
     if not item:
-        await query.answer("알 수 없는 상품입니다.", show_alert=True)
+        await query.answer(t(lang, "shop.unknown_item"), show_alert=True)
         return
 
     # --- Purchase logic (same as bp_buy_handler) ---
     if item == "마스터볼":
         bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
         if bought_today >= config.BP_MASTERBALL_DAILY_LIMIT:
-            await query.answer(f"오늘 마스터볼 구매 한도({config.BP_MASTERBALL_DAILY_LIMIT}개) 초과!", show_alert=True)
+            await query.answer(t(lang, "shop.popup_masterball_limit", limit=config.BP_MASTERBALL_DAILY_LIMIT), show_alert=True)
             return
         cost = _masterball_price(bought_today)
         success = await bq.spend_bp(user_id, cost)
         if not success:
             bp = await bq.get_bp(user_id)
-            await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
+            await query.answer(t(lang, "shop.popup_bp_insufficient", have=bp, need=cost), show_alert=True)
             return
         await queries.add_master_ball(user_id, 1)
         await bq.log_bp_purchase(user_id, "masterball", 1)
         remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today - 1
         bp = await bq.get_bp(user_id)
-        await query.answer(f"🟣 마스터볼 구매! (-{cost} BP, 남은 BP: {bp})", show_alert=True)
+        await query.answer(t(lang, "shop.popup_masterball_ok", cost=cost, bp=bp), show_alert=True)
 
     elif item == "강제스폰":
         cost = config.BP_FORCE_SPAWN_TICKET_COST
         success = await bq.spend_bp(user_id, cost)
         if not success:
             bp = await bq.get_bp(user_id)
-            await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
+            await query.answer(t(lang, "shop.popup_bp_insufficient", have=bp, need=cost), show_alert=True)
             return
         await queries.add_force_spawn_ticket(user_id)
         await bq.log_bp_purchase(user_id, "force_spawn_ticket", 1)
         bp = await bq.get_bp(user_id)
-        await query.answer(f"⚡ 강스권 구매! 채팅방에서 '강스권' 입력으로 사용 (남은 BP: {bp})", show_alert=True)
+        await query.answer(t(lang, "shop.popup_forcespawn_ok", bp=bp), show_alert=True)
 
     elif item == "포켓볼":
         cost = config.BP_POKEBALL_RESET_COST
         success = await bq.spend_bp(user_id, cost)
         if not success:
             bp = await bq.get_bp(user_id)
-            await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
+            await query.answer(t(lang, "shop.popup_bp_insufficient", have=bp, need=cost), show_alert=True)
             return
         today = config.get_kst_today()
         await queries.reset_bonus_catches(user_id, today)
         await bq.log_bp_purchase(user_id, "pokeball_reset", 1)
         bp = await bq.get_bp(user_id)
-        await query.answer(f"🔴 충전 한도 리셋! 다시 충전 가능 (남은 BP: {bp})", show_alert=True)
+        await query.answer(t(lang, "shop.popup_pokeball_ok", bp=bp), show_alert=True)
 
     elif item in ("하이퍼볼", "하이퍼볼3"):
         qty = 3 if item == "하이퍼볼3" else 1
@@ -1623,61 +1628,64 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         success = await bq.spend_bp(user_id, cost)
         if not success:
             bp = await bq.get_bp(user_id)
-            await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
+            await query.answer(t(lang, "shop.popup_bp_insufficient", have=bp, need=cost), show_alert=True)
             return
         await queries.add_hyper_ball(user_id, qty)
         await bq.log_bp_purchase(user_id, "hyper_ball", qty)
         bp = await bq.get_bp(user_id)
         hyper_balls = await queries.get_hyper_balls(user_id)
-        await query.answer(f"🔵 하이퍼볼 {qty}개 구매! (보유: {hyper_balls}개, 남은 BP: {bp})", show_alert=True)
+        await query.answer(t(lang, "shop.popup_hyperball_ok", qty=qty, count=hyper_balls, bp=bp), show_alert=True)
 
     elif item == "아케이드":
         cost = config.ARCADE_PASS_COST
         success = await bq.spend_bp(user_id, cost)
         if not success:
             bp = await bq.get_bp(user_id)
-            await query.answer(f"BP 부족! (보유: {bp} / 필요: {cost})", show_alert=True)
+            await query.answer(t(lang, "shop.popup_bp_insufficient", have=bp, need=cost), show_alert=True)
             return
-        await queries.add_arcade_ticket(user_id)
-        await bq.log_bp_purchase(user_id, "arcade_ticket", 1)
-        bp = await bq.get_bp(user_id)
-        tickets = await queries.get_arcade_tickets(user_id)
-        await query.answer(f"🎮 아케이드 티켓 구매! (보유: {tickets}개, 남은 BP: {bp})", show_alert=True)
+        await asyncio.gather(
+            queries.add_arcade_ticket(user_id),
+            bq.log_bp_purchase(user_id, "arcade_ticket", 1),
+        )
+        bp, tickets = await asyncio.gather(bq.get_bp(user_id), queries.get_arcade_tickets(user_id))
+        await query.answer(t(lang, "shop.popup_arcade_ok", count=tickets, bp=bp), show_alert=True)
 
     # Refresh shop display after purchase
     try:
-        bought_today = await bq.get_bp_purchases_today(user_id, "masterball")
+        bought_today, bp, tickets, hyper_balls, arcade_tickets = await asyncio.gather(
+            bq.get_bp_purchases_today(user_id, "masterball"),
+            bq.get_bp(user_id),
+            queries.get_force_spawn_tickets(user_id),
+            queries.get_hyper_balls(user_id),
+            queries.get_arcade_tickets(user_id),
+        )
         remaining = config.BP_MASTERBALL_DAILY_LIMIT - bought_today
         next_price = _masterball_price(bought_today)
-        price_str = f"{next_price} BP" if next_price else "매진"
-        bp = await bq.get_bp(user_id)
-        tickets = await queries.get_force_spawn_tickets(user_id)
-        hyper_balls = await queries.get_hyper_balls(user_id)
-        arcade_tickets = await queries.get_arcade_tickets(user_id)
-        fst_label = "🎉 무료!" if config.BP_FORCE_SPAWN_TICKET_COST == 0 else f"{config.BP_FORCE_SPAWN_TICKET_COST} BP"
-        pb_label = "🎉 무료!" if config.BP_POKEBALL_RESET_COST == 0 else f"{config.BP_POKEBALL_RESET_COST} BP"
+        price_str = f"{next_price} BP" if next_price else t(lang, "shop.sold_out")
+        fst_label = t(lang, "shop.free_label") if config.BP_FORCE_SPAWN_TICKET_COST == 0 else f"{config.BP_FORCE_SPAWN_TICKET_COST} BP"
+        pb_label = t(lang, "shop.free_label") if config.BP_POKEBALL_RESET_COST == 0 else f"{config.BP_POKEBALL_RESET_COST} BP"
 
         lines = [
-            f"{icon_emoji('shopping-bag')} BP 상점\n",
-            f"{icon_emoji('coin')} 보유 BP: {bp}\n",
-            f"{ball_emoji('masterball')} 마스터볼 x1 — {price_str} (오늘 {remaining}/{config.BP_MASTERBALL_DAILY_LIMIT}개 남음)",
-            f"{icon_emoji('bolt')} 강스권 x1 — {fst_label} (보유: {tickets}개, 채널 강제스폰 50회 초기화)",
-            f"{ball_emoji('pokeball')} 포켓볼 충전 리셋 — {pb_label}",
-            f"{ball_emoji('hyperball')} 하이퍼볼 x3 — {config.BP_HYPER_BALL_COST * 3} BP (보유: {hyper_balls}개, 포획률 3배)",
-            f"{icon_emoji('game')} 아케이드 티켓 x1 — {config.ARCADE_PASS_COST} BP (보유: {arcade_tickets}개, 채널 1시간 아케이드화)",
+            f"{icon_emoji('shopping-bag')} {t(lang, 'shop.shop_header')}\n",
+            f"{icon_emoji('coin')} {t(lang, 'shop.bp_owned', bp=bp)}\n",
+            f"{ball_emoji('masterball')} {t(lang, 'shop.masterball_item', price=price_str, remaining=remaining, limit=config.BP_MASTERBALL_DAILY_LIMIT)}",
+            f"{icon_emoji('bolt')} {t(lang, 'shop.forcespawn_item', price=fst_label, count=tickets)}",
+            f"{ball_emoji('pokeball')} {t(lang, 'shop.pokeball_reset_item', price=pb_label)}",
+            f"{ball_emoji('hyperball')} {t(lang, 'shop.hyperball_item', price=config.BP_HYPER_BALL_COST * 3, count=hyper_balls)}",
+            f"{icon_emoji('game')} {t(lang, 'shop.arcade_item', price=config.ARCADE_PASS_COST, count=arcade_tickets)}",
         ]
 
         buttons = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton(f"🟣 마스터볼 ({price_str})", callback_data="shop_masterball"),
-                InlineKeyboardButton(f"⚡ 강스권", callback_data="shop_forcespawn"),
+                InlineKeyboardButton(t(lang, "shop.btn_masterball", price=price_str), callback_data="shop_masterball"),
+                InlineKeyboardButton(t(lang, "shop.btn_forcespawn"), callback_data="shop_forcespawn"),
             ],
             [
-                InlineKeyboardButton(f"🔴 포켓볼 리셋", callback_data="shop_pokeball"),
-                InlineKeyboardButton(f"🔵 하이퍼볼 x3 ({config.BP_HYPER_BALL_COST * 3}BP)", callback_data="shop_hyperball3"),
+                InlineKeyboardButton(t(lang, "shop.btn_pokeball_reset"), callback_data="shop_pokeball"),
+                InlineKeyboardButton(t(lang, "shop.btn_hyperball3", price=config.BP_HYPER_BALL_COST * 3), callback_data="shop_hyperball3"),
             ],
             [
-                InlineKeyboardButton(f"🎮 아케이드 티켓", callback_data="shop_arcade"),
+                InlineKeyboardButton(t(lang, "shop.btn_arcade"), callback_data="shop_arcade"),
             ],
         ])
 
@@ -1701,38 +1709,41 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     if is_tournament_active(chat_id):
         return
     challenger_id = update.effective_user.id
-    challenger_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(challenger_id)
+    challenger_name = update.effective_user.first_name or t(lang, "common.trainer")
 
     # Must reply to someone or mention
     reply = update.message.reply_to_message
     if not reply or not reply.from_user:
         await update.message.reply_text(
-            f"{icon_emoji('battle')} 배틀을 신청하려면 상대방의 메시지에 답장하며 '배틀'을 입력하세요!", parse_mode="HTML"
+            f"{icon_emoji('battle')} {t(lang, 'battle.challenge_reply_hint')}", parse_mode="HTML"
         )
         return
 
     defender_id = reply.from_user.id
-    defender_name = reply.from_user.first_name or "트레이너"
+    defender_name = reply.from_user.first_name or t(lang, "common.trainer")
 
     # Can't battle yourself
     if challenger_id == defender_id:
-        await update.message.reply_text("자기 자신에게 배틀을 신청할 수 없습니다.")
+        await update.message.reply_text(t(lang, "battle.cannot_self"))
         return
 
     # Can't battle bots
     if reply.from_user.is_bot:
-        await update.message.reply_text("봇에게는 배틀을 신청할 수 없습니다.")
+        await update.message.reply_text(t(lang, "battle.cannot_bot"))
         return
 
-    # Ensure both users exist
-    await queries.ensure_user(challenger_id, challenger_name, update.effective_user.username)
-    await queries.ensure_user(defender_id, defender_name, reply.from_user.username)
-
-    # Check cooldowns
+    # Ensure both users exist + check cooldowns (병렬)
     from datetime import datetime, timedelta, timezone
 
+    _, _, last_vs, last_any = await asyncio.gather(
+        queries.ensure_user(challenger_id, challenger_name, update.effective_user.username),
+        queries.ensure_user(defender_id, defender_name, reply.from_user.username),
+        bq.get_last_battle_time(challenger_id, defender_id),
+        bq.get_last_battle_time_any(challenger_id),
+    )
+
     # Same opponent cooldown
-    last_vs = await bq.get_last_battle_time(challenger_id, defender_id)
     if last_vs:
         last_time = datetime.fromisoformat(last_vs)
         if last_time.tzinfo is None:
@@ -1742,13 +1753,11 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
             remaining = cooldown - (datetime.now(timezone.utc) - last_time)
             mins = int(remaining.total_seconds() // 60)
             await update.message.reply_text(
-                f"같은 상대와의 배틀은 {config.BATTLE_COOLDOWN_SAME // 60}분 쿨다운입니다. "
-                f"({mins}분 남음)"
+                t(lang, "battle.cooldown_same_msg", minutes=config.BATTLE_COOLDOWN_SAME // 60, remaining=mins)
             )
             return
 
     # Global cooldown
-    last_any = await bq.get_last_battle_time_any(challenger_id)
     if last_any:
         last_time = datetime.fromisoformat(last_any)
         if last_time.tzinfo is None:
@@ -1758,7 +1767,7 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
             remaining = cooldown - (datetime.now(timezone.utc) - last_time)
             secs = int(remaining.total_seconds())
             await update.message.reply_text(
-                f"배틀 쿨다운 중입니다. ({secs}초 남음)"
+                t(lang, "battle.cooldown_global_msg", seconds=secs)
             )
             return
 
@@ -1766,23 +1775,20 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     c_team = await bq.get_battle_team(challenger_id)
     if not c_team:
         await update.message.reply_text(
-            f"{icon_emoji('battle')} 배틀 팀이 없습니다!\n"
-            "DM에서 '팀등록'으로 먼저 팀을 등록하세요.",
+            f"{icon_emoji('battle')} {t(lang, 'battle.no_team_hint')}",
             parse_mode="HTML",
         )
         return
     if len(c_team) < config.RANKED_TEAM_SIZE:
         await update.message.reply_text(
-            f"❌ 팀이 {len(c_team)}마리뿐입니다! {config.RANKED_TEAM_SIZE}마리를 모두 채워야 배틀할 수 있습니다.\n"
-            "DM에서 '팀편집'으로 팀을 완성하세요.",
+            f"❌ {t(lang, 'battle.team_incomplete', count=len(c_team), required=config.RANKED_TEAM_SIZE)}",
             parse_mode="HTML",
         )
         return
     c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
     if c_cost > config.RANKED_COST_LIMIT:
         await update.message.reply_text(
-            f"❌ 팀 코스트 초과! ({c_cost}/{config.RANKED_COST_LIMIT})\n"
-            "DM에서 '팀편집'으로 코스트를 조정하세요.",
+            f"❌ {t(lang, 'battle.team_cost_over', cost=c_cost, limit=config.RANKED_COST_LIMIT)}",
             parse_mode="HTML",
         )
         return
@@ -1790,7 +1796,7 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     # Check for existing pending challenge
     existing = await bq.get_pending_challenge(challenger_id, defender_id)
     if existing:
-        await update.message.reply_text("이미 대기 중인 배틀 신청이 있습니다.")
+        await update.message.reply_text(t(lang, "battle.already_pending"))
         return
 
     # Create challenge
@@ -1804,24 +1810,23 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     buttons = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "✅ 수락",
+                t(lang, "battle.accept_btn"),
                 callback_data=f"battle_accept_{challenge_id}_{defender_id}",
             ),
             InlineKeyboardButton(
-                "❌ 거절",
+                t(lang, "battle.decline_btn"),
                 callback_data=f"battle_decline_{challenge_id}_{defender_id}",
             ),
         ]
     ])
 
     challenge_msg = await update.message.reply_text(
-        f"{icon_emoji('battle')} {challenger_name}님이 {defender_name}님에게 배틀을 신청했습니다!\n"
-        f"{config.BATTLE_CHALLENGE_TIMEOUT}초 내에 수락해주세요!",
+        f"{icon_emoji('battle')} {t(lang, 'battle.challenge_msg', challenger=challenger_name, defender=defender_name, timeout=config.BATTLE_CHALLENGE_TIMEOUT)}",
         reply_markup=buttons,
         parse_mode="HTML",
     )
 
-    # 타임아웃 시 자동 만료 알림
+    # Timeout auto-expiry
     async def _battle_timeout(ctx):
         try:
             challenge = await bq.get_challenge_by_id(challenge_id)
@@ -1830,7 +1835,7 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
                 await ctx.bot.edit_message_text(
                     chat_id=chat_id,
                     message_id=challenge_msg.message_id,
-                    text=f"⏰ {challenger_name}님의 배틀 신청이 만료되었습니다.",
+                    text=f"⏰ {t(lang, 'battle.challenge_timeout_msg', name=challenger_name)}",
                 )
         except Exception:
             pass
@@ -1862,6 +1867,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         return
 
     await query.answer()
+    lang = await get_user_lang(query.from_user.id)
 
     parts = data.split("_")
     # battle_accept_{challenge_id}_{defender_id}
@@ -1880,20 +1886,20 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
     # Only the defender can respond
     if query.from_user.id != expected_defender:
-        await query.answer("본인만 응답할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "error.not_your_button"), show_alert=True)
         return
 
     challenge = await bq.get_challenge_by_id(challenge_id)
     if not challenge:
         try:
-            await query.edit_message_text("배틀 신청을 찾을 수 없습니다.")
+            await query.edit_message_text(t(lang, "battle.challenge_not_found"))
         except Exception:
             pass
         return
 
     if challenge["status"] != "pending":
         try:
-            await query.edit_message_text("이미 처리된 배틀 신청입니다.")
+            await query.edit_message_text(t(lang, "battle.already_processed"))
         except Exception:
             pass
         return
@@ -1906,7 +1912,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     if datetime.now(timezone.utc) > expires:
         await bq.update_challenge_status(challenge_id, "expired")
         try:
-            await query.edit_message_text("⏰ 배틀 신청이 만료되었습니다.")
+            await query.edit_message_text(f"⏰ {t(lang, 'battle.challenge_expired_msg')}")
         except Exception:
             pass
         return
@@ -1914,7 +1920,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     if action == "decline":
         await bq.update_challenge_status(challenge_id, "declined")
         try:
-            await query.edit_message_text("❌ 배틀이 거절되었습니다.")
+            await query.edit_message_text(t(lang, "battle.challenge_declined_msg"))
         except Exception:
             pass
         return
@@ -1925,8 +1931,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         if not d_team:
             try:
                 await query.edit_message_text(
-                    f"{icon_emoji('battle')} 수비자의 배틀 팀이 없습니다!\n"
-                    "DM에서 '팀등록'으로 먼저 팀을 등록하세요.",
+                    f"{icon_emoji('battle')} {t(lang, 'battle.defender_no_team')}",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -1935,7 +1940,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         if len(d_team) < config.RANKED_TEAM_SIZE:
             try:
                 await query.edit_message_text(
-                    f"❌ 수비자 팀이 {len(d_team)}마리뿐입니다! {config.RANKED_TEAM_SIZE}마리를 모두 채워야 배틀할 수 있습니다.",
+                    f"❌ {t(lang, 'battle.defender_incomplete', count=len(d_team), required=config.RANKED_TEAM_SIZE)}",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -1945,7 +1950,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         if d_cost > config.RANKED_COST_LIMIT:
             try:
                 await query.edit_message_text(
-                    f"❌ 수비자 팀 코스트 초과! ({d_cost}/{config.RANKED_COST_LIMIT})\n팀을 다시 편성해주세요.",
+                    f"❌ {t(lang, 'battle.defender_cost_over', cost=d_cost, limit=config.RANKED_COST_LIMIT)}",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -1955,14 +1960,14 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         c_team = await bq.get_battle_team(challenge["challenger_id"])
         if not c_team:
             try:
-                await query.edit_message_text(f"{icon_emoji('battle')} 도전자의 배틀 팀이 없습니다!", parse_mode="HTML")
+                await query.edit_message_text(f"{icon_emoji('battle')} {t(lang, 'battle.challenger_no_team')}", parse_mode="HTML")
             except Exception:
                 pass
             return
         if len(c_team) < config.RANKED_TEAM_SIZE:
             try:
                 await query.edit_message_text(
-                    f"❌ 도전자 팀이 {len(c_team)}마리뿐입니다! 배틀 불가.",
+                    f"❌ {t(lang, 'battle.challenger_incomplete', count=len(c_team), required=config.RANKED_TEAM_SIZE)}",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -1972,7 +1977,7 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         if c_cost > config.RANKED_COST_LIMIT:
             try:
                 await query.edit_message_text(
-                    f"❌ 도전자 팀 코스트 초과! ({c_cost}/{config.RANKED_COST_LIMIT})\n배틀 불가.",
+                    f"❌ {t(lang, 'battle.challenger_cost_over', cost=c_cost, limit=config.RANKED_COST_LIMIT)}",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -2000,15 +2005,15 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         battle_buttons = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton(
-                    "📋 상세보기",
+                    t(lang, "battle.btn_detail"),
                     callback_data=f"bdetail_{cache_key}_{winner_id}_{loser_id}",
                 ),
                 InlineKeyboardButton(
-                    "⏭ 스킵",
+                    t(lang, "battle.btn_skip"),
                     callback_data=f"bskip_{winner_id}_{loser_id}",
                 ),
                 InlineKeyboardButton(
-                    "☠️ 티배깅",
+                    t(lang, "battle.btn_teabag"),
                     callback_data=f"btbag_{winner_id}_{loser_id}",
                 ),
             ]
@@ -2051,6 +2056,7 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
     data = query.data
     parts = data.split("_")
     prefix = parts[0]
+    lang = await get_user_lang(query.from_user.id)
 
     if prefix == "bdetail":
         # Detail DM: bdetail_{cache_key}_{winner_id}_{loser_id}
@@ -2064,16 +2070,16 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
 
         # Only participants can view
         if query.from_user.id not in (winner_id, loser_id):
-            await query.answer("배틀 참가자만 볼 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "battle.participants_only"), show_alert=True)
             return
 
         from services.battle_service import get_battle_detail
         detail = get_battle_detail(cache_key)
         if not detail:
-            await query.answer("⏰ 배틀 기록이 만료되었습니다.", show_alert=True)
+            await query.answer(f"⏰ {t(lang, 'battle.detail_expired')}", show_alert=True)
             return
 
-        await query.answer("📋 DM으로 상세 결과를 보냅니다!")
+        await query.answer(f"📋 {t(lang, 'battle.detail_sending')}")
         try:
             await context.bot.send_message(
                 chat_id=query.from_user.id,
@@ -2083,7 +2089,7 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
         except Exception as e:
             logger.error(f"Battle detail DM failed for user {query.from_user.id}: {e}")
             try:
-                await query.answer("❌ DM 전송 실패! 봇에게 먼저 /start를 보내주세요.", show_alert=True)
+                await query.answer(f"❌ {t(lang, 'battle.detail_dm_fail')}", show_alert=True)
             except Exception:
                 pass
 
@@ -2098,7 +2104,7 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
 
         # Both winner and loser can skip
         if query.from_user.id not in (winner_id, loser_id):
-            await query.answer("배틀 참가자만 삭제할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "battle.participants_only"), show_alert=True)
             return
 
         await query.answer()
@@ -2117,19 +2123,19 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
             return
 
         if query.from_user.id != winner_id:
-            await query.answer("승자만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "battle.winner_only"), show_alert=True)
             return
 
-        winner_user = await queries.get_user(winner_id)
-        loser_user = await queries.get_user(loser_id)
-        w_name = winner_user["display_name"] if winner_user else "???"
-        l_name = loser_user["display_name"] if loser_user else "???"
-
-        # 구독자 존칭 적용
         from utils.honorific import honorific_name as _hon_name, _get_honorific
         from services.subscription_service import get_user_tier
-        w_tier = await get_user_tier(winner_id)
-        l_tier = await get_user_tier(loser_id)
+        winner_user, loser_user, w_tier, l_tier = await asyncio.gather(
+            queries.get_user(winner_id),
+            queries.get_user(loser_id),
+            get_user_tier(winner_id),
+            get_user_tier(loser_id),
+        )
+        w_name = winner_user["display_name"] if winner_user else "???"
+        l_name = loser_user["display_name"] if loser_user else "???"
         l_name = _hon_name(l_name, l_tier)
 
         # 승자 구독 티어에 따라 멘트풀 분기
@@ -2180,14 +2186,15 @@ async def battle_result_callback_handler(update: Update, context: ContextTypes.D
 
 async def battle_ranking_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 배틀랭킹 command (group). Show battle leaderboard."""
+    lang = await get_user_lang(update.effective_user.id) if update.effective_user else "ko"
     rankings = await bq.get_battle_ranking(10)
 
     if not rankings:
-        await update.message.reply_text("아직 배틀 기록이 없습니다.")
+        await update.message.reply_text(t(lang, "battle.no_records"))
         return
 
     medals = ["🥇", "🥈", "🥉"]
-    lines = [f"{icon_emoji('battle')} <b>배틀 랭킹</b>\n"]
+    lines = [f"{icon_emoji('battle')} <b>{t(lang, 'battle.ranking_title')}</b>\n"]
 
     for i, r in enumerate(rankings):
         rank = medals[i] if i < 3 else f"<b>{i + 1}.</b>"
@@ -2195,10 +2202,10 @@ async def battle_ranking_handler(update: Update, context: ContextTypes.DEFAULT_T
         total = r["battle_wins"] + r["battle_losses"]
         rate = round(r["battle_wins"] / total * 100) if total > 0 else 0
 
-        streak_text = f" {r['best_streak']}연승!" if r.get('best_streak', 0) >= 2 else ""
+        streak_text = f" {t(lang, 'battle.ranking_streak', n=r['best_streak'])}" if r.get('best_streak', 0) >= 2 else ""
 
         lines.append(
-            f"{rank} {name} — {r['battle_wins']}승 {r['battle_losses']}패 ({rate}%){streak_text}"
+            f"{rank} {name} — {t(lang, 'battle.wins_losses', wins=r['battle_wins'], losses=r['battle_losses'], rate=rate)}{streak_text}"
         )
 
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
@@ -2261,21 +2268,22 @@ async def tier_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     scored.sort(key=lambda x: -x["power"])
     top20 = scored[:20]
 
-    lines = [f"{icon_emoji('battle')} <b>배틀 티어표</b> (전투력 TOP 20)"]
+    lang = await get_user_lang(update.effective_user.id) if update.effective_user else "ko"
+    lines = [f"{icon_emoji('battle')} <b>{t(lang, 'battle.tier_title')}</b> ({t(lang, 'battle.tier_top')})"]
     lines.append("━━━━━━━━━━━━━━━━━━━━\n")
 
     for rank, p in enumerate(top20, 1):
         rb = rarity_badge(p["rarity"])
-        trap = " (함정)" if p["atk"] < 40 else ""
+        trap = f" {t(lang, 'battle.tier_trap')}" if p["atk"] < 40 else ""
         lines.append(
             f"{rank}. {rb}{p['type_emoji']}<b>{p['name']}</b>{trap}  "
-            f"체{p['hp']} 공{p['atk']} 방{p['def']} 속{p['spd']}  "
+            f"{t(lang, 'battle.tier_stat_hp')}{p['hp']} {t(lang, 'battle.tier_stat_atk')}{p['atk']} {t(lang, 'battle.tier_stat_def')}{p['def']} {t(lang, 'battle.tier_stat_spd')}{p['spd']}  "
             f"{icon_emoji('bolt')}{p['power']}"
         )
 
     lines.append("\n─────────────────")
-    lines.append("💡 종족값 + 친밀도MAX 기준")
-    lines.append("💡 타입상성으로 역전 가능")
+    lines.append(f"💡 {t(lang, 'battle.tier_note_base')}")
+    lines.append(f"💡 {t(lang, 'battle.tier_note_matchup')}")
 
     _tier_cache = "\n".join(lines)
     await update.message.reply_text(_tier_cache, parse_mode="HTML")
@@ -2289,19 +2297,16 @@ async def battle_accept_text_handler(update: Update, context: ContextTypes.DEFAU
     """Handle '배틀수락' text command in group."""
     if not update.effective_user or not update.message:
         return
-    # For simplicity, just remind to use the button
-    await update.message.reply_text(
-        "배틀 수락은 위의 ✅ 수락 버튼을 눌러주세요!"
-    )
+    lang = await get_user_lang(update.effective_user.id) if update.effective_user else "ko"
+    await update.message.reply_text(t(lang, "battle.accept_text_hint"))
 
 
 async def battle_decline_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '배틀거절' text command in group."""
     if not update.effective_user or not update.message:
         return
-    await update.message.reply_text(
-        "배틀 거절은 위의 ❌ 거절 버튼을 눌러주세요!"
-    )
+    lang = await get_user_lang(update.effective_user.id) if update.effective_user else "ko"
+    await update.message.reply_text(t(lang, "battle.decline_text_hint"))
 
 
 # ============================================================
@@ -2315,7 +2320,8 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
 
     chat_id = update.effective_chat.id
     challenger_id = update.effective_user.id
-    challenger_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(challenger_id)
+    challenger_name = update.effective_user.first_name or t(lang, "common.trainer")
 
     from services.tournament_service import is_tournament_active
     if is_tournament_active(chat_id):
@@ -2324,49 +2330,55 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     # 아레나 체크
     from database import ranked_queries as rq
     if not await rq.is_arena(chat_id):
-        await update.message.reply_text("🏟️ 랭크전은 아레나에서만 가능합니다!\n'시즌' 명령으로 아레나 목록을 확인하세요.")
+        await update.message.reply_text(f"🏟️ {t(lang, 'ranked.arena_only')}")
         return
 
-    # 답장 필수
+    # Must reply
     reply = update.message.reply_to_message
     if not reply or not reply.from_user:
         await update.message.reply_text(
-            f"{icon_emoji('battle')} 랭크전을 신청하려면 상대방의 메시지에 답장하며 '랭전'을 입력하세요!", parse_mode="HTML"
+            f"{icon_emoji('battle')} {t(lang, 'ranked.reply_hint')}", parse_mode="HTML"
         )
         return
 
     defender_id = reply.from_user.id
-    defender_name = reply.from_user.first_name or "트레이너"
+    defender_name = reply.from_user.first_name or t(lang, "common.trainer")
 
     if challenger_id == defender_id:
-        await update.message.reply_text("자기 자신에게 랭크전을 신청할 수 없습니다.")
+        await update.message.reply_text(t(lang, "ranked.cannot_self"))
         return
     if reply.from_user.is_bot:
-        await update.message.reply_text("봇에게는 랭크전을 신청할 수 없습니다.")
+        await update.message.reply_text(t(lang, "ranked.cannot_bot"))
         return
 
-    await queries.ensure_user(challenger_id, challenger_name, update.effective_user.username)
-    await queries.ensure_user(defender_id, defender_name, reply.from_user.username)
-
-    # 시즌 확인/생성
     from services import ranked_service as rs
-    season = await rs.ensure_current_season()
+    from datetime import datetime, timedelta, timezone
+
+    # ensure_user + 시즌 확인 병렬
+    _, _, season = await asyncio.gather(
+        queries.ensure_user(challenger_id, challenger_name, update.effective_user.username),
+        queries.ensure_user(defender_id, defender_name, reply.from_user.username),
+        rs.ensure_current_season(),
+    )
     if not season:
-        await update.message.reply_text("🏟️ 현재 시즌이 없습니다. 잠시 후 다시 시도하세요.")
+        await update.message.reply_text(f"🏟️ {t(lang, 'ranked.no_season')}")
         return
 
     season_id = season["season_id"]
 
-    # 일일 랭크전 상한 체크
+    # Cooldown checks in parallel
     today_date = config.get_kst_now().date()
-    c_today_count = await rq.get_ranked_battles_today(challenger_id, today_date)
+    c_today_count, last_vs, last_any = await asyncio.gather(
+        rq.get_ranked_battles_today(challenger_id, today_date),
+        rq.get_last_ranked_vs(challenger_id, defender_id),
+        bq.get_last_battle_time_any(challenger_id),
+    )
+
     if c_today_count >= config.RANKED_DAILY_CAP:
-        await update.message.reply_text(f"오늘 랭크전 {config.RANKED_DAILY_CAP}회를 모두 소진했습니다.")
+        await update.message.reply_text(t(lang, "ranked.daily_exhausted", cap=config.RANKED_DAILY_CAP))
         return
 
-    # 같은 상대 쿨다운 (랭크전 전용)
-    from datetime import datetime, timedelta, timezone
-    last_vs = await rq.get_last_ranked_vs(challenger_id, defender_id)
+    # Same opponent cooldown
     if last_vs:
         if hasattr(last_vs, 'tzinfo') and last_vs.tzinfo is None:
             last_vs = last_vs.replace(tzinfo=timezone.utc)
@@ -2375,12 +2387,11 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
             remaining = cooldown - (datetime.now(timezone.utc) - last_vs)
             mins = int(remaining.total_seconds() // 60)
             await update.message.reply_text(
-                f"같은 상대와의 랭크전은 {config.RANKED_COOLDOWN_SAME // 60}분 쿨다운입니다. ({mins}분 남음)"
+                t(lang, "ranked.cooldown_same_msg", minutes=config.RANKED_COOLDOWN_SAME // 60, remaining=mins)
             )
             return
 
-    # 전체 랭크전 쿨다운
-    last_any = await bq.get_last_battle_time_any(challenger_id)
+    # Global cooldown
     if last_any:
         last_time = datetime.fromisoformat(last_any) if isinstance(last_any, str) else last_any
         if hasattr(last_time, 'tzinfo') and last_time.tzinfo is None:
@@ -2389,28 +2400,28 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
         if datetime.now(timezone.utc) - last_time < cooldown:
             remaining = cooldown - (datetime.now(timezone.utc) - last_time)
             secs = int(remaining.total_seconds())
-            await update.message.reply_text(f"배틀 쿨다운 중입니다. ({secs}초 남음)")
+            await update.message.reply_text(t(lang, "battle.cooldown_global_msg", seconds=secs))
             return
 
-    # 도전자 팀 확인
+    # Check challenger team
     c_team = await bq.get_battle_team(challenger_id)
     if not c_team:
         await update.message.reply_text(
-            f"{icon_emoji('battle')} 배틀 팀이 없습니다!\nDM에서 '팀등록'으로 먼저 팀을 등록하세요.",
+            f"{icon_emoji('battle')} {t(lang, 'ranked.no_team_hint')}",
             parse_mode="HTML",
         )
         return
 
-    # 도전자 팀 법칙 검증
+    # Team rule validation
     ok, err = await rs.validate_team_for_ranked(challenger_id, season)
     if not ok:
-        await update.message.reply_text(f"❌ 팀이 랭크전 조건을 충족하지 않습니다.\n{err}")
+        await update.message.reply_text(f"❌ {t(lang, 'ranked.team_rule_fail', error=err)}")
         return
 
     # 중복 도전 체크
     existing = await bq.get_pending_challenge(challenger_id, defender_id)
     if existing:
-        await update.message.reply_text("이미 대기 중인 배틀 신청이 있습니다.")
+        await update.message.reply_text(t(lang, "battle.already_pending"))
         return
 
     # 시즌 법칙 표시 텍스트
@@ -2427,20 +2438,18 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     buttons = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "✅ 수락",
+                t(lang, "battle.accept_btn"),
                 callback_data=f"ranked_accept_{challenge_id}_{defender_id}",
             ),
             InlineKeyboardButton(
-                "❌ 거절",
+                t(lang, "battle.decline_btn"),
                 callback_data=f"ranked_decline_{challenge_id}_{defender_id}",
             ),
         ]
     ])
 
     challenge_msg = await update.message.reply_text(
-        f"🏟️ {challenger_name}님이 {defender_name}님에게 <b>랭크전</b>을 신청합니다!\n"
-        f"{rule_txt}\n"
-        f"{config.BATTLE_CHALLENGE_TIMEOUT}초 내에 수락해주세요!",
+        f"🏟️ {t(lang, 'ranked.challenge_msg', challenger=challenger_name, defender=defender_name, rule=rule_txt, timeout=config.BATTLE_CHALLENGE_TIMEOUT)}",
         reply_markup=buttons,
         parse_mode="HTML",
     )
@@ -2453,7 +2462,7 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
                 await ctx.bot.edit_message_text(
                     chat_id=chat_id,
                     message_id=challenge_msg.message_id,
-                    text=f"⏰ {challenger_name}님의 랭크전 신청이 만료되었습니다.",
+                    text=f"⏰ {t(lang, 'ranked.challenge_timeout_msg', name=challenger_name)}",
                 )
         except Exception:
             pass
@@ -2480,6 +2489,7 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         return
 
     await query.answer()
+    lang = await get_user_lang(query.from_user.id)
 
     # ranked_auto_{uid} — 배틀전적 화면에서 랭전 버튼
     if data.startswith("ranked_auto_"):
@@ -2491,7 +2501,7 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         except Exception:
             pass
         # auto_ranked_handler와 동일한 흐름을 메시지로 트리거
-        await query.message.reply_text("🏟️ 랭전 매칭을 시작합니다...\n아래에 <code>랭전</code>을 입력해주세요!", parse_mode="HTML")
+        await query.message.reply_text(f"🏟️ {t(lang, 'ranked.auto_start')}", parse_mode="HTML")
         return
 
     parts = data.split("_")
@@ -2509,20 +2519,20 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         job.schedule_removal()
 
     if query.from_user.id != expected_defender:
-        await query.answer("본인만 응답할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "error.not_your_button"), show_alert=True)
         return
 
     challenge = await bq.get_challenge_by_id(challenge_id)
     if not challenge:
         try:
-            await query.edit_message_text("배틀 신청을 찾을 수 없습니다.")
+            await query.edit_message_text(t(lang, "battle.challenge_not_found"))
         except Exception:
             pass
         return
 
     if challenge["status"] != "pending":
         try:
-            await query.edit_message_text("이미 처리된 배틀 신청입니다.")
+            await query.edit_message_text(t(lang, "battle.already_processed"))
         except Exception:
             pass
         return
@@ -2534,7 +2544,7 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     if datetime.now(timezone.utc) > expires:
         await bq.update_challenge_status(challenge_id, "expired")
         try:
-            await query.edit_message_text("⏰ 랭크전 신청이 만료되었습니다.")
+            await query.edit_message_text(f"⏰ {t(lang, 'ranked.expired_msg')}")
         except Exception:
             pass
         return
@@ -2542,7 +2552,7 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     if action == "decline":
         await bq.update_challenge_status(challenge_id, "declined")
         try:
-            await query.edit_message_text("❌ 랭크전이 거절되었습니다.")
+            await query.edit_message_text(t(lang, "ranked.declined"))
         except Exception:
             pass
         return
@@ -2551,12 +2561,12 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         from services import ranked_service as rs
         from database import ranked_queries as rq
 
-        # 수비자 팀 확인
+        # Check defender team
         d_team = await bq.get_battle_team(expected_defender)
         if not d_team:
             try:
                 await query.edit_message_text(
-                    f"{icon_emoji('battle')} 수비자의 배틀 팀이 없습니다!\nDM에서 '팀등록'으로 먼저 팀을 등록하세요.",
+                    f"{icon_emoji('battle')} {t(lang, 'ranked.defender_no_team')}",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -2566,16 +2576,16 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         c_team = await bq.get_battle_team(challenge["challenger_id"])
         if not c_team:
             try:
-                await query.edit_message_text(f"{icon_emoji('battle')} 도전자의 배틀 팀이 없습니다!", parse_mode="HTML")
+                await query.edit_message_text(f"{icon_emoji('battle')} {t(lang, 'ranked.challenger_no_team')}", parse_mode="HTML")
             except Exception:
                 pass
             return
 
-        # 양쪽 팀 재검증 (수락 시점)
+        # Re-validate both teams at accept time
         season = await rs.ensure_current_season()
         if not season:
             try:
-                await query.edit_message_text("🏟️ 현재 시즌이 없습니다.")
+                await query.edit_message_text(f"🏟️ {t(lang, 'ranked.no_season')}")
             except Exception:
                 pass
             return
@@ -2583,7 +2593,7 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         ok_c, err_c = await rs.validate_team_for_ranked(challenge["challenger_id"], season)
         if not ok_c:
             try:
-                await query.edit_message_text(f"❌ 도전자 팀이 법칙 위반: {err_c}")
+                await query.edit_message_text(f"❌ {t(lang, 'ranked.challenger_rule_fail', error=err_c)}")
             except Exception:
                 pass
             return
@@ -2591,7 +2601,7 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         ok_d, err_d = await rs.validate_team_for_ranked(expected_defender, season)
         if not ok_d:
             try:
-                await query.edit_message_text(f"❌ 수비자 팀이 법칙 위반: {err_d}")
+                await query.edit_message_text(f"❌ {t(lang, 'ranked.defender_rule_fail', error=err_d)}")
             except Exception:
                 pass
             return
@@ -2679,11 +2689,11 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         battle_buttons = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton(
-                    "📋 상세보기",
+                    t(lang, "battle.btn_detail"),
                     callback_data=f"bdetail_{cache_key}_{winner_id}_{loser_id}",
                 ),
                 InlineKeyboardButton(
-                    "⏭ 스킵",
+                    t(lang, "battle.btn_skip"),
                     callback_data=f"bskip_{winner_id}_{loser_id}",
                 ),
             ]
@@ -2702,7 +2712,7 @@ async def ranked_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             except Exception:
                 pass
 
-        # 랭크 칭호 체크
+        # Check ranked titles
         if ranked_info:
             await _check_ranked_titles(winner_id, ranked_info, is_winner=True)
             await _check_ranked_titles(loser_id, ranked_info, is_winner=False)
@@ -2744,28 +2754,29 @@ async def season_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     from services import ranked_service as rs
     from database import ranked_queries as rq
 
     season = await rs.ensure_current_season()
     if not season:
-        await update.message.reply_text("🏟️ 현재 활성 시즌이 없습니다.")
+        await update.message.reply_text(f"🏟️ {t(lang, 'ranked.no_active_season')}")
         return
 
     season_id = season["season_id"]
     rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
 
     lines = [
-        f"🏟️ <b>시즌 {season_id}</b>",
-        f"📅 기간: {season.get('starts_at', '?'):%m/%d} ~ {season.get('ends_at', '?'):%m/%d}",
-        f"🔒 시즌 법칙: {rule_info.get('name', season['weekly_rule'])}",
+        f"🏟️ <b>{t(lang, 'ranked.season_title', id=season_id)}</b>",
+        t(lang, "ranked.season_period", start=season.get("starts_at", "?").strftime("%m/%d") if hasattr(season.get("starts_at", "?"), "strftime") else "?", end=season.get("ends_at", "?").strftime("%m/%d") if hasattr(season.get("ends_at", "?"), "strftime") else "?"),
+        f"{t(lang, 'ranked.season_rule', name=rule_info.get('name', season['weekly_rule']))}",
         f"   └ {rule_info.get('desc', '')}",
         "",
-        f"💡 DM에서 '랭전'으로 자동 매칭 대전!",
+        f"💡 {t(lang, 'ranked.season_dm_hint')}",
         "",
     ]
 
-    # 내 시즌 기록
+    # My season record
     rec = await rq.get_season_record(user_id, season_id)
     if rec:
         tier_full = rs.tier_display_full(rec)
@@ -2775,38 +2786,34 @@ async def season_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         placement_done = rec.get("placement_done", False)
 
         if not placement_done:
-            # 배치 중 or 언랭
             pg = rec.get("placement_games", 0)
             lines.extend([
-                f"── 나의 시즌 기록 ──",
+                t(lang, "ranked.my_season_record"),
                 f"{tier_full}",
             ])
             if pg > 0:
-                lines.append(f"🏆 {rec['ranked_wins']}승 {rec['ranked_losses']}패")
-            lines.append("배치 5판을 완료하면 티어가 배정됩니다!")
+                lines.append(f"🏆 {t(lang, 'battle.wins_losses', wins=rec['ranked_wins'], losses=rec['ranked_losses'], rate=wr)}")
+            lines.append(t(lang, "ranked.placement_needed"))
         else:
-            # 배치 완료
             lines.extend([
-                f"── 나의 시즌 기록 ──",
+                t(lang, "ranked.my_season_record"),
                 f"{tier_full}",
-                f"🏆 {rec['ranked_wins']}승 {rec['ranked_losses']}패 ({wr}%)",
-                f"🔥 현재 연승: {rec['ranked_streak']}  |  최고: {rec['best_ranked_streak']}",
+                f"🏆 {t(lang, 'battle.wins_losses', wins=rec['ranked_wins'], losses=rec['ranked_losses'], rate=wr)}",
+                f"🔥 {t(lang, 'battle.current_streak', n=rec['ranked_streak'])}  |  {t(lang, 'battle.best_streak_label', n=rec['best_ranked_streak'])}",
             ])
-            # 피크 티어 표시
             peak_div = config.get_division_info(rec['peak_rp'])
             peak_disp = config.tier_division_display(
                 peak_div[0], peak_div[1], peak_div[2],
                 placement_done=True, total_rp=rec['peak_rp'])
-            lines.append(f"📈 피크: {peak_disp}")
+            lines.append(t(lang, "ranked.peak_label", tier=peak_disp))
 
-            # MMR 표시 (DM이므로 공개)
             try:
                 mmr_rec = await rq.get_user_mmr(user_id)
-                lines.append(f"📊 MMR: {mmr_rec['mmr']} (피크: {mmr_rec['peak_mmr']})")
+                lines.append(t(lang, "ranked.mmr_label", mmr=mmr_rec['mmr'], peak=mmr_rec['peak_mmr']))
             except Exception:
                 pass
     else:
-        lines.append("아직 이번 시즌 랭크전 기록이 없습니다.\nDM에서 '랭전'으로 도전하세요!")
+        lines.append(t(lang, "ranked.no_season_record"))
 
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
@@ -2815,21 +2822,22 @@ async def ranked_ranking_handler(update: Update, context: ContextTypes.DEFAULT_T
     """Handle '랭킹' or '시즌랭킹' command (DM). Show season ranking."""
     if not update.effective_user or not update.message:
         return
+    lang = await get_user_lang(update.effective_user.id)
 
     from services import ranked_service as rs
     from database import ranked_queries as rq
 
     season = await rs.ensure_current_season()
     if not season:
-        await update.message.reply_text("🏟️ 현재 활성 시즌이 없습니다.")
+        await update.message.reply_text(f"🏟️ {t(lang, 'ranked.no_active_season')}")
         return
 
     ranking = await rq.get_ranked_ranking(season["season_id"], limit=15)
     if not ranking:
-        await update.message.reply_text("🏟️ 아직 이번 시즌 랭크전 기록이 없습니다.")
+        await update.message.reply_text(f"🏟️ {t(lang, 'ranked.no_ranking')}")
         return
 
-    lines = [f"🏟️ <b>시즌 {season['season_id']} 랭킹</b>\n"]
+    lines = [f"🏟️ <b>{t(lang, 'ranked.ranking_header', id=season['season_id'])}</b>\n"]
     medals = ["🥇", "🥈", "🥉"]
     for i, r in enumerate(ranking):
         medal = medals[i] if i < 3 else f"{i+1}."
@@ -2840,7 +2848,7 @@ async def ranked_ranking_handler(update: Update, context: ContextTypes.DEFAULT_T
         # 배치 중이면 "🎯 배치중" 표시, 아니면 디비전 표시
         placement_done = r.get("placement_done", True)
         if not placement_done:
-            tier_str = f"🎯 배치중"
+            tier_str = t(lang, "ranked.placement_tag")
         else:
             div = config.get_division_info(r["rp"])
             tier_str = config.tier_division_display(
@@ -2862,22 +2870,23 @@ async def arena_register_handler(update: Update, context: ContextTypes.DEFAULT_T
 
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
 
-    # 관리자 체크
+    # Admin check
     try:
         member = await context.bot.get_chat_member(chat_id, user_id)
         if member.status not in ("administrator", "creator"):
-            await update.message.reply_text("아레나 등록은 관리자만 가능합니다.")
+            await update.message.reply_text(t(lang, "ranked.arena_admin_only"))
             return
     except Exception:
-        await update.message.reply_text("관리자 권한을 확인할 수 없습니다.")
+        await update.message.reply_text(t(lang, "ranked.arena_perm_fail"))
         return
 
     chat_name = update.effective_chat.title or str(chat_id)
 
     from database import ranked_queries as rq
     await rq.register_arena(chat_id, chat_name, user_id)
-    await update.message.reply_text(f"✅ '{chat_name}'이(가) 아레나 후보로 등록되었습니다!\n매주 월요일 시즌 아레나 선정에 포함됩니다.")
+    await update.message.reply_text(f"✅ {t(lang, 'ranked.arena_registered', name=chat_name)}")
 
 
 # ============================================================
@@ -2891,7 +2900,8 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = update.effective_user.id
-    display_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(user_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
     from services import ranked_service as rs
@@ -2900,25 +2910,25 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # 시즌 확인/생성
     season = await rs.ensure_current_season()
     if not season:
-        await update.message.reply_text("🏟️ 현재 활성 시즌이 없습니다.")
+        await update.message.reply_text(f"🏟️ {t(lang, 'ranked.no_active_season')}")
         return
 
     season_id = season["season_id"]
     rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
 
-    # 팀 존재 확인
+    # Check team
     my_team = await bq.get_battle_team(user_id)
     if not my_team:
         await update.message.reply_text(
-            f"{icon_emoji('battle')} 배틀팀이 없습니다!\n'팀등록'으로 먼저 팀을 등록하세요.",
+            f"{icon_emoji('battle')} {t(lang, 'ranked.no_team_hint')}",
             parse_mode="HTML",
         )
         return
 
-    # 팀 법칙 검증
+    # Team rule validation
     ok, err = await rs.validate_team_for_ranked(user_id, season)
     if not ok:
-        await update.message.reply_text(f"❌ 팀이 시즌 법칙에 맞지 않습니다.\n{err}")
+        await update.message.reply_text(f"❌ {t(lang, 'ranked.team_rule_fail_short', error=err)}")
         return
 
     # COST 검증
@@ -2931,17 +2941,12 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             ultra_count += 1
     if total_cost > config.RANKED_COST_LIMIT:
         await update.message.reply_text(
-            f"❌ 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n"
-            f"'팀편집'으로 팀을 수정해주세요.\n\n"
-            f"📋 등급별 코스트:\n"
-            f"  ⬜일반 1 / 🟦레어 2 / 🟪에픽 4\n"
-            f"  🟨전설 5 / 🟧초전설 6\n"
-            f"  6마리 합계 {config.RANKED_COST_LIMIT} 이하"
+            f"❌ {t(lang, 'ranked.cost_over_msg', cost=total_cost, limit=config.RANKED_COST_LIMIT)}"
         )
         return
     if ultra_count > config.RANKED_ULTRA_MAX:
         await update.message.reply_text(
-            f"❌ 초전설은 팀당 {config.RANKED_ULTRA_MAX}마리까지만 편성 가능합니다."
+            f"❌ {t(lang, 'ranked.ultra_max_msg', max=config.RANKED_ULTRA_MAX)}"
         )
         return
 
@@ -2949,7 +2954,7 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     today_date = config.get_kst_now().date()
     today_count = await rq.get_ranked_battles_today(user_id, today_date)
     if today_count >= config.RANKED_DAILY_CAP:
-        await update.message.reply_text(f"오늘 랭크전 {config.RANKED_DAILY_CAP}회를 모두 소진했습니다.")
+        await update.message.reply_text(t(lang, "ranked.daily_exhausted", cap=config.RANKED_DAILY_CAP))
         return
 
     # 전체 쿨다운 체크
@@ -2963,7 +2968,7 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         if datetime.now(timezone.utc) - last_time < cooldown:
             remaining = cooldown - (datetime.now(timezone.utc) - last_time)
             secs = int(remaining.total_seconds())
-            await update.message.reply_text(f"⏳ 쿨다운 중입니다. ({secs}초 남음)")
+            await update.message.reply_text(f"⏳ {t(lang, 'ranked.cooldown_msg', seconds=secs)}")
             return
 
     # 방어 패배 리셋 (유저가 직접 랭전을 걸었으므로)
@@ -2986,19 +2991,19 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # 매칭 메시지 (배치 상태 반영)
     if not placement_done:
         if placement_games > 0:
-            status_txt = f"🎯 배치전 {placement_games}/{config.PLACEMENT_GAMES_REQUIRED}"
+            status_txt = f"🎯 {t(lang, 'ranked.placement_status', current=placement_games, total=config.PLACEMENT_GAMES_REQUIRED)}"
         else:
-            status_txt = "❓ 언랭 — 배치 5판이 필요합니다!"
-        matching_msg = await update.message.reply_text(f"{status_txt}\n🔍 상대를 찾는 중...")
+            status_txt = f"❓ {t(lang, 'ranked.unranked_status')}"
+        matching_msg = await update.message.reply_text(f"{status_txt}\n🔍 {t(lang, 'ranked.matching')}")
     else:
         tier_full = rs.tier_display_full(my_rec)
-        matching_msg = await update.message.reply_text(f"{tier_full}\n🔍 상대를 찾는 중...")
+        matching_msg = await update.message.reply_text(f"{tier_full}\n🔍 {t(lang, 'ranked.matching')}")
 
     # 상대 찾기
     opponent_id = await rs.find_ranked_opponent(user_id, season_id)
     if not opponent_id:
         try:
-            await matching_msg.edit_text("😢 조건에 맞는 상대를 찾지 못했습니다.\n잠시 후 다시 시도해주세요!")
+            await matching_msg.edit_text(f"😢 {t(lang, 'ranked.match_fail')}")
         except Exception:
             pass
         return
@@ -3007,14 +3012,14 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     opp_team = await bq.get_battle_team(opponent_id)
     if not opp_team or len(opp_team) < config.RANKED_TEAM_SIZE:
         try:
-            await matching_msg.edit_text("😢 상대의 팀이 조건을 충족하지 않습니다.\n잠시 후 다시 시도해주세요!")
+            await matching_msg.edit_text(f"😢 {t(lang, 'ranked.opp_team_fail')}")
         except Exception:
             pass
         return
     opp_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in opp_team)
     if opp_cost > config.RANKED_COST_LIMIT:
         try:
-            await matching_msg.edit_text("😢 상대의 팀이 코스트 조건을 위반합니다.\n잠시 후 다시 시도해주세요!")
+            await matching_msg.edit_text(f"😢 {t(lang, 'ranked.opp_cost_fail')}")
         except Exception:
             pass
         return
@@ -3257,25 +3262,24 @@ async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = update.effective_chat.id
     challenger_id = update.effective_user.id
-    challenger_name = update.effective_user.first_name or "트레이너"
+    lang = await get_user_lang(challenger_id)
+    challenger_name = update.effective_user.first_name or t(lang, "common.trainer")
 
     # Must reply to someone
     reply = update.message.reply_to_message
     if not reply or not reply.from_user:
-        await update.message.reply_text(
-            "🎰 야차를 신청하려면 상대방의 메시지에 답장하며 '야차'를 입력하세요!"
-        )
+        await update.message.reply_text(f"🎰 {t(lang, 'yacha.reply_hint')}")
         return
 
     defender_id = reply.from_user.id
-    defender_name = reply.from_user.first_name or "트레이너"
+    defender_name = reply.from_user.first_name or t(lang, "common.trainer")
 
     if challenger_id == defender_id:
-        await update.message.reply_text("자기 자신에게 야차를 신청할 수 없습니다.")
+        await update.message.reply_text(t(lang, "yacha.cannot_self"))
         return
 
     if reply.from_user.is_bot:
-        await update.message.reply_text("봇에게는 야차를 신청할 수 없습니다.")
+        await update.message.reply_text(t(lang, "yacha.cannot_bot"))
         return
 
     await queries.ensure_user(challenger_id, challenger_name, update.effective_user.username)
@@ -3294,59 +3298,55 @@ async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             mins = int(remaining.total_seconds() // 60)
             secs = int(remaining.total_seconds() % 60)
             await update.message.reply_text(
-                f"야차 쿨다운 중입니다. ({mins}분 {secs}초 남음)"
+                t(lang, "yacha.cooldown_msg", min=mins, sec=secs)
             )
             return
 
     # Check challenger has a team
     c_team = await bq.get_battle_team(challenger_id)
     if not c_team:
-        await update.message.reply_text(
-            "🎰 배틀 팀이 없습니다!\n"
-            "DM에서 '팀등록'으로 먼저 팀을 등록하세요."
-        )
+        await update.message.reply_text(f"🎰 {t(lang, 'yacha.no_team')}")
         return
     if len(c_team) < config.RANKED_TEAM_SIZE:
         await update.message.reply_text(
-            f"❌ 팀이 {len(c_team)}마리뿐입니다! {config.RANKED_TEAM_SIZE}마리를 모두 채워야 배틀할 수 있습니다."
+            f"❌ {t(lang, 'yacha.team_incomplete', count=len(c_team), required=config.RANKED_TEAM_SIZE)}"
         )
         return
     c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
     if c_cost > config.RANKED_COST_LIMIT:
         await update.message.reply_text(
-            f"❌ 팀 코스트 초과! ({c_cost}/{config.RANKED_COST_LIMIT})\n'팀편집'으로 팀을 수정하세요."
+            f"❌ {t(lang, 'yacha.cost_over', cost=c_cost, limit=config.RANKED_COST_LIMIT)}"
         )
         return
 
     # Check for existing pending yacha
     existing = await bq.get_pending_challenge(challenger_id, defender_id)
     if existing:
-        await update.message.reply_text("이미 대기 중인 신청이 있습니다.")
+        await update.message.reply_text(t(lang, "battle.already_pending"))
         return
 
     # Show bet type selection
     buttons = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "💰 BP 베팅",
+                t(lang, "yacha.btn_bp_bet"),
                 callback_data=f"yc_bp_{challenger_id}_{defender_id}",
             ),
             InlineKeyboardButton(
-                "🔮 마스터볼 베팅",
+                t(lang, "yacha.btn_mb_bet"),
                 callback_data=f"yc_mb_{challenger_id}_{defender_id}",
             ),
         ],
         [
             InlineKeyboardButton(
-                "❌ 취소",
+                t(lang, "battle.decline_btn"),
                 callback_data=f"yc_cancel_{challenger_id}_{defender_id}",
             ),
         ],
     ])
 
     await update.message.reply_text(
-        f"🎰 {challenger_name}님이 {defender_name}님에게 야차를 신청합니다!\n"
-        "베팅 종류를 선택하세요:",
+        f"🎰 {t(lang, 'yacha.challenge_msg', challenger=challenger_name, defender=defender_name)}",
         reply_markup=buttons,
     )
 
@@ -3362,17 +3362,18 @@ async def yacha_type_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     bet_type = parts[1]  # bp, mb, cancel
     challenger_id = int(parts[2])
     defender_id = int(parts[3])
+    lang = await get_user_lang(query.from_user.id)
 
     # Only challenger can select
     if query.from_user.id != challenger_id:
-        await query.answer("도전자만 선택할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "battle.challenger_only"), show_alert=True)
         return
 
     await query.answer()
 
     if bet_type == "cancel":
         try:
-            await query.edit_message_text("❌ 야차가 취소되었습니다.")
+            await query.edit_message_text(t(lang, "yacha.cancelled"))
         except Exception:
             pass
         return
@@ -3389,11 +3390,11 @@ async def yacha_type_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
         buttons = InlineKeyboardMarkup([
             bp_buttons,
-            [InlineKeyboardButton("❌ 취소", callback_data=f"yc_cancel_{challenger_id}_{defender_id}")],
+            [InlineKeyboardButton(t(lang, "battle.decline_btn"), callback_data=f"yc_cancel_{challenger_id}_{defender_id}")],
         ])
         try:
             await query.edit_message_text(
-                "💰 BP 베팅 금액을 선택하세요:",
+                f"💰 {t(lang, 'yacha.bp_amount_prompt')}",
                 reply_markup=buttons,
             )
         except Exception:
@@ -3411,11 +3412,11 @@ async def yacha_type_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
         buttons = InlineKeyboardMarkup([
             mb_buttons,
-            [InlineKeyboardButton("❌ 취소", callback_data=f"yc_cancel_{challenger_id}_{defender_id}")],
+            [InlineKeyboardButton(t(lang, "battle.decline_btn"), callback_data=f"yc_cancel_{challenger_id}_{defender_id}")],
         ])
         try:
             await query.edit_message_text(
-                "🔮 마스터볼 베팅 개수를 선택하세요:",
+                f"🔮 {t(lang, 'yacha.mb_amount_prompt')}",
                 reply_markup=buttons,
             )
         except Exception:
@@ -3434,10 +3435,11 @@ async def yacha_amount_callback(update: Update, context: ContextTypes.DEFAULT_TY
     amount = int(parts[2])
     challenger_id = int(parts[3])
     defender_id = int(parts[4])
+    lang = await get_user_lang(query.from_user.id)
 
     # Only challenger can select
     if query.from_user.id != challenger_id:
-        await query.answer("도전자만 선택할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "battle.challenger_only"), show_alert=True)
         return
 
     await query.answer()
@@ -3450,7 +3452,7 @@ async def yacha_amount_callback(update: Update, context: ContextTypes.DEFAULT_TY
         if balance < amount:
             try:
                 await query.edit_message_text(
-                    f"❌ BP가 부족합니다! (보유: {balance} BP, 필요: {amount} BP)"
+                    f"❌ {t(lang, 'yacha.bp_insufficient', have=balance, need=amount)}"
                 )
             except Exception:
                 pass
@@ -3461,12 +3463,12 @@ async def yacha_amount_callback(update: Update, context: ContextTypes.DEFAULT_TY
         if mb_count < amount:
             try:
                 await query.edit_message_text(
-                    f"❌ 마스터볼이 부족합니다! (보유: {mb_count}개, 필요: {amount}개)"
+                    f"❌ {t(lang, 'yacha.mb_insufficient', have=mb_count, need=amount)}"
                 )
             except Exception:
                 pass
             return
-        bet_display = f"🔮 마스터볼 {amount}개"
+        bet_display = f"🔮 {amount} {t(lang, 'item.masterball')}"
 
     # Create the challenge
     from datetime import datetime as dt
@@ -3487,11 +3489,11 @@ async def yacha_amount_callback(update: Update, context: ContextTypes.DEFAULT_TY
     buttons = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "✅ 수락",
+                t(lang, "battle.accept_btn"),
                 callback_data=f"yacha_accept_{challenge_id}_{defender_id}",
             ),
             InlineKeyboardButton(
-                "❌ 거절",
+                t(lang, "battle.decline_btn"),
                 callback_data=f"yacha_decline_{challenge_id}_{defender_id}",
             ),
         ]
@@ -3499,9 +3501,7 @@ async def yacha_amount_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     try:
         await query.edit_message_text(
-            f"🎰 {c_name}님이 {d_name}님에게 야차 대결을 신청합니다!\n"
-            f"배팅: {bet_display}\n\n"
-            f"{config.YACHA_CHALLENGE_TIMEOUT}초 내에 수락해주세요!",
+            t(lang, "yacha.bet_msg", challenger=c_name, defender=d_name, bet=bet_display, timeout=config.YACHA_CHALLENGE_TIMEOUT),
             reply_markup=buttons,
         )
     except Exception:
@@ -3519,23 +3519,24 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     action = parts[1]  # accept or decline
     challenge_id = int(parts[2])
     expected_defender = int(parts[3])
+    lang = await get_user_lang(query.from_user.id)
 
     # Only defender can respond
     if query.from_user.id != expected_defender:
-        await query.answer("본인만 응답할 수 있습니다!", show_alert=True)
+        await query.answer(t(lang, "error.not_your_button"), show_alert=True)
         return
 
     challenge = await bq.get_challenge_by_id(challenge_id)
     if not challenge:
         try:
-            await query.edit_message_text("야차 신청을 찾을 수 없습니다.")
+            await query.edit_message_text(t(lang, "yacha.challenge_not_found"))
         except Exception:
             pass
         return
 
     if challenge["status"] != "pending":
         try:
-            await query.edit_message_text("이미 처리된 야차 신청입니다.")
+            await query.edit_message_text(t(lang, "yacha.already_processed"))
         except Exception:
             pass
         return
@@ -3548,7 +3549,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     if dt.now(timezone.utc) > expires:
         await bq.update_challenge_status(challenge_id, "expired")
         try:
-            await query.edit_message_text("⏰ 야차 신청이 만료되었습니다.")
+            await query.edit_message_text(f"⏰ {t(lang, 'yacha.expired_msg')}")
         except Exception:
             pass
         return
@@ -3558,7 +3559,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     if action == "decline":
         await bq.update_challenge_status(challenge_id, "declined")
         try:
-            await query.edit_message_text("❌ 야차가 거절되었습니다.")
+            await query.edit_message_text(t(lang, "yacha.declined"))
         except Exception:
             pass
         return
@@ -3572,25 +3573,20 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     d_team = await bq.get_battle_team(expected_defender)
     if not d_team:
         try:
-            await query.edit_message_text(
-                "🎰 수비자의 배틀 팀이 없습니다!\n"
-                "DM에서 '팀등록'으로 먼저 팀을 등록하세요."
-            )
+            await query.edit_message_text(f"🎰 {t(lang, 'yacha.defender_no_team')}")
         except Exception:
             pass
         return
     if len(d_team) < config.RANKED_TEAM_SIZE:
         try:
-            await query.edit_message_text(
-                f"❌ 수비자 팀이 {len(d_team)}마리뿐입니다! {config.RANKED_TEAM_SIZE}마리를 모두 채워야 합니다."
-            )
+            await query.edit_message_text(f"❌ {t(lang, 'yacha.defender_incomplete', count=len(d_team), required=config.RANKED_TEAM_SIZE)}")
         except Exception:
             pass
         return
     d_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in d_team)
     if d_cost > config.RANKED_COST_LIMIT:
         try:
-            await query.edit_message_text(f"❌ 수비자 팀 코스트 초과! ({d_cost}/{config.RANKED_COST_LIMIT})")
+            await query.edit_message_text(f"❌ {t(lang, 'yacha.defender_cost_over', cost=d_cost, limit=config.RANKED_COST_LIMIT)}")
         except Exception:
             pass
         return
@@ -3598,20 +3594,20 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     c_team = await bq.get_battle_team(challenger_id)
     if not c_team:
         try:
-            await query.edit_message_text("🎰 도전자의 배틀 팀이 없습니다!")
+            await query.edit_message_text(f"🎰 {t(lang, 'yacha.challenger_no_team')}")
         except Exception:
             pass
         return
     if len(c_team) < config.RANKED_TEAM_SIZE:
         try:
-            await query.edit_message_text(f"❌ 도전자 팀이 {len(c_team)}마리뿐입니다! 배틀 불가.")
+            await query.edit_message_text(f"❌ {t(lang, 'yacha.challenger_incomplete', count=len(c_team), required=config.RANKED_TEAM_SIZE)}")
         except Exception:
             pass
         return
     c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
     if c_cost > config.RANKED_COST_LIMIT:
         try:
-            await query.edit_message_text(f"❌ 도전자 팀 코스트 초과! ({c_cost}/{config.RANKED_COST_LIMIT})")
+            await query.edit_message_text(f"❌ {t(lang, 'yacha.challenger_cost_over', cost=c_cost, limit=config.RANKED_COST_LIMIT)}")
         except Exception:
             pass
         return
@@ -3623,7 +3619,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
             await bq.update_challenge_status(challenge_id, "expired")
             try:
                 await query.edit_message_text(
-                    f"❌ 도전자의 BP가 부족합니다! 야차가 취소됩니다."
+                    f"❌ {t(lang, 'yacha.challenger_bp_fail')}"
                 )
             except Exception:
                 pass
@@ -3631,11 +3627,11 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
         d_ok = await bq.spend_bp(expected_defender, bet_amount)
         if not d_ok:
             # Refund challenger
-            await bq.add_bp(challenger_id, bet_amount)
+            await bq.add_bp(challenger_id, bet_amount, "bet_refund")
             await bq.update_challenge_status(challenge_id, "expired")
             try:
                 await query.edit_message_text(
-                    f"❌ 수비자의 BP가 부족합니다! 야차가 취소됩니다."
+                    f"❌ {t(lang, 'yacha.defender_bp_fail')}"
                 )
             except Exception:
                 pass
@@ -3648,7 +3644,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
             await bq.update_challenge_status(challenge_id, "expired")
             try:
                 await query.edit_message_text(
-                    f"❌ 도전자의 마스터볼이 부족합니다! 야차가 취소됩니다."
+                    f"❌ {t(lang, 'yacha.challenger_mb_fail')}"
                 )
             except Exception:
                 pass
@@ -3660,7 +3656,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
             await bq.update_challenge_status(challenge_id, "expired")
             try:
                 await query.edit_message_text(
-                    f"❌ 수비자의 마스터볼이 부족합니다! 야차가 취소됩니다."
+                    f"❌ {t(lang, 'yacha.defender_mb_fail')}"
                 )
             except Exception:
                 pass
@@ -3686,7 +3682,7 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     # Pay the winner
     winner_id = result["winner_id"]
     if bet_type == "bp":
-        await bq.add_bp(winner_id, bet_amount * 2)
+        await bq.add_bp(winner_id, bet_amount * 2, "bet_win")
     else:
         await queries.add_master_ball(winner_id, bet_amount * 2)
 
@@ -3704,11 +3700,11 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     cache_key = result["cache_key"]
 
     full_text = "\n".join([
-        f"🎰 야차 배틀!",
+        t(lang, "yacha.result_title"),
         f"{rarity_badge('red')} {c_name}  {vs}  {d_name} {rarity_badge('blue')}",
-        f"배팅: {bet_display}",
+        t(lang, "yacha.bet_label", bet=bet_display),
         "━━━━━━━━━━━━━━━",
-        f"{trophy} {winner_name} 승리!",
+        f"{trophy} {t(lang, 'yacha.winner_msg', name=winner_name)}",
         win_display,
     ])
 
@@ -3716,15 +3712,15 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     battle_buttons = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "📋 상세보기",
+                t(lang, "battle.btn_detail"),
                 callback_data=f"bdetail_{cache_key}_{winner_id}_{loser_id}",
             ),
             InlineKeyboardButton(
-                "⏭ 스킵",
+                t(lang, "battle.btn_skip"),
                 callback_data=f"bskip_{winner_id}_{loser_id}",
             ),
             InlineKeyboardButton(
-                "☠️ 티배깅",
+                t(lang, "battle.btn_teabag"),
                 callback_data=f"yres_tbag_{winner_id}_{loser_id}",
             ),
         ]
@@ -3758,6 +3754,7 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if _is_duplicate_callback(query):
         await query.answer()
         return
+    lang = await get_user_lang(query.from_user.id)
 
     data = query.data  # yres_tbag_{w}_{l}
     parts = data.split("_")
@@ -3771,19 +3768,19 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     if action == "tbag":
         if query.from_user.id != winner_id:
-            await query.answer("승자만 사용할 수 있습니다!", show_alert=True)
+            await query.answer(t(lang, "battle.winner_only"), show_alert=True)
             return
 
-        winner_user = await queries.get_user(winner_id)
-        loser_user = await queries.get_user(loser_id)
-        w_name = winner_user["display_name"] if winner_user else "???"
-        l_name = loser_user["display_name"] if loser_user else "???"
-
-        # 구독자 존칭 적용
         from utils.honorific import honorific_name as _hon_name, _get_honorific
         from services.subscription_service import get_user_tier
-        w_tier = await get_user_tier(winner_id)
-        l_tier = await get_user_tier(loser_id)
+        winner_user, loser_user, w_tier, l_tier = await asyncio.gather(
+            queries.get_user(winner_id),
+            queries.get_user(loser_id),
+            get_user_tier(winner_id),
+            get_user_tier(loser_id),
+        )
+        w_name = winner_user["display_name"] if winner_user else "???"
+        l_name = loser_user["display_name"] if loser_user else "???"
         l_name = _hon_name(l_name, l_tier)
 
         # 승자 구독 티어에 따라 멘트풀 분기

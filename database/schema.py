@@ -154,6 +154,7 @@ TABLES = [
     # Performance indexes for spawn_log
     "CREATE INDEX IF NOT EXISTS idx_spawn_log_chat ON spawn_log(chat_id, id DESC)",
     "CREATE INDEX IF NOT EXISTS idx_spawn_log_chat_pokemon ON spawn_log(chat_id, pokemon_id)",
+    "CREATE INDEX IF NOT EXISTS idx_spawn_log_catcher ON spawn_log(caught_by_user_id, spawned_at DESC)",
 
     # Performance indexes for trades
     "CREATE INDEX IF NOT EXISTS idx_trades_to_user ON trades(to_user_id, status)",
@@ -464,6 +465,10 @@ MISSION_TABLES = [
     "CREATE INDEX IF NOT EXISTS idx_dm_user_date ON daily_missions(user_id, mission_date)",
 ]
 
+NEWBIE_SPAWN_MIGRATIONS = [
+    "ALTER TABLE spawn_sessions ADD COLUMN is_newbie_spawn INTEGER NOT NULL DEFAULT 0",
+]
+
 TUTORIAL_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN tutorial_step INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD COLUMN tutorial_restarted BOOLEAN NOT NULL DEFAULT FALSE",
@@ -682,6 +687,53 @@ TRADE_EVO_FIX_MIGRATIONS = [
 
 
 # ─── 캠프 v2 시스템 (2026-03-13) ─────────
+# ============================================================
+# Dungeon System (로그라이크 던전)
+# ============================================================
+
+DUNGEON_TABLES = [
+    """CREATE TABLE IF NOT EXISTS dungeon_runs (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        pokemon_instance_id INT NOT NULL,
+        pokemon_id INT NOT NULL,
+        pokemon_name TEXT NOT NULL,
+        is_shiny BOOLEAN DEFAULT FALSE,
+        iv_grade TEXT,
+        floor_reached INT NOT NULL DEFAULT 0,
+        theme TEXT NOT NULL,
+        buffs_json JSONB DEFAULT '[]',
+        current_hp INT NOT NULL DEFAULT 0,
+        max_hp INT NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'active',
+        skips_used INT NOT NULL DEFAULT 0,
+        bp_earned INT DEFAULT 0,
+        fragments_earned INT DEFAULT 0,
+        started_at TIMESTAMPTZ DEFAULT NOW(),
+        ended_at TIMESTAMPTZ,
+        season_key TEXT
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_dungeon_runs_active ON dungeon_runs(user_id, status) WHERE status = 'active'",
+    "CREATE INDEX IF NOT EXISTS idx_dungeon_ranking ON dungeon_runs(season_key, floor_reached DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_dungeon_user ON dungeon_runs(user_id, started_at DESC)",
+
+    """CREATE TABLE IF NOT EXISTS dungeon_pokemon_records (
+        user_id BIGINT NOT NULL,
+        pokemon_instance_id INT NOT NULL,
+        best_floor INT NOT NULL DEFAULT 0,
+        best_theme TEXT,
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_id, pokemon_instance_id)
+    )""",
+]
+
+DUNGEON_MIGRATIONS = [
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_tickets INT NOT NULL DEFAULT 1",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_tickets_bought_today INT NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_best_floor INT NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_season_runs INT NOT NULL DEFAULT 0",
+]
+
 CAMP_TABLES = [
     # 캠프 설정 (채팅방당 1개)
     """CREATE TABLE IF NOT EXISTS camps (
@@ -804,219 +856,248 @@ CAMP_TABLES = [
 
 
 async def create_tables():
-    """Create all tables."""
+    """Create all tables. DDL failures are non-fatal (tables already exist in prod)."""
+    import logging
+    _log = logging.getLogger(__name__)
     pool = await get_db()
+
+    # 운영 DB에 핵심 테이블이 이미 있으면 DDL 전체 스킵 (Supabase pgbouncer DDL 느림 방지)
+    try:
+        exists = await pool.fetchval(
+            "SELECT 1 FROM users LIMIT 0",
+            timeout=10
+        )
+        _log.info("create_tables: core tables exist, skipping DDL")
+        return
+    except asyncpg.UndefinedTableError:
+        _log.info("create_tables: users table missing, running DDL")
+    except Exception as e:
+        _log.warning(f"create_tables: check failed ({e.__class__.__name__}), skipping DDL for safety")
+        return
+
     for sql in TABLES:
-        await pool.execute(sql)
+        try:
+            await pool.execute(sql, timeout=30)
+        except Exception as e:
+            _log.warning(f"create_tables TABLES skip: {e.__class__.__name__}")
     # Battle tables
     for sql in BATTLE_TABLES:
-        await pool.execute(sql)
+        try:
+            await pool.execute(sql, timeout=30)
+        except Exception as e:
+            _log.warning(f"create_tables BATTLE skip: {e.__class__.__name__}")
     # Run battle migrations (ignore if already applied)
     for mig in BATTLE_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     # Run tournament migrations (ignore if already applied)
     for mig in TOURNAMENT_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     # Run shop migrations
     for mig in SHOP_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     # Run hyper ball migrations
     for mig in HYPER_BALL_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     # Arcade ticket migrations (drop old table + add user column)
     for mig in ARCADE_TICKET_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     # Arcade pass tables (chat-based, recreated after drop)
     for sql in ARCADE_PASS_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=30)
         except Exception:
             pass
     # Run shiny migrations
     for mig in SHINY_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     # Run team slot migrations
     for mig in TEAM_SLOT_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     # Run IV system migrations
     for mig in IV_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     # Favorite column
     try:
-        await pool.execute("ALTER TABLE user_pokemon ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0")
+        await pool.execute("ALTER TABLE user_pokemon ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0", timeout=30)
     except Exception:
         pass
     # LLM bonus quota migration
     for mig in LLM_QUOTA_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     # Shiny boost event type migration
     for mig in SHINY_BOOST_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     # Tutorial migration
     for mig in TUTORIAL_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     # Bot settings table
-    await pool.execute(BOT_SETTINGS_TABLE)
+    try:
+        await pool.execute(BOT_SETTINGS_TABLE, timeout=30)
+    except Exception:
+        pass
 
     # Marketplace tables
     for sql in MARKET_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=30)
         except Exception:
             pass
 
     # Daily missions tables
     for sql in MISSION_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=30)
         except Exception:
             pass
     # Patch note opt-out migration
     for mig in PATCH_OPTOUT_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
 
     # Group trade migrations
     for mig in GROUP_TRADE_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
 
     # Ultra-legendary rarity migration
     for mig in ULTRA_LEGENDARY_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
 
     # Journey system migrations
     for mig in JOURNEY_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
 
     # Rarity fix: 3-stage evolution final forms → epic
     for mig in RARITY_FIX_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
 
     # Tournament registrations table
     try:
-        await pool.execute(TOURNAMENT_REG_TABLE)
+        await pool.execute(TOURNAMENT_REG_TABLE, timeout=30)
     except Exception:
         pass
 
     # Chat level system migrations
     for mig in CHAT_LEVEL_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
     try:
-        await pool.execute(CHAT_CXP_LOG_TABLE)
+        await pool.execute(CHAT_CXP_LOG_TABLE, timeout=30)
     except Exception:
         pass
     try:
-        await pool.execute("CREATE INDEX IF NOT EXISTS idx_cxp_log_chat ON chat_cxp_log(chat_id, created_at)")
+        await pool.execute("CREATE INDEX IF NOT EXISTS idx_cxp_log_chat ON chat_cxp_log(chat_id, created_at)", timeout=30)
     except Exception:
         pass
 
     # Ranked (season) battle tables
     for sql in RANKED_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=30)
         except Exception:
             pass
     for mig in RANKED_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
 
     # MMR / 배치전 / 디비전 시스템 (2026-03-12)
     for mig in MMR_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
 
     # Rarity balance adjustments (2026-03-11)
     for mig in RARITY_BALANCE_MIGRATIONS:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
 
     # Subscription system tables
     for sql in SUBSCRIPTION_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=30)
         except Exception:
             pass
 
     # KPI daily snapshots table
-    await pool.execute("""
-        CREATE TABLE IF NOT EXISTS kpi_daily_snapshots (
-            id SERIAL PRIMARY KEY,
-            date DATE NOT NULL UNIQUE,
-            dau INTEGER NOT NULL DEFAULT 0,
-            new_users INTEGER NOT NULL DEFAULT 0,
-            spawns INTEGER NOT NULL DEFAULT 0,
-            catches INTEGER NOT NULL DEFAULT 0,
-            shiny_caught INTEGER NOT NULL DEFAULT 0,
-            battles INTEGER NOT NULL DEFAULT 0,
-            ranked_battles INTEGER NOT NULL DEFAULT 0,
-            bp_earned INTEGER NOT NULL DEFAULT 0,
-            active_user_ids BIGINT[] NOT NULL DEFAULT '{}',
-            d1_retention REAL,
-            d7_retention REAL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    """)
+    try:
+        await pool.execute("""
+            CREATE TABLE IF NOT EXISTS kpi_daily_snapshots (
+                id SERIAL PRIMARY KEY,
+                date DATE NOT NULL UNIQUE,
+                dau INTEGER NOT NULL DEFAULT 0,
+                new_users INTEGER NOT NULL DEFAULT 0,
+                spawns INTEGER NOT NULL DEFAULT 0,
+                catches INTEGER NOT NULL DEFAULT 0,
+                shiny_caught INTEGER NOT NULL DEFAULT 0,
+                battles INTEGER NOT NULL DEFAULT 0,
+                ranked_battles INTEGER NOT NULL DEFAULT 0,
+                bp_earned INTEGER NOT NULL DEFAULT 0,
+                active_user_ids BIGINT[] NOT NULL DEFAULT '{}',
+                d1_retention REAL,
+                d7_retention REAL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """, timeout=30)
+    except Exception:
+        pass
 
     # Camp v2 system (2026-03-13)
     for sql in CAMP_TABLES:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=30)
         except Exception:
             pass
 
@@ -1028,7 +1109,7 @@ async def create_tables():
     ]
     for mig in camp_renewal_migs:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
 
@@ -1066,13 +1147,13 @@ async def create_tables():
     ]
     for sql in gacha_tables:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=30)
         except Exception:
             pass
 
     # 이로치 강스권: users 테이블에 플래그 추가
     try:
-        await pool.execute("ALTER TABLE users ADD COLUMN shiny_spawn_tickets INTEGER NOT NULL DEFAULT 0")
+        await pool.execute("ALTER TABLE users ADD COLUMN shiny_spawn_tickets INTEGER NOT NULL DEFAULT 0", timeout=30)
     except Exception:
         pass
 
@@ -1088,7 +1169,7 @@ async def create_tables():
     ]
     for sql in camp_slot_tables:
         try:
-            await pool.execute(sql)
+            await pool.execute(sql, timeout=30)
         except Exception:
             pass
 
@@ -1099,7 +1180,190 @@ async def create_tables():
     ]
     for mig in dual_home_migs:
         try:
-            await pool.execute(mig)
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # 캠프 방문 시스템 (2026-03-15)
+    camp_visit_tables = [
+        """CREATE TABLE IF NOT EXISTS camp_visits (
+            user_id BIGINT NOT NULL,
+            chat_id BIGINT NOT NULL,
+            visited_at DATE NOT NULL DEFAULT CURRENT_DATE,
+            fragment_type VARCHAR(20),
+            amount INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY(user_id, chat_id, visited_at)
+        )""",
+    ]
+    for sql in camp_visit_tables:
+        try:
+            await pool.execute(sql, timeout=30)
+        except Exception:
+            pass
+
+    # 캠프 환영 멘트 (캠꾸)
+    camp_welcome_migs = [
+        "ALTER TABLE camps ADD COLUMN welcome_message TEXT",
+    ]
+    for mig in camp_welcome_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # 캠프 언어 설정
+    camp_lang_migs = [
+        "ALTER TABLE camps ADD COLUMN language VARCHAR(10) DEFAULT 'ko'",
+    ]
+    for mig in camp_lang_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # KPI 스냅샷 확장 (BP 유통량/소각 저장)
+    kpi_extend_migs = [
+        "ALTER TABLE kpi_daily_snapshots ADD COLUMN bp_circulation BIGINT DEFAULT 0",
+        "ALTER TABLE kpi_daily_snapshots ADD COLUMN bp_total_spent INTEGER DEFAULT 0",
+    ]
+    for mig in kpi_extend_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # BP 로그 테이블 (2026-03-16)
+    try:
+        await pool.execute("""
+            CREATE TABLE IF NOT EXISTS bp_log (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                amount INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """, timeout=30)
+    except Exception:
+        pass
+    try:
+        await pool.execute("CREATE INDEX IF NOT EXISTS idx_bp_log_created ON bp_log(created_at)", timeout=30)
+    except Exception:
+        pass
+    try:
+        await pool.execute("CREATE INDEX IF NOT EXISTS idx_bp_log_user ON bp_log(user_id, created_at)", timeout=30)
+    except Exception:
+        pass
+
+    # ── 봇방지 시스템 (2026-03-16) ──
+    antibot_migs = [
+        # catch_attempts에 반응시간 컬럼 추가
+        "ALTER TABLE catch_attempts ADD COLUMN reaction_ms INTEGER",
+        # 어뷰징 의심 점수 테이블
+        """CREATE TABLE IF NOT EXISTS abuse_scores (
+            user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+            bot_score REAL NOT NULL DEFAULT 0,
+            total_challenges INTEGER NOT NULL DEFAULT 0,
+            challenge_passes INTEGER NOT NULL DEFAULT 0,
+            challenge_fails INTEGER NOT NULL DEFAULT 0,
+            last_challenge_at TIMESTAMPTZ,
+            last_flagged_at TIMESTAMPTZ,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        # 챌린지 로그 (개별 기록)
+        """CREATE TABLE IF NOT EXISTS catch_challenges (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            session_id INTEGER NOT NULL,
+            challenge_type TEXT NOT NULL DEFAULT 'name',
+            expected_answer TEXT NOT NULL,
+            given_answer TEXT,
+            passed BOOLEAN,
+            reaction_ms INTEGER,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_catch_challenges_user ON catch_challenges(user_id, created_at)",
+    ]
+    for mig in antibot_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # 레지기가스 epic → legendary 승격 (슬로우스타트 격턴 스킵)
+    try:
+        await pool.execute(
+            "UPDATE pokemon_master SET rarity = 'legendary', catch_rate = 0.08 WHERE id = 486 AND rarity = 'epic'",
+            timeout=30,
+        )
+    except Exception:
+        pass
+
+    # ── 강스 차단 테이블 (2026-03-16) ──
+    try:
+        await pool.execute("""
+            CREATE TABLE IF NOT EXISTS force_spawn_bans (
+                chat_id BIGINT PRIMARY KEY,
+                banned_until TIMESTAMPTZ NOT NULL,
+                reason TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """, timeout=30)
+    except Exception:
+        pass
+
+    # Newbie spawn migrations
+    for mig in NEWBIE_SPAWN_MIGRATIONS:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # ── Dungeon system tables (2026-03-18) ──
+    for sql in DUNGEON_TABLES:
+        try:
+            await pool.execute(sql, timeout=30)
+        except Exception:
+            pass
+    for mig in DUNGEON_MIGRATIONS:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # ── 던전 분석용 컬럼 (2026-03-18) ──
+    dungeon_analytics_migs = [
+        "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS rarity TEXT",
+        "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS death_enemy TEXT",
+        "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS death_enemy_rarity TEXT",
+        "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS death_floor INT",
+    ]
+    for mig in dungeon_analytics_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # ── IV 스톤 & 만능 조각 (2026-03-18) ──
+    iv_uni_migs = [
+        "ALTER TABLE users ADD COLUMN iv_stones INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN universal_fragments INTEGER NOT NULL DEFAULT 0",
+    ]
+    for mig in iv_uni_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # ── i18n (다국어 지원) 마이그레이션 ──
+    i18n_migs = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'ko'",
+        "ALTER TABLE chat_rooms ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'ko'",
+        "ALTER TABLE pokemon_master ADD COLUMN IF NOT EXISTS name_zh_hans TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE pokemon_master ADD COLUMN IF NOT EXISTS name_zh_hant TEXT NOT NULL DEFAULT ''",
+    ]
+    for mig in i18n_migs:
+        try:
+            await pool.execute(mig, timeout=30)
         except Exception:
             pass
 
@@ -1113,6 +1377,6 @@ async def create_tables():
     ]
     for idx_sql in perf_indexes:
         try:
-            await pool.execute(idx_sql)
+            await pool.execute(idx_sql, timeout=30)
         except Exception:
             pass

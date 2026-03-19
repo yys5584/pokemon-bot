@@ -5,7 +5,7 @@ import logging
 
 import config
 from database import queries
-from utils.helpers import update_title
+from utils.helpers import update_title, type_badge
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +19,19 @@ async def try_evolve(user_id: int, instance_id: int) -> tuple[bool, str]:
     if pokemon["user_id"] != user_id:
         return False, "해당 포켓몬을 찾을 수 없습니다."
 
-    # 배틀팀에 있는 포켓몬은 진화 불가 (진화 시 코스트 변동 방지)
-    protected = await queries.get_protected_pokemon_ids(user_id)
-    if instance_id in protected:
+    # 거래소/교환 중인 포켓몬은 진화 불가 (배틀팀/파트너/캠프는 허용)
+    pool = await queries.get_db()
+    market_trade = await pool.fetch(
+        """SELECT pokemon_instance_id AS pid FROM market_listings WHERE seller_id = $1 AND status = 'active'
+           UNION
+           SELECT offer_pokemon_instance_id FROM trades WHERE from_user_id = $1 AND status = 'pending'""",
+        user_id,
+    )
+    blocked_ids = {r["pid"] for r in market_trade if r["pid"] is not None}
+    if instance_id in blocked_ids:
         return False, (
-            "⚔️ 배틀팀/파트너/거래소에 등록된 포켓몬은 진화할 수 없습니다!\n"
-            "팀에서 빼거나 등록을 해제한 후 다시 시도하세요."
+            "🏪 거래소/교환 중인 포켓몬은 진화할 수 없습니다!\n"
+            "등록을 해제한 후 다시 시도하세요."
         )
 
     pokemon_id = pokemon["pokemon_id"]
@@ -34,7 +41,7 @@ async def try_evolve(user_id: int, instance_id: int) -> tuple[bool, str]:
         return False, "포켓몬 데이터를 찾을 수 없습니다."
 
     # Check if can evolve
-    if not master["evolves_to"] and pokemon_id != config.EEVEE_ID:
+    if not master["evolves_to"] and pokemon_id != config.EEVEE_ID and pokemon_id not in config.BRANCH_EVOLUTIONS:
         return False, f"{master['name_ko']}은(는) 더 이상 진화할 수 없습니다."
 
     # Trade evolution check
@@ -51,6 +58,8 @@ async def try_evolve(user_id: int, instance_id: int) -> tuple[bool, str]:
     # Determine evolution target
     if pokemon_id == config.EEVEE_ID:
         target_id = random.choice(config.EEVEE_EVOLUTIONS)
+    elif pokemon_id in config.BRANCH_EVOLUTIONS:
+        target_id = random.choice(config.BRANCH_EVOLUTIONS[pokemon_id])
     else:
         target_id = master["evolves_to"]
 
@@ -65,8 +74,8 @@ async def try_evolve(user_id: int, instance_id: int) -> tuple[bool, str]:
 
     return True, (
         f"✨ 축하합니다!\n\n"
-        f"{master['emoji']} {master['name_ko']}이(가)\n"
-        f"{target['emoji']} {target['name_ko']}(으)로 진화했습니다!\n\n"
+        f"{type_badge(master['id'])} {master['name_ko']}이(가)\n"
+        f"{type_badge(target['id'])} {target['name_ko']}(으)로 진화했습니다!\n\n"
         f"도감에 등록되었습니다!"
     )
 
@@ -105,6 +114,6 @@ async def try_trade_evolve(user_id: int, instance_id: int, pokemon_id: int) -> s
 
     return (
         f"\n\n✨ 교환 진화!\n"
-        f"{source['emoji']} {source['name_ko']} → "
-        f"{target['emoji']} {target['name_ko']}"
+        f"{type_badge(source['id'])} {source['name_ko']} → "
+        f"{type_badge(target['id'])} {target['name_ko']}"
     )

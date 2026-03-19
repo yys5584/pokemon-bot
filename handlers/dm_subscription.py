@@ -15,6 +15,7 @@ from services.subscription_service import (
     get_user_tier,
 )
 from utils.helpers import ball_emoji, icon_emoji
+from utils.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ _E_POKE = icon_emoji("pokecenter")       # 포케센터
 async def premium_hub_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """프리미엄 허브 — 구독/프리미엄상점/가이드 세부 메뉴."""
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     sub = await get_user_subscription(user_id)
 
     status_line = ""
@@ -84,6 +86,7 @@ async def premium_hub_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """구독 티어 목록 표시."""
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
 
     # 현재 구독 상태
     sub = await get_user_subscription(user_id)
@@ -309,14 +312,50 @@ async def subscription_callback_handler(update: Update, context: ContextTypes.DE
 _PREMIUM_GUIDE_TEXT = (
     "💎 <b>프리미엄 가이드</b>\n"
     "━━━━━━━━━━━━━━━\n\n"
+
     "📍 <b>베이직</b> ($3.90/월)\n"
-    "  포케볼 무제한 · 쿨다운 해제\n"
-    "  마스터볼+1/일 · 하이퍼볼+5/일\n"
-    "  BP 1.5배 · 미션 1.5배 · 프리미엄상점\n\n"
+    "━━━━━━━━━━━━━━━\n"
+    "  🔴 포케볼 무제한 충전\n"
+    "  🟣 매일 마스터볼 +1개\n"
+    "  🔵 매일 하이퍼볼 +5개\n"
+    "  ⚔️ 배틀 BP 보상 <b>1.5배</b>\n"
+    "  📋 일일미션 보상 <b>1.5배</b>\n"
+    "  🛒 프리미엄상점 이용 가능\n"
+    "  🏕️ 캠프 거점 <b>2개</b>까지\n"
+    "  🎩 '정중한' 칭호 해금\n\n"
+
     "📍 <b>채널장</b> ($9.90/월)\n"
-    "  베이직 전부 + 강제스폰 무제한\n"
-    "  이로치 강스권 +2/일 · 채팅상점 · 채널XP 1.5배\n\n"
-    "💳 결제: Base 체인 USDC/USDT"
+    "━━━━━━━━━━━━━━━\n"
+    "  ✅ 베이직 혜택 <b>전부 포함</b>\n"
+    "  ⚡ 강제스폰 <b>무제한</b>\n"
+    "  ✨ 이로치 강스권 매일 +2장\n"
+    "  🏪 채팅상점 이용 가능\n"
+    "  📈 채널 스폰률 <b>+30%</b>\n"
+    "  🎮 아케이드 이용권 매일 +1장\n"
+    "  📊 채널 경험치 <b>1.5배</b>\n"
+    "  👑 '최고' 칭호 해금\n\n"
+
+    "🛒 <b>프리미엄상점 (구독자 전용)</b>\n"
+    "━━━━━━━━━━━━━━━\n"
+    "  🟣 마스터볼 — 200→300→500 BP (일 5개)\n"
+    "  🔵 하이퍼볼 x5 — 90 BP (10%↓)\n"
+    "  🔵 하이퍼볼 x10 — 160 BP (20%↓)\n"
+    "  🎰 5연뽑기권 — 100 BP (일 3장)\n\n"
+
+    "🏪 <b>채팅상점 (채널장 전용)</b>\n"
+    "━━━━━━━━━━━━━━━\n"
+    "  채팅방에서 '채팅상점' 입력!\n"
+    "  ⚡ 아케이드 속도 부스트 — 100 BP\n"
+    "    → 스폰 간격 -10초 (최소 20초)\n"
+    "  ⏰ 아케이드 시간 연장 — 100 BP\n"
+    "    → +30분 연장 (중첩 가능)\n\n"
+
+    "💳 <b>결제 방법</b>\n"
+    "━━━━━━━━━━━━━━━\n"
+    "  1. 위 '구독' 버튼으로 등급 선택\n"
+    "  2. 표시된 지갑에 Base 체인 USDC/USDT 전송\n"
+    "  3. 30분 이내 자동 인식 → 즉시 활성화!\n"
+    "  💡 갱신 시 만료일에서 +30일 추가"
 )
 
 
@@ -469,11 +508,12 @@ async def _send_premium_shop(user_id: int, context):
 async def subscription_status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """현재 구독 상태 표시."""
     user_id = update.effective_user.id
+    lang = await get_user_lang(user_id)
     sub = await get_user_subscription(user_id)
 
     if not sub:
         await update.message.reply_text(
-            f"{_E_CRYSTAL} 현재 구독 중인 티어가 없습니다.\n\nDM에서 '구독'으로 시작하세요!",
+            f"{_E_CRYSTAL} {t(lang, 'subscription.not_subscribed')}",
             parse_mode="HTML",
         )
         return
@@ -716,7 +756,7 @@ async def _handle_premium_shop_buy(query, user_id: int):
         return
 
     # BP 차감 + 마스터볼 지급
-    await bq.add_bp(user_id, -price)
+    await bq.add_bp(user_id, -price, "shop_masterball")
     await queries.add_master_ball(user_id, 1)
     await bq.log_bp_purchase(user_id, "masterball", price)
 
@@ -751,7 +791,7 @@ async def _handle_premium_hyperball_buy(query, user_id: int, qty: int):
         return
 
     # BP 차감 + 하이퍼볼 지급
-    await bq.add_bp(user_id, -cost)
+    await bq.add_bp(user_id, -cost, "shop_hyperball")
     await queries.add_hyper_ball(user_id, qty)
 
     new_bp = bp - cost
@@ -788,7 +828,7 @@ async def _handle_premium_gacha_ticket_buy(query, user_id: int):
         return
 
     # BP 차감 + 아이템 지급 + 로그
-    await bq.add_bp(user_id, -cost)
+    await bq.add_bp(user_id, -cost, "shop_gacha_ticket")
     await queries.add_user_item(user_id, "gacha_ticket_5", 1)
     await bq.log_bp_purchase(user_id, "gacha_ticket_5", 1)
 
@@ -839,7 +879,7 @@ async def _handle_channel_shop_speed(query, user_id: int, chat_id: int, context)
         return
 
     # BP 차감 + 속도 부스트 적용
-    await bq.add_bp(user_id, -cost)
+    await bq.add_bp(user_id, -cost, "shop_arcade_speed")
     new_interval = max(min_interval, current_interval - config.ARCADE_SPEED_BOOST_REDUCTION)
 
     from services.spawn_service import set_arcade_interval
@@ -875,7 +915,7 @@ async def _handle_channel_shop_extend(query, user_id: int, chat_id: int, context
         return
 
     # BP 차감 + 시간 연장
-    await bq.add_bp(user_id, -cost)
+    await bq.add_bp(user_id, -cost, "shop_arcade_extend")
     extend_minutes = config.ARCADE_EXTEND_MINUTES
     await extend_arcade_time(context.application, chat_id, extend_minutes)
 
