@@ -4,7 +4,7 @@ import logging
 import math
 
 import config
-from database import queries
+from database import queries, market_queries
 from database import battle_queries as bq
 from services.evolution_service import build_trade_evo_info
 from utils.helpers import update_title, type_badge
@@ -33,7 +33,7 @@ async def create_listing(
         return False, f"최소 등록가는 {config.MARKET_MIN_PRICE:,} BP입니다.", None, None
 
     # Check listing count limit
-    count = await queries.get_active_listing_count(user_id)
+    count = await market_queries.get_active_listing_count(user_id)
     if count >= config.MARKET_MAX_ACTIVE_LISTINGS:
         return False, f"최대 {config.MARKET_MAX_ACTIVE_LISTINGS}개까지 등록할 수 있습니다.", None, None
 
@@ -58,7 +58,7 @@ async def create_listing(
         pokemon = matches[0]
 
     # Check pokemon lock (pending trade or market listing)
-    locked, reason = await queries.is_pokemon_locked(pokemon["id"])
+    locked, reason = await market_queries.is_pokemon_locked(pokemon["id"])
     if locked:
         return False, reason, None, None
 
@@ -67,7 +67,7 @@ async def create_listing(
         return False, "배틀 팀에 등록된 포켓몬은 거래소에 올릴 수 없습니다.\n팀해제 후 다시 시도하세요.", None, None
 
     # Create listing
-    listing_id = await queries.create_market_listing(
+    listing_id = await market_queries.create_market_listing(
         seller_id=user_id,
         pokemon_instance_id=pokemon["id"],
         pokemon_id=pokemon["pokemon_id"],
@@ -98,7 +98,7 @@ async def buy_listing(
 
     Returns (success, message, info_for_notification).
     """
-    listing = await queries.get_listing_by_id(listing_id)
+    listing = await market_queries.get_listing_by_id(listing_id)
     if not listing:
         return False, "해당 매물을 찾을 수 없습니다.", None
 
@@ -130,7 +130,7 @@ async def buy_listing(
 
     # Execute purchase in transaction
     try:
-        new_instance_id = await queries.complete_market_purchase(
+        new_instance_id = await market_queries.complete_market_purchase(
             listing_id=listing_id,
             buyer_id=buyer_id,
             seller_id=listing["seller_id"],
@@ -186,7 +186,7 @@ async def cancel_listing_for_user(
     lang: str = "ko",
 ) -> tuple[bool, str]:
     """Cancel a listing owned by this user."""
-    listing = await queries.get_listing_by_id(listing_id)
+    listing = await market_queries.get_listing_by_id(listing_id)
     if not listing:
         return False, "해당 매물을 찾을 수 없습니다."
     if listing["seller_id"] != user_id:
@@ -194,7 +194,7 @@ async def cancel_listing_for_user(
     if listing["status"] != "active":
         return False, "이미 처리된 매물입니다."
 
-    await queries.cancel_listing(listing_id)
+    await market_queries.cancel_listing(listing_id)
 
     shiny_tag = " ★이로치" if listing.get("is_shiny") else ""
     display_name = poke_name(listing, lang)

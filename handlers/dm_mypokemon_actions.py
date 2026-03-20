@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 import config
 
-from database import queries
+from database import queries, market_queries
 from utils.helpers import rarity_badge, rarity_badge_label, shiny_emoji, icon_emoji, type_badge, pokemon_iv_total as _iv_sum
 from utils.battle_calc import iv_total
 from utils.i18n import t, get_user_lang, poke_name
@@ -518,7 +518,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 return
 
             # 캠프/교환/거래소 잠금 체크
-            locked, lock_reason = await queries.is_pokemon_locked(instance_id)
+            locked, lock_reason = await market_queries.is_pokemon_locked(instance_id)
             if locked:
                 await query.answer(lock_reason, show_alert=True)
                 return

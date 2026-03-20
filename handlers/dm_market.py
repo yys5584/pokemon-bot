@@ -7,7 +7,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import config
-from database import queries
+from database import queries, market_queries
 from services.market_service import create_listing, buy_listing, cancel_listing_for_user, calc_fee
 from utils.helpers import iv_grade_tag as _iv_tag, iv_grade, type_badge
 from utils.battle_calc import iv_total, calc_battle_stats, format_power, EVO_STAGE_MAP, get_normalized_base_stats
@@ -139,7 +139,7 @@ async def market_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await queries.ensure_user(user_id, update.effective_user.first_name or "트레이너", update.effective_user.username)
 
     lang = await get_user_lang(user_id)
-    listings, total = await queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
+    listings, total = await market_queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
     text, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE, lang=lang)
     await update.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
 
@@ -230,7 +230,7 @@ async def market_my_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await queries.ensure_user(user_id, update.effective_user.first_name or "트레이너", update.effective_user.username)
 
     lang = await get_user_lang(user_id)
-    listings = await queries.get_user_active_listings(user_id)
+    listings = await market_queries.get_user_active_listings(user_id)
     if not listings:
         await update.message.reply_text("🏪 등록된 매물이 없습니다.")
         return
@@ -292,7 +292,7 @@ async def market_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     # Show confirmation
-    listing = await queries.get_listing_by_id(listing_id)
+    listing = await market_queries.get_listing_by_id(listing_id)
     if not listing or listing["status"] != "active":
         await update.message.reply_text("해당 매물을 찾을 수 없거나 이미 판매되었습니다.")
         return
@@ -335,7 +335,7 @@ async def market_search_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     search_name = parts[2]
-    listings, total = await queries.search_listings(search_name, page=0, page_size=config.MARKET_PAGE_SIZE)
+    listings, total = await market_queries.search_listings(search_name, page=0, page_size=config.MARKET_PAGE_SIZE)
     text_out, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE, search_name, lang=lang)
     await update.message.reply_text(text_out, reply_markup=markup, parse_mode="HTML")
 
@@ -388,7 +388,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             rarity_val, iv_val = rest.split("_iv", 1)
         else:
             rarity_val, iv_val = rest, ""
-        listings, total = await queries.get_active_listings(
+        listings, total = await market_queries.get_active_listings(
             page=0, page_size=config.MARKET_PAGE_SIZE,
             rarity=rarity_val or None, iv_grade=iv_val or None,
         )
@@ -401,7 +401,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
     # ── Filter reset ──
     if data == "mkt_fr":
-        listings, total = await queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
+        listings, total = await market_queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
         text, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE, lang=lang)
         try:
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
@@ -425,7 +425,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             iv_val = fkey.split("_iv")[1]
         else:
             rarity_val, iv_val = "", ""
-        listings, total = await queries.get_active_listings(
+        listings, total = await market_queries.get_active_listings(
             page=page, page_size=config.MARKET_PAGE_SIZE,
             rarity=rarity_val or None, iv_grade=iv_val or None,
         )
@@ -442,7 +442,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             page = int(data.split("_")[2])
         except (ValueError, IndexError):
             return
-        listings, total = await queries.get_active_listings(page=page, page_size=config.MARKET_PAGE_SIZE)
+        listings, total = await market_queries.get_active_listings(page=page, page_size=config.MARKET_PAGE_SIZE)
         text, markup = _build_listing_page(listings, total, page, config.MARKET_PAGE_SIZE, lang=lang)
         try:
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
@@ -459,7 +459,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 page = int(parts[3])
             except ValueError:
                 return
-            listings, total = await queries.search_listings(search_name, page=page, page_size=config.MARKET_PAGE_SIZE)
+            listings, total = await market_queries.search_listings(search_name, page=page, page_size=config.MARKET_PAGE_SIZE)
             text, markup = _build_listing_page(listings, total, page, config.MARKET_PAGE_SIZE, search_name, lang=lang)
             try:
                 await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
@@ -473,7 +473,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             listing_id = int(data.split("_")[2])
         except (ValueError, IndexError):
             return
-        listing = await queries.get_listing_by_id(listing_id)
+        listing = await market_queries.get_listing_by_id(listing_id)
         if not listing or listing["status"] != "active":
             try:
                 await query.edit_message_text("이 매물은 이미 판매되었습니다.")
@@ -583,7 +583,7 @@ async def market_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                     f"💵 수익: {info['seller_gets']:,} BP (수수료 {info['fee']:,} BP)"
                 )
                 # Show remaining listings
-                remaining = await queries.get_user_active_listings(info["seller_id"])
+                remaining = await market_queries.get_user_active_listings(info["seller_id"])
                 if remaining:
                     seller_msg += f"\n\n📋 남은 매물 ({len(remaining)}개):"
                     for ml in remaining[:5]:

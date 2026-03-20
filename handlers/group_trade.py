@@ -10,7 +10,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import config
-from database import queries
+from database import queries, market_queries
+from database import trade_queries as tq
 from database import battle_queries as bq
 from services.evolution_service import build_trade_evo_info
 from utils.helpers import update_title, iv_grade_tag as _iv_tag, type_badge
@@ -99,7 +100,7 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         pokemon = matches[0]
 
     # Check pokemon lock
-    locked, reason = await queries.is_pokemon_locked(pokemon["id"])
+    locked, reason = await market_queries.is_pokemon_locked(pokemon["id"])
     if locked:
         await msg.reply_text(reason)
         return
@@ -122,7 +123,7 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
 
     # Create group trade
-    trade_id = await queries.create_group_trade(
+    trade_id = await tq.create_group_trade(
         from_user_id=from_user.id,
         to_user_id=to_user.id,
         offer_instance_id=pokemon["id"],
@@ -153,7 +154,7 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
 
     # Save message_id for later editing
-    await queries.update_group_trade_message_id(trade_id, trade_msg.message_id)
+    await tq.update_group_trade_message_id(trade_id, trade_msg.message_id)
 
     # Schedule auto-expire
     context.job_queue.run_once(
@@ -171,11 +172,11 @@ async def _expire_group_trade(context: ContextTypes.DEFAULT_TYPE):
     chat_id = job_data["chat_id"]
     message_id = job_data["message_id"]
 
-    trade = await queries.get_group_trade(trade_id)
+    trade = await tq.get_group_trade(trade_id)
     if not trade or trade["status"] != "pending":
         return
 
-    await queries.update_trade_status(trade_id, "cancelled")
+    await tq.update_trade_status(trade_id, "cancelled")
 
     # Refund BP
     cost = config.GROUP_TRADE_BP_COST
@@ -211,7 +212,7 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
             await query.answer("오류가 발생했습니다.")
             return
 
-        trade = await queries.get_group_trade(trade_id)
+        trade = await tq.get_group_trade(trade_id)
         if not trade:
             await query.answer("교환 요청을 찾을 수 없습니다.")
             return
@@ -233,7 +234,7 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
         offer_instance_id = trade["offer_pokemon_instance_id"]
         offer_pokemon = await queries.get_user_pokemon_by_id(offer_instance_id)
         if not offer_pokemon or offer_pokemon["user_id"] != trade["from_user_id"]:
-            await queries.update_trade_status(trade_id, "cancelled")
+            await tq.update_trade_status(trade_id, "cancelled")
             await query.answer("이 포켓몬은 이미 교환되었습니다.")
             try:
                 await query.edit_message_text("❌ 교환 실패 — 포켓몬이 이미 다른 곳으로 갔습니다.")
@@ -265,7 +266,7 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
         pending_evo = build_trade_evo_info(trade["offer_pokemon_id"], new_instance_id)
 
         # Update trade status
-        await queries.update_trade_status(trade_id, "accepted")
+        await tq.update_trade_status(trade_id, "accepted")
 
         # Update titles
         await update_title(user_id)
@@ -363,7 +364,7 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
             await query.answer("오류가 발생했습니다.")
             return
 
-        trade = await queries.get_group_trade(trade_id)
+        trade = await tq.get_group_trade(trade_id)
         if not trade:
             await query.answer("교환 요청을 찾을 수 없습니다.")
             return
@@ -376,7 +377,7 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
             await query.answer("이미 처리된 교환입니다.")
             return
 
-        await queries.update_trade_status(trade_id, "rejected")
+        await tq.update_trade_status(trade_id, "rejected")
 
         # Refund BP
         cost = config.GROUP_TRADE_BP_COST

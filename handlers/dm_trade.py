@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
+from database import trade_queries as tq
 from services.trade_service import create_trade_offer, accept_trade
 from services.evolution_service import try_trade_evolve
 from utils.parse import parse_args
@@ -168,7 +169,7 @@ async def accept_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = parse_args(update.message.text or "")
 
     if not args or not args[0].isdigit():
-        pending = await queries.get_pending_trades_for_user(user_id)
+        pending = await tq.get_pending_trades_for_user(user_id)
         if not pending:
             await update.message.reply_text("대기 중인 교환 요청이 없습니다.")
             return
@@ -243,7 +244,7 @@ async def reject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = parse_args(update.message.text or "")
 
     if not args or not args[0].isdigit():
-        pending = await queries.get_pending_trades_for_user(user_id)
+        pending = await tq.get_pending_trades_for_user(user_id)
         if not pending:
             await update.message.reply_text("대기 중인 교환 요청이 없습니다.")
             return
@@ -262,7 +263,7 @@ async def reject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     trade_id = int(args[0])
 
-    trade = await queries.get_trade(trade_id)
+    trade = await tq.get_trade(trade_id)
     if not trade or trade["to_user_id"] != user_id:
         await update.message.reply_text("해당 교환 요청을 찾을 수 없습니다.")
         return
@@ -271,7 +272,7 @@ async def reject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("이미 처리된 교환입니다.")
         return
 
-    await queries.update_trade_status(trade_id, "rejected")
+    await tq.update_trade_status(trade_id, "rejected")
 
     tb = type_badge(trade["offer_pokemon_id"]) if trade.get("offer_pokemon_id") else ""
     await update.message.reply_text(

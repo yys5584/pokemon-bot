@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from database import queries
+from database import queries, market_queries
 import config
 
 logger = logging.getLogger(__name__)
@@ -89,8 +89,8 @@ async def execute_fusion(
     # Phase 2: protection + lock checks in parallel
     protected, (locked_a, reason_a), (locked_b, reason_b) = await asyncio.gather(
         queries.get_protected_pokemon_ids(user_id),
-        queries.is_pokemon_locked(instance_id_a),
-        queries.is_pokemon_locked(instance_id_b),
+        market_queries.is_pokemon_locked(instance_id_a),
+        market_queries.is_pokemon_locked(instance_id_b),
     )
     if instance_id_a in protected or instance_id_b in protected:
         return False, "보호 중인 포켓몬은 합성할 수 없습니다. (팀/파트너/거래소)", None

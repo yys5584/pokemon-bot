@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 import config
 
-from database import queries, spawn_queries
+from database import queries, spawn_queries, market_queries
 from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, EVO_STAGE_MAP, get_normalized_base_stats
 from utils.helpers import escape_html, rarity_badge, type_badge, icon_emoji, ball_emoji
@@ -300,7 +300,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     if item_key == "market":
         await query.answer()
         from handlers.dm_market import _build_listing_page
-        listings, total = await queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
+        listings, total = await market_queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
         text_msg, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE)
         await query.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
         return

@@ -3,7 +3,8 @@
 import asyncio
 import logging
 import config
-from database import queries
+from database import queries, market_queries
+from database import trade_queries as tq
 from database import battle_queries as bq
 from services.evolution_service import build_trade_evo_info
 from utils.helpers import update_title, type_badge, icon_emoji
@@ -24,10 +25,10 @@ async def create_trade_offer(
     cost = config.TRADE_BP_COST
 
     # 만료된 pending 교환 자동 정리
-    await queries.expire_old_pending_trades(config.TRADE_EXPIRE_MINUTES)
+    await tq.expire_old_pending_trades(config.TRADE_EXPIRE_MINUTES)
 
     # 일일 교환 횟수 체크 (보내기)
-    sent_today = await queries.get_daily_trade_count(from_user_id, "sender")
+    sent_today = await tq.get_daily_trade_count(from_user_id, "sender")
     if sent_today >= config.TRADE_DAILY_LIMIT:
         return False, f"오늘 교환 보내기 횟수를 모두 사용했습니다! ({config.TRADE_DAILY_LIMIT}/{config.TRADE_DAILY_LIMIT}회)", None
 
@@ -54,8 +55,8 @@ async def create_trade_offer(
 
     # Phase 2: pending trade check + lock check in parallel
     existing, (locked, lock_reason) = await asyncio.gather(
-        queries.get_pending_trade_between(from_user_id, to_user_id),
-        queries.is_pokemon_locked(pokemon["id"]),
+        tq.get_pending_trade_between(from_user_id, to_user_id),
+        market_queries.is_pokemon_locked(pokemon["id"]),
     )
     if existing:
         return False, "이미 해당 트레이너에게 보낸 교환 요청이 있습니다.", None
@@ -69,7 +70,7 @@ async def create_trade_offer(
 
     # Create trade + get remaining BP in parallel
     trade_id, remaining_bp = await asyncio.gather(
-        queries.create_trade(from_user_id, to_user_id, pokemon["id"]),
+        tq.create_trade(from_user_id, to_user_id, pokemon["id"]),
         bq.get_bp(from_user_id),
     )
 
@@ -87,14 +88,14 @@ async def create_trade_offer(
 async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | None]:
     """Accept a trade. Returns (success, message, trade_info for notifications)."""
     # 만료된 pending 교환 자동 정리
-    await queries.expire_old_pending_trades(config.TRADE_EXPIRE_MINUTES)
+    await tq.expire_old_pending_trades(config.TRADE_EXPIRE_MINUTES)
 
     # 일일 교환 횟수 체크 (받기)
-    received_today = await queries.get_daily_trade_count(user_id, "receiver")
+    received_today = await tq.get_daily_trade_count(user_id, "receiver")
     if received_today >= config.TRADE_DAILY_LIMIT:
         return False, f"오늘 교환 받기 횟수를 모두 사용했습니다! ({config.TRADE_DAILY_LIMIT}/{config.TRADE_DAILY_LIMIT}회)", None
 
-    trade = await queries.get_trade(trade_id)
+    trade = await tq.get_trade(trade_id)
     if not trade:
         return False, "해당 교환 요청을 찾을 수 없습니다.", None
 
@@ -105,7 +106,7 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
         return False, "이미 처리된 교환입니다.", None
 
     # Atomically claim this trade (prevents race condition / double-accept)
-    claimed = await queries.update_trade_status(trade_id, "accepted", require_pending=True)
+    claimed = await tq.update_trade_status(trade_id, "accepted", require_pending=True)
     if not claimed:
         return False, "이미 처리된 교환입니다.", None
 
@@ -116,7 +117,7 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
     # Verify the Pokemon is still active
     offer_pokemon = await queries.get_user_pokemon_by_id(offer_instance_id)
     if not offer_pokemon or offer_pokemon["user_id"] != from_user_id:
-        await queries.update_trade_status(trade_id, "cancelled")
+        await tq.update_trade_status(trade_id, "cancelled")
         return False, "이 포켓몬은 이미 교환되었거나 존재하지 않습니다.", None
 
     # Deactivate from sender's collection

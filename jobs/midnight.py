@@ -4,7 +4,7 @@ import asyncio
 import logging
 
 import config
-from database import queries, item_queries, mission_queries, spawn_queries
+from database import queries, item_queries, mission_queries, spawn_queries, market_queries
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +147,7 @@ async def _check_missed_reset():
         spawn_queries.reset_daily_spawn_counts(),
         spawn_queries.cleanup_old_activity(days=7),
         mission_queries.cleanup_old_missions(days=7),
-        queries.cleanup_expired_listings(),
+        market_queries.cleanup_expired_listings(),
         queries.reset_daily_cxp(),
         _grant_title_buffs(),
         _grant_subscription_daily_no_dm(),
@@ -183,7 +183,7 @@ async def midnight_reset(context):
         queries.reset_daily_nurture(),
         spawn_queries.reset_catch_limits(),
         spawn_queries.reset_force_spawn_counts(),
-        queries.cleanup_expired_listings(),
+        market_queries.cleanup_expired_listings(),
         spawn_queries.reset_daily_spawn_counts(),
         spawn_queries.cleanup_old_activity(days=7),
         mission_queries.cleanup_old_missions(days=7),

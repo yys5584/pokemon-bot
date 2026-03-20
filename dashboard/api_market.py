@@ -12,7 +12,7 @@ import aiohttp as _aiohttp
 from aiohttp import web
 
 import config
-from database import queries
+from database import queries, market_queries
 from database import battle_queries as bq
 from models.pokemon_base_stats import POKEMON_BASE_STATS
 from services import market_service
@@ -38,7 +38,7 @@ async def api_market_listings(request):
     price_min = int(q["price_min"]) if q.get("price_min", "").isdigit() else None
     price_max = int(q["price_max"]) if q.get("price_max", "").isdigit() else None
 
-    rows, total = await queries.get_active_listings_web(
+    rows, total = await market_queries.get_active_listings_web(
         page=page, page_size=page_size,
         rarity=rarity, iv_grade=iv_grade,
         shiny_only=shiny_only, search=search,
@@ -136,7 +136,7 @@ async def api_market_my_listings(request):
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=401)
 
-    rows = await queries.get_user_active_listings(sess["user_id"])
+    rows = await market_queries.get_user_active_listings(sess["user_id"])
     listings = []
     for r in rows:
         iv_hp = r.get("iv_hp") or 0
