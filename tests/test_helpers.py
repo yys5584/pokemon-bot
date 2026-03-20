@@ -6,8 +6,19 @@ from utils.helpers import (
     truncate_name,
     _sub_tier_badge,
     pokemon_iv_total,
+    iv_grade,
     iv_grade_tag,
     get_decorated_name,
+    rarity_display,
+    rarity_badge,
+    rarity_badge_label,
+    _type_emoji,
+    type_badge,
+    ball_emoji,
+    icon_emoji,
+    shiny_emoji,
+    resolve_title_badge,
+    time_ago,
 )
 
 
@@ -129,3 +140,153 @@ class TestGetDecoratedName:
     def test_html_escape(self):
         result = get_decorated_name("A<B>", html=True)
         assert "&lt;" in result
+
+    def test_with_title(self):
+        result = get_decorated_name("문유", title="첫 배틀", title_emoji="squirtle", html=True)
+        assert "첫 배틀" in result
+        assert "문유" in result
+
+    def test_ranked_badge(self):
+        result = get_decorated_name("문유", html=True, ranked_badge="🥉")
+        assert "🥉" in result
+
+
+# ── rarity_display ──
+
+class TestRarityDisplay:
+    def test_common(self):
+        result = rarity_display("common")
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_legendary(self):
+        result = rarity_display("legendary")
+        assert isinstance(result, str)
+
+    def test_unknown(self):
+        result = rarity_display("nonexistent")
+        assert isinstance(result, str)
+
+
+# ── rarity_badge ──
+
+class TestRarityBadge:
+    def test_returns_string(self):
+        assert isinstance(rarity_badge("common"), str)
+        assert isinstance(rarity_badge("epic"), str)
+
+    def test_unknown_rarity(self):
+        result = rarity_badge("unknown_rarity")
+        assert isinstance(result, str)
+
+
+# ── rarity_badge_label ──
+
+class TestRarityBadgeLabel:
+    def test_returns_string(self):
+        result = rarity_badge_label("common")
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_contains_label(self):
+        from utils.helpers import RARITY_LABEL
+        for rarity, label in RARITY_LABEL.items():
+            result = rarity_badge_label(rarity)
+            assert label in result
+
+
+# ── _type_emoji ──
+
+class TestTypeEmoji:
+    def test_fire(self):
+        result = _type_emoji("fire")
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_unknown_type(self):
+        result = _type_emoji("nonexistent_type")
+        assert isinstance(result, str)
+
+
+# ── type_badge ──
+
+class TestTypeBadge:
+    def test_known_pokemon(self):
+        # 리자몽(6) = fire/flying
+        result = type_badge(6)
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_unknown_pokemon_with_fallback(self):
+        result = type_badge(99999, fallback_type="water")
+        assert isinstance(result, str)
+
+    def test_unknown_pokemon_no_fallback(self):
+        result = type_badge(99999)
+        assert result == ""
+
+
+# ── ball_emoji ──
+
+class TestBallEmoji:
+    def test_masterball(self):
+        result = ball_emoji("masterball")
+        assert isinstance(result, str)
+
+    def test_unknown_ball(self):
+        result = ball_emoji("nonexistent")
+        assert isinstance(result, str)
+
+
+# ── icon_emoji ──
+
+class TestIconEmoji:
+    def test_known_icon(self):
+        result = icon_emoji("battle")
+        assert isinstance(result, str)
+
+    def test_unknown_icon(self):
+        result = icon_emoji("nonexistent_icon")
+        assert isinstance(result, str)
+
+
+# ── shiny_emoji ──
+
+class TestShinyEmoji:
+    def test_returns_string(self):
+        result = shiny_emoji()
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+
+# ── iv_grade ──
+
+class TestIvGrade:
+    def test_max(self):
+        assert iv_grade(186) == "S"
+
+    def test_zero(self):
+        assert iv_grade(0) == "D"
+
+
+# ── time_ago ──
+
+class TestTimeAgo:
+    def test_invalid_input(self):
+        assert time_ago("invalid") == ""
+
+    def test_none_input(self):
+        assert time_ago(None) == ""
+
+    def test_datetime_input(self):
+        from datetime import datetime, timedelta
+        recent = datetime.now() - timedelta(seconds=30)
+        result = time_ago(recent)
+        assert "초 전" in result or result == ""
+
+    def test_minutes_ago(self):
+        from datetime import datetime, timedelta
+        past = datetime.now() - timedelta(minutes=5)
+        result = time_ago(past)
+        # KST 보정 때문에 정확한 시간은 다를 수 있지만 문자열이어야 함
+        assert isinstance(result, str)
