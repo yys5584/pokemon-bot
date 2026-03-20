@@ -17,7 +17,8 @@ from database import queries, title_queries
 from database import battle_queries as bq
 from database.connection import get_db
 from services.battle_service import _prepare_combatant, _resolve_battle, _hp_bar
-from utils.card_generator import generate_card, generate_lineup_card, generate_battle_card
+from utils.card_generator import generate_card, generate_lineup_card
+from utils.battle_card_generator import generate_battle_card
 
 # ── Bracket Tree Renderer ──────────────────────────────────────
 import unicodedata
