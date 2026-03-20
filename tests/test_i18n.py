@@ -150,3 +150,27 @@ class TestLangCache:
     def test_supported_langs(self):
         assert "ko" in SUPPORTED_LANGS
         assert "en" in SUPPORTED_LANGS
+
+
+class TestPokeNameExtended:
+    """poke_name 추가 테스트."""
+
+    def test_zh_hant(self):
+        pokemon = {"name_ko": "피카츄", "name_en": "Pikachu", "name_zh_hant": "皮卡丘"}
+        assert poke_name(pokemon, "zh-hant") == "皮卡丘"
+
+    def test_zh_hant_fallback_en(self):
+        pokemon = {"name_ko": "피카츄", "name_en": "Pikachu"}
+        assert poke_name(pokemon, "zh-hant") == "Pikachu"
+
+    def test_unknown_lang_fallback_ko(self):
+        pokemon = {"name_ko": "피카츄", "name_en": "Pikachu"}
+        assert poke_name(pokemon, "ja") == "피카츄"
+
+    def test_empty_name_ko(self):
+        pokemon = {"name_ko": "", "name": "리자몽"}
+        assert poke_name(pokemon, "ko") == "리자몽"
+
+    def test_all_none(self):
+        pokemon = {"name_ko": None, "name": None}
+        assert poke_name(pokemon, "ko") == "???"

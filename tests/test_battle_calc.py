@@ -249,3 +249,30 @@ class TestNormalizedBaseStats:
     def test_invalid_pokemon(self):
         """존재하지 않는 ID = None."""
         assert get_normalized_base_stats(99999) is None
+
+
+# ── format_stats_line ──
+
+class TestFormatStatsLine:
+    def test_basic(self):
+        stats = {"hp": 100, "atk": 80, "def": 70, "spa": 90, "spdef": 75, "spd": 85}
+        result = format_stats_line(stats)
+        assert isinstance(result, str)
+        assert "100" in result
+
+    def test_with_base(self):
+        stats = {"hp": 110, "atk": 80, "def": 70, "spa": 90, "spdef": 75, "spd": 85}
+        base = {"hp": 100, "atk": 80, "def": 70, "spa": 90, "spdef": 75, "spd": 85}
+        result = format_stats_line(stats, base)
+        assert "+" in result  # HP에 +10 표시
+
+    def test_english(self):
+        stats = {"hp": 100, "atk": 80, "def": 70, "spa": 90, "spdef": 75, "spd": 85}
+        result = format_stats_line(stats, lang="en")
+        assert isinstance(result, str)
+
+    def test_negative_diff(self):
+        stats = {"hp": 90, "atk": 80, "def": 70, "spa": 90, "spdef": 75, "spd": 85}
+        base = {"hp": 100, "atk": 80, "def": 70, "spa": 90, "spdef": 75, "spd": 85}
+        result = format_power(stats, base)
+        assert "(-" in result

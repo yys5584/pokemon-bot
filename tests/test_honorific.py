@@ -108,7 +108,7 @@ class TestFormatActor:
 
 # ── format_target_action ──
 
-class TestFormatTargetAction:
+class TestFormatTargetActionBasic:
     @patch("utils.honorific.SUBSCRIPTION_TIERS", _MOCK_TIERS, create=True)
     def test_일반_대상(self):
         result = format_target_action("Shawn", "문유", "티배깅했다!", None)
@@ -166,3 +166,85 @@ class TestHonorificCatchVerb:
     def test_english_no_change(self):
         """영어는 변환 없음."""
         assert honorific_catch_verb("Caught!", "basic", lang="en") == "Caught!"
+
+
+# ── format_target_action ──
+
+class TestFormatTargetAction:
+    """format_target_action: actor → target 행동 포맷."""
+
+    @patch("utils.honorific.SUBSCRIPTION_TIERS", _MOCK_TIERS, create=True)
+    def test_no_sub(self):
+        from utils.honorific import format_target_action
+        result = format_target_action("문유", "피카츄", "티배깅했다!", None)
+        assert "문유" in result
+        assert "피카츄" in result
+
+    @patch("utils.honorific.SUBSCRIPTION_TIERS", _MOCK_TIERS, create=True)
+    def test_basic_sub(self):
+        from utils.honorific import format_target_action
+        result = format_target_action("문유", "피카츄", "티배깅했다!", "basic")
+        assert "피카츄" in result
+
+
+# ── _to_polite / _to_supreme ──
+
+# ── _format_actor_i18n ──
+
+class TestFormatActorI18n:
+    def test_en_supreme(self):
+        result = _format_actor_i18n("Moon", "threw!", "supreme", "en")
+        assert "Sir Moon" in result
+
+    def test_en_polite(self):
+        result = _format_actor_i18n("Moon", "threw!", "polite", "en")
+        assert "Mr. Moon" in result
+
+    def test_en_none(self):
+        result = _format_actor_i18n("Moon", "threw!", None, "en")
+        assert result == "Moon threw!"
+
+    def test_zh_hans_supreme(self):
+        result = _format_actor_i18n("文", "扔了!", "supreme", "zh-hans")
+        assert "尊贵的文" in result
+
+    def test_zh_hans_polite(self):
+        result = _format_actor_i18n("文", "扔了!", "polite", "zh-hans")
+        assert "文先生" in result
+
+    def test_zh_hant_supreme(self):
+        result = _format_actor_i18n("文", "扔了!", "supreme", "zh-hant")
+        assert "尊貴的文" in result
+
+    def test_zh_hant_polite(self):
+        result = _format_actor_i18n("文", "扔了!", "polite", "zh-hant")
+        assert "文先生" in result
+
+    def test_unknown_lang_fallback(self):
+        result = _format_actor_i18n("Moon", "threw!", "supreme", "ja")
+        assert result == "Moon threw!"
+
+
+class TestVerbConversion:
+    def test_to_polite_했다(self):
+        from utils.honorific import _to_polite
+        assert _to_polite("던졌다!") == "던졌습니다!"
+
+    def test_to_polite_다(self):
+        from utils.honorific import _to_polite
+        assert _to_polite("포획했다!") == "포획했습니다!"
+
+    def test_to_supreme_했다(self):
+        from utils.honorific import _to_supreme
+        result = _to_supreme("신청했다!")
+        assert "하셨습니다" in result
+
+    def test_to_supreme_졌다(self):
+        from utils.honorific import _to_supreme
+        result = _to_supreme("던졌다!")
+        assert "지셨습니다" in result
+
+    def test_to_supreme_켰다(self):
+        from utils.honorific import _to_supreme
+        result = _to_supreme("진화시켰다!")
+        assert "키셨습니다" in result

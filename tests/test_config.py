@@ -124,3 +124,87 @@ class TestGetMaxFriendship:
     def test_returns_int(self):
         pokemon = {"rarity": "epic"}
         assert isinstance(config.get_max_friendship(pokemon), int)
+
+
+# ── get_ranked_badge_html ──
+
+class TestGetRankedBadgeHtml:
+    def test_master(self):
+        result = config.get_ranked_badge_html("master")
+        assert "tg-emoji" in result
+        assert "emoji-id" in result
+
+    def test_challenger(self):
+        result = config.get_ranked_badge_html("challenger")
+        assert "tg-emoji" in result
+
+    def test_bronze_default_division(self):
+        result = config.get_ranked_badge_html("bronze")
+        assert "tg-emoji" in result
+
+    def test_with_division(self):
+        result = config.get_ranked_badge_html("silver", 1)
+        assert "tg-emoji" in result
+
+
+# ── get_division_base_rp ──
+
+class TestGetDivisionBaseRp:
+    def test_bronze_div2(self):
+        rp = config.get_division_base_rp("bronze", 2)
+        assert rp >= 0
+
+    def test_bronze_div1(self):
+        rp_1 = config.get_division_base_rp("bronze", 1)
+        rp_2 = config.get_division_base_rp("bronze", 2)
+        assert rp_1 > rp_2  # div 1은 상위
+
+    def test_invalid_tier(self):
+        assert config.get_division_base_rp("nonexistent", 1) == 0
+
+
+# ── tier_division_display ──
+
+class TestTierDivisionDisplay:
+    def test_unranked(self):
+        result = config.tier_division_display("unranked")
+        assert "언랭" in result
+
+    def test_placement(self):
+        result = config.tier_division_display("unranked", placement_done=False, placement_games=3)
+        assert "배치중" in result
+        assert "3" in result
+
+    def test_challenger(self):
+        result = config.tier_division_display("challenger", total_rp=1500)
+        assert "챌린저" in result
+        assert "1500" in result
+
+    def test_master(self):
+        result = config.tier_division_display("master", total_rp=1250)
+        assert "마스터" in result
+        assert "1250" in result
+
+    def test_normal_tier(self):
+        result = config.tier_division_display("silver", division=1, display_rp=78)
+        assert "실버" in result
+        assert "78" in result
+
+
+# ── get_camp_level_info ──
+
+class TestGetCampLevelInfo:
+    def test_level_1(self):
+        row = config.get_camp_level_info(1)
+        assert row is not None
+        assert row[0] == 1
+
+    def test_invalid_level_returns_last(self):
+        row = config.get_camp_level_info(9999)
+        assert row is not None
+        assert row == config.CAMP_LEVEL_TABLE[-1]
+
+    def test_all_levels(self):
+        for lv_row in config.CAMP_LEVEL_TABLE:
+            result = config.get_camp_level_info(lv_row[0])
+            assert result[0] == lv_row[0]

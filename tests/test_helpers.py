@@ -280,13 +280,70 @@ class TestTimeAgo:
 
     def test_datetime_input(self):
         from datetime import datetime, timedelta
-        recent = datetime.now() - timedelta(seconds=30)
-        result = time_ago(recent)
-        assert "초 전" in result or result == ""
+        from unittest.mock import patch
+        fake_now = datetime(2026, 3, 20, 12, 0, 0)
+        with patch("config.get_kst_now", return_value=fake_now):
+            recent = fake_now - timedelta(seconds=30)
+            result = time_ago(recent)
+            assert "30초 전" == result
 
     def test_minutes_ago(self):
         from datetime import datetime, timedelta
-        past = datetime.now() - timedelta(minutes=5)
-        result = time_ago(past)
-        # KST 보정 때문에 정확한 시간은 다를 수 있지만 문자열이어야 함
+        from unittest.mock import patch
+        fake_now = datetime(2026, 3, 20, 12, 0, 0)
+        with patch("config.get_kst_now", return_value=fake_now):
+            past = fake_now - timedelta(minutes=5)
+            result = time_ago(past)
+            assert result == "5분 전"
+
+    def test_hours_ago(self):
+        from datetime import datetime, timedelta
+        from unittest.mock import patch
+        fake_now = datetime(2026, 3, 20, 12, 0, 0)
+        with patch("config.get_kst_now", return_value=fake_now):
+            past = fake_now - timedelta(hours=3)
+            result = time_ago(past)
+            assert result == "3시간 전"
+
+    def test_yesterday(self):
+        from datetime import datetime, timedelta
+        from unittest.mock import patch
+        fake_now = datetime(2026, 3, 20, 12, 0, 0)
+        with patch("config.get_kst_now", return_value=fake_now):
+            past = fake_now - timedelta(days=1)
+            result = time_ago(past)
+            assert result == "어제"
+
+    def test_days_ago(self):
+        from datetime import datetime, timedelta
+        from unittest.mock import patch
+        fake_now = datetime(2026, 3, 20, 12, 0, 0)
+        with patch("config.get_kst_now", return_value=fake_now):
+            past = fake_now - timedelta(days=5)
+            result = time_ago(past)
+            assert result == "5일 전"
+
+    def test_iso_string_input(self):
+        from datetime import datetime
+        from unittest.mock import patch
+        fake_now = datetime(2026, 3, 20, 12, 0, 0)
+        with patch("config.get_kst_now", return_value=fake_now):
+            result = time_ago("2026-03-20T11:00:00")
+            assert result == "1시간 전"
+
+
+# ── resolve_title_badge ──
+
+class TestResolveTitleBadge:
+    def test_valid_icon_key(self):
+        result = resolve_title_badge("pikachu")
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_raw_emoji_passthrough(self):
+        result = resolve_title_badge("🔥")
+        assert result == "🔥"
+
+    def test_with_title_name_lookup(self):
+        result = resolve_title_badge("", "첫 배틀")
         assert isinstance(result, str)
