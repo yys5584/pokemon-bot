@@ -731,8 +731,8 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, d
     frag_cost = config.CAMP_SHINY_COST.get(rarity, 12)
     user_frags = await cq.get_user_fragments(user_id)
 
-    from database import queries as _q
-    uni_frags = await _q.get_universal_fragments(user_id)
+    from database import item_queries as _iq
+    uni_frags = await _iq.get_universal_fragments(user_id)
 
     # 매칭 필드 중 조각이 충분한 것 찾기
     chosen_field = None

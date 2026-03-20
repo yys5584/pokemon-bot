@@ -6,7 +6,7 @@ import logging
 
 import config
 from database import battle_queries as bq
-
+from database import queries
 from database import title_queries
 from utils.battle_calc import calc_battle_stats, calc_power, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
 from utils.helpers import type_badge, icon_emoji, rarity_badge, shiny_emoji
