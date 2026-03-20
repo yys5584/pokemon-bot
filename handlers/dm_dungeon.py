@@ -943,7 +943,8 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
 
         hp_bar = _hp_bar(new_hp, run["max_hp"])
         hp_pct = int(new_hp / run["max_hp"] * 100) if run["max_hp"] else 0
-        buff_display = _format_buffs(buffs, lang)
+        SKILL = icon_emoji("skill")
+        buff_line = f"{SKILL} {t(lang, 'dungeon.buffs_count', count=len(buffs))}"
         # 이벤트 결과 표시
         event_result = ""
         if event:
@@ -954,7 +955,7 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             f"{t(lang, 'dungeon.floor_label', floor=run['floor_reached'])}\n"
             f"{hp_bar} {hp_pct}% ({new_hp}/{run['max_hp']})\n"
             f"{event_result}"
-            f"{buff_display}\n"
+            f"{buff_line}\n"
         )
         buttons = [
             [InlineKeyboardButton(t(lang, "dungeon.btn_next_floor"), callback_data=f"dg_go_{user_id}")],
@@ -970,11 +971,14 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             await query.answer(t(lang, "dungeon.no_active_run"), show_alert=True)
             return
 
-        new_hp = run["current_hp"]
+        max_hp = run["max_hp"]
+        heal = int(max_hp * config.DUNGEON_SKIP_HEAL)
+        new_hp = min(run["current_hp"] + heal, max_hp)
+        await dq.update_run_progress(run["id"], run["floor_reached"], new_hp, run.get("buffs_json", []))
         await query.answer("➡️ 지나갑니다!")
 
-        hp_bar = _hp_bar(new_hp, run["max_hp"])
-        hp_pct = int(new_hp / run["max_hp"] * 100) if run["max_hp"] else 0
+        hp_bar = _hp_bar(new_hp, max_hp)
+        hp_pct = int(new_hp / max_hp * 100) if max_hp else 0
         buffs = run.get("buffs_json", [])
 
         CASTLE = icon_emoji("container")
