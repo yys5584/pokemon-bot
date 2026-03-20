@@ -690,14 +690,14 @@ def normalize_round_time(now: datetime) -> datetime:
 # ═══════════════════════════════════════════════════════
 
 async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, dict | None]:
-    """이로치 전환 시도.
+    """이로치 전환 신청 (알 방식 — 시간 경과 후 완료).
 
     Args:
         instance_id: user_pokemon 테이블 PK
 
     Returns:
         (success, message, info_dict | None)
-        info_dict: {"pokemon_id", "name", "rarity"} on success
+        info_dict: {"pokemon_id", "name", "rarity", "duration_sec", "pending_id"} on success
     """
     # 포켓몬 정보
     pokemon = await queries.get_user_pokemon_by_id(instance_id)
@@ -707,23 +707,16 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, d
     if pokemon.get("is_shiny"):
         return False, "이미 이로치입니다.", None
 
+    # 이미 전환 대기 중인지 확인
+    existing = await cq.get_shiny_pending_for_pokemon(instance_id)
+    if existing:
+        return False, "이미 이로치 전환 대기 중입니다.", None
+
     pokemon_id = pokemon["pokemon_id"]
     rarity = pokemon.get("rarity") or _pokemon_rarity(pokemon_id)
     pname = _pokemon_name(pokemon_id)
 
-    # 1) 쿨타임 확인
-    cooldown_sec = config.CAMP_SHINY_COOLDOWN.get(rarity, 86400)
-    last_convert = await cq.get_shiny_cooldown(user_id)
-    if last_convert:
-        now = config.get_kst_now()
-        elapsed = (now - last_convert).total_seconds()
-        if elapsed < cooldown_sec:
-            remaining = cooldown_sec - elapsed
-            hours = int(remaining // 3600)
-            mins = int((remaining % 3600) // 60)
-            return False, f"전환 쿨타임 중입니다. ({hours}시간 {mins}분 남음)", None
-
-    # 2) 필드 귀속 조각 확인 (듀얼타입은 어느 필드든 가능)
+    # 1) 필드 귀속 조각 확인 (듀얼타입은 어느 필드든 가능)
     matching_fields = get_matching_fields(pokemon_id)
     if not matching_fields:
         return False, "이 포켓몬은 어떤 필드에도 맞지 않습니다.", None
@@ -759,17 +752,19 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, d
             msg += f"\n만능 조각 {uni_frags}개 포함해도 부족합니다. ({total_best}/{frag_cost})"
         return False, msg, None
 
-    # 3) 결정 확인
+    # 2) 결정 확인
     crystal_cost = config.CAMP_CRYSTAL_COST.get(rarity, 0)
     rainbow_cost = config.CAMP_RAINBOW_COST.get(rarity, 0)
 
-    # 3~6) 결정 + 조각 소모 + 이로치 전환을 트랜잭션으로 원자 처리
     if crystal_cost > 0 or rainbow_cost > 0:
         crystals = await cq.get_crystals(user_id)
         if crystals["crystal"] < crystal_cost:
             return False, f"결정이 부족합니다. ({crystals['crystal']}/{crystal_cost})", None
         if crystals["rainbow"] < rainbow_cost:
             return False, f"무지개 결정이 부족합니다. ({crystals['rainbow']}/{rainbow_cost})", None
+
+    # 3) 결정 + 조각 소모 + 대기 등록을 트랜잭션으로 원자 처리
+    duration_sec = config.CAMP_SHINY_COOLDOWN.get(rarity, 86400)
 
     from database.connection import get_db
     pool = await get_db()
@@ -811,29 +806,24 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, d
                     if not row:
                         return False, "만능 조각 소모에 실패했습니다.", None
 
-                # 이로치 전환
+                # 대기 등록 (즉시 전환하지 않음)
                 row = await conn.fetchrow(
-                    "UPDATE user_pokemon SET is_shiny = 1 WHERE id = $1 RETURNING id",
-                    instance_id,
+                    """INSERT INTO camp_shiny_pending
+                       (user_id, instance_id, pokemon_id, rarity, completes_at)
+                       VALUES ($1, $2, $3, $4, NOW() + make_interval(secs := $5))
+                       RETURNING id""",
+                    user_id, instance_id, pokemon_id, rarity, float(duration_sec),
                 )
-                if not row:
-                    return False, "전환에 실패했습니다.", None
-
-                # 쿨타임 기록
-                await conn.execute(
-                    """INSERT INTO camp_shiny_cooldown (user_id, last_convert_at)
-                       VALUES ($1, NOW())
-                       ON CONFLICT (user_id) DO UPDATE SET last_convert_at = NOW()""",
-                    user_id,
-                )
+                pending_id = row["id"]
     except Exception as e:
-        logger.error("이로치 전환 트랜잭션 실패: %s", e)
+        logger.error("이로치 전환 대기 등록 실패: %s", e)
         return False, "전환 처리 중 오류가 발생했습니다.", None
 
-    # 7) 로그
+    # 로그
     field_name = config.CAMP_FIELDS[chosen_field]["name"]
     await cq.log_fragment(user_id, 0, chosen_field, -frag_cost, "shiny_convert")
 
+    hours = duration_sec // 3600
     cost_parts = [f"{field_name}조각 {frag_cost}개"]
     if crystal_cost:
         cost_parts.append(f"결정 {crystal_cost}개")
@@ -841,8 +831,36 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, d
         cost_parts.append(f"무지개결정 {rainbow_cost}개")
     cost_str = " + ".join(cost_parts)
 
-    info = {"pokemon_id": pokemon_id, "name": pname, "rarity": rarity}
-    return True, f"{shiny_emoji()} {pname}(이/가) 이로치로 변했습니다! 🎉\n소모: {cost_str}", info
+    info = {"pokemon_id": pokemon_id, "name": pname, "rarity": rarity,
+            "duration_sec": duration_sec, "pending_id": pending_id}
+    return True, (
+        f"✨ <b>{pname}</b> 이로치 전환 시작!\n\n"
+        f"소모: {cost_str}\n"
+        f"⏰ {hours}시간 후 전환 완료\n\n"
+        f"전환이 완료되면 DM으로 알려드립니다!"
+    ), info
+
+
+async def process_shiny_pendings() -> list[dict]:
+    """완료 시각이 지난 pending 건들을 이로치로 전환.
+    Returns: [{"user_id", "pokemon_id", "rarity", "name"}] 완료된 건 목록.
+    """
+    ready = await cq.get_ready_shiny_pendings()
+    if not ready:
+        return []
+
+    completed = []
+    for p in ready:
+        ids = [p["id"]]
+        count = await cq.complete_shiny_pending(ids)
+        if count > 0:
+            completed.append({
+                "user_id": p["user_id"],
+                "pokemon_id": p["pokemon_id"],
+                "rarity": p["rarity"],
+                "name": _pokemon_name(p["pokemon_id"]),
+            })
+    return completed
 
 
 # ═══════════════════════════════════════════════════════
@@ -1088,17 +1106,9 @@ async def get_user_camp_summary(user_id: int) -> dict:
     fragments = await cq.get_user_fragments(user_id)
     crystals = await cq.get_crystals(user_id)
 
-    # 쿨타임
-    last_convert = await cq.get_shiny_cooldown(user_id)
-    cooldown_remaining = None
-    if last_convert:
-        now = config.get_kst_now()
-        # 가장 긴 쿨타임 기준으로 표시 (실제 전환 시 등급별 체크)
-        elapsed = (now - last_convert).total_seconds()
-        # 커먼 쿨타임(6h)으로 표시
-        min_cooldown = config.CAMP_SHINY_COOLDOWN["common"]
-        if elapsed < min_cooldown:
-            cooldown_remaining = min_cooldown - elapsed
+    # 대기 중인 이로치 전환
+    shiny_pendings = await cq.get_shiny_pending(user_id)
+    cooldown_remaining = None  # 레거시 호환
 
     return {
         "home_camp": home_camp,
@@ -1106,6 +1116,7 @@ async def get_user_camp_summary(user_id: int) -> dict:
         "fragments": fragments,
         "crystals": crystals,
         "cooldown_remaining": cooldown_remaining,
+        "shiny_pendings": shiny_pendings,
     }
 
 

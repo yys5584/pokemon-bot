@@ -27,11 +27,15 @@ _RARITY_FILTER_MAP = {
 }
 
 
-def _build_convert_eligible(pokemon_list: list, frags: dict, crystals: dict) -> list:
+def _build_convert_eligible(pokemon_list: list, frags: dict, crystals: dict,
+                            pending_ids: set | None = None) -> list:
     """이로치 전환 가능 포켓몬 목록 빌드."""
+    pending_ids = pending_ids or set()
     eligible = []
     for p in pokemon_list:
         if p.get("is_shiny"):
+            continue
+        if p["id"] in pending_ids:
             continue
         matching_fields = cs.get_matching_fields(p["pokemon_id"])
         if not matching_fields:
@@ -191,7 +195,9 @@ async def shiny_convert_handler(update, context):
     frags = await cq.get_user_fragments(user_id)
     crystals = await cq.get_crystals(user_id)
     pokemon_list = await queries.get_user_pokemon_list(user_id)
-    eligible = _build_convert_eligible(pokemon_list, frags, crystals)
+    pendings = await cq.get_shiny_pending(user_id)
+    pending_ids = {p["instance_id"] for p in pendings}
+    eligible = _build_convert_eligible(pokemon_list, frags, crystals, pending_ids)
 
     if not eligible:
         await update.message.reply_text(
@@ -261,7 +267,7 @@ async def _handle_conv(query, parts):
     text = (
         f"✨ {pokemon['name_ko']}을(를) 이로치로 전환하시겠습니까?\n\n"
         f"비용:\n" + "\n".join(f"  {c}" for c in cost_parts) + "\n\n"
-        f"⏰ 전환 후 쿨타임: {cooldown_h}시간\n"
+        f"⏰ 전환 소요 시간: {cooldown_h}시간\n"
         f"⚠️ 되돌릴 수 없습니다!"
     )
     markup = InlineKeyboardMarkup([
@@ -277,7 +283,7 @@ async def _handle_conv(query, parts):
 
 
 async def _handle_ok(query, parts, context):
-    """cdm_ok_{uid}_{instance_id} — 전환 실행."""
+    """cdm_ok_{uid}_{instance_id} — 전환 대기 등록."""
     uid = int(parts[2])
     instance_id = int(parts[3])
     if query.from_user.id != uid:
@@ -288,16 +294,8 @@ async def _handle_ok(query, parts, context):
     poke = await queries.get_user_pokemon_by_id(instance_id)
     poke_name_str = poke["name_ko"] if poke else "포켓몬"
 
-    # 연출 1: 심상치 않다
+    # 연출: 빛나기 시작
     await query.answer()
-    try:
-        await query.edit_message_text(
-            f"⚡ <b>{poke_name_str}</b>이(가) 심상치 않다..!", parse_mode="HTML")
-    except Exception:
-        pass
-    await asyncio.sleep(1.5)
-
-    # 연출 2: 빛나기 시작
     try:
         await query.edit_message_text(
             f"✨ <b>{poke_name_str}</b>이(가)... 빛나기 시작한다...!", parse_mode="HTML")
@@ -305,57 +303,19 @@ async def _handle_ok(query, parts, context):
         pass
     await asyncio.sleep(1.5)
 
-    # 실제 전환 실행
+    # 전환 대기 등록
     success, msg, info = await cs.convert_to_shiny(uid, instance_id)
 
     if success and info:
-        # 이로치 카드 이미지 생성 후 전송
-        try:
-            loop = asyncio.get_event_loop()
-            card_buf = await loop.run_in_executor(
-                None, generate_card,
-                info["pokemon_id"], info["name"], info["rarity"], "", True
-            )
-            # 기존 텍스트 메시지 삭제하고 이미지로 교체
-            try:
-                await query.message.delete()
-            except Exception:
-                pass
-            await context.bot.send_photo(
-                chat_id=query.message.chat_id,
-                photo=card_buf,
-                caption=msg,
-                parse_mode="HTML",
-            )
-        except Exception:
-            # 이미지 실패 시 텍스트만
-            try:
-                await query.edit_message_text(msg, parse_mode="HTML")
-            except Exception:
-                pass
-    else:
+        hours = info.get("duration_sec", 0) // 3600
+        # 대기 시작 메시지
         try:
             await query.edit_message_text(msg, parse_mode="HTML")
         except Exception:
             pass
-
-    # 성공 시 거점캠프 채팅방에 축하 공지
-    if success and info:
+    else:
         try:
-            settings = await cq.get_user_camp_settings(uid)
-            if settings and settings.get("home_chat_id"):
-                user = await queries.get_user(uid)
-                uname = (user.get("display_name") if user else None) or "트레이너"
-                announce = (
-                    f"{shiny_emoji()} <b>이로치 전환 성공!</b>\n\n"
-                    f"{uname}님이 캠프에서 {rarity_badge(info['rarity'])}"
-                    f"{info['name']}을(를) 이로치로 전환했습니다! 🎉"
-                )
-                await context.bot.send_message(
-                    chat_id=settings["home_chat_id"],
-                    text=announce,
-                    parse_mode="HTML",
-                )
+            await query.edit_message_text(msg, parse_mode="HTML")
         except Exception:
             pass
 
@@ -426,7 +386,9 @@ async def _handle_convpg(query, parts):
     frags = await cq.get_user_fragments(uid)
     crystals_data = await cq.get_crystals(uid)
     pokemon_list = await queries.get_user_pokemon_list(uid)
-    eligible = _build_convert_eligible(pokemon_list, frags, crystals_data)
+    pendings = await cq.get_shiny_pending(uid)
+    pending_ids = {p["instance_id"] for p in pendings}
+    eligible = _build_convert_eligible(pokemon_list, frags, crystals_data, pending_ids)
     text, markup = _build_convert_page(eligible, uid, frags, crystals_data, page, rarity_filter)
     try:
         await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
@@ -445,7 +407,9 @@ async def _handle_cf(query, parts):
     frags = await cq.get_user_fragments(uid)
     crystals_data = await cq.get_crystals(uid)
     pokemon_list = await queries.get_user_pokemon_list(uid)
-    eligible = _build_convert_eligible(pokemon_list, frags, crystals_data)
+    pendings = await cq.get_shiny_pending(uid)
+    pending_ids = {p["instance_id"] for p in pendings}
+    eligible = _build_convert_eligible(pokemon_list, frags, crystals_data, pending_ids)
     text, markup = _build_convert_page(eligible, uid, frags, crystals_data, 0, rarity_filter)
     try:
         await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
@@ -482,7 +446,9 @@ async def _handle_hub_convert(query, parts):
     frags = await cq.get_user_fragments(uid)
     crystals_data = await cq.get_crystals(uid)
     pokemon_list = await queries.get_user_pokemon_list(uid)
-    eligible = _build_convert_eligible(pokemon_list, frags, crystals_data)
+    pendings = await cq.get_shiny_pending(uid)
+    pending_ids = {p["instance_id"] for p in pendings}
+    eligible = _build_convert_eligible(pokemon_list, frags, crystals_data, pending_ids)
 
     if not eligible:
         try:

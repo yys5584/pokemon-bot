@@ -74,11 +74,23 @@ async def my_camp_handler(update, context):
         if crystals["rainbow"] > 0:
             lines.append(f"🌈 무지개 결정: {crystals['rainbow']}개")
 
-    # 쿨타임
-    if summary["cooldown_remaining"]:
-        hours = int(summary["cooldown_remaining"] // 3600)
-        mins = int((summary["cooldown_remaining"] % 3600) // 60)
-        lines.append(f"\n⏰ 전환 쿨타임: {hours}시간 {mins}분 남음")
+    # 전환 대기 중
+    pendings = summary.get("shiny_pendings", [])
+    if pendings:
+        lines.append(f"\n✨ 전환 대기 중 ({len(pendings)}건)")
+        import config as _cfg
+        now = _cfg.get_kst_now()
+        for p in pendings[:3]:
+            pname = _pokemon_name(p["pokemon_id"])
+            remaining = (p["completes_at"] - now).total_seconds()
+            if remaining <= 0:
+                lines.append(f"  • {pname} — 곧 완료!")
+            else:
+                h = int(remaining // 3600)
+                m = int((remaining % 3600) // 60)
+                lines.append(f"  • {pname} — {h}시간 {m}분 남음")
+        if len(pendings) > 3:
+            lines.append(f"  ... 외 {len(pendings) - 3}건")
 
     lines.append("\n")
 
@@ -259,10 +271,20 @@ async def _handle_hub_mycamp(query, parts, context):
         if crystals["rainbow"] > 0:
             lines.append(f"🌈 무지개 결정: {crystals['rainbow']}개")
 
-    if summary["cooldown_remaining"]:
-        hours = int(summary["cooldown_remaining"] // 3600)
-        mins = int((summary["cooldown_remaining"] % 3600) // 60)
-        lines.append(f"\n⏰ 전환 쿨타임: {hours}시간 {mins}분 남음")
+    pendings = summary.get("shiny_pendings", [])
+    if pendings:
+        import config as _cfg
+        now = _cfg.get_kst_now()
+        lines.append(f"\n✨ 전환 대기 중 ({len(pendings)}건)")
+        for p in pendings[:3]:
+            pname = _pokemon_name(p["pokemon_id"])
+            remaining = (p["completes_at"] - now).total_seconds()
+            if remaining <= 0:
+                lines.append(f"  • {pname} — 곧 완료!")
+            else:
+                h = int(remaining // 3600)
+                m = int((remaining % 3600) // 60)
+                lines.append(f"  • {pname} — {h}시간 {m}분 남음")
 
     placements = summary["placements"]
     lines.append("\n")

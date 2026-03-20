@@ -192,4 +192,42 @@ def register_all_jobs(app):
         name="egg_hatch_check",
     )
 
+    # --- 이로치 전환 완료 체크 (10분마다) ---
+    async def _shiny_pending_job(context):
+        try:
+            from services.camp_service import process_shiny_pendings
+            from utils.helpers import rarity_badge, shiny_emoji
+            from utils.card_generator import generate_card
+            completed = await process_shiny_pendings()
+            for c in completed:
+                try:
+                    # 이로치 카드 이미지 생성
+                    import asyncio
+                    loop = asyncio.get_event_loop()
+                    card_buf = await loop.run_in_executor(
+                        None, generate_card,
+                        c["pokemon_id"], c["name"], c["rarity"], "", True
+                    )
+                    await context.bot.send_photo(
+                        chat_id=c["user_id"],
+                        photo=card_buf,
+                        caption=(
+                            f"{shiny_emoji()} <b>이로치 전환 완료!</b>\n\n"
+                            f"{rarity_badge(c['rarity'])} <b>{c['name']}</b>이(가) "
+                            f"이로치로 변했습니다! 🎉"
+                        ),
+                        parse_mode="HTML",
+                    )
+                except Exception as e:
+                    logger.error(f"Shiny pending DM failed for {c['user_id']}: {e}")
+        except Exception as e:
+            logger.error(f"Shiny pending job failed: {e}")
+
+    jq.run_repeating(
+        _shiny_pending_job,
+        interval=600,  # 10분마다
+        first=120,
+        name="shiny_pending_check",
+    )
+
     logger.info("All scheduled jobs registered.")

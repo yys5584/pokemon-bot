@@ -467,7 +467,7 @@ async def consume_crystals(user_id: int, crystal_cost: int = 0, rainbow_cost: in
 
 
 # ═══════════════════════════════════════════════════════
-# Shiny Cooldown
+# Shiny Cooldown (레거시 — 하위호환)
 # ═══════════════════════════════════════════════════════
 
 async def get_shiny_cooldown(user_id: int):
@@ -490,6 +490,91 @@ async def set_shiny_cooldown(user_id: int):
            DO UPDATE SET last_convert_at = NOW()""",
         user_id,
     )
+
+
+# ═══════════════════════════════════════════════════════
+# Shiny Pending (알 방식 — 시간 경과 후 전환)
+# ═══════════════════════════════════════════════════════
+
+async def create_shiny_pending(user_id: int, instance_id: int, pokemon_id: int,
+                                rarity: str, duration_sec: int) -> int:
+    """이로치 전환 대기 등록. Returns pending id."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """INSERT INTO camp_shiny_pending (user_id, instance_id, pokemon_id, rarity, completes_at)
+           VALUES ($1, $2, $3, $4, NOW() + make_interval(secs := $5))
+           RETURNING id""",
+        user_id, instance_id, pokemon_id, rarity, float(duration_sec),
+    )
+    return row["id"]
+
+
+async def get_shiny_pending(user_id: int) -> list:
+    """유저의 대기 중인 이로치 전환 목록."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT id, instance_id, pokemon_id, rarity, started_at, completes_at, completed
+           FROM camp_shiny_pending
+           WHERE user_id = $1 AND NOT completed
+           ORDER BY completes_at""",
+        user_id,
+    )
+    return [dict(r) for r in rows]
+
+
+async def get_shiny_pending_for_pokemon(instance_id: int) -> dict | None:
+    """특정 포켓몬의 대기 중인 전환."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT * FROM camp_shiny_pending WHERE instance_id = $1 AND NOT completed",
+        instance_id,
+    )
+    return dict(row) if row else None
+
+
+async def complete_shiny_pending(pending_ids: list[int]) -> int:
+    """완료 시각이 지난 pending 건들을 이로치로 전환. Returns 전환된 수."""
+    if not pending_ids:
+        return 0
+    pool = await get_db()
+    count = 0
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            for pid in pending_ids:
+                row = await conn.fetchrow(
+                    """UPDATE camp_shiny_pending SET completed = TRUE
+                       WHERE id = $1 AND NOT completed
+                       RETURNING instance_id""",
+                    pid,
+                )
+                if row:
+                    await conn.execute(
+                        "UPDATE user_pokemon SET is_shiny = 1 WHERE id = $1",
+                        row["instance_id"],
+                    )
+                    count += 1
+    return count
+
+
+async def get_ready_shiny_pendings() -> list:
+    """완료 시각이 지난 모든 pending 건."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT id, user_id, instance_id, pokemon_id, rarity
+           FROM camp_shiny_pending
+           WHERE NOT completed AND completes_at <= NOW()""",
+    )
+    return [dict(r) for r in rows]
+
+
+async def cancel_shiny_pending(pending_id: int) -> bool:
+    """이로치 전환 대기 취소 (조각 환불은 호출자 책임)."""
+    pool = await get_db()
+    result = await pool.execute(
+        "DELETE FROM camp_shiny_pending WHERE id = $1 AND NOT completed",
+        pending_id,
+    )
+    return "DELETE 1" in result
 
 
 # ═══════════════════════════════════════════════════════

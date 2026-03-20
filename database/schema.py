@@ -1343,6 +1343,27 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── 이로치 전환 대기 시스템 (2026-03-21) ──
+    shiny_pending_migs = [
+        """CREATE TABLE IF NOT EXISTS camp_shiny_pending (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            instance_id BIGINT NOT NULL,
+            pokemon_id INTEGER NOT NULL,
+            rarity TEXT NOT NULL,
+            started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            completes_at TIMESTAMPTZ NOT NULL,
+            completed BOOLEAN NOT NULL DEFAULT FALSE
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_shiny_pending_user ON camp_shiny_pending (user_id, completed)",
+        "CREATE INDEX IF NOT EXISTS idx_shiny_pending_complete ON camp_shiny_pending (completes_at) WHERE NOT completed",
+    ]
+    for mig in shiny_pending_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
     # ── IV 스톤 & 만능 조각 (2026-03-18) ──
     iv_uni_migs = [
         "ALTER TABLE users ADD COLUMN iv_stones INTEGER NOT NULL DEFAULT 0",

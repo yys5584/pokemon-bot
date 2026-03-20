@@ -303,6 +303,13 @@ async def is_pokemon_locked(instance_id: int) -> tuple[bool, str]:
     )
     if camp_row:
         return True, "🏕 이 포켓몬은 캠프에 배치되어 있습니다. 배치 해제 후 시도하세요."
+    # 이로치 전환 대기 체크
+    shiny_row = await pool.fetchval(
+        "SELECT 1 FROM camp_shiny_pending WHERE instance_id = $1 AND NOT completed LIMIT 1",
+        instance_id,
+    )
+    if shiny_row:
+        return True, "✨ 이 포켓몬은 이로치 전환 대기 중입니다."
     return False, ""
 
 
