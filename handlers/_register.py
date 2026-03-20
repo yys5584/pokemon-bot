@@ -33,15 +33,23 @@ from handlers.dm_pokedex import (
 )
 from handlers.battle import (
     partner_handler, partner_callback_handler,
-    team_handler, team_register_handler, team_clear_handler, team_select_handler,
-    team_swap_handler, team_edit_menu_handler, team_callback_handler,
-    battle_stats_handler, bp_handler, bp_shop_handler, bp_buy_handler, shop_callback_handler,
     battle_challenge_handler, battle_callback_handler, battle_result_callback_handler,
     battle_ranking_handler, battle_accept_text_handler, battle_decline_text_handler,
+)
+from handlers.battle_team import (
+    team_handler, team_register_handler, team_clear_handler, team_select_handler,
+    team_swap_handler, team_edit_menu_handler, team_callback_handler,
+)
+from handlers.battle_shop import (
+    battle_stats_handler, bp_handler, bp_shop_handler, bp_buy_handler, shop_callback_handler,
     tier_handler,
+)
+from handlers.battle_ranked import (
     ranked_callback_handler,
     season_info_handler, ranked_ranking_handler,
     auto_ranked_handler,
+)
+from handlers.battle_yacha import (
     yacha_handler, yacha_type_callback, yacha_amount_callback,
     yacha_response_callback, yacha_result_callback,
 )
