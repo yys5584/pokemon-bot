@@ -26,8 +26,10 @@ from handlers.group import (
     shiny_ticket_spawn_handler, group_lang_handler,
 )
 from handlers.dm_pokedex import (
-    pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback,
+    pokedex_handler, pokedex_callback,
 )
+from handlers.dm_mypokemon import my_pokemon_handler
+from handlers.dm_mypokemon_actions import my_pokemon_callback
 from handlers.dm_title import (
     title_handler, title_callback, title_list_handler, title_list_callback,
     title_page_callback,
