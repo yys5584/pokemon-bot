@@ -27,8 +27,13 @@ from handlers.group import (
 )
 from handlers.dm_pokedex import (
     pokedex_handler, pokedex_callback, my_pokemon_handler, my_pokemon_callback,
+)
+from handlers.dm_title import (
     title_handler, title_callback, title_list_handler, title_list_callback,
-    title_page_callback, status_handler, status_inline_callback,
+    title_page_callback,
+)
+from handlers.dm_status import (
+    status_handler, status_inline_callback,
     appraisal_handler, type_chart_handler,
 )
 from handlers.battle import (
