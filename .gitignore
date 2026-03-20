@@ -11,3 +11,12 @@ venv/
 oracle_vm
 oracle_vm.pub
 nul
+
+# 테스트/샘플 이미지 (로컬 생성물)
+test_*.jpg
+test_*.gif
+test_*.png
+sample_*.jpg
+tier_analysis.txt
+.coverage
+*.launch.json
