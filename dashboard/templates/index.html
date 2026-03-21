@@ -1068,9 +1068,9 @@
                     </div>
                     <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
                         <label style="font-size:12px;font-weight:600;color:var(--muted);cursor:pointer">
-                            <input id="csPublic" type="checkbox" checked style="margin-right:4px">공개 문의
+                            <input id="csPrivate" type="checkbox" style="margin-right:4px">비공개 문의
                         </label>
-                        <span style="font-size:11px;color:var(--muted)">(비공개 시 관리자만 확인 가능)</span>
+                        <span style="font-size:11px;color:var(--muted)">(체크 시 관리자만 확인 가능)</span>
                     </div>
                     <div style="margin-bottom:12px">
                         <label style="font-size:12px;font-weight:600;color:var(--muted)">첨부 이미지 (선택, 5MB 이하)</label>
@@ -7361,7 +7361,7 @@ async function csSubmit(){
     fd.append("category",cat);
     fd.append("title",title);
     fd.append("content",content);
-    fd.append("is_public",document.getElementById("csPublic").checked?"true":"false");
+    fd.append("is_public",document.getElementById("csPrivate").checked?"false":"true");
     const imgInput=document.getElementById("csImage");
     if(imgInput.files.length>0)fd.append("image",imgInput.files[0]);
     const r=await fetch("/api/cs/inquiries",{method:"POST",body:fd});
