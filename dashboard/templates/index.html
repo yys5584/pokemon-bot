@@ -537,6 +537,9 @@
         .skill-tip-divider{border-top:1px solid #333;margin:5px 0}
         .skill-tip-desc{font-size:10px;color:#aaa;margin-top:4px;line-height:1.5}
         .guide-card code{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid var(--border)}
+        #csTable{table-layout:fixed}
+        #csTable td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        #csTable th:nth-child(1){width:30px}#csTable th:nth-child(2){width:55px}#csTable th:nth-child(5){width:50px}#csTable th:nth-child(6){width:55px}
         .cs-filter{padding:6px 14px;border:1px solid var(--border);border-radius:16px;background:var(--card);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
         .cs-filter:hover{background:var(--border)}
         .cs-filter.active{background:#58a6ff;color:#fff;border-color:#58a6ff}
@@ -775,7 +778,7 @@
         <div class="nav-tab" data-page="mypokemon"><img src="/static/icons/container.png" style="width:16px;height:16px;vertical-align:middle;margin-right:2px"> 내 푸키몬</div>
         <div class="nav-tab" data-page="pokedex">📖 도감</div>
         <div class="nav-tab" data-page="simulator"><img src="/static/icons/computer.png" style="width:16px;height:16px;vertical-align:middle;margin-right:2px"> AI 어드바이저 <span style="font-size:9px;font-weight:700;color:#fff;background:#1976D2;border-radius:4px;padding:1px 4px;vertical-align:middle">BETA</span></div>
-        <div class="nav-tab" data-page="cs" id="csTab" style="display:none">📩 문의</div>
+        <div class="nav-tab" data-page="cs">📩 문의</div>
         <div class="nav-tab" data-page="admin" id="adminTab" style="display:none">🔧 관리</div>
     </div>
     <div class="container">
@@ -992,8 +995,14 @@
                     <h2 style="font-size:16px;margin:0">📩 CS 문의</h2>
                     <button id="csWriteBtn" onclick="csShowWrite()" style="padding:8px 16px;background:#58a6ff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✏️ 문의하기</button>
                 </div>
+                <!-- View Tabs -->
+                <div style="display:flex;gap:6px;margin-bottom:8px">
+                    <button class="cs-filter active" data-view="public" onclick="csViewTab(this)">🌐 공개 문의</button>
+                    <button class="cs-filter" data-view="mine" id="csMineTab" style="display:none" onclick="csViewTab(this)">📋 내 문의</button>
+                    <button class="cs-filter" data-view="admin" id="csAdminTab" style="display:none" onclick="csViewTab(this)">🔧 전체 관리</button>
+                </div>
                 <!-- Status Filter -->
-                <div id="csFilterBar" style="display:none;margin-bottom:12px;display:flex;gap:6px">
+                <div id="csFilterBar" style="margin-bottom:12px;display:flex;gap:6px">
                     <button class="cs-filter active" data-status="" onclick="csFilter(this)">전체</button>
                     <button class="cs-filter" data-status="open" onclick="csFilter(this)">대기중</button>
                     <button class="cs-filter" data-status="in_progress" onclick="csFilter(this)">처리중</button>
@@ -1008,6 +1017,7 @@
                                 <th style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600;width:70px">분류</th>
                                 <th style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600">제목</th>
                                 <th class="hide-m" style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600;width:80px">작성자</th>
+                                <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:35px">👍</th>
                                 <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:60px">상태</th>
                                 <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:60px">날짜</th>
                             </tr>
@@ -1034,6 +1044,16 @@
                     <div style="margin-bottom:12px">
                         <label style="font-size:12px;font-weight:600;color:var(--muted)">내용</label>
                         <textarea id="csContent" rows="6" maxlength="2000" placeholder="문의 내용을 상세히 적어주세요" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);margin-top:4px;resize:vertical;box-sizing:border-box"></textarea>
+                    </div>
+                    <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+                        <label style="font-size:12px;font-weight:600;color:var(--muted);cursor:pointer">
+                            <input id="csPublic" type="checkbox" checked style="margin-right:4px">공개 문의
+                        </label>
+                        <span style="font-size:11px;color:var(--muted)">(비공개 시 관리자만 확인 가능)</span>
+                    </div>
+                    <div style="margin-bottom:12px">
+                        <label style="font-size:12px;font-weight:600;color:var(--muted)">첨부 이미지 (선택, 5MB 이하)</label>
+                        <input id="csImage" type="file" accept="image/jpeg,image/png,image/gif,image/webp" style="width:100%;padding:6px;margin-top:4px;font-size:12px">
                     </div>
                     <div style="display:flex;gap:8px">
                         <button onclick="csSubmit()" style="padding:10px 24px;background:#58a6ff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">제출</button>
@@ -3648,11 +3668,9 @@ function updateAuthUI(){
         area.innerHTML=`<div class="user-info">${photo}<span class="user-name">${escHtml(_authUser.display_name)}</span><span id="quotaBadge" style="background:rgba(255,255,255,.15);color:#FFD54F;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap">🎫 --</span><button class="logout-btn" onclick="telegramLogout()">로그아웃</button></div>`;
         fetchQuota();
         if(admTab)admTab.style.display=_authUser.is_admin?"":"none";
-        const csT=document.getElementById("csTab");if(csT)csT.style.display="";
     }else{
         area.innerHTML=`<button class="connect-btn" onclick="telegramConnect()"><svg viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>Connect</button>`;
         if(admTab)admTab.style.display="none";
-        const csT2=document.getElementById("csTab");if(csT2)csT2.style.display="none";
     }
 }
 async function fetchQuota(){
@@ -3788,7 +3806,7 @@ async function loadPage(page){
         else if(page==="camp") await loadCamp()
         else if(page==="market") await loadMarket()
         else if(page==="board"){if(!_boardLoaded)boardLoadList()}
-        else if(page==="cs"){if(_authUser)await csLoadList()}
+        else if(page==="cs"){await csLoadList()}
         else if(page==="admin"){if(_authUser&&_authUser.is_admin)await loadAdmin()}
     }catch(e){console.error("Load error:",e)}
     document.getElementById("lastUpdate").textContent="업데이트: "+new Date().toLocaleTimeString("ko-KR");
@@ -7214,28 +7232,43 @@ function _escHtml(s) {
 })();
 
 // ─── CS 문의 시스템 ───
-let _csPage=1,_csStatus="",_csIsAdmin=false;
+let _csPage=1,_csStatus="",_csView="public",_csIsAdmin=false;
 const STATUS_COLORS={open:"#f0ad4e",in_progress:"#5bc0de",resolved:"#5cb85c",closed:"#999"};
 const CAT_ICONS={bug:"🐛",suggestion:"💡",premium:"💎",other:"📋"};
 
+function csViewTab(el){
+    document.querySelectorAll("[data-view]").forEach(b=>b.classList.remove("active"));
+    el.classList.add("active");
+    _csView=el.dataset.view;
+    _csPage=1;
+    loaded["cs"]=false;
+    csLoadList(1);
+}
+
 async function csLoadList(page){
     _csPage=page||1;
-    const qs=`page=${_csPage}`+(_csStatus?`&status=${_csStatus}`:"");
+    const qs=`page=${_csPage}&view=${_csView}`+(_csStatus?`&status=${_csStatus}`:"");
     const r=await fetch(`/api/cs/inquiries?${qs}`);
     const d=await r.json();
     _csIsAdmin=d.is_admin;
-    const filterBar=document.getElementById("csFilterBar");
-    if(filterBar)filterBar.style.display=d.is_admin?"flex":"none";
+    // show mine/admin tabs if logged in
+    const mineTab=document.getElementById("csMineTab");
+    const admTab2=document.getElementById("csAdminTab");
+    if(mineTab)mineTab.style.display=d.logged_in?"":"none";
+    if(admTab2)admTab2.style.display=d.is_admin?"":"none";
     const tb=document.getElementById("csTableBody");
-    if(!d.items.length){tb.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted)">문의 내역이 없습니다.</td></tr>`;document.getElementById("csPaging").innerHTML="";return}
+    if(!d.items.length){tb.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">문의 내역이 없습니다.</td></tr>`;document.getElementById("csPaging").innerHTML="";return}
     tb.innerHTML=d.items.map(i=>{
         const icon=CAT_ICONS[i.category]||"📋";
         const sc=STATUS_COLORS[i.status]||"#999";
+        const lock=i.is_public===false?"🔒 ":"";
+        const likes=i.like_count||0;
         return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="csOpenDetail(${i.id})">
             <td style="text-align:center;padding:8px 6px;color:var(--muted)">${i.id}</td>
             <td style="padding:8px 6px">${icon} ${escHtml(i.category_label)}</td>
-            <td style="padding:8px 6px">${escHtml(i.title)}</td>
+            <td style="padding:8px 6px">${lock}${escHtml(i.title)}</td>
             <td class="hide-m" style="padding:8px 6px;color:var(--muted)">${escHtml(i.display_name||"")}</td>
+            <td style="text-align:center;padding:8px 6px;color:var(--muted);font-size:11px">${likes>0?`👍${likes}`:""}</td>
             <td style="text-align:center;padding:8px 6px"><span style="background:${sc};color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${escHtml(i.status_label)}</span></td>
             <td style="text-align:center;padding:8px 6px;color:var(--muted);font-size:11px">${escHtml(i.time_ago)}</td>
         </tr>`}).join("");
@@ -7263,6 +7296,7 @@ function csShowWrite(){
     document.getElementById("csWriteView").style.display="block";
     document.getElementById("csTitle").value="";
     document.getElementById("csContent").value="";
+    document.getElementById("csImage").value="";
 }
 function csShowList(){
     document.getElementById("csWriteView").style.display="none";
@@ -7277,7 +7311,14 @@ async function csSubmit(){
     const title=document.getElementById("csTitle").value.trim();
     const content=document.getElementById("csContent").value.trim();
     if(!title||!content){alert("제목과 내용을 입력해주세요.");return}
-    const r=await fetch("/api/cs/inquiries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({category:cat,title,content})});
+    const fd=new FormData();
+    fd.append("category",cat);
+    fd.append("title",title);
+    fd.append("content",content);
+    fd.append("is_public",document.getElementById("csPublic").checked?"true":"false");
+    const imgInput=document.getElementById("csImage");
+    if(imgInput.files.length>0)fd.append("image",imgInput.files[0]);
+    const r=await fetch("/api/cs/inquiries",{method:"POST",body:fd});
     const d=await r.json();
     if(d.ok){alert(`문의 #${d.id} 접수 완료!`);csShowList()}
     else{alert(d.error||"오류 발생")}
@@ -7301,7 +7342,11 @@ async function csOpenDetail(id){
             </div>
             <h3 style="margin:0 0 12px;font-size:15px">${escHtml(d.title)}</h3>
             <div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${escHtml(d.content)}</div>
-            <div style="margin-top:8px;font-size:11px;color:var(--muted)">작성자: ${escHtml(d.display_name||"")}</div>
+            ${d.image_filename?`<div style="margin-top:12px"><img src="/uploads/cs/${d.image_filename}" style="max-width:100%;border-radius:8px;border:1px solid var(--border)" alt="첨부 이미지"></div>`:""}
+            <div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between">
+                <div style="font-size:11px;color:var(--muted)">작성자: ${escHtml(d.display_name||"")}${d.is_public===false?" · 🔒 비공개":""}</div>
+                <button id="csLikeBtn" onclick="csToggleLike(${d.id})" style="padding:6px 14px;border:1px solid var(--border);border-radius:16px;background:${d.has_liked?"#58a6ff22":"var(--card)"};color:${d.has_liked?"#58a6ff":"var(--text)"};font-size:12px;cursor:pointer;font-weight:600">👍 ${d.like_count||0}</button>
+            </div>
         </div>`;
 
     if(d.admin_reply){
@@ -7319,6 +7364,14 @@ async function csOpenDetail(id){
         replyDiv.dataset.id=d.id;
         document.getElementById("csReplyText").value=d.admin_reply||"";
     }else{replyDiv.style.display="none"}
+}
+
+async function csToggleLike(id){
+    const r=await fetch(`/api/cs/inquiries/${id}/like`,{method:"POST"});
+    const d=await r.json();
+    if(d.error){alert(d.error);return}
+    const btn=document.getElementById("csLikeBtn");
+    if(btn){btn.textContent=`👍 ${d.like_count}`;btn.style.background=d.liked?"#58a6ff22":"var(--card)";btn.style.color=d.liked?"#58a6ff":"var(--text)"}
 }
 
 async function csReplySubmit(){

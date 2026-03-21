@@ -1402,6 +1402,14 @@ async def create_tables():
             replied_at TIMESTAMPTZ,
             created_at TIMESTAMPTZ DEFAULT NOW()
         )""",
+        "ALTER TABLE cs_inquiries ADD COLUMN IF NOT EXISTS image_filename TEXT",
+        "ALTER TABLE cs_inquiries ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE cs_inquiries ADD COLUMN IF NOT EXISTS like_count INTEGER NOT NULL DEFAULT 0",
+        """CREATE TABLE IF NOT EXISTS cs_likes (
+            user_id BIGINT NOT NULL,
+            inquiry_id INTEGER NOT NULL REFERENCES cs_inquiries(id),
+            PRIMARY KEY (user_id, inquiry_id)
+        )""",
         "CREATE INDEX IF NOT EXISTS idx_cs_inquiries_user ON cs_inquiries(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_cs_inquiries_status ON cs_inquiries(status)",
     ]

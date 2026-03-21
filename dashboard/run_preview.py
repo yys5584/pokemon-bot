@@ -1062,6 +1062,47 @@ async def mock_market_cancel(request):
     return web.json_response({"ok": True, "message": "거래소 등록 취소!"})
 
 
+# ── CS Mock ──
+_mock_cs_data = [
+    {"id": 3, "user_id": 7437353379, "display_name": "Jun", "category": "bug", "category_label": "버그신고",
+     "title": "이로치 전환 후 쿨타임 초기화", "content": "아르세우스 전환 후 다시 눌러보니 시간이 초기화되어 있었습니다.",
+     "status": "resolved", "status_label": "완료", "admin_reply": "확인 후 수정 완료했습니다. 다시 시도해주세요.",
+     "replied_at": "2026-03-21T06:30:00Z", "created_at": "2026-03-20T14:00:00Z", "time_ago": "1일 전", "image_filename": None,
+     "is_public": True, "like_count": 5, "has_liked": True},
+    {"id": 2, "user_id": 2104756708, "display_name": "Fachenko", "category": "bug", "category_label": "버그신고",
+     "title": "버섯모 이로치 전환 실패", "content": "빛나기 시작한다 애니메이션은 나왔는데 실제로 이로치가 안 됐습니다. 조각은 소모됨.",
+     "status": "resolved", "status_label": "완료", "admin_reply": "수동으로 이로치 전환 처리했습니다.",
+     "replied_at": "2026-03-21T06:35:00Z", "created_at": "2026-03-20T19:40:00Z", "time_ago": "20시간 전", "image_filename": None,
+     "is_public": True, "like_count": 2, "has_liked": False},
+    {"id": 1, "user_id": 5151475366, "display_name": "테스터", "category": "suggestion", "category_label": "개선제안",
+     "title": "전환 시간 확인 기능 요청", "content": "이로치 전환 대기 중일 때 남은 시간을 쉽게 확인할 수 있는 기능이 있으면 좋겠습니다.",
+     "status": "open", "status_label": "대기중", "admin_reply": None,
+     "replied_at": None, "created_at": "2026-03-21T05:00:00Z", "time_ago": "7시간 전", "image_filename": None,
+     "is_public": True, "like_count": 12, "has_liked": False},
+]
+
+async def mock_cs_list(request):
+    status = request.query.get("status", "")
+    items = _mock_cs_data if not status else [i for i in _mock_cs_data if i["status"] == status]
+    return web.json_response({"items": items, "total": len(items), "page": 1, "pages": 1, "is_admin": True, "logged_in": True})
+
+async def mock_cs_stats(request):
+    return web.json_response({"count": 1})
+
+async def mock_cs_detail(request):
+    iid = int(request.match_info["id"])
+    for i in _mock_cs_data:
+        if i["id"] == iid:
+            return web.json_response({**i, "is_admin": True})
+    return web.json_response({"error": "not_found"}, status=404)
+
+async def mock_cs_create(request):
+    return web.json_response({"id": len(_mock_cs_data) + 1, "ok": True})
+
+async def mock_cs_update(request):
+    return web.json_response({"ok": True})
+
+
 def create_preview_app():
     app = web.Application()
     app.router.add_get("/", index)
@@ -1135,10 +1176,17 @@ def create_preview_app():
     app.router.add_post("/api/market/sell", mock_market_sell)
     app.router.add_post("/api/market/buy", mock_market_buy)
     app.router.add_post("/api/market/cancel", mock_market_cancel)
+    # CS (mock)
+    app.router.add_get("/api/cs/inquiries", mock_cs_list)
+    app.router.add_get("/api/cs/inquiries/stats", mock_cs_stats)
+    app.router.add_get("/api/cs/inquiries/{id}", mock_cs_detail)
+    app.router.add_post("/api/cs/inquiries", mock_cs_create)
+    app.router.add_put("/api/cs/inquiries/{id}", mock_cs_update)
+    app.router.add_post("/api/cs/inquiries/{id}/like", lambda r: web.json_response({"liked": True, "like_count": 6}))
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all
-    for p in ["/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin", "/market"]:
+    for p in ["/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin", "/market", "/cs"]:
         app.router.add_get(p, index)
     # Board deep-link sub-routes
     app.router.add_get("/board/post/{id}", index)
