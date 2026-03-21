@@ -112,6 +112,13 @@ async def post_init(application: Application):
         logger.warning(f"Phase 3 cleanup skipped ({e.__class__.__name__})")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Cleanup done")
 
+    # 포획 잠금 DB 복원
+    try:
+        from services.abuse_service import load_locks_from_db
+        await load_locks_from_db()
+    except Exception as e:
+        logger.warning(f"Load catch locks failed: {e}")
+
     # 봇 시작 후 5초 뒤 미해결 세션 resolve (HTTP 초기화 보장)
     async def _delayed_resolve(context):
         from services.spawn_service import resolve_unresolved_sessions

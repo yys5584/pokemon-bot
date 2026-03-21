@@ -47,29 +47,75 @@ _catch_locks: dict[int, dict] = {}
 
 
 # ─── 포획 잠금 ────────────────────────────────────
+# DB 캐시: {user_id: locked_until_timestamp}
+_db_lock_cache: dict[int, float] = {}
+
 def is_catch_locked(user_id: int) -> tuple[bool, int]:
-    """포획 잠금 여부 확인. 반환: (잠김 여부, 남은 초)."""
+    """포획 잠금 여부 확인 (메모리 + DB). 반환: (잠김 여부, 남은 초)."""
+    # 메모리 체크
     lock = _catch_locks.get(user_id)
-    if not lock:
-        return False, 0
-    remaining = int(lock["locked_until"] - time.time())
-    if remaining <= 0:
+    if lock:
+        remaining = int(lock["locked_until"] - time.time())
+        if remaining > 0:
+            return True, remaining
         _catch_locks.pop(user_id, None)
-        return False, 0
-    return True, remaining
+    # DB 캐시 체크
+    db_until = _db_lock_cache.get(user_id, 0)
+    if db_until > time.time():
+        return True, int(db_until - time.time())
+    return False, 0
 
 
-def _apply_catch_lock(user_id: int):
-    """챌린지 실패/타임아웃 시 잠금 적용. 연속 실패에 따라 단계적 잠금."""
-    lock = _catch_locks.get(user_id)
-    strike = (lock["strike"] if lock else 0) + 1
-    duration_idx = min(strike - 1, len(LOCK_DURATIONS) - 1)
-    duration = LOCK_DURATIONS[duration_idx]
+def _apply_catch_lock(user_id: int, duration_override: int = None):
+    """챌린지 실패/타임아웃 시 잠금 적용. duration_override로 직접 시간 지정 가능."""
+    if duration_override:
+        duration = duration_override
+        lock = _catch_locks.get(user_id)
+        strike = (lock["strike"] if lock else 0) + 1
+    else:
+        lock = _catch_locks.get(user_id)
+        strike = (lock["strike"] if lock else 0) + 1
+        duration_idx = min(strike - 1, len(LOCK_DURATIONS) - 1)
+        duration = LOCK_DURATIONS[duration_idx]
     _catch_locks[user_id] = {
         "locked_until": time.time() + duration,
         "strike": strike,
     }
+    # DB에도 저장 (재시작 후에도 유지)
+    _db_lock_cache[user_id] = time.time() + duration
+    asyncio.get_event_loop().create_task(_save_lock_to_db(user_id, duration))
     return strike, duration
+
+
+async def _save_lock_to_db(user_id: int, duration: int):
+    """잠금을 DB에 영속화."""
+    try:
+        pool = await get_db()
+        await pool.execute(
+            """UPDATE abuse_scores SET locked_until = NOW() + make_interval(secs => $2), updated_at = NOW()
+               WHERE user_id = $1""",
+            user_id, float(duration))
+    except Exception as e:
+        logger.warning(f"_save_lock_to_db error: {e}")
+
+
+async def load_locks_from_db():
+    """봇 시작 시 DB에서 잠금 복원."""
+    try:
+        pool = await get_db()
+        # locked_until 컬럼 존재 확인 및 추가
+        await pool.execute(
+            "ALTER TABLE abuse_scores ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ")
+        rows = await pool.fetch(
+            "SELECT user_id, locked_until FROM abuse_scores WHERE locked_until > NOW()")
+        for r in rows:
+            remaining = (r["locked_until"].timestamp() - time.time())
+            if remaining > 0:
+                _catch_locks[r["user_id"]] = {"locked_until": r["locked_until"].timestamp(), "strike": 5}
+                _db_lock_cache[r["user_id"]] = r["locked_until"].timestamp()
+        logger.info(f"Loaded {len(rows)} catch locks from DB")
+    except Exception as e:
+        logger.warning(f"load_locks_from_db error: {e}")
 
 
 def format_lock_duration(seconds: int) -> str:
