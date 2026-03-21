@@ -519,7 +519,7 @@ ARCADE_PASS_DAILY_LIMIT = 3          # 일일 구매 제한
 # --- Shiny System ---
 SHINY_RATE_NATURAL = 0.0             # 자연 스폰 이로치 확률 0% (확정 스폰만)
 SHINY_RATE_FORCE = 0.01              # 강제스폰 이로치 확률 1%
-SHINY_RATE_ARCADE = 0.01             # 아케이드 이로치 확률 1%
+SHINY_RATE_ARCADE = 0.015            # 아케이드 이로치 확률 1.5%
 
 # ─── 채팅방 레벨 시스템 ─────────────────────────────────
 # (level, required_cxp, spawn_bonus, shiny_boost_pct, rarity_boosts, special)
