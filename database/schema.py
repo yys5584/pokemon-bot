@@ -1388,6 +1388,29 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── CS 문의 시스템 (2026-03-21) ──
+    cs_migs = [
+        """CREATE TABLE IF NOT EXISTS cs_inquiries (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            display_name TEXT,
+            category TEXT NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            admin_reply TEXT,
+            replied_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_cs_inquiries_user ON cs_inquiries(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_cs_inquiries_status ON cs_inquiries(status)",
+    ]
+    for mig in cs_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",

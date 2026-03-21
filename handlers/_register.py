@@ -91,6 +91,7 @@ from handlers.dm_subscription import (
 )
 from handlers.tournament import tournament_join_handler
 from handlers.dm_gacha import gacha_handler, gacha_callback_handler, item_handler, item_callback_handler
+from handlers.dm_cs import dm_cs_start, cs_callback, cs_text_input
 
 try:
     from handlers.camp import (
@@ -205,6 +206,12 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?(칭호|title)$"), title_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(📋\s*)?(상태창|status|状态|狀態)$"), status_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(⚙️\s*)?(설정|settings|设置|設定)$"), settings_handler))
+
+    # CS 문의 시스템
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📩\s*)?문의$"), dm_cs_start))
+    async def _cs_text_wrapper(update, context):
+        await cs_text_input(update, context)
+    app.add_handler(MessageHandler(dm & filters.TEXT & ~filters.COMMAND, _cs_text_wrapper), group=-3)
 
     # Camp system v2 (DM)
     if HAS_CAMP:
@@ -428,6 +435,9 @@ def register_all_handlers(app):
     if HAS_CAMP:
         app.add_handler(CallbackQueryHandler(camp_callback_handler, pattern=r"^camp_"))
         app.add_handler(CallbackQueryHandler(camp_dm_callback_handler, pattern=r"^cdm_"))
+
+    # CS 문의 콜백
+    app.add_handler(CallbackQueryHandler(cs_callback, pattern=r"^cs_"))
 
     # Activity tracker — runs for every group text message (handler group -1)
     app.add_handler(

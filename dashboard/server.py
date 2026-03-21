@@ -500,6 +500,7 @@ def create_app() -> web.Application:
     from dashboard.api_market import setup_routes as setup_market_routes
     from dashboard.api_board import setup_routes as setup_board_routes
     from dashboard.api_public import setup_routes as setup_public_routes
+    from dashboard.api_cs import setup_routes as setup_cs_routes
 
     setup_my_routes(app)
     setup_advisor_routes(app)
@@ -508,10 +509,11 @@ def create_app() -> web.Application:
     setup_market_routes(app)
     setup_board_routes(app)
     setup_public_routes(app)
+    setup_cs_routes(app)
     # Markdown doc viewer
     app.router.add_get("/docs/{name}", serve_markdown_doc)
     # SPA catch-all: serve index.html for all non-API, non-static paths
-    SPA_PAGES = {"/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin", "/market", "/camp"}
+    SPA_PAGES = {"/channels", "/patchnotes", "/board", "/battle", "/tier", "/types", "/guide", "/stats", "/mypokemon", "/pokedex", "/ai", "/admin", "/market", "/camp", "/cs"}
     for p in SPA_PAGES:
         app.router.add_get(p, index)
     # Board deep-link sub-routes
