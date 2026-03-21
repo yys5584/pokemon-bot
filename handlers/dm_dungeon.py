@@ -567,11 +567,12 @@ async def _process_floor(query, context, user_id: int, run: dict):
         await _finish_run(query, context, user_id, run, run["floor_reached"],
                           battle_card=_result_gif,
                           death_enemy=enemy.get("name_ko"), death_enemy_rarity=enemy.get("rarity"),
-                          death_floor=floor)
+                          death_floor=floor, revive_used=result.get("revive_used", False))
 
 
 async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
-                      battle_card=None, death_enemy=None, death_enemy_rarity=None, death_floor=None):
+                      battle_card=None, death_enemy=None, death_enemy_rarity=None, death_floor=None,
+                      revive_used: bool = False):
     """런 종료 + 보상 정산."""
     lang = await get_user_lang(user_id)
     sub_tier = await _get_sub_tier(user_id)
@@ -644,8 +645,10 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
     rb = rarity_badge(run.get("rarity", "common"))
     shiny = shiny_emoji() + " " if run["is_shiny"] else ""
 
+    revive_line = "\n💫 부활의 깃털 발동! → HP 30% 회복 후 재도전했으나 패배\n" if revive_used else ""
     text = (
-        f"{SKULL} {t(lang, 'dungeon.floor_defeated', floor=final_floor)}\n\n"
+        f"{SKULL} {t(lang, 'dungeon.floor_defeated', floor=final_floor)}\n"
+        f"{revive_line}\n"
         f"{CASTLE} <b>{t(lang, 'dungeon.result_title')}</b>\n"
         f"━━━━━━━━━━━━━━\n"
         f"{FOOT} {t(lang, 'dungeon.result_floor', floor=final_floor)}{record_text}\n"
