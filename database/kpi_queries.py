@@ -34,7 +34,12 @@ async def kpi_daily_snapshot(target_date=None) -> dict:
         gacha_bp_row, gacha_dist_rows,
     ) = await asyncio.gather(
         # 유저
-        pool.fetchrow("SELECT COUNT(DISTINCT user_id) as cnt FROM catch_attempts WHERE attempted_at >= $1", today),
+        pool.fetchrow(
+            """SELECT COUNT(DISTINCT user_id) as cnt FROM (
+                 SELECT user_id FROM catch_attempts WHERE attempted_at >= $1
+                 UNION
+                 SELECT user_id FROM bp_log WHERE source = 'daily_checkin' AND created_at >= $1
+               ) _dau""", today),
         pool.fetchrow("SELECT COUNT(*) as cnt FROM users WHERE registered_at >= $1", today),
         pool.fetchrow("SELECT COUNT(*) as cnt FROM users WHERE last_active_at >= $1", one_hour_ago),
         pool.fetchrow("SELECT COUNT(*) as cnt FROM users"),
@@ -497,10 +502,15 @@ async def save_kpi_snapshot(data: dict):
     pool = await get_db()
     today = _cfg.get_kst_now().date()
 
-    # 오늘 활성 유저 ID 목록
+    # 오늘 활성 유저 ID 목록 (포획 + !돈 출석)
     active_rows = await pool.fetch(
-        """SELECT DISTINCT user_id FROM catch_attempts
-           WHERE (attempted_at AT TIME ZONE 'Asia/Seoul')::date = $1""",
+        """SELECT DISTINCT user_id FROM (
+             SELECT user_id FROM catch_attempts
+             WHERE (attempted_at AT TIME ZONE 'Asia/Seoul')::date = $1
+             UNION
+             SELECT user_id FROM bp_log
+             WHERE source = 'daily_checkin' AND (created_at AT TIME ZONE 'Asia/Seoul')::date = $1
+           ) _active""",
         today,
     )
     active_ids = [r["user_id"] for r in active_rows]
