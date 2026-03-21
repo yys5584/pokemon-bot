@@ -359,13 +359,15 @@ async def captcha_callback_handler(update: Update, context: ContextTypes.DEFAULT
 
     if answer == correct:
         await query.edit_message_text("✅ 검증 통과! 정상 유저로 확인되었습니다.")
-        # watched 해제
+        # watched 해제 + 위반 카운터 초기화
         try:
             from database.connection import get_db
             pool = await get_db()
             await pool.execute(
                 "UPDATE abuse_scores SET is_watched = FALSE, updated_at = NOW() WHERE user_id = $1",
                 user_id)
+            from handlers.group_catch import _captcha_violation_count
+            _captcha_violation_count.pop(user_id, None)
         except Exception:
             pass
     else:

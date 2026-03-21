@@ -22,6 +22,54 @@ logger = logging.getLogger(__name__)
 # Prevent duplicate catch from rapid ㅊㅊ (race condition guard)
 _catch_locks: set[tuple[int, int]] = set()  # (session_id, user_id)
 
+# 캡차 미응답 포획 카운터 {user_id: count}
+_captcha_violation_count: dict[int, int] = {}
+
+
+async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """watched 유저가 캡차 미응답 상태로 포획 시도 시 카운팅. 차단하진 않지만 누적."""
+    try:
+        from database.connection import get_db
+        pool = await get_db()
+        watched = await pool.fetchval(
+            "SELECT is_watched FROM abuse_scores WHERE user_id = $1", user_id)
+        if not watched:
+            return False
+        # 캡차 미응답 상태로 포획 = 위반 누적
+        _captcha_violation_count[user_id] = _captcha_violation_count.get(user_id, 0) + 1
+        cnt = _captcha_violation_count[user_id]
+        # 3회마다 경고 + 추가 캡차 DM
+        if cnt % 3 == 0:
+            try:
+                lock_hours = cnt // 3
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=(
+                        f"⚠️ <b>캡차 미응답 경고 ({cnt}회 누적)</b>\n\n"
+                        f"캡차를 풀지 않고 포획을 계속하고 있습니다.\n"
+                        f"지금 즉시 위 캡차를 풀어주세요!\n\n"
+                        f"🔒 미응답 지속 시 <b>{lock_hours}시간</b> 포획 제한됩니다."
+                    ),
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            # 관리자에게도 알림
+            try:
+                user = await pool.fetchrow("SELECT display_name, username FROM users WHERE user_id = $1", user_id)
+                uname = f"@{user['username']}" if user and user['username'] else ""
+                dname = user['display_name'] if user else str(user_id)
+                await context.bot.send_message(
+                    chat_id=config.ADMIN_IDS[0],
+                    text=f"🚨 캡차 무시 감지: <b>{dname}</b> {uname} — {cnt}회 누적 포획",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return False
+
 
 async def _get_ranked_badge(user_id: int, season_rec: dict | None) -> str:
     """공통: 시즌 레코드에서 랭크 뱃지 HTML 생성."""
@@ -50,6 +98,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+    await _check_captcha_violation(user_id, context)
 
     try:
         _, session = await asyncio.gather(
@@ -149,6 +198,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+    await _check_captcha_violation(user_id, context)
 
     try:
         _, session = await asyncio.gather(
