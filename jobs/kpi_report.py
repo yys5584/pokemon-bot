@@ -1180,7 +1180,8 @@ async def _send_daily_kpi_report(context, target_date=None):
                 pass
         logger.info("Daily KPI report (HTML) sent to admins.")
     except Exception as e:
-        logger.error(f"Daily KPI report error: {e}")
+        import traceback
+        logger.error(f"Daily KPI report error: {e}\n{traceback.format_exc()}")
 
 
 async def _send_weekly_kpi_report(context):
