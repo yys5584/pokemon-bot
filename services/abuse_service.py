@@ -483,6 +483,42 @@ async def compute_monitor_scores():
                     score += s
                     detail["continuous_play"] = {"max_minutes": round(max_streak_min), "score": s}
 
+            # 5) 스폰 이로치 과다 포획 (3일간, spawn_log 기준)
+            shiny_stats = await pool.fetchrow("""
+                SELECT COUNT(*) as shiny_cnt,
+                       COUNT(DISTINCT (spawned_at AT TIME ZONE 'Asia/Seoul')::date) as days
+                FROM spawn_log
+                WHERE caught_by_user_id = $1 AND is_shiny = 1
+                  AND spawned_at > NOW() - INTERVAL '3 days'
+            """, uid)
+            catch_3d = await pool.fetchval(
+                "SELECT COUNT(*) FROM catch_attempts WHERE user_id = $1 AND attempted_at > NOW() - INTERVAL '3 days'",
+                uid)
+            if shiny_stats and shiny_stats["shiny_cnt"] >= 5:
+                shiny_cnt = shiny_stats["shiny_cnt"]
+                days = max(shiny_stats["days"], 1)
+                daily_avg = shiny_cnt / days
+                shiny_pct = round(shiny_cnt / max(catch_3d, 1) * 100, 1) if catch_3d else 0
+
+                # 일평균 20마리+ → 최대 30점, 비율 10%+ → 최대 20점
+                s = 0
+                if daily_avg >= 40:
+                    s += 30
+                elif daily_avg >= 20:
+                    s += min(30, int(daily_avg))
+                elif daily_avg >= 10:
+                    s += min(15, int(daily_avg / 2))
+
+                if shiny_pct >= 10:
+                    s += min(20, int(shiny_pct))
+
+                if s > 0:
+                    score += s
+                    detail["shiny_farming"] = {
+                        "shiny_3d": shiny_cnt, "catches_3d": catch_3d,
+                        "daily_avg": round(daily_avg, 1), "pct": shiny_pct, "score": s
+                    }
+
             # DB 업데이트
             is_watched = score >= 50
             await pool.execute("""
