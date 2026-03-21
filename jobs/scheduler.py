@@ -230,4 +230,33 @@ def register_all_jobs(app):
         name="shiny_pending_check",
     )
 
+    # --- 매크로 모니터링 스코어 (매일 04:00 KST) ---
+    async def _monitor_score_job(context):
+        try:
+            from services.abuse_service import compute_monitor_scores
+            total, watched = await compute_monitor_scores()
+            if watched > 0:
+                logger.warning(f"Macro monitor: {watched}/{total} users flagged")
+                # 관리자에게 알림
+                try:
+                    from services.abuse_service import get_watched_users
+                    flagged = await get_watched_users(10)
+                    lines = [f"🚨 매크로 모니터링: {watched}명 감시 대상"]
+                    for f in flagged[:5]:
+                        name = f.get("display_name") or f.get("username") or str(f["user_id"])
+                        lines.append(f"  • {name}: {f['monitor_score']}점")
+                    await context.bot.send_message(
+                        config.ADMIN_ID, "\n".join(lines)
+                    )
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.error(f"Monitor score job failed: {e}")
+
+    jq.run_daily(
+        _monitor_score_job,
+        time=dt_time(4, 0, 0, tzinfo=_KST),
+        name="macro_monitor",
+    )
+
     logger.info("All scheduled jobs registered.")

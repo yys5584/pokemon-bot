@@ -1419,6 +1419,19 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── 매크로 모니터링 스코어 (2026-03-21) ──
+    macro_migs = [
+        "ALTER TABLE abuse_scores ADD COLUMN IF NOT EXISTS monitor_score REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE abuse_scores ADD COLUMN IF NOT EXISTS monitor_detail JSONB",
+        "ALTER TABLE abuse_scores ADD COLUMN IF NOT EXISTS monitored_at TIMESTAMPTZ",
+        "ALTER TABLE abuse_scores ADD COLUMN IF NOT EXISTS is_watched BOOLEAN NOT NULL DEFAULT FALSE",
+    ]
+    for mig in macro_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",
