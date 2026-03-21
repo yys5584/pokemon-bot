@@ -183,11 +183,20 @@
         .sess-tab-del:hover{opacity:1}
 
         /* Tab Navigation */
-        .nav{display:flex;gap:0;background:#fff;border-bottom:none;overflow-x:auto;scrollbar-width:none;padding:0 12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+        .nav{display:flex;gap:0;background:#fff;border-bottom:none;overflow:visible;scrollbar-width:none;padding:0 12px;box-shadow:0 1px 2px rgba(0,0,0,.04);position:relative;z-index:50}
         .nav::-webkit-scrollbar{display:none}
         .nav-tab{padding:12px 20px;cursor:pointer;font-size:14px;font-weight:500;color:#9E9E9E;border-bottom:3px solid transparent;white-space:nowrap;transition:all .2s cubic-bezier(.4,0,.2,1)}
         .nav-tab:hover{color:#212121}
         .nav-tab.active{color:#212121;font-weight:700;border-bottom-color:#E53935}
+        .nav-group{position:relative;display:inline-flex;align-items:center}
+        .nav-group-label{padding:12px 20px;cursor:pointer;font-size:14px;font-weight:500;color:#9E9E9E;white-space:nowrap;transition:all .2s;border-bottom:3px solid transparent;user-select:none}
+        .nav-group-label:hover{color:#212121}
+        .nav-group.has-active>.nav-group-label{color:#212121;font-weight:700;border-bottom-color:#E53935}
+        .nav-dropdown{display:none;position:absolute;top:100%;left:0;background:#fff;border:1px solid #eee;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:100;min-width:160px;padding:6px 0}
+        .nav-group:hover .nav-dropdown,.nav-group.open .nav-dropdown{display:block}
+        .nav-dropdown .nav-tab{display:block;padding:10px 20px;border-bottom:none;font-size:13px}
+        .nav-dropdown .nav-tab:hover{background:#f5f5f5}
+        .nav-dropdown .nav-tab.active{color:#E53935;font-weight:700;background:#FFF3F3}
 
         /* Rank Filters */
         .rank-filters{display:flex;gap:6px;margin-bottom:8px}
@@ -384,6 +393,7 @@
             .cards{grid-template-columns:repeat(2,1fr)}
             .container{padding:8px 6px}
             .nav-tab{padding:8px 14px;font-size:12px}
+            .nav-group-label{padding:8px 14px;font-size:12px}
             .header h1{font-size:15px}
             .header-logo{width:22px;height:22px}
             .hide-m{display:none}
@@ -768,16 +778,26 @@
     </div>
     <div class="nav" id="nav">
         <div class="nav-tab active" data-page="home">홈</div>
-        <div class="nav-tab" data-page="board">💬 게시판</div>
-        <div class="nav-tab" data-page="battlerank">배틀 & 랭킹</div>
+        <div class="nav-tab" data-page="board">📢 공지</div>
+        <div class="nav-group" id="navInfo">
+            <div class="nav-group-label">📊 정보 ▾</div>
+            <div class="nav-dropdown">
+                <div class="nav-tab" data-page="battlerank">⚔️ 배틀 & 랭킹</div>
+                <div class="nav-tab" data-page="tier">🏆 푸키몬 티어</div>
+                <div class="nav-tab" data-page="guide">📖 가이드</div>
+                <div class="nav-tab" data-page="stats">📈 통계</div>
+            </div>
+        </div>
+        <div class="nav-group" id="navMy">
+            <div class="nav-group-label">🎒 내 활동 ▾</div>
+            <div class="nav-dropdown">
+                <div class="nav-tab" data-page="mypokemon">📦 내 푸키몬</div>
+                <div class="nav-tab" data-page="pokedex">📖 도감</div>
+                <div class="nav-tab" data-page="camp">🏕️ 캠프</div>
+                <div class="nav-tab" data-page="simulator">🤖 AI 어드바이저</div>
+            </div>
+        </div>
         <div class="nav-tab" data-page="market">🏪 거래소</div>
-        <div class="nav-tab" data-page="tier">푸키몬 티어</div>
-        <div class="nav-tab" data-page="guide">📖 가이드</div>
-        <div class="nav-tab" data-page="camp">🏕️ 캠프</div>
-        <div class="nav-tab" data-page="stats">통계</div>
-        <div class="nav-tab" data-page="mypokemon"><img src="/static/icons/container.png" style="width:16px;height:16px;vertical-align:middle;margin-right:2px"> 내 푸키몬</div>
-        <div class="nav-tab" data-page="pokedex">📖 도감</div>
-        <div class="nav-tab" data-page="simulator"><img src="/static/icons/computer.png" style="width:16px;height:16px;vertical-align:middle;margin-right:2px"> AI 어드바이저 <span style="font-size:9px;font-weight:700;color:#fff;background:#1976D2;border-radius:4px;padding:1px 4px;vertical-align:middle">BETA</span></div>
         <div class="nav-tab" data-page="cs">📩 문의</div>
         <div class="nav-tab" data-page="admin" id="adminTab" style="display:none">🔧 관리</div>
     </div>
@@ -3698,7 +3718,7 @@ function updateQuotaBadge(remaining,bonus){
 }
 
 // --- Tab Navigation with URL routing ---
-const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",market:"/market",tier:"/tier",typechart:"/types",guide:"/guide",camp:"/camp",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",admin:"/admin"};
+const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",market:"/market",tier:"/tier",typechart:"/types",guide:"/guide",camp:"/camp",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",cs:"/cs",admin:"/admin"};
 const ADMIN_CATS=["manage","db","kpi","battle"];
 function switchGuide(id){document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));document.getElementById('guide-'+id).classList.add('active');document.querySelector('.guide-tab[data-guide="'+id+'"]').classList.add('active');if(id==='typechart'){const src=document.getElementById('typeChartGrid');const dst=document.getElementById('typeChartGuide');if(src&&dst&&src.innerHTML&&!src.innerHTML.includes('로딩')){dst.innerHTML=src.innerHTML}else{loadTypeChart().then(()=>{const s2=document.getElementById('typeChartGrid');if(s2)dst.innerHTML=s2.innerHTML})}}}
 const PATH_PAGES=Object.fromEntries(Object.entries(PAGE_PATHS).map(([k,v])=>[v,k]));
@@ -3735,8 +3755,11 @@ function navigateTo(page,pushState=true){
         return;
     }
     document.querySelectorAll(".nav-tab").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll(".nav-group").forEach(g=>g.classList.remove("has-active"));
     document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
     tab.classList.add("active");
+    const parentGroup=tab.closest(".nav-group");
+    if(parentGroup)parentGroup.classList.add("has-active");
     const pgEl=document.getElementById("page-"+page);
     pgEl.classList.add("active");
     const aw=pgEl.querySelector(".auth-wall");
