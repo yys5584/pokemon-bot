@@ -43,8 +43,8 @@ from dashboard.server import (
     _ensure_session_table,
     _ensure_llm_usage_table,
     _ensure_analytics_table,
-    _ensure_board_tables,
 )
+from dashboard.api_board import ensure_board_tables as _ensure_board_tables
 
 
 async def main():
