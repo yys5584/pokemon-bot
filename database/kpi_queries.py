@@ -89,13 +89,14 @@ async def kpi_daily_snapshot(target_date=None) -> dict:
     top_chats = await get_active_chat_rooms_top(3)
 
     # 시간대별 활성 유저
+    tomorrow = today + timedelta(days=1)
     hourly_rows = await pool.fetch(
         """SELECT EXTRACT(HOUR FROM attempted_at AT TIME ZONE 'Asia/Seoul')::int as hr,
                   COUNT(DISTINCT user_id) as users
            FROM catch_attempts
-           WHERE attempted_at >= $1 AND attempted_at < $1 + INTERVAL '1 day'
+           WHERE attempted_at >= $1 AND attempted_at < $2
            GROUP BY hr ORDER BY hr""",
-        today,
+        today, tomorrow,
     )
     hourly = {r["hr"]: r["users"] for r in hourly_rows}
 
@@ -198,6 +199,7 @@ async def report_new_users_detail(today) -> list[dict]:
 async def report_churned_users(today) -> list[dict]:
     """최근 7일 활성이었으나 오늘 미접속 유저 (이탈 징후)."""
     pool = await get_db()
+    week_ago = today - timedelta(days=7)
     rows = await pool.fetch(
         """SELECT u.user_id, u.display_name, u.username,
                   u.last_active_at,
@@ -206,10 +208,10 @@ async def report_churned_users(today) -> list[dict]:
            LEFT JOIN (
                SELECT user_id, COUNT(*) as total_catches
                FROM catch_attempts
-               WHERE attempted_at >= $1 - INTERVAL '7 days'
+               WHERE attempted_at >= $2
                GROUP BY user_id
            ) s ON u.user_id = s.user_id
-           WHERE u.last_active_at >= $1 - INTERVAL '7 days'
+           WHERE u.last_active_at >= $2
              AND u.last_active_at < $1
              AND NOT EXISTS (
                  SELECT 1 FROM catch_attempts ca
@@ -217,7 +219,7 @@ async def report_churned_users(today) -> list[dict]:
              )
            ORDER BY s.total_catches DESC NULLS LAST
            LIMIT 10""",
-        today,
+        today, week_ago,
     )
     return [dict(r) for r in rows]
 
@@ -343,20 +345,21 @@ async def report_battle_meta(today) -> list[dict]:
 async def report_subscription_changes(today) -> dict:
     """오늘 구독 변동 (신규, 해지, 갱신)."""
     pool = await get_db()
+    tomorrow = today + timedelta(days=1)
     new_subs = await pool.fetch(
         """SELECT s.user_id, u.display_name, s.tier
            FROM subscriptions s
            JOIN users u ON s.user_id = u.user_id
-           WHERE s.started_at >= $1 AND s.is_active = 1""",
+           WHERE s.starts_at >= $1 AND s.is_active = 1""",
         today,
     )
     expired = await pool.fetch(
         """SELECT s.user_id, u.display_name, s.tier
            FROM subscriptions s
            JOIN users u ON s.user_id = u.user_id
-           WHERE s.expires_at >= $1 AND s.expires_at < $1 + INTERVAL '1 day'
+           WHERE s.expires_at >= $1 AND s.expires_at < $2
              AND s.is_active = 0""",
-        today,
+        today, tomorrow,
     )
     return {
         "new": [dict(r) for r in new_subs],
@@ -367,6 +370,7 @@ async def report_subscription_changes(today) -> dict:
 async def report_chat_health(today) -> list[dict]:
     """채팅방 활성도 (오늘 vs 어제 스폰 비교)."""
     pool = await get_db()
+    yesterday = today - timedelta(days=1)
     rows = await pool.fetch(
         """SELECT cr.chat_id, cr.chat_title, cr.member_count,
                   COALESCE(t.today_spawns, 0) as today_spawns,
@@ -379,14 +383,14 @@ async def report_chat_health(today) -> list[dict]:
            ) t ON cr.chat_id = t.chat_id
            LEFT JOIN (
                SELECT chat_id, COUNT(*) as yesterday_spawns
-               FROM spawn_log WHERE spawned_at >= $1 - INTERVAL '1 day'
+               FROM spawn_log WHERE spawned_at >= $2
                  AND spawned_at < $1
                GROUP BY chat_id
            ) y ON cr.chat_id = y.chat_id
            WHERE COALESCE(t.today_spawns, 0) + COALESCE(y.yesterday_spawns, 0) > 0
            ORDER BY t.today_spawns DESC
            LIMIT 15""",
-        today,
+        today, yesterday,
     )
     return [dict(r) for r in rows]
 
