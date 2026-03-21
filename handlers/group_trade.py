@@ -61,6 +61,13 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     pokemon_name = parts[1]
+
+    # 포켓몬 이름이 아닌 일반 문장 필터링 (6글자 초과 또는 특수문자 포함)
+    import re
+    if len(pokemon_name) > 6 or re.search(r"[.!?~…,;:ㅋㅎㅠㅜㄷㄱ]", pokemon_name):
+        await msg.reply_text("사용법: 교환 [포켓몬이름]\n예시: (답장) 교환 피카츄")
+        return
+
     select_idx = None
 
     # Check for #N selector
