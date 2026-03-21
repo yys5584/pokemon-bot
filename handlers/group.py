@@ -315,3 +315,64 @@ async def _notify_admin_if_needed(user_id: int, context: ContextTypes.DEFAULT_TY
             )
     except Exception as e:
         logger.warning(f"_notify_admin_if_needed error: {e}")
+
+
+async def captcha_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """관리자 수동 캡차 콜백. callback_data: captcha_{uid}_{answer}"""
+    query = update.callback_query
+    if not query or not query.data or not query.data.startswith("captcha_"):
+        return
+
+    user_id = query.from_user.id
+    parts = query.data.split("_", 2)
+    if len(parts) < 3:
+        await query.answer()
+        return
+
+    expected_uid = int(parts[1])
+    answer = parts[2]
+
+    if user_id != expected_uid:
+        await query.answer("본인만 응답할 수 있습니다.", show_alert=True)
+        return
+
+    await query.answer()
+
+    # 메시지에서 정답 추출 (볼드 텍스트)
+    msg_text = query.message.text or ""
+    import re
+    # "중 **괴력몬**을(를)" 패턴에서 정답 추출 — HTML이므로 <b> 태그
+    caption = query.message.caption or query.message.text or ""
+    match = re.search(r"<b>(.+?)</b>을\(를\)|<b>(.+?)</b>을|<b>(.+?)</b>를", caption)
+    if not match:
+        # fallback: 엔티티에서 bold 찾기
+        correct = None
+        for entity in (query.message.entities or []):
+            if entity.type == "bold":
+                correct = caption[entity.offset:entity.offset + entity.length]
+                break
+        if not correct:
+            await query.edit_message_text("⚠️ 챌린지 오류. 관리자에게 문의하세요.")
+            return
+    else:
+        correct = match.group(1) or match.group(2) or match.group(3)
+
+    if answer == correct:
+        await query.edit_message_text("✅ 검증 통과! 정상 유저로 확인되었습니다.")
+        # watched 해제
+        try:
+            from database.connection import get_db
+            pool = await get_db()
+            await pool.execute(
+                "UPDATE abuse_scores SET is_watched = FALSE, updated_at = NOW() WHERE user_id = $1",
+                user_id)
+        except Exception:
+            pass
+    else:
+        await query.edit_message_text(
+            f"❌ 오답! 정답은 <b>{correct}</b>이었습니다.\n"
+            f"🔒 1시간 동안 포획이 제한됩니다.",
+            parse_mode="HTML")
+        # 1시간 잠금
+        from services.abuse_service import _apply_catch_lock
+        _apply_catch_lock(user_id)

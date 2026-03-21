@@ -24,6 +24,7 @@ from handlers.group import (
     my_pokemon_group_handler, on_chat_activity, close_message_callback,
     catch_keep_callback, catch_release_callback,
     shiny_ticket_spawn_handler, group_lang_handler,
+    captcha_callback_handler,
 )
 from handlers.dm_pokedex import (
     pokedex_handler, pokedex_callback,
@@ -416,6 +417,9 @@ def register_all_handlers(app):
     # Yacha (betting battle) callbacks
     app.add_handler(CallbackQueryHandler(yacha_response_callback, pattern=r"^yacha_"))
     app.add_handler(CallbackQueryHandler(yacha_result_callback, pattern=r"^yres_"))
+
+    # Captcha callbacks
+    app.add_handler(CallbackQueryHandler(captcha_callback_handler, pattern=r"^captcha_"))
 
     # Help navigation callbacks
     app.add_handler(CallbackQueryHandler(help_callback_handler, pattern=r"^help_"))
