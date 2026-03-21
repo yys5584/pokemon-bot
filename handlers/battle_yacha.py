@@ -1,14 +1,19 @@
-"""Yacha (야차 - Betting Battle) handlers."""
+"""Yacha (야차 - Betting Battle) handlers.
+
+개편 v2: "야차" 답장 → 상대에게 [수락 100BP] [거절] → 즉시 배틀.
+- 고정 100BP 베팅 (마볼 베팅 제거)
+- 같은 상대 하루 3판 제한 (어뷰징 방지)
+"""
 
 import asyncio
 import logging
 import random
-from datetime import timedelta, timezone
+from datetime import datetime as dt, timedelta, timezone
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import config
-
 from database import queries
 from database import battle_queries as bq
 from handlers._common import _is_duplicate_callback
@@ -19,12 +24,24 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================
-# Yacha (야차 - Betting Battle)
+# Yacha (야차 - Betting Battle) v2
 # ============================================================
 
 
+async def _get_yacha_pair_count_today(pool, user_a: int, user_b: int) -> int:
+    """오늘 두 유저 간 야차 횟수 (양방향 합산)."""
+    row = await pool.fetchrow(
+        """SELECT COUNT(*) as cnt FROM battle_records
+           WHERE battle_type = 'yacha'
+             AND created_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date AT TIME ZONE 'Asia/Seoul'
+             AND ((winner_id = $1 AND loser_id = $2) OR (winner_id = $2 AND loser_id = $1))""",
+        user_a, user_b,
+    )
+    return row["cnt"] if row else 0
+
+
 async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle '야차' command (group). Start a betting battle challenge."""
+    """Handle '야차' command (group). 바로 상대에게 수락/거절 전송."""
     if not update.effective_user or not update.message:
         return
 
@@ -54,10 +71,9 @@ async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await queries.ensure_user(defender_id, defender_name, reply.from_user.username)
 
     # Yacha cooldown (global 10min)
-    from datetime import datetime as dt
     last_any = await bq.get_last_yacha_time_any(challenger_id)
     if last_any:
-        last_time = dt.fromisoformat(last_any)
+        last_time = dt.fromisoformat(last_any) if isinstance(last_any, str) else last_any
         if last_time.tzinfo is None:
             last_time = last_time.replace(tzinfo=timezone.utc)
         cooldown = timedelta(seconds=config.YACHA_COOLDOWN)
@@ -93,191 +109,59 @@ async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(t(lang, "battle.already_pending"))
         return
 
-    # Show bet type selection
-    buttons = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(
-                t(lang, "yacha.btn_bp_bet"),
-                callback_data=f"yc_bp_{challenger_id}_{defender_id}",
-            ),
-            InlineKeyboardButton(
-                t(lang, "yacha.btn_mb_bet"),
-                callback_data=f"yc_mb_{challenger_id}_{defender_id}",
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                t(lang, "battle.decline_btn"),
-                callback_data=f"yc_cancel_{challenger_id}_{defender_id}",
-            ),
-        ],
-    ])
-
-    await update.message.reply_text(
-        f"🎰 {t(lang, 'yacha.challenge_msg', challenger=challenger_name, defender=defender_name)}",
-        reply_markup=buttons,
-    )
-
-
-async def yacha_type_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle yacha bet type selection (BP / Masterball / Cancel)."""
-    query = update.callback_query
-    if not query or not query.data:
+    # 같은 상대 하루 제한 체크
+    from database.connection import get_db
+    pool = await get_db()
+    pair_count = await _get_yacha_pair_count_today(pool, challenger_id, defender_id)
+    limit = config.YACHA_SAME_OPPONENT_DAILY_LIMIT
+    if pair_count >= limit:
+        await update.message.reply_text(
+            f"🎰 오늘 이 상대와는 더 이상 야차를 할 수 없습니다 ({pair_count}/{limit})"
+        )
         return
 
-    data = query.data  # yc_bp_{c}_{d}, yc_mb_{c}_{d}, yc_cancel_{c}_{d}
-    parts = data.split("_")
-    bet_type = parts[1]  # bp, mb, cancel
-    challenger_id = int(parts[2])
-    defender_id = int(parts[3])
-    lang = await get_user_lang(query.from_user.id)
-
-    # Only challenger can select
-    if query.from_user.id != challenger_id:
-        await query.answer(t(lang, "battle.challenger_only"), show_alert=True)
+    # Check challenger BP
+    bet_amount = config.YACHA_BET_AMOUNT
+    balance = await bq.get_bp(challenger_id)
+    if balance < bet_amount:
+        await update.message.reply_text(
+            f"❌ {t(lang, 'yacha.bp_insufficient', have=balance, need=bet_amount)}"
+        )
         return
 
-    await query.answer()
-
-    if bet_type == "cancel":
-        try:
-            await query.edit_message_text(t(lang, "yacha.cancelled"))
-        except Exception:
-            pass
-        return
-
-    if bet_type == "bp":
-        # Show BP amount options
-        bp_buttons = []
-        for amount in config.YACHA_BP_OPTIONS:
-            bp_buttons.append(
-                InlineKeyboardButton(
-                    f"💰 {amount} BP",
-                    callback_data=f"ya_bp_{amount}_{challenger_id}_{defender_id}",
-                )
-            )
-        buttons = InlineKeyboardMarkup([
-            bp_buttons,
-            [InlineKeyboardButton(t(lang, "battle.decline_btn"), callback_data=f"yc_cancel_{challenger_id}_{defender_id}")],
-        ])
-        try:
-            await query.edit_message_text(
-                f"💰 {t(lang, 'yacha.bp_amount_prompt')}",
-                reply_markup=buttons,
-            )
-        except Exception:
-            pass
-
-    elif bet_type == "mb":
-        # Show masterball count options
-        mb_buttons = []
-        for count in config.YACHA_MASTERBALL_OPTIONS:
-            mb_buttons.append(
-                InlineKeyboardButton(
-                    f"🔮 {count}개",
-                    callback_data=f"ya_mb_{count}_{challenger_id}_{defender_id}",
-                )
-            )
-        buttons = InlineKeyboardMarkup([
-            mb_buttons,
-            [InlineKeyboardButton(t(lang, "battle.decline_btn"), callback_data=f"yc_cancel_{challenger_id}_{defender_id}")],
-        ])
-        try:
-            await query.edit_message_text(
-                f"🔮 {t(lang, 'yacha.mb_amount_prompt')}",
-                reply_markup=buttons,
-            )
-        except Exception:
-            pass
-
-
-async def yacha_amount_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle yacha amount selection → verify balance → create challenge."""
-    query = update.callback_query
-    if not query or not query.data:
-        return
-
-    data = query.data  # ya_bp_{amt}_{c}_{d} or ya_mb_{cnt}_{c}_{d}
-    parts = data.split("_")
-    bet_type_code = parts[1]  # bp or mb
-    amount = int(parts[2])
-    challenger_id = int(parts[3])
-    defender_id = int(parts[4])
-    lang = await get_user_lang(query.from_user.id)
-
-    # Only challenger can select
-    if query.from_user.id != challenger_id:
-        await query.answer(t(lang, "battle.challenger_only"), show_alert=True)
-        return
-
-    await query.answer()
-
-    bet_type = "bp" if bet_type_code == "bp" else "masterball"
-
-    # Verify challenger has enough
-    if bet_type == "bp":
-        balance = await bq.get_bp(challenger_id)
-        if balance < amount:
-            try:
-                await query.edit_message_text(
-                    f"❌ {t(lang, 'yacha.bp_insufficient', have=balance, need=amount)}"
-                )
-            except Exception:
-                pass
-            return
-        bet_display = f"💰 {amount} BP"
-    else:  # masterball
-        mb_count = await queries.get_master_balls(challenger_id)
-        if mb_count < amount:
-            try:
-                await query.edit_message_text(
-                    f"❌ {t(lang, 'yacha.mb_insufficient', have=mb_count, need=amount)}"
-                )
-            except Exception:
-                pass
-            return
-        bet_display = f"🔮 {amount} {t(lang, 'item.masterball')}"
-
-    # Create the challenge
-    from datetime import datetime as dt
+    # Create challenge & send accept/decline to defender
     expires = dt.now(timezone.utc) + timedelta(seconds=config.YACHA_CHALLENGE_TIMEOUT)
-
     challenge_id = await bq.create_challenge(
-        challenger_id, defender_id, update.effective_chat.id, expires,
-        bet_type=bet_type, bet_amount=amount,
+        challenger_id, defender_id, chat_id, expires,
+        bet_type="bp", bet_amount=bet_amount,
     )
 
-    # Get names
     c_user = await queries.get_user(challenger_id)
     d_user = await queries.get_user(defender_id)
     c_name = c_user["display_name"] if c_user else "???"
     d_name = d_user["display_name"] if d_user else "???"
 
-    # Challenge message to defender
-    buttons = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(
-                t(lang, "battle.accept_btn"),
-                callback_data=f"yacha_accept_{challenge_id}_{defender_id}",
-            ),
-            InlineKeyboardButton(
-                t(lang, "battle.decline_btn"),
-                callback_data=f"yacha_decline_{challenge_id}_{defender_id}",
-            ),
-        ]
-    ])
+    buttons = InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            f"수락 {bet_amount}BP",
+            callback_data=f"yacha_accept_{challenge_id}_{defender_id}",
+        ),
+        InlineKeyboardButton(
+            "거절",
+            callback_data=f"yacha_decline_{challenge_id}_{defender_id}",
+        ),
+    ]])
 
-    try:
-        await query.edit_message_text(
-            t(lang, "yacha.bet_msg", challenger=c_name, defender=d_name, bet=bet_display, timeout=config.YACHA_CHALLENGE_TIMEOUT),
-            reply_markup=buttons,
-        )
-    except Exception:
-        pass
+    await update.message.reply_text(
+        f"🎰 <b>{c_name}</b>님이 <b>{d_name}</b>님에게 야차 대결! (💰 {bet_amount} BP)\n"
+        f"⏰ {config.YACHA_CHALLENGE_TIMEOUT}초 내에 수락해주세요!",
+        parse_mode="HTML",
+        reply_markup=buttons,
+    )
 
 
 async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle yacha accept/decline → deduct resources → run battle → payout."""
+    """Handle yacha accept/decline → deduct BP → run battle → payout."""
     query = update.callback_query
     if not query or not query.data:
         return
@@ -310,7 +194,6 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
         return
 
     # Check expiry
-    from datetime import datetime as dt
     expires = challenge["expires_at"]
     if hasattr(expires, 'tzinfo') and expires.tzinfo is None:
         expires = expires.replace(tzinfo=timezone.utc)
@@ -334,7 +217,6 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
 
     # === ACCEPT ===
     challenger_id = challenge["challenger_id"]
-    bet_type = challenge["bet_type"]
     bet_amount = challenge["bet_amount"]
 
     # Validate teams
@@ -347,94 +229,62 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
         return
     if len(d_team) < config.RANKED_TEAM_SIZE:
         try:
-            await query.edit_message_text(f"❌ {t(lang, 'yacha.defender_incomplete', count=len(d_team), required=config.RANKED_TEAM_SIZE)}")
+            await query.edit_message_text(
+                f"❌ {t(lang, 'yacha.defender_incomplete', count=len(d_team), required=config.RANKED_TEAM_SIZE)}"
+            )
         except Exception:
             pass
         return
     d_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in d_team)
     if d_cost > config.RANKED_COST_LIMIT:
         try:
-            await query.edit_message_text(f"❌ {t(lang, 'yacha.defender_cost_over', cost=d_cost, limit=config.RANKED_COST_LIMIT)}")
+            await query.edit_message_text(
+                f"❌ {t(lang, 'yacha.defender_cost_over', cost=d_cost, limit=config.RANKED_COST_LIMIT)}"
+            )
         except Exception:
             pass
         return
 
     c_team = await bq.get_battle_team(challenger_id)
-    if not c_team:
+    if not c_team or len(c_team) < config.RANKED_TEAM_SIZE:
         try:
             await query.edit_message_text(f"🎰 {t(lang, 'yacha.challenger_no_team')}")
-        except Exception:
-            pass
-        return
-    if len(c_team) < config.RANKED_TEAM_SIZE:
-        try:
-            await query.edit_message_text(f"❌ {t(lang, 'yacha.challenger_incomplete', count=len(c_team), required=config.RANKED_TEAM_SIZE)}")
         except Exception:
             pass
         return
     c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
     if c_cost > config.RANKED_COST_LIMIT:
         try:
-            await query.edit_message_text(f"❌ {t(lang, 'yacha.challenger_cost_over', cost=c_cost, limit=config.RANKED_COST_LIMIT)}")
+            await query.edit_message_text(
+                f"❌ {t(lang, 'yacha.challenger_cost_over', cost=c_cost, limit=config.RANKED_COST_LIMIT)}"
+            )
         except Exception:
             pass
         return
 
-    # Deduct resources from BOTH sides
-    if bet_type == "bp":
-        c_ok = await bq.spend_bp(challenger_id, bet_amount)
-        if not c_ok:
-            await bq.update_challenge_status(challenge_id, "expired")
-            try:
-                await query.edit_message_text(
-                    f"❌ {t(lang, 'yacha.challenger_bp_fail')}"
-                )
-            except Exception:
-                pass
-            return
-        d_ok = await bq.spend_bp(expected_defender, bet_amount)
-        if not d_ok:
-            # Refund challenger
-            await bq.add_bp(challenger_id, bet_amount, "bet_refund")
-            await bq.update_challenge_status(challenge_id, "expired")
-            try:
-                await query.edit_message_text(
-                    f"❌ {t(lang, 'yacha.defender_bp_fail')}"
-                )
-            except Exception:
-                pass
-            return
-        bet_display = f"💰 {bet_amount} BP"
-        win_display = f"💰 +{bet_amount * 2} BP 획득! (베팅 {bet_amount} BP × 2)"
-    else:  # masterball
-        c_ok = await bq.use_master_balls(challenger_id, bet_amount)
-        if not c_ok:
-            await bq.update_challenge_status(challenge_id, "expired")
-            try:
-                await query.edit_message_text(
-                    f"❌ {t(lang, 'yacha.challenger_mb_fail')}"
-                )
-            except Exception:
-                pass
-            return
-        d_ok = await bq.use_master_balls(expected_defender, bet_amount)
-        if not d_ok:
-            # Refund challenger
-            await queries.add_master_ball(challenger_id, bet_amount)
-            await bq.update_challenge_status(challenge_id, "expired")
-            try:
-                await query.edit_message_text(
-                    f"❌ {t(lang, 'yacha.defender_mb_fail')}"
-                )
-            except Exception:
-                pass
-            return
-        bet_display = f"🔮 마스터볼 {bet_amount}개"
-        win_display = f"🔮 마스터볼 {bet_amount * 2}개 획득! (베팅 {bet_amount}개 × 2)"
+    # Deduct BP from BOTH sides
+    c_ok = await bq.spend_bp(challenger_id, bet_amount)
+    if not c_ok:
+        await bq.update_challenge_status(challenge_id, "expired")
+        try:
+            await query.edit_message_text(f"❌ {t(lang, 'yacha.challenger_bp_fail')}")
+        except Exception:
+            pass
+        return
+
+    d_ok = await bq.spend_bp(expected_defender, bet_amount)
+    if not d_ok:
+        await bq.add_bp(challenger_id, bet_amount, "bet_refund")
+        await bq.update_challenge_status(challenge_id, "expired")
+        try:
+            await query.edit_message_text(f"❌ {t(lang, 'yacha.defender_bp_fail')}")
+        except Exception:
+            pass
+        return
 
     await bq.update_challenge_status(challenge_id, "accepted")
 
-    # Run the battle (skip_bp=True: yacha handles its own payout)
+    # Run the battle
     from services.battle_service import execute_battle
     result = await execute_battle(
         challenger_id=challenger_id,
@@ -449,19 +299,15 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
 
     # Pay the winner
     winner_id = result["winner_id"]
-    if bet_type == "bp":
-        await bq.add_bp(winner_id, bet_amount * 2, "bet_win")
-    else:
-        await queries.add_master_ball(winner_id, bet_amount * 2)
+    await bq.add_bp(winner_id, bet_amount * 2, "bet_win")
 
-    # Get names for display
+    # Display result
     c_user = await queries.get_user(challenger_id)
     d_user = await queries.get_user(expected_defender)
     c_name = c_user["display_name"] if c_user else "???"
     d_name = d_user["display_name"] if d_user else "???"
-    winner_name = c_name if result["winner_id"] == challenger_id else d_name
+    winner_name = c_name if winner_id == challenger_id else d_name
 
-    # Build yacha result message (simplified)
     vs = icon_emoji('battle')
     trophy = icon_emoji('crown')
     loser_id = result["loser_id"]
@@ -470,55 +316,47 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     full_text = "\n".join([
         t(lang, "yacha.result_title"),
         f"{rarity_badge('red')} {c_name}  {vs}  {d_name} {rarity_badge('blue')}",
-        t(lang, "yacha.bet_label", bet=bet_display),
+        t(lang, "yacha.bet_label", bet=f"💰 {bet_amount} BP"),
         "━━━━━━━━━━━━━━━",
         f"{trophy} {t(lang, 'yacha.winner_msg', name=winner_name)}",
-        win_display,
+        f"💰 +{bet_amount * 2} BP 획득!",
     ])
 
-    # Detail / Skip / Teabag buttons
-    battle_buttons = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(
-                t(lang, "battle.btn_detail"),
-                callback_data=f"bdetail_{cache_key}_{winner_id}_{loser_id}",
-            ),
-            InlineKeyboardButton(
-                t(lang, "battle.btn_skip"),
-                callback_data=f"bskip_{winner_id}_{loser_id}",
-            ),
-            InlineKeyboardButton(
-                t(lang, "battle.btn_teabag"),
-                callback_data=f"yres_tbag_{winner_id}_{loser_id}",
-            ),
-        ]
-    ])
+    battle_buttons = InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            t(lang, "battle.btn_detail"),
+            callback_data=f"bdetail_{cache_key}_{winner_id}_{loser_id}",
+        ),
+        InlineKeyboardButton(
+            t(lang, "battle.btn_skip"),
+            callback_data=f"bskip_{winner_id}_{loser_id}",
+        ),
+        InlineKeyboardButton(
+            t(lang, "battle.btn_teabag"),
+            callback_data=f"yres_tbag_{winner_id}_{loser_id}",
+        ),
+    ]])
 
     try:
         await query.edit_message_text(
-            full_text,
-            parse_mode="HTML",
-            reply_markup=battle_buttons,
+            full_text, parse_mode="HTML", reply_markup=battle_buttons,
         )
     except Exception:
         try:
             await context.bot.send_message(
                 chat_id=challenge["chat_id"],
-                text=full_text,
-                parse_mode="HTML",
-                reply_markup=battle_buttons,
+                text=full_text, parse_mode="HTML", reply_markup=battle_buttons,
             )
         except Exception:
             pass
 
 
 async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle yacha result buttons (teabag only — detail/skip handled by battle_result_callback_handler)."""
+    """Handle yacha teabag button."""
     query = update.callback_query
     if not query or not query.data:
         return
 
-    # 중복 클릭 방지
     if _is_duplicate_callback(query):
         await query.answer()
         return
@@ -527,7 +365,7 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
     data = query.data  # yres_tbag_{w}_{l}
     parts = data.split("_")
     try:
-        action = parts[1]  # tbag
+        action = parts[1]
         winner_id = int(parts[2])
         loser_id = int(parts[3])
     except (IndexError, ValueError):
@@ -551,7 +389,6 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
         l_name = loser_user["display_name"] if loser_user else "???"
         l_name = _hon_name(l_name, l_tier)
 
-        # 승자 구독 티어에 따라 멘트풀 분기
         w_honorific = _get_honorific(w_tier)
         if w_honorific == "supreme":
             pool = config.TEABAG_MESSAGES_SUPREME
@@ -562,7 +399,7 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
         await query.answer()
 
-        # Remove only the teabag button, keep detail/skip
+        # Remove teabag button
         try:
             old_kb = query.message.reply_markup
             if old_kb:
@@ -577,17 +414,13 @@ async def yacha_result_callback(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception:
             pass
 
-        # Send random yacha teabag message
-        msg = random.choice(pool).format(
-            winner=w_name, loser=l_name,
-        )
+        msg = random.choice(pool).format(winner=w_name, loser=l_name)
         msg = msg.replace("님님", "님")
         msg = msg.replace("💀", icon_emoji("skull"))
         try:
             await context.bot.send_message(
                 chat_id=query.message.chat_id,
-                text=msg,
-                parse_mode="HTML",
+                text=msg, parse_mode="HTML",
             )
         except Exception:
             pass

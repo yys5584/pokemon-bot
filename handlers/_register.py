@@ -57,7 +57,7 @@ from handlers.battle_ranked import (
     auto_ranked_handler,
 )
 from handlers.battle_yacha import (
-    yacha_handler, yacha_type_callback, yacha_amount_callback,
+    yacha_handler,
     yacha_response_callback, yacha_result_callback,
 )
 from handlers.dm_nurture import (
@@ -414,8 +414,6 @@ def register_all_handlers(app):
     app.add_handler(CallbackQueryHandler(tutorial_callback, pattern=r"^tut_"))
 
     # Yacha (betting battle) callbacks
-    app.add_handler(CallbackQueryHandler(yacha_type_callback, pattern=r"^yc_"))
-    app.add_handler(CallbackQueryHandler(yacha_amount_callback, pattern=r"^ya_"))
     app.add_handler(CallbackQueryHandler(yacha_response_callback, pattern=r"^yacha_"))
     app.add_handler(CallbackQueryHandler(yacha_result_callback, pattern=r"^yres_"))
 
