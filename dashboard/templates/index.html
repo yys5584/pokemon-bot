@@ -4558,7 +4558,6 @@ function toggleFusionMode(){
         btn.style.background="#E8F5E9";btn.style.borderColor="#A5D6A7";btn.classList.remove("active");
         btn.textContent="🔀 합성";
     }
-    _pgState._pokePg=0;
     renderMyPokemon();
 }
 
@@ -4881,7 +4880,7 @@ function renderMyPokemon(){
         const selInfo=_fusionSelA?`선택: <b>${_fusionSelA.name_ko}</b> — 같은 종류의 두 번째 포켓몬을 선택하세요`:"같은 종류 2마리를 선택하세요";
         fusionInfo=`<div style="padding:8px 12px;margin-bottom:8px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;font-size:12px;color:#2E7D32;display:flex;align-items:center;gap:8px">
             <span style="font-size:16px">🔀</span><span>${selInfo}</span>
-            ${_fusionSelA?'<button onclick="_fusionSelA=null;_fusionSelB=null;_pgState._pokePg=0;renderMyPokemon()" style="margin-left:auto;padding:2px 8px;border:1px solid #A5D6A7;background:#fff;border-radius:4px;font-size:11px;cursor:pointer">선택 초기화</button>':''}
+            ${_fusionSelA?'<button onclick="_fusionSelA=null;_fusionSelB=null;renderMyPokemon()" style="margin-left:auto;padding:2px 8px;border:1px solid #A5D6A7;background:#fff;border-radius:4px;font-size:11px;cursor:pointer">선택 초기화</button>':''}
         </div>`;
     }
     grid.innerHTML=fusionInfo+slice.map(renderPokemonCard).join("");
