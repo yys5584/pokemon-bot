@@ -324,17 +324,24 @@ async def report_market_trends(today) -> list[dict]:
 
 
 async def report_battle_meta(today) -> list[dict]:
-    """오늘 배틀에서 많이 사용된 포켓몬 (승자팀 기준)."""
+    """오늘 배틀에서 많이 사용된 포켓몬 — 양쪽 팀 사용횟수 + 승률."""
     pool = await get_db()
     rows = await pool.fetch(
-        """SELECT pm.name_ko, pm.id as pokemon_id,
-                  COUNT(*) as uses, 0.0 as win_rate
-           FROM battle_records br
-           JOIN battle_teams bt ON br.winner_id = bt.user_id AND bt.team_number = 1
-           JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
-           JOIN pokemon_master pm ON up.pokemon_id = pm.id
-           WHERE br.created_at >= $1
-           GROUP BY pm.name_ko, pm.id
+        """WITH battle_pokemon AS (
+             SELECT br.id as battle_id, br.winner_id,
+                    bt.user_id, up.pokemon_id, pm.name_ko
+             FROM battle_records br
+             JOIN battle_teams bt ON bt.user_id IN (br.challenger_id, br.opponent_id)
+                  AND bt.team_number = 1
+             JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
+             JOIN pokemon_master pm ON up.pokemon_id = pm.id
+             WHERE br.created_at >= $1
+           )
+           SELECT name_ko, pokemon_id,
+                  COUNT(*) as uses,
+                  ROUND(100.0 * SUM(CASE WHEN user_id = winner_id THEN 1 ELSE 0 END) / COUNT(*), 1) as win_rate
+           FROM battle_pokemon
+           GROUP BY name_ko, pokemon_id
            ORDER BY uses DESC
            LIMIT 10""",
         today,
