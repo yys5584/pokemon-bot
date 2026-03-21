@@ -45,16 +45,15 @@ async def kpi_daily_snapshot(target_date=None) -> dict:
                       COUNT(*) FILTER (WHERE is_shiny = 1) as shiny_spawns
                FROM spawn_log WHERE spawned_at >= $1""", today),
         pool.fetchrow(
-            """SELECT COUNT(*) as cnt FROM spawn_log
-               WHERE spawned_at >= $1 AND is_shiny = 1 AND caught_by_user_id IS NOT NULL""", today),
+            """SELECT COUNT(*) as cnt FROM user_pokemon
+               WHERE is_shiny = 1 AND caught_at >= $1""", today),
         pool.fetchrow(
             "SELECT COUNT(*) as cnt FROM catch_attempts WHERE used_master_ball = 1 AND attempted_at >= $1", today),
         # 배틀
         pool.fetchrow("SELECT COUNT(*) as cnt FROM battle_records WHERE created_at >= $1", today),
         pool.fetchrow(
             """SELECT COUNT(*) as cnt FROM battle_records
-               WHERE created_at >= $1 AND bp_earned > 0
-                 AND EXISTS (SELECT 1 FROM season_records)""", today),
+               WHERE created_at >= $1 AND battle_type = 'ranked'""", today),
         pool.fetchrow(
             "SELECT COALESCE(SUM(amount), 0) as total FROM bp_log WHERE amount > 0 AND created_at >= $1", today),
         # 거래소
@@ -258,18 +257,17 @@ async def report_top_active_users(today, limit: int = 10) -> list[dict]:
 
 
 async def report_shiny_catches(today) -> list[dict]:
-    """이로치 포획 요약 — Top 포획자 + 총 수."""
+    """이로치 포획 요약 — Top 포획자 + 총 수 (user_pokemon 기준, 강스/아케이드 포함)."""
     pool = await get_db()
     rows = await pool.fetch(
-        """SELECT sl.caught_by_user_id as user_id,
+        """SELECT up.user_id,
                   u.display_name,
                   COUNT(*) as cnt
-           FROM spawn_log sl
-           LEFT JOIN users u ON sl.caught_by_user_id = u.user_id
-           WHERE sl.spawned_at >= $1
-             AND sl.is_shiny = 1
-             AND sl.caught_by_user_id IS NOT NULL
-           GROUP BY sl.caught_by_user_id, u.display_name
+           FROM user_pokemon up
+           LEFT JOIN users u ON up.user_id = u.user_id
+           WHERE up.caught_at >= $1
+             AND up.is_shiny = 1
+           GROUP BY up.user_id, u.display_name
            ORDER BY cnt DESC
            LIMIT 10""",
         today,
@@ -331,7 +329,7 @@ async def report_battle_meta(today) -> list[dict]:
              SELECT br.id as battle_id, br.winner_id,
                     bt.user_id, up.pokemon_id, pm.name_ko
              FROM battle_records br
-             JOIN battle_teams bt ON bt.user_id IN (br.challenger_id, br.opponent_id)
+             JOIN battle_teams bt ON bt.user_id IN (br.winner_id, br.loser_id)
                   AND bt.team_number = 1
              JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
              JOIN pokemon_master pm ON up.pokemon_id = pm.id
@@ -435,8 +433,8 @@ async def kpi_weekly_snapshot() -> dict:
             """SELECT COUNT(*) as spawns, COUNT(caught_by_user_id) as catches
                FROM spawn_log WHERE spawned_at >= $1""", week_start),
         pool.fetchrow(
-            """SELECT COUNT(*) as cnt FROM spawn_log
-               WHERE spawned_at >= $1 AND is_shiny = 1 AND caught_by_user_id IS NOT NULL""", week_start),
+            """SELECT COUNT(*) as cnt FROM user_pokemon
+               WHERE is_shiny = 1 AND caught_at >= $1""", week_start),
         pool.fetchrow(
             "SELECT COUNT(*) as cnt FROM catch_attempts WHERE used_master_ball = 1 AND attempted_at >= $1",
             week_start),
