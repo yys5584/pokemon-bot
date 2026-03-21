@@ -225,9 +225,7 @@ async def challenge_callback_handler(update: Update, context: ContextTypes.DEFAU
                     "SELECT spawned_at, chat_id FROM spawn_sessions WHERE id = $1", session_id
                 )
                 if sess:
-                    asyncio.create_task(
-                        record_reaction(user_id, session_id, sess["spawned_at"], datetime.now(tz=timezone.utc), chat_id=sess.get("chat_id", 0))
-                    )
+                    await record_reaction(user_id, session_id, sess["spawned_at"], datetime.now(tz=timezone.utc), chat_id=sess.get("chat_id", 0))
             except Exception:
                 pass
 
