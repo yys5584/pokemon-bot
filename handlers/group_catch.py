@@ -98,8 +98,8 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # 포획 잠금 체크
-    from services.abuse_service import is_catch_locked
-    locked, _ = is_catch_locked(user_id)
+    from services.abuse_service import is_catch_locked_async
+    locked, _ = await is_catch_locked_async(user_id)
     if locked:
         schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
         return
@@ -205,8 +205,8 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     # 포획 잠금 체크
-    from services.abuse_service import is_catch_locked
-    locked, _ = is_catch_locked(user_id)
+    from services.abuse_service import is_catch_locked_async
+    locked, _ = await is_catch_locked_async(user_id)
     if locked:
         schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
         return
@@ -303,8 +303,8 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     # 포획 잠금 체크
-    from services.abuse_service import is_catch_locked as _is_locked
-    _lk, _ = _is_locked(user_id)
+    from services.abuse_service import is_catch_locked_async as _is_locked
+    _lk, _ = await _is_locked(user_id)
     if _lk:
         schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
         return

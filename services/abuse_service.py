@@ -50,7 +50,7 @@ _catch_locks: dict[int, dict] = {}
 # DB 캐시: {user_id: locked_until_timestamp}
 _db_lock_cache: dict[int, float] = {}
 
-def is_catch_locked(user_id: int) -> tuple[bool, int]:
+async def is_catch_locked_async(user_id: int) -> tuple[bool, int]:
     """포획 잠금 여부 확인 (메모리 + DB). 반환: (잠김 여부, 남은 초)."""
     # 메모리 체크
     lock = _catch_locks.get(user_id)
@@ -60,6 +60,34 @@ def is_catch_locked(user_id: int) -> tuple[bool, int]:
             return True, remaining
         _catch_locks.pop(user_id, None)
     # DB 캐시 체크
+    db_until = _db_lock_cache.get(user_id, 0)
+    if db_until > time.time():
+        return True, int(db_until - time.time())
+    # DB 직접 체크 (캐시 미스)
+    try:
+        pool = await get_db()
+        row = await pool.fetchrow(
+            "SELECT locked_until FROM abuse_scores WHERE user_id = $1 AND locked_until > NOW()",
+            user_id)
+        if row and row["locked_until"]:
+            remaining = int(row["locked_until"].timestamp() - time.time())
+            if remaining > 0:
+                _catch_locks[user_id] = {"locked_until": row["locked_until"].timestamp(), "strike": 5}
+                _db_lock_cache[user_id] = row["locked_until"].timestamp()
+                return True, remaining
+    except Exception:
+        pass
+    return False, 0
+
+
+def is_catch_locked(user_id: int) -> tuple[bool, int]:
+    """동기 버전 (메모리+캐시만). 포획 핸들러에서는 async 버전 사용 권장."""
+    lock = _catch_locks.get(user_id)
+    if lock:
+        remaining = int(lock["locked_until"] - time.time())
+        if remaining > 0:
+            return True, remaining
+        _catch_locks.pop(user_id, None)
     db_until = _db_lock_cache.get(user_id, 0)
     if db_until > time.time():
         return True, int(db_until - time.time())
