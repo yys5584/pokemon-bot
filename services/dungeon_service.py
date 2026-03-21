@@ -585,6 +585,8 @@ def resolve_dungeon_battle(
     log_lines = []
     total_dmg_dealt = 0
     total_dmg_taken = 0
+    # 전투 하이라이트 카운터
+    _cnt = {"crit": 0, "skill": 0, "dodge": 0, "double": 0, "thorns_dmg": 0, "lifesteal_heal": 0, "shield_absorbed": 0}
 
     # 상성 계산
     type_mult_p, _ = _type_multiplier(player_types, enemy["types"])
@@ -618,6 +620,7 @@ def resolve_dungeon_battle(
 
             # ── 회피 (플레이어만) ──
             if tag == "enemy" and dodge_rate > 0 and random.random() < dodge_rate:
+                _cnt["dodge"] += 1
                 # 시너지: 잔상 — 회피 시 다음 크리 확정
                 if "phantom" in active_syn:
                     dodge_crit_ready = True
@@ -643,10 +646,14 @@ def resolve_dungeon_battle(
                     dodge_crit_ready = False
             is_crit = random.random() < effective_crit
             crit_mult = config.DUNGEON_CRIT_MULT if is_crit else 1.0
+            if is_crit and tag == "player":
+                _cnt["crit"] += 1
 
             # 스킬
             skill_activated = random.random() < config.DUNGEON_SKILL_RATE
             skill_mult = config.DUNGEON_SKILL_MULT.get(rarity, 1.2) if skill_activated else 1.0
+            if skill_activated and tag == "player":
+                _cnt["skill"] += 1
 
             # 편차
             variance = random.uniform(0.9, 1.1)
@@ -674,6 +681,7 @@ def resolve_dungeon_battle(
                     effective_double = min(1.0, effective_double * 2)
                 if effective_double > 0 and random.random() < effective_double:
                     hit_count = 2
+                    _cnt["double"] += 1
 
                 for _hit in range(hit_count):
                     e_hp -= damage
@@ -682,12 +690,14 @@ def resolve_dungeon_battle(
                     if lifesteal > 0:
                         heal = int(damage * lifesteal)
                         p_hp = min(p_max_hp, p_hp + heal)
+                        _cnt["lifesteal_heal"] += heal
             else:
                 # 보호막 먼저 흡수
                 if p_shield > 0:
                     absorbed = min(p_shield, damage)
                     p_shield -= absorbed
                     damage -= absorbed
+                    _cnt["shield_absorbed"] += absorbed
 
                 p_hp -= damage
                 total_dmg_taken += damage
@@ -697,6 +707,7 @@ def resolve_dungeon_battle(
                     reflect = max(1, int((damage) * thorns_rate))
                     e_hp -= reflect
                     total_dmg_dealt += reflect
+                    _cnt["thorns_dmg"] += reflect
                     # 시너지: 피의 갑옷 — 반사 데미지 흡혈
                     if "vampire" in active_syn and lifesteal > 0:
                         heal = int(reflect * lifesteal)
@@ -727,6 +738,8 @@ def resolve_dungeon_battle(
         "log": log_lines,
         "revive_used": revive_used,
         "revive_consumed": revive_used,  # 핸들러에서 버프 리스트에서 revive 제거용
+        "highlights": _cnt,
+        "type_mult_enemy": type_mult_e,
     }
 
 

@@ -457,16 +457,50 @@ async def _process_floor(query, context, user_id: int, run: dict):
 
         # 상성
         if result.get("type_display"):
-            battle_lines += f"\n  {t(lang, 'dungeon.battle_type_display', display=result['type_display'])}"
+            battle_lines += f"\n  🔮 상성: {result['type_display']}"
+
+        # 전투 하이라이트
+        hl = result.get("highlights", {})
+        hl_parts = []
+        if hl.get("crit"):
+            hl_parts.append(f"💥크리 {hl['crit']}회")
+        if hl.get("skill"):
+            hl_parts.append(f"⚡스킬 {hl['skill']}회")
+        if hl.get("dodge"):
+            hl_parts.append(f"💨회피 {hl['dodge']}회")
+        if hl.get("double"):
+            hl_parts.append(f"✌️이중타격 {hl['double']}회")
+        if hl.get("thorns_dmg"):
+            hl_parts.append(f"🦔반사 {hl['thorns_dmg']}")
+        if hl.get("shield_absorbed"):
+            hl_parts.append(f"🛡️실드 {hl['shield_absorbed']}")
+        if hl_parts:
+            battle_lines += f"\n  {' · '.join(hl_parts)}"
+
+        # 전투 팁
+        type_mult_p = result.get("type_mult_player", 1.0)
+        type_mult_e = result.get("type_mult_enemy", 1.0)
+        tip = ""
+        if not won and type_mult_p < 1.0:
+            tip = "💡 상성 불리로 피해가 줄었어요. 유리한 상성 버프를 노려보세요!"
+        elif won and type_mult_p > 1.0:
+            tip = "💡 상성 유리! 효과적인 공격이었어요."
+        elif not won and result["turns"] >= config.DUNGEON_MAX_ROUNDS:
+            tip = "💡 장기전 판정패. 공격 버프로 화력을 올려보세요!"
+        elif won and hl.get("crit", 0) >= 3:
+            tip = "💡 크리티컬이 활약! 예리한 눈 버프와 궁합이 좋아요."
+        elif not won and result["total_damage_taken"] > result["total_damage_dealt"]:
+            tip = "💡 받은 피해가 너무 커요. 방어/실드/회피 버프를 고려해보세요."
+        if tip:
+            battle_lines += f"\n  {tip}"
 
         # 특수 효과 로그
         effect_lines = ""
         if result.get("revive_used"):
-            effect_lines += f"\n  {t(lang, 'dungeon.revive_triggered')}"
+            effect_lines += f"\n  💫 부활의 깃털 발동! HP 30% 회복"
         # 흡혈 회복량
-        if ds.get_lifesteal_rate(buffs) > 0 and result["total_damage_dealt"] > 0:
-            ls_heal = int(result["total_damage_dealt"] * ds.get_lifesteal_rate(buffs))
-            effect_lines += f"\n  {t(lang, 'dungeon.lifesteal_heal', hp=ls_heal)}"
+        if hl.get("lifesteal_heal", 0) > 0:
+            effect_lines += f"\n  🩸 흡혈 +{hl['lifesteal_heal']}HP"
         # 층간 회복
         if heal_rate > 0:
             heal_amt = int(run["max_hp"] * heal_rate)
