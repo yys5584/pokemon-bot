@@ -97,6 +97,13 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_tournament_active(chat_id):
         return
 
+    # 포획 잠금 체크
+    from services.abuse_service import is_catch_locked
+    locked, _ = is_catch_locked(user_id)
+    if locked:
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
+
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
     await _check_captcha_violation(user_id, context)
 
@@ -197,6 +204,13 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if is_tournament_active(chat_id):
         return
 
+    # 포획 잠금 체크
+    from services.abuse_service import is_catch_locked
+    locked, _ = is_catch_locked(user_id)
+    if locked:
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
+
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
     await _check_captcha_violation(user_id, context)
 
@@ -286,6 +300,13 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     username = update.effective_user.username
 
     if is_tournament_active(chat_id):
+        return
+
+    # 포획 잠금 체크
+    from services.abuse_service import is_catch_locked as _is_locked
+    _lk, _ = _is_locked(user_id)
+    if _lk:
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
         return
 
     try:
