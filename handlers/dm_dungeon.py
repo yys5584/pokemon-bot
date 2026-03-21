@@ -525,6 +525,7 @@ async def _process_floor(query, context, user_id: int, run: dict):
                     )],
                 ]
                 await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=_result_gif)
+                return
 
             if choices:
                 text += f"\n\n{icon_emoji('gotcha')} <b>{t(lang, 'dungeon.buff_select_title')}</b>"
