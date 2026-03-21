@@ -338,23 +338,24 @@ async def captcha_callback_handler(update: Update, context: ContextTypes.DEFAULT
 
     await query.answer()
 
-    # 메시지에서 정답 추출 (bold 엔티티)
+    # 메시지에서 정답 추출: "중 OOO을(를)" 패턴
+    import re
     text = query.message.text or ""
-    entities = query.message.entities or []
+    match = re.search(r"중\s+(.+?)을\(를\)|중\s+(.+?)을\s|중\s+(.+?)를\s", text)
     correct = None
-    for entity in entities:
-        if entity.type == "bold":
-            bold_text = text[entity.offset:entity.offset + entity.length]
-            # "포획 확인" 같은 제목이 아닌, 포켓몬 이름인 bold만
-            if bold_text not in ("포획 확인 챌린지!", "캡차 미응답 경고"):
-                correct = bold_text
-                break
+    if match:
+        correct = (match.group(1) or match.group(2) or match.group(3)).strip()
     if not correct:
-        # fallback: 버튼 텍스트 중 메시지에 언급된 것
-        import re
-        match = re.search(r"중 (.+?)을\(를\)|중 (.+?)을|중 (.+?)를", text)
-        if match:
-            correct = match.group(1) or match.group(2) or match.group(3)
+        # fallback: 버튼 4개 중 메시지 본문에 이름이 언급된 것
+        keyboard = query.message.reply_markup
+        if keyboard:
+            for row in keyboard.inline_keyboard:
+                for btn in row:
+                    if btn.text and btn.text in text:
+                        correct = btn.text
+                        break
+                if correct:
+                    break
     if not correct:
         await query.edit_message_text("⚠️ 챌린지 오류. 관리자에게 문의하세요.")
         return
