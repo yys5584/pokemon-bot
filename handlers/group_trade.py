@@ -30,9 +30,8 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not msg or not update.effective_user:
         return
 
-    # Must be a reply
+    # Must be a reply — 답장이 아니면 무응답 (일반 대화 방해 방지)
     if not msg.reply_to_message or not msg.reply_to_message.from_user:
-        await msg.reply_text("교환하려면 상대방의 메시지에 답장으로 사용하세요.\n예시: (답장) 교환 피카츄")
         return
 
     from_user = update.effective_user
@@ -57,7 +56,6 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     text = (msg.text or "").strip()
     parts = text.split()
     if len(parts) < 2:
-        await msg.reply_text("사용법: 교환 [포켓몬이름]\n예시: 교환 피카츄")
         return
 
     pokemon_name = parts[1]
@@ -65,7 +63,6 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # 포켓몬 이름이 아닌 일반 문장 필터링 (6글자 초과 또는 특수문자 포함)
     import re
     if len(pokemon_name) > 6 or re.search(r"[.!?~…,;:ㅋㅎㅠㅜㄷㄱ]", pokemon_name):
-        await msg.reply_text("사용법: 교환 [포켓몬이름]\n예시: (답장) 교환 피카츄")
         return
 
     select_idx = None
@@ -85,7 +82,6 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not matches:
         matches = [p for p in all_pokemon if name_lower in p["name_ko"].lower()]
     if not matches:
-        await msg.reply_text(f"'{pokemon_name}'을(를) 보유하고 있지 않습니다.")
         return
 
     if len(matches) > 1:
