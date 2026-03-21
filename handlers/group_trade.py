@@ -90,14 +90,26 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if len(matches) > 1:
         if select_idx is None:
-            # Show numbered list
-            lines = [f"⚠️ {pokemon_name} {len(matches)}마리 보유 중", "번호를 지정해주세요:", ""]
-            for i, p in enumerate(matches, 1):
+            # 버튼으로 선택
+            if not msg.reply_to_message or not msg.reply_to_message.from_user:
+                await msg.reply_text("교환하려면 상대방의 메시지에 답장으로 사용하세요.")
+                return
+            to_uid = msg.reply_to_message.from_user.id
+            lines = [f"⚠️ {pokemon_name} {len(matches)}마리 보유 중", "교환할 포켓몬을 선택하세요:"]
+            buttons = []
+            for i, p in enumerate(matches[:10], 1):  # 최대 10개
                 shiny = "✨" if p.get("is_shiny") else ""
                 iv = _iv_tag(p)
                 lines.append(f"  #{i} {p['name_ko']}{shiny} {iv} {_hearts(p.get('friendship', 0), p)}")
-            lines.append(f"\n예시: 교환 {pokemon_name} #1")
-            await msg.reply_text("\n".join(lines))
+                buttons.append([InlineKeyboardButton(
+                    f"#{i} {p['name_ko']}{shiny} {iv}",
+                    callback_data=f"gtrade_sel_{from_user.id}_{to_uid}_{p['id']}",
+                )])
+            buttons.append([InlineKeyboardButton("취소", callback_data=f"gtrade_selcancel_{from_user.id}")])
+            await msg.reply_text(
+                "\n".join(lines),
+                reply_markup=InlineKeyboardMarkup(buttons),
+            )
             return
         if select_idx < 1 or select_idx > len(matches):
             await msg.reply_text(f"1~{len(matches)} 사이의 번호를 입력하세요.")
@@ -204,13 +216,127 @@ async def _expire_group_trade(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def group_trade_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle gtrade_accept_{trade_id} and gtrade_reject_{trade_id}."""
+    """Handle gtrade_* callbacks."""
     query = update.callback_query
     if not query:
         return
 
     user_id = query.from_user.id
     data = query.data or ""
+
+    # ── 중복 포켓몬 선택 버튼 ──
+    if data.startswith("gtrade_sel_"):
+        # gtrade_sel_{from_uid}_{to_uid}_{instance_id}
+        parts = data.split("_")
+        try:
+            from_uid = int(parts[2])
+            to_uid = int(parts[3])
+            instance_id = int(parts[4])
+        except (ValueError, IndexError):
+            await query.answer("오류가 발생했습니다.")
+            return
+        if user_id != from_uid:
+            await query.answer("본인만 선택할 수 있습니다!", show_alert=True)
+            return
+        await query.answer()
+        # 포켓몬 조회 + 잠금 체크
+        pokemon = await queries.get_user_pokemon_by_id(instance_id)
+        if not pokemon or pokemon.get("user_id") != from_uid:
+            try:
+                await query.edit_message_text("포켓몬을 찾을 수 없습니다.")
+            except Exception:
+                pass
+            return
+        locked, reason = await market_queries.is_pokemon_locked(instance_id)
+        if locked:
+            try:
+                await query.edit_message_text(reason)
+            except Exception:
+                pass
+            return
+        if pokemon.get("team_slot") is not None:
+            try:
+                await query.edit_message_text("배틀 팀에 등록된 포켓몬은 교환할 수 없습니다.")
+            except Exception:
+                pass
+            return
+        # BP 차감
+        cost = config.GROUP_TRADE_BP_COST
+        if cost > 0:
+            current_bp = await bq.get_bp(from_uid)
+            if current_bp < cost:
+                try:
+                    await query.edit_message_text(f"BP가 부족합니다! (필요: {cost:,} BP, 보유: {current_bp:,} BP)")
+                except Exception:
+                    pass
+                return
+            spent = await bq.spend_bp(from_uid, cost)
+            if not spent:
+                try:
+                    await query.edit_message_text("BP 차감에 실패했습니다.")
+                except Exception:
+                    pass
+                return
+        # 교환 생성
+        chat_id = query.message.chat_id
+        trade_id = await tq.create_group_trade(
+            from_user_id=from_uid,
+            to_user_id=to_uid,
+            offer_instance_id=instance_id,
+            chat_id=chat_id,
+        )
+        shiny = "✨" if pokemon.get("is_shiny") else ""
+        iv = _iv_tag(pokemon)
+        hearts = _hearts(pokemon.get("friendship", 0), pokemon)
+        from_user = query.from_user
+        try:
+            to_chat_member = await context.bot.get_chat_member(chat_id, to_uid)
+            to_name = to_chat_member.user.first_name or "트레이너"
+        except Exception:
+            to_name = "트레이너"
+        from_name = from_user.first_name or "트레이너"
+        buttons = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("수락 ✅", callback_data=f"gtrade_accept_{trade_id}"),
+                InlineKeyboardButton("거절 ❌", callback_data=f"gtrade_reject_{trade_id}"),
+            ]
+        ])
+        try:
+            await query.edit_message_text(
+                f"🔄 {from_name}님이 {to_name}님에게 교환을 제안합니다!\n\n"
+                f"제안: {type_badge(pokemon['pokemon_id'])} {pokemon['name_ko']}{shiny} {iv} {hearts}\n"
+                f"{to_name}님만 응답할 수 있습니다. (5분 내)",
+                reply_markup=buttons,
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        # 메시지 ID 저장 + 자동 만료
+        await tq.update_group_trade_message_id(trade_id, query.message.message_id)
+        context.job_queue.run_once(
+            _expire_group_trade,
+            when=config.GROUP_TRADE_TIMEOUT,
+            data={"trade_id": trade_id, "chat_id": chat_id, "message_id": query.message.message_id},
+            name=f"gtrade_expire_{trade_id}",
+        )
+        return
+
+    if data.startswith("gtrade_selcancel_"):
+        parts = data.split("_")
+        try:
+            from_uid = int(parts[2])
+        except (ValueError, IndexError):
+            await query.answer()
+            return
+        if user_id != from_uid:
+            await query.answer("본인만 취소할 수 있습니다!", show_alert=True)
+            return
+        await query.answer("취소되었습니다.")
+        try:
+            await query.edit_message_text("교환이 취소되었습니다.")
+        except Exception:
+            pass
+        return
 
     if data.startswith("gtrade_accept_"):
         try:
