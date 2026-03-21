@@ -338,24 +338,26 @@ async def captcha_callback_handler(update: Update, context: ContextTypes.DEFAULT
 
     await query.answer()
 
-    # 메시지에서 정답 추출 (볼드 텍스트)
-    msg_text = query.message.text or ""
-    import re
-    # "중 **괴력몬**을(를)" 패턴에서 정답 추출 — HTML이므로 <b> 태그
-    caption = query.message.caption or query.message.text or ""
-    match = re.search(r"<b>(.+?)</b>을\(를\)|<b>(.+?)</b>을|<b>(.+?)</b>를", caption)
-    if not match:
-        # fallback: 엔티티에서 bold 찾기
-        correct = None
-        for entity in (query.message.entities or []):
-            if entity.type == "bold":
-                correct = caption[entity.offset:entity.offset + entity.length]
+    # 메시지에서 정답 추출 (bold 엔티티)
+    text = query.message.text or ""
+    entities = query.message.entities or []
+    correct = None
+    for entity in entities:
+        if entity.type == "bold":
+            bold_text = text[entity.offset:entity.offset + entity.length]
+            # "포획 확인" 같은 제목이 아닌, 포켓몬 이름인 bold만
+            if bold_text not in ("포획 확인 챌린지!", "캡차 미응답 경고"):
+                correct = bold_text
                 break
-        if not correct:
-            await query.edit_message_text("⚠️ 챌린지 오류. 관리자에게 문의하세요.")
-            return
-    else:
-        correct = match.group(1) or match.group(2) or match.group(3)
+    if not correct:
+        # fallback: 버튼 텍스트 중 메시지에 언급된 것
+        import re
+        match = re.search(r"중 (.+?)을\(를\)|중 (.+?)을|중 (.+?)를", text)
+        if match:
+            correct = match.group(1) or match.group(2) or match.group(3)
+    if not correct:
+        await query.edit_message_text("⚠️ 챌린지 오류. 관리자에게 문의하세요.")
+        return
 
     if answer == correct:
         await query.edit_message_text("✅ 검증 통과! 정상 유저로 확인되었습니다.")
