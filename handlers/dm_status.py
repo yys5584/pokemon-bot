@@ -405,6 +405,9 @@ async def type_chart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             lines.append(f"\n🛡️ 방어 시 면역 (0x 피해):")
             lines.append(f"  {fmt(immune_from)}")
 
+        lines.append(f"\n💡 듀얼타입 상대 시: 각 타입에 대한 배율이 곱해집니다")
+        lines.append(f"  예: {te}{ko} → 강철/드래곤 = 강철 배율 × 드래곤 배율")
+
         await update.message.reply_text("\n".join(lines), parse_mode="HTML")
     else:
         # Full chart summary
@@ -417,4 +420,10 @@ async def type_chart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             targets = " ".join(f"{_type_emoji(tp)}{config.TYPE_NAME_KO.get(tp, tp)}" for tp in adv_list)
             lines.append(f"{te}{ko} → {targets}")
         lines.append(f"\n💡 상성 [타입] 으로 상세 보기\n예: 상성 불꽃")
+        lines.append(f"\n📖 <b>상성 가이드</b>")
+        lines.append(f"• 듀얼타입 포켓몬은 더 유리한 타입 하나로 공격")
+        lines.append(f"• 두 타입이 합산되지 않음 (4배 아님)")
+        lines.append(f"• 4배는 상대의 두 타입 모두에 유리할 때만")
+        lines.append(f"  예: 얼음→한카리아스(드래곤/땅) = 2×2 = 4배")
+        lines.append(f"• 불→디아루가(강철/드래곤) = 강철2배×드래곤0.5배 = 1배 (상쇄)")
         await update.message.reply_text("\n".join(lines), parse_mode="HTML")
