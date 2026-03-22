@@ -633,7 +633,7 @@ async def _show_battle_turn(query, context, user_id: int):
     else:
         row1 = [InlineKeyboardButton("⚔️ 일반공격", callback_data=f"dg_atk_{user_id}")]
 
-        if not is_truant and len(skills) >= 1 and len(pp) >= 1:
+        if len(skills) >= 1 and len(pp) >= 1:
             sk1 = skills[0]
             pp1 = pp[0]
             pp_text = f"{pp1['current']}/{pp1['max']}"
@@ -644,7 +644,7 @@ async def _show_battle_turn(query, context, user_id: int):
         buttons.append(row1)
 
         row2 = []
-        if not is_truant and len(skills) >= 2 and len(pp) >= 2:
+        if len(skills) >= 2 and len(pp) >= 2:
             sk2 = skills[1]
             pp2 = pp[1]
             pp_text = f"{pp2['current']}/{pp2['max']}"

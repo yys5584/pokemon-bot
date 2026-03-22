@@ -30,18 +30,18 @@ def get_today_theme() -> dict:
 # ══════════════════════════════════════════════════════════
 
 def enemy_scaling(floor: int) -> float:
-    """층별 적 스탯 배율 (v4.0).
-    1~25층: 완만 → 30~50층: 가파름 (고코스트 전용 구간)."""
+    """층별 적 스탯 배율 (v5.1).
+    avg 30 목표. 30층까지 완만, 이후 급격히 상승."""
     if floor <= 10:
-        return 1.0 + floor * 0.02          # 1.02 ~ 1.20
+        return 1.0 + floor * 0.012          # 1.012 ~ 1.12
     elif floor <= 20:
-        return 1.20 + (floor - 10) * 0.025  # 1.225 ~ 1.45
+        return 1.12 + (floor - 10) * 0.018  # 1.138 ~ 1.30
     elif floor <= 30:
-        return 1.45 + (floor - 20) * 0.035  # 1.485 ~ 1.80
+        return 1.30 + (floor - 20) * 0.025  # 1.325 ~ 1.55
     elif floor <= 40:
-        return 1.80 + (floor - 30) * 0.05   # 1.85 ~ 2.30
+        return 1.55 + (floor - 30) * 0.05   # 1.60 ~ 2.05
     else:
-        return 2.30 + (floor - 40) * 0.06   # 2.36 ~ 2.90
+        return 2.05 + (floor - 40) * 0.08   # 2.13 ~ 2.85
 
 
 # ══════════════════════════════════════════════════════════
@@ -802,10 +802,6 @@ def resolve_turn(state: dict, player_action: str) -> dict:
     if state.get("is_truant") and state["turn"] % 2 == 0:
         player_action = "defend"  # 강제 방어
 
-    # 게으름 포켓몬은 특수기 사용 불가
-    if state.get("is_truant") and player_action in ("skill1", "skill2"):
-        player_action = "normal"
-
     # 전투 버프 참조
     crit_bonus = get_combat_rate(buffs, "crit")
     double_rate = get_combat_rate(buffs, "double")
@@ -883,9 +879,6 @@ def resolve_turn(state: dict, player_action: str) -> dict:
         atk_val = p_stats["atk"]
         def_val = e_stats["def"]
         normal_mult = config.DUNGEON_NORMAL_ATK_MULT.get(state["p_rarity"], 1.0)
-        # 게으름 포켓몬: 등급 무관 고정 배율
-        if state.get("is_truant"):
-            normal_mult = config.TRUANT_NORMAL_ATK_PENALTY
         base = max(int(atk_val * config.DUNGEON_MIN_DMG_RATIO), atk_val - int(def_val * config.DUNGEON_DEF_FACTOR))
         variance = random.uniform(0.9, 1.1)
 
