@@ -490,6 +490,7 @@ BATTLE_BASE_POWER = 130              # 기본 기술위력 (본가 스타일 데
 
 # 격턴 스킵 (나태/슬로우스타트): 첫 턴 공격, 둘째 턴 스킵, 반복
 TRUANT_POKEMON = {289, 486}          # 게을킹, 레지기가스
+TRUANT_NORMAL_ATK_PENALTY = 0.7      # 게으름 일반공격 추가 페널티
 
 # --- BP (Battle Points) ---
 BP_WIN_BASE = 20                    # 승리 기본 BP
@@ -1274,7 +1275,7 @@ DUNGEON_SKILL_MULT = {
 # PP: 런 전체 공유, 층 넘어가도 안 참
 DUNGEON_PP_BY_RARITY = {
     "common": 12, "rare": 11, "epic": 8,
-    "legendary": 6, "ultra_legendary": 5,
+    "legendary": 7, "ultra_legendary": 7,
 }
 # 일반공격 배율 (고코스트=PP 적지만 일반 강함)
 DUNGEON_NORMAL_ATK_MULT = {

@@ -36,12 +36,11 @@ PROFILES = {
     "slaking_A":      (289, "epic",           "게을킹",     "A", 5, False),   # 노말 (실 39F, BST670)
     "slaking_S_shiny":(289, "epic",           "게을킹",     "S", 7, True),    # 실 45F
     # 전설
-    "legendary_A":    (383, "legendary",      "가이오가",   "A", 5, False),   # 물 — 상성 O
-    "legendary_S_shiny":(383,"legendary",     "가이오가",   "S", 7, True),
     "regigigas_S_shiny":(486,"legendary",     "레지기가스", "S", 7, True),    # 노말, BST670 (실 35F)
     # 초전설
-    "ultra_A":        (484, "ultra_legendary","펄기아",     "A", 5, False),   # 물/드래곤
-    "ultra_S_shiny":  (484, "ultra_legendary","펄기아",     "S", 7, True),
+    "ultra_A_groudon": (383, "ultra_legendary","그란돈",    "A", 5, False),   # 땅 — 화산 상성 O
+    "ultra_S_kyogre":  (382, "ultra_legendary","가이오가",  "S", 7, True),    # 물 — 화산 상성 O
+    "ultra_S_palkia":  (484, "ultra_legendary","펄기아",    "S", 7, True),    # 물/드래곤
 }
 
 IV_GRADES = {
@@ -236,7 +235,7 @@ def test_balance():
 def test_balance_assertions():
     results = test_balance()
 
-    N = len(results["ultra_S_shiny"]["floors"])
+    N = len(results["ultra_S_kyogre"]["floors"])
     def reach_rate(key, threshold):
         return sum(1 for f in results[key]["floors"] if f >= threshold) / N
 
@@ -271,17 +270,16 @@ def test_balance_assertions():
     assert results["epic_S_shiny"]["max"] >= 40, \
         f"한카리아스✨S max={results['epic_S_shiny']['max']} < 40 (실 48F)"
 
-    # 초전설 이로치S: 에픽 한카리아스보다 높아야 (같은 상성 기준)
-    assert results["ultra_S_shiny"]["avg"] > results["epic_S_shiny"]["avg"], \
-        f"초전설✨S({results['ultra_S_shiny']['avg']:.1f}) <= 에픽한카✨S({results['epic_S_shiny']['avg']:.1f})"
+    # 초전설 듀얼타입(펄기아✨S 물/드래곤): 에픽(한카리아스✨S)보다 높아야
+    assert results["ultra_S_palkia"]["avg"] > results["epic_S_shiny"]["avg"], \
+        f"펄기아✨S({results['ultra_S_palkia']['avg']:.1f}) <= 한카리아스✨S({results['epic_S_shiny']['avg']:.1f})"
 
-    # ── 3. 등급 계층 (이로치S 기준) ──
+    # ── 3. 등급 계층 ──
     assert results["rare_S_shiny"]["avg"] > results["common_S_shiny"]["avg"], "레어✨ > 일반✨"
     assert results["epic_S_shiny"]["avg"] > results["rare_S_shiny"]["avg"], "에픽✨ > 레어✨"
-    # 게을킹(에픽 BST670)은 전설급이라 전설보다 높을 수 있음 — 한카리아스 기준으로 비교
-    # 전설/초전설은 BST 비슷(670 vs 680)해서 avg 근소 차이 허용
-    assert results["legendary_S_shiny"]["max"] >= 40, "전설✨S max 40+"
-    assert results["ultra_S_shiny"]["max"] >= 40, "초전설✨S max 40+"
+    # 가이오가(단일타입 물)는 한카리아스(듀얼 드래곤/땅)보다 낮을 수 있음 — 타입 수 차이
+    assert results["ultra_S_palkia"]["max"] >= 40, "펄기아✨S max 40+"
+    assert results["ultra_S_kyogre"]["max"] >= 35, "가이오가✨S max 35+"
 
     # ── 4. 일반A는 50층 불가 ──
     n50 = results["common_A_adv"]["floors"].count(50)

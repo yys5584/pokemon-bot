@@ -883,6 +883,9 @@ def resolve_turn(state: dict, player_action: str) -> dict:
         atk_val = p_stats["atk"]
         def_val = e_stats["def"]
         normal_mult = config.DUNGEON_NORMAL_ATK_MULT.get(state["p_rarity"], 1.0)
+        # 게으름 포켓몬 일반공격 페널티
+        if state.get("is_truant"):
+            normal_mult *= config.TRUANT_NORMAL_ATK_PENALTY
         base = max(int(atk_val * config.DUNGEON_MIN_DMG_RATIO), atk_val - int(def_val * config.DUNGEON_DEF_FACTOR))
         variance = random.uniform(0.9, 1.1)
 
