@@ -1337,7 +1337,7 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
         rainbow = int(rainbow * item_mult)
         iv_stones = int(iv_stones * item_mult)
         tickets = int(tickets * item_mult)
-        items = {k: max(v, round(v * item_mult)) for k, v in items.items()}
+        items = {k: max(v, int(v * item_mult + 0.5)) for k, v in items.items()}
 
     # BP 상한
     bp = min(bp, config.DUNGEON_MAX_BP)

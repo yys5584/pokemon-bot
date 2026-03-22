@@ -491,9 +491,13 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     elif data == "item_use_time_reduce_ticket":
         await _use_time_reduce_ticket(query, user_id)
         return
+    elif data.startswith("trt_pend_"):
+        pend_id = int(data.split("_")[2])
+        await _execute_time_reduce(query, user_id, pend_id, "pending")
+        return
     elif data.startswith("trt_egg_"):
         egg_id = int(data.split("_")[2])
-        await _execute_time_reduce(query, user_id, egg_id)
+        await _execute_time_reduce(query, user_id, egg_id, "egg")
         return
     elif data == "item_use_priority_ball":
         await query.edit_message_text(
@@ -1239,10 +1243,12 @@ async def _use_time_reduce_ticket(query, user_id: int):
     for p in pendings:
         remaining = p["completes_at"] - now
         hours = max(0, int(remaining.total_seconds() // 3600))
-        pname = poke_name("ko", p["pokemon_id"])
+        # pending에서 포켓몬 이름 조회
+        poke = await queries.get_pokemon(p["pokemon_id"])
+        pname = poke["name_ko"] if poke else f"#{p['pokemon_id']}"
         buttons.append([InlineKeyboardButton(
             f"✨ {pname} 전환 (남은 {hours}h)",
-            callback_data=f"trt_egg_{p['id']}",
+            callback_data=f"trt_pend_{p['id']}",
         )])
 
     for egg in eggs:
@@ -1257,7 +1263,7 @@ async def _use_time_reduce_ticket(query, user_id: int):
     await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 
 
-async def _execute_time_reduce(query, user_id: int, target_id: int):
+async def _execute_time_reduce(query, user_id: int, target_id: int, target_type: str = "pending"):
     """시간단축권 실행 — 12시간 차감."""
     ok = await item_queries.use_user_item(user_id, "time_reduce_ticket")
     if not ok:
@@ -1267,43 +1273,42 @@ async def _execute_time_reduce(query, user_id: int, target_id: int):
     reduce_hours = config.DUNGEON_TIME_REDUCE_HOURS
     from database.connection import get_db
     pool = await get_db()
+    row = None
 
-    # 이로치 전환 대기 or 알 부화 — 둘 다 시도
-    # 1) camp_shiny_pending
-    row = await pool.fetchrow(
-        """UPDATE camp_shiny_pending
-           SET completes_at = completes_at - make_interval(hours := $3)
-           WHERE id = $1 AND user_id = $2
-           RETURNING completes_at""",
-        target_id, user_id, float(reduce_hours),
-    )
-    if row:
-        remaining = row["completes_at"] - config.get_kst_now()
-        hours_left = max(0, int(remaining.total_seconds() // 3600))
-        await query.edit_message_text(
-            f"⏰ 시간단축권 사용! {reduce_hours}시간 단축\n"
-            f"남은 시간: {hours_left}시간",
-            parse_mode="HTML",
+    if target_type == "pending":
+        row = await pool.fetchrow(
+            """UPDATE camp_shiny_pending
+               SET completes_at = completes_at - make_interval(hours := $3)
+               WHERE id = $1 AND user_id = $2 AND NOT completed
+               RETURNING completes_at""",
+            target_id, user_id, float(reduce_hours),
         )
-        return
-
-    # 2) shiny_eggs
-    row = await pool.fetchrow(
-        """UPDATE shiny_eggs
-           SET hatches_at = hatches_at - make_interval(hours := $3)
-           WHERE id = $1 AND user_id = $2 AND hatched = FALSE
-           RETURNING hatches_at""",
-        target_id, user_id, float(reduce_hours),
-    )
-    if row:
-        remaining = row["hatches_at"] - config.get_kst_now()
-        hours_left = max(0, int(remaining.total_seconds() // 3600))
-        await query.edit_message_text(
-            f"⏰ 시간단축권 사용! {reduce_hours}시간 단축\n"
-            f"남은 시간: {hours_left}시간",
-            parse_mode="HTML",
+        if row:
+            remaining = row["completes_at"] - config.get_kst_now()
+            hours_left = max(0, int(remaining.total_seconds() // 3600))
+            await query.edit_message_text(
+                f"⏰ 시간단축권 사용! {reduce_hours}시간 단축\n"
+                f"남은 시간: {hours_left}시간",
+                parse_mode="HTML",
+            )
+            return
+    else:
+        row = await pool.fetchrow(
+            """UPDATE shiny_eggs
+               SET hatches_at = hatches_at - make_interval(hours := $3)
+               WHERE id = $1 AND user_id = $2 AND hatched = FALSE
+               RETURNING hatches_at""",
+            target_id, user_id, float(reduce_hours),
         )
-        return
+        if row:
+            remaining = row["hatches_at"] - config.get_kst_now()
+            hours_left = max(0, int(remaining.total_seconds() // 3600))
+            await query.edit_message_text(
+                f"⏰ 시간단축권 사용! {reduce_hours}시간 단축\n"
+                f"남은 시간: {hours_left}시간",
+                parse_mode="HTML",
+            )
+            return
 
     # 대상 못 찾음 — 환불
     await item_queries.add_user_item(user_id, "time_reduce_ticket")
