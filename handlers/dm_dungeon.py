@@ -102,6 +102,14 @@ async def dungeon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return
 
+    # 던전 대규모 패치 준비 중 — 임시 비활성화
+    await update.message.reply_text(
+        "🏰 던전이 대규모 패치 준비 중입니다!\n"
+        "곧 턴제 수동 전투로 돌아올 예정이에요. 조금만 기다려주세요! 🔧",
+        parse_mode="HTML",
+    )
+    return
+
     user_id = update.effective_user.id
     lang = await get_user_lang(user_id)
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
