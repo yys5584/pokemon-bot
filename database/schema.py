@@ -754,6 +754,12 @@ DUNGEON_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_tickets_bought_today INT NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_best_floor INT NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_season_runs INT NOT NULL DEFAULT 0",
+    # 랭킹 보상 분배 추적
+    """CREATE TABLE IF NOT EXISTS dungeon_ranking_rewards (
+        season_key TEXT PRIMARY KEY,
+        reward_type TEXT NOT NULL DEFAULT 'weekly',
+        distributed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
 ]
 
 CAMP_TABLES = [

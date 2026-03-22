@@ -1428,6 +1428,21 @@ DUNGEON_MILESTONE_TITLES = {
     50: ("던전 챔피언", "👑"),
 }
 
+# --- 주간 랭킹 보상 ---
+DUNGEON_WEEKLY_RANKING_REWARDS = {
+    1: {"masterball": 1, "crystals": 5, "tickets": 3, "title": "던전 주간왕"},
+    (2, 3): {"crystals": 5, "tickets": 3},
+    (4, 10): {"crystals": 3, "tickets": 2},
+    (11, 30): {"crystals": 1, "tickets": 1},
+}
+
+# --- 일일 랭킹 보상 ---
+DUNGEON_DAILY_RANKING_REWARDS = {
+    1: {"iv_reroll_one": 1},
+    (2, 3): {"fragments": 10},
+    (4, 10): {"fragments": 5},
+}
+
 # ─── Camp System v2 (포켓몬 캠프) ────────────────────────
 # 최소 참여 조건
 CAMP_MIN_MEMBERS = 100

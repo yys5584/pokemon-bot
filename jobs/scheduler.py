@@ -12,6 +12,7 @@ from jobs.ranked_jobs import (
     ranked_mid_season_check_job,
     ranked_decay_job,
 )
+from jobs.dungeon_jobs import dungeon_weekly_ranking_job, dungeon_daily_ranking_job
 from services.tournament_service import start_registration, start_tournament, snapshot_teams
 
 logger = logging.getLogger(__name__)
@@ -97,6 +98,21 @@ def register_all_jobs(app):
         ranked_decay_job,
         time=dt_time(0, 15, 0, tzinfo=_KST),
         name="ranked_decay",
+    )
+
+    # --- 던전 랭킹 보상 ---
+    # 주간 랭킹 보상 (월요일 00:20 KST)
+    jq.run_daily(
+        dungeon_weekly_ranking_job,
+        time=dt_time(0, 20, 0, tzinfo=_KST),
+        name="dungeon_weekly_ranking",
+    )
+
+    # 일일 랭킹 보상 (매일 00:25 KST)
+    jq.run_daily(
+        dungeon_daily_ranking_job,
+        time=dt_time(0, 25, 0, tzinfo=_KST),
+        name="dungeon_daily_ranking",
     )
 
     # --- 구독 결제 ---

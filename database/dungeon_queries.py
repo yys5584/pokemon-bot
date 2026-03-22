@@ -325,3 +325,71 @@ def _current_season_key() -> str:
     now = _dt.datetime.now(kst)
     year, week, _ = now.isocalendar()
     return f"W{year}-{week:02d}"
+
+
+def _previous_season_key() -> str:
+    """Previous week's season key."""
+    import datetime as _dt
+    kst = _dt.timezone(_dt.timedelta(hours=9))
+    now = _dt.datetime.now(kst) - _dt.timedelta(days=7)
+    year, week, _ = now.isocalendar()
+    return f"W{year}-{week:02d}"
+
+
+async def get_daily_ranking(date_str: str | None = None, limit: int = 10) -> list[dict]:
+    """특정 날짜(KST)의 최고층 랭킹. date_str: 'YYYY-MM-DD', None=어제."""
+    pool = await get_db()
+    if date_str is None:
+        import datetime as _dt
+        kst = _dt.timezone(_dt.timedelta(hours=9))
+        yesterday = _dt.datetime.now(kst) - _dt.timedelta(days=1)
+        date_str = yesterday.strftime("%Y-%m-%d")
+    rows = await pool.fetch(
+        """SELECT DISTINCT ON (dr.user_id)
+              dr.user_id, u.display_name, dr.floor_reached
+           FROM dungeon_runs dr
+           JOIN users u ON dr.user_id = u.user_id
+           WHERE dr.status = 'completed'
+             AND (dr.ended_at AT TIME ZONE 'Asia/Seoul')::date = $1::date
+           ORDER BY dr.user_id, dr.floor_reached DESC""",
+        date_str,
+    )
+    result = [dict(r) for r in rows]
+    result.sort(key=lambda x: x["floor_reached"], reverse=True)
+    return result[:limit]
+
+
+async def get_previous_week_ranking(limit: int = 30) -> list[dict]:
+    """지난 주 시즌 랭킹."""
+    pool = await get_db()
+    season_key = _previous_season_key()
+    rows = await pool.fetch(
+        """SELECT DISTINCT ON (dr.user_id)
+              dr.user_id, u.display_name, dr.pokemon_name, dr.floor_reached
+           FROM dungeon_runs dr
+           JOIN users u ON dr.user_id = u.user_id
+           WHERE dr.season_key = $1 AND dr.status = 'completed'
+           ORDER BY dr.user_id, dr.floor_reached DESC""",
+        season_key,
+    )
+    result = [dict(r) for r in rows]
+    result.sort(key=lambda x: x["floor_reached"], reverse=True)
+    return result[:limit]
+
+
+async def is_reward_distributed(key: str) -> bool:
+    """보상 분배 완료 여부."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT 1 FROM dungeon_ranking_rewards WHERE season_key = $1", key)
+    return row is not None
+
+
+async def mark_reward_distributed(key: str, reward_type: str = "weekly"):
+    """보상 분배 완료 기록."""
+    pool = await get_db()
+    await pool.execute(
+        """INSERT INTO dungeon_ranking_rewards (season_key, reward_type)
+           VALUES ($1, $2) ON CONFLICT DO NOTHING""",
+        key, reward_type,
+    )
