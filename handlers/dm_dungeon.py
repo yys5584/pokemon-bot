@@ -626,7 +626,10 @@ async def _show_battle_turn(query, context, user_id: int):
     buttons = []
     if is_loaf_turn:
         # 빈둥빈둥 턴: 방어만
-        buttons.append([InlineKeyboardButton("🛡️ 방어 (빈둥빈둥)", callback_data=f"dg_def_{user_id}")])
+        buttons.append([InlineKeyboardButton(
+            "🛡️ 방어 (빈둥빈둥)", callback_data=f"dg_def_{user_id}",
+            api_kwargs={"style": "primary"},
+        )])
     else:
         row1 = [InlineKeyboardButton("⚔️ 일반공격", callback_data=f"dg_atk_{user_id}")]
 
@@ -637,7 +640,10 @@ async def _show_battle_turn(query, context, user_id: int):
             label = f"{sk1['emoji']} {sk1['name']} {pp_text}"
             if pp1["current"] <= 0:
                 label = f"❌ {sk1['name']} 0/{pp1['max']}"
-            row1.append(InlineKeyboardButton(label, callback_data=f"dg_sk1_{user_id}"))
+            sk1_kwargs = {"api_kwargs": {"style": "danger"}} if pp1["current"] > 0 else {}
+            row1.append(InlineKeyboardButton(
+                label, callback_data=f"dg_sk1_{user_id}", **sk1_kwargs,
+            ))
         buttons.append(row1)
 
         row2 = []
@@ -648,12 +654,18 @@ async def _show_battle_turn(query, context, user_id: int):
             label = f"{sk2['emoji']} {sk2['name']} {pp_text}"
             if pp2["current"] <= 0:
                 label = f"❌ {sk2['name']} 0/{pp2['max']}"
-            row2.append(InlineKeyboardButton(label, callback_data=f"dg_sk2_{user_id}"))
+            sk2_kwargs = {"api_kwargs": {"style": "danger"}} if pp2["current"] > 0 else {}
+            row2.append(InlineKeyboardButton(
+                label, callback_data=f"dg_sk2_{user_id}", **sk2_kwargs,
+            ))
 
-        row2.append(InlineKeyboardButton("🛡️ 방어", callback_data=f"dg_def_{user_id}"))
+        row2.append(InlineKeyboardButton(
+            "🛡️ 방어", callback_data=f"dg_def_{user_id}",
+            api_kwargs={"style": "primary"},
+        ))
         buttons.append(row2)
 
-    # 포기 버튼
+    # 포기 버튼 (기본 회색 — 실수 방지)
     buttons.append([InlineKeyboardButton("🏳️ 포기", callback_data=f"dg_quit_{user_id}")])
 
     await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
