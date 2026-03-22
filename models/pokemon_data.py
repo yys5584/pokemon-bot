@@ -153,7 +153,7 @@ ALL_POKEMON = [
 
     # --- Magnemite line ---
     (81, "코일", "Magnemite", "🧲", "common", 0.80, None, 82, "friendship"),
-    (82, "레어코일", "Magneton", "🧲", "rare", 0.50, 81, 462, "none"),
+    (82, "레어코일", "Magneton", "🧲", "rare", 0.50, 81, 462, "friendship"),
 
     # --- Farfetch'd (no evolution) ---
     (83, "파오리", "Farfetch'd", "🦆", "common", 0.80, None, None, "none"),
@@ -209,7 +209,7 @@ ALL_POKEMON = [
     (107, "홍수몬", "Hitmonchan", "🥊", "rare", 0.50, None, None, "none"),
 
     # --- Lickitung (no evolution in Gen1) ---
-    (108, "내루미", "Lickitung", "👅", "common", 0.80, None, 463, "none"),
+    (108, "내루미", "Lickitung", "👅", "common", 0.80, None, 463, "friendship"),
 
     # --- Koffing line ---
     (109, "또가스", "Koffing", "💨", "common", 0.80, None, 110, "friendship"),
@@ -217,13 +217,13 @@ ALL_POKEMON = [
 
     # --- Rhyhorn line ---
     (111, "뿔카노", "Rhyhorn", "🦏", "common", 0.80, None, 112, "friendship"),
-    (112, "코뿌리", "Rhydon", "🦏", "rare", 0.50, 111, 464, "none"),
+    (112, "코뿌리", "Rhydon", "🦏", "rare", 0.50, 111, 464, "friendship"),
 
     # --- Chansey (no evolution in Gen1) ---
     (113, "럭키", "Chansey", "🥚", "rare", 0.50, None, None, "none"),
 
     # --- Tangela (no evolution in Gen1) ---
-    (114, "덩쿠리", "Tangela", "🌿", "rare", 0.50, None, 465, "none"),
+    (114, "덩쿠리", "Tangela", "🌿", "rare", 0.50, None, 465, "friendship"),
 
     # --- Kangaskhan (no evolution) ---
     (115, "캥카", "Kangaskhan", "🦘", "rare", 0.50, None, None, "none"),
@@ -250,10 +250,10 @@ ALL_POKEMON = [
     (124, "루주라", "Jynx", "💋", "rare", 0.50, None, None, "none"),
 
     # --- Electabuzz (no evolution in Gen1) ---
-    (125, "에레브", "Electabuzz", "⚡", "rare", 0.50, None, 466, "none"),
+    (125, "에레브", "Electabuzz", "⚡", "rare", 0.50, None, 466, "friendship"),
 
     # --- Magmar (no evolution in Gen1) ---
-    (126, "마그마", "Magmar", "🔥", "rare", 0.50, None, 467, "none"),
+    (126, "마그마", "Magmar", "🔥", "rare", 0.50, None, 467, "friendship"),
 
     # --- Pinsir (no evolution) ---
     (127, "쁘사이저", "Pinsir", "🪲", "epic", 0.15, None, None, "none"),
@@ -363,7 +363,7 @@ ALL_POKEMON = [
 
     # --- Togepi line ---
     (175, "토게피", "Togepi", "⭐", "common", 0.80, None, 176, "friendship"),
-    (176, "토게틱", "Togetic", "⭐", "common", 0.80, 175, 468, "none"),
+    (176, "토게틱", "Togetic", "⭐", "common", 0.80, 175, 468, "friendship"),
 
     # --- Natu line ---
     (177, "네이티", "Natu", "🔮", "common", 0.80, None, 178, "friendship"),
@@ -393,14 +393,14 @@ ALL_POKEMON = [
     (189, "솜솜코", "Jumpluff", "🌿", "rare", 0.50, 188, None, "none"),
 
     # --- Aipom ---
-    (190, "에이팜", "Aipom", "🐒", "common", 0.80, None, 424, "none"),
+    (190, "에이팜", "Aipom", "🐒", "common", 0.80, None, 424, "friendship"),
 
     # --- Sunkern line ---
     (191, "해너츠", "Sunkern", "🌻", "common", 0.80, None, 192, "friendship"),
     (192, "해루미", "Sunflora", "🌻", "rare", 0.50, 191, None, "none"),
 
     # --- Yanma ---
-    (193, "왕자리", "Yanma", "🪰", "common", 0.80, None, 469, "none"),
+    (193, "왕자리", "Yanma", "🪰", "common", 0.80, None, 469, "friendship"),
 
     # --- Wooper line ---
     (194, "우파", "Wooper", "💧", "common", 0.80, None, 195, "friendship"),
@@ -413,13 +413,13 @@ ALL_POKEMON = [
     (197, "블래키", "Umbreon", "🌙", "epic", 0.15, 133, None, "none"),
 
     # --- Murkrow ---
-    (198, "니로우", "Murkrow", "🌙", "rare", 0.50, None, 430, "none"),
+    (198, "니로우", "Murkrow", "🌙", "rare", 0.50, None, 430, "friendship"),
 
     # --- Slowking (trade evo from Slowpoke 79) ---
     (199, "야도킹", "Slowking", "🔮", "rare", 0.50, 79, None, "none"),
 
     # --- Misdreavus ---
-    (200, "무우마", "Misdreavus", "👻", "rare", 0.50, None, 429, "none"),
+    (200, "무우마", "Misdreavus", "👻", "rare", 0.50, None, 429, "friendship"),
 
     # --- Unown ---
     (201, "안농", "Unown", "🔮", "common", 0.80, None, None, "none"),
@@ -438,7 +438,7 @@ ALL_POKEMON = [
     (206, "노고치", "Dunsparce", "🐍", "rare", 0.50, None, None, "none"),
 
     # --- Gligar ---
-    (207, "글라이거", "Gligar", "🦂", "rare", 0.50, None, 472, "none"),
+    (207, "글라이거", "Gligar", "🦂", "rare", 0.50, None, 472, "friendship"),
 
     # --- Steelix (trade evo from Onix 95) ---
     (208, "강철톤", "Steelix", "⚙️", "epic", 0.15, 95, None, "none"),
@@ -460,7 +460,7 @@ ALL_POKEMON = [
     (214, "헤라크로스", "Heracross", "🐛", "epic", 0.15, None, None, "none"),
 
     # --- Sneasel ---
-    (215, "포푸니", "Sneasel", "🌙", "rare", 0.50, None, 461, "none"),
+    (215, "포푸니", "Sneasel", "🌙", "rare", 0.50, None, 461, "friendship"),
 
     # --- Teddiursa line ---
     (216, "깜지곰", "Teddiursa", "🐻", "common", 0.80, None, 217, "friendship"),
@@ -472,7 +472,7 @@ ALL_POKEMON = [
 
     # --- Swinub line ---
     (220, "꾸꾸리", "Swinub", "❄️", "common", 0.80, None, 221, "friendship"),
-    (221, "메꾸리", "Piloswine", "❄️", "rare", 0.50, 220, 473, "none"),
+    (221, "메꾸리", "Piloswine", "❄️", "rare", 0.50, 220, 473, "friendship"),
 
     # --- Corsola ---
     (222, "코산호", "Corsola", "💧", "common", 0.80, None, None, "none"),
@@ -502,7 +502,7 @@ ALL_POKEMON = [
     (232, "코리갑", "Donphan", "🐘", "epic", 0.15, 231, None, "none"),
 
     # --- Porygon2 (trade evo from Porygon 137) ---
-    (233, "폴리곤2", "Porygon2", "💻", "epic", 0.15, 137, 474, "none"),
+    (233, "폴리곤2", "Porygon2", "💻", "epic", 0.15, 137, 474, "trade"),
 
     # --- Stantler ---
     (234, "노라키", "Stantler", "🦌", "rare", 0.50, None, None, "none"),

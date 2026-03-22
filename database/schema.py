@@ -684,6 +684,28 @@ TRADE_EVO_FIX_MIGRATIONS = [
     "UPDATE pokemon_master SET evolves_to = 233, evolution_method = 'trade' WHERE id = 137",  # 폴리곤 → 폴리곤2
 ]
 
+# Gen4 크로스 진화 — method 'none' → 'friendship' 수정
+GEN4_EVO_METHOD_FIX = [
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 82",   # 레어코일 → 자포코일
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 108",  # 내루미 → 핥도그
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 112",  # 코뿌리 → 거대코뿌리
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 114",  # 덩쿠리 → 덩쿠림보
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 125",  # 에레브 → 에레키블
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 126",  # 마그마 → 마그마번
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 176",  # 토게틱 → 토게키스
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 190",  # 에이팜 → 겟핸보숭
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 193",  # 왕자리 → 메가자리
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 198",  # 니로우 → 돈크로우
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 200",  # 무우마 → 무우마직
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 207",  # 글라이거 → 글라이온
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 215",  # 포푸니 → 포푸니라
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 221",  # 메꾸리 → 맘모꾸리
+    "UPDATE pokemon_master SET evolution_method = 'trade' WHERE id = 233",       # 폴리곤2 → 폴리곤Z (교환 진화)
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 299",  # 코코파스 → 대코파스
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 315",  # 로젤리아 → 로즈레이드
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 356",  # 미라몽 → 야느와르몽
+]
+
 
 
 # ─── 캠프 v2 시스템 (2026-03-13) ─────────
@@ -1443,5 +1465,12 @@ async def create_tables():
     for idx_sql in perf_indexes:
         try:
             await pool.execute(idx_sql, timeout=30)
+        except Exception:
+            pass
+
+    # ── Gen4 크로스 진화 method 수정 (2026-03-23) ──
+    for sql in GEN4_EVO_METHOD_FIX:
+        try:
+            await pool.execute(sql, timeout=30)
         except Exception:
             pass
