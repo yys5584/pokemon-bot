@@ -1306,6 +1306,7 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
     crystals = 0
     rainbow = 0
     iv_stones = 0
+    items: dict[str, int] = {}
     milestones = []
 
     # 마일스톤 보상 합산
@@ -1317,6 +1318,8 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
             crystals += rewards.get("crystals", 0)
             rainbow += rewards.get("rainbow", 0)
             iv_stones += rewards.get("iv_stones", 0)
+            for item_type, qty in rewards.get("items", {}).items():
+                items[item_type] = items.get(item_type, 0) + qty
             milestones.append(milestone_floor)
 
     # 구독 배율
@@ -1344,6 +1347,7 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
         "crystals": crystals,
         "rainbow": rainbow,
         "iv_stones": iv_stones,
+        "items": items,
         "field_type": field_type,
         "milestones": milestones,
         "new_titles": new_titles,

@@ -909,6 +909,17 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
     except Exception as e:
         reward_errors.append(f"iv_stones: {e}")
 
+    # 신규 아이템 지급
+    for i_type, i_qty in rewards.get("items", {}).items():
+        try:
+            if i_type == "iv_stone_3":
+                # IV스톤은 기존 시스템 재활용
+                await item_queries.add_iv_stones(user_id, i_qty)
+            else:
+                await item_queries.add_user_item(user_id, i_type, i_qty)
+        except Exception as e:
+            reward_errors.append(f"item_{i_type}: {e}")
+
     if reward_errors:
         logger.error(f"dungeon reward errors for user {user_id}: {reward_errors}")
 
@@ -961,6 +972,16 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
         text += t(lang, "dungeon.result_iv_stones", amount=rewards["iv_stones"]) + "\n"
     if rewards.get("tickets", 0) > 0:
         text += f"  {TICKET} {t(lang, 'dungeon.result_tickets', amount=rewards['tickets'])}\n"
+    # 신규 아이템 표시
+    for i_type, i_qty in rewards.get("items", {}).items():
+        item_def = config.DUNGEON_ITEM_DEFS.get(i_type, {})
+        item_name = item_def.get("name", i_type)
+        item_emoji = item_def.get("emoji", "📦")
+        if i_type == "iv_stone_3":
+            item_name = "IV스톤(+3)"
+            item_emoji = "💎"
+        text += f"  {item_emoji} {item_name} ×{i_qty}\n"
+
     for t_info in unlocked_titles:
         text += f"  {CROWN} {t(lang, 'dungeon.result_title_unlock', title=t_info['title'])}\n"
 

@@ -1393,18 +1393,28 @@ DUNGEON_THEME_TO_FIELD = {
     "용의 둥지": "volcano",  # 드래곤 → 화산(fire/dragon/fighting)
 }
 
+# --- 던전 신규 아이템 정의 ---
+DUNGEON_ITEM_DEFS = {
+    "egg_instant_hatch": {"name": "알즉부화권", "emoji": "🥚", "desc": "대기 중인 이로치 알을 즉시 부화"},
+    "dungeon_amulet": {"name": "던전부적", "emoji": "🔮", "desc": "다음 던전 런 시작 시 랜덤 버프 1개 보유"},
+    "shiny_convert_ticket": {"name": "이로치전환권", "emoji": "✨", "desc": "캠프 조각 없이 이로치 전환 시작"},
+    "priority_ball": {"name": "우선포획볼", "emoji": "🎯", "desc": "다음 스폰 시 100% 포획 (1회)"},
+    "time_reduce_ticket": {"name": "이로치 시간단축권", "emoji": "⏰", "desc": "이로치 전환 대기시간 12시간 단축"},
+}
+DUNGEON_TIME_REDUCE_HOURS = 12  # 시간단축권 차감 시간
+
 # --- 마일스톤 보상 ---
 DUNGEON_MILESTONE_REWARDS = {
     5:  {"bp": 30,  "fragments": 1},
-    10: {"bp": 50,  "fragments": 2},
-    15: {"bp": 80,  "fragments": 2},
-    20: {"bp": 100, "fragments": 3, "crystals": 1},
-    25: {"bp": 120, "fragments": 3, "crystals": 1},
-    30: {"bp": 150, "fragments": 4, "crystals": 2, "rainbow": 1},
-    35: {"bp": 180, "fragments": 4},
-    40: {"bp": 200, "fragments": 5, "crystals": 3, "rainbow": 1, "iv_stones": 1, "tickets": 1},
-    45: {"bp": 230, "fragments": 5},
-    50: {"bp": 280, "fragments": 6, "rainbow": 2, "iv_stones": 1},
+    10: {"bp": 50,  "fragments": 2, "items": {"dungeon_amulet": 1}},
+    15: {"bp": 80,  "fragments": 2, "items": {"time_reduce_ticket": 1}},
+    20: {"bp": 100, "fragments": 3, "crystals": 1, "items": {"iv_stone_3": 1}},
+    25: {"bp": 120, "fragments": 3, "crystals": 1, "items": {"priority_ball": 1}},
+    30: {"bp": 150, "fragments": 4, "crystals": 2, "rainbow": 1, "items": {"shiny_convert_ticket": 1}},
+    35: {"bp": 180, "fragments": 4, "items": {"dungeon_amulet": 1, "time_reduce_ticket": 1}},
+    40: {"bp": 200, "fragments": 5, "crystals": 3, "rainbow": 1, "iv_stones": 1, "tickets": 1, "items": {"egg_instant_hatch": 1}},
+    45: {"bp": 230, "fragments": 5, "items": {"priority_ball": 1}},
+    50: {"bp": 280, "fragments": 6, "rainbow": 2, "iv_stones": 1, "items": {"shiny_convert_ticket": 1, "egg_instant_hatch": 1}},
 }
 DUNGEON_MAX_BP = 2000             # BP 상한
 
