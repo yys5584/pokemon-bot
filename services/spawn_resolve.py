@@ -141,11 +141,27 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             ]
             catch_counts2 = await stats_queries.count_total_catches_bulk(normal_user_ids2) if normal_user_ids2 else {}
 
-            # Roll for each catcher (master ball > hyper ball > newbie > regular)
+            # 우선포획볼 체크 (아이템 보유 시 자동 사용)
+            from database import item_queries as _iq
+            priority_ball_users = set()
+            for attempt in attempts:
+                uid = attempt["user_id"]
+                try:
+                    if await _iq.get_user_item(uid, "priority_ball") > 0:
+                        used = await _iq.use_user_item(uid, "priority_ball")
+                        if used:
+                            priority_ball_users.add(uid)
+                except Exception:
+                    pass
+
+            # Roll for each catcher (priority ball > master ball > hyper ball > newbie > regular)
             results = []
             for attempt in attempts:
-                if attempt.get("used_master_ball"):
-                    roll = -1.0  # Highest priority
+                if attempt["user_id"] in priority_ball_users:
+                    roll = -2.0  # Highest priority (above master ball)
+                    success = True
+                elif attempt.get("used_master_ball"):
+                    roll = -1.0  # High priority
                     success = True
                 elif attempt.get("used_hyper_ball"):
                     # Hyper ball: 3x catch rate
@@ -169,6 +185,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                     "success": success,
                     "used_master_ball": bool(attempt.get("used_master_ball")),
                     "used_hyper_ball": bool(attempt.get("used_hyper_ball")),
+                    "used_priority_ball": attempt["user_id"] in priority_ball_users,
                 })
 
             winners = [r for r in results if r["success"]]

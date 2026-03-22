@@ -292,6 +292,12 @@ _ITEM_NAMES = {
     "iv_reroll_all": ("🔄 개체값 재설정권", "보유 포켓몬 1마리의 IV 6종을 전부 리롤합니다."),
     "iv_reroll_one": ("🎯 IV 선택 리롤", "보유 포켓몬 1마리의 특정 IV 1종을 선택해서 리롤합니다."),
     "gacha_ticket_5": ("🎰 5연뽑기권", "BP 차감 없이 뽑기 5회를 실행합니다."),
+    # 던전 신규 아이템
+    "egg_instant_hatch": ("🥚 알즉부화권", "대기 중인 이로치 알을 즉시 부화합니다."),
+    "dungeon_amulet": ("🔮 던전부적", "다음 던전 런 시작 시 랜덤 버프 1개 보유."),
+    "shiny_convert_ticket": ("✨ 이로치전환권", "캠프 조각 없이 이로치 전환을 시작합니다."),
+    "priority_ball": ("🎯 우선포획볼", "다음 스폰 시 100% 포획 성공 (1회, 자동 적용)."),
+    "time_reduce_ticket": ("⏰ 이로치 시간단축권", "이로치 전환 대기시간 12시간 단축."),
 }
 
 
@@ -460,6 +466,47 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
     if data == "item_use_gacha_ticket_5":
         await _use_gacha_ticket_5(query, user_id)
+        return
+    elif data == "item_use_egg_instant_hatch":
+        await _use_egg_instant_hatch(query, user_id)
+        return
+    elif data.startswith("egg_hatch_"):
+        egg_id = int(data.split("_")[2])
+        await _execute_egg_instant_hatch(query, user_id, egg_id)
+        return
+    elif data == "item_use_shiny_convert_ticket":
+        await _use_shiny_convert_ticket(query, user_id, 0)
+        return
+    elif data.startswith("sct_pg_"):
+        page = int(data.split("_")[2])
+        await _use_shiny_convert_ticket(query, user_id, page)
+        return
+    elif data.startswith("sct_pk_"):
+        instance_id = int(data.split("_")[2])
+        await _execute_shiny_convert(query, user_id, instance_id)
+        return
+    elif data == "item_use_time_reduce_ticket":
+        await _use_time_reduce_ticket(query, user_id)
+        return
+    elif data.startswith("trt_egg_"):
+        egg_id = int(data.split("_")[2])
+        await _execute_time_reduce(query, user_id, egg_id)
+        return
+    elif data == "item_use_priority_ball":
+        await query.edit_message_text(
+            "🎯 <b>우선포획볼</b>\n\n"
+            "다음 스폰에서 자동으로 사용됩니다.\n"
+            "포획 시 100% 성공하며, 사용 후 소모됩니다.",
+            parse_mode="HTML",
+        )
+        return
+    elif data == "item_use_dungeon_amulet":
+        await query.edit_message_text(
+            "🔮 <b>던전부적</b>\n\n"
+            "다음 던전 런 시작 시 자동으로 소모되어\n"
+            "랜덤 버프 1개를 보유한 상태로 시작합니다.",
+            parse_mode="HTML",
+        )
         return
     elif data == "item_use_iv_reroll_all":
         await _start_iv_reroll(query, user_id, "all")
@@ -1031,3 +1078,222 @@ async def _ivstone_execute(query, user_id: int, instance_id: int, stat_key: str)
         buttons.append([InlineKeyboardButton("💠 계속 사용", callback_data="ivstone_start")])
     buttons.append([InlineKeyboardButton("❌ 닫기", callback_data="item_close")])
     await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+
+
+# ═══════════════════════════════════════════════════════
+# 던전 신규 아이템 사용 핸들러
+# ═══════════════════════════════════════════════════════
+
+async def _use_egg_instant_hatch(query, user_id: int):
+    """알즉부화권 — 부화 대기 중인 알 선택."""
+    qty = await item_queries.get_user_item(user_id, "egg_instant_hatch")
+    if qty <= 0:
+        await query.edit_message_text("❌ 알즉부화권이 없습니다.")
+        return
+
+    eggs = await item_queries.get_user_eggs(user_id)
+    if not eggs:
+        await query.edit_message_text("🥚 부화 대기 중인 알이 없습니다.")
+        return
+
+    now = config.get_kst_now()
+    lines = [f"🥚 <b>알즉부화권</b> (보유: {qty}개)", "", "부화할 알을 선택하세요:"]
+    buttons = []
+    for egg in eggs:
+        remaining = egg["hatches_at"] - now
+        hours = max(0, int(remaining.total_seconds() // 3600))
+        rarity_labels = {"common": "일반", "rare": "레어", "epic": "에픽",
+                         "legendary": "전설", "ultra_legendary": "초전설"}
+        rarity_name = rarity_labels.get(egg["rarity"], egg["rarity"])
+        label = f"🥚 ??? ({rarity_name}) — 남은 {hours}시간"
+        buttons.append([InlineKeyboardButton(label, callback_data=f"egg_hatch_{egg['id']}")])
+
+    buttons.append([InlineKeyboardButton("❌ 취소", callback_data="item_close")])
+    await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+
+
+async def _execute_egg_instant_hatch(query, user_id: int, egg_id: int):
+    """알즉부화권 실행 — 즉시 부화."""
+    ok = await item_queries.use_user_item(user_id, "egg_instant_hatch")
+    if not ok:
+        await query.edit_message_text("❌ 알즉부화권이 부족합니다.")
+        return
+
+    # hatches_at을 현재로 앞당김
+    from database.connection import get_db
+    pool = await get_db()
+    row = await pool.fetchrow(
+        """UPDATE shiny_eggs SET hatches_at = NOW()
+           WHERE id = $1 AND user_id = $2 AND hatched = FALSE
+           RETURNING pokemon_id, rarity""",
+        egg_id, user_id,
+    )
+    if not row:
+        # 아이템 환불
+        await item_queries.add_user_item(user_id, "egg_instant_hatch")
+        await query.edit_message_text("❌ 유효하지 않은 알입니다.")
+        return
+
+    # 즉시 부화 처리
+    from services.camp_service import process_shiny_pendings
+    # shiny_eggs 부화는 별도 프로세스 — hatches_at을 과거로 만들면 다음 체크에서 부화됨
+    await query.edit_message_text(
+        "🥚✨ 알즉부화권 사용!\n\n"
+        "알이 빛나기 시작합니다...!\n"
+        "잠시 후 부화가 완료됩니다.",
+        parse_mode="HTML",
+    )
+
+
+async def _use_shiny_convert_ticket(query, user_id: int, page: int = 0):
+    """이로치전환권 — 전환할 포켓몬 선택."""
+    qty = await item_queries.get_user_item(user_id, "shiny_convert_ticket")
+    if qty <= 0:
+        await query.edit_message_text("❌ 이로치전환권이 없습니다.")
+        return
+
+    pokemon_list = await queries.get_user_pokemon_list(user_id)
+    # 이로치가 아닌 포켓몬만
+    eligible = [p for p in pokemon_list if not p.get("is_shiny")]
+    if not eligible:
+        await query.edit_message_text("전환 가능한 포켓몬이 없습니다.")
+        return
+
+    PAGE = 8
+    total_pages = (len(eligible) + PAGE - 1) // PAGE
+    page = max(0, min(page, total_pages - 1))
+    start = page * PAGE
+    page_items = eligible[start:start + PAGE]
+
+    lines = [f"✨ <b>이로치전환권</b> (보유: {qty}개)", "",
+             "전환할 포켓몬을 선택하세요:", "⚠️ 조각 소비 없이 전환됩니다 (대기시간은 등급별 동일)"]
+    buttons = []
+    from utils.helpers import rarity_badge as rb
+    for p in page_items:
+        rarity = p.get("rarity", "common")
+        hours = config.CAMP_SHINY_COOLDOWN.get(rarity, 86400) // 3600
+        label = f"{p['name_ko']} ({hours}h)"
+        buttons.append([InlineKeyboardButton(label, callback_data=f"sct_pk_{p['id']}")])
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("◀", callback_data=f"sct_pg_{page - 1}"))
+    nav.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="item_noop"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton("▶", callback_data=f"sct_pg_{page + 1}"))
+    if len(nav) > 1:
+        buttons.append(nav)
+    buttons.append([InlineKeyboardButton("❌ 취소", callback_data="item_close")])
+    await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+
+
+async def _execute_shiny_convert(query, user_id: int, instance_id: int):
+    """이로치전환권 실행."""
+    ok = await item_queries.use_user_item(user_id, "shiny_convert_ticket")
+    if not ok:
+        await query.edit_message_text("❌ 이로치전환권이 부족합니다.")
+        return
+
+    from services.camp_service import convert_to_shiny_by_ticket
+    success, msg, info = await convert_to_shiny_by_ticket(user_id, instance_id)
+
+    if not success:
+        # 아이템 환불
+        await item_queries.add_user_item(user_id, "shiny_convert_ticket")
+
+    await query.edit_message_text(msg, parse_mode="HTML")
+
+
+async def _use_time_reduce_ticket(query, user_id: int):
+    """이로치 시간단축권 — 진행 중인 전환 선택."""
+    qty = await item_queries.get_user_item(user_id, "time_reduce_ticket")
+    if qty <= 0:
+        await query.edit_message_text("❌ 이로치 시간단축권이 없습니다.")
+        return
+
+    # 부화 대기 중 알 + 이로치 전환 대기 조회
+    from database import camp_queries as camp_q
+    pendings = await camp_q.get_shiny_pending(user_id)
+    eggs = await item_queries.get_user_eggs(user_id)
+
+    if not pendings and not eggs:
+        await query.edit_message_text("⏰ 진행 중인 전환/부화가 없습니다.")
+        return
+
+    now = config.get_kst_now()
+    lines = [f"⏰ <b>이로치 시간단축권</b> (보유: {qty}개)", "",
+             f"12시간 단축할 대상을 선택하세요:"]
+    buttons = []
+
+    for p in pendings:
+        remaining = p["completes_at"] - now
+        hours = max(0, int(remaining.total_seconds() // 3600))
+        pname = poke_name("ko", p["pokemon_id"])
+        buttons.append([InlineKeyboardButton(
+            f"✨ {pname} 전환 (남은 {hours}h)",
+            callback_data=f"trt_egg_{p['id']}",
+        )])
+
+    for egg in eggs:
+        remaining = egg["hatches_at"] - now
+        hours = max(0, int(remaining.total_seconds() // 3600))
+        buttons.append([InlineKeyboardButton(
+            f"🥚 알 부화 (남은 {hours}h)",
+            callback_data=f"trt_egg_{egg['id']}",
+        )])
+
+    buttons.append([InlineKeyboardButton("❌ 취소", callback_data="item_close")])
+    await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+
+
+async def _execute_time_reduce(query, user_id: int, target_id: int):
+    """시간단축권 실행 — 12시간 차감."""
+    ok = await item_queries.use_user_item(user_id, "time_reduce_ticket")
+    if not ok:
+        await query.edit_message_text("❌ 시간단축권이 부족합니다.")
+        return
+
+    reduce_hours = config.DUNGEON_TIME_REDUCE_HOURS
+    from database.connection import get_db
+    pool = await get_db()
+
+    # 이로치 전환 대기 or 알 부화 — 둘 다 시도
+    # 1) camp_shiny_pending
+    row = await pool.fetchrow(
+        """UPDATE camp_shiny_pending
+           SET completes_at = completes_at - make_interval(hours := $3)
+           WHERE id = $1 AND user_id = $2
+           RETURNING completes_at""",
+        target_id, user_id, float(reduce_hours),
+    )
+    if row:
+        remaining = row["completes_at"] - config.get_kst_now()
+        hours_left = max(0, int(remaining.total_seconds() // 3600))
+        await query.edit_message_text(
+            f"⏰ 시간단축권 사용! {reduce_hours}시간 단축\n"
+            f"남은 시간: {hours_left}시간",
+            parse_mode="HTML",
+        )
+        return
+
+    # 2) shiny_eggs
+    row = await pool.fetchrow(
+        """UPDATE shiny_eggs
+           SET hatches_at = hatches_at - make_interval(hours := $3)
+           WHERE id = $1 AND user_id = $2 AND hatched = FALSE
+           RETURNING hatches_at""",
+        target_id, user_id, float(reduce_hours),
+    )
+    if row:
+        remaining = row["hatches_at"] - config.get_kst_now()
+        hours_left = max(0, int(remaining.total_seconds() // 3600))
+        await query.edit_message_text(
+            f"⏰ 시간단축권 사용! {reduce_hours}시간 단축\n"
+            f"남은 시간: {hours_left}시간",
+            parse_mode="HTML",
+        )
+        return
+
+    # 대상 못 찾음 — 환불
+    await item_queries.add_user_item(user_id, "time_reduce_ticket")
+    await query.edit_message_text("❌ 유효하지 않은 대상입니다.")

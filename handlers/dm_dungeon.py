@@ -1441,7 +1441,19 @@ async def _start_run(query, context, user_id: int, instance_id: int):
     st.pop("combat", None)
     st.pop("pp_state", None)
 
-    # 시작 화면 (자동배틀 기존 스타일)
+    # 던전부적 자동 소비 → 초기 버프 1개
+    amulet_text = ""
+    amulet_qty = await item_queries.get_user_item(user_id, "dungeon_amulet")
+    if amulet_qty > 0:
+        used = await item_queries.use_user_item(user_id, "dungeon_amulet")
+        if used:
+            initial_buff = ds.generate_buff_choices(0, [], count=1)
+            if initial_buff:
+                buff = initial_buff[0]
+                await dq.update_run_progress(run_id, 0, max_hp, [buff])
+                amulet_text = f"\n🔮 던전부적 발동! 초기 버프: {buff['name']}\n"
+
+    # 시작 화면
     shiny = "✨" if pokemon.get("is_shiny") else ""
     p_name = poke_name(pokemon, lang)
     type_str = "/".join(_type_emoji(tp) + _type_name(lang, tp) for tp in types)
@@ -1454,7 +1466,8 @@ async def _start_run(query, context, user_id: int, instance_id: int):
         f"{t(lang, 'dungeon.enter_pokemon', shiny=shiny, name=p_name, grade=grade)}\n"
         f"{t(lang, 'dungeon.enter_type_power', types=type_str, power=calc_power(stats))}\n"
         f"{t(lang, 'dungeon.enter_cost_buff', cost=cost, freq=freq)}\n\n"
-        f"{t(lang, 'dungeon.enter_hp', hp=max_hp)}\n\n"
+        f"{t(lang, 'dungeon.enter_hp', hp=max_hp)}\n"
+        f"{amulet_text}\n"
         f"{t(lang, 'dungeon.enter_ready')}"
     )
 
