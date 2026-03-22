@@ -152,8 +152,14 @@ async def _build_entry_screen(user_id: int, lang: str | None = None) -> tuple[st
     field_name = field_info.get("name", field_key)
     field_emoji = field_info.get("emoji", "🧩")
 
+    # 시즌 정보
+    season_key = dq._current_season_key()
+    rank = await dq.get_user_rank(user_id)
+    rank_text = f" (현재 {rank}위)" if rank else ""
+
     text = (
-        f"{CASTLE} <b>{t(lang, 'dungeon.title')}</b>\n\n"
+        f"{CASTLE} <b>{t(lang, 'dungeon.title')}</b>\n"
+        f"📅 시즌 {season_key}{rank_text}\n\n"
         f"{TICKET} {t(lang, 'dungeon.tickets_info', tickets=tickets, left=daily_left, max=daily_max)}\n"
         f"{CROWN} {t(lang, 'dungeon.best_floor', floor=best)}\n\n"
         f"{FOOT} {t(lang, 'dungeon.today_theme', emoji=theme['emoji'], name=theme['name'])}\n"

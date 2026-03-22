@@ -16,10 +16,10 @@ from utils.battle_calc import calc_battle_stats, get_normalized_base_stats, EVO_
 from models.pokemon_data import ALL_POKEMON
 from models.pokemon_base_stats import POKEMON_BASE_STATS
 
-# 던전 전용 등급 배율
+# 던전 전용 등급 배율 — BST 하한 도입으로 1.0 통일
 DUNGEON_RARITY_STAT_MULT = {
     "common": 1.0, "rare": 1.0, "epic": 1.0,
-    "legendary": 1.20, "ultra_legendary": 1.35,
+    "legendary": 1.0, "ultra_legendary": 1.0,
 }
 
 # ── 테마별 상성 타입 ──
@@ -241,7 +241,27 @@ def main():
             total_p90 = sum(v["p90"] for v in vals) / len(vals)
             rar_ko = {"common": "일반", "rare": "레어", "epic": "에픽",
                       "legendary": "전설", "ultra_legendary": "초전설"}[rarity]
+            # 40층+, 50층 도달률
+            all_floors = []
+            for v in vals:
+                # 각 테마의 개별 런 결과가 없으므로 avg/p90/max로 추정
+                pass
             print(f"  {rar_ko:<6} avg={total_avg:>5.1f}  p90={total_p90:>5.1f}  max={total_max:>3}")
+
+    # 40/50층 도달률 (테마별 개별 데이터)
+    print()
+    print("=== 40층+/50층 도달률 ===")
+    for rarity in ["common", "rare", "epic", "legendary", "ultra_legendary"]:
+        keys = [k for k in all_results if all_results[k]["rarity"] == rarity]
+        # p90이 40 이상이면 ~10%가 40층+
+        vals = [all_results[k] for k in keys]
+        if vals:
+            avg_p90 = sum(v["p90"] for v in vals) / len(vals)
+            n50 = sum(1 for v in vals if v["max"] >= 50)
+            rar_ko = {"common": "일반", "rare": "레어", "epic": "에픽",
+                      "legendary": "전설", "ultra_legendary": "초전설"}[rarity]
+            rate_40 = "~10%+" if avg_p90 >= 40 else "~5-10%" if avg_p90 >= 35 else "<5%"
+            print(f"  {rar_ko:<6} 40층+: {rate_40}  50층: {n50}/{len(vals)} 테마")
 
     # ── 밸런스 체크 ──
     print()
