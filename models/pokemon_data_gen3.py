@@ -211,7 +211,7 @@ ALL_POKEMON_GEN3 = [
 
     (384, "레쿠쟈", "Rayquaza", "🐉", "ultra_legendary", 0.03, None, None, "none"),  # Rayquaza
 
-    (385, "지라치", "Jirachi", "⚙️", "ultra_legendary", 0.03, None, None, "none"),  # Jirachi
+    (385, "지라치", "Jirachi", "⚙️", "legendary", 0.03, None, None, "none"),  # Jirachi (환상→전설)
 
-    (386, "테오키스", "Deoxys Normal", "🔮", "ultra_legendary", 0.03, None, None, "none"),  # Deoxys Normal
+    (386, "테오키스", "Deoxys Normal", "🔮", "legendary", 0.03, None, None, "none"),  # Deoxys Normal (환상→전설)
 ]

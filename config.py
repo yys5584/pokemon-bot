@@ -498,6 +498,18 @@ BATTLE_BASE_POWER = 130              # 기본 기술위력 (본가 스타일 데
 TRUANT_POKEMON = {289, 486}          # 게을킹, 레지기가스
 TRUANT_NORMAL_ATK_PENALTY = 0.7      # 게으름 일반공격 추가 페널티
 
+# 등급별 전투력 하한 (ATK × 내구)
+# 하한 미달 포켓몬은 스탯 비례 스케일업
+# BST 하한 — 같은 등급 내 격차 축소 (최종진화만 적용)
+# 값은 정규화 BST 기준 (raw BST + 85)
+BST_FLOOR_BY_RARITY = {
+    "common": 365,       # raw 280
+    "rare": 485,         # raw 400
+    "epic": 565,         # raw 480
+    "legendary": 665,    # raw 580 (피오네 480→580)
+    # ultra_legendary: 하한 불필요 (전부 670+)
+}
+
 # --- BP (Battle Points) ---
 BP_WIN_BASE = 20                    # 승리 기본 BP
 BP_WIN_PER_ENEMY = 2               # 상대 팀 사이즈당 추가 BP

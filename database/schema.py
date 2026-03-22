@@ -1497,6 +1497,16 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── 환상 포켓몬 재분류: ultra_legendary → legendary (2026-03-23) ──
+    mythical_reclassify = [
+        "UPDATE pokemon_master SET rarity = 'legendary' WHERE id IN (385, 386, 490, 491, 492)",
+    ]
+    for sql in mythical_reclassify:
+        try:
+            await pool.execute(sql, timeout=30)
+        except Exception:
+            pass
+
     # ── Gen4 크로스 진화 method 수정 (2026-03-23) ──
     for sql in GEN4_EVO_METHOD_FIX:
         try:

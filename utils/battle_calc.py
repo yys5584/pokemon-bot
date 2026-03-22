@@ -117,7 +117,7 @@ def calc_battle_stats(
 
     if base_hp is not None:
         # Phase 2: individual base stats (Lv50 formula) + rarity 보정
-        return {
+        stats = {
             "hp":    int(base_hp * bonus * evo_mult * _iv_mult(iv_hp) * rarity_mult * hp_mult),
             "atk":   int(base_atk * bonus * evo_mult * _iv_mult(iv_atk) * rarity_mult),
             "def":   int(base_def * bonus * evo_mult * _iv_mult(iv_def) * rarity_mult),
@@ -125,19 +125,29 @@ def calc_battle_stats(
             "spdef": int(base_spdef * bonus * evo_mult * _iv_mult(iv_spdef) * rarity_mult),
             "spd":   int(base_spd * bonus * evo_mult * _iv_mult(iv_spd) * rarity_mult),
         }
+    else:
+        # Phase 1: rarity-based base stats + spread (legacy)
+        base = config.RARITY_BASE_STAT.get(rarity, 65)
+        spread = config.STAT_SPREADS.get(stat_type, config.STAT_SPREADS["balanced"])
 
-    # Phase 1: rarity-based base stats + spread (legacy)
-    base = config.RARITY_BASE_STAT.get(rarity, 65)
-    spread = config.STAT_SPREADS.get(stat_type, config.STAT_SPREADS["balanced"])
+        stats = {
+            "hp":    int(base * spread["hp"] * bonus * evo_mult * _iv_mult(iv_hp) * hp_mult),
+            "atk":   int(base * spread["atk"] * bonus * evo_mult * _iv_mult(iv_atk)),
+            "def":   int(base * spread["def"] * bonus * evo_mult * _iv_mult(iv_def)),
+            "spa":   int(base * spread["spa"] * bonus * evo_mult * _iv_mult(iv_spa)),
+            "spdef": int(base * spread["spdef"] * bonus * evo_mult * _iv_mult(iv_spdef)),
+            "spd":   int(base * spread["spd"] * bonus * evo_mult * _iv_mult(iv_spd)),
+        }
 
-    return {
-        "hp":    int(base * spread["hp"] * bonus * evo_mult * _iv_mult(iv_hp) * hp_mult),
-        "atk":   int(base * spread["atk"] * bonus * evo_mult * _iv_mult(iv_atk)),
-        "def":   int(base * spread["def"] * bonus * evo_mult * _iv_mult(iv_def)),
-        "spa":   int(base * spread["spa"] * bonus * evo_mult * _iv_mult(iv_spa)),
-        "spdef": int(base * spread["spdef"] * bonus * evo_mult * _iv_mult(iv_spdef)),
-        "spd":   int(base * spread["spd"] * bonus * evo_mult * _iv_mult(iv_spd)),
-    }
+    # BST 하한 스케일링 — 같은 등급 내 약한 최종진화 포켓몬 바닥 올리기
+    bst_floor = getattr(config, 'BST_FLOOR_BY_RARITY', {}).get(rarity)
+    if bst_floor and evo_stage >= 3 and base_hp is not None:
+        current_bst = (base_hp or 0) + (base_atk or 0) + (base_def or 0) + (base_spa or 0) + (base_spdef or 0) + (base_spd or 0)
+        if 0 < current_bst < bst_floor:
+            scale = bst_floor / current_bst
+            stats = {k: max(1, int(v * scale)) for k, v in stats.items()}
+
+    return stats
 
 
 def _single_type_mult(atk_type: str, def_type: str) -> float:
