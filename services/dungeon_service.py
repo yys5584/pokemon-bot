@@ -1326,7 +1326,7 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
     if sub_tier == "channel_owner":
         bp_mult, item_mult = 1.5, 3.0
     elif sub_tier == "basic":
-        bp_mult, item_mult = 1.5, 2.0
+        bp_mult, item_mult = 1.2, 2.0
     else:
         bp_mult, item_mult = 1.0, 1.0
 
