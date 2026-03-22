@@ -25,6 +25,39 @@ def get_today_theme() -> dict:
     return config.DUNGEON_THEMES[weekday % len(config.DUNGEON_THEMES)]
 
 
+def get_zone_preview(cleared_floor: int, theme: dict) -> str | None:
+    """보스 클리어 후 다음 구간 프리뷰 텍스트 반환.
+    5의 배수 층 클리어 시에만 표시. 50층이면 None."""
+    if cleared_floor % 5 != 0 or cleared_floor >= 50:
+        return None
+
+    next_start = cleared_floor + 1
+    next_end = cleared_floor + 5
+    next_boss = next_end
+
+    # 난이도 등급
+    scaling = enemy_scaling(next_boss)
+    if scaling < 1.2:
+        diff_label = "🟢 쉬움"
+    elif scaling < 1.5:
+        diff_label = "🟡 보통"
+    elif scaling < 2.0:
+        diff_label = "🟠 어려움"
+    else:
+        diff_label = "🔴 극한"
+
+    # 상성 타입 팁
+    from utils.helpers import _type_emoji
+    adv_text = " / ".join(f"{_type_emoji(tp)}" for tp in theme.get("advantage", []))
+
+    return (
+        f"\n⚠️ <b>다음 구간: {theme['emoji']} {theme['name']} ({next_start}~{next_end}층)</b>\n"
+        f"   난이도: {diff_label} (×{scaling:.2f})\n"
+        f"   💡 유효 타입: {adv_text}\n"
+        f"   👑 {next_boss}층 보스 등장!"
+    )
+
+
 # ══════════════════════════════════════════════════════════
 # 난이도 스케일링
 # ══════════════════════════════════════════════════════════

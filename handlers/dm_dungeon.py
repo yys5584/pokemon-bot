@@ -102,14 +102,6 @@ async def dungeon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return
 
-    # 던전 대규모 패치 준비 중 — 임시 비활성화
-    await update.message.reply_text(
-        "🏰 던전이 대규모 패치 준비 중입니다!\n"
-        "곧 턴제 수동 전투로 돌아올 예정이에요. 조금만 기다려주세요! 🔧",
-        parse_mode="HTML",
-    )
-    return
-
     user_id = update.effective_user.id
     lang = await get_user_lang(user_id)
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
@@ -372,8 +364,7 @@ def _quick_power(p: dict) -> int:
 
 async def _process_floor(query, context, user_id: int, run: dict):
     """다음 층 배틀 진행 — 현재는 자동배틀, 턴제는 추후 활성화."""
-    # TODO: DUNGEON_TURN_BASED 플래그 true 시 턴제로 전환
-    USE_TURN_BASED = False
+    USE_TURN_BASED = True
 
     lang = await get_user_lang(user_id)
     floor = run["floor_reached"] + 1
@@ -788,6 +779,21 @@ async def _handle_floor_clear(query, context, user_id: int, combat: dict, turn_r
         f"{HEART} {hp_bar} {hp_pct}% ({remaining_hp}/{max_hp})\n"
         f"{pp_text}\n"
     )
+
+    # 존 프리뷰 (보스 클리어 시)
+    if floor % 5 == 0 and floor < 50:
+        run_data = await dq.get_active_run(user_id)
+        theme_name = run_data.get("theme") if run_data else None
+        theme_td = None
+        if theme_name:
+            for td in config.DUNGEON_THEMES:
+                if td["name"] == theme_name:
+                    theme_td = td
+                    break
+        if theme_td:
+            zone_preview = ds.get_zone_preview(floor, theme_td)
+            if zone_preview:
+                text += zone_preview + "\n"
 
     # 버프 제공 (5층마다 = 보스)
     if ds.should_offer_buff(floor):
