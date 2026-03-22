@@ -363,7 +363,7 @@ def _quick_power(p: dict) -> int:
 # ══════════════════════════════════════════════════════════
 
 async def _process_floor(query, context, user_id: int, run: dict):
-    """다음 층 배틀 진행."""
+    """다음 층 전투 시작 — 적 생성 + 전투 상태 초기화 + 첫 턴 표시."""
     lang = await get_user_lang(user_id)
     floor = run["floor_reached"] + 1
     theme_data = None
@@ -381,7 +381,7 @@ async def _process_floor(query, context, user_id: int, run: dict):
     pokemon = await _load_pokemon(run["pokemon_instance_id"])
     if not pokemon:
         await dq.abandon_run(run["id"])
-        await dq.add_dungeon_tickets(user_id, 1)  # 환불
+        await dq.add_dungeon_tickets(user_id, 1)
         await _send_fresh(query, context, user_id, t(lang, "dungeon.pokemon_error"))
         return
 
@@ -398,210 +398,317 @@ async def _process_floor(query, context, user_id: int, run: dict):
             if stat in player_stats:
                 player_stats[stat] = int(player_stats[stat] * mult)
 
-    # 배틀 실행 (carry-over HP를 엔진에 전달 — 단일 진실 소스)
-    result = ds.resolve_dungeon_battle(
-        player_stats, player_types, pokemon["rarity"], enemy, buffs,
+    # 전투 상태 초기화
+    combat = ds.init_combat_state(
+        player_stats, player_types, pokemon["rarity"],
+        pokemon["pokemon_id"], enemy, buffs,
         current_hp=run["current_hp"], max_hp=run["max_hp"],
+        floor=floor,
     )
-    remaining_hp = result["remaining_hp"]
-    won = result["won"]
 
-    # 로그라이크 1턴 버프 소모 (전투 후 제거)
+    # PP 설정 — 런 전체 공유, state에서 관리
+    st = _state(context)
+    if "pp_state" not in st:
+        # 첫 층: PP 초기화
+        pp_max = combat["pp_max"]
+        pp_list = []
+        for sk in combat["skills"]:
+            pp_list.append({"current": pp_max, "max": pp_max})
+        st["pp_state"] = pp_list
+    combat["pp"] = st["pp_state"]
+
+    # combat state를 메모리에 저장
+    st["combat"] = combat
+
+    # 첫 턴 화면 표시
+    await _show_battle_turn(query, context, user_id)
+
+
+async def _show_battle_turn(query, context, user_id: int):
+    """현재 전투 상태를 메시지로 표시 (edit 또는 새 메시지)."""
+    lang = await get_user_lang(user_id)
+    st = _state(context)
+    combat = st.get("combat")
+    if not combat:
+        return
+
+    floor = combat["floor"]
+    turn = combat["turn"]
+    enemy = combat["enemy"]
+    e_hp = combat["e_hp"]
+    e_max_hp = combat["e_max_hp"]
+    p_hp = combat["p_hp"]
+    p_max_hp = combat["p_max_hp"]
+    skills = combat["skills"]
+    pp = combat["pp"]
+    e_intent = combat["e_intent"]
+
+    # 적 정보
+    enemy_rb = rarity_badge(enemy["rarity"])
+    enemy_types = "/".join(_type_emoji(tp) for tp in enemy.get("types", []))
+    enemy_name = enemy.get("name_ko", "???")
+    boss_label = ""
+    if enemy["is_boss"]:
+        boss_label = "👑 BOSS — "
+    elif enemy.get("is_elite"):
+        boss_label = "⭐ ELITE — "
+
+    e_hp_bar = _hp_bar(e_hp, e_max_hp)
+    e_hp_pct = int(e_hp / e_max_hp * 100) if e_max_hp else 0
+    p_hp_bar = _hp_bar(p_hp, p_max_hp)
+    p_hp_pct = int(p_hp / p_max_hp * 100) if p_max_hp else 0
+
+    # 적 의도 표시
+    intent_warning = ds.get_intent_warning(e_intent, combat["p_types"])
+
+    # 상성 팁
+    type_hint = ds.get_type_hint(
+        combat["p_types"], enemy.get("types", []),
+        skills, combat["skill_type_mults"])
+
+    # 분노 표시
+    rage_text = "\n🔥 <b>분노 상태!</b> 공격력 1.5배" if combat.get("e_rage") else ""
+
+    text = (
+        f"━━ {floor}층{' [턴 ' + str(turn) + ']' if turn > 1 else ''} ━━\n"
+        f"{boss_label}{enemy_rb}{enemy_name} ({enemy_types})\n"
+        f"❤️ {e_hp_bar} {e_hp_pct}% ({e_hp}/{e_max_hp}){rage_text}\n\n"
+        f"{intent_warning}\n\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"❤️ {p_hp_bar} {p_hp_pct}% ({p_hp}/{p_max_hp})\n"
+        f"{type_hint}\n"
+    )
+
+    # 보호막 표시
+    if combat["p_shield"] > 0:
+        text += f"🛡️ 보호막: {combat['p_shield']}\n"
+
+    # 4버튼: 일반공격 / 특수기1 / 특수기2(or 방어) / 방어(or 포기)
+    buttons = []
+    row1 = [InlineKeyboardButton("⚔️ 일반공격", callback_data=f"dg_atk_{user_id}")]
+
+    if len(skills) >= 1 and len(pp) >= 1:
+        sk1 = skills[0]
+        pp1 = pp[0]
+        pp_text = f"{pp1['current']}/{pp1['max']}"
+        label = f"{sk1['emoji']} {sk1['name']} {pp_text}"
+        if pp1["current"] <= 0:
+            label = f"❌ {sk1['name']} 0/{pp1['max']}"
+        row1.append(InlineKeyboardButton(label, callback_data=f"dg_sk1_{user_id}"))
+    buttons.append(row1)
+
+    row2 = []
+    if len(skills) >= 2 and len(pp) >= 2:
+        sk2 = skills[1]
+        pp2 = pp[1]
+        pp_text = f"{pp2['current']}/{pp2['max']}"
+        label = f"{sk2['emoji']} {sk2['name']} {pp_text}"
+        if pp2["current"] <= 0:
+            label = f"❌ {sk2['name']} 0/{pp2['max']}"
+        row2.append(InlineKeyboardButton(label, callback_data=f"dg_sk2_{user_id}"))
+
+    row2.append(InlineKeyboardButton("🛡️ 방어", callback_data=f"dg_def_{user_id}"))
+    buttons.append(row2)
+
+    # 포기 버튼
+    buttons.append([InlineKeyboardButton("🏳️ 포기", callback_data=f"dg_quit_{user_id}")])
+
+    await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
+
+
+async def _process_turn_action(query, context, user_id: int, action: str):
+    """플레이어 행동 선택 → 턴 실행 → 결과 표시."""
+    lang = await get_user_lang(user_id)
+    st = _state(context)
+    combat = st.get("combat")
+    if not combat:
+        await query.answer("전투 상태 없음", show_alert=True)
+        return
+
+    # PP 부족 체크
+    if action == "skill1" and (len(combat["pp"]) < 1 or combat["pp"][0]["current"] <= 0):
+        await query.answer("PP가 부족합니다! 일반공격을 사용하세요.", show_alert=True)
+        return
+    if action == "skill2" and (len(combat["pp"]) < 2 or combat["pp"][1]["current"] <= 0):
+        await query.answer("PP가 부족합니다! 일반공격을 사용하세요.", show_alert=True)
+        return
+
+    # 턴 실행
+    result = ds.resolve_turn(combat, action)
+
+    # PP state 동기화 (런 전체 공유)
+    st["pp_state"] = combat["pp"]
+
+    # 턴 결과 텍스트
+    floor = combat["floor"]
+    turn = combat["turn"] - 1  # resolve_turn이 이미 +1 했음
+
+    lines = [f"━━ {floor}층 [턴 {turn}] ━━"]
+    if result["player_line"]:
+        lines.append(f"⚔️ {result['player_line']}")
+    if result["enemy_line"]:
+        lines.append(f"🆚 {result['enemy_line']}")
+    for extra in result.get("extra_lines", []):
+        lines.append(extra)
+
+    await query.answer()
+
+    if result["floor_clear"]:
+        # 층 클리어!
+        await _handle_floor_clear(query, context, user_id, combat, result)
+    elif result["player_dead"]:
+        # 사망
+        await _handle_player_death(query, context, user_id, combat, result)
+    else:
+        # 전투 계속 — 다음 턴 표시
+        await _show_battle_turn(query, context, user_id)
+
+
+async def _handle_floor_clear(query, context, user_id: int, combat: dict, turn_result: dict):
+    """층 클리어 처리 — DB 저장 + 버프 선택 또는 다음 층."""
+    lang = await get_user_lang(user_id)
+    st = _state(context)
+    floor = combat["floor"]
+    buffs = combat["buffs"]
+    remaining_hp = max(0, combat["p_hp"])
+    max_hp = combat["p_max_hp"]
+
+    # 로그라이크 1턴 버프 소모
     buffs = ds.consume_rogue_buffs(buffs)
 
-    # 부활이 사용됐으면 버프에서 제거 + 마커 추가 (런당 1회 제한)
-    if result.get("revive_used"):
+    # 부활 사용 시 버프 제거 + 마커
+    if combat.get("revive_used"):
         buffs = [b for b in buffs if b.get("id") != "revive"]
-        # 마커: 이미 부활 사용함 → generate_buff_choices에서 revive 제외
         if not any(b.get("id") == "_revive_consumed" for b in buffs):
             buffs.append({"id": "_revive_consumed", "name": "", "lv": 0})
 
-    _result_gif = None
+    # 층간 회복
+    heal_rate = ds.get_floor_heal_rate(buffs)
+    if heal_rate > 0:
+        remaining_hp = min(max_hp, remaining_hp + int(max_hp * heal_rate))
 
-    if won:
-        # 층간 회복 적용
-        heal_rate = ds.get_floor_heal_rate(buffs)
-        if heal_rate > 0:
-            remaining_hp = min(run["max_hp"], remaining_hp + int(run["max_hp"] * heal_rate))
-
-        # DB 업데이트
+    # DB 업데이트
+    run = await dq.get_active_run(user_id)
+    if run:
         await dq.update_run_progress(run["id"], floor, remaining_hp, buffs)
 
-        # 배틀 결과 텍스트
-        hp_bar = _hp_bar(remaining_hp, run["max_hp"])
-        hp_pct = int(remaining_hp / run["max_hp"] * 100) if run["max_hp"] else 0
+    # 전투 상태 클리어
+    st.pop("combat", None)
 
-        CHECK = icon_emoji("check")
-        HEART = icon_emoji("pokecenter")
-        SKILL = icon_emoji("skill")
-        BATTLE = icon_emoji("battle")
+    # 결과 화면
+    hp_bar = _hp_bar(remaining_hp, max_hp)
+    hp_pct = int(remaining_hp / max_hp * 100) if max_hp else 0
 
-        # 적 정보
-        enemy_rb = rarity_badge(enemy["rarity"])
-        enemy_types = " ".join(_type_emoji(tp) for tp in enemy.get("types", []))
-        scaling = enemy.get("scaling", 1.0)
-        scale_text = f" (×{scaling:.1f})" if scaling > 1.0 else ""
-        enemy_name = enemy.get("name_ko", "???")
-        enemy_label = f"{enemy_rb}{enemy_name} {enemy_types}{scale_text}"
-        if enemy["is_boss"]:
-            enemy_label = t(lang, "dungeon.boss_label", name=enemy_label)
-        elif enemy["is_elite"]:
-            enemy_label = t(lang, "dungeon.elite_label", name=enemy_label)
+    CHECK = icon_emoji("check")
+    HEART = icon_emoji("pokecenter")
+    SKILL = icon_emoji("skill")
 
-        # 배틀 요약
-        battle_lines = f"{BATTLE} {t(lang, 'dungeon.battle_vs', enemy=enemy_label)}\n"
-        battle_lines += f"  {t(lang, 'dungeon.battle_damage_dealt', dmg=result['total_damage_dealt'])}"
-        if result["total_damage_taken"] > 0:
-            battle_lines += f" | {t(lang, 'dungeon.battle_damage_taken', dmg=result['total_damage_taken'])}"
-        battle_lines += f" | {t(lang, 'dungeon.battle_turns', n=result['turns'])}"
+    # 전투 하이라이트
+    hl = combat.get("highlights", {})
+    hl_parts = []
+    if hl.get("crit"):
+        hl_parts.append(f"💥크리 {hl['crit']}회")
+    if hl.get("special_used"):
+        hl_parts.append(f"⚡스킬 {hl['special_used']}회")
+    if hl.get("dodge"):
+        hl_parts.append(f"💨회피 {hl['dodge']}회")
+    if hl.get("defend_used"):
+        hl_parts.append(f"🛡️방어 {hl['defend_used']}회")
+    if hl.get("double"):
+        hl_parts.append(f"✌️이중타격 {hl['double']}회")
+    hl_text = " · ".join(hl_parts) if hl_parts else ""
 
-        # 상성
-        if result.get("type_display"):
-            battle_lines += f"\n  🔮 상성: {result['type_display']}"
+    # PP 상태 표시
+    pp_parts = []
+    for i, sk in enumerate(combat.get("skills", [])):
+        if i < len(st.get("pp_state", [])):
+            pp_info = st["pp_state"][i]
+            pp_parts.append(f"{sk['emoji']} {sk['name']} {pp_info['current']}/{pp_info['max']}")
+    pp_text = " · ".join(pp_parts)
 
-        # 전투 하이라이트
-        hl = result.get("highlights", {})
-        hl_parts = []
-        if hl.get("crit"):
-            hl_parts.append(f"💥크리 {hl['crit']}회")
-        if hl.get("skill"):
-            hl_parts.append(f"⚡스킬 {hl['skill']}회")
-        if hl.get("dodge"):
-            hl_parts.append(f"💨회피 {hl['dodge']}회")
-        if hl.get("double"):
-            hl_parts.append(f"✌️이중타격 {hl['double']}회")
-        if hl.get("thorns_dmg"):
-            hl_parts.append(f"🦔반사 {hl['thorns_dmg']}")
-        if hl.get("shield_absorbed"):
-            hl_parts.append(f"🛡️실드 {hl['shield_absorbed']}")
-        if hl_parts:
-            battle_lines += f"\n  {' · '.join(hl_parts)}"
+    # 특수 효과
+    effect_lines = ""
+    if combat.get("revive_used"):
+        effect_lines += "\n  💫 부활의 깃털 발동! HP 30% 회복"
+    if hl.get("lifesteal_heal", 0) > 0:
+        effect_lines += f"\n  🩸 흡혈 +{hl['lifesteal_heal']}HP"
+    if heal_rate > 0:
+        effect_lines += f"\n  🌿 층간 회복 +{int(max_hp * heal_rate)}HP"
 
-        # 전투 팁
-        type_mult_p = result.get("type_mult_player", 1.0)
-        type_mult_e = result.get("type_mult_enemy", 1.0)
-        tip = ""
-        if not won and type_mult_p < 1.0:
-            tip = "💡 상성 불리로 피해가 줄었어요. 유리한 상성 버프를 노려보세요!"
-        elif won and type_mult_p > 1.0:
-            tip = "💡 상성 유리! 효과적인 공격이었어요."
-        elif not won and result["turns"] >= config.DUNGEON_MAX_ROUNDS:
-            tip = "💡 장기전 판정패. 공격 버프로 화력을 올려보세요!"
-        elif won and hl.get("crit", 0) >= 3:
-            tip = "💡 크리티컬이 활약! 예리한 눈 버프와 궁합이 좋아요."
-        elif not won and result["total_damage_taken"] > result["total_damage_dealt"]:
-            tip = "💡 받은 피해가 너무 커요. 방어/실드/회피 버프를 고려해보세요."
-        if tip:
-            battle_lines += f"\n  {tip}"
+    text = (
+        f"{CHECK} {floor}층 클리어!\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"{hl_text}{effect_lines}\n"
+        f"{HEART} {hp_bar} {hp_pct}% ({remaining_hp}/{max_hp})\n"
+        f"{pp_text}\n"
+    )
 
-        # 특수 효과 로그
-        effect_lines = ""
-        if result.get("revive_used"):
-            effect_lines += f"\n  💫 부활의 깃털 발동! HP 30% 회복"
-        # 흡혈 회복량
-        if hl.get("lifesteal_heal", 0) > 0:
-            effect_lines += f"\n  🩸 흡혈 +{hl['lifesteal_heal']}HP"
-        # 층간 회복
-        if heal_rate > 0:
-            heal_amt = int(run["max_hp"] * heal_rate)
-            effect_lines += f"\n  {t(lang, 'dungeon.floor_heal', hp=heal_amt)}"
-        # 보호막
-        shield_rate = ds.get_shield_rate(buffs)
-        if shield_rate > 0:
-            shield_amt = int(run["max_hp"] * shield_rate)
-            effect_lines += f"\n  {t(lang, 'dungeon.shield_next', hp=shield_amt)}"
+    # 버프 제공 (5층마다 = 보스)
+    if ds.should_offer_buff(floor):
+        choices = ds.generate_buff_choices(floor, buffs)
+        st["buff_choices"] = choices
 
-        # 보유 버프 요약
-        buff_summary = ""
-        if buffs:
-            for b in buffs:
-                blv = b.get("lv", 1)
-                buff_summary += f"  {ds.LV_EMOJI.get(blv, '⬜')} {b.get('name', '?')} Lv.{blv}\n"
-        # 시너지
-        active_syn = ds._get_active_synergies(buffs)
-        syn_line = ""
-        if active_syn:
-            syn_line = "\n✨ " + " / ".join(f"{s['emoji']}{s['name']}" for s in active_syn)
-
-        text = (
-            f"{CHECK} {t(lang, 'dungeon.floor_victory', floor=floor)}\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"{battle_lines}{effect_lines}\n\n"
-            f"{HEART} {hp_bar} {hp_pct}%\n"
-            f"{SKILL} {t(lang, 'dungeon.buffs_count', count=len(buffs))}{syn_line}\n"
-        )
-        if buff_summary:
-            text += buff_summary
-
-        # 버프 제공 여부 확인
-        cost = _get_pokemon_cost(pokemon["rarity"])
-        st = _state(context)
-
-        if ds.should_offer_buff(floor, cost):
-            choices = ds.generate_buff_choices(floor, buffs)
-            st["buff_choices"] = choices
-
-            if not choices:
-                # 8버프 포화 → 로그라이크: 누르면 그때 랜덤 결정
-                text += (
-                    f"\n\n🎲 <b>버프 슬롯 가득!</b>\n"
-                    f"<i>랜덤 이벤트를 발동하시겠습니까?\n"
-                    f"좋은 일이 생길 수도, 나쁜 일이 생길 수도 있습니다...</i>"
-                )
-                buttons = [
-                    [InlineKeyboardButton(
-                        "🎲 랜덤 이벤트 발동!",
-                        callback_data=f"dg_rogue_{user_id}_roll"
-                    )],
-                    [InlineKeyboardButton(
-                        "➡️ 지나가기",
-                        callback_data=f"dg_rogue_{user_id}_pass"
-                    )],
-                ]
-                await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=_result_gif)
-                return
-
-            if choices:
-                text += f"\n\n{icon_emoji('gotcha')} <b>{t(lang, 'dungeon.buff_select_title')}</b>"
-                buttons = []
-                for i, buff in enumerate(choices):
-                    lv = buff.get("lv", 1)
-                    lv_emoji = ds.LV_EMOJI.get(lv, "⬜")
-                    if buff.get("is_upgrade"):
-                        tag = t(lang, "dungeon.buff_tag_upgrade", **{"from": lv-1, "to": lv})
-                    else:
-                        tag = t(lang, "dungeon.buff_tag_new")
-                    buttons.append([InlineKeyboardButton(
-                        f"{lv_emoji} {buff['name']} [{tag}] — {buff['desc']}",
-                        callback_data=f"dg_buf_{user_id}_{i}"
-                    )])
-                # 지나가기 옵션 (스킵 대체)
-                buttons.append([InlineKeyboardButton(
-                    "➡️ 지나가기",
-                    callback_data=f"dg_skip_{user_id}"
-                )])
-                await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=_result_gif)
-            else:
-                # 모든 버프가 MAX — 자동 스킵, 다음 층으로
-                text += f"\n\n{t(lang, 'dungeon.buff_all_max')}"
-                buttons = [
-                    [InlineKeyboardButton(t(lang, "dungeon.btn_next_floor"), callback_data=f"dg_go_{user_id}")],
-                    [InlineKeyboardButton(t(lang, "dungeon.btn_give_up"), callback_data=f"dg_quit_{user_id}")],
-                ]
-                await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=_result_gif)
-        else:
-            # 버프 없이 다음 층
+        if not choices:
+            # 8버프 포화 → 로그라이크
+            text += (
+                f"\n🎲 <b>버프 슬롯 가득!</b>\n"
+                f"<i>랜덤 이벤트를 발동하시겠습니까?</i>"
+            )
             buttons = [
-                [InlineKeyboardButton(t(lang, "dungeon.btn_next_floor"), callback_data=f"dg_go_{user_id}")],
-                [InlineKeyboardButton(t(lang, "dungeon.btn_give_up"), callback_data=f"dg_quit_{user_id}")],
+                [InlineKeyboardButton("🎲 랜덤 이벤트!", callback_data=f"dg_rogue_{user_id}_roll")],
+                [InlineKeyboardButton("➡️ 지나가기", callback_data=f"dg_rogue_{user_id}_pass")],
             ]
-            await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons), photo=_result_gif)
+            await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
+            return
+
+        # PP 회복 버프 체크
+        for b in buffs:
+            if b.get("id") == "pp_recovery":
+                pp_recover = b["effect"].get("rate", 2)
+                for pp_info in st.get("pp_state", []):
+                    pp_info["current"] = min(pp_info["max"], pp_info["current"] + pp_recover)
+                text += f"\n🔮 PP 회복! +{pp_recover}\n"
+                break
+
+        text += f"\n{icon_emoji('gotcha')} <b>버프 선택</b>"
+        buttons = []
+        for i, buff in enumerate(choices):
+            lv = buff.get("lv", 1)
+            lv_emoji = ds.LV_EMOJI.get(lv, "⬜")
+            if buff.get("is_upgrade"):
+                tag = f"Lv.{lv-1}→{lv}"
+            else:
+                tag = "NEW"
+            buttons.append([InlineKeyboardButton(
+                f"{lv_emoji} {buff['name']} [{tag}] — {buff['desc']}",
+                callback_data=f"dg_buf_{user_id}_{i}"
+            )])
+        buttons.append([InlineKeyboardButton("➡️ 지나가기", callback_data=f"dg_skip_{user_id}")])
+        await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
     else:
-        # 패배 — 도달 층은 마지막 클리어 층 (이번 층은 실패)
-        await _finish_run(query, context, user_id, run, run["floor_reached"],
-                          battle_card=_result_gif,
-                          death_enemy=enemy.get("name_ko"), death_enemy_rarity=enemy.get("rarity"),
-                          death_floor=floor, revive_used=result.get("revive_used", False))
+        # 버프 없이 다음 층
+        buttons = [
+            [InlineKeyboardButton(t(lang, "dungeon.btn_next_floor"), callback_data=f"dg_go_{user_id}")],
+            [InlineKeyboardButton(t(lang, "dungeon.btn_give_up"), callback_data=f"dg_quit_{user_id}")],
+        ]
+        await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
+
+
+async def _handle_player_death(query, context, user_id: int, combat: dict, turn_result: dict):
+    """플레이어 사망 처리."""
+    st = _state(context)
+    st.pop("combat", None)
+
+    run = await dq.get_active_run(user_id)
+    if run:
+        enemy = combat.get("enemy", {})
+        await _finish_run(
+            query, context, user_id, run, run["floor_reached"],
+            death_enemy=enemy.get("name_ko"),
+            death_enemy_rarity=enemy.get("rarity"),
+            death_floor=combat["floor"],
+            revive_used=combat.get("revive_used", False),
+        )
 
 
 async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
@@ -839,6 +946,12 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         await _start_run(query, context, user_id, instance_id)
         return
 
+    elif action in ("atk", "sk1", "sk2", "def"):
+        # 턴제 전투 행동
+        action_map = {"atk": "normal", "sk1": "skill1", "sk2": "skill2", "def": "defend"}
+        await _process_turn_action(query, context, user_id, action_map[action])
+        return
+
     elif action == "go":
         # 다음 층 진행
         run = await dq.get_active_run(user_id)
@@ -847,14 +960,6 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             return
         await query.answer()
         st["run_id"] = run["id"]
-        # 즉시 로딩 표시 (GIF 생성 5~10초 소요)
-        next_floor = run["floor_reached"] + 1
-        if next_floor % 5 == 0:
-            floor_label = t(lang, "dungeon.boss_floor_label", floor=next_floor)
-        else:
-            floor_label = t(lang, "dungeon.floor_info", floor=next_floor)
-        await _send_fresh(query, context, user_id,
-            t(lang, "dungeon.floor_fighting", label=floor_label))
         await _process_floor(query, context, user_id, run)
         return
 
@@ -1159,26 +1264,40 @@ async def _start_run(query, context, user_id: int, instance_id: int):
 
     st = _state(context)
     st["run_id"] = run_id
+    # PP 상태 초기화 (런 시작 시)
+    pp_max = config.DUNGEON_PP_BY_RARITY.get(pokemon["rarity"], 6)
+    dungeon_skills = ds.get_pokemon_skills(pokemon["pokemon_id"], types)
+    pp_state = [{"current": pp_max, "max": pp_max} for _ in dungeon_skills]
+    st["pp_state"] = pp_state
+    st.pop("combat", None)  # 이전 전투 상태 클리어
 
     # 시작 화면
     shiny = "✨" if pokemon.get("is_shiny") else ""
     p_name = poke_name(pokemon, lang)
     type_str = "/".join(_type_emoji(tp) + _type_name(lang, tp) for tp in types)
-    cost = _get_pokemon_cost(pokemon["rarity"])
-    freq = config.DUNGEON_BUFF_FREQUENCY.get(cost, 1)
+
+    # 특수기 표시
+    skill_lines = []
+    for i, sk in enumerate(dungeon_skills):
+        skill_lines.append(f"  {sk['emoji']} {sk['name']} ({config.TYPE_NAME_KO.get(sk['type'], sk['type'])}) PP {pp_max}/{pp_max}")
+    skill_text = "\n".join(skill_lines)
+
+    normal_mult = config.DUNGEON_NORMAL_ATK_MULT.get(pokemon["rarity"], 1.0)
 
     text = (
-        f"🏰 <b>{t(lang, 'dungeon.entering')}</b>\n\n"
-        f"{t(lang, 'dungeon.enter_theme', emoji=theme['emoji'], name=theme['name'])}\n"
-        f"{t(lang, 'dungeon.enter_pokemon', shiny=shiny, name=p_name, grade=grade)}\n"
-        f"{t(lang, 'dungeon.enter_type_power', types=type_str, power=calc_power(stats))}\n"
-        f"{t(lang, 'dungeon.enter_cost_buff', cost=cost, freq=freq)}\n\n"
-        f"{t(lang, 'dungeon.enter_hp', hp=max_hp)}\n\n"
-        f"{t(lang, 'dungeon.enter_ready')}"
+        f"🏰 <b>던전 입장!</b>\n\n"
+        f"테마: {theme['emoji']} {theme['name']}\n"
+        f"포켓몬: {shiny}{p_name} [{grade}] ({type_str})\n"
+        f"전투력: {calc_power(stats)}\n\n"
+        f"⚔️ 일반공격 배율: ×{normal_mult}\n"
+        f"{skill_text}\n\n"
+        f"❤️ HP: {max_hp}\n"
+        f"🎯 5층마다 보스 + 버프 선택\n\n"
+        f"<i>턴마다 행동을 선택하세요!</i>"
     )
 
     buttons = [
-        [InlineKeyboardButton(t(lang, "dungeon.btn_start_floor1"), callback_data=f"dg_go_{user_id}")],
+        [InlineKeyboardButton("⚔️ 1층 시작!", callback_data=f"dg_go_{user_id}")],
         [InlineKeyboardButton(t(lang, "dungeon.btn_give_up"), callback_data=f"dg_quit_{user_id}")],
     ]
     await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))

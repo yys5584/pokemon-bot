@@ -1270,6 +1270,56 @@ DUNGEON_SKILL_MULT = {
     "legendary": 1.8, "ultra_legendary": 2.0,
 }
 
+# ── 턴제 전투 시스템 ──
+# PP: 런 전체 공유, 층 넘어가도 안 참
+DUNGEON_PP_BY_RARITY = {
+    "common": 8, "rare": 7, "epic": 6,
+    "legendary": 5, "ultra_legendary": 4,
+}
+# 일반공격 배율 (고코스트=PP 적지만 일반 강함)
+DUNGEON_NORMAL_ATK_MULT = {
+    "common": 0.8, "rare": 0.9, "epic": 1.0,
+    "legendary": 1.15, "ultra_legendary": 1.3,
+}
+DUNGEON_SPECIAL_MULT = 1.5       # 특수기 기본 배율
+DUNGEON_DEFEND_REDUCE = 0.5      # 방어 시 데미지 50% 감소
+DUNGEON_TURN_TIMEOUT = 120       # 턴 타임아웃(초) — 미사용 시 포기 처리
+DUNGEON_MAX_TURNS_PER_FLOOR = 30  # 한 층 최대 턴
+DUNGEON_BOSS_HP_MULT = 1.5       # 보스 HP 배율
+DUNGEON_ELITE_HP_MULT = 1.3      # 엘리트 HP 배율
+
+# 적 의도 확률 (일반 적)
+DUNGEON_ENEMY_INTENT = {
+    "normal_attack": 0.50,
+    "type_attack": 0.25,
+    "charge": 0.10,
+    "defend": 0.15,
+}
+# 보스 전용 추가 의도
+DUNGEON_BOSS_INTENT = {
+    "normal_attack": 0.30,
+    "type_attack": 0.25,
+    "charge": 0.10,
+    "defend": 0.10,
+    "full_attack": 0.15,   # 강력한 전체기
+    "heal": 0.10,          # HP 회복
+}
+
+# 상성 배율 (본가보다 압축)
+DUNGEON_TYPE_ADVANTAGE_MULT = 1.5
+DUNGEON_TYPE_DISADVANTAGE_MULT = 0.67
+DUNGEON_TYPE_IMMUNE_MULT = 0.3
+
+# 타입별 대표 기술 (던전 전용 — 이름만, 데미지는 타입 기반)
+DUNGEON_TYPE_SKILLS = {
+    "normal": "몸통박치기", "fire": "화염방사", "water": "파도타기",
+    "grass": "솔라빔", "electric": "번개", "ice": "냉동빔",
+    "fighting": "인파이트", "poison": "오물폭탄", "ground": "지진",
+    "flying": "에어슬래시", "psychic": "사이코키네시스", "bug": "벌레의저항",
+    "rock": "스톤에지", "ghost": "섀도볼", "dragon": "용의파동",
+    "dark": "악의파동", "steel": "아이언테일", "fairy": "문포스",
+}
+
 # --- 테마 (요일별 로테이션, 월=0) ---
 DUNGEON_THEMES = [
     {"name": "고대 숲", "emoji": "🌿", "types": ["grass", "poison", "bug"],
