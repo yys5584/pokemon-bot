@@ -1287,7 +1287,7 @@ DUNGEON_NORMAL_ATK_MULT = {
 # 코스트별 적 스케일링 보정 — 거의 동일, 미세 보정만
 DUNGEON_COST_SCALING = {
     "common": 0.65, "rare": 0.72, "epic": 0.88,
-    "legendary": 0.88, "ultra_legendary": 0.98,
+    "legendary": 0.80, "ultra_legendary": 0.95,
 }
 DUNGEON_SPECIAL_MULT = 2.2       # 특수기 기본 배율
 DUNGEON_DEFEND_REDUCE = 0.5      # 방어 시 데미지 50% 감소
