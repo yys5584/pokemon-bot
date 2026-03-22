@@ -1322,11 +1322,22 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
                 items[item_type] = items.get(item_type, 0) + qty
             milestones.append(milestone_floor)
 
-    # 구독 배율
+    # 구독 배율 (BP, 조각, 결정, 아이템 전부 적용)
     if sub_tier == "channel_owner":
-        bp = int(bp * 1.5)
+        mult = 1.5
     elif sub_tier == "basic":
-        bp = int(bp * 1.2)
+        mult = 1.2
+    else:
+        mult = 1.0
+
+    if mult > 1.0:
+        bp = int(bp * mult)
+        fragments = int(fragments * mult)
+        crystals = int(crystals * mult)
+        rainbow = int(rainbow * mult)
+        iv_stones = int(iv_stones * mult)
+        tickets = int(tickets * mult)
+        items = {k: max(v, round(v * mult)) for k, v in items.items()}
 
     # BP 상한
     bp = min(bp, config.DUNGEON_MAX_BP)
