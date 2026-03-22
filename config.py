@@ -1273,8 +1273,8 @@ DUNGEON_SKILL_MULT = {
 # ── 턴제 전투 시스템 ──
 # PP: 런 전체 공유, 층 넘어가도 안 참
 DUNGEON_PP_BY_RARITY = {
-    "common": 14, "rare": 11, "epic": 8,
-    "legendary": 7, "ultra_legendary": 5,
+    "common": 12, "rare": 11, "epic": 8,
+    "legendary": 6, "ultra_legendary": 5,
 }
 # 일반공격 배율 (고코스트=PP 적지만 일반 강함)
 DUNGEON_NORMAL_ATK_MULT = {
@@ -1282,9 +1282,10 @@ DUNGEON_NORMAL_ATK_MULT = {
     "legendary": 1.20, "ultra_legendary": 1.50,
 }
 # 코스트별 적 스케일링 보정 (저코스트 = 적이 약함)
+# 코스트별 적 스케일링 보정 — 거의 동일, 미세 보정만
 DUNGEON_COST_SCALING = {
-    "common": 0.35, "rare": 0.48, "epic": 0.62,
-    "legendary": 0.72, "ultra_legendary": 0.92,
+    "common": 0.65, "rare": 0.72, "epic": 0.88,
+    "legendary": 0.94, "ultra_legendary": 0.98,
 }
 DUNGEON_SPECIAL_MULT = 2.2       # 특수기 기본 배율
 DUNGEON_DEFEND_REDUCE = 0.5      # 방어 시 데미지 50% 감소
