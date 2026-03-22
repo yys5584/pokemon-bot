@@ -36,7 +36,9 @@ PROFILES = {
     "slaking_A":      (289, "epic",           "게을킹",     "A", 5, False),   # 노말 (실 39F, BST670)
     "slaking_S_shiny":(289, "epic",           "게을킹",     "S", 7, True),    # 실 45F
     # 전설
-    "regigigas_S_shiny":(486,"legendary",     "레지기가스", "S", 7, True),    # 노말, BST670 (실 35F)
+    "suicune_A":       (245, "legendary",     "스이쿤",     "A", 5, False),   # 물 BST580
+    "suicune_S_shiny": (245, "legendary",     "스이쿤",     "S", 7, True),
+    "regigigas_S_shiny":(486,"legendary",     "레지기가스", "S", 7, True),    # 노말, BST670 TRUANT
     # 초전설
     "ultra_A_groudon": (383, "ultra_legendary","그란돈",    "A", 5, False),   # 땅 — 화산 상성 O
     "ultra_S_kyogre":  (382, "ultra_legendary","가이오가",  "S", 7, True),    # 물 — 화산 상성 O
