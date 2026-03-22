@@ -650,6 +650,8 @@ def init_combat_state(
         "best_atk_idx": best_atk_idx,
         # 버프 참조
         "buffs": buffs,
+        # 게으름 특성 (게을킹/레지기가스)
+        "is_truant": pokemon_id in config.TRUANT_POKEMON,
         # 전투 로그
         "log": [],
         "total_dmg_dealt": 0,
@@ -795,6 +797,14 @@ def resolve_turn(state: dict, player_action: str) -> dict:
     p_stats = state["p_stats"]
     e_stats = state["e_stats"]
     e_intent = state["e_intent"]
+
+    # ── 게으름 특성: 짝수 턴에 빈둥빈둥 (방어만 가능) ──
+    if state.get("is_truant") and state["turn"] % 2 == 0:
+        player_action = "defend"  # 강제 방어
+
+    # 게으름 포켓몬은 특수기 사용 불가
+    if state.get("is_truant") and player_action in ("skill1", "skill2"):
+        player_action = "normal"
 
     # 전투 버프 참조
     crit_bonus = get_combat_rate(buffs, "crit")

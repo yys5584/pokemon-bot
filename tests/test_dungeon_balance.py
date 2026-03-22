@@ -26,6 +26,7 @@ PROFILES = {
     # 일반 — 상성 O
     "common_A_adv":   (55,  "common",         "골덕",       "A", 5, False),   # 물
     "common_S_shiny": (303, "common",         "입치트",     "S", 7, True),    # 강철/페어리 (실 37F)
+    "common_S_golduck":(55, "common",         "골덕",       "S", 7, True),    # 물, 이로치S
     # 레어 — 상성 O
     "rare_A_adv":     (340, "rare",           "메기드리",   "A", 5, False),   # 물/땅
     "rare_S_shiny":   (460, "rare",           "눈설왕",     "S", 7, True),    # 풀/얼음 (실 35F)
@@ -131,7 +132,8 @@ def simulate_run(profile_key: str, seed: int = None) -> int:
     max_hp = stats["hp"]
     buffs = []
 
-    pp_max = config.DUNGEON_PP_BY_RARITY.get(rarity, 6)
+    is_truant = pid in config.TRUANT_POKEMON
+    pp_max = 0 if is_truant else config.DUNGEON_PP_BY_RARITY.get(rarity, 6)
     skills_info = ds.get_pokemon_skills(pid, types)
     pp_state = [{"current": pp_max, "max": pp_max} for _ in skills_info]
 

@@ -484,32 +484,43 @@ async def _show_battle_turn(query, context, user_id: int):
     if combat["p_shield"] > 0:
         text += f"🛡️ 보호막: {combat['p_shield']}\n"
 
-    # 4버튼: 일반공격 / 특수기1 / 특수기2(or 방어) / 방어(or 포기)
+    # 게으름 특성: 짝수 턴 빈둥빈둥
+    is_truant = combat.get("is_truant", False)
+    is_loaf_turn = is_truant and turn % 2 == 0
+
+    if is_loaf_turn:
+        text += "😴 <b>빈둥빈둥...</b> 이번 턴은 방어만 가능!\n"
+
+    # 4버튼
     buttons = []
-    row1 = [InlineKeyboardButton("⚔️ 일반공격", callback_data=f"dg_atk_{user_id}")]
+    if is_loaf_turn:
+        # 빈둥빈둥 턴: 방어만
+        buttons.append([InlineKeyboardButton("🛡️ 방어 (빈둥빈둥)", callback_data=f"dg_def_{user_id}")])
+    else:
+        row1 = [InlineKeyboardButton("⚔️ 일반공격", callback_data=f"dg_atk_{user_id}")]
 
-    if len(skills) >= 1 and len(pp) >= 1:
-        sk1 = skills[0]
-        pp1 = pp[0]
-        pp_text = f"{pp1['current']}/{pp1['max']}"
-        label = f"{sk1['emoji']} {sk1['name']} {pp_text}"
-        if pp1["current"] <= 0:
-            label = f"❌ {sk1['name']} 0/{pp1['max']}"
-        row1.append(InlineKeyboardButton(label, callback_data=f"dg_sk1_{user_id}"))
-    buttons.append(row1)
+        if not is_truant and len(skills) >= 1 and len(pp) >= 1:
+            sk1 = skills[0]
+            pp1 = pp[0]
+            pp_text = f"{pp1['current']}/{pp1['max']}"
+            label = f"{sk1['emoji']} {sk1['name']} {pp_text}"
+            if pp1["current"] <= 0:
+                label = f"❌ {sk1['name']} 0/{pp1['max']}"
+            row1.append(InlineKeyboardButton(label, callback_data=f"dg_sk1_{user_id}"))
+        buttons.append(row1)
 
-    row2 = []
-    if len(skills) >= 2 and len(pp) >= 2:
-        sk2 = skills[1]
-        pp2 = pp[1]
-        pp_text = f"{pp2['current']}/{pp2['max']}"
-        label = f"{sk2['emoji']} {sk2['name']} {pp_text}"
-        if pp2["current"] <= 0:
-            label = f"❌ {sk2['name']} 0/{pp2['max']}"
-        row2.append(InlineKeyboardButton(label, callback_data=f"dg_sk2_{user_id}"))
+        row2 = []
+        if not is_truant and len(skills) >= 2 and len(pp) >= 2:
+            sk2 = skills[1]
+            pp2 = pp[1]
+            pp_text = f"{pp2['current']}/{pp2['max']}"
+            label = f"{sk2['emoji']} {sk2['name']} {pp_text}"
+            if pp2["current"] <= 0:
+                label = f"❌ {sk2['name']} 0/{pp2['max']}"
+            row2.append(InlineKeyboardButton(label, callback_data=f"dg_sk2_{user_id}"))
 
-    row2.append(InlineKeyboardButton("🛡️ 방어", callback_data=f"dg_def_{user_id}"))
-    buttons.append(row2)
+        row2.append(InlineKeyboardButton("🛡️ 방어", callback_data=f"dg_def_{user_id}"))
+        buttons.append(row2)
 
     # 포기 버튼
     buttons.append([InlineKeyboardButton("🏳️ 포기", callback_data=f"dg_quit_{user_id}")])
@@ -1266,10 +1277,12 @@ async def _start_run(query, context, user_id: int, instance_id: int):
     st = _state(context)
     st["run_id"] = run_id
     # PP 상태 초기화 (런 시작 시)
-    pp_max = config.DUNGEON_PP_BY_RARITY.get(pokemon["rarity"], 6)
+    is_truant = pokemon["pokemon_id"] in config.TRUANT_POKEMON
+    pp_max = 0 if is_truant else config.DUNGEON_PP_BY_RARITY.get(pokemon["rarity"], 6)
     dungeon_skills = ds.get_pokemon_skills(pokemon["pokemon_id"], types)
     pp_state = [{"current": pp_max, "max": pp_max} for _ in dungeon_skills]
     st["pp_state"] = pp_state
+    st["is_truant"] = is_truant
     st.pop("combat", None)  # 이전 전투 상태 클리어
 
     # 시작 화면
@@ -1293,7 +1306,8 @@ async def _start_run(query, context, user_id: int, instance_id: int):
         f"⚔️ 일반공격 배율: ×{normal_mult}\n"
         f"{skill_text}\n\n"
         f"❤️ HP: {max_hp}\n"
-        f"🎯 5층마다 보스 + 버프 선택\n\n"
+        f"🎯 5층마다 보스 + 버프 선택\n"
+        f"{'⚠️ <b>게으름 특성</b> — 특수기 불가, 2턴마다 빈둥빈둥\n' if is_truant else ''}\n"
         f"<i>턴마다 행동을 선택하세요!</i>"
     )
 
