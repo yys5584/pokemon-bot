@@ -97,8 +97,9 @@ def _pick_enemy_rarity(floor: int) -> str:
         return random.choice(["epic"] * 4 + ["legendary"] * 4 + ["ultra_legendary"] * 2)
 
 
-def generate_enemy(floor: int, theme: dict) -> dict:
-    """테마 기반 적 포켓몬 생성."""
+def generate_enemy(floor: int, theme: dict, player_rarity: str = "epic") -> dict:
+    """테마 기반 적 포켓몬 생성.
+    player_rarity: 코스트별 적 스케일링 보정에 사용."""
     pool = _get_type_pool()
     is_boss = floor % 5 == 0
     is_elite = not is_boss and random.random() < 0.20
@@ -126,6 +127,11 @@ def generate_enemy(floor: int, theme: dict) -> dict:
 
     enemy = random.choice(filtered)
     scaling = enemy_scaling(floor)
+
+    # 코스트별 적 스케일링 보정 (저코스트 = 적이 약해짐)
+    cost_mult = config.DUNGEON_COST_SCALING.get(player_rarity, 0.75)
+    scaling *= cost_mult
+
     if is_boss:
         scaling *= 1.5
     elif is_elite:

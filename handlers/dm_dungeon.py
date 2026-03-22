@@ -374,10 +374,7 @@ async def _process_floor(query, context, user_id: int, run: dict):
     if not theme_data:
         theme_data = ds.get_today_theme()
 
-    # 적 생성
-    enemy = ds.generate_enemy(floor, theme_data)
-
-    # 플레이어 스탯
+    # 플레이어 스탯 (적 생성 전에 로드 — 코스트 보정에 필요)
     pokemon = await _load_pokemon(run["pokemon_instance_id"])
     if not pokemon:
         await dq.abandon_run(run["id"])
@@ -386,6 +383,10 @@ async def _process_floor(query, context, user_id: int, run: dict):
         return
 
     player_stats, player_types = ds.build_player_stats(pokemon)
+
+    # 적 생성 (코스트 보정 적용)
+    enemy = ds.generate_enemy(floor, theme_data, player_rarity=pokemon["rarity"])
+
     buffs = run.get("buffs_json", [])
     if isinstance(buffs, str):
         import json
