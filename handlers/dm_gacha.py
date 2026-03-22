@@ -419,6 +419,9 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             pass
         return
 
+    if data == "item_noop":
+        return  # 페이지 번호 버튼 — 무동작 (answer 이미 위에서 호출됨)
+
     # IV 스톤 콜백들
     if data == "ivstone_start":
         await _ivstone_show_pokemon(query, user_id, 0, "all")
