@@ -853,6 +853,17 @@ async def _handle_floor_clear(query, context, user_id: int, combat: dict, turn_r
                 f"{lv_emoji} {buff['name']} [{tag}] — {buff['desc']}",
                 callback_data=f"dg_buf_{user_id}_{i}"
             )])
+
+        # 버프 리롤 버튼 (구독자 전용)
+        sub_tier = await _get_sub_tier(user_id)
+        reroll_max = config.DUNGEON_REROLL_LIMIT.get(sub_tier or "free", 0)
+        rerolls_used = st.get("rerolls_used", 0)
+        if reroll_max > 0 and rerolls_used < reroll_max:
+            remaining = reroll_max - rerolls_used
+            buttons.append([InlineKeyboardButton(
+                f"🔄 리롤 ({remaining}회 남음)", callback_data=f"dg_reroll_{user_id}"
+            )])
+
         buttons.append([InlineKeyboardButton("➡️ 지나가기", callback_data=f"dg_skip_{user_id}")])
         await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
     else:
@@ -1332,6 +1343,60 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
         return
 
+    elif action == "reroll":
+        # 버프 리롤 (구독자 전용)
+        sub_tier = await _get_sub_tier(user_id)
+        reroll_max = config.DUNGEON_REROLL_LIMIT.get(sub_tier or "free", 0)
+        rerolls_used = st.get("rerolls_used", 0)
+        if reroll_max <= 0 or rerolls_used >= reroll_max:
+            await query.answer("리롤 횟수를 모두 사용했습니다!", show_alert=True)
+            return
+
+        run = await dq.get_active_run(user_id)
+        if not run:
+            await query.answer(t(lang, "dungeon.no_active_run"), show_alert=True)
+            return
+
+        floor = run["floor_reached"]
+        buffs = run.get("buffs_json", [])
+        if isinstance(buffs, str):
+            import json
+            buffs = json.loads(buffs)
+
+        # 새 선택지 생성
+        choices = ds.generate_buff_choices(floor, buffs)
+        st["buff_choices"] = choices
+        st["rerolls_used"] = rerolls_used + 1
+        remaining = reroll_max - rerolls_used - 1
+
+        await query.answer(f"🔄 리롤! (남은 {remaining}회)")
+
+        if not choices:
+            await query.answer("선택 가능한 버프가 없습니다.", show_alert=True)
+            return
+
+        text = f"🔄 <b>버프 리롤!</b> (남은 {remaining}회)\n"
+        buttons = []
+        for i, buff in enumerate(choices):
+            lv = buff.get("lv", 1)
+            lv_emoji = ds.LV_EMOJI.get(lv, "⬜")
+            if buff.get("is_upgrade"):
+                tag = f"Lv.{lv-1}→{lv}"
+            else:
+                tag = "NEW"
+            buttons.append([InlineKeyboardButton(
+                f"{lv_emoji} {buff['name']} [{tag}] — {buff['desc']}",
+                callback_data=f"dg_buf_{user_id}_{i}"
+            )])
+
+        if remaining > 0:
+            buttons.append([InlineKeyboardButton(
+                f"🔄 리롤 ({remaining}회 남음)", callback_data=f"dg_reroll_{user_id}"
+            )])
+        buttons.append([InlineKeyboardButton("➡️ 지나가기", callback_data=f"dg_skip_{user_id}")])
+        await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
+        return
+
     elif action == "buy":
         # 입장권 BP 구매
         sub_tier = await _get_sub_tier(user_id)
@@ -1458,6 +1523,7 @@ async def _start_run(query, context, user_id: int, instance_id: int):
     # PP 상태 초기화 (런 시작 시)
     st.pop("combat", None)
     st.pop("pp_state", None)
+    st["rerolls_used"] = 0  # 버프 리롤 카운터 초기화
 
     # 던전부적 자동 소비 → 초기 버프 1개
     amulet_text = ""

@@ -1324,9 +1324,9 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
 
     # 구독 배율 (BP, 조각, 결정, 아이템 전부 적용)
     if sub_tier == "channel_owner":
-        mult = 1.5
+        mult = 3.0
     elif sub_tier == "basic":
-        mult = 1.2
+        mult = 2.0
     else:
         mult = 1.0
 
