@@ -52,16 +52,25 @@ async def dungeon_weekly_ranking_job(context):
             # 보상 지급
             try:
                 if rewards.get("masterball"):
-                    await queries.add_master_balls_bulk([uid])
+                    for _ in range(rewards["masterball"]):
+                        await queries.add_master_balls_bulk([uid])
                 if rewards.get("crystals"):
                     await cq.add_crystals(uid, rewards["crystals"], 0)
                 if rewards.get("tickets"):
                     await dq.add_dungeon_tickets(uid, rewards["tickets"])
+                if rewards.get("iv_reroll_one"):
+                    await item_queries.add_user_item(uid, "iv_reroll_one", rewards["iv_reroll_one"])
+                if rewards.get("shiny_convert_ticket"):
+                    await item_queries.add_user_item(uid, "shiny_convert_ticket", rewards["shiny_convert_ticket"])
 
                 # DM 알림
                 reward_lines = []
                 if rewards.get("masterball"):
                     reward_lines.append(f"  🔴 마스터볼 ×{rewards['masterball']}")
+                if rewards.get("iv_reroll_one"):
+                    reward_lines.append(f"  🎯 IV 선택 리롤 ×{rewards['iv_reroll_one']}")
+                if rewards.get("shiny_convert_ticket"):
+                    reward_lines.append(f"  ✨ 이로치전환권 ×{rewards['shiny_convert_ticket']}")
                 if rewards.get("crystals"):
                     reward_lines.append(f"  💎 결정 ×{rewards['crystals']}")
                 if rewards.get("tickets"):
@@ -120,8 +129,9 @@ async def dungeon_daily_ranking_job(context):
             try:
                 if rewards.get("iv_reroll_one"):
                     await item_queries.add_user_item(uid, "iv_reroll_one", rewards["iv_reroll_one"])
+                if rewards.get("shiny_convert_ticket"):
+                    await item_queries.add_user_item(uid, "shiny_convert_ticket", rewards["shiny_convert_ticket"])
                 if rewards.get("fragments"):
-                    # 만능 조각으로 지급
                     from database.connection import get_db
                     pool = await get_db()
                     await pool.execute(
@@ -133,6 +143,8 @@ async def dungeon_daily_ranking_job(context):
                 reward_lines = []
                 if rewards.get("iv_reroll_one"):
                     reward_lines.append(f"  🎯 IV 선택 리롤 ×{rewards['iv_reroll_one']}")
+                if rewards.get("shiny_convert_ticket"):
+                    reward_lines.append(f"  ✨ 이로치전환권 ×{rewards['shiny_convert_ticket']}")
                 if rewards.get("fragments"):
                     reward_lines.append(f"  🧩 만능 조각 ×{rewards['fragments']}")
 

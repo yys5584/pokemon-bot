@@ -1431,17 +1431,17 @@ DUNGEON_MILESTONE_TITLES = {
 
 # --- 주간 랭킹 보상 ---
 DUNGEON_WEEKLY_RANKING_REWARDS = {
-    1: {"masterball": 1, "crystals": 5, "tickets": 3, "title": "던전 주간왕"},
-    (2, 3): {"crystals": 5, "tickets": 3},
-    (4, 10): {"crystals": 3, "tickets": 2},
-    (11, 30): {"crystals": 1, "tickets": 1},
+    1: {"masterball": 3, "iv_reroll_one": 3, "shiny_convert_ticket": 1, "crystals": 10, "tickets": 5, "title": "던전 주간왕"},
+    (2, 3): {"masterball": 1, "iv_reroll_one": 2, "crystals": 5, "tickets": 3},
+    (4, 10): {"iv_reroll_one": 1, "crystals": 3, "tickets": 2},
+    (11, 30): {"crystals": 2, "tickets": 1},
 }
 
 # --- 일일 랭킹 보상 ---
 DUNGEON_DAILY_RANKING_REWARDS = {
-    1: {"iv_reroll_one": 1},
-    (2, 3): {"fragments": 10},
-    (4, 10): {"fragments": 5},
+    1: {"iv_reroll_one": 2, "shiny_convert_ticket": 1},
+    (2, 3): {"iv_reroll_one": 1},
+    (4, 10): {"fragments": 10},
 }
 
 # ─── Camp System v2 (포켓몬 캠프) ────────────────────────
