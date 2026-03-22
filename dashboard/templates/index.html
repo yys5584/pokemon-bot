@@ -1693,12 +1693,20 @@
 
                         <div class="guide-block">
                             <h4>🔥 이중 속성 상성</h4>
-                            <p>방어 포켓몬의 <b>두 타입 모두</b>에 상성이 적용됩니다!</p>
+                            <h5 style="margin:12px 0 6px;color:var(--red)">⚔️ 공격 시 (내 포켓몬이 듀얼타입)</h5>
+                            <p>두 타입 중 <b>더 유리한 타입 하나</b>로 자동 공격합니다. 두 타입이 합산되지 않습니다!</p>
+                            <table class="guide-table">
+                                <tr><th>예시</th><th>타입1</th><th>타입2</th><th>선택</th></tr>
+                                <tr><td>초염몽(불/격투) → 디아루가(강/드래곤)</td><td>불→강2x × 드래곤0.5x = <b>1.0x</b></td><td>격투→강2x × 드래곤1x = <b>2.0x</b></td><td style="color:#52b788;font-weight:700">격투 2.0x 선택</td></tr>
+                                <tr><td>한카리아스(드래곤/땅) → 썬더(전기/비행)</td><td>드래곤→전기1x × 비행1x = <b>1.0x</b></td><td>땅→전기2x × 비행0x = <b>0.0x</b></td><td style="color:#52b788;font-weight:700">드래곤 1.0x 선택</td></tr>
+                            </table>
+                            <h5 style="margin:16px 0 6px;color:var(--red)">🛡️ 방어 시 (상대가 듀얼타입)</h5>
+                            <p>상대의 <b>두 타입 모두</b>에 대해 배율이 곱해집니다!</p>
                             <table class="guide-table">
                                 <tr><th>상황</th><th>배율</th><th>예시</th></tr>
-                                <tr><td style="color:#e74c3c;font-weight:700">이중 효과!</td><td><b style="color:#e74c3c">4.0x</b></td><td>🌿풀 → 💧물+🪨바위 (둘 다 약점)</td></tr>
-                                <tr><td style="color:#52b788">효과 좋음</td><td><b>2.0x</b></td><td>🔥불꽃 → 🌿풀</td></tr>
-                                <tr><td>보통</td><td>1.0x</td><td>약점·저항이 상쇄</td></tr>
+                                <tr><td style="color:#e74c3c;font-weight:700">이중 효과!</td><td><b style="color:#e74c3c">4.0x</b></td><td>❄️얼음 → 한카리아스(🐉드래곤+🌍땅) — 둘 다 약점!</td></tr>
+                                <tr><td style="color:#52b788">효과 좋음</td><td><b>2.0x</b></td><td>👊격투 → 디아루가(⚙️강철+🐉드래곤) — 강철만 약점</td></tr>
+                                <tr><td>상쇄</td><td>1.0x</td><td>🔥불꽃 → 디아루가(⚙️강철+🐉드래곤) — 강철2x × 드래곤0.5x</td></tr>
                                 <tr><td style="color:#e63946">효과 별로</td><td><b>0.5x</b></td><td>🌿풀 → 🔥불꽃</td></tr>
                                 <tr><td style="color:#3498db">이중 저항</td><td><b style="color:#3498db">0.25x</b></td><td>⚪노말 → 🪨바위+⚙️강철 (둘 다 저항)</td></tr>
                                 <tr><td style="color:#555">면역</td><td><b>0x</b></td><td>⚪노말 → 👻고스트 (타입 무효)</td></tr>
