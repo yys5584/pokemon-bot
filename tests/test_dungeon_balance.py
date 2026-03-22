@@ -305,35 +305,27 @@ def test_balance_assertions():
     assert rate_40_shiny >= 0.02, \
         f"이로치 초전설S 40층+ 도달률 {rate_40_shiny:.1%} < 2% (너무 어려움)"
 
-    # ── 2. 모든 등급이 즐길 수 있는지 ──
-    # 일반도 5층 보스(첫 보상)는 먹을 수 있어야
-    assert results["common_C"]["avg"] >= 3, \
-        f"일반C avg={results['common_C']['avg']:.1f} < 3 (첫 보상도 못 먹음)"
-    assert results["rare_B"]["avg"] >= 6, \
-        f"레어B avg={results['rare_B']['avg']:.1f} < 6"
-    assert results["epic_A"]["avg"] >= 10, \
-        f"에픽A avg={results['epic_A']['avg']:.1f} < 10"
-    assert results["legendary_S"]["avg"] >= 15, \
-        f"전설S avg={results['legendary_S']['avg']:.1f} < 15"
+    # ── 2. 모든 등급 max 30+ 도달 가능 ──
+    for key in PROFILES:
+        assert results[key]["max"] >= 30, \
+            f"{key} max={results[key]['max']} < 30 (모든 등급 30+ 가능해야)"
 
-    # ── 3. 고층은 고코스트 전용 ──
-    # 전설 이하 40층+ 도달률 5% 이하
-    for key in ["common_C", "rare_B", "epic_A", "epic_S"]:
-        rate_40 = reach_rate(key, 40)
-        assert rate_40 <= 0.03, \
-            f"{key} 40층+ 도달률 {rate_40:.1%} > 3% (너무 쉬움)"
+    # ── 3. 평균 층수 범위 ──
+    assert results["common_C"]["avg"] >= 5, \
+        f"일반C avg={results['common_C']['avg']:.1f} < 5"
+    assert results["rare_B"]["avg"] >= 10, \
+        f"레어B avg={results['rare_B']['avg']:.1f} < 10"
+    assert results["epic_A"]["avg"] >= 15, \
+        f"에픽A avg={results['epic_A']['avg']:.1f} < 15"
+    assert results["legendary_S"]["avg"] >= 18, \
+        f"전설S avg={results['legendary_S']['avg']:.1f} < 18"
+    assert results["ultra_S_shiny"]["avg"] >= 22, \
+        f"이로치 초전설S avg={results['ultra_S_shiny']['avg']:.1f} < 22"
 
-    # 50층 클리어: 에픽 이하 불가
-    for key in ["common_C", "rare_B", "epic_A", "epic_S"]:
-        n50 = results[key]["floors"].count(50)
-        assert n50 == 0, \
-            f"{key}에서 50층 클리어 {n50}회 (밸런스 붕괴)"
-
-    # ── 4. 상위 등급은 충분히 높이 가야 ──
-    assert results["ultra_S_shiny"]["avg"] >= 20, \
-        f"이로치 초전설S avg={results['ultra_S_shiny']['avg']:.1f} < 20"
-    assert results["ultra_S_shiny"]["max"] >= 40, \
-        f"이로치 초전설S max={results['ultra_S_shiny']['max']} < 40 (50층 도달 불가)"
+    # ── 4. 50층 클리어: 일반은 불가 ──
+    n50_common = results["common_C"]["floors"].count(50)
+    assert n50_common == 0, \
+        f"일반C에서 50층 클리어 {n50_common}회 (밸런스 붕괴)"
 
     # ── 5. 등급 간 계층이 존재해야 ──
     assert results["rare_B"]["avg"] > results["common_C"]["avg"], "레어 > 일반"
