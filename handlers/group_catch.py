@@ -26,8 +26,13 @@ _catch_locks: set[tuple[int, int]] = set()  # (session_id, user_id)
 _captcha_violation_count: dict[int, int] = {}
 
 
+CAPTCHA_AUTO_BAN_THRESHOLD = 15  # 이 횟수 이상 누적 시 자동 24시간 정지
+CAPTCHA_AUTO_BAN_DURATION = 86400  # 24시간 (초)
+
+
 async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """watched 유저가 캡차 미응답 상태로 포획 시도 시 카운팅. 차단하진 않지만 누적."""
+    """watched 유저가 캡차 미응답 상태로 포획 시도 시 카운팅.
+    15회 이상 누적 시 24시간 자동 정지."""
     try:
         from database.connection import get_db
         pool = await get_db()
@@ -38,17 +43,48 @@ async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_T
         # 캡차 미응답 상태로 포획 = 위반 누적
         _captcha_violation_count[user_id] = _captcha_violation_count.get(user_id, 0) + 1
         cnt = _captcha_violation_count[user_id]
-        # 3회마다 경고 + 추가 캡차 DM
+
+        # 자동 정지: 임계치 도달 시 24시간 포획 차단
+        if cnt >= CAPTCHA_AUTO_BAN_THRESHOLD and cnt % CAPTCHA_AUTO_BAN_THRESHOLD == 0:
+            from services.abuse_service import _apply_catch_lock
+            strike, duration = _apply_catch_lock(user_id, duration_override=CAPTCHA_AUTO_BAN_DURATION)
+            _captcha_violation_count[user_id] = 0  # 카운터 리셋
+            try:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=(
+                        f"🔒 <b>캡차 무시로 24시간 포획 정지!</b>\n\n"
+                        f"캡차를 {cnt}회 연속 무시하여 자동 제재되었습니다.\n"
+                        f"24시간 후 포획이 다시 가능합니다."
+                    ),
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            # 관리자 알림
+            try:
+                user = await pool.fetchrow("SELECT display_name, username FROM users WHERE user_id = $1", user_id)
+                uname = f"@{user['username']}" if user and user['username'] else ""
+                dname = user['display_name'] if user else str(user_id)
+                await context.bot.send_message(
+                    chat_id=config.ADMIN_IDS[0],
+                    text=f"🔒 캡차 무시 자동 정지: <b>{dname}</b> {uname} — {cnt}회 누적 → 24시간 차단",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            return True  # 포획 차단
+
+        # 3회마다 경고
         if cnt % 3 == 0:
             try:
-                lock_hours = cnt // 3
                 await context.bot.send_message(
                     chat_id=user_id,
                     text=(
                         f"⚠️ <b>캡차 미응답 경고 ({cnt}회 누적)</b>\n\n"
                         f"캡차를 풀지 않고 포획을 계속하고 있습니다.\n"
                         f"지금 즉시 위 캡차를 풀어주세요!\n\n"
-                        f"🔒 미응답 지속 시 <b>{lock_hours}시간</b> 포획 제한됩니다."
+                        f"🔒 {CAPTCHA_AUTO_BAN_THRESHOLD}회 누적 시 <b>24시간 자동 정지</b>됩니다."
                     ),
                     parse_mode="HTML",
                 )
