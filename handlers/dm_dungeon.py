@@ -582,10 +582,10 @@ async def _handle_floor_clear(query, context, user_id: int, combat: dict, turn_r
         if not any(b.get("id") == "_revive_consumed" for b in buffs):
             buffs.append({"id": "_revive_consumed", "name": "", "lv": 0})
 
-    # 층간 회복
-    heal_rate = ds.get_floor_heal_rate(buffs)
-    if heal_rate > 0:
-        remaining_hp = min(max_hp, remaining_hp + int(max_hp * heal_rate))
+    # 층간 회복 (기본 5% + 버프)
+    base_heal = config.DUNGEON_BASE_FLOOR_HEAL
+    heal_rate = base_heal + ds.get_floor_heal_rate(buffs)
+    remaining_hp = min(max_hp, remaining_hp + int(max_hp * heal_rate))
 
     # DB 업데이트
     run = await dq.get_active_run(user_id)

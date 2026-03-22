@@ -30,17 +30,18 @@ def get_today_theme() -> dict:
 # ══════════════════════════════════════════════════════════
 
 def enemy_scaling(floor: int) -> float:
-    """층별 적 스탯 배율 (v4.0 — 후반 20% 완화)."""
+    """층별 적 스탯 배율 (v4.0).
+    1~25층: 완만 → 30~50층: 가파름 (고코스트 전용 구간)."""
     if floor <= 10:
-        return 1.0 + floor * 0.02        # 1.02 ~ 1.20
+        return 1.0 + floor * 0.02          # 1.02 ~ 1.20
     elif floor <= 20:
         return 1.20 + (floor - 10) * 0.025  # 1.225 ~ 1.45
     elif floor <= 30:
-        return 1.45 + (floor - 20) * 0.03   # 1.48 ~ 1.75
+        return 1.45 + (floor - 20) * 0.035  # 1.485 ~ 1.80
     elif floor <= 40:
-        return 1.75 + (floor - 30) * 0.04   # 1.79 ~ 2.15
+        return 1.80 + (floor - 30) * 0.05   # 1.85 ~ 2.30
     else:
-        return 2.15 + (floor - 40) * 0.05   # 2.20 ~ 2.65
+        return 2.30 + (floor - 40) * 0.06   # 2.36 ~ 2.90
 
 
 # ══════════════════════════════════════════════════════════
@@ -841,7 +842,7 @@ def resolve_turn(state: dict, player_action: str) -> dict:
             atk_val = p_stats["spa"]
             def_val = e_stats["spdef"]
             type_mult = state["skill_type_mults"][idx]
-            base = max(1, atk_val - int(def_val * 0.3))
+            base = max(int(atk_val * config.DUNGEON_MIN_DMG_RATIO), atk_val - int(def_val * config.DUNGEON_DEF_FACTOR))
             variance = random.uniform(0.9, 1.1)
 
             # 크리 체크
@@ -866,7 +867,7 @@ def resolve_turn(state: dict, player_action: str) -> dict:
         atk_val = p_stats["atk"]
         def_val = e_stats["def"]
         normal_mult = config.DUNGEON_NORMAL_ATK_MULT.get(state["p_rarity"], 1.0)
-        base = max(1, atk_val - int(def_val * 0.3))
+        base = max(int(atk_val * config.DUNGEON_MIN_DMG_RATIO), atk_val - int(def_val * config.DUNGEON_DEF_FACTOR))
         variance = random.uniform(0.9, 1.1)
 
         # 크리 체크
@@ -901,7 +902,7 @@ def resolve_turn(state: dict, player_action: str) -> dict:
     elif e_action == "normal_attack":
         e_atk = e_stats["atk"]
         p_def = p_stats["def"]
-        base = max(1, e_atk - int(p_def * 0.3))
+        base = max(int(e_atk * config.DUNGEON_MIN_DMG_RATIO), e_atk - int(p_def * config.DUNGEON_DEF_FACTOR))
         enemy_dmg = max(1, int(base * 0.8 * random.uniform(0.9, 1.1)))
 
     elif e_action == "type_attack":
@@ -909,7 +910,7 @@ def resolve_turn(state: dict, player_action: str) -> dict:
         e_atk = e_stats["spa"]
         p_def = p_stats["spdef"]
         type_mult = _single_type_mult(atk_type, state["p_types"]) if isinstance(atk_type, str) else 1.0
-        base = max(1, e_atk - int(p_def * 0.3))
+        base = max(int(e_atk * config.DUNGEON_MIN_DMG_RATIO), e_atk - int(p_def * config.DUNGEON_DEF_FACTOR))
         enemy_dmg = max(1, int(base * config.DUNGEON_SPECIAL_MULT * type_mult * random.uniform(0.9, 1.1)))
 
     elif e_action == "charge":

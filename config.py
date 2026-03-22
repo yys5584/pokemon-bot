@@ -1254,7 +1254,7 @@ DUNGEON_BUFF_FREQUENCY = {1: 1, 2: 1, 4: 2, 5: 3, 6: 4}
 
 # --- 배틀 ---
 DUNGEON_MAX_ROUNDS = 50
-DUNGEON_CRIT_RATE = 0.10
+DUNGEON_CRIT_RATE = 0.12
 DUNGEON_CRIT_MULT = 1.5
 DUNGEON_SKILL_RATE = 0.30
 DUNGEON_IMMUNITY_MULT = 0.3      # 면역 0x → 0.3x (던전 전용)
@@ -1274,15 +1274,18 @@ DUNGEON_SKILL_MULT = {
 # PP: 런 전체 공유, 층 넘어가도 안 참
 DUNGEON_PP_BY_RARITY = {
     "common": 8, "rare": 7, "epic": 6,
-    "legendary": 5, "ultra_legendary": 4,
+    "legendary": 5, "ultra_legendary": 5,
 }
 # 일반공격 배율 (고코스트=PP 적지만 일반 강함)
 DUNGEON_NORMAL_ATK_MULT = {
     "common": 0.8, "rare": 0.9, "epic": 1.0,
-    "legendary": 1.15, "ultra_legendary": 1.3,
+    "legendary": 1.15, "ultra_legendary": 1.4,
 }
-DUNGEON_SPECIAL_MULT = 1.5       # 특수기 기본 배율
+DUNGEON_SPECIAL_MULT = 2.2       # 특수기 기본 배율
 DUNGEON_DEFEND_REDUCE = 0.5      # 방어 시 데미지 50% 감소
+DUNGEON_DEF_FACTOR = 0.12        # 방어 차감 계수 (atk - def*0.12)
+DUNGEON_MIN_DMG_RATIO = 0.30     # 최소 데미지 비율 (ATK의 30%)
+DUNGEON_BASE_FLOOR_HEAL = 0.08   # 층간 기본 회복 8%
 DUNGEON_TURN_TIMEOUT = 120       # 턴 타임아웃(초) — 미사용 시 포기 처리
 DUNGEON_MAX_TURNS_PER_FLOOR = 30  # 한 층 최대 턴
 DUNGEON_BOSS_HP_MULT = 1.5       # 보스 HP 배율
