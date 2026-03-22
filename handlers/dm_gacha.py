@@ -1046,6 +1046,13 @@ async def _ivstone_confirm(query, user_id: int, instance_id: int, stat_key: str)
 
 async def _ivstone_execute(query, user_id: int, instance_id: int, stat_key: str):
     """IV 스톤 적용."""
+    # 포켓몬당 사용 횟수 체크
+    used_count = await item_queries.get_ivstone_usage(instance_id)
+    limit = getattr(config, "IVSTONE_PER_POKEMON_LIMIT", 2)
+    if used_count >= limit:
+        await query.edit_message_text(f"❌ 이 포켓몬은 IV스톤을 이미 {limit}회 사용했습니다. (포켓몬당 {limit}회 제한)")
+        return
+
     result = await item_queries.apply_iv_stone(user_id, instance_id, stat_key)
     if not result:
         await query.edit_message_text("❌ IV스톤이 부족하거나 포켓몬을 찾을 수 없습니다.")
@@ -1072,6 +1079,7 @@ async def _ivstone_execute(query, user_id: int, instance_id: int, stat_key: str)
         f"대상: {shiny}<b>{name}</b>",
         f"  {stat_name}: → <b>{new_val}</b>",
         f"  총 IV: {iv_sum}/186 [{grade}]",
+        f"  IV스톤 사용: {result.get('ivstone_used', 0)}/{limit}회",
         f"",
         f"남은 IV스톤: {remaining}개",
     ]

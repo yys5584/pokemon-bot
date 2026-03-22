@@ -420,6 +420,8 @@ IV_MIGRATIONS = [
     "ALTER TABLE user_pokemon ADD COLUMN iv_spa SMALLINT DEFAULT NULL",
     "ALTER TABLE user_pokemon ADD COLUMN iv_spdef SMALLINT DEFAULT NULL",
     "ALTER TABLE user_pokemon ADD COLUMN iv_spd SMALLINT DEFAULT NULL",
+    # IV스톤 포켓몬당 사용 횟수 추적
+    "ALTER TABLE user_pokemon ADD COLUMN IF NOT EXISTS ivstone_used SMALLINT DEFAULT 0",
 ]
 
 SHINY_MIGRATIONS = [

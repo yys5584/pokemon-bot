@@ -1431,18 +1431,19 @@ DUNGEON_MILESTONE_TITLES = {
 
 # --- 주간 랭킹 보상 ---
 DUNGEON_WEEKLY_RANKING_REWARDS = {
-    1: {"masterball": 3, "iv_reroll_one": 3, "shiny_convert_ticket": 1, "crystals": 10, "tickets": 5, "title": "던전 주간왕"},
-    (2, 3): {"masterball": 1, "iv_reroll_one": 2, "crystals": 5, "tickets": 3},
-    (4, 10): {"iv_reroll_one": 1, "crystals": 3, "tickets": 2},
-    (11, 30): {"crystals": 2, "tickets": 1},
+    1: {"iv_stones": 2, "iv_reroll_one": 5, "time_reduce_ticket": 3, "title": "던전 주간왕"},
+    (2, 3): {"iv_stones": 1, "iv_reroll_one": 3, "time_reduce_ticket": 2},
+    (4, 10): {"iv_stones": 1, "iv_reroll_one": 2, "time_reduce_ticket": 1},
+    (11, 30): {"iv_reroll_one": 1, "time_reduce_ticket": 1},
 }
 
 # --- 일일 랭킹 보상 ---
 DUNGEON_DAILY_RANKING_REWARDS = {
-    1: {"iv_reroll_one": 2, "shiny_convert_ticket": 1},
-    (2, 3): {"iv_reroll_one": 1},
-    (4, 10): {"fragments": 10},
+    (1, 5): {"iv_reroll_one": 2},
 }
+
+# IV스톤 포켓몬당 사용 제한
+IVSTONE_PER_POKEMON_LIMIT = 2
 
 # ─── Camp System v2 (포켓몬 캠프) ────────────────────────
 # 최소 참여 조건
