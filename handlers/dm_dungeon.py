@@ -1278,9 +1278,12 @@ async def _start_run(query, context, user_id: int, instance_id: int):
     st["run_id"] = run_id
     # PP 상태 초기화 (런 시작 시)
     is_truant = pokemon["pokemon_id"] in config.TRUANT_POKEMON
-    pp_max = 0 if is_truant else config.DUNGEON_PP_BY_RARITY.get(pokemon["rarity"], 6)
+    pp_base = 0 if is_truant else config.DUNGEON_PP_BY_RARITY.get(pokemon["rarity"], 6)
     dungeon_skills = ds.get_pokemon_skills(pokemon["pokemon_id"], types)
-    pp_state = [{"current": pp_max, "max": pp_max} for _ in dungeon_skills]
+    # 단일타입 PP 보정 (스킬 1개 → PP 1.5배)
+    if len(dungeon_skills) == 1 and pp_base > 0:
+        pp_base = int(pp_base * config.DUNGEON_SINGLE_TYPE_PP_MULT)
+    pp_state = [{"current": pp_base, "max": pp_base} for _ in dungeon_skills]
     st["pp_state"] = pp_state
     st["is_truant"] = is_truant
     st.pop("combat", None)  # 이전 전투 상태 클리어

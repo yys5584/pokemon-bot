@@ -132,9 +132,11 @@ def simulate_run(profile_key: str, seed: int = None) -> int:
     buffs = []
 
     is_truant = pid in config.TRUANT_POKEMON
-    pp_max = 0 if is_truant else config.DUNGEON_PP_BY_RARITY.get(rarity, 6)
+    pp_base = 0 if is_truant else config.DUNGEON_PP_BY_RARITY.get(rarity, 6)
     skills_info = ds.get_pokemon_skills(pid, types)
-    pp_state = [{"current": pp_max, "max": pp_max} for _ in skills_info]
+    if len(skills_info) == 1 and pp_base > 0:
+        pp_base = int(pp_base * config.DUNGEON_SINGLE_TYPE_PP_MULT)
+    pp_state = [{"current": pp_base, "max": pp_base} for _ in skills_info]
 
     for floor in range(1, 51):
         enemy = ds.generate_enemy(floor, theme, player_rarity=rarity)

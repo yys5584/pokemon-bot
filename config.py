@@ -1277,6 +1277,7 @@ DUNGEON_PP_BY_RARITY = {
     "common": 12, "rare": 11, "epic": 8,
     "legendary": 7, "ultra_legendary": 7,
 }
+DUNGEON_SINGLE_TYPE_PP_MULT = 1.3   # 단일타입 PP 보정 (7→9)
 # 일반공격 배율 (고코스트=PP 적지만 일반 강함)
 DUNGEON_NORMAL_ATK_MULT = {
     "common": 0.70, "rare": 0.80, "epic": 1.0,
