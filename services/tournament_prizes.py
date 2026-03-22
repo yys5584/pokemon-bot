@@ -571,6 +571,50 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.warning(f"Failed to DM participant {uid}")
 
+    # ── Save tournament results to DB ──
+    try:
+        pool = await get_db()
+        tourn_id = await pool.fetchval(
+            "INSERT INTO tournament_results (chat_id, total_participants) "
+            "VALUES ($1, $2) RETURNING id",
+            chat_id, len(all_participants),
+        )
+
+        # placement 결정
+        placements = {}
+        placements[winner_id] = "1st"
+        if runner_up_id:
+            placements[runner_up_id] = "2nd"
+        for uid in (semi_finalists or set()):
+            if uid not in placements:
+                placements[uid] = "4th"
+        for uid in eliminated:
+            if uid not in placements:
+                round_size = eliminated[uid]
+                placements[uid] = f"top{round_size}"
+
+        for uid, pdata in all_participants.items():
+            placement = placements.get(uid, "participant")
+            team_json = None
+            if isinstance(pdata, dict) and "team" in pdata:
+                import json
+                team_json = json.dumps(
+                    [{"pokemon_id": p.get("pokemon_id"), "name": p.get("name_ko", ""),
+                      "rarity": p.get("rarity", ""), "is_shiny": bool(p.get("is_shiny"))}
+                     for p in pdata["team"]],
+                    ensure_ascii=False,
+                )
+            display = pdata["name"] if isinstance(pdata, dict) else str(pdata)
+            await pool.execute(
+                "INSERT INTO tournament_entries "
+                "(tournament_id, user_id, display_name, placement, team_json) "
+                "VALUES ($1, $2, $3, $4, $5::jsonb)",
+                tourn_id, uid, display, placement, team_json,
+            )
+        logger.info(f"Tournament #{tourn_id} saved: {len(all_participants)} entries")
+    except Exception:
+        logger.error("Failed to save tournament results to DB", exc_info=True)
+
     # ── Post tournament result to homepage notice board ──
     try:
         now = config.get_kst_now()

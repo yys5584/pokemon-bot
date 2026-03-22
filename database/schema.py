@@ -1468,6 +1468,35 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── 토너먼트 기록 테이블 (2026-03-23) ──
+    tournament_tables = [
+        """CREATE TABLE IF NOT EXISTS tournament_results (
+            id SERIAL PRIMARY KEY,
+            chat_id BIGINT NOT NULL,
+            tournament_date DATE NOT NULL DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')::date,
+            total_participants INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS tournament_entries (
+            id SERIAL PRIMARY KEY,
+            tournament_id INTEGER NOT NULL REFERENCES tournament_results(id),
+            user_id BIGINT NOT NULL,
+            display_name TEXT,
+            placement TEXT NOT NULL,
+            team_json JSONB,
+            damage_dealt INTEGER DEFAULT 0,
+            kills INTEGER DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_tourn_entries_user ON tournament_entries(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tourn_results_date ON tournament_results(tournament_date)",
+    ]
+    for sql in tournament_tables:
+        try:
+            await pool.execute(sql, timeout=30)
+        except Exception:
+            pass
+
     # ── Gen4 크로스 진화 method 수정 (2026-03-23) ──
     for sql in GEN4_EVO_METHOD_FIX:
         try:
