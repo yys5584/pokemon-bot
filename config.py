@@ -1278,6 +1278,12 @@ DUNGEON_PP_BY_RARITY = {
     "legendary": 8, "ultra_legendary": 7,
 }
 DUNGEON_SINGLE_TYPE_PP_MULT = 1.3   # 단일타입 PP 보정 (7→9)
+
+# 던전 전용 등급별 스탯 배율 (배틀/토너먼트 안 건드림)
+DUNGEON_RARITY_STAT_MULT = {
+    "common": 1.0, "rare": 1.0, "epic": 1.0,
+    "legendary": 1.20, "ultra_legendary": 1.35,
+}
 # 일반공격 배율 (고코스트=PP 적지만 일반 강함)
 DUNGEON_NORMAL_ATK_MULT = {
     "common": 0.70, "rare": 0.80, "epic": 1.0,
@@ -1286,7 +1292,7 @@ DUNGEON_NORMAL_ATK_MULT = {
 # 코스트별 적 스케일링 보정 (저코스트 = 적이 약함)
 # 코스트별 적 스케일링 보정 — 거의 동일, 미세 보정만
 DUNGEON_COST_SCALING = {
-    "common": 0.65, "rare": 0.72, "epic": 0.88,
+    "common": 0.65, "rare": 0.72, "epic": 0.78,
     "legendary": 0.80, "ultra_legendary": 0.95,
 }
 DUNGEON_SPECIAL_MULT = 2.2       # 특수기 기본 배율

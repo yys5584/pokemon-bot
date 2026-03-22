@@ -1359,6 +1359,11 @@ def build_player_stats(pokemon: dict) -> tuple[dict, list[str]]:
     if hp_mult > 1:
         stats["hp"] = int(stats["hp"] * hp_mult)
 
+    # 던전 전용 등급 배율 (배틀/토너먼트 안 건드림)
+    rmult = config.DUNGEON_RARITY_STAT_MULT.get(rarity, 1.0)
+    if rmult != 1.0:
+        stats = {k: int(v * rmult) for k, v in stats.items()}
+
     # 타입
     entry = POKEMON_BASE_STATS.get(pid)
     if entry and len(entry) > 6:

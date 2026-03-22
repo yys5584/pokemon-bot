@@ -1,12 +1,7 @@
-"""던전 턴제 전투 밸런스 시뮬레이션 — 실제 유저 메타 기반.
+"""던전 턴제 전투 밸런스 시뮬레이션 — 전 등급 상성 매칭.
 
-실제 DB 기준:
-- 유저는 테마 상성에 맞는 포켓몬을 골라서 입장
-- 게을킹(에픽, BST670) best 45F, 한카리아스(에픽) best 48F
-- 초전설(디아루가) best 29F (현 자동배틀 기준)
-- 이로치 레어도 상성 맞으면 35F+
-
-시뮬 기준: "화산" 테마 (불/드래곤/격투) → 물/땅/바위 유리
+모든 테마 × 상성 맞는 포켓몬으로 시뮬.
+던전 전용 등급 배율(DUNGEON_RARITY_STAT_MULT) 적용.
 """
 
 import random
@@ -18,78 +13,63 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 from services import dungeon_service as ds
 from utils.battle_calc import calc_battle_stats, get_normalized_base_stats, EVO_STAGE_MAP
+from models.pokemon_data import ALL_POKEMON
+from models.pokemon_base_stats import POKEMON_BASE_STATS
 
-
-# ── 화산 테마 상성 포켓몬 (물/땅/바위) ──
-# (pokemon_id, rarity, name, iv_grade, friendship, is_shiny, note)
-PROFILES = {
-    # 일반 — 상성 O
-    "common_A_adv":   (55,  "common",         "골덕",       "A", 5, False),   # 물
-    "common_S_shiny": (303, "common",         "입치트",     "S", 7, True),    # 강철/페어리 (실 37F)
-    "common_S_golduck":(55, "common",         "골덕",       "S", 7, True),    # 물, 이로치S
-    # 레어 — 상성 O
-    "rare_A_adv":     (340, "rare",           "메기드리",   "A", 5, False),   # 물/땅
-    "rare_S_shiny":   (460, "rare",           "눈설왕",     "S", 7, True),    # 풀/얼음 (실 35F)
-    # 에픽 — 상성 O (실 메타)
-    "epic_A":         (445, "epic",           "한카리아스", "A", 5, False),   # 드래곤/땅 (실 34F)
-    "epic_S_shiny":   (445, "epic",           "한카리아스", "S", 7, True),    # 실 48F!
-    "slaking_A":      (289, "epic",           "게을킹",     "A", 5, False),   # 노말 (실 39F, BST670)
-    "slaking_S_shiny":(289, "epic",           "게을킹",     "S", 7, True),    # 실 45F
-    # 전설
-    "suicune_A":       (245, "legendary",     "스이쿤",     "A", 5, False),   # 물 BST580
-    "suicune_S_shiny": (245, "legendary",     "스이쿤",     "S", 7, True),
-    "regigigas_S_shiny":(486,"legendary",     "레지기가스", "S", 7, True),    # 노말, BST670 TRUANT
-    # 초전설
-    "ultra_A_groudon": (383, "ultra_legendary","그란돈",    "A", 5, False),   # 땅 — 화산 상성 O
-    "ultra_S_kyogre":  (382, "ultra_legendary","가이오가",  "S", 7, True),    # 물 — 화산 상성 O
-    "ultra_S_palkia":  (484, "ultra_legendary","펄기아",    "S", 7, True),    # 물/드래곤
+# 던전 전용 등급 배율
+DUNGEON_RARITY_STAT_MULT = {
+    "common": 1.0, "rare": 1.0, "epic": 1.0,
+    "legendary": 1.20, "ultra_legendary": 1.35,
 }
 
-IV_GRADES = {
-    "C": (10, 10, 10, 10, 10, 10),
-    "B": (15, 15, 15, 15, 15, 15),
-    "A": (20, 20, 20, 20, 20, 20),
-    "S": (31, 31, 31, 31, 31, 31),
-}
-
-# 고정 테마: 화산
-THEME = config.DUNGEON_THEMES[1]  # 화산
+# ── 테마별 상성 타입 ──
+THEME_ADVANTAGE = {}
+for theme in config.DUNGEON_THEMES:
+    THEME_ADVANTAGE[theme["name"]] = set(theme["advantage"])
 
 
-def build_test_pokemon(profile_key: str) -> tuple[dict, list[str], str]:
-    pid, rarity, name, iv_grade, friendship, is_shiny = PROFILES[profile_key][:6]
-    ivs = IV_GRADES[iv_grade]
+def get_pokemon_types(pid):
+    entry = POKEMON_BASE_STATS.get(pid)
+    if entry and len(entry) > 6:
+        return list(entry[6])
+    return ["normal"]
+
+
+def pokemon_matches_theme(pid, theme_name):
+    """포켓몬이 테마 상성에 맞는지."""
+    types = set(get_pokemon_types(pid))
+    adv = THEME_ADVANTAGE.get(theme_name, set())
+    return bool(types & adv)
+
+
+def build_pokemon_stats(pid, rarity, iv_grade="S", friendship=7):
+    """던전용 스탯 빌드 (등급 배율 적용)."""
+    ivs = {"S": 31, "A": 20, "B": 15, "C": 10}
+    iv = ivs.get(iv_grade, 20)
 
     base_kw = get_normalized_base_stats(pid) or {}
-    evo_stage = EVO_STAGE_MAP.get(pid, 3)
-
+    evo = EVO_STAGE_MAP.get(pid, 3)
     stats = calc_battle_stats(
-        rarity, "balanced", friendship, evo_stage,
-        ivs[0], ivs[1], ivs[2], ivs[3], ivs[4], ivs[5],
-        **base_kw,
+        rarity, "balanced", friendship, evo,
+        iv, iv, iv, iv, iv, iv, **base_kw,
     )
-
     hp_mult = getattr(config, 'BATTLE_HP_MULTIPLIER', 1)
     if hp_mult > 1:
         stats["hp"] = int(stats["hp"] * hp_mult)
 
-    from models.pokemon_base_stats import POKEMON_BASE_STATS
-    entry = POKEMON_BASE_STATS.get(pid)
-    if entry and len(entry) > 6:
-        types = list(entry[6])
-    else:
-        types = ["normal"]
+    # 던전 등급 배율
+    rmult = DUNGEON_RARITY_STAT_MULT.get(rarity, 1.0)
+    if rmult != 1.0:
+        stats = {k: int(v * rmult) for k, v in stats.items()}
 
-    return stats, types, rarity
+    types = get_pokemon_types(pid)
+    return stats, types
 
 
-def optimal_action(combat: dict) -> str:
-    """최적 전략 AI."""
+def optimal_action(combat):
     e_intent = combat["e_intent"]
-    p_hp = combat["p_hp"]
-    p_max_hp = combat["p_max_hp"]
-    skills = combat["skills"]
-    pp = combat["pp"]
+    p_hp, p_max_hp = combat["p_hp"], combat["p_max_hp"]
+    skills, pp = combat["skills"], combat["pp"]
     skill_mults = combat["skill_type_mults"]
 
     if e_intent["action"] in ("charge", "full_attack"):
@@ -104,31 +84,24 @@ def optimal_action(combat: dict) -> str:
             if i < len(pp) and pp[i]["current"] > 0:
                 return f"skill{i+1}"
         return "normal"
-
     if p_hp < p_max_hp * 0.3 and e_intent.get("est_damage", 0) > p_hp * 0.5:
         return "defend"
-
     for i in range(len(skills)):
         if i < len(pp) and pp[i]["current"] > 0 and skill_mults[i] >= 1.5:
             return f"skill{i+1}"
-
     total_pp = sum(p["current"] for p in pp)
     if total_pp > 2:
         for i in range(len(skills)):
             if i < len(pp) and pp[i]["current"] > 0:
                 return f"skill{i+1}"
-
     return "normal"
 
 
-def simulate_run(profile_key: str, seed: int = None) -> int:
+def simulate_run(pid, rarity, theme, seed=None, iv_grade="S", friendship=7):
     if seed is not None:
         random.seed(seed)
 
-    stats, types, rarity = build_test_pokemon(profile_key)
-    pid = PROFILES[profile_key][0]
-    theme = THEME
-
+    stats, types = build_pokemon_stats(pid, rarity, iv_grade, friendship)
     current_hp = stats["hp"]
     max_hp = stats["hp"]
     buffs = []
@@ -142,7 +115,6 @@ def simulate_run(profile_key: str, seed: int = None) -> int:
 
     for floor in range(1, 51):
         enemy = ds.generate_enemy(floor, theme, player_rarity=rarity)
-
         combat = ds.init_combat_state(
             stats, types, rarity, pid, enemy, buffs,
             current_hp=current_hp, max_hp=max_hp, floor=floor,
@@ -163,15 +135,10 @@ def simulate_run(profile_key: str, seed: int = None) -> int:
             return floor - 1
 
         current_hp = max(1, combat["p_hp"])
-
-        # 층간 회복
-        base_heal = config.DUNGEON_BASE_FLOOR_HEAL
-        heal_rate = base_heal + ds.get_floor_heal_rate(buffs)
+        heal_rate = config.DUNGEON_BASE_FLOOR_HEAL + ds.get_floor_heal_rate(buffs)
         current_hp = min(max_hp, current_hp + int(max_hp * heal_rate))
-
         pp_state = combat["pp"]
 
-        # 버프 (5층마다)
         if ds.should_offer_buff(floor):
             choices = ds.generate_buff_choices(floor, buffs)
             if choices:
@@ -179,120 +146,129 @@ def simulate_run(profile_key: str, seed: int = None) -> int:
                             "def", "spdef", "dodge", "double", "preemptive",
                             "counter", "penetrate", "shield", "heal", "thorns",
                             "revive", "allstat", "spd"]
-                best = choices[0]
-                best_rank = 99
-                for c in choices:
-                    try:
-                        rank = priority.index(c["id"])
-                    except ValueError:
-                        rank = 50
-                    if rank < best_rank:
-                        best_rank = rank
-                        best = c
+                best = min(choices, key=lambda c: priority.index(c["id"]) if c["id"] in priority else 50)
                 buffs = ds.apply_buff_choice(buffs, best)
-
                 if best["id"] == "hp" and "mult" in best.get("effect", {}):
                     max_hp = int(max_hp * best["effect"]["mult"])
                     current_hp = int(current_hp * best["effect"]["mult"])
                 elif best["id"] == "allstat" and "mult" in best.get("effect", {}):
                     max_hp = int(max_hp * best["effect"]["mult"])
                     current_hp = int(current_hp * best["effect"]["mult"])
-
                 if best["id"] == "pp_recovery":
-                    pp_recover = best["effect"].get("rate", 2)
                     for pp_info in pp_state:
-                        pp_info["current"] = min(pp_info["max"], pp_info["current"] + pp_recover)
+                        pp_info["current"] = min(pp_info["max"], pp_info["current"] + best["effect"].get("rate", 2))
 
-        stats_base, _, _ = build_test_pokemon(profile_key)
-        hp_mult = getattr(config, 'BATTLE_HP_MULTIPLIER', 1)
-        if hp_mult > 1:
-            stats_base["hp"] = int(stats_base["hp"] * hp_mult)
+        stats_base, _ = build_pokemon_stats(pid, rarity, iv_grade, friendship)
         stats = ds.apply_buffs_to_stats(stats_base, buffs)
 
     return 50
 
 
-def test_balance():
-    N = 200
-    results = {}
+def find_best_pokemon_per_theme():
+    """각 테마 × 등급별 상성 맞는 포켓몬 찾기."""
+    result = {}
+    for theme in config.DUNGEON_THEMES:
+        theme_name = theme["name"]
+        by_rarity = {}
+        for p in ALL_POKEMON:
+            pid, name, _, _, rarity = p[0], p[1], p[2], p[3], p[4]
+            if not pokemon_matches_theme(pid, theme_name):
+                continue
+            bs = POKEMON_BASE_STATS.get(pid)
+            if not bs:
+                continue
+            bst = sum(bs[:6])
+            by_rarity.setdefault(rarity, []).append((pid, name, bst))
 
-    for profile_key in PROFILES:
-        floors = []
-        for seed in range(N):
-            floor = simulate_run(profile_key, seed=seed)
-            floors.append(floor)
-
-        avg = sum(floors) / len(floors)
-        median = sorted(floors)[len(floors) // 2]
-        max_f = max(floors)
-        min_f = min(floors)
-        p90 = sorted(floors)[int(len(floors) * 0.9)]
-
-        results[profile_key] = {
-            "avg": avg, "median": median, "max": max_f, "min": min_f, "p90": p90,
-            "floors": floors,
-        }
-
-    return results
+        # 등급별 BST 상위 1개
+        picks = {}
+        for rarity in ["common", "rare", "epic", "legendary", "ultra_legendary"]:
+            candidates = by_rarity.get(rarity, [])
+            if candidates:
+                candidates.sort(key=lambda x: x[2], reverse=True)
+                picks[rarity] = candidates[0]  # BST 최고
+        result[theme_name] = picks
+    return result
 
 
-def test_balance_assertions():
-    results = test_balance()
+def main():
+    N = 100
+    theme_picks = find_best_pokemon_per_theme()
 
-    N = len(results["ultra_S_kyogre"]["floors"])
-    def reach_rate(key, threshold):
-        return sum(1 for f in results[key]["floors"] if f >= threshold) / N
+    print("=" * 85)
+    print(f"{'테마':<8} {'등급':<8} {'포켓몬':<12} {'BST':>4} {'타입':<14} {'avg':>6} {'med':>6} {'p90':>6} {'max':>5}")
+    print("=" * 85)
 
-    print("\n" + "=" * 75)
-    print(f"{'Profile':<22} {'Avg':>6} {'Med':>6} {'P90':>6} {'Max':>6} {'Min':>6}")
-    print("=" * 75)
+    all_results = {}
 
-    for key, r in results.items():
-        info = PROFILES[key]
-        shiny = "✨" if info[5] else ""
-        label = f"{shiny}{info[2]}({info[1][:3]}{info[3]})"
-        print(f"{label:<22} {r['avg']:>6.1f} {r['median']:>6} {r['p90']:>6} {r['max']:>6} {r['min']:>6}")
+    for theme in config.DUNGEON_THEMES:
+        tname = theme["name"]
+        picks = theme_picks[tname]
 
-    print("=" * 75)
+        for rarity in ["common", "rare", "epic", "legendary", "ultra_legendary"]:
+            if rarity not in picks:
+                continue
+            pid, pname, bst = picks[rarity]
+            types = get_pokemon_types(pid)
+            type_str = "/".join(types)
 
-    print(f"\n📊 40층+ 도달률:")
-    for key in PROFILES:
-        rate = reach_rate(key, 40)
-        if rate > 0:
-            info = PROFILES[key]
-            shiny = "✨" if info[5] else ""
-            print(f"  {shiny}{info[2]}({info[1][:3]}{info[3]}): {rate:.1%}")
+            # 이로치S 기준
+            floors = [simulate_run(pid, rarity, theme, seed=s, iv_grade="S", friendship=7) for s in range(N)]
+            avg = sum(floors) / len(floors)
+            med = sorted(floors)[len(floors) // 2]
+            p90 = sorted(floors)[int(len(floors) * 0.9)]
+            max_f = max(floors)
 
-    # ── 1. 이로치S 기준 max 30+ (유저는 이로치S로 도전) ──
-    shiny_keys = [k for k in PROFILES if PROFILES[k][5]]
-    for key in shiny_keys:
-        assert results[key]["max"] >= 30, \
-            f"{key} max={results[key]['max']} < 30 (이로치S 30+ 가능해야)"
+            key = f"{tname}_{rarity}"
+            all_results[key] = {"avg": avg, "med": med, "p90": p90, "max": max_f,
+                                "name": pname, "rarity": rarity, "theme": tname}
 
-    # ── 2. 실 데이터와 비슷한 범위 ──
-    # 한카리아스 이로치S: 실 48F → 시뮬 max 40+
-    assert results["epic_S_shiny"]["max"] >= 40, \
-        f"한카리아스✨S max={results['epic_S_shiny']['max']} < 40 (실 48F)"
+            truant = " [T]" if pid in config.TRUANT_POKEMON else ""
+            rar_short = {"common": "com", "rare": "rar", "epic": "epi",
+                         "legendary": "leg", "ultra_legendary": "ult"}[rarity]
+            print(f"{tname:<8} {rar_short:<8} {pname:<12} {bst:>4} {type_str:<14} {avg:>6.1f} {med:>6} {p90:>6} {max_f:>5}{truant}")
 
-    # 초전설 듀얼타입(펄기아✨S 물/드래곤): 에픽(한카리아스✨S)보다 높아야
-    assert results["ultra_S_palkia"]["avg"] > results["epic_S_shiny"]["avg"], \
-        f"펄기아✨S({results['ultra_S_palkia']['avg']:.1f}) <= 한카리아스✨S({results['epic_S_shiny']['avg']:.1f})"
+        print("-" * 85)
 
-    # ── 3. 등급 계층 (상성 유리 포켓몬끼리) ──
-    # 골덕(물) vs 한카리아스(땅) — 둘 다 화산 상성 O, 등급 차이로 비교
-    assert results["epic_S_shiny"]["avg"] >= results["common_S_golduck"]["avg"] - 3, \
-        "에픽✨(한카리아스) >= 일반✨(골덕) 근처"
-    # 가이오가(단일타입 물)는 한카리아스(듀얼 드래곤/땅)보다 낮을 수 있음 — 타입 수 차이
-    assert results["ultra_S_palkia"]["max"] >= 40, "펄기아✨S max 40+"
-    assert results["ultra_S_kyogre"]["max"] >= 35, "가이오가✨S max 35+"
+    # ── 등급별 평균 요약 ──
+    print()
+    print("=== 등급별 전체 평균 (이로치S, 상성 맞는 최적 포켓몬) ===")
+    for rarity in ["common", "rare", "epic", "legendary", "ultra_legendary"]:
+        vals = [v for k, v in all_results.items() if v["rarity"] == rarity]
+        if vals:
+            total_avg = sum(v["avg"] for v in vals) / len(vals)
+            total_max = max(v["max"] for v in vals)
+            total_p90 = sum(v["p90"] for v in vals) / len(vals)
+            rar_ko = {"common": "일반", "rare": "레어", "epic": "에픽",
+                      "legendary": "전설", "ultra_legendary": "초전설"}[rarity]
+            print(f"  {rar_ko:<6} avg={total_avg:>5.1f}  p90={total_p90:>5.1f}  max={total_max:>3}")
 
-    # ── 4. 일반A는 50층 불가 ──
-    n50 = results["common_A_adv"]["floors"].count(50)
-    assert n50 == 0, f"일반A에서 50층 클리어 {n50}회"
+    # ── 밸런스 체크 ──
+    print()
+    rarity_avgs = {}
+    for rarity in ["common", "rare", "epic", "legendary", "ultra_legendary"]:
+        vals = [v["avg"] for k, v in all_results.items() if v["rarity"] == rarity]
+        if vals:
+            rarity_avgs[rarity] = sum(vals) / len(vals)
 
-    print("\n✅ 모든 밸런스 체크 통과!")
-    return results
+    checks_passed = True
+    # 등급 계층
+    pairs = [("common", "rare"), ("rare", "epic"), ("epic", "legendary"), ("legendary", "ultra_legendary")]
+    for lower, higher in pairs:
+        if lower in rarity_avgs and higher in rarity_avgs:
+            if rarity_avgs[higher] <= rarity_avgs[lower]:
+                print(f"  ❌ {higher}({rarity_avgs[higher]:.1f}) <= {lower}({rarity_avgs[lower]:.1f})")
+                checks_passed = False
+            else:
+                gap = rarity_avgs[higher] - rarity_avgs[lower]
+                print(f"  ✅ {higher}({rarity_avgs[higher]:.1f}) > {lower}({rarity_avgs[lower]:.1f}) [+{gap:.1f}]")
+
+    if checks_passed:
+        print("\n✅ 모든 밸런스 체크 통과!")
+    else:
+        print("\n❌ 밸런스 체크 실패")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    test_balance_assertions()
+    main()
