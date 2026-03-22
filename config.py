@@ -1316,9 +1316,9 @@ DUNGEON_BOSS_INTENT = {
     "heal": 0.10,          # HP 회복
 }
 
-# 상성 배율 (본가보다 압축)
-DUNGEON_TYPE_ADVANTAGE_MULT = 1.5
-DUNGEON_TYPE_DISADVANTAGE_MULT = 0.67
+# 상성 배율 (본가 기준 — 배틀과 동일)
+DUNGEON_TYPE_ADVANTAGE_MULT = 2.0
+DUNGEON_TYPE_DISADVANTAGE_MULT = 0.5
 DUNGEON_TYPE_IMMUNE_MULT = 0.3
 
 # 타입별 대표 기술 (던전 전용 — 이름만, 데미지는 타입 기반)

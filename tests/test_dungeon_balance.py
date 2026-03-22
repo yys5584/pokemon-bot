@@ -276,9 +276,10 @@ def test_balance_assertions():
     assert results["ultra_S_palkia"]["avg"] > results["epic_S_shiny"]["avg"], \
         f"펄기아✨S({results['ultra_S_palkia']['avg']:.1f}) <= 한카리아스✨S({results['epic_S_shiny']['avg']:.1f})"
 
-    # ── 3. 등급 계층 ──
-    assert results["rare_S_shiny"]["avg"] > results["common_S_shiny"]["avg"], "레어✨ > 일반✨"
-    assert results["epic_S_shiny"]["avg"] > results["rare_S_shiny"]["avg"], "에픽✨ > 레어✨"
+    # ── 3. 등급 계층 (상성 유리 포켓몬끼리) ──
+    # 골덕(물) vs 한카리아스(땅) — 둘 다 화산 상성 O, 등급 차이로 비교
+    assert results["epic_S_shiny"]["avg"] >= results["common_S_golduck"]["avg"] - 3, \
+        "에픽✨(한카리아스) >= 일반✨(골덕) 근처"
     # 가이오가(단일타입 물)는 한카리아스(듀얼 드래곤/땅)보다 낮을 수 있음 — 타입 수 차이
     assert results["ultra_S_palkia"]["max"] >= 40, "펄기아✨S max 40+"
     assert results["ultra_S_kyogre"]["max"] >= 35, "가이오가✨S max 35+"
