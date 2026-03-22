@@ -854,7 +854,7 @@ async def _handle_floor_clear(query, context, user_id: int, combat: dict, turn_r
                 callback_data=f"dg_buf_{user_id}_{i}"
             )])
 
-        # 버프 리롤 버튼 (구독자 전용)
+        # 버프 리롤 버튼
         sub_tier = await _get_sub_tier(user_id)
         reroll_max = config.DUNGEON_REROLL_LIMIT.get(sub_tier or "free", 0)
         rerolls_used = st.get("rerolls_used", 0)
@@ -862,6 +862,11 @@ async def _handle_floor_clear(query, context, user_id: int, combat: dict, turn_r
             remaining = reroll_max - rerolls_used
             buttons.append([InlineKeyboardButton(
                 f"🔄 리롤 ({remaining}회 남음)", callback_data=f"dg_reroll_{user_id}"
+            )])
+        else:
+            # 무료 유저 또는 횟수 소진 → 잠금 표시
+            buttons.append([InlineKeyboardButton(
+                "🔒 리롤 (구독자 전용)", callback_data=f"dg_reroll_{user_id}"
             )])
 
         buttons.append([InlineKeyboardButton("➡️ 지나가기", callback_data=f"dg_skip_{user_id}")])
@@ -1348,7 +1353,10 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         sub_tier = await _get_sub_tier(user_id)
         reroll_max = config.DUNGEON_REROLL_LIMIT.get(sub_tier or "free", 0)
         rerolls_used = st.get("rerolls_used", 0)
-        if reroll_max <= 0 or rerolls_used >= reroll_max:
+        if reroll_max <= 0:
+            await query.answer("🔒 구독자 전용 기능입니다!\n베이직: 1회/런, 채널장: 3회/런", show_alert=True)
+            return
+        if rerolls_used >= reroll_max:
             await query.answer("리롤 횟수를 모두 사용했습니다!", show_alert=True)
             return
 
