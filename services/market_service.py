@@ -32,6 +32,16 @@ async def create_listing(
     if price_bp < config.MARKET_MIN_PRICE:
         return False, f"최소 등록가는 {config.MARKET_MIN_PRICE:,} BP입니다.", None, None
 
+    # Check max price by rarity (이로치 제외 — 이로치는 가격 제한 없음)
+    # instance_id가 있으면 먼저 포켓몬 정보를 가져와서 체크
+    if instance_id:
+        _poke_check = await queries.get_user_pokemon_by_id(instance_id)
+        if _poke_check and not _poke_check.get("is_shiny"):
+            rarity = _poke_check.get("rarity", "common")
+            max_price = config.MARKET_MAX_PRICE_BY_RARITY.get(rarity)
+            if max_price and price_bp > max_price:
+                return False, f"일반 {rarity} 포켓몬의 최대 등록가는 {max_price:,} BP입니다.", None, None
+
     # Check listing count limit
     count = await market_queries.get_active_listing_count(user_id)
     if count >= config.MARKET_MAX_ACTIVE_LISTINGS:
@@ -56,6 +66,13 @@ async def create_listing(
             # Return duplicates for selection
             return False, "", None, matches
         pokemon = matches[0]
+
+    # Check max price by rarity (이로치 제외)
+    if not pokemon.get("is_shiny"):
+        rarity = pokemon.get("rarity", "common")
+        max_price = config.MARKET_MAX_PRICE_BY_RARITY.get(rarity)
+        if max_price and price_bp > max_price:
+            return False, f"일반 {rarity} 포켓몬의 최대 등록가는 {max_price:,} BP입니다.", None, None
 
     # Check pokemon lock (pending trade or market listing)
     locked, reason = await market_queries.is_pokemon_locked(pokemon["id"])
@@ -107,6 +124,11 @@ async def buy_listing(
 
     if listing["seller_id"] == buyer_id:
         return False, "자신의 매물은 구매할 수 없습니다.", None
+
+    # 동일 유저 쌍 주당 거래 제한
+    pair_count = await market_queries.get_pair_trade_count_this_week(buyer_id, listing["seller_id"])
+    if pair_count >= config.MARKET_PAIR_WEEKLY_LIMIT:
+        return False, f"같은 유저와 주당 {config.MARKET_PAIR_WEEKLY_LIMIT}회까지만 거래할 수 있습니다.", None
 
     price = listing["price_bp"]
     fee = calc_fee(price)

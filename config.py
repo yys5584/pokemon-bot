@@ -136,6 +136,12 @@ MARKET_MIN_PRICE = 100             # 최소 등록가 (BP)
 MARKET_PAGE_SIZE = 5               # 페이지당 목록 수
 MARKET_MAX_ACTIVE_LISTINGS = 10    # 유저당 최대 동시 등록 수
 MARKET_LISTING_EXPIRE_DAYS = 7     # 등록 만료 기간 (일)
+# 등급별 최대 등록가 (이로치 제외, BP 세탁 방지)
+MARKET_MAX_PRICE_BY_RARITY = {
+    "common": 200, "rare": 500, "epic": 1500,
+    "legendary": 3000, "ultra_legendary": 5000,
+}
+MARKET_PAIR_WEEKLY_LIMIT = 3       # 동일 유저 쌍 주당 최대 거래 수
 
 # --- Daily Missions ---
 MISSION_POOL = {
@@ -1282,7 +1288,7 @@ DUNGEON_SINGLE_TYPE_PP_MULT = 1.3   # 단일타입 PP 보정 (7→9)
 # 던전 전용 등급별 스탯 배율 (배틀/토너먼트 안 건드림)
 DUNGEON_RARITY_STAT_MULT = {
     "common": 1.0, "rare": 1.0, "epic": 1.0,
-    "legendary": 1.20, "ultra_legendary": 1.35,
+    "legendary": 1.08, "ultra_legendary": 1.15,
 }
 # 일반공격 배율 (고코스트=PP 적지만 일반 강함)
 DUNGEON_NORMAL_ATK_MULT = {
@@ -1292,8 +1298,8 @@ DUNGEON_NORMAL_ATK_MULT = {
 # 코스트별 적 스케일링 보정 (저코스트 = 적이 약함)
 # 코스트별 적 스케일링 보정 — 거의 동일, 미세 보정만
 DUNGEON_COST_SCALING = {
-    "common": 0.65, "rare": 0.72, "epic": 0.78,
-    "legendary": 0.80, "ultra_legendary": 0.95,
+    "common": 0.58, "rare": 0.66, "epic": 0.75,
+    "legendary": 0.88, "ultra_legendary": 1.02,
 }
 DUNGEON_SPECIAL_MULT = 2.2       # 특수기 기본 배율
 DUNGEON_DEFEND_REDUCE = 0.5      # 방어 시 데미지 50% 감소
