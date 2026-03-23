@@ -155,17 +155,13 @@ from telegram import Update
 
 
 async def _maintenance_gate(update, context):
-    """점검 모드: 관리자만 통과, 나머지 차단."""
+    """점검 모드: 관리자만 통과, 나머지 완전 무응답 (봇 꺼진 것과 동일)."""
     if not config.MAINTENANCE_MODE:
         return
     user = update.effective_user
     if user and user.id in config.ADMIN_IDS:
         return
-    # DM에서만 점검 안내, 그룹은 무응답으로 조용히 차단
-    if update.message and update.effective_chat and update.effective_chat.type == "private":
-        await update.message.reply_text("🔧 점검 중입니다. 잠시만 기다려주세요!")
-    elif update.callback_query:
-        await update.callback_query.answer("🔧 점검 중입니다.", show_alert=True)
+    # 일반 유저: 아무 응답 없이 차단 — 봇이 꺼진 것처럼 보임
     raise ApplicationHandlerStop()
 
 
