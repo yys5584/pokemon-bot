@@ -236,7 +236,7 @@ BUFF_DEFS = {
     "lifesteal": {"name": "흡혈",     "category": "survival", "max_lv": 3,
                "levels": [{"rate": 0.05, "desc": "5% 흡혈"}, {"rate": 0.08, "desc": "8% 흡혈"}, {"rate": 0.12, "desc": "12% 흡혈"}]},
     "heal":   {"name": "층간 회복",   "category": "survival", "max_lv": 3,
-               "levels": [{"rate": 0.05, "desc": "매층 HP 5%"}, {"rate": 0.10, "desc": "매층 HP 10%"}, {"rate": 0.15, "desc": "매층 HP 15%"}]},
+               "levels": [{"rate": 0.03, "desc": "매층 HP 3%"}, {"rate": 0.06, "desc": "매층 HP 6%"}, {"rate": 0.10, "desc": "매층 HP 10%"}]},
     "shield": {"name": "보호막",      "category": "survival", "max_lv": 3,
                "levels": [{"rate": 0.05, "desc": "매층 5% 실드"}, {"rate": 0.08, "desc": "매층 8% 실드"}, {"rate": 0.10, "desc": "매층 10% 실드"}]},
     # ── 턴제 전용 ──
