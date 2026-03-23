@@ -241,6 +241,7 @@ async def _build_resume_screen(user_id: int, run: dict, lang: str | None = None)
     buff_summary = ""
     if buffs:
         for b in buffs:
+            if b.get("id", "").startswith("_"): continue
             blv = b.get("lv", 1)
             buff_summary += f"  {ds.LV_EMOJI.get(blv, '⬜')} {b.get('name', '?')} Lv.{blv}\n"
     # 시너지
