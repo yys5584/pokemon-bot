@@ -1118,7 +1118,6 @@ def resolve_turn(state: dict, player_action: str) -> dict:
         # 위기본능 발동 표시
         if crisis_mult > 1.0:
             result["extra_lines"].append(f"🔥 위기본능! 공격력 ×{crisis_mult:.1f}")
-            result["extra_lines"].append(f"↩️ 카운터! {counter_dmg} 반격!")
 
         defend_text = " (🛡️방어)" if player_defending else ""
         result["enemy_line"] = (
