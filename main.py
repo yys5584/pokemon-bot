@@ -141,6 +141,20 @@ async def post_init(application: Application):
         job_kwargs={"misfire_grace_time": None},  # 절대 스킵 방지
     )
 
+    # 관리자에게 봇 재시작 알림 (10초 후)
+    async def _notify_admin_restart(context):
+        try:
+            await context.bot.send_message(
+                chat_id=config.ADMIN_IDS[0],
+                text="🔄 봇이 재시작되었습니다.",
+            )
+        except Exception:
+            pass
+
+    application.job_queue.run_once(
+        _notify_admin_restart, when=10, name="admin_restart_notify",
+    )
+
     # 던전 진행 중 유저에게 재시작 안내 (봇 시작 20초 후)
     async def _notify_dungeon_users(context):
         from database import dungeon_queries as dq_notify
