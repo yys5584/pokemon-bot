@@ -602,7 +602,8 @@ async def _show_battle_turn(query, context, user_id: int):
     # 상성 팁
     type_hint = ds.get_type_hint(
         combat["p_types"], enemy.get("types", []),
-        skills, combat["skill_type_mults"])
+        skills, combat["skill_type_mults"],
+        combat.get("e_stats"))
 
     # 분노 표시
     rage_text = "\n🔥 <b>분노 상태!</b> 공격력 1.5배" if combat.get("e_rage") else ""

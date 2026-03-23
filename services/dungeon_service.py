@@ -138,8 +138,10 @@ def generate_enemy(floor: int, theme: dict, player_rarity: str = "epic") -> dict
     is_boss = floor % 5 == 0
     is_elite = not is_boss and random.random() < 0.20
 
-    # 테마 타입 60%, 기타 40%
-    if random.random() < 0.60:
+    # 보스는 반드시 테마 타입, 일반몹은 60% 테마 / 40% 랜덤
+    if is_boss:
+        chosen_type = random.choice(theme["types"])
+    elif random.random() < 0.60:
         chosen_type = random.choice(theme["types"])
     else:
         all_types = list(config.TYPE_ADVANTAGE.keys())
@@ -783,13 +785,35 @@ def get_intent_warning(intent: dict, player_types: list[str]) -> str:
     return f"⚠️ 예고: {name}"
 
 
+def _enemy_trait(e_stats: dict) -> str:
+    """적 성향 한 줄 힌트."""
+    atk = max(e_stats.get("atk", 0), e_stats.get("spa", 0))
+    dfn = min(e_stats.get("def", 0), e_stats.get("spdef", 0))
+    spd = e_stats.get("spd", 0)
+    hp = e_stats.get("hp", 0)
+
+    if atk > dfn * 1.5:
+        return "💪 공격형 — 공격↑ 방어↓"
+    elif dfn > atk * 1.3:
+        return "🛡️ 방어형 — 방어↑ 공격↓"
+    elif spd > atk and spd > dfn:
+        return "💨 속공형 — 속도↑"
+    elif hp > atk * 1.5:
+        return "❤️ 체력형 — HP↑"
+    else:
+        return "⚖️ 균형형"
+
+
 def get_type_hint(player_types: list[str], enemy_types: list[str],
-                  skills: list[dict], skill_type_mults: list[float]) -> str:
-    """상성 팁 텍스트."""
+                  skills: list[dict], skill_type_mults: list[float],
+                  e_stats: dict | None = None) -> str:
+    """상성 팁 + 적 성향 텍스트."""
     type_mult, _ = _type_multiplier(player_types, enemy_types)
 
+    # 적 성향
+    trait = _enemy_trait(e_stats) if e_stats else ""
+
     if type_mult > 1.0:
-        # 어떤 특수기가 효과적인지
         best_skill = None
         best_mult = 0
         for i, sk in enumerate(skills):
@@ -798,14 +822,21 @@ def get_type_hint(player_types: list[str], enemy_types: list[str],
                 best_skill = sk
         hint = f"🔮 상성: 유리! (×{type_mult:.1f})"
         if best_skill and best_mult > 1.0:
-            hint += f"\n💡 '{best_skill['name']}'이(가) 효과적! PP를 아끼지 마세요."
+            hint += f"\n💡 '{best_skill['name']}' 효과적!"
+        if trait:
+            hint += f"\n{trait}"
         return hint
     elif type_mult < 1.0:
         hint = f"🔮 상성: 불리 (×{type_mult:.2f})"
         hint += "\n💡 방어 위주로, 일반공격으로 버텨보세요."
+        if trait:
+            hint += f"\n{trait}"
         return hint
     else:
-        return "🔮 상성: 보통 (×1.0)"
+        hint = "🔮 상성: 보통 (×1.0)"
+        if trait:
+            hint += f"\n{trait}"
+        return hint
 
 
 # ══════════════════════════════════════════════════════════

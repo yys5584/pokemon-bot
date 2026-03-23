@@ -161,7 +161,8 @@ async def _maintenance_gate(update, context):
     user = update.effective_user
     if user and user.id in config.ADMIN_IDS:
         return
-    if update.message:
+    # DM에서만 점검 안내, 그룹은 무응답으로 조용히 차단
+    if update.message and update.effective_chat and update.effective_chat.type == "private":
         await update.message.reply_text("🔧 점검 중입니다. 잠시만 기다려주세요!")
     elif update.callback_query:
         await update.callback_query.answer("🔧 점검 중입니다.", show_alert=True)
