@@ -431,7 +431,7 @@ async def _send_premium_shop(user_id: int, context):
     from database import queries, battle_queries as bq
 
     today = config.get_kst_today()
-    purchases_today = await bq.get_bp_purchases_today(user_id, "masterball")
+    purchases_today = await bq.get_bp_purchases_today(user_id, "masterball_premium")
     sub = await get_user_subscription(user_id)
     max_limit = sub["benefits"].get("masterball_daily_limit", 5) if sub else 5
     remaining = max(0, max_limit - purchases_today)
@@ -597,7 +597,7 @@ async def premium_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # 오늘 마스터볼 구매 횟수
     today = config.get_kst_today()
-    purchases_today = await bq.get_bp_purchases_today(user_id, "masterball")
+    purchases_today = await bq.get_bp_purchases_today(user_id, "masterball_premium")
     sub = await get_user_subscription(user_id)
     max_limit = sub["benefits"].get("masterball_daily_limit", 5) if sub else 5
     remaining = max(0, max_limit - purchases_today)
@@ -737,7 +737,7 @@ async def _handle_premium_shop_buy(query, user_id: int):
     from database import queries, battle_queries as bq
 
     today = config.get_kst_today()
-    purchases_today = await bq.get_bp_purchases_today(user_id, "masterball")
+    purchases_today = await bq.get_bp_purchases_today(user_id, "masterball_premium")
     sub = await get_user_subscription(user_id)
     max_limit = sub["benefits"].get("masterball_daily_limit", 5) if sub else 5
 
@@ -758,7 +758,7 @@ async def _handle_premium_shop_buy(query, user_id: int):
     # BP 차감 + 마스터볼 지급
     await bq.add_bp(user_id, -price, "shop_masterball")
     await queries.add_master_ball(user_id, 1)
-    await bq.log_bp_purchase(user_id, "masterball", price)
+    await bq.log_bp_purchase(user_id, "masterball_premium", price)
 
     new_bp = bp - price
     remaining = max_limit - purchases_today - 1
