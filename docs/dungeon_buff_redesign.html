@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>던전 버프 리디자인 기획안</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: #0f1117; color: #e1e1e6; padding: 20px; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 8px; color: #fff; }
+  h2 { font-size: 17px; margin: 24px 0 10px; color: #60a5fa; border-bottom: 1px solid #1e293b; padding-bottom: 6px; }
+  h3 { font-size: 14px; margin: 16px 0 6px; color: #a78bfa; }
+  .subtitle { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
+  .principle { background: #1a1d2e; border-radius: 10px; padding: 14px; margin-bottom: 12px; border-left: 3px solid #60a5fa; }
+  .principle-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .principle-desc { font-size: 12px; color: #9ca3af; line-height: 1.6; }
+  .highlight { color: #f59e0b; font-weight: 700; }
+  .bad { color: #ef4444; }
+  .good { color: #22c55e; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0 16px; }
+  th { text-align: left; padding: 8px 6px; color: #6b7280; font-size: 11px; border-bottom: 1px solid #1e293b; }
+  td { padding: 7px 6px; border-bottom: 1px solid #161822; }
+  tr:hover { background: #161822; }
+  .cat { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; }
+  .cat-stat { background: #1e3a5f; color: #60a5fa; }
+  .cat-combat { background: #3b1520; color: #f87171; }
+  .cat-survival { background: #14532d; color: #4ade80; }
+  .cat-unique { background: #3b2e0a; color: #fbbf24; }
+  .arrow { color: #6b7280; margin: 0 4px; }
+  .nerf { color: #ef4444; font-weight: 700; }
+  .buff { color: #22c55e; font-weight: 700; }
+  .same { color: #6b7280; }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; margin-left: 4px; }
+  .tag-new { background: #22c55e22; color: #22c55e; }
+  .tag-removed { background: #ef444422; color: #ef4444; }
+  .tag-changed { background: #f59e0b22; color: #f59e0b; }
+  .section { background: #13151f; border: 1px solid #1e293b; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .vs-box { background: #1a1d2e; border-radius: 8px; padding: 12px; }
+  .vs-title { font-size: 11px; font-weight: 700; margin-bottom: 8px; }
+  .tradeoff { background: #1a1d2e; border-radius: 8px; padding: 10px; margin: 4px 0; display: flex; justify-content: space-between; align-items: center; }
+  .tradeoff-plus { color: #22c55e; font-weight: 700; }
+  .tradeoff-minus { color: #ef4444; font-weight: 700; }
+  .note { font-size: 11px; color: #6b7280; margin-top: 8px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<h1>🏰 던전 버프 리디자인 기획안</h1>
+<div class="subtitle">뱀서류 밸런스 4원칙 적용 · 2026-03-23</div>
+
+<!-- 4원칙 -->
+<h2>📐 밸런스 4원칙</h2>
+
+<div class="principle">
+  <div class="principle-title">1️⃣ 수확체감 (Diminishing Returns)</div>
+  <div class="principle-desc">
+    <span class="bad">현재:</span> Lv.1→2→3 선형 증가 (15→30→45%)<br>
+    <span class="good">변경:</span> Lv.1→2→3 <span class="highlight">곡선 증가</span> (15→22→28%) — Lv.3이 Lv.2의 1.3배
+  </div>
+</div>
+
+<div class="principle">
+  <div class="principle-title">2️⃣ 꿈의 빌드는 희귀하게</div>
+  <div class="principle-desc">
+    <span class="bad">현재:</span> 흡혈+선제+이중타격이 쉽게 뜸<br>
+    <span class="good">변경:</span> <span class="highlight">전투 계열 2개 제한</span> — OP 조합은 가능하지만 극히 드물게
+  </div>
+</div>
+
+<div class="principle">
+  <div class="principle-title">3️⃣ 후반 지수 스케일링</div>
+  <div class="principle-desc">
+    <span class="bad">현재:</span> v5.3 — 선형에 가까움 (50층 ×3.2)<br>
+    <span class="good">변경:</span> <span class="highlight">v5.4 지수적</span> (40층 ×3.5, 45층 ×4.5, 50층 ×6.0)
+  </div>
+</div>
+
+<div class="principle">
+  <div class="principle-title">4️⃣ 트레이드오프 (Anti-Synergy)</div>
+  <div class="principle-desc">
+    <span class="bad">현재:</span> 공격+생존 다 올라감, 리스크 없음<br>
+    <span class="good">변경:</span> <span class="highlight">공격 버프 선택 시 방어 -5%</span>, 생존 버프 선택 시 공격 -5%
+  </div>
+</div>
+
+<!-- 버프 전체 목록 -->
+<h2>⚔️ 버프 상세 (리디자인)</h2>
+
+<h3><span class="cat cat-stat">STAT</span> 스탯 계열 — 기본 능력치 강화</h3>
+<table>
+  <tr><th>ID</th><th>이름</th><th>Lv.1</th><th>Lv.2</th><th>Lv.3</th><th>변경</th></tr>
+  <tr>
+    <td>atk</td><td>공격 강화</td>
+    <td>+15%</td><td><span class="nerf">+22%</span><br><span class="same">(기존 30%)</span></td><td><span class="nerf">+28%</span><br><span class="same">(기존 45%)</span></td>
+    <td><span class="tag tag-changed">수확체감</span></td>
+  </tr>
+  <tr>
+    <td>spa</td><td>특공 강화</td>
+    <td>+15%</td><td><span class="nerf">+22%</span></td><td><span class="nerf">+28%</span></td>
+    <td><span class="tag tag-changed">수확체감</span></td>
+  </tr>
+  <tr>
+    <td>hp</td><td>체력 강화</td>
+    <td>+15%</td><td>+22%</td><td><span class="nerf">+28%</span><br><span class="same">(기존 40%)</span></td>
+    <td><span class="tag tag-changed">수확체감</span></td>
+  </tr>
+  <tr>
+    <td>def</td><td>방어 강화</td>
+    <td>+15%</td><td>+22%</td><td><span class="nerf">+28%</span><br><span class="same">(기존 35%)</span></td>
+    <td><span class="tag tag-changed">수확체감</span></td>
+  </tr>
+  <tr>
+    <td>spdef</td><td>특방 강화</td>
+    <td>+15%</td><td>+22%</td><td><span class="nerf">+28%</span></td>
+    <td><span class="tag tag-changed">수확체감</span></td>
+  </tr>
+  <tr>
+    <td>spd</td><td>스피드</td>
+    <td>+15%</td><td>+22%</td><td><span class="nerf">+28%</span></td>
+    <td><span class="tag tag-changed">수확체감</span></td>
+  </tr>
+</table>
+
+<h3><span class="cat cat-combat">COMBAT</span> 전투 계열 — <span class="highlight">최대 2개까지</span></h3>
+<table>
+  <tr><th>ID</th><th>이름</th><th>Lv.1</th><th>Lv.2</th><th>Lv.3</th><th>변경</th></tr>
+  <tr>
+    <td>crit</td><td>크리 강화</td>
+    <td>+10%</td><td>+15%</td><td><span class="nerf">+20%</span><br><span class="same">(기존 25%)</span></td>
+    <td><span class="tag tag-changed">수확체감</span></td>
+  </tr>
+  <tr>
+    <td>double</td><td>이중타격</td>
+    <td><span class="nerf">15%</span></td><td><span class="nerf">20%</span><br><span class="same">(기존 22%)</span></td><td><span class="nerf">25%</span><br><span class="same">(기존 30%)</span></td>
+    <td><span class="tag tag-changed">너프</span></td>
+  </tr>
+  <tr>
+    <td>dodge</td><td>회피 본능</td>
+    <td>10%</td><td>15%</td><td><span class="nerf">20%</span><br><span class="same">(기존 25%)</span></td>
+    <td><span class="tag tag-changed">수확체감</span></td>
+  </tr>
+  <tr>
+    <td>crisis</td><td>위기본능</td>
+    <td>HP 30%↓ 시 ×1.3</td><td>×1.5</td><td>×1.8</td>
+    <td><span class="tag tag-new">신규</span></td>
+  </tr>
+  <tr>
+    <td>preemptive</td><td>선제공격</td>
+    <td colspan="3">항상 선공 (Lv.1 고정)</td>
+    <td><span class="same">유지</span></td>
+  </tr>
+  <tr>
+    <td>penetrate</td><td>관통</td>
+    <td colspan="3">적 방어 50% 무시 (Lv.1 고정)</td>
+    <td><span class="same">유지</span></td>
+  </tr>
+  <tr>
+    <td>weakness</td><td>약점 간파</td>
+    <td colspan="3">상성 보통(×1.0) → ×1.3 (Lv.1 고정)</td>
+    <td><span class="tag tag-new">신규</span></td>
+  </tr>
+  <tr>
+    <td>focus</td><td>집중</td>
+    <td colspan="3">방어 선택 시 다음 공격 ×1.5 (Lv.1 고정)</td>
+    <td><span class="tag tag-new">신규</span></td>
+  </tr>
+  <tr>
+    <td><s>thorns</s></td><td><s>가시갑옷</s></td>
+    <td colspan="3"><s>삭제</s></td>
+    <td><span class="tag tag-removed">삭제</span></td>
+  </tr>
+  <tr>
+    <td><s>counter</s></td><td><s>카운터</s></td>
+    <td colspan="3"><s>삭제</s></td>
+    <td><span class="tag tag-removed">삭제</span></td>
+  </tr>
+</table>
+
+<h3><span class="cat cat-survival">SURVIVAL</span> 생존 계열 — <span class="highlight">3개 중 1개만 선택</span></h3>
+<table>
+  <tr><th>ID</th><th>이름</th><th>Lv.1</th><th>Lv.2</th><th>Lv.3</th><th>변경</th></tr>
+  <tr>
+    <td>lifesteal</td><td>흡혈</td>
+    <td>5%</td><td><span class="nerf">6%</span><br><span class="same">(기존 8%)</span></td><td><span class="nerf">8%</span><br><span class="same">(기존 12%)</span></td>
+    <td><span class="tag tag-changed">너프</span></td>
+  </tr>
+  <tr>
+    <td>heal</td><td>층간 회복</td>
+    <td>3%</td><td>5%</td><td><span class="nerf">8%</span><br><span class="same">(기존 10%)</span></td>
+    <td><span class="tag tag-changed">너프</span> 30층+ 효과 없음</td>
+  </tr>
+  <tr>
+    <td>shield</td><td>보호막</td>
+    <td>5%</td><td>7%</td><td><span class="nerf">9%</span><br><span class="same">(기존 10%)</span></td>
+    <td><span class="tag tag-changed">미세너프</span></td>
+  </tr>
+</table>
+
+<h3><span class="cat cat-unique">UNIQUE</span> 특수 — 슬롯 제한 없음</h3>
+<table>
+  <tr><th>ID</th><th>이름</th><th>효과</th><th>변경</th></tr>
+  <tr><td>allstat</td><td>전능의 기운</td><td>전 스탯 +15%</td><td><span class="nerf">+10%</span> (기존 15%)</td></tr>
+  <tr><td>revive</td><td>부활의 깃털</td><td>사망 시 HP 30% 부활 (런당 1회)</td><td><span class="same">유지</span></td></tr>
+</table>
+
+<!-- 트레이드오프 시스템 -->
+<h2>⚖️ 트레이드오프 시스템 (신규)</h2>
+<div class="section">
+  <div class="tradeoff">
+    <div><span class="tradeoff-plus">⚔️ 공격 버프 선택</span> (atk, spa, crit, double, crisis)</div>
+    <div><span class="tradeoff-minus">→ 방어/특방 -5%</span></div>
+  </div>
+  <div class="tradeoff">
+    <div><span class="tradeoff-plus">🛡️ 방어 버프 선택</span> (def, spdef, hp)</div>
+    <div><span class="tradeoff-minus">→ 공격/특공 -5%</span></div>
+  </div>
+  <div class="tradeoff">
+    <div><span class="tradeoff-plus">❤️ 생존 버프 선택</span> (lifesteal, heal, shield)</div>
+    <div><span class="tradeoff-minus">→ 전체 스탯 -3%</span></div>
+  </div>
+  <div class="note">
+    * 트레이드오프는 누적. 공격 버프 3개 선택 → 방어/특방 -15%<br>
+    * 균형 빌드(공격1+방어1+생존1)가 안정적, 올인 빌드는 고위험 고보상
+  </div>
+</div>
+
+<!-- 전투 계열 제한 -->
+<h2>🚫 전투 계열 2개 제한</h2>
+<div class="section">
+  <div class="vs">
+    <div class="vs-box">
+      <div class="vs-title bad">❌ 불가능 (3개)</div>
+      <div style="font-size:12px; line-height:1.8">
+        선제공격 + 이중타격 + 관통<br>
+        크리 + 이중타격 + 위기본능<br>
+        선제 + 관통 + 약점간파
+      </div>
+    </div>
+    <div class="vs-box">
+      <div class="vs-title good">✅ 가능 (2개)</div>
+      <div style="font-size:12px; line-height:1.8">
+        선제공격 + 이중타격<br>
+        관통 + 크리<br>
+        위기본능 + 집중<br>
+        약점간파 + 선제공격
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    * 전투 버프 2개 보유 시, 3번째 전투 버프는 선택지에서 제외<br>
+    * 기존 가시갑옷/카운터 삭제로 전투 버프 총 7종 → 유저가 2개를 골라야 함
+  </div>
+</div>
+
+<!-- PP 테이블 -->
+<h2>💎 PP 테이블 (신규)</h2>
+<div class="section">
+  <table>
+    <tr><th>등급</th><th>단일 (스킬 1개)</th><th>듀얼 (스킬당)</th><th>듀얼 총합</th><th>비율</th></tr>
+    <tr><td>일반</td><td>12</td><td>7</td><td>14</td><td>86%</td></tr>
+    <tr><td>레어</td><td>11</td><td>6</td><td>12</td><td>92%</td></tr>
+    <tr><td>에픽</td><td>9</td><td>5</td><td>10</td><td>90%</td></tr>
+    <tr><td>전설</td><td>8</td><td>5</td><td>10</td><td>80%</td></tr>
+    <tr><td>초전설</td><td>8</td><td>5</td><td>10</td><td>80%</td></tr>
+  </table>
+  <div class="note">
+    * PP 회복 없음 (PP회복 버프 삭제, 보스 클리어 PP +1 삭제)<br>
+    * 단일은 한 스킬에 집중, 듀얼은 상성 커버 — 트레이드오프
+  </div>
+</div>
+
+<!-- 스케일링 v5.4 -->
+<h2>📈 적 스케일링 v5.4</h2>
+<div class="section">
+  <table>
+    <tr><th>구간</th><th>v5.3 (현재)</th><th>v5.4 (변경)</th><th>차이</th></tr>
+    <tr><td>1~10층</td><td>×1.0~1.12</td><td>×1.0~1.12</td><td><span class="same">동일</span></td></tr>
+    <tr><td>11~20층</td><td>×1.14~1.32</td><td>×1.14~1.35</td><td><span class="same">미세</span></td></tr>
+    <tr><td>21~30층</td><td>×1.35~1.62</td><td>×1.40~1.75</td><td><span class="nerf">+8%</span></td></tr>
+    <tr><td>31~35층</td><td>×1.68~1.92</td><td>×1.85~2.30</td><td><span class="nerf">+20%</span></td></tr>
+    <tr><td>36~40층</td><td>×1.96~2.22</td><td>×2.50~3.50</td><td><span class="nerf">+58%</span></td></tr>
+    <tr><td>41~45층</td><td>×2.32~2.72</td><td>×3.80~4.50</td><td><span class="nerf">+65%</span></td></tr>
+    <tr><td>46~50층</td><td>×2.82~3.22</td><td>×5.00~6.00</td><td><span class="nerf">+86%</span></td></tr>
+  </table>
+  <div class="note">
+    * 30층까지는 대부분 유저 도달 가능<br>
+    * 40층+: 최적 빌드 + 운 필요 (목표 5%)<br>
+    * 50층: 극소수만 (목표 1% 미만)
+  </div>
+</div>
+
+<!-- 삭제된 버프 -->
+<h2>🗑️ 삭제된 버프</h2>
+<div class="section">
+  <table>
+    <tr><th>ID</th><th>이름</th><th>삭제 이유</th></tr>
+    <tr><td><s>pp_recovery</s></td><td>PP 회복</td><td>PP 무한 사용 → 밸런스 붕괴</td></tr>
+    <tr><td><s>thorns</s></td><td>가시갑옷</td><td>방어만 눌러서 클리어</td></tr>
+    <tr><td><s>counter</s></td><td>카운터</td><td>방어만 눌러서 클리어</td></tr>
+  </table>
+</div>
+
+<!-- 목표 도달률 -->
+<h2>🎯 목표 도달률</h2>
+<div class="section">
+  <table>
+    <tr><th>층</th><th>현재 실제</th><th>목표</th></tr>
+    <tr><td>30층+</td><td><span class="bad">60%</span></td><td><span class="good">20~30%</span></td></tr>
+    <tr><td>40층+</td><td><span class="bad">33%</span></td><td><span class="good">~5%</span></td></tr>
+    <tr><td>50층+</td><td><span class="bad">8%</span></td><td><span class="good">&lt;1%</span></td></tr>
+  </table>
+</div>
+
+<div class="note" style="margin-top: 24px; text-align: center; color: #4b5563;">
+  TGPoke 던전 밸런스 기획안 v5.4 · 2026-03-23
+</div>
+
+</body>
+</html>
