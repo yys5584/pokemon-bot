@@ -235,7 +235,7 @@ BUFF_DEFS = {
     "heal":   {"name": "층간 회복",   "category": "survival", "max_lv": 3,
                "levels": [{"rate": 0.05, "desc": "매층 HP 5%"}, {"rate": 0.10, "desc": "매층 HP 10%"}, {"rate": 0.15, "desc": "매층 HP 15%"}]},
     "shield": {"name": "보호막",      "category": "survival", "max_lv": 3,
-               "levels": [{"rate": 0.10, "desc": "매층 10% 실드"}, {"rate": 0.15, "desc": "매층 15% 실드"}, {"rate": 0.20, "desc": "매층 20% 실드"}]},
+               "levels": [{"rate": 0.05, "desc": "매층 5% 실드"}, {"rate": 0.08, "desc": "매층 8% 실드"}, {"rate": 0.10, "desc": "매층 10% 실드"}]},
     # ── 턴제 전용 ──
     # pp_recovery 삭제됨 (2026-03-23 — PP 무한 사용 밸런스 붕괴)
     "preemptive": {"name": "선제공격",    "category": "combat", "max_lv": 1,
@@ -243,7 +243,7 @@ BUFF_DEFS = {
     "counter":  {"name": "카운터",       "category": "combat", "max_lv": 3,
                "levels": [{"rate": 0.20, "desc": "방어 시 20% 반격"}, {"rate": 0.30, "desc": "방어 시 30% 반격"}, {"rate": 0.40, "desc": "방어 시 40% 반격"}]},
     "penetrate":{"name": "관통",         "category": "combat", "max_lv": 1,
-               "levels": [{"desc": "적 방어 무시"}]},
+               "levels": [{"desc": "적 방어 시 데미지 감소 무시"}]},
     # ── 1회성 (레벨 없음) ──
     "revive": {"name": "부활의 깃털", "category": "unique", "max_lv": 1,
                "levels": [{"desc": "사망 시 1회 부활 (30%) — 런당 1회"}]},
