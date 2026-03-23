@@ -1213,6 +1213,11 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         if not run:
             await query.answer(t(lang, "dungeon.no_active_run"), show_alert=True)
             return
+        # 50층 클리어 → 자동 완료
+        if run["floor_reached"] >= 50:
+            await query.answer("🏆 50층 클리어!")
+            await _finish_run(query, context, user_id, run, 50)
+            return
         await query.answer()
         st["run_id"] = run["id"]
         await _process_floor(query, context, user_id, run)
