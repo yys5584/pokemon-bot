@@ -30,6 +30,10 @@ ADMIN_IDS = [
     if x.strip().isdigit()
 ]
 
+# --- 점검 모드 ---
+MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "").lower() in ("1", "true", "yes")
+DUNGEON_MAINTENANCE = os.getenv("DUNGEON_MAINTENANCE", "").lower() in ("1", "true", "yes")
+
 # --- URLs ---
 BOT_CHANNEL_URL = "https://t.me/tg_poke"
 DASHBOARD_URL = "https://tgpoke.com"

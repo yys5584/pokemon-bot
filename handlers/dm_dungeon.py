@@ -103,6 +103,12 @@ async def dungeon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
+
+    # 점검 모드 — 관리자만 접근
+    if config.DUNGEON_MAINTENANCE and user_id not in config.ADMIN_IDS:
+        await update.message.reply_text("🔧 던전 점검 중입니다. 잠시만 기다려주세요!")
+        return
+
     lang = await get_user_lang(user_id)
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     await queries.ensure_user(user_id, display_name, update.effective_user.username)

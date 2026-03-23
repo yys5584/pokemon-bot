@@ -150,8 +150,29 @@ async def weather_handler(update, context):
 
 # --- Main registration function ---
 
+from telegram.ext import TypeHandler, ApplicationHandlerStop
+from telegram import Update
+
+
+async def _maintenance_gate(update, context):
+    """점검 모드: 관리자만 통과, 나머지 차단."""
+    if not config.MAINTENANCE_MODE:
+        return
+    user = update.effective_user
+    if user and user.id in config.ADMIN_IDS:
+        return
+    if update.message:
+        await update.message.reply_text("🔧 점검 중입니다. 잠시만 기다려주세요!")
+    elif update.callback_query:
+        await update.callback_query.answer("🔧 점검 중입니다.", show_alert=True)
+    raise ApplicationHandlerStop()
+
+
 def register_all_handlers(app):
     """Register all message/callback handlers on the Application."""
+
+    # 점검 모드 게이트 — group=-1로 모든 핸들러보다 먼저 실행
+    app.add_handler(TypeHandler(Update, _maintenance_gate), group=-1)
 
     dm = filters.ChatType.PRIVATE
     group = filters.ChatType.GROUPS
