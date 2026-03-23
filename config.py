@@ -1294,7 +1294,7 @@ DUNGEON_SKILL_MULT = {
 # PP: 런 전체 공유, 층 넘어가도 안 참
 DUNGEON_PP_BY_RARITY = {
     "common": 12, "rare": 11, "epic": 8,
-    "legendary": 8, "ultra_legendary": 7,
+    "legendary": 9, "ultra_legendary": 9,
 }
 DUNGEON_SINGLE_TYPE_PP_MULT = 1.3   # 단일타입 PP 보정 (7→9)
 
@@ -1308,11 +1308,10 @@ DUNGEON_NORMAL_ATK_MULT = {
     "common": 0.70, "rare": 0.80, "epic": 1.0,
     "legendary": 1.20, "ultra_legendary": 1.50,
 }
-# 코스트별 적 스케일링 보정 (저코스트 = 적이 약함)
-# 코스트별 적 스케일링 보정 — 거의 동일, 미세 보정만
+# 코스트별 적 스케일링 보정 — 등급 역전 방지, 격차 축소
 DUNGEON_COST_SCALING = {
-    "common": 0.58, "rare": 0.66, "epic": 0.75,
-    "legendary": 0.88, "ultra_legendary": 1.02,
+    "common": 0.72, "rare": 0.76, "epic": 0.80,
+    "legendary": 0.80, "ultra_legendary": 0.88,
 }
 DUNGEON_SPECIAL_MULT = 2.2       # 특수기 기본 배율
 DUNGEON_DEFEND_REDUCE = 0.5      # 방어 시 데미지 50% 감소
