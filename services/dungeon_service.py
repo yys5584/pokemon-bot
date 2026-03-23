@@ -641,9 +641,13 @@ def init_combat_state(
     shield_rate = get_shield_rate(buffs)
     p_shield = int(max_hp * shield_rate) if shield_rate > 0 else 0
 
-    # PP 설정
-    pp_max = config.DUNGEON_PP_BY_RARITY.get(player_rarity, 6)
+    # PP 설정 (듀얼타입: 스킬당 5, 단일타입: 등급별)
     skills = get_pokemon_skills(pokemon_id, player_types)
+    is_dual = len(player_types) >= 2
+    if is_dual:
+        pp_max = config.DUNGEON_DUAL_TYPE_PP  # 5
+    else:
+        pp_max = config.DUNGEON_PP_BY_RARITY.get(player_rarity, 6)
 
     # 상성 계산
     type_mult_p, best_atk_idx = _type_multiplier(player_types, enemy["types"])

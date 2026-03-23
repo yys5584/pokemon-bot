@@ -1302,7 +1302,8 @@ DUNGEON_PP_BY_RARITY = {
     "common": 8, "rare": 7, "epic": 6,
     "legendary": 7, "ultra_legendary": 7,
 }
-DUNGEON_SINGLE_TYPE_PP_MULT = 1.3   # 단일타입 PP 보정 (7→9)
+DUNGEON_DUAL_TYPE_PP = 5             # 듀얼타입 스킬당 PP (고정)
+DUNGEON_SINGLE_TYPE_PP_MULT = 1.0    # 단일타입 PP 보정 (없음)
 
 # 던전 전용 등급별 스탯 배율 — BST 하한 도입으로 무력화 (1.0 통일)
 DUNGEON_RARITY_STAT_MULT = {
