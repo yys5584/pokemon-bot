@@ -1240,24 +1240,37 @@ async def _use_time_reduce_ticket(query, user_id: int):
              f"12시간 단축할 대상을 선택하세요:"]
     buttons = []
 
+    reduce_hours = config.DUNGEON_TIME_REDUCE_HOURS  # 12
+
     for p in pendings:
         remaining = p["completes_at"] - now
         hours = max(0, int(remaining.total_seconds() // 3600))
-        # pending에서 포켓몬 이름 조회
         poke = await queries.get_pokemon(p["pokemon_id"])
         pname = poke["name_ko"] if poke else f"#{p['pokemon_id']}"
-        buttons.append([InlineKeyboardButton(
-            f"✨ {pname} 전환 (남은 {hours}h)",
-            callback_data=f"trt_pend_{p['id']}",
-        )])
+        if hours >= reduce_hours:
+            buttons.append([InlineKeyboardButton(
+                f"✨ {pname} 전환 (남은 {hours}h)",
+                callback_data=f"trt_pend_{p['id']}",
+            )])
+        else:
+            buttons.append([InlineKeyboardButton(
+                f"✨ {pname} (남은 {hours}h — {reduce_hours}h 이상만 가능)",
+                callback_data="item_noop",
+            )])
 
     for egg in eggs:
         remaining = egg["hatches_at"] - now
         hours = max(0, int(remaining.total_seconds() // 3600))
-        buttons.append([InlineKeyboardButton(
-            f"🥚 알 부화 (남은 {hours}h)",
-            callback_data=f"trt_egg_{egg['id']}",
-        )])
+        if hours >= reduce_hours:
+            buttons.append([InlineKeyboardButton(
+                f"🥚 알 부화 (남은 {hours}h)",
+                callback_data=f"trt_egg_{egg['id']}",
+            )])
+        else:
+            buttons.append([InlineKeyboardButton(
+                f"🥚 알 부화 (남은 {hours}h — {reduce_hours}h 이상만 가능)",
+                callback_data="item_noop",
+            )])
 
     buttons.append([InlineKeyboardButton("❌ 취소", callback_data="item_close")])
     await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
