@@ -237,8 +237,7 @@ BUFF_DEFS = {
     "shield": {"name": "보호막",      "category": "survival", "max_lv": 3,
                "levels": [{"rate": 0.10, "desc": "매층 10% 실드"}, {"rate": 0.15, "desc": "매층 15% 실드"}, {"rate": 0.20, "desc": "매층 20% 실드"}]},
     # ── 턴제 전용 ──
-    "pp_recovery": {"name": "PP 회복",    "category": "combat", "max_lv": 3,
-               "levels": [{"rate": 2, "desc": "보스 클리어 시 PP +2"}, {"rate": 3, "desc": "보스 클리어 시 PP +3"}, {"rate": 4, "desc": "보스 클리어 시 PP +4"}]},
+    # pp_recovery 삭제됨 (2026-03-23 — PP 무한 사용 밸런스 붕괴)
     "preemptive": {"name": "선제공격",    "category": "combat", "max_lv": 1,
                "levels": [{"desc": "속도 무관 항상 선공"}]},
     "counter":  {"name": "카운터",       "category": "combat", "max_lv": 3,

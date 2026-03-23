@@ -847,14 +847,10 @@ async def _handle_floor_clear(query, context, user_id: int, combat: dict, turn_r
             await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
             return
 
-        # PP 회복 버프 체크
-        for b in buffs:
-            if b.get("id") == "pp_recovery":
-                pp_recover = b["effect"].get("rate", 2)
-                for pp_info in st.get("pp_state", []):
-                    pp_info["current"] = min(pp_info["max"], pp_info["current"] + pp_recover)
-                text += f"\n🔮 PP 회복! +{pp_recover}\n"
-                break
+        # PP 회복 — 보스 클리어 시 기본 +1 (pp_recovery 버프 삭제됨)
+        for pp_info in st.get("pp_state", []):
+            pp_info["current"] = min(pp_info["max"], pp_info["current"] + 1)
+        text += f"\n🔮 PP +1 회복\n"
 
         text += f"\n{icon_emoji('gotcha')} <b>버프 선택</b>"
         buttons = []
