@@ -1113,10 +1113,12 @@ def resolve_turn(state: dict, player_action: str) -> dict:
             state["e_hp"] -= reflect
             state["total_dmg_dealt"] += reflect
             state["highlights"]["thorns_dmg"] += reflect
+            result["extra_lines"].append(f"🌵 가시갑옷! {reflect} 반사!")
             # 시너지: 피의 갑옷
             if "vampire" in active_syn and lifesteal > 0:
                 heal = int(reflect * lifesteal)
                 state["p_hp"] = min(state["p_max_hp"], state["p_hp"] + heal)
+                result["extra_lines"].append(f"🩸 피의 갑옷! +{heal}HP 흡혈!")
 
         # 방어 중 카운터
         if player_defending and counter_rate > 0 and enemy_dmg > 0:
