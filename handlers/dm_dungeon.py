@@ -181,11 +181,17 @@ async def _build_entry_screen(user_id: int, lang: str | None = None) -> tuple[st
     buy_limit = config.DUNGEON_DAILY_BUY_LIMIT.get(sub_tier or "free", 3)
     can_buy = bought < buy_limit
 
+    practice_left = max(0, config.DUNGEON_PRACTICE_MAX - daily_count)
+
     if tickets > 0 and daily_left > 0:
         buttons.append([InlineKeyboardButton(t(lang, "dungeon.btn_select_pokemon"), callback_data=f"dg_list_{user_id}_all_0")])
-    elif daily_left == 0:
-        # 횟수 소진
-        buttons.append([InlineKeyboardButton(f"⚠️ 오늘 횟수 소진 ({daily_max}/{daily_max})", callback_data=f"dg_noop_{user_id}")])
+    elif daily_left == 0 and practice_left > 0:
+        # 정상 횟수 소진 → 연습모드 가능
+        buttons.append([InlineKeyboardButton(
+            f"🏋️ 연습모드 ({practice_left}회 남음)",
+            callback_data=f"dg_list_{user_id}_all_0")])
+    elif practice_left == 0:
+        buttons.append([InlineKeyboardButton(f"⚠️ 오늘 횟수 소진", callback_data=f"dg_noop_{user_id}")])
     else:
         # 입장권 0, 횟수 남아있음 → 구매 유도
         if can_buy:
@@ -909,8 +915,16 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
                       revive_used: bool = False):
     """런 종료 + 보상 정산."""
     lang = await get_user_lang(user_id)
+    st = _state(context)
+    is_practice = st.get("is_practice", False)
+
     sub_tier = await _get_sub_tier(user_id)
-    rewards = ds.calculate_rewards(final_floor, run["theme"], sub_tier)
+    if is_practice:
+        # 연습모드: 보상 전부 0
+        rewards = {"bp": 0, "fragments": 0, "tickets": 0, "crystals": 0,
+                   "rainbow": 0, "iv_stones": 0, "items": {}, "field_type": "forest"}
+    else:
+        rewards = ds.calculate_rewards(final_floor, run["theme"], sub_tier)
 
     # DB 업데이트
     await dq.end_run(run["id"], final_floor, rewards["bp"], rewards["fragments"],
@@ -991,9 +1005,10 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
     shiny = shiny_emoji() + " " if run["is_shiny"] else ""
 
     revive_line = "\n💫 부활의 깃털 발동! → HP 30% 회복 후 재도전했으나 패배\n" if revive_used else ""
+    practice_line = "\n🏋️ <b>연습모드</b> — 보상 없음\n" if is_practice else ""
     text = (
         f"{SKULL} {t(lang, 'dungeon.floor_defeated', floor=final_floor)}\n"
-        f"{revive_line}\n"
+        f"{revive_line}{practice_line}\n"
         f"{CASTLE} <b>{t(lang, 'dungeon.result_title')}</b>\n"
         f"━━━━━━━━━━━━━━\n"
         f"{FOOT} {t(lang, 'dungeon.result_floor', floor=final_floor)}{record_text}\n"
@@ -1536,20 +1551,25 @@ async def _start_run(query, context, user_id: int, instance_id: int, use_amulet:
         await _send_fresh(query, context, user_id, t(lang, "dungeon.already_active"))
         return
 
-    # 일일 런 제한 (구독별)
+    # 일일 런 제한 (구독별) + 연습모드 판정
     sub_tier = await _get_sub_tier(user_id)
     max_runs = config.DUNGEON_MAX_DAILY_RUNS.get(sub_tier or "free", 3)
+    practice_max = config.DUNGEON_PRACTICE_MAX  # 연습모드 포함 총 상한 (10)
     daily_count = await dq.get_daily_run_count(user_id)
-    if daily_count >= max_runs:
+
+    is_practice = daily_count >= max_runs  # 정상 횟수 초과 → 연습모드
+
+    if daily_count >= practice_max:
         await _send_fresh(query, context, user_id,
-            t(lang, "dungeon.daily_exhausted", used=daily_count, max=max_runs))
+            t(lang, "dungeon.daily_exhausted", used=daily_count, max=practice_max))
         return
 
-    # 입장권 차감
-    success = await dq.deduct_dungeon_ticket(user_id)
-    if not success:
-        await _send_fresh(query, context, user_id, t(lang, "dungeon.no_tickets"))
-        return
+    # 정상 모드: 입장권 차감 / 연습모드: 입장권 무소모
+    if not is_practice:
+        success = await dq.deduct_dungeon_ticket(user_id)
+        if not success:
+            await _send_fresh(query, context, user_id, t(lang, "dungeon.no_tickets"))
+            return
 
     # 포켓몬 로드 (소유권 검증)
     pokemon = await _load_pokemon(instance_id, user_id=user_id)
@@ -1581,6 +1601,7 @@ async def _start_run(query, context, user_id: int, instance_id: int, use_amulet:
 
     st = _state(context)
     st["run_id"] = run_id
+    st["is_practice"] = is_practice  # 연습모드 여부
     # PP 상태 초기화 (런 시작 시)
     st.pop("combat", None)
     st.pop("pp_state", None)
@@ -1604,8 +1625,11 @@ async def _start_run(query, context, user_id: int, instance_id: int, use_amulet:
     cost = _get_pokemon_cost(pokemon["rarity"])
     freq = config.DUNGEON_BUFF_FREQUENCY.get(cost, 1)
 
+    practice_text = "\n🏋️ <b>연습모드</b> — 보상 없음\n" if is_practice else ""
+
     text = (
-        f"🏰 <b>{t(lang, 'dungeon.entering')}</b>\n\n"
+        f"🏰 <b>{t(lang, 'dungeon.entering')}</b>\n"
+        f"{practice_text}\n"
         f"{t(lang, 'dungeon.enter_theme', emoji=theme['emoji'], name=theme['name'])}\n"
         f"{t(lang, 'dungeon.enter_pokemon', shiny=shiny, name=p_name, grade=grade)}\n"
         f"{t(lang, 'dungeon.enter_type_power', types=type_str, power=calc_power(stats))}\n"

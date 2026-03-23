@@ -1286,6 +1286,7 @@ DUNGEON_MAX_SKIPS = 2            # 런당 스킵 횟수
 DUNGEON_MAX_BUFFS = 8            # 버프 슬롯 상한
 DUNGEON_BP_PER_FLOOR = 10        # 층당 기본 BP
 DUNGEON_MAX_DAILY_RUNS = {"free": 3, "basic": 3, "channel_owner": 5}  # 일일 런 횟수 (구독별)
+DUNGEON_PRACTICE_MAX = 10  # 연습모드 포함 총 일일 상한
 DUNGEON_REROLL_LIMIT = {"free": 0, "basic": 1, "channel_owner": 3}   # 버프 리롤 횟수 (런당)
 
 # --- 스킬 배율 (희귀도별, 던전 간소화) ---
