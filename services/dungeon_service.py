@@ -227,8 +227,11 @@ BUFF_DEFS = {
                "levels": [{"rate": 0.15, "desc": "15% 2회 공격"}, {"rate": 0.22, "desc": "22% 2회 공격"}, {"rate": 0.30, "desc": "30% 2회 공격"}]},
     "dodge":  {"name": "회피 본능",   "category": "combat", "max_lv": 3,
                "levels": [{"rate": 0.10, "desc": "10% 회피"}, {"rate": 0.18, "desc": "18% 회피"}, {"rate": 0.25, "desc": "25% 회피"}]},
-    "thorns": {"name": "가시갑옷",    "category": "combat", "max_lv": 3,
-               "levels": [{"rate": 0.15, "desc": "피해 15% 반사"}, {"rate": 0.25, "desc": "피해 25% 반사"}, {"rate": 0.35, "desc": "피해 35% 반사"}]},
+    # thorns 삭제 (2026-03-23 — 방어만 눌러서 클리어 방지)
+    "crisis":  {"name": "위기본능",    "category": "combat", "max_lv": 3,
+               "levels": [{"threshold": 0.30, "mult": 1.3, "desc": "HP 30% 이하 시 공격 ×1.3"},
+                          {"threshold": 0.30, "mult": 1.5, "desc": "HP 30% 이하 시 공격 ×1.5"},
+                          {"threshold": 0.30, "mult": 1.8, "desc": "HP 30% 이하 시 공격 ×1.8"}]},
     # ── 생존 계열 ──
     "lifesteal": {"name": "흡혈",     "category": "survival", "max_lv": 3,
                "levels": [{"rate": 0.05, "desc": "5% 흡혈"}, {"rate": 0.08, "desc": "8% 흡혈"}, {"rate": 0.12, "desc": "12% 흡혈"}]},
@@ -240,8 +243,7 @@ BUFF_DEFS = {
     # pp_recovery 삭제됨 (2026-03-23 — PP 무한 사용 밸런스 붕괴)
     "preemptive": {"name": "선제공격",    "category": "combat", "max_lv": 1,
                "levels": [{"desc": "속도 무관 항상 선공"}]},
-    "counter":  {"name": "카운터",       "category": "combat", "max_lv": 3,
-               "levels": [{"rate": 0.20, "desc": "방어 시 20% 반격"}, {"rate": 0.30, "desc": "방어 시 30% 반격"}, {"rate": 0.40, "desc": "방어 시 40% 반격"}]},
+    # counter 삭제 (2026-03-23 — 방어만 눌러서 클리어 방지)
     "penetrate":{"name": "관통",         "category": "combat", "max_lv": 1,
                "levels": [{"desc": "적 방어 시 데미지 감소 무시"}]},
     # ── 1회성 (레벨 없음) ──
@@ -249,6 +251,8 @@ BUFF_DEFS = {
                "levels": [{"desc": "사망 시 1회 부활 (30%) — 런당 1회"}]},
     "allstat":{"name": "전능의 기운", "category": "unique", "max_lv": 1,
                "levels": [{"mult": 1.15, "desc": "전스탯 +15%"}]},
+    "random_heal": {"name": "회복의 룰렛", "category": "unique", "max_lv": 1,
+               "levels": [{"desc": "HP 1~50% 랜덤 회복 (1회성)"}]},
 }
 
 # ── 로그라이크 랜덤 이벤트 (8버프 포화 후) ──
@@ -345,8 +349,7 @@ def consume_rogue_buffs(buffs: list[dict]) -> list[dict]:
 SYNERGIES = {
     "fury":    {"name": "필살연격",   "emoji": "🔥", "req": {"crit": 2, "double": 2},
                 "desc": "크리 시 이중타격 확률 2배", "effect": {"type": "crit_double"}},
-    "vampire": {"name": "피의 갑옷",  "emoji": "🩸", "req": {"lifesteal": 2, "thorns": 2},
-                "desc": "반사 데미지도 흡혈", "effect": {"type": "thorns_lifesteal"}},
+    # vampire 삭제 (thorns 제거로 불가능)
     "phantom": {"name": "잔상",       "emoji": "👻", "req": {"dodge": 2, "spd": 2},
                 "desc": "회피 시 다음 공격 크리 확정", "effect": {"type": "dodge_crit"}},
     "power":   {"name": "풀파워",     "emoji": "⚡", "req": {"atk": 3, "spa": 3},
@@ -876,7 +879,6 @@ def resolve_turn(state: dict, player_action: str) -> dict:
     crit_bonus = get_combat_rate(buffs, "crit")
     double_rate = get_combat_rate(buffs, "double")
     dodge_rate = get_combat_rate(buffs, "dodge")
-    thorns_rate = get_combat_rate(buffs, "thorns")
     lifesteal = get_lifesteal_rate(buffs)
     active_syn = {s["id"] for s in _get_active_synergies(buffs)}
 
@@ -884,11 +886,13 @@ def resolve_turn(state: dict, player_action: str) -> dict:
     has_preemptive = any(b.get("id") == "preemptive" for b in buffs)
     # 관통 버프 체크
     has_penetrate = any(b.get("id") == "penetrate" for b in buffs)
-    # 카운터 버프 체크
-    counter_rate = 0.0
+    # 위기본능 체크
+    crisis_mult = 1.0
     for b in buffs:
-        if b.get("id") == "counter":
-            counter_rate = b["effect"].get("rate", 0.30)
+        if b.get("id") == "crisis":
+            hp_ratio = state["p_hp"] / state["p_max_hp"] if state["p_max_hp"] > 0 else 1.0
+            if hp_ratio <= b["effect"].get("threshold", 0.30):
+                crisis_mult = b["effect"].get("mult", 1.5)
 
     result = {
         "player_line": "",
@@ -934,7 +938,7 @@ def resolve_turn(state: dict, player_action: str) -> dict:
             if is_crit:
                 state["highlights"]["crit"] += 1
 
-            player_dmg = max(1, int(base * config.DUNGEON_SPECIAL_MULT * type_mult * crit_mult * variance))
+            player_dmg = max(1, int(base * config.DUNGEON_SPECIAL_MULT * type_mult * crit_mult * crisis_mult * variance))
             player_action_name = sk["name"]
             player_action_emoji = sk["emoji"]
 
@@ -959,7 +963,7 @@ def resolve_turn(state: dict, player_action: str) -> dict:
         if is_crit:
             state["highlights"]["crit"] += 1
 
-        player_dmg = max(1, int(base * normal_mult * crit_mult * variance))
+        player_dmg = max(1, int(base * normal_mult * crit_mult * crisis_mult * variance))
         player_action_name = "일반공격"
         player_action_emoji = "⚔️"
 
@@ -1112,24 +1116,9 @@ def resolve_turn(state: dict, player_action: str) -> dict:
         state["p_hp"] -= enemy_dmg
         state["total_dmg_taken"] += enemy_dmg
 
-        # 가시갑옷
-        if thorns_rate > 0 and enemy_dmg > 0:
-            reflect = max(1, int(enemy_dmg * thorns_rate))
-            state["e_hp"] -= reflect
-            state["total_dmg_dealt"] += reflect
-            state["highlights"]["thorns_dmg"] += reflect
-            result["extra_lines"].append(f"🌵 가시갑옷! {reflect} 반사!")
-            # 시너지: 피의 갑옷
-            if "vampire" in active_syn and lifesteal > 0:
-                heal = int(reflect * lifesteal)
-                state["p_hp"] = min(state["p_max_hp"], state["p_hp"] + heal)
-                result["extra_lines"].append(f"🩸 피의 갑옷! +{heal}HP 흡혈!")
-
-        # 방어 중 카운터
-        if player_defending and counter_rate > 0 and enemy_dmg > 0:
-            counter_dmg = max(1, int(enemy_dmg * counter_rate))
-            state["e_hp"] -= counter_dmg
-            state["total_dmg_dealt"] += counter_dmg
+        # 위기본능 발동 표시
+        if crisis_mult > 1.0:
+            result["extra_lines"].append(f"🔥 위기본능! 공격력 ×{crisis_mult:.1f}")
             result["extra_lines"].append(f"↩️ 카운터! {counter_dmg} 반격!")
 
         defend_text = " (🛡️방어)" if player_defending else ""

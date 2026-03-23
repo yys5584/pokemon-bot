@@ -1277,6 +1277,16 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             new_max_hp = int(new_max_hp * eff["mult"])
             new_hp = int(new_hp * eff["mult"])
 
+        # 랜덤 회복 (일회성 — 즉시 발동 후 버프에서 제거)
+        random_heal_text = ""
+        if chosen["id"] == "random_heal":
+            import random as _rnd
+            heal_pct = _rnd.randint(1, 50)
+            heal_amt = int(new_max_hp * heal_pct / 100)
+            new_hp = min(new_max_hp, new_hp + heal_amt)
+            random_heal_text = f"\n🎲 회복의 룰렛! HP {heal_pct}% (+{heal_amt}) 회복!"
+            buffs = [b for b in buffs if b["id"] != "random_heal"]
+
         await dq.update_run_progress(run["id"], run["floor_reached"], new_hp, buffs)
         if new_max_hp != run["max_hp"]:
             pool = await queries.get_db()
