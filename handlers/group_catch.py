@@ -386,11 +386,13 @@ async def priority_ball_handler(update: Update, context: ContextTypes.DEFAULT_TY
             if not used:
                 return
 
+            # record_catch_attempt를 먼저 실행 — 타임아웃 방지
+            await spawn_queries.record_catch_attempt(session["id"], user_id, used_priority_ball=True)
+
             from services.subscription_service import get_user_tier
             from services.ranked_service import current_season_id
             from database import ranked_queries as rq
-            _, user, sub_tier, season_rec = await asyncio.gather(
-                spawn_queries.record_catch_attempt(session["id"], user_id, used_priority_ball=True),
+            user, sub_tier, season_rec = await asyncio.gather(
                 queries.get_user(user_id),
                 get_user_tier(user_id),
                 rq.get_season_record(user_id, current_season_id()),
