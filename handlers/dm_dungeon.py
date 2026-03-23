@@ -186,14 +186,14 @@ async def _build_entry_screen(user_id: int, lang: str | None = None) -> tuple[st
     if tickets > 0 and daily_left > 0:
         buttons.append([InlineKeyboardButton(t(lang, "dungeon.btn_select_pokemon"), callback_data=f"dg_list_{user_id}_all_0")])
     elif daily_left == 0 and practice_left > 0:
-        # 정상 횟수 소진 → 연습모드 가능
+        # 정상 횟수 소진 → 연습모드
         buttons.append([InlineKeyboardButton(
             f"🏋️ 연습모드 ({practice_left}회 남음)",
             callback_data=f"dg_list_{user_id}_all_0")])
     elif practice_left == 0:
         buttons.append([InlineKeyboardButton(f"⚠️ 오늘 횟수 소진", callback_data=f"dg_noop_{user_id}")])
     else:
-        # 입장권 0, 횟수 남아있음 → 구매 유도
+        # 입장권 0, 정상 횟수 남아있음
         if can_buy:
             buttons.append([InlineKeyboardButton(
                 f"🎫 입장권 구매하고 입장 ({bp_cost}BP)",
@@ -201,6 +201,11 @@ async def _build_entry_screen(user_id: int, lang: str | None = None) -> tuple[st
             )])
         else:
             buttons.append([InlineKeyboardButton(f"🎫 오늘 구매 한도 소진 ({buy_limit}/{buy_limit})", callback_data=f"dg_noop_{user_id}")])
+        # 입장권 없어도 연습모드는 항상 표시
+        if practice_left > 0:
+            buttons.append([InlineKeyboardButton(
+                f"🏋️ 연습모드 ({practice_left}회 남음)",
+                callback_data=f"dg_list_{user_id}_all_0")])
 
     # BP 구매 (입장권 있어도 추가 구매 가능하도록)
     if tickets > 0 and can_buy:
