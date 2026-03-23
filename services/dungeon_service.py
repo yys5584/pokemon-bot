@@ -63,19 +63,19 @@ def get_zone_preview(cleared_floor: int, theme: dict) -> str | None:
 # ══════════════════════════════════════════════════════════
 
 def enemy_scaling(floor: int) -> float:
-    """층별 적 스탯 배율 (v5.2).
-    목표: 평균 25~30층, 40층 5~10%, 50층 1~2% (최적 플레이 기준).
-    30층까지 완만, 31~40 가파름, 41~50 극한."""
+    """층별 적 스탯 배율 (v5.3).
+    v5.2 대비 31층+ 대폭 상향. 실 데이터 기반 조정.
+    목표: 평균 20~25층, 40층 3~5%, 50층 <1%."""
     if floor <= 10:
         return 1.0 + floor * 0.012          # 1.012 ~ 1.12
     elif floor <= 20:
-        return 1.12 + (floor - 10) * 0.018  # 1.138 ~ 1.30
+        return 1.12 + (floor - 10) * 0.020  # 1.14 ~ 1.32
     elif floor <= 30:
-        return 1.30 + (floor - 20) * 0.022  # 1.322 ~ 1.52
+        return 1.32 + (floor - 20) * 0.030  # 1.35 ~ 1.62
     elif floor <= 40:
-        return 1.52 + (floor - 30) * 0.04   # 1.56 ~ 1.92
+        return 1.62 + (floor - 30) * 0.06   # 1.68 ~ 2.22
     else:
-        return 1.92 + (floor - 40) * 0.06   # 1.98 ~ 2.52
+        return 2.22 + (floor - 40) * 0.10   # 2.32 ~ 3.22
 
 
 # ══════════════════════════════════════════════════════════
@@ -118,7 +118,7 @@ def _get_type_pool() -> dict[str, list[dict]]:
 
 
 def _pick_enemy_rarity(floor: int) -> str:
-    """층수에 따른 적 희귀도."""
+    """층수에 따른 적 희귀도. 30층+ 레어 제거."""
     if floor <= 5:
         return random.choice(["common"] * 8 + ["rare"] * 2)
     elif floor <= 10:
@@ -127,8 +127,10 @@ def _pick_enemy_rarity(floor: int) -> str:
         return random.choice(["rare"] * 5 + ["epic"] * 4 + ["legendary"])
     elif floor <= 30:
         return random.choice(["rare"] * 2 + ["epic"] * 5 + ["legendary"] * 3)
+    elif floor <= 40:
+        return random.choice(["epic"] * 5 + ["legendary"] * 3 + ["ultra_legendary"] * 2)
     else:
-        return random.choice(["epic"] * 4 + ["legendary"] * 4 + ["ultra_legendary"] * 2)
+        return random.choice(["epic"] * 3 + ["legendary"] * 4 + ["ultra_legendary"] * 3)
 
 
 def generate_enemy(floor: int, theme: dict, player_rarity: str = "epic") -> dict:
