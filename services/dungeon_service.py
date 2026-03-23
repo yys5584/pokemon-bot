@@ -231,7 +231,7 @@ BUFF_DEFS = {
                "levels": [{"rate": 0.15, "desc": "피해 15% 반사"}, {"rate": 0.25, "desc": "피해 25% 반사"}, {"rate": 0.35, "desc": "피해 35% 반사"}]},
     # ── 생존 계열 ──
     "lifesteal": {"name": "흡혈",     "category": "survival", "max_lv": 3,
-               "levels": [{"rate": 0.08, "desc": "8% 흡혈"}, {"rate": 0.15, "desc": "15% 흡혈"}, {"rate": 0.20, "desc": "20% 흡혈"}]},
+               "levels": [{"rate": 0.05, "desc": "5% 흡혈"}, {"rate": 0.08, "desc": "8% 흡혈"}, {"rate": 0.12, "desc": "12% 흡혈"}]},
     "heal":   {"name": "층간 회복",   "category": "survival", "max_lv": 3,
                "levels": [{"rate": 0.05, "desc": "매층 HP 5%"}, {"rate": 0.10, "desc": "매층 HP 10%"}, {"rate": 0.15, "desc": "매층 HP 15%"}]},
     "shield": {"name": "보호막",      "category": "survival", "max_lv": 3,

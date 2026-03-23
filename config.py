@@ -1320,11 +1320,11 @@ DUNGEON_COST_SCALING = {
     "legendary": 0.80, "ultra_legendary": 0.88,
 }
 DUNGEON_SPECIAL_MULT = 2.2       # 특수기 기본 배율
-DUNGEON_DEFEND_REDUCE = 0.5      # 방어 시 데미지 50% 감소
+DUNGEON_DEFEND_REDUCE = 0.6      # 방어 시 데미지 40% 감소 (60% 통과)
 DUNGEON_DEF_FACTOR = 0.12        # 방어 차감 계수 (atk - def*0.12)
 DUNGEON_MIN_DMG_RATIO = 0.30     # 최소 데미지 비율 (ATK의 30%)
-DUNGEON_BASE_FLOOR_HEAL = 0.05   # 층간 기본 회복 5%
-DUNGEON_HARD_FLOOR_HEAL = 0.03   # 30층 이후 회복 3%
+DUNGEON_BASE_FLOOR_HEAL = 0.03   # 층간 기본 회복 3%
+DUNGEON_HARD_FLOOR_HEAL = 0.0    # 30층 이후 회복 없음
 DUNGEON_HARD_FLOOR_THRESHOLD = 30  # 회복 감소 시작 층
 DUNGEON_TURN_TIMEOUT = 120       # 턴 타임아웃(초) — 미사용 시 포기 처리
 DUNGEON_MAX_TURNS_PER_FLOOR = 30  # 한 층 최대 턴
