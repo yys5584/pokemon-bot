@@ -150,8 +150,12 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             from database import item_queries as _iq
             priority_ball_users = set()
             for attempt in attempts:
-                if attempt.get("used_priority_ball"):
+                pb = attempt.get("used_priority_ball")
+                if pb:
                     priority_ball_users.add(attempt["user_id"])
+                    logger.info(f"🎯 Priority ball user: {attempt['user_id']} (val={pb}, type={type(pb).__name__})")
+            if priority_ball_users:
+                logger.info(f"🎯 Priority ball users: {priority_ball_users}")
 
             # Roll for each catcher (priority ball > master ball > hyper ball > newbie > regular)
             results = []
