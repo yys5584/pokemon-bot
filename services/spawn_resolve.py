@@ -141,16 +141,14 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             ]
             catch_counts2 = await stats_queries.count_total_catches_bulk(normal_user_ids2) if normal_user_ids2 else {}
 
-            # 우선포획볼 체크 (아이템 보유 시 자동 사용)
+            # 우선포획볼 체크 (보유 여부만 확인, 소비는 winner 확정 후)
             from database import item_queries as _iq
             priority_ball_users = set()
             for attempt in attempts:
                 uid = attempt["user_id"]
                 try:
                     if await _iq.get_user_item(uid, "priority_ball") > 0:
-                        used = await _iq.use_user_item(uid, "priority_ball")
-                        if used:
-                            priority_ball_users.add(uid)
+                        priority_ball_users.add(uid)
                 except Exception:
                     pass
 
@@ -220,6 +218,13 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             winner = winners[0]
         winner_id = winner["user_id"]
         winner_name = winner["display_name"]
+
+        # 우선포획볼 소비 (winner만)
+        if winner.get("used_priority_ball"):
+            try:
+                await _iq.use_user_item(winner_id, "priority_ball")
+            except Exception:
+                pass
 
         # Refund master balls to losers (batch) — 뉴비 스폰에서는 이미 환불 완료
         master_refund_ids2 = [
