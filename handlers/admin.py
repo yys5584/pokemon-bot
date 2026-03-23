@@ -232,10 +232,20 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                     self.job_queue = job_queue
                     self.job = FakeJob(data)
 
+            # 관리자 전용: 포켓몬 ID 지정 + 이로치 옵션
+            spawn_data = {"chat_id": chat_id, "force": True}
+            if is_admin(user_id) and context.args:
+                text_args = update.message.text.split()[1:]  # 강스 뒤의 인자들
+                for arg in text_args:
+                    if arg.isdigit():
+                        spawn_data["force_pokemon_id"] = int(arg)
+                    elif arg in ("이로치", "shiny"):
+                        spawn_data["force_shiny"] = True
+
             fake_ctx = FakeContext(
                 context.bot,
                 context.application.job_queue,
-                {"chat_id": chat_id, "force": True},
+                spawn_data,
             )
             await execute_spawn(fake_ctx)
 

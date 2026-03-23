@@ -328,10 +328,18 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
                     self.job_queue = job_queue
                     self.job = _FakeJob(data)
 
+            spawn_data = {"chat_id": chat_id, "force": True, "force_shiny": True}
+            # 관리자 전용: 포켓몬 ID 지정 (이로치강스 150 → ✨뮤츠)
+            if user_id in config.ADMIN_IDS:
+                text_args = update.message.text.split()[1:]
+                for arg in text_args:
+                    if arg.isdigit():
+                        spawn_data["force_pokemon_id"] = int(arg)
+
             fake_ctx = _FakeCtx(
                 context.bot,
                 context.application.job_queue,
-                {"chat_id": chat_id, "force": True, "force_shiny": True},
+                spawn_data,
             )
             await execute_spawn(fake_ctx)
 

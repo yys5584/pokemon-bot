@@ -537,10 +537,18 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                     _level_rarity_boosts = _li["rarity_boosts"]
         except Exception:
             pass
-        rarity = await roll_rarity(midnight_bonus=midnight, rarity_boosts=_level_rarity_boosts)
-
-        # 4. Pick random Pokemon
-        pokemon = await pick_random_pokemon(rarity)
+        # 관리자 포켓몬 ID 지정
+        force_pokemon_id = context.job.data.get("force_pokemon_id")
+        if force_pokemon_id:
+            pokemon = await queries.get_pokemon(force_pokemon_id)
+            if pokemon:
+                rarity = pokemon.get("rarity", "common")
+            else:
+                rarity = await roll_rarity(midnight_bonus=midnight, rarity_boosts=_level_rarity_boosts)
+                pokemon = await pick_random_pokemon(rarity)
+        else:
+            rarity = await roll_rarity(midnight_bonus=midnight, rarity_boosts=_level_rarity_boosts)
+            pokemon = await pick_random_pokemon(rarity)
 
         # 4.5 뉴비 스폰 판정 (관리자 아케이드 전용, 10% 확률) — shiny 판정 전에 결정
         is_newbie_spawn = (chat_id in config.ARCADE_CHAT_IDS) and random.random() < config.NEWBIE_SPAWN_CHANCE
