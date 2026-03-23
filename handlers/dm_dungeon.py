@@ -706,6 +706,10 @@ async def _process_turn_action(query, context, user_id: int, action: str):
         await query.answer("PP가 부족합니다! 일반공격을 사용하세요.", show_alert=True)
         return
 
+    # 턴 행동 로그 (1=일반, 2=스킬1, 3=스킬2, 4=방어)
+    ACTION_CODE = {"normal": "1", "skill1": "2", "skill2": "3", "defend": "4"}
+    st.setdefault("action_log", []).append(ACTION_CODE.get(action, "0"))
+
     # 턴 실행
     result = ds.resolve_turn(combat, action)
 
@@ -930,9 +934,13 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
     else:
         rewards = ds.calculate_rewards(final_floor, run["theme"], sub_tier)
 
+    # 액션 로그 저장
+    action_log_str = ",".join(st.get("action_log", []))
+
     # DB 업데이트
     await dq.end_run(run["id"], final_floor, rewards["bp"], rewards["fragments"],
-                     death_enemy=death_enemy, death_enemy_rarity=death_enemy_rarity, death_floor=death_floor)
+                     death_enemy=death_enemy, death_enemy_rarity=death_enemy_rarity, death_floor=death_floor,
+                     action_log=action_log_str)
     await dq.update_pokemon_record(user_id, run["pokemon_instance_id"], final_floor, run["theme"])
     is_new_record = await dq.update_user_best_floor(user_id, final_floor)
 

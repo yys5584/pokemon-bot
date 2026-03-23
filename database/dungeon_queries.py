@@ -151,18 +151,20 @@ async def update_run_skips(run_id: int, skips_used: int):
 
 
 async def end_run(run_id: int, floor_reached: int, bp_earned: int, fragments_earned: int,
-                  death_enemy: str = None, death_enemy_rarity: str = None, death_floor: int = None):
+                  death_enemy: str = None, death_enemy_rarity: str = None, death_floor: int = None,
+                  action_log: str = ""):
     pool = await get_db()
     try:
         await pool.execute(
             "UPDATE dungeon_runs SET status = 'completed', floor_reached = $1, "
             "bp_earned = $2, fragments_earned = $3, ended_at = NOW(), "
-            "death_enemy = $5, death_enemy_rarity = $6, death_floor = $7 WHERE id = $4",
+            "death_enemy = $5, death_enemy_rarity = $6, death_floor = $7, "
+            "action_log = $8 WHERE id = $4",
             floor_reached, bp_earned, fragments_earned, run_id,
-            death_enemy, death_enemy_rarity, death_floor,
+            death_enemy, death_enemy_rarity, death_floor, action_log,
         )
     except Exception:
-        # death_enemy 컬럼 미존재 시 폴백
+        # action_log/death_enemy 컬럼 미존재 시 폴백
         await pool.execute(
             "UPDATE dungeon_runs SET status = 'completed', floor_reached = $1, "
             "bp_earned = $2, fragments_earned = $3, ended_at = NOW() WHERE id = $4",
