@@ -1659,6 +1659,7 @@ async def _start_run(query, context, user_id: int, instance_id: int, use_amulet:
         theme=theme["name"],
         current_hp=max_hp,
         max_hp=max_hp,
+        is_practice=is_practice,
     )
 
     st = _state(context)

@@ -1510,6 +1510,7 @@ async def create_tables():
         "UPDATE pokemon_master SET rarity = 'legendary' WHERE id IN (385, 386, 490, 491, 492)",
         "ALTER TABLE catch_attempts ADD COLUMN IF NOT EXISTS used_priority_ball INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS action_log TEXT DEFAULT ''",
+        "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS is_practice BOOLEAN DEFAULT FALSE",
     ]
     for sql in mythical_reclassify:
         try:

@@ -74,6 +74,7 @@ async def create_dungeon_run(
     theme: str,
     current_hp: int,
     max_hp: int,
+    is_practice: bool = False,
 ) -> int:
     """Create a new dungeon run. Returns run ID."""
     pool = await get_db()
@@ -81,11 +82,11 @@ async def create_dungeon_run(
         run_id = await pool.fetchval(
             "INSERT INTO dungeon_runs "
             "(user_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny, "
-            "iv_grade, rarity, floor_reached, theme, current_hp, max_hp, status, season_key) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,0,$8,$9,$10,'active',$11) RETURNING id",
+            "iv_grade, rarity, floor_reached, theme, current_hp, max_hp, status, season_key, is_practice) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,0,$8,$9,$10,'active',$11,$12) RETURNING id",
             user_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny,
             iv_grade, rarity, theme, current_hp, max_hp,
-            _current_season_key(),
+            _current_season_key(), is_practice,
         )
     except Exception:
         # rarity 컬럼 미존재 시 폴백
