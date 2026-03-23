@@ -837,13 +837,9 @@
                 <div id="boardSidebar" style="width:200px;flex-shrink:0">
                     <button id="boardWriteBtn" onclick="boardShowWrite()" style="display:none;width:100%;padding:10px;background:#58a6ff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px">✏️ 글쓰기</button>
                     <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;padding-left:4px">게시판</div>
-                    <div class="board-side-item active" data-board="notice" data-tag="" onclick="boardSideNav(this)">📢 공지사항</div>
-                    <div class="board-side-sub" data-board="notice" data-tag="" onclick="boardSideNav(this)">전체</div>
-                    <div class="board-side-sub" data-board="notice" data-tag="공지" onclick="boardSideNav(this)">공지</div>
-                    <div class="board-side-sub" data-board="notice" data-tag="패치노트" onclick="boardSideNav(this)">패치노트</div>
+                    <div class="board-side-item active" data-board="notice" data-tag="" onclick="boardSideNav(this)">📢 패치노트</div>
+                    <div class="board-side-item" data-board="tournament" data-tag="" onclick="boardSideNav(this)">🏆 토너먼트</div>
                     <div class="board-side-item" data-board="community" data-tag="" onclick="boardSideNav(this)">💬 유저게시판</div>
-                    <div style="border-top:1px solid var(--border);margin:12px 0"></div>
-                    <div class="board-side-item" data-board="legacy" onclick="boardSideNav(this)">📋 이전 패치노트</div>
                 </div>
                 <!-- Main Area -->
                 <div style="flex:1;min-width:0">
@@ -7053,7 +7049,7 @@ function boardSideNav(el, pushState=true) {
     _boardTag = el.dataset.tag || "";
     _boardPage = 1;
 
-    const titles = {notice: "📢 공지사항", community: "💬 유저게시판"};
+    const titles = {notice: "📢 패치노트", tournament: "🏆 토너먼트", community: "💬 유저게시판"};
     document.getElementById("boardTitle").textContent = titles[board] || board;
 
     // Show write button based on context
