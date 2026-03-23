@@ -1406,7 +1406,7 @@ DUNGEON_ITEM_DEFS = {
     "egg_instant_hatch": {"name": "알즉부화권", "emoji": "🥚", "desc": "대기 중인 이로치 알을 즉시 부화"},
     "dungeon_amulet": {"name": "던전부적", "emoji": "🔮", "desc": "다음 던전 런 시작 시 랜덤 버프 1개 보유"},
     "shiny_convert_ticket": {"name": "이로치전환권", "emoji": "✨", "desc": "캠프 조각 없이 이로치 전환 시작"},
-    "priority_ball": {"name": "우선포획볼", "emoji": "🎯", "desc": "다음 스폰 시 100% 포획 (1회)"},
+    "priority_ball": {"name": "우선포획볼", "emoji": "🎯", "desc": "스폰 시 ㅊㅊ 입력으로 100% 포획"},
     "time_reduce_ticket": {"name": "이로치 시간단축권", "emoji": "⏰", "desc": "이로치 전환 대기시간 12시간 단축"},
 }
 DUNGEON_TIME_REDUCE_HOURS = 12  # 시간단축권 차감 시간
