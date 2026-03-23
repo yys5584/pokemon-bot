@@ -101,13 +101,17 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 # 티어: 0(도감<100) > 1(도감<200) > 2(도감<300) > 3(도감≥300)
                 tier = 0 if pdex < thresholds[0] else (1 if pdex < thresholds[1] else (2 if pdex < thresholds[2] else 3))
                 roll = random.random()
-                # 마볼/하볼 사용자: 환불 처리, 일반 포획으로 전환
+                # 마볼/하볼/우선포획볼 사용자: 환불 처리, 일반 포획으로 전환
                 if attempt.get("used_master_ball"):
                     await queries.add_master_balls_bulk([attempt["user_id"]])
                     logger.info(f"Newbie spawn: refunded master ball to {attempt['user_id']}")
                 if attempt.get("used_hyper_ball"):
                     await queries.add_hyper_balls_bulk([attempt["user_id"]])
                     logger.info(f"Newbie spawn: refunded hyper ball to {attempt['user_id']}")
+                if attempt.get("used_priority_ball"):
+                    from database import item_queries as _iq
+                    await _iq.add_user_item(attempt["user_id"], "priority_ball")
+                    logger.info(f"Newbie spawn: refunded priority ball to {attempt['user_id']}")
                 # 뉴비(tier 0,1,2)는 포획 보장, 고인물(tier 3)은 일반 확률
                 if tier < 3:
                     success = True
