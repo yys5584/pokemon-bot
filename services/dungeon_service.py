@@ -1336,9 +1336,11 @@ def resolve_dungeon_battle(
 # 보상 계산
 # ══════════════════════════════════════════════════════════
 
-def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = None) -> dict:
-    """런 종료 시 보상 계산."""
-    # 기본 BP
+def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = None,
+                      daily_best: int = 0) -> dict:
+    """런 종료 시 보상 계산.
+    daily_best: 오늘 이전 최고 기록. 이보다 높은 마일스톤만 보상."""
+    # 기본 BP (항상 지급)
     bp = floor_reached * config.DUNGEON_BP_PER_FLOOR
     fragments = 0
     tickets = 0
@@ -1348,9 +1350,9 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
     items: dict[str, int] = {}
     milestones = []
 
-    # 마일스톤 보상 합산
+    # 마일스톤 보상 — 오늘 최고 기록 넘은 층만
     for milestone_floor, rewards in sorted(config.DUNGEON_MILESTONE_REWARDS.items()):
-        if floor_reached >= milestone_floor:
+        if floor_reached >= milestone_floor and milestone_floor > daily_best:
             bp += rewards.get("bp", 0)
             fragments += rewards.get("fragments", 0)
             tickets += rewards.get("tickets", 0)

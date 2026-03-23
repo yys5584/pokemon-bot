@@ -221,6 +221,18 @@ async def get_user_best_floor(user_id: int) -> int:
     return val or 0
 
 
+async def get_daily_best_floor(user_id: int) -> int:
+    """오늘 KST 기준 최고 도달 층 (현재 런 제외)."""
+    pool = await get_db()
+    val = await pool.fetchval(
+        "SELECT COALESCE(MAX(floor_reached), 0) FROM dungeon_runs "
+        "WHERE user_id = $1 AND status = 'completed' "
+        "AND started_at >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul'",
+        user_id,
+    )
+    return val or 0
+
+
 async def get_weekly_ranking(limit: int = 30) -> list[dict]:
     """Current week's ranking by highest floor reached (best per user)."""
     pool = await get_db()
