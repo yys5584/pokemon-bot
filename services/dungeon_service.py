@@ -251,8 +251,7 @@ BUFF_DEFS = {
                "levels": [{"desc": "사망 시 1회 부활 (30%) — 런당 1회"}]},
     "allstat":{"name": "전능의 기운", "category": "unique", "max_lv": 1,
                "levels": [{"mult": 1.15, "desc": "전스탯 +15%"}]},
-    "random_heal": {"name": "회복의 룰렛", "category": "unique", "max_lv": 1,
-               "levels": [{"desc": "HP 1~50% 랜덤 회복 (1회성)"}]},
+    # random_heal은 BUFF_DEFS 밖에서 별도 처리 (버프 슬롯 미차지)
 }
 
 # ── 로그라이크 랜덤 이벤트 (8버프 포화 후) ──

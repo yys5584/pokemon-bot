@@ -892,6 +892,14 @@ async def _handle_floor_clear(query, context, user_id: int, combat: dict, turn_r
                 "🔒 리롤 (구독자 전용)", callback_data=f"dg_reroll_{user_id}"
             )])
 
+        # 회복의 룰렛 (런당 2회 제한)
+        roulette_used = st.get("roulette_used", 0)
+        if roulette_used < 2:
+            buttons.append([InlineKeyboardButton(
+                f"🎲 회복의 룰렛 — HP 1~50% 랜덤 회복 ({2 - roulette_used}회 남음)",
+                callback_data=f"dg_roulette_{user_id}"
+            )])
+
         buttons.append([InlineKeyboardButton("➡️ 지나가기", callback_data=f"dg_skip_{user_id}")])
         await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
     else:
@@ -1277,16 +1285,6 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             new_max_hp = int(new_max_hp * eff["mult"])
             new_hp = int(new_hp * eff["mult"])
 
-        # 랜덤 회복 (일회성 — 즉시 발동 후 버프에서 제거)
-        random_heal_text = ""
-        if chosen["id"] == "random_heal":
-            import random as _rnd
-            heal_pct = _rnd.randint(1, 50)
-            heal_amt = int(new_max_hp * heal_pct / 100)
-            new_hp = min(new_max_hp, new_hp + heal_amt)
-            random_heal_text = f"\n🎲 회복의 룰렛! HP {heal_pct}% (+{heal_amt}) 회복!"
-            buffs = [b for b in buffs if b["id"] != "random_heal"]
-
         await dq.update_run_progress(run["id"], run["floor_reached"], new_hp, buffs)
         if new_max_hp != run["max_hp"]:
             pool = await queries.get_db()
@@ -1384,6 +1382,40 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             f"{hp_bar} {hp_pct}% ({new_hp}/{run['max_hp']})\n"
             f"{event_result}"
             f"{buff_line}\n"
+        )
+        buttons = [
+            [InlineKeyboardButton(t(lang, "dungeon.btn_next_floor"), callback_data=f"dg_go_{user_id}")],
+            [InlineKeyboardButton(t(lang, "dungeon.btn_give_up"), callback_data=f"dg_quit_{user_id}")],
+        ]
+        await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
+        return
+
+    elif action == "roulette":
+        # 회복의 룰렛 — 버프 대신 HP 1~50% 랜덤 회복
+        import random as _rnd
+        roulette_used = st.get("roulette_used", 0)
+        if roulette_used >= 2:
+            await query.answer("이미 2회 사용했습니다!", show_alert=True)
+            return
+        run = await dq.get_active_run(user_id)
+        if not run:
+            await query.answer(t(lang, "dungeon.no_active_run"), show_alert=True)
+            return
+
+        heal_pct = _rnd.randint(1, 50)
+        heal_amt = int(run["max_hp"] * heal_pct / 100)
+        new_hp = min(run["max_hp"], run["current_hp"] + heal_amt)
+        st["roulette_used"] = roulette_used + 1
+
+        await dq.update_run_progress(run["id"], run["floor_reached"], new_hp, run.get("buffs_json", []))
+
+        hp_bar = _hp_bar(new_hp, run["max_hp"])
+        hp_pct_display = int(new_hp / run["max_hp"] * 100) if run["max_hp"] else 0
+
+        text = (
+            f"🎲 <b>회복의 룰렛!</b>\n\n"
+            f"HP {heal_pct}% 회복! (+{heal_amt})\n"
+            f"❤️ {hp_bar} {hp_pct_display}% ({new_hp}/{run['max_hp']})\n"
         )
         buttons = [
             [InlineKeyboardButton(t(lang, "dungeon.btn_next_floor"), callback_data=f"dg_go_{user_id}")],
