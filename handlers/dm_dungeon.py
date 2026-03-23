@@ -1154,10 +1154,36 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         return
 
     elif action == "sel":
-        # 포켓몬 선택 → 런 시작
+        # 포켓몬 선택 → 부적 보유 시 확인 화면, 없으면 바로 시작
         instance_id = int(parts[3])
+        amulet_qty = await item_queries.get_user_item(user_id, "dungeon_amulet")
+        if amulet_qty > 0:
+            st = _state(context)
+            st["pending_instance"] = instance_id
+            st["use_amulet"] = True  # 기본 ON
+            await _show_amulet_confirm(query, context, user_id, instance_id, True, amulet_qty)
+        else:
+            await query.answer(t(lang, "dungeon.entering"))
+            await _start_run(query, context, user_id, instance_id, use_amulet=False)
+        return
+
+    elif action == "amt":
+        # 부적 토글
+        instance_id = int(parts[3])
+        st = _state(context)
+        current = st.get("use_amulet", True)
+        st["use_amulet"] = not current
+        amulet_qty = await item_queries.get_user_item(user_id, "dungeon_amulet")
+        await _show_amulet_confirm(query, context, user_id, instance_id, not current, amulet_qty)
+        return
+
+    elif action == "ago":
+        # 부적 확인 후 입장
+        instance_id = int(parts[3])
+        st = _state(context)
+        use_amulet = st.get("use_amulet", False)
         await query.answer(t(lang, "dungeon.entering"))
-        await _start_run(query, context, user_id, instance_id)
+        await _start_run(query, context, user_id, instance_id, use_amulet=use_amulet)
         return
 
     elif action in ("atk", "sk1", "sk2", "def"):
@@ -1480,7 +1506,27 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
 # 런 시작
 # ══════════════════════════════════════════════════════════
 
-async def _start_run(query, context, user_id: int, instance_id: int):
+async def _show_amulet_confirm(query, context, user_id: int, instance_id: int,
+                               use_amulet: bool, amulet_qty: int):
+    """부적 사용 여부 확인 화면."""
+    lang = await get_user_lang(user_id)
+    check = "☑️" if use_amulet else "☐"
+    text = (
+        f"🔮 <b>던전부적 사용</b>\n\n"
+        f"{check} 던전부적 사용 (보유: {amulet_qty}개)\n"
+        f" ㄴ 버프 1개를 가지고 시작합니다\n"
+    )
+    buttons = [
+        [InlineKeyboardButton(
+            f"{check} 던전부적 {'사용' if use_amulet else '미사용'}",
+            callback_data=f"dg_amt_{user_id}_{instance_id}")],
+        [InlineKeyboardButton("⚔️ 입장하기", callback_data=f"dg_ago_{user_id}_{instance_id}")],
+        [InlineKeyboardButton("🔙 돌아가기", callback_data=f"dg_back_{user_id}")],
+    ]
+    await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
+
+
+async def _start_run(query, context, user_id: int, instance_id: int, use_amulet: bool = False):
     """포켓몬 선택 → 입장권 차감 → 런 시작."""
     lang = await get_user_lang(user_id)
 
@@ -1540,10 +1586,9 @@ async def _start_run(query, context, user_id: int, instance_id: int):
     st.pop("pp_state", None)
     st["rerolls_used"] = 0  # 버프 리롤 카운터 초기화
 
-    # 던전부적 자동 소비 → 초기 버프 1개
+    # 던전부적 — 유저가 선택한 경우만 소비
     amulet_text = ""
-    amulet_qty = await item_queries.get_user_item(user_id, "dungeon_amulet")
-    if amulet_qty > 0:
+    if use_amulet:
         used = await item_queries.use_user_item(user_id, "dungeon_amulet")
         if used:
             initial_buff = ds.generate_buff_choices(0, [], count=1)
