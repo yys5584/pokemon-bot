@@ -92,56 +92,55 @@ def get_player_types(pid):
 
 def get_pp_max(rarity, types):
     if len(types) >= 2:
-        return config.DUNGEON_DUAL_TYPE_PP  # 5
+        return config.DUNGEON_DUAL_TYPE_PP.get(rarity, 5)
     return config.DUNGEON_PP_BY_RARITY.get(rarity, 6)
 
 
 # ─── AI Player Logic ───
 
 def ai_choose_action(state):
-    """실제 유저 플레이 모방:
-    - 강공격/차지 → 무조건 방어
-    - HP 30% 이하 + 적 공격 예고 → 방어 (생존 우선)
-    - HP 50% 이하 + 적 일반공격 → 50% 확률 방어
-    - 적 방어/힐 → 일반공격 (PP 아끼기)
-    - 그 외 → 스킬 적극 사용
+    """실제 유저 최적 플레이:
+    - PP 온존: 초반(1~30층)은 일반공격, 고층(31+) 보스에 PP 몰빵
+    - 방어 타이밍: 강공격 + HP 낮을 때 적극 방어
+    - 이로치 S급 초전설 기준
     """
     e_intent = state["e_intent"]
     e_action = e_intent["action"]
     is_charged = state["e_charged"]
     hp_ratio = state["p_hp"] / state["p_max_hp"] if state["p_max_hp"] > 0 else 1.0
+    floor = state.get("floor", 1)
+    is_boss = floor % 5 == 0
 
     # 강공격/차지 후속 → 무조건 방어
     if is_charged or e_action == "full_attack":
         return "defend"
 
-    # HP 30% 이하 + 적 공격 → 방어 우선
-    if hp_ratio <= 0.3 and e_action in ("normal_attack", "type_attack"):
+    # HP 40% 이하 + 적 공격 → 방어 우선
+    if hp_ratio <= 0.4 and e_action in ("normal_attack", "type_attack"):
         return "defend"
 
-    # HP 50% 이하 + 적 일반공격 → 50% 확률 방어
-    if hp_ratio <= 0.5 and e_action == "normal_attack":
-        if random.random() < 0.5:
+    # HP 60% 이하 + 적 일반공격 → 방어 (유저는 보수적)
+    if hp_ratio <= 0.6 and e_action == "normal_attack":
+        if random.random() < 0.4:
             return "defend"
 
-    # 적 차지 중 → 무료 공격 기회
-    if e_action == "charge":
-        return _best_skill_or_normal(state)
-
-    # 적 방어 → 일반공격 (PP 아끼기)
-    if e_action == "defend":
+    # 적 방어/힐 → 일반공격
+    if e_action in ("defend", "heal"):
         return "normal"
 
-    # 적 힐 → 강한 공격
-    if e_action == "heal":
-        return _best_skill_or_normal(state)
+    # 적 차지 → 무료 공격 기회 (스킬 써도 됨)
+    if e_action == "charge":
+        if floor >= 31 and is_boss:
+            return _best_skill_or_normal_smart(state, floor)
+        return "normal"
 
-    # 그 외 → 스킬 적극 사용
-    return _best_skill_or_normal(state)
+    # PP 전략: 초반은 아끼고 고층 보스에 몰빵
+    return _best_skill_or_normal_smart(state, floor)
 
 
-def _best_skill_or_normal(state):
-    """유저처럼 스킬 적극 사용. PP 1 이하일 때만 일반공격."""
+def _best_skill_or_normal_smart(state, floor):
+    """PP 온존 전략: 31층+ 보스에만 스킬, 나머지 일반공격."""
+    is_boss = floor % 5 == 0
     best_idx = -1
     best_mult = 0
 
@@ -152,17 +151,25 @@ def _best_skill_or_normal(state):
                 best_mult = mult
                 best_idx = i
 
-    # 상성 유리 → 무조건 스킬
-    if best_idx >= 0 and best_mult >= 1.5:
+    if best_idx < 0:
+        return "normal"
+
+    total_pp = sum(p["current"] for p in state["pp"])
+
+    # 31층+ 보스 → 스킬 사용
+    if floor >= 31 and is_boss:
         return f"skill{best_idx + 1}"
 
-    # 상성 보통 이상 → PP 2 이상이면 스킬
-    if best_idx >= 0 and best_mult >= 1.0:
-        if state["pp"][best_idx]["current"] >= 2:
-            return f"skill{best_idx + 1}"
+    # 21~30층 보스 + 상성 유리 → 스킬
+    if floor >= 21 and is_boss and best_mult >= 1.5:
+        return f"skill{best_idx + 1}"
 
-    # 상성 불리해도 PP 여유 있으면 스킬 (유저는 이렇게 함)
-    if best_idx >= 0 and state["pp"][best_idx]["current"] >= 3:
+    # 1~20층 보스 + 상성 매우 유리 + PP 여유 → 스킬
+    if is_boss and best_mult >= 2.0 and total_pp >= 8:
+        return f"skill{best_idx + 1}"
+
+    # 잡몹: 상성 매우 유리(×2+) + PP 여유 있을 때만
+    if not is_boss and best_mult >= 2.0 and total_pp >= 6:
         return f"skill{best_idx + 1}"
 
     return "normal"

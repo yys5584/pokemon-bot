@@ -510,7 +510,7 @@ BST_FLOOR_BY_RARITY = {
     "common": 365,       # raw 280
     "rare": 485,         # raw 400
     "epic": 565,         # raw 480
-    "legendary": 665,    # raw 580 (피오네 480→580)
+    "legendary": 705,    # raw 620 (전설 BST 하한 상향)
     # ultra_legendary: 하한 불필요 (전부 670+)
 }
 
@@ -1299,10 +1299,13 @@ DUNGEON_SKILL_MULT = {
 # ── 턴제 전투 시스템 ──
 # PP: 런 전체 공유, 층 넘어가도 안 참
 DUNGEON_PP_BY_RARITY = {
-    "common": 8, "rare": 7, "epic": 6,
-    "legendary": 7, "ultra_legendary": 7,
+    "common": 12, "rare": 11, "epic": 9,
+    "legendary": 8, "ultra_legendary": 8,
 }
-DUNGEON_DUAL_TYPE_PP = 5             # 듀얼타입 스킬당 PP (고정)
+DUNGEON_DUAL_TYPE_PP = {             # 듀얼타입 스킬당 PP (등급별)
+    "common": 7, "rare": 6, "epic": 5,
+    "legendary": 5, "ultra_legendary": 5,
+}
 DUNGEON_SINGLE_TYPE_PP_MULT = 1.0    # 단일타입 PP 보정 (없음)
 
 # 던전 전용 등급별 스탯 배율 — BST 하한 도입으로 무력화 (1.0 통일)
@@ -1325,8 +1328,8 @@ DUNGEON_DEFEND_REDUCE = 0.6      # 방어 시 데미지 40% 감소 (60% 통과)
 DUNGEON_DEF_FACTOR = 0.12        # 방어 차감 계수 (atk - def*0.12)
 DUNGEON_MIN_DMG_RATIO = 0.30     # 최소 데미지 비율 (ATK의 30%)
 DUNGEON_BASE_FLOOR_HEAL = 0.03   # 층간 기본 회복 3%
-DUNGEON_HARD_FLOOR_HEAL = 0.0    # 30층 이후 회복 없음
-DUNGEON_HARD_FLOOR_THRESHOLD = 30  # 회복 감소 시작 층
+DUNGEON_HARD_FLOOR_HEAL = 0.03   # 30층 이후에도 동일 (제한 해제)
+DUNGEON_HARD_FLOOR_THRESHOLD = 999  # 사실상 비활성화 (전 구간 기본 회복)
 DUNGEON_TURN_TIMEOUT = 120       # 턴 타임아웃(초) — 미사용 시 포기 처리
 DUNGEON_MAX_TURNS_PER_FLOOR = 30  # 한 층 최대 턴
 DUNGEON_BOSS_HP_MULT = 1.5       # 보스 HP 배율

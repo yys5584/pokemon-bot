@@ -134,7 +134,17 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = parts[1]
 
     if action == "등록":
+        # 관리자(chat admin) 체크: 봇 관리자가 아니면 채팅방 관리자인지 확인
         if not is_admin(user_id):
+            try:
+                member = await context.bot.get_chat_member(chat_id, user_id)
+                if member.status not in ("administrator", "creator"):
+                    await update.message.reply_text("🚫 아케이드 등록은 채팅방 관리자만 가능합니다.")
+                    return
+            except Exception:
+                await update.message.reply_text("🚫 관리자 권한을 확인할 수 없습니다.")
+                return
+
             room = await queries.get_chat_room(chat_id)
             member_count = room["member_count"] if room else 0
             if member_count < config.SPAWN_MIN_MEMBERS:
@@ -192,6 +202,21 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             config.ARCADE_CHAT_IDS.discard(chat_id)
             await queries.set_arcade(chat_id, False)
+        else:
+            # 티켓 아케이드: 시작한 사람 또는 채팅방 관리자만 해제 가능
+            if not is_admin(user_id):
+                active_pass = await queries.get_active_arcade_pass(chat_id)
+                is_activator = active_pass and active_pass.get("activated_by") == user_id
+                is_chat_admin = False
+                if not is_activator:
+                    try:
+                        member = await context.bot.get_chat_member(chat_id, user_id)
+                        is_chat_admin = member.status in ("administrator", "creator")
+                    except Exception:
+                        pass
+                if not is_activator and not is_chat_admin:
+                    await update.message.reply_text("🚫 아케이드 해제는 시작한 사람 또는 관리자만 가능합니다.")
+                    return
 
         from services.spawn_service import stop_arcade_for_chat
         stop_arcade_for_chat(context.application, chat_id)

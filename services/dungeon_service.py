@@ -63,19 +63,23 @@ def get_zone_preview(cleared_floor: int, theme: dict) -> str | None:
 # ══════════════════════════════════════════════════════════
 
 def enemy_scaling(floor: int) -> float:
-    """층별 적 스탯 배율 (v5.3).
-    v5.2 대비 31층+ 대폭 상향. 실 데이터 기반 조정.
+    """층별 적 스탯 배율 (v5.4).
+    v5.3 대비 31층+ 구간 세분화. 실 데이터 기반 조정.
     목표: 평균 20~25층, 40층 3~5%, 50층 <1%."""
     if floor <= 10:
-        return 1.0 + floor * 0.012          # 1.012 ~ 1.12
+        return 1.0 + floor * 0.012            # 1.012 ~ 1.12
     elif floor <= 20:
-        return 1.12 + (floor - 10) * 0.020  # 1.14 ~ 1.32
+        return 1.12 + (floor - 10) * 0.020    # 1.14 ~ 1.32
     elif floor <= 30:
-        return 1.32 + (floor - 20) * 0.030  # 1.35 ~ 1.62
+        return 1.32 + (floor - 20) * 0.043    # 1.363 ~ 1.75
+    elif floor <= 35:
+        return 1.75 + (floor - 30) * 0.11     # 1.86 ~ 2.30
     elif floor <= 40:
-        return 1.62 + (floor - 30) * 0.06   # 1.68 ~ 2.22
+        return 2.30 + (floor - 35) * 0.24     # 2.54 ~ 3.50
+    elif floor <= 45:
+        return 3.50 + (floor - 40) * 0.20     # 3.70 ~ 4.50
     else:
-        return 2.22 + (floor - 40) * 0.10   # 2.32 ~ 3.22
+        return 4.50 + (floor - 45) * 0.30     # 4.80 ~ 6.00
 
 
 # ══════════════════════════════════════════════════════════
@@ -209,24 +213,24 @@ def generate_enemy(floor: int, theme: dict, player_rarity: str = "epic") -> dict
 BUFF_DEFS = {
     # ── 스탯 계열 ──
     "atk":    {"name": "공격 강화",   "category": "stat", "max_lv": 3,
-               "levels": [{"mult": 1.15, "desc": "공격력 +15%"}, {"mult": 1.30, "desc": "공격력 +30%"}, {"mult": 1.45, "desc": "공격력 +45%"}]},
+               "levels": [{"mult": 1.15, "desc": "공격력 +15%"}, {"mult": 1.22, "desc": "공격력 +22%"}, {"mult": 1.28, "desc": "공격력 +28%"}]},
     "spa":    {"name": "특공 강화",   "category": "stat", "max_lv": 3,
-               "levels": [{"mult": 1.15, "desc": "특수공격 +15%"}, {"mult": 1.30, "desc": "특수공격 +30%"}, {"mult": 1.45, "desc": "특수공격 +45%"}]},
+               "levels": [{"mult": 1.15, "desc": "특수공격 +15%"}, {"mult": 1.22, "desc": "특수공격 +22%"}, {"mult": 1.28, "desc": "특수공격 +28%"}]},
     "hp":     {"name": "체력 강화",   "category": "stat", "max_lv": 3,
-               "levels": [{"mult": 1.15, "desc": "HP +15%"}, {"mult": 1.25, "desc": "HP +25%"}, {"mult": 1.40, "desc": "HP +40%"}]},
+               "levels": [{"mult": 1.15, "desc": "HP +15%"}, {"mult": 1.22, "desc": "HP +22%"}, {"mult": 1.28, "desc": "HP +28%"}]},
     "def":    {"name": "방어 강화",   "category": "stat", "max_lv": 3,
-               "levels": [{"mult": 1.15, "desc": "방어 +15%"}, {"mult": 1.25, "desc": "방어 +25%"}, {"mult": 1.35, "desc": "방어 +35%"}]},
+               "levels": [{"mult": 1.15, "desc": "방어 +15%"}, {"mult": 1.22, "desc": "방어 +22%"}, {"mult": 1.28, "desc": "방어 +28%"}]},
     "spdef":  {"name": "특방 강화",   "category": "stat", "max_lv": 3,
-               "levels": [{"mult": 1.15, "desc": "특방 +15%"}, {"mult": 1.25, "desc": "특방 +25%"}, {"mult": 1.35, "desc": "특방 +35%"}]},
+               "levels": [{"mult": 1.15, "desc": "특방 +15%"}, {"mult": 1.22, "desc": "특방 +22%"}, {"mult": 1.28, "desc": "특방 +28%"}]},
     "spd":    {"name": "스피드",      "category": "stat", "max_lv": 3,
-               "levels": [{"mult": 1.15, "desc": "스피드 +15%"}, {"mult": 1.25, "desc": "스피드 +25%"}, {"mult": 1.35, "desc": "스피드 +35%"}]},
+               "levels": [{"mult": 1.15, "desc": "스피드 +15%"}, {"mult": 1.22, "desc": "스피드 +22%"}, {"mult": 1.28, "desc": "스피드 +28%"}]},
     # ── 전투 계열 ──
     "crit":   {"name": "크리 강화",   "category": "combat", "max_lv": 3,
-               "levels": [{"rate": 0.10, "desc": "크리 확률 +10%"}, {"rate": 0.18, "desc": "크리 확률 +18%"}, {"rate": 0.25, "desc": "크리 확률 +25%"}]},
+               "levels": [{"rate": 0.10, "desc": "크리 확률 +10%"}, {"rate": 0.15, "desc": "크리 확률 +15%"}, {"rate": 0.20, "desc": "크리 확률 +20%"}]},
     "double": {"name": "이중타격",    "category": "combat", "max_lv": 3,
-               "levels": [{"rate": 0.15, "desc": "15% 2회 공격"}, {"rate": 0.22, "desc": "22% 2회 공격"}, {"rate": 0.30, "desc": "30% 2회 공격"}]},
+               "levels": [{"rate": 0.15, "desc": "15% 2회 공격"}, {"rate": 0.20, "desc": "20% 2회 공격"}, {"rate": 0.25, "desc": "25% 2회 공격"}]},
     "dodge":  {"name": "회피 본능",   "category": "combat", "max_lv": 3,
-               "levels": [{"rate": 0.10, "desc": "10% 회피"}, {"rate": 0.18, "desc": "18% 회피"}, {"rate": 0.25, "desc": "25% 회피"}]},
+               "levels": [{"rate": 0.10, "desc": "10% 회피"}, {"rate": 0.15, "desc": "15% 회피"}, {"rate": 0.20, "desc": "20% 회피"}]},
     # thorns 삭제 (2026-03-23 — 방어만 눌러서 클리어 방지)
     "crisis":  {"name": "위기본능",    "category": "combat", "max_lv": 3,
                "levels": [{"threshold": 0.30, "mult": 1.3, "desc": "HP 30% 이하 시 공격 ×1.3"},
@@ -234,9 +238,9 @@ BUFF_DEFS = {
                           {"threshold": 0.30, "mult": 1.8, "desc": "HP 30% 이하 시 공격 ×1.8"}]},
     # ── 생존 계열 ──
     "lifesteal": {"name": "흡혈",     "category": "survival", "max_lv": 3,
-               "levels": [{"rate": 0.05, "desc": "5% 흡혈"}, {"rate": 0.08, "desc": "8% 흡혈"}, {"rate": 0.12, "desc": "12% 흡혈"}]},
+               "levels": [{"rate": 0.05, "desc": "5% 흡혈"}, {"rate": 0.06, "desc": "6% 흡혈"}, {"rate": 0.08, "desc": "8% 흡혈"}]},
     "heal":   {"name": "층간 회복",   "category": "survival", "max_lv": 3,
-               "levels": [{"rate": 0.03, "desc": "매층 HP 3%"}, {"rate": 0.06, "desc": "매층 HP 6%"}, {"rate": 0.10, "desc": "매층 HP 10%"}]},
+               "levels": [{"rate": 0.02, "desc": "매층 HP 2%"}, {"rate": 0.03, "desc": "매층 HP 3%"}, {"rate": 0.05, "desc": "매층 HP 5%"}]},
     "shield": {"name": "보호막",      "category": "survival", "max_lv": 3,
                "levels": [{"rate": 0.05, "desc": "매층 5% 실드"}, {"rate": 0.08, "desc": "매층 8% 실드"}, {"rate": 0.10, "desc": "매층 10% 실드"}]},
     # ── 턴제 전용 ──
@@ -246,11 +250,15 @@ BUFF_DEFS = {
     # counter 삭제 (2026-03-23 — 방어만 눌러서 클리어 방지)
     "penetrate":{"name": "관통",         "category": "combat", "max_lv": 1,
                "levels": [{"desc": "적 방어 시 데미지 감소 무시"}]},
+    "weakness":{"name": "약점 간파",   "category": "combat", "max_lv": 1,
+               "levels": [{"desc": "상성 보통(×1.0)일 때 ×1.3"}]},
+    "focus":  {"name": "집중",        "category": "combat", "max_lv": 1,
+               "levels": [{"desc": "방어 선택 시 다음 공격 ×1.5"}]},
     # ── 1회성 (레벨 없음) ──
     "revive": {"name": "부활의 깃털", "category": "unique", "max_lv": 1,
                "levels": [{"desc": "사망 시 1회 부활 (30%) — 런당 1회"}]},
     "allstat":{"name": "전능의 기운", "category": "unique", "max_lv": 1,
-               "levels": [{"mult": 1.15, "desc": "전스탯 +15%"}]},
+               "levels": [{"mult": 1.10, "desc": "전스탯 +10%"}]},
     # random_heal은 BUFF_DEFS 밖에서 별도 처리 (버프 슬롯 미차지)
 }
 
@@ -416,10 +424,22 @@ def generate_buff_choices(
         owned_ids.add("revive")
     at_cap = len([b for b in current_buffs if not b["id"].startswith("_")]) >= config.DUNGEON_MAX_BUFFS
 
+    # 전투 계열 2개 제한 (하드코어 보유 시 3개)
+    has_hardcore = any(b.get("id") == "hardcore" for b in current_buffs)
+    combat_limit = 3 if has_hardcore else 2
+    combat_count = len([b for b in current_buffs if BUFF_DEFS.get(b.get("id"), {}).get("category") == "combat"])
+    combat_full = combat_count >= combat_limit
+
     # 생존 계열 배타: 1개 선택하면 나머지 2개 차단
     _SURVIVAL_EXCLUSIVE = {"lifesteal", "heal", "shield"}
     owned_survival = owned_ids & _SURVIVAL_EXCLUSIVE
     blocked_ids = (_SURVIVAL_EXCLUSIVE - owned_survival) if owned_survival else set()
+
+    # 전투 계열 상한 초과 시 새 전투 버프 차단
+    if combat_full:
+        for bid, bdef in BUFF_DEFS.items():
+            if bdef["category"] == "combat" and bid not in owned_ids:
+                blocked_ids.add(bid)
 
     new_available = [] if at_cap else [
         bid for bid in BUFF_DEFS
@@ -479,12 +499,66 @@ def generate_buff_choices(
         })
         used_ids.add(bid)
 
+    # ── 하드코어 모드 (1~10층, 25% 확률, 미보유 시) ──
+    if floor <= 10 and "hardcore" not in owned_ids and random.random() < 0.25:
+        choices.append({
+            "id": "hardcore", "name": "💀 하드코어", "category": "unique",
+            "lv": 1, "is_upgrade": False,
+            "effect": {"hp_penalty": -0.30, "combat_limit_unlock": True, "reward_mult": 1.5},
+            "desc": "HP -30%, 전투 버프 3개, 보상 ×1.5",
+        })
+
+    # ── 1회성 스킬 (30% 확률, 런당 각 1회, 버프 슬롯 미차지) ──
+    _used = {b.get("id") for b in current_buffs if b.get("id", "").startswith("_used_")}
+    _CONSUMABLES = [
+        {"id": "gambler", "name": "🎰 도박사", "desc": "다음 전투 데미지 ×0.5~×2.5 랜덤",
+         "effect": {"type": "consumable", "dmg_range": [0.5, 2.5]}},
+        {"id": "rage", "name": "🔥 폭주", "desc": "3턴 HP -5%/턴, 공격 +50%",
+         "effect": {"type": "consumable", "atk_boost": 1.5, "hp_drain": 0.05, "duration": 3}},
+        {"id": "mimic", "name": "🪞 모방", "desc": "다음 전투 적 타입 스킬 사용",
+         "effect": {"type": "consumable", "mimic": True}},
+        {"id": "curse", "name": "💀 저주", "desc": "다음 적 HP -20%",
+         "effect": {"type": "consumable", "enemy_hp_cut": 0.20}},
+        {"id": "random_heal", "name": "🎲 회복 룰렛", "desc": "HP 1~50% 랜덤 회복",
+         "effect": {"type": "consumable", "heal_range": [1, 50]}},
+    ]
+    for cons in _CONSUMABLES:
+        marker = f"_used_{cons['id']}"
+        if marker in _used or marker in owned_ids:
+            continue
+        if random.random() < 0.30:
+            choices.append({
+                "id": cons["id"], "name": cons["name"], "category": "consumable",
+                "lv": 0, "is_upgrade": False,
+                "effect": cons["effect"], "desc": cons["desc"],
+            })
+
     random.shuffle(choices)
     return choices[:count]
 
 
 def apply_buff_choice(current_buffs: list[dict], choice: dict) -> list[dict]:
-    """선택된 버프를 적용 (레벨업 또는 새로 추가)."""
+    """선택된 버프를 적용 (레벨업 또는 새로 추가).
+    트레이드오프: 공격 계열 선택 시 방어↓, 방어 계열 선택 시 공격↓, 생존 계열 선택 시 전체↓
+    1회성(consumable) 스킬: 즉시 발동 마커 추가, 버프 슬롯 미차지."""
+    category = choice.get("category", "")
+    bid = choice.get("id", "")
+
+    # ── 1회성 스킬: 마커만 추가하고 버프에 넣지 않음 ──
+    if category == "consumable":
+        new_buffs = list(current_buffs)
+        # 사용 마커 추가 (중복 방지)
+        marker_id = f"_used_{bid}"
+        if not any(b.get("id") == marker_id for b in new_buffs):
+            new_buffs.append({"id": marker_id, "name": "", "lv": 0})
+        # 즉시 발동 효과를 _pending_consumable 마커로 전달
+        new_buffs.append({
+            "id": f"_pending_{bid}", "name": choice["name"], "lv": 0,
+            "effect": choice["effect"], "consumable": True,
+        })
+        return new_buffs
+
+    # ── 일반 버프 적용 ──
     new_buffs = []
     found = False
     for b in current_buffs:
@@ -499,7 +573,29 @@ def apply_buff_choice(current_buffs: list[dict], choice: dict) -> list[dict]:
             "id": choice["id"], "name": choice["name"], "category": choice["category"],
             "lv": choice["lv"], "effect": choice["effect"], "desc": choice["desc"],
         })
+
+    # ── 트레이드오프 마커 누적 ──
+    _COMBAT_IDS = {"atk", "spa", "crit", "double", "crisis"}
+    _STAT_DEF_IDS = {"def", "spdef", "hp"}
+    _SURVIVAL_IDS = {"lifesteal", "heal", "shield"}
+
+    if bid in _COMBAT_IDS:
+        _accumulate_tradeoff(new_buffs, "_tradeoff_def", -0.05)
+    elif bid in _STAT_DEF_IDS:
+        _accumulate_tradeoff(new_buffs, "_tradeoff_atk", -0.05)
+    elif bid in _SURVIVAL_IDS:
+        _accumulate_tradeoff(new_buffs, "_tradeoff_all", -0.03)
+
     return new_buffs
+
+
+def _accumulate_tradeoff(buffs: list[dict], marker_id: str, increment: float):
+    """트레이드오프 마커 누적 (숨은 디버프)."""
+    for b in buffs:
+        if b.get("id") == marker_id:
+            b["value"] = b.get("value", 0) + increment
+            return
+    buffs.append({"id": marker_id, "value": increment})
 
 
 def should_offer_buff(floor: int, pokemon_cost: int = 1) -> bool:
@@ -513,7 +609,9 @@ def should_offer_buff(floor: int, pokemon_cost: int = 1) -> bool:
 # ══════════════════════════════════════════════════════════
 
 def apply_buffs_to_stats(base_stats: dict, buffs: list[dict]) -> dict:
-    """스탯 버프를 적용. 원본 수정하지 않음."""
+    """스탯 버프를 적용. 원본 수정하지 않음.
+    트레이드오프 마커도 적용 (_tradeoff_def, _tradeoff_atk, _tradeoff_all).
+    하드코어 HP 패널티도 적용."""
     result = dict(base_stats)
     for buff in buffs:
         eff = buff.get("effect", {})
@@ -526,6 +624,37 @@ def apply_buffs_to_stats(base_stats: dict, buffs: list[dict]) -> dict:
         elif bid == "allstat" and "mult" in eff:
             for k in result:
                 result[k] = int(result[k] * eff["mult"])
+
+    # 트레이드오프 적용
+    for buff in buffs:
+        bid = buff.get("id", "")
+        val = buff.get("value", 0)
+        if bid == "_tradeoff_def" and val != 0:
+            # 방어/특방 감소
+            mult = max(0.5, 1.0 + val)  # 최소 50%
+            for k in ("def", "spdef"):
+                if k in result:
+                    result[k] = int(result[k] * mult)
+        elif bid == "_tradeoff_atk" and val != 0:
+            # 공격/특공 감소
+            mult = max(0.5, 1.0 + val)
+            for k in ("atk", "spa"):
+                if k in result:
+                    result[k] = int(result[k] * mult)
+        elif bid == "_tradeoff_all" and val != 0:
+            # 전스탯 감소
+            mult = max(0.5, 1.0 + val)
+            for k in result:
+                result[k] = int(result[k] * mult)
+
+    # 하드코어 HP 패널티
+    for buff in buffs:
+        if buff.get("id") == "hardcore":
+            hp_penalty = buff.get("effect", {}).get("hp_penalty", -0.30)
+            if "hp" in result:
+                result["hp"] = max(1, int(result["hp"] * (1.0 + hp_penalty)))
+            break
+
     return result
 
 
@@ -647,7 +776,7 @@ def init_combat_state(
     skills = get_pokemon_skills(pokemon_id, player_types)
     is_dual = len(player_types) >= 2
     if is_dual:
-        pp_max = config.DUNGEON_DUAL_TYPE_PP  # 5
+        pp_max = config.DUNGEON_DUAL_TYPE_PP.get(player_rarity, 5)
     else:
         pp_max = config.DUNGEON_PP_BY_RARITY.get(player_rarity, 6)
 
@@ -885,6 +1014,17 @@ def resolve_turn(state: dict, player_action: str) -> dict:
     has_preemptive = any(b.get("id") == "preemptive" for b in buffs)
     # 관통 버프 체크
     has_penetrate = any(b.get("id") == "penetrate" for b in buffs)
+    # 약점 간파: 상성 보통(×1.0)일 때 ×1.3
+    weakness_mult = 1.0
+    if any(b.get("id") == "weakness" for b in buffs):
+        if abs(state.get("type_mult_p", 1.0) - 1.0) < 0.01:
+            weakness_mult = 1.3
+    # 집중: 방어 후 다음 공격 ×1.5
+    focus_mult = 1.0
+    if state.get("_focus_next"):
+        focus_mult = 1.5
+        state["_focus_next"] = False
+    has_focus = any(b.get("id") == "focus" for b in buffs)
     # 위기본능 체크
     crisis_mult = 1.0
     for b in buffs:
@@ -914,6 +1054,9 @@ def resolve_turn(state: dict, player_action: str) -> dict:
         player_action_name = "방어"
         player_action_emoji = "🛡️"
         state["highlights"]["defend_used"] += 1
+        # 집중 버프: 방어 시 다음 공격 ×1.5
+        if has_focus:
+            state["_focus_next"] = True
     elif player_action in ("skill1", "skill2"):
         idx = 0 if player_action == "skill1" else 1
         if idx < len(state["skills"]) and idx < len(state["pp"]) and state["pp"][idx]["current"] > 0:
@@ -937,7 +1080,7 @@ def resolve_turn(state: dict, player_action: str) -> dict:
             if is_crit:
                 state["highlights"]["crit"] += 1
 
-            player_dmg = max(1, int(base * config.DUNGEON_SPECIAL_MULT * type_mult * crit_mult * crisis_mult * variance))
+            player_dmg = max(1, int(base * config.DUNGEON_SPECIAL_MULT * type_mult * crit_mult * crisis_mult * weakness_mult * focus_mult * variance))
             player_action_name = sk["name"]
             player_action_emoji = sk["emoji"]
 
@@ -962,7 +1105,7 @@ def resolve_turn(state: dict, player_action: str) -> dict:
         if is_crit:
             state["highlights"]["crit"] += 1
 
-        player_dmg = max(1, int(base * normal_mult * crit_mult * crisis_mult * variance))
+        player_dmg = max(1, int(base * normal_mult * crit_mult * crisis_mult * weakness_mult * focus_mult * variance))
         player_action_name = "일반공격"
         player_action_emoji = "⚔️"
 
