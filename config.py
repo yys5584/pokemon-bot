@@ -1299,8 +1299,8 @@ DUNGEON_SKILL_MULT = {
 # ── 턴제 전투 시스템 ──
 # PP: 런 전체 공유, 층 넘어가도 안 참
 DUNGEON_PP_BY_RARITY = {
-    "common": 12, "rare": 11, "epic": 8,
-    "legendary": 9, "ultra_legendary": 9,
+    "common": 8, "rare": 7, "epic": 6,
+    "legendary": 7, "ultra_legendary": 7,
 }
 DUNGEON_SINGLE_TYPE_PP_MULT = 1.3   # 단일타입 PP 보정 (7→9)
 

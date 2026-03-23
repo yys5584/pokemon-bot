@@ -512,6 +512,11 @@ async def _process_floor(query, context, user_id: int, run: dict):
         cost = _get_pokemon_cost(pokemon["rarity"])
         st = _state(context)
 
+        # 50층 클리어 → 바로 완료 (버프 선택 건너뜀)
+        if floor >= config.DUNGEON_MAX_FLOOR:
+            await _finish_run(query, context, user_id, run, floor)
+            return
+
         if ds.should_offer_buff(floor):
             choices = ds.generate_buff_choices(floor, buffs)
             st["buff_choices"] = choices
@@ -856,10 +861,7 @@ async def _handle_floor_clear(query, context, user_id: int, combat: dict, turn_r
             await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
             return
 
-        # PP 회복 — 보스 클리어 시 기본 +1 (pp_recovery 버프 삭제됨)
-        for pp_info in st.get("pp_state", []):
-            pp_info["current"] = min(pp_info["max"], pp_info["current"] + 1)
-        text += f"\n🔮 PP +1 회복\n"
+        # PP 회복 삭제 — PP는 소모품, 보스 클리어 시에도 회복 없음
 
         text += f"\n{icon_emoji('gotcha')} <b>버프 선택</b>"
         buttons = []
