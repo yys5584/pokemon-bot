@@ -2602,7 +2602,7 @@
                 <!-- ===== 던전 ===== -->
                 <div class="guide-section" id="guide-dungeon">
                     <h3 style="margin-bottom:12px">🏰 던전 시스템</h3>
-                    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">로그라이크 던전! 포켓몬 1마리로 도전하며 버프를 쌓아 고층을 돌파하세요.</p>
+                    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">로그라이크 턴제 던전! 포켓몬 1마리로 도전하며 버프를 쌓아 고층을 돌파하세요.</p>
 
                     <!-- 이용 방법 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
@@ -2610,20 +2610,20 @@
                         <div style="font-size:13px;color:var(--muted);line-height:1.8">
                             <b style="color:var(--text)">1.</b> 봇 DM에서 <b style="color:var(--red)">「던전」</b> 입력<br>
                             <b style="color:var(--text)">2.</b> 포켓몬 <b style="color:var(--text)">1마리</b> 선택 → 입장권 소모 → 시작<br>
-                            <b style="color:var(--text)">3.</b> 매 층 자동 배틀 → 승리 시 <b style="color:var(--red)">버프 선택</b><br>
-                            <b style="color:var(--text)">4.</b> 같은 버프를 뽑으면 <b style="color:var(--red)">레벨업!</b> (Lv.1→2→3)<br>
-                            <b style="color:var(--text)">5.</b> 패배 시 도달 층에 따라 보상 정산
+                            <b style="color:var(--text)">3.</b> 매 턴 <b style="color:var(--red)">스킬 / 일반공격 / 방어</b> 중 택 1<br>
+                            <b style="color:var(--text)">4.</b> 적의 다음 행동이 <b style="color:var(--text)">미리 표시</b> — 전략적 판단<br>
+                            <b style="color:var(--text)">5.</b> 5층(보스)마다 <b style="color:var(--red)">버프 선택</b> (같은 버프 = 레벨업!)<br>
+                            <b style="color:var(--text)">6.</b> 패배 시 도달 층에 따라 보상 정산 (최대 50층)
                         </div>
                     </div>
 
                     <!-- 입장권 & 테마 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
-                        <div style="font-weight:700;margin-bottom:10px">🎫 입장권 & 던전 테마</div>
+                        <div style="font-weight:700;margin-bottom:10px">🎫 입장권 & 연습모드</div>
                         <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">
                             • 매일 <b style="color:var(--text)">1장</b> 무료 지급 (베이직: 2장, 채널장: 3장)<br>
                             • BP 구매: <b style="color:var(--text)">300 BP</b> (베이직: 250, 채널장: 200)<br>
-                            • 일일 구매 제한: <b style="color:var(--text)">1회</b> (베이직: 1회, 채널장: 3회)<br>
-                            • 일일 도전 제한: <b style="color:var(--text)">3회</b> (채널장: 5회)
+                            • 일일 도전: <b style="color:var(--text)">3회</b> (채널장: 5회) → 이후 <b style="color:var(--red)">연습모드 10회</b> (보상 없음)
                         </div>
                         <div style="font-size:12px;color:var(--muted);margin-bottom:6px">던전 테마는 <b style="color:var(--text)">요일별 로테이션</b>:</div>
                         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">
@@ -2635,48 +2635,78 @@
                             <div style="background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;text-align:center"><b>토</b> 🔮 신전</div>
                             <div style="background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;text-align:center"><b>일</b> 🐉 용의 둥지</div>
                         </div>
-                        <div style="font-size:11px;color:var(--muted);margin-top:6px">* 테마에 따라 적 포켓몬 타입이 달라지며, 조각 보상도 해당 필드 타입으로 지급됩니다.</div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:6px">* 보스(5의 배수)는 반드시 테마 타입. 조각 보상도 해당 필드 타입.</div>
                     </div>
 
-                    <!-- 등급별 버프 주기 -->
+                    <!-- 전투 시스템 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
-                        <div style="font-weight:700;margin-bottom:10px">⭐ 등급별 버프 주기</div>
-                        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">등급이 <b style="color:var(--text)">낮을수록</b> 버프를 자주 받아 빌드가 강력해집니다!</div>
+                        <div style="font-weight:700;margin-bottom:10px">⚔️ 턴제 전투</div>
+                        <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">
+                            매 턴 행동을 선택합니다. 적의 다음 행동이 미리 표시됩니다.<br><br>
+                            • <b style="color:var(--red)">스킬</b> (빨강 버튼) — SPA 기반, <b style="color:var(--text)">상성 배율 적용</b>, PP 소모<br>
+                            • <b style="color:var(--text)">일반공격</b> (회색) — ATK 기반, 상성 무관, PP 무소모<br>
+                            • <b style="color:#3498db">방어</b> (파랑) — 받는 데미지 40% 감소<br><br>
+                            💡 상성 유리할 때 스킬을 쓰면 2배 데미지! PP 관리가 핵심.
+                        </div>
+                    </div>
+
+                    <!-- 구독자 혜택 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">👑 구독자 혜택</div>
                         <table style="width:100%;border-collapse:collapse;font-size:12px">
                             <tr style="border-bottom:1px solid var(--border)">
-                                <th style="text-align:left;padding:6px 0;color:var(--muted);font-size:11px">등급</th>
-                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:11px">코스트</th>
-                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:11px">버프 주기</th>
-                                <th style="text-align:right;padding:6px 0;color:var(--muted);font-size:11px">특징</th>
+                                <th style="text-align:left;padding:6px 0;color:var(--muted);font-size:11px"></th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:11px">무료</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:11px">베이직</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--red);font-size:11px;font-weight:700">채널장</th>
                             </tr>
-                            <tr style="border-bottom:1px solid var(--border)">
-                                <td style="padding:8px 0;color:#aaa;font-weight:700">커먼·언커먼</td>
-                                <td style="text-align:center">1~2</td>
-                                <td style="text-align:center;color:var(--red);font-weight:700">매 층</td>
-                                <td style="text-align:right;color:var(--muted)">버프 폭풍</td>
-                            </tr>
-                            <tr style="border-bottom:1px solid var(--border)">
-                                <td style="padding:8px 0;color:#58f;font-weight:700">레어</td>
-                                <td style="text-align:center">4</td>
-                                <td style="text-align:center;color:var(--red);font-weight:700">2층마다</td>
-                                <td style="text-align:right;color:var(--muted)">밸런스</td>
-                            </tr>
-                            <tr style="border-bottom:1px solid var(--border)">
-                                <td style="padding:8px 0;color:#c5f;font-weight:700">에픽</td>
-                                <td style="text-align:center">5</td>
-                                <td style="text-align:center;color:var(--red);font-weight:700">3층마다</td>
-                                <td style="text-align:right;color:var(--muted)">스탯으로 버팀</td>
-                            </tr>
-                            <tr>
-                                <td style="padding:8px 0;color:#fa0;font-weight:700">전설·초전설</td>
-                                <td style="text-align:center">6</td>
-                                <td style="text-align:center;color:var(--red);font-weight:700">4층마다</td>
-                                <td style="text-align:right;color:var(--muted)">순수 깡스탯</td>
-                            </tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;color:var(--muted)">BP 배율</td><td style="text-align:center">×1</td><td style="text-align:center">×1.2</td><td style="text-align:center;color:var(--red);font-weight:700">×1.5</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;color:var(--muted)">아이템·조각</td><td style="text-align:center">×1</td><td style="text-align:center">×2</td><td style="text-align:center;color:var(--red);font-weight:700">×3</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;color:var(--muted)">버프 리롤</td><td style="text-align:center">🔒</td><td style="text-align:center">1회/런</td><td style="text-align:center;color:var(--red);font-weight:700">3회/런</td></tr>
+                            <tr><td style="padding:6px 0;color:var(--muted)">일일 런</td><td style="text-align:center">3회</td><td style="text-align:center">3회</td><td style="text-align:center;color:var(--red);font-weight:700">5회</td></tr>
                         </table>
-                        <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6">
-                            * 버프는 최대 <b style="color:var(--text)">8개</b>까지 보유 가능<br>
-                            * 생존 계열 (흡혈/층간회복/보호막) 중 <b style="color:var(--red)">1개만</b> 선택 가능 — 나머지 2개는 선택지에서 제외
+                    </div>
+
+                    <!-- 버프 & 빌드 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">⬆️ 버프 시스템</div>
+                        <div style="font-size:12px;color:var(--muted);line-height:1.8">
+                            • 모든 등급 <b style="color:var(--red)">5층(보스)마다</b> 버프 선택<br>
+                            • 같은 버프 선택 시 <b style="color:var(--text)">레벨업</b> (Lv.1→2→3)<br>
+                            • 최대 <b style="color:var(--text)">8개</b>까지 보유<br>
+                            • 생존 계열 (흡혈/층간회복/보호막) 중 <b style="color:var(--red)">1개만</b> 선택 가능<br>
+                            • 구독자는 보스 클리어 시 <b style="color:var(--text)">버프 리롤</b> 가능
+                        </div>
+                    </div>
+
+                    <!-- 신규 아이템 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">🎁 신규 아이템</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #8b5cf6">
+                                <div style="font-size:13px;font-weight:700">✨ 이로치전환권</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">조각 없이 이로치 전환 시작</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #22c55e">
+                                <div style="font-size:13px;font-weight:700">🎯 우선포획볼</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">ㅊㅊ로 사용 · 100% 포획</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #3b82f6">
+                                <div style="font-size:13px;font-weight:700">🔮 던전부적</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">다음 런 버프 1개로 시작</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #f59e0b">
+                                <div style="font-size:13px;font-weight:700">⏰ 시간단축권</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">전환/부화 12시간 단축</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #e63946">
+                                <div style="font-size:13px;font-weight:700">🥚 알즉부화권</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">이로치 알 즉시 부화</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #8b5cf6">
+                                <div style="font-size:13px;font-weight:700">💠 IV스톤</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">IV +3 (포켓몬당 2회)</div>
+                            </div>
                         </div>
                     </div>
 
