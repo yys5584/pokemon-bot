@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # ── Re-exports for backward compatibility ──────────────────────
 from handlers.group_catch import (  # noqa: F401
-    catch_handler, master_ball_handler, hyper_ball_handler,
+    catch_handler, master_ball_handler, hyper_ball_handler, priority_ball_handler,
     catch_keep_callback, catch_release_callback,
     _catch_locks,
 )

@@ -1508,6 +1508,7 @@ async def create_tables():
     # ── 환상 포켓몬 재분류: ultra_legendary → legendary (2026-03-23) ──
     mythical_reclassify = [
         "UPDATE pokemon_master SET rarity = 'legendary' WHERE id IN (385, 386, 490, 491, 492)",
+        "ALTER TABLE catch_attempts ADD COLUMN IF NOT EXISTS used_priority_ball INTEGER NOT NULL DEFAULT 0",
     ]
     for sql in mythical_reclassify:
         try:

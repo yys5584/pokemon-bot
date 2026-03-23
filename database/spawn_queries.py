@@ -151,12 +151,13 @@ async def cleanup_expired_sessions() -> list[tuple[int, str]]:
 # Catch Attempts
 # ============================================================
 
-async def record_catch_attempt(session_id: int, user_id: int, used_master_ball: bool = False, used_hyper_ball: bool = False):
+async def record_catch_attempt(session_id: int, user_id: int, used_master_ball: bool = False, used_hyper_ball: bool = False, used_priority_ball: bool = False):
     async def _do():
         pool = await get_db()
         await pool.execute(
-            "INSERT INTO catch_attempts (session_id, user_id, used_master_ball, used_hyper_ball) VALUES ($1, $2, $3, $4)",
-            session_id, user_id, 1 if used_master_ball else 0, 1 if used_hyper_ball else 0,
+            "INSERT INTO catch_attempts (session_id, user_id, used_master_ball, used_hyper_ball, used_priority_ball) "
+            "VALUES ($1, $2, $3, $4, $5)",
+            session_id, user_id, 1 if used_master_ball else 0, 1 if used_hyper_ball else 0, 1 if used_priority_ball else 0,
         )
     await _retry(_do)
 

@@ -17,7 +17,7 @@ from handlers.start import (
     settings_handler, settings_callback_handler,
 )
 from handlers.group import (
-    catch_handler, master_ball_handler, hyper_ball_handler,
+    catch_handler, master_ball_handler, hyper_ball_handler, priority_ball_handler,
     love_easter_egg, love_hidden_handler,
     attendance_handler, daily_money_handler, ranking_handler,
     log_handler, dashboard_handler, room_info_handler,
@@ -331,6 +331,12 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler(group & filters.Regex(r"^\s*이로치\s*강스\s*$"), shiny_ticket_spawn_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰 채널 초기화\s*$"), force_spawn_reset_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*포켓볼초기화\s*$"), pokeball_reset_handler))
+
+    # "ㅊㅊ" priority ball handler (group only, exact match) — ㅊ보다 먼저 등록
+    app.add_handler(MessageHandler(
+        group & filters.TEXT & filters.Regex(r"^ㅊㅊ$"),
+        priority_ball_handler,
+    ))
 
     # "ㅊ" / "c" catch handler (group only, exact match)
     app.add_handler(MessageHandler(

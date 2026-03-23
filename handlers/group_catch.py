@@ -324,6 +324,102 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         logger.error(f"Master ball handler error: {e}")
 
 
+async def priority_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 'ㅊㅊ' message — use priority ball (dungeon item, 100% catch)."""
+    if not update.effective_user or not update.effective_chat:
+        return
+
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    lang = await get_user_lang(user_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
+    username = update.effective_user.username
+
+    if is_tournament_active(chat_id):
+        return
+
+    from services.abuse_service import is_catch_locked_async
+    locked, _ = await is_catch_locked_async(user_id)
+    if locked:
+        return
+
+    # ㅊㅊ 메시지는 삭제하지 않음
+
+    try:
+        _, session = await asyncio.gather(
+            queries.ensure_user(user_id, display_name, username),
+            spawn_queries.get_active_spawn(chat_id),
+        )
+        if session is None:
+            return
+
+        if session.get("is_newbie_spawn"):
+            return
+
+        lock_key = (session["id"], user_id)
+        if lock_key in _catch_locks:
+            return
+        _catch_locks.add(lock_key)
+        try:
+            from database.connection import get_db
+            from database import item_queries as _iq
+            pool = await get_db()
+            row, already = await asyncio.gather(
+                pool.fetchrow("SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]),
+                spawn_queries.has_attempted_session(session["id"], user_id),
+            )
+            if not row or row["is_resolved"] == 1:
+                return
+            if already:
+                return
+
+            qty = await _iq.get_user_item(user_id, "priority_ball")
+            if qty < 1:
+                resp = await update.message.reply_text(
+                    f"{ball_emoji('greatball')} 우선포획볼이 없습니다! (던전 보상으로 획득)",
+                    parse_mode="HTML",
+                )
+                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+                return
+
+            used = await _iq.use_user_item(user_id, "priority_ball")
+            if not used:
+                return
+
+            from services.subscription_service import get_user_tier
+            from services.ranked_service import current_season_id
+            from database import ranked_queries as rq
+            _, user, sub_tier, season_rec = await asyncio.gather(
+                spawn_queries.record_catch_attempt(session["id"], user_id, used_priority_ball=True),
+                queries.get_user(user_id),
+                get_user_tier(user_id),
+                rq.get_season_record(user_id, current_season_id()),
+            )
+
+            r_badge = await _get_ranked_badge(user_id, season_rec)
+            decorated = get_decorated_name(
+                display_name,
+                user.get("title", "") if user else "",
+                user.get("title_emoji", "") if user else "",
+                username,
+                html=True,
+                ranked_badge=r_badge,
+            )
+            remaining_qty = await _iq.get_user_item(user_id, "priority_ball")
+            throw_text = format_actor(decorated, "우선포획볼을 던졌다!", sub_tier, lang=lang)
+            msg = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"{ball_emoji('greatball')} {throw_text} (남은: {remaining_qty}개)",
+                parse_mode="HTML",
+            )
+            track_attempt_message(session["id"], chat_id, msg.message_id)
+        finally:
+            _catch_locks.discard(lock_key)
+
+    except Exception as e:
+        logger.error(f"Priority ball handler error: {e}")
+
+
 async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 'ㅎ' message in group chat — use hyper ball (20 BP, 3x catch rate)."""
     if not update.effective_user or not update.effective_chat:
