@@ -326,9 +326,9 @@ def register_all_handlers(app):
 
     # Admin group commands
     app.add_handler(MessageHandler(group & filters.Regex(r"^스폰배율(\s+.+)?$"), spawn_rate_handler))
-    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스\s*$"), force_spawn_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스(\s+.*)?$"), force_spawn_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스권\s*$"), ticket_force_spawn_handler))
-    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*이로치\s*강스\s*$"), shiny_ticket_spawn_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*이로치\s*강스(\s+.*)?$"), shiny_ticket_spawn_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰 채널 초기화\s*$"), force_spawn_reset_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*포켓볼초기화\s*$"), pokeball_reset_handler))
 
