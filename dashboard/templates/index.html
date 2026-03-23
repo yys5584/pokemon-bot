@@ -6431,6 +6431,35 @@ async function admDbDungeon(page){
         }
         h+=`</table></div>`;
 
+        // 액션 통계
+        const ac=d.action_stats||{};
+        const ap=ac.pct||{};
+        h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">`;
+        h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-weight:700;margin-bottom:8px">⚔️ 행동 패턴 (${(ac.total||0).toLocaleString()}턴)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+                <div style="background:var(--bg);border-radius:6px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">일반공격</div><div style="font-size:18px;font-weight:700">${ap.normal||0}%</div></div>
+                <div style="background:var(--bg);border-radius:6px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">스킬1</div><div style="font-size:18px;font-weight:700;color:var(--red)">${ap.skill1||0}%</div></div>
+                <div style="background:var(--bg);border-radius:6px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">스킬2</div><div style="font-size:18px;font-weight:700;color:var(--red)">${ap.skill2||0}%</div></div>
+                <div style="background:var(--bg);border-radius:6px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">방어</div><div style="font-size:18px;font-weight:700;color:#3498db">${ap.defend||0}%</div></div>
+            </div>
+        </div>`;
+
+        // 인기 빌드
+        const builds=d.top_builds||[];
+        h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-weight:700;margin-bottom:8px">🏆 인기 빌드 Top${builds.length}</div>
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 0">버프 조합</th><th style="text-align:center">횟수</th><th style="text-align:right">평균 층</th></tr>`;
+        for(const b of builds){
+            const names=b.combo.split("+").map(id=>{
+                const m={"atk":"공격","spa":"특공","hp":"체력","def":"방어","spdef":"특방","spd":"속도","crit":"크리","double":"이중타격","dodge":"회피","thorns":"가시갑옷","lifesteal":"흡혈","heal":"회복","shield":"보호막","preemptive":"선제","penetrate":"관통","counter":"카운터","revive":"부활","allstat":"전능"};
+                return m[id]||id;
+            }).join(" + ");
+            h+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0;font-size:10px">${escHtml(names)}</td><td style="text-align:center">${b.cnt}</td><td style="text-align:right;font-weight:700">${b.avg_floor}F</td></tr>`;
+        }
+        h+=`</table></div></div>`;
+
         // 런 로그
         h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
             <div style="font-weight:700;margin-bottom:8px">🕐 런 로그 (${s.total_runs}건, ${ds.page}/${d.pages}페이지)</div>
