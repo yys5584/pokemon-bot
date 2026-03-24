@@ -101,14 +101,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 # 티어: 0(도감<100) > 1(도감<200) > 2(도감<300) > 3(도감≥300)
                 tier = 0 if pdex < thresholds[0] else (1 if pdex < thresholds[1] else (2 if pdex < thresholds[2] else 3))
                 roll = random.random()
-                # 마볼/하볼/우선포획볼 사용자: 환불 처리, 일반 포획으로 전환
+                # 마볼/하볼/우선포획볼: 뉴비스폰에서도 환불 없이 소멸
                 if attempt.get("used_master_ball"):
-                    await queries.add_master_balls_bulk([attempt["user_id"]])
-                    logger.info(f"Newbie spawn: refunded master ball to {attempt['user_id']}")
+                    logger.info(f"Newbie spawn: master ball consumed (no refund) for {attempt['user_id']}")
                 if attempt.get("used_hyper_ball"):
-                    await queries.add_hyper_balls_bulk([attempt["user_id"]])
-                    logger.info(f"Newbie spawn: refunded hyper ball to {attempt['user_id']}")
-                # 우선포획볼: 뉴비스폰에서도 환불 없이 소멸
+                    logger.info(f"Newbie spawn: hyper ball consumed (no refund) for {attempt['user_id']}")
                 if attempt.get("used_priority_ball"):
                     logger.info(f"Newbie spawn: priority ball consumed (no refund) for {attempt['user_id']}")
                 # 뉴비(tier 0,1,2)는 포획 보장, 고인물(tier 3)은 일반 확률
@@ -225,46 +222,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
 
         # 우선포획볼: 사용하면 결과와 무관하게 소멸 (환불 없음)
 
-        # Refund master balls to losers (batch) — 뉴비 스폰에서는 이미 환불 완료
-        master_refund_ids2 = [
-            r["user_id"] for r in results
-            if r["used_master_ball"] and r["user_id"] != winner_id
-        ] if not is_newbie_spawn else []
-        if master_refund_ids2:
-            await queries.add_master_balls_bulk(master_refund_ids2)
-            for loser in results:
-                if loser["used_master_ball"] and loser["user_id"] != winner_id:
-                    logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
-                    try:
-                        _loser_lang = await get_user_lang(loser["user_id"])
-                        await context.bot.send_message(
-                            chat_id=loser["user_id"],
-                            text=f"{ball_emoji('masterball')} {t(_loser_lang, 'spawn_msg.masterball_refund')}",
-                            parse_mode="HTML",
-                        )
-                    except Exception:
-                        pass
-
-        # Refund hyper balls when master ball user wins (hyper had no chance)
-        if winner.get("used_master_ball"):
-            hyper_refund_ids = [
-                r["user_id"] for r in results
-                if r["used_hyper_ball"] and r["user_id"] != winner_id
-            ]
-            if hyper_refund_ids:
-                await queries.add_hyper_balls_bulk(hyper_refund_ids)
-                for loser in results:
-                    if loser["used_hyper_ball"] and loser["user_id"] != winner_id:
-                        logger.info(f"Refunded hyper ball to {loser['display_name']} (master ball override)")
-                        try:
-                            _loser_lang = await get_user_lang(loser["user_id"])
-                            await context.bot.send_message(
-                                chat_id=loser["user_id"],
-                                text=f"{ball_emoji('hyperball')} {t(_loser_lang, 'spawn_msg.hyperball_refund')}",
-                                parse_mode="HTML",
-                            )
-                        except Exception:
-                            pass
+        # 마볼/하볼/우선포획볼: 사용하면 결과와 무관하게 소멸 (환불 없음)
 
         # Collect failed user IDs for title tracking
         failed_ids = [r["user_id"] for r in results if not r["success"]]
