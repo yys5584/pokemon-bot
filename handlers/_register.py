@@ -79,7 +79,7 @@ from handlers.dm_dungeon import dungeon_handler, dungeon_callback
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
-    pokeball_reset_handler, abuse_reset_handler,
+    pokeball_reset_handler, abuse_reset_handler, abuse_detail_handler, abuse_list_handler,
     event_start_handler, event_list_handler, event_end_handler, event_dm_callback,
     stats_handler, channel_list_handler, grant_masterball_handler, grant_bp_handler, grant_subscription_handler,
     arcade_handler, tournament_chat_handler, force_tournament_reg_handler, force_tournament_run_handler,
