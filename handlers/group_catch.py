@@ -31,15 +31,14 @@ CAPTCHA_AUTO_BAN_DURATION = 86400  # 24시간 (초)
 
 
 async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """watched 유저가 캡차 미응답 상태로 포획 시도 시 카운팅.
+    """캡차가 떠있는 상태에서 무시하고 포획 시도 시 카운팅.
     15회 이상 누적 시 24시간 자동 정지."""
     try:
-        from database.connection import get_db
-        pool = await get_db()
-        watched = await pool.fetchval(
-            "SELECT is_watched FROM abuse_scores WHERE user_id = $1", user_id)
-        if not watched:
-            return False
+        # 캡차가 떠있는 상태에서만 위반 카운트
+        from services.abuse_service import get_pending_challenge
+        pending = get_pending_challenge(user_id)
+        if not pending:
+            return False  # 캡차 안 떠있으면 정상 포획
         # 캡차 미응답 상태로 포획 = 위반 누적
         _captcha_violation_count[user_id] = _captcha_violation_count.get(user_id, 0) + 1
         cnt = _captcha_violation_count[user_id]
