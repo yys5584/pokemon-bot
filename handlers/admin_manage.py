@@ -355,7 +355,17 @@ async def abuse_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     target_id = int(parts[1])
     await admin_reset_score(target_id)
-    await update.message.reply_text(f"✅ 유저 {target_id}의 봇 의심 점수가 초기화되었습니다.")
+    # 잠금도 함께 해제
+    from services.abuse_service import _catch_locks, _db_lock_cache
+    _catch_locks.pop(target_id, None)
+    _db_lock_cache.pop(target_id, None)
+    try:
+        from database.connection import get_db
+        pool = await get_db()
+        await pool.execute("UPDATE abuse_scores SET locked_until = NULL WHERE user_id = $1", target_id)
+    except Exception:
+        pass
+    await update.message.reply_text(f"✅ 유저 {target_id}의 점수 + 포획 잠금 초기화 완료.")
 
 
 # ── KPI Report ──────────────────────────────────

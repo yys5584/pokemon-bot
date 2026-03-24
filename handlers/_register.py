@@ -331,6 +331,9 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler(group & filters.Regex(r"^\s*이로치\s*강스(\s+.*)?$"), shiny_ticket_spawn_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰 채널 초기화\s*$"), force_spawn_reset_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*포켓볼초기화\s*$"), pokeball_reset_handler))
+    app.add_handler(MessageHandler(filters.Regex(r"^\s*어뷰징초기화(\s+.+)?$"), abuse_reset_handler))
+    app.add_handler(MessageHandler(filters.Regex(r"^\s*어뷰징상세(\s+.+)?$"), abuse_detail_handler))
+    app.add_handler(MessageHandler(filters.Regex(r"^\s*어뷰징\s*$"), abuse_list_handler))
 
     # "ㅊㅊ" priority ball handler (group only, exact match) — ㅊ보다 먼저 등록
     app.add_handler(MessageHandler(
