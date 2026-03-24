@@ -63,23 +63,28 @@ def get_zone_preview(cleared_floor: int, theme: dict) -> str | None:
 # ══════════════════════════════════════════════════════════
 
 def enemy_scaling(floor: int) -> float:
-    """층별 적 스탯 배율 (v5.4).
-    v5.3 대비 31층+ 구간 세분화. 실 데이터 기반 조정.
-    목표: 평균 20~25층, 40층 3~5%, 50층 <1%."""
+    """층별 적 스탯 배율 (v6 — 100층 확장, 자동배틀 기준).
+    목표: 커먼 avg 15~20, 초전설 avg 30~40, 50층 10~20%, 100층 <1%."""
     if floor <= 10:
-        return 1.0 + floor * 0.012            # 1.012 ~ 1.12
+        return 0.80 + floor * 0.008            # 0.808 ~ 0.88
     elif floor <= 20:
-        return 1.12 + (floor - 10) * 0.020    # 1.14 ~ 1.32
+        return 0.88 + (floor - 10) * 0.012    # 0.892 ~ 1.00
     elif floor <= 30:
-        return 1.32 + (floor - 20) * 0.043    # 1.363 ~ 1.75
-    elif floor <= 35:
-        return 1.75 + (floor - 30) * 0.11     # 1.86 ~ 2.30
+        return 1.00 + (floor - 20) * 0.018    # 1.018 ~ 1.18
     elif floor <= 40:
-        return 2.30 + (floor - 35) * 0.24     # 2.54 ~ 3.50
-    elif floor <= 45:
-        return 3.50 + (floor - 40) * 0.20     # 3.70 ~ 4.50
+        return 1.18 + (floor - 30) * 0.025    # 1.205 ~ 1.43
+    elif floor <= 50:
+        return 1.43 + (floor - 40) * 0.035    # 1.465 ~ 1.78
+    elif floor <= 60:
+        return 1.78 + (floor - 50) * 0.050    # 1.83 ~ 2.28
+    elif floor <= 70:
+        return 2.28 + (floor - 60) * 0.070    # 2.35 ~ 2.98
+    elif floor <= 80:
+        return 2.98 + (floor - 70) * 0.10     # 3.08 ~ 3.98
+    elif floor <= 90:
+        return 3.98 + (floor - 80) * 0.15     # 4.13 ~ 5.48
     else:
-        return 4.50 + (floor - 45) * 0.30     # 4.80 ~ 6.00
+        return 5.48 + (floor - 90) * 0.20     # 5.68 ~ 7.48
 
 
 # ══════════════════════════════════════════════════════════
@@ -141,7 +146,8 @@ def generate_enemy(floor: int, theme: dict, player_rarity: str = "epic") -> dict
     """테마 기반 적 포켓몬 생성.
     player_rarity: 코스트별 적 스케일링 보정에 사용."""
     pool = _get_type_pool()
-    is_boss = floor % 5 == 0
+    boss_interval = getattr(config, "DUNGEON_BOSS_INTERVAL", 10)
+    is_boss = floor % boss_interval == 0
     is_elite = not is_boss and random.random() < 0.20
 
     # 보스는 반드시 테마 타입, 일반몹은 60% 테마 / 40% 랜덤
@@ -600,8 +606,15 @@ def _accumulate_tradeoff(buffs: list[dict], marker_id: str, increment: float):
 
 def should_offer_buff(floor: int, pokemon_cost: int = 1) -> bool:
     """이번 층에서 버프를 줘야 하는지.
-    턴제 대개편: 모든 코스트 동일하게 5층(보스)마다 버프."""
-    return floor % 5 == 0
+    코스트별 차등: 커먼/레어(1~2)=매층, 에픽(4)=2층마다, 전설(5)=3층, 초전설(6)=4층.
+    보스전(10층마다)에서는 코스트 무관 무조건 버프."""
+    interval = config.DUNGEON_BUFF_INTERVAL.get(pokemon_cost, 2)
+    boss_interval = getattr(config, "DUNGEON_BOSS_INTERVAL", 10)
+    # 보스전에서는 항상 버프
+    if floor % boss_interval == 0:
+        return True
+    # 코스트별 주기
+    return floor % interval == 0
 
 
 # ══════════════════════════════════════════════════════════
@@ -1501,6 +1514,230 @@ def resolve_dungeon_battle(
     won = p_hp > 0 and e_hp <= 0
     if p_hp > 0 and e_hp > 0:
         won = (p_hp / p_max_hp) > (e_hp / e_stats["hp"])
+
+    return {
+        "won": won, "remaining_hp": max(0, p_hp), "max_hp": p_max_hp,
+        "turns": min(turn, config.DUNGEON_MAX_ROUNDS),
+        "total_damage_dealt": total_dmg_dealt, "total_damage_taken": total_dmg_taken,
+        "type_display": type_display, "type_mult_player": type_mult_p,
+        "log": log_lines, "revive_used": revive_used,
+        "revive_consumed": revive_used, "highlights": _cnt,
+        "type_mult_enemy": type_mult_e,
+    }
+
+
+def resolve_dungeon_battle_v2(
+    player_stats: dict,
+    player_types: list[str],
+    player_rarity: str,
+    pokemon_id: int,
+    enemy: dict,
+    buffs: list[dict],
+    current_hp: int | None = None,
+    max_hp: int | None = None,
+    floor: int = 1,
+) -> dict:
+    """자동배틀 v2 — 턴제에서 추가된 버프/시너지/소모스킬 반영."""
+    p_stats = apply_buffs_to_stats(player_stats, buffs)
+    e_stats = dict(enemy["stats"])
+
+    p_max_hp = max_hp if max_hp is not None else p_stats["hp"]
+    p_hp = current_hp if current_hp is not None else p_max_hp
+    e_hp = e_stats["hp"]
+    e_max_hp = e_hp
+
+    # 버프 효과 수집
+    shield_rate = get_shield_rate(buffs)
+    p_shield = int(p_max_hp * shield_rate) if shield_rate > 0 else 0
+    lifesteal = get_lifesteal_rate(buffs)
+    revive_available = has_revive(buffs)
+    revive_used = False
+
+    crit_bonus = get_combat_rate(buffs, "crit")
+    double_rate = get_combat_rate(buffs, "double")
+    dodge_rate = get_combat_rate(buffs, "dodge")
+    active_syn = {s["id"] for s in _get_active_synergies(buffs)}
+
+    # 위기본능 (crisis)
+    crisis_mult = 1.0
+    crisis_threshold = 0.0
+    for b in buffs:
+        if b.get("id") == "crisis":
+            eff = b.get("effect", {})
+            crisis_mult = eff.get("mult", 1.3)
+            crisis_threshold = eff.get("threshold", 0.30)
+
+    # 1회성 소모 스킬 효과 적용
+    gambler_mult = 1.0
+    rage_turns = 0
+    rage_atk = 0.0
+    rage_drain = 0.0
+    mimic_active = False
+    for b in buffs:
+        if not b.get("id", "").startswith("_used_"):
+            continue
+        # 이미 사용된 소모 스킬은 건너뜀
+    for b in buffs:
+        bid = b.get("id", "")
+        eff = b.get("effect", {})
+        if eff.get("type") != "consumable":
+            continue
+        if any(bb.get("id") == f"_used_{bid}" for bb in buffs):
+            continue
+        # 소모 스킬 적용
+        if bid == "gambler" and eff.get("dmg_range"):
+            gambler_mult = random.uniform(*eff["dmg_range"])
+        elif bid == "rage" and eff.get("atk_boost"):
+            rage_turns = eff.get("duration", 3)
+            rage_atk = eff["atk_boost"]
+            rage_drain = eff.get("hp_drain", 0.05)
+        elif bid == "mimic" and eff.get("mimic"):
+            mimic_active = True
+        elif bid == "curse" and eff.get("enemy_hp_cut"):
+            cut = int(e_hp * eff["enemy_hp_cut"])
+            e_hp -= cut
+        elif bid == "random_heal" and eff.get("heal_range"):
+            heal_pct = random.uniform(*eff["heal_range"])
+            heal_amt = int(p_max_hp * heal_pct)
+            p_hp = min(p_max_hp, p_hp + heal_amt)
+
+    type_mult_p, _ = _type_multiplier(player_types, enemy["types"])
+    type_mult_e, _ = _type_multiplier(enemy["types"], player_types)
+    if mimic_active:
+        type_mult_p = max(type_mult_p, 2.0)
+
+    type_display = ""
+    if type_mult_p > 1.0:
+        type_display = f"유리! (×{type_mult_p:.1f})"
+    elif type_mult_p < 1.0:
+        type_display = f"불리 (×{type_mult_p:.2f})"
+    else:
+        type_display = "보통 (×1.0)"
+
+    log_lines = []
+    total_dmg_dealt = 0
+    total_dmg_taken = 0
+    _cnt = {"crit": 0, "skill": 0, "dodge": 0, "double": 0,
+            "special_used": 0,
+            "lifesteal_heal": 0, "shield_absorbed": 0}
+
+    turn = 0
+    for turn in range(1, config.DUNGEON_MAX_ROUNDS + 1):
+        if p_hp <= 0 or e_hp <= 0:
+            break
+
+        # 폭주 HP 드레인
+        if rage_turns > 0:
+            drain = int(p_max_hp * rage_drain)
+            p_hp = max(1, p_hp - drain)
+            rage_turns -= 1
+
+        p_first = p_stats["spd"] >= e_stats["spd"]
+        if p_stats["spd"] == e_stats["spd"]:
+            p_first = random.random() < 0.5
+
+        fighters = [("player", p_stats, player_types, player_rarity, type_mult_p),
+                     ("enemy", e_stats, enemy["types"], enemy["rarity"], type_mult_e)]
+        if not p_first:
+            fighters.reverse()
+
+        for tag, atk_s, atk_types, rarity, t_mult in fighters:
+            if p_hp <= 0 or e_hp <= 0:
+                break
+            # 회피
+            if tag == "enemy" and dodge_rate > 0 and random.random() < dodge_rate:
+                _cnt["dodge"] += 1
+                # phantom 시너지: 회피 성공 시 다음 크리 확정
+                if "phantom" in active_syn:
+                    _cnt["_phantom_crit"] = True
+                continue
+
+            # 공격력 계산
+            if atk_s["atk"] >= atk_s["spa"]:
+                atk_val = atk_s["atk"]
+                def_val = e_stats["def"] if tag == "player" else p_stats["def"]
+            else:
+                atk_val = atk_s["spa"]
+                def_val = e_stats["spdef"] if tag == "player" else p_stats["spdef"]
+
+            base = max(int(atk_val * config.DUNGEON_MIN_DMG_RATIO),
+                       atk_val - int(def_val * config.DUNGEON_DEF_FACTOR))
+
+            # 크리
+            effective_crit = config.DUNGEON_CRIT_RATE + (crit_bonus if tag == "player" else 0)
+            if _cnt.get("_phantom_crit") and tag == "player":
+                is_crit = True
+                _cnt.pop("_phantom_crit", None)
+            else:
+                is_crit = random.random() < effective_crit
+            crit_m = config.DUNGEON_CRIT_MULT if is_crit else 1.0
+            if is_crit and tag == "player":
+                _cnt["crit"] += 1
+
+            # 스킬 사용 (확률 기반)
+            skill_on = random.random() < config.DUNGEON_SKILL_RATE
+            skill_m = config.DUNGEON_SKILL_MULT.get(rarity, 1.2) if skill_on else 1.0
+            if skill_on and tag == "player":
+                _cnt["skill"] += 1
+
+            damage = max(1, int(base * t_mult * crit_m * skill_m * random.uniform(0.9, 1.1)))
+
+            # 위기본능
+            if tag == "player" and crisis_threshold > 0 and (p_hp / p_max_hp) <= crisis_threshold:
+                damage = int(damage * crisis_mult)
+
+            # 폭주 공격 보너스
+            if tag == "player" and rage_atk > 0:
+                damage = int(damage * (1.0 + rage_atk))
+
+            # 도박사 배율
+            if tag == "player" and gambler_mult != 1.0:
+                damage = int(damage * gambler_mult)
+
+            # 시너지
+            if tag == "player" and "power" in active_syn:
+                damage = int(damage * 1.20)
+            if tag == "enemy" and "iron" in active_syn:
+                damage = int(damage * 0.85)
+
+            if tag == "player":
+                # reaper 즉사
+                if "reaper" in active_syn and e_hp <= e_max_hp * 0.15:
+                    damage = e_hp
+                # 이중타격
+                hit_count = 1
+                eff_d = double_rate
+                if is_crit and "fury" in active_syn:
+                    eff_d = min(1.0, eff_d * 2)
+                if eff_d > 0 and random.random() < eff_d:
+                    hit_count = 2
+                    _cnt["double"] += 1
+                for _ in range(hit_count):
+                    e_hp -= damage
+                    total_dmg_dealt += damage
+                    if lifesteal > 0:
+                        h = int(damage * lifesteal)
+                        p_hp = min(p_max_hp, p_hp + h)
+                        _cnt["lifesteal_heal"] += h
+            else:
+                # 보호막 처리
+                if p_shield > 0:
+                    ab = min(p_shield, damage)
+                    p_shield -= ab
+                    damage -= ab
+                    _cnt["shield_absorbed"] += ab
+                p_hp -= damage
+                total_dmg_taken += damage
+
+        # 부활
+        if p_hp <= 0 and revive_available:
+            p_hp = int(p_max_hp * 0.30)
+            revive_available = False
+            revive_used = True
+
+    won = p_hp > 0 and e_hp <= 0
+    if p_hp > 0 and e_hp > 0:
+        won = (p_hp / p_max_hp) > (e_hp / e_max_hp)
 
     return {
         "won": won, "remaining_hp": max(0, p_hp), "max_hp": p_max_hp,

@@ -387,8 +387,8 @@ def _quick_power(p: dict) -> int:
 # ══════════════════════════════════════════════════════════
 
 async def _process_floor(query, context, user_id: int, run: dict):
-    """다음 층 배틀 진행 — 현재는 자동배틀, 턴제는 추후 활성화."""
-    USE_TURN_BASED = True
+    """다음 층 배틀 진행 — 자동배틀 v2 (딸깍→결과→버프→다음층)."""
+    USE_TURN_BASED = False
 
     lang = await get_user_lang(user_id)
     floor = run["floor_reached"] + 1
@@ -423,7 +423,7 @@ async def _process_floor(query, context, user_id: int, run: dict):
                                         pokemon, player_stats, player_types, enemy, buffs)
         return
 
-    # ══ 자동배틀 (기존) ══
+    # ══ 자동배틀 v2 ══
     # 로그라이크 1턴 스탯 적용
     rogue_mults = ds.get_rogue_stat_mults(buffs)
     if rogue_mults:
@@ -431,9 +431,11 @@ async def _process_floor(query, context, user_id: int, run: dict):
             if stat in player_stats:
                 player_stats[stat] = int(player_stats[stat] * mult)
 
-    result = ds.resolve_dungeon_battle(
-        player_stats, player_types, pokemon["rarity"], enemy, buffs,
+    result = ds.resolve_dungeon_battle_v2(
+        player_stats, player_types, pokemon["rarity"],
+        pokemon["pokemon_id"], enemy, buffs,
         current_hp=run["current_hp"], max_hp=run["max_hp"],
+        floor=floor,
     )
     remaining_hp = result["remaining_hp"]
     won = result["won"]
@@ -448,8 +450,7 @@ async def _process_floor(query, context, user_id: int, run: dict):
         heal_rate = ds.get_floor_heal_rate(buffs)
         if heal_rate > 0:
             remaining_hp = min(run["max_hp"], remaining_hp + int(run["max_hp"] * heal_rate))
-        await dq.update_run_progress(run["id"], floor, remaining_hp, buffs,
-                                     pp_state=st.get("pp_state"))
+        await dq.update_run_progress(run["id"], floor, remaining_hp, buffs)
 
         hp_bar = _hp_bar(remaining_hp, run["max_hp"])
         hp_pct = int(remaining_hp / run["max_hp"] * 100) if run["max_hp"] else 0
@@ -519,7 +520,7 @@ async def _process_floor(query, context, user_id: int, run: dict):
             await _finish_run(query, context, user_id, run, floor)
             return
 
-        if ds.should_offer_buff(floor):
+        if ds.should_offer_buff(floor, cost):
             choices = ds.generate_buff_choices(floor, buffs)
             st["buff_choices"] = choices
             if not choices:
@@ -1233,9 +1234,8 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         return
 
     elif action in ("atk", "sk1", "sk2", "def"):
-        # 턴제 전투 행동
-        action_map = {"atk": "normal", "sk1": "skill1", "sk2": "skill2", "def": "defend"}
-        await _process_turn_action(query, context, user_id, action_map[action])
+        # 턴제 전투 비활성화 — 기존 런 호환 (자동배틀로 전환됨)
+        await query.answer("⚔️ 자동배틀로 전환되었습니다! '다음 층' 버튼을 눌러주세요.", show_alert=True)
         return
 
     elif action == "go":
@@ -1244,10 +1244,10 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         if not run:
             await query.answer(t(lang, "dungeon.no_active_run"), show_alert=True)
             return
-        # 50층 클리어 → 자동 완료
-        if run["floor_reached"] >= 50:
-            await query.answer("🏆 50층 클리어!")
-            await _finish_run(query, context, user_id, run, 50)
+        # 최대층 클리어 → 자동 완료
+        if run["floor_reached"] >= config.DUNGEON_MAX_FLOOR:
+            await query.answer(f"🏆 {config.DUNGEON_MAX_FLOOR}층 클리어!")
+            await _finish_run(query, context, user_id, run, config.DUNGEON_MAX_FLOOR)
             return
         await query.answer()
         st["run_id"] = run["id"]

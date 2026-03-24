@@ -1272,8 +1272,10 @@ DUNGEON_DAILY_TICKETS = {"free": 1, "basic": 2, "channel_owner": 3}
 DUNGEON_TICKET_BP_COST = {"free": 300, "basic": 250, "channel_owner": 200}
 DUNGEON_DAILY_BUY_LIMIT = {"free": 1, "basic": 1, "channel_owner": 3}
 
-# --- 버프 주기 (턴제 대개편: 모든 코스트 5층마다 통일) ---
-DUNGEON_BUFF_FREQUENCY = {1: 5, 2: 5, 4: 5, 5: 5, 6: 5}
+# --- 버프 주기 (코스트별 차등: 저코스트=매층, 고코스트=간격↑) ---
+DUNGEON_BUFF_FREQUENCY = {1: 5, 2: 5, 4: 5, 5: 5, 6: 5}  # legacy (미사용)
+DUNGEON_BUFF_INTERVAL = {1: 1, 2: 1, 4: 2, 5: 3, 6: 4}   # 코스트별 버프 주기 (층)
+DUNGEON_BOSS_INTERVAL = 10  # 보스전 주기 (층)
 
 # --- 배틀 ---
 DUNGEON_MAX_ROUNDS = 50
@@ -1287,7 +1289,7 @@ DUNGEON_MAX_BUFFS = 8            # 버프 슬롯 상한
 DUNGEON_BP_PER_FLOOR = 10        # 층당 기본 BP
 DUNGEON_MAX_DAILY_RUNS = {"free": 3, "basic": 3, "channel_owner": 5}  # 일일 런 횟수 (구독별)
 DUNGEON_PRACTICE_MAX = 10  # 연습모드 포함 총 일일 상한
-DUNGEON_MAX_FLOOR = 50     # 던전 최대 층
+DUNGEON_MAX_FLOOR = 100    # 던전 최대 층
 DUNGEON_REROLL_LIMIT = {"free": 0, "basic": 1, "channel_owner": 3}   # 버프 리롤 횟수 (런당)
 
 # --- 스킬 배율 (희귀도별, 던전 간소화) ---
@@ -1320,8 +1322,8 @@ DUNGEON_NORMAL_ATK_MULT = {
 }
 # 코스트별 적 스케일링 보정 — 등급 역전 방지, 격차 축소
 DUNGEON_COST_SCALING = {
-    "common": 0.72, "rare": 0.76, "epic": 0.80,
-    "legendary": 0.80, "ultra_legendary": 0.88,
+    "common": 0.30, "rare": 0.55, "epic": 0.68,
+    "legendary": 0.82, "ultra_legendary": 1.00,
 }
 DUNGEON_SPECIAL_MULT = 2.2       # 특수기 기본 배율
 DUNGEON_DEFEND_REDUCE = 0.6      # 방어 시 데미지 40% 감소 (60% 통과)
