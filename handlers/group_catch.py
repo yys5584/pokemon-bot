@@ -31,7 +31,7 @@ CAPTCHA_AUTO_BAN_DURATION = 86400  # 24시간 (초)
 
 
 async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """캡차가 떠있는 상태에서 무시하고 포획 시도 시 카운팅.
+    """캡차가 떠있는 상태에서 무시하고 포획 시도 시 카운팅 + 포획 차단.
     15회 이상 누적 시 24시간 자동 정지."""
     try:
         # 캡차가 떠있는 상태에서만 위반 카운트
@@ -39,15 +39,31 @@ async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_T
         pending = get_pending_challenge(user_id)
         if not pending:
             return False  # 캡차 안 떠있으면 정상 포획
+
         # 캡차 미응답 상태로 포획 = 위반 누적
         _captcha_violation_count[user_id] = _captcha_violation_count.get(user_id, 0) + 1
         cnt = _captcha_violation_count[user_id]
 
+        # 매번 DM으로 경고 (포획볼 소모됨 안내)
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=(
+                    f"⚠️ <b>캡차를 먼저 풀어주세요!</b>\n\n"
+                    f"캡차 미응답 상태에서 포획 시도 → 포획볼만 소모됩니다.\n"
+                    f"위 캡차 메시지에서 정답을 선택해주세요.\n\n"
+                    f"🔒 누적 {cnt}/{CAPTCHA_AUTO_BAN_THRESHOLD}회 — {CAPTCHA_AUTO_BAN_THRESHOLD}회 시 <b>24시간 정지</b>"
+                ),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
         # 자동 정지: 임계치 도달 시 24시간 포획 차단
-        if cnt >= CAPTCHA_AUTO_BAN_THRESHOLD and cnt % CAPTCHA_AUTO_BAN_THRESHOLD == 0:
+        if cnt >= CAPTCHA_AUTO_BAN_THRESHOLD:
             from services.abuse_service import _apply_catch_lock
-            strike, duration = _apply_catch_lock(user_id, duration_override=CAPTCHA_AUTO_BAN_DURATION)
-            _captcha_violation_count[user_id] = 0  # 카운터 리셋
+            _apply_catch_lock(user_id, duration_override=CAPTCHA_AUTO_BAN_DURATION)
+            _captcha_violation_count[user_id] = 0
             try:
                 await context.bot.send_message(
                     chat_id=user_id,
@@ -62,6 +78,8 @@ async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_T
                 pass
             # 관리자 알림
             try:
+                from database.connection import get_db
+                pool = await get_db()
                 user = await pool.fetchrow("SELECT display_name, username FROM users WHERE user_id = $1", user_id)
                 uname = f"@{user['username']}" if user and user['username'] else ""
                 dname = user['display_name'] if user else str(user_id)
@@ -72,35 +90,8 @@ async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_T
                 )
             except Exception:
                 pass
-            return True  # 포획 차단
 
-        # 3회마다 경고
-        if cnt % 3 == 0:
-            try:
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text=(
-                        f"⚠️ <b>캡차 미응답 경고 ({cnt}회 누적)</b>\n\n"
-                        f"캡차를 풀지 않고 포획을 계속하고 있습니다.\n"
-                        f"지금 즉시 위 캡차를 풀어주세요!\n\n"
-                        f"🔒 {CAPTCHA_AUTO_BAN_THRESHOLD}회 누적 시 <b>24시간 자동 정지</b>됩니다."
-                    ),
-                    parse_mode="HTML",
-                )
-            except Exception:
-                pass
-            # 관리자에게도 알림
-            try:
-                user = await pool.fetchrow("SELECT display_name, username FROM users WHERE user_id = $1", user_id)
-                uname = f"@{user['username']}" if user and user['username'] else ""
-                dname = user['display_name'] if user else str(user_id)
-                await context.bot.send_message(
-                    chat_id=config.ADMIN_IDS[0],
-                    text=f"🚨 캡차 무시 감지: <b>{dname}</b> {uname} — {cnt}회 누적 포획",
-                    parse_mode="HTML",
-                )
-            except Exception:
-                pass
+        return True  # 항상 포획 차단 (캡차 떠있으면 포획 불가)
     except Exception:
         pass
     return False
@@ -140,7 +131,8 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
-    await _check_captcha_violation(user_id, context)
+    if await _check_captcha_violation(user_id, context):
+        return  # 캡차 미응답 → 포획 차단
 
     try:
         _, session = await asyncio.gather(
@@ -247,7 +239,8 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
-    await _check_captcha_violation(user_id, context)
+    if await _check_captcha_violation(user_id, context):
+        return  # 캡차 미응답 → 포획 차단
 
     try:
         _, session = await asyncio.gather(
