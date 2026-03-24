@@ -134,7 +134,7 @@ async def _do_evolve(p: dict, user_id: int, lang: str = "ko") -> str:
     else:
         target_id = p["evolves_to"]
 
-    evo_target = await queries.get_pokemon_master(target_id)
+    evo_target = await queries.get_pokemon(target_id)
     if not evo_target:
         return t(lang, "my_pokemon.evolve_target_not_found")
     await queries.evolve_pokemon(p["id"], target_id)
@@ -544,5 +544,9 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             text_msg, markup = _build_partner_list(user_id, pokemon_list, 0, lang=lang)
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")
 
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"my_pokemon_callback error: action={action}, data={data}, err={e}", exc_info=True)
+        try:
+            await query.answer(f"오류 발생: {str(e)[:100]}", show_alert=True)
+        except Exception:
+            pass
