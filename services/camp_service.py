@@ -851,6 +851,11 @@ async def convert_to_shiny_by_ticket(user_id: int, instance_id: int) -> tuple[bo
     if pokemon.get("is_shiny"):
         return False, "이미 이로치입니다.", None
 
+    # 전환권은 에픽 이하만 허용
+    _blocked = {"legendary", "ultra_legendary"}
+    if pokemon.get("rarity", "common") in _blocked:
+        return False, "❌ 이로치전환권은 에픽 등급 이하 포켓몬만 사용할 수 있습니다.", None
+
     existing = await cq.get_shiny_pending_for_pokemon(instance_id)
     if existing:
         return False, "이미 이로치 전환 대기 중입니다.", None

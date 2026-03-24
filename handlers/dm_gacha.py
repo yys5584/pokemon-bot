@@ -1168,8 +1168,10 @@ async def _use_shiny_convert_ticket(query, user_id: int, page: int = 0):
         return
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
-    # 이로치가 아닌 포켓몬만
-    eligible = [p for p in pokemon_list if not p.get("is_shiny")]
+    # 이로치가 아닌 포켓몬만 (전환권은 에픽 이하만 가능)
+    _TICKET_BLOCKED = {"legendary", "ultra_legendary"}
+    eligible = [p for p in pokemon_list
+                if not p.get("is_shiny") and p.get("rarity", "common") not in _TICKET_BLOCKED]
     if not eligible:
         await query.edit_message_text("전환 가능한 포켓몬이 없습니다.")
         return

@@ -108,10 +108,9 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 if attempt.get("used_hyper_ball"):
                     await queries.add_hyper_balls_bulk([attempt["user_id"]])
                     logger.info(f"Newbie spawn: refunded hyper ball to {attempt['user_id']}")
+                # 우선포획볼: 뉴비스폰에서도 환불 없이 소멸
                 if attempt.get("used_priority_ball"):
-                    from database import item_queries as _iq
-                    await _iq.add_user_item(attempt["user_id"], "priority_ball")
-                    logger.info(f"Newbie spawn: refunded priority ball to {attempt['user_id']}")
+                    logger.info(f"Newbie spawn: priority ball consumed (no refund) for {attempt['user_id']}")
                 # 뉴비(tier 0,1,2)는 포획 보장, 고인물(tier 3)은 일반 확률
                 if tier < 3:
                     success = True
@@ -224,17 +223,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         winner_id = winner["user_id"]
         winner_name = winner["display_name"]
 
-        # 우선포획볼: 핸들러(ㅊㅊ)에서 이미 소비됨 — 패배자 환불
-        priority_refund_ids = [
-            r["user_id"] for r in results
-            if r.get("used_priority_ball") and r["user_id"] != winner_id
-        ]
-        if priority_refund_ids:
-            for uid in priority_refund_ids:
-                try:
-                    await _iq.add_user_item(uid, "priority_ball")
-                except Exception:
-                    pass
+        # 우선포획볼: 사용하면 결과와 무관하게 소멸 (환불 없음)
 
         # Refund master balls to losers (batch) — 뉴비 스폰에서는 이미 환불 완료
         master_refund_ids2 = [
