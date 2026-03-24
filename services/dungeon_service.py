@@ -999,6 +999,43 @@ def resolve_turn(state: dict, player_action: str) -> dict:
     e_stats = state["e_stats"]
     e_intent = state["e_intent"]
 
+    # ── 1회성 스킬 적용 (첫 턴에만) ──
+    if state["turn"] == 1:
+        pending = [b for b in buffs if b.get("id", "").startswith("_pending_")]
+        for p in pending:
+            eff = p.get("effect", {})
+            # 저주: 적 HP -20%
+            if eff.get("enemy_hp_cut"):
+                cut = int(state["e_hp"] * eff["enemy_hp_cut"])
+                state["e_hp"] = max(1, state["e_hp"] - cut)
+                e_stats["hp"] = state["e_hp"]
+            # 도박사: 데미지 배율 설정
+            if eff.get("dmg_range"):
+                state["_gambler_mult"] = random.uniform(*eff["dmg_range"])
+            # 폭주: 공격 +50%, HP 드레인 마커
+            if eff.get("atk_boost"):
+                state["_rage_turns"] = eff.get("duration", 3)
+                state["_rage_atk"] = eff["atk_boost"]
+                state["_rage_drain"] = eff.get("hp_drain", 0.05)
+            # 모방: 적 타입 상성으로 스킬 사용 (상성 유리로 변환)
+            if eff.get("mimic"):
+                state["_mimic_active"] = True
+                state["type_mult_p"] = 2.0  # 상성 유리로 강제
+            # 회복 룰렛: 즉시 HP 1~50% 회복
+            if eff.get("heal_range"):
+                heal_pct = random.randint(*eff["heal_range"]) / 100
+                heal_amt = int(state["p_max_hp"] * heal_pct)
+                state["p_hp"] = min(state["p_max_hp"], state["p_hp"] + heal_amt)
+        # pending 마커 제거
+        state["buffs"] = [b for b in buffs if not b.get("id", "").startswith("_pending_")]
+        buffs = state["buffs"]
+
+    # ── 폭주 HP 드레인 ──
+    if state.get("_rage_turns", 0) > 0:
+        drain = int(state["p_max_hp"] * state.get("_rage_drain", 0.05))
+        state["p_hp"] = max(1, state["p_hp"] - drain)
+        state["_rage_turns"] -= 1
+
     # ── 게으름 특성: 짝수 턴에 빈둥빈둥 (방어만 가능) ──
     if state.get("is_truant") and state["turn"] % 2 == 0:
         player_action = "defend"  # 강제 방어
@@ -1084,6 +1121,13 @@ def resolve_turn(state: dict, player_action: str) -> dict:
             player_action_name = sk["name"]
             player_action_emoji = sk["emoji"]
 
+            # 도박사 배율
+            if state.get("_gambler_mult"):
+                player_dmg = max(1, int(player_dmg * state["_gambler_mult"]))
+            # 폭주 공격 부스트
+            if state.get("_rage_turns", 0) > 0 or state.get("_rage_atk"):
+                player_dmg = max(1, int(player_dmg * state.get("_rage_atk", 1.0)))
+
             # 시너지: 풀파워
             if "power" in active_syn:
                 player_dmg = int(player_dmg * 1.20)
@@ -1108,6 +1152,13 @@ def resolve_turn(state: dict, player_action: str) -> dict:
         player_dmg = max(1, int(base * normal_mult * crit_mult * crisis_mult * weakness_mult * focus_mult * variance))
         player_action_name = "일반공격"
         player_action_emoji = "⚔️"
+
+        # 도박사 배율
+        if state.get("_gambler_mult"):
+            player_dmg = max(1, int(player_dmg * state["_gambler_mult"]))
+        # 폭주 공격 부스트
+        if state.get("_rage_turns", 0) > 0 or state.get("_rage_atk"):
+            player_dmg = max(1, int(player_dmg * state.get("_rage_atk", 1.0)))
 
         # 시너지: 풀파워
         if "power" in active_syn:
