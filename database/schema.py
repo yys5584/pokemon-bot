@@ -1518,6 +1518,14 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── 던전 PP 상태 영속화 (2026-03-24) ──
+    try:
+        await pool.execute(
+            "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS pp_state_json JSONB",
+            timeout=30)
+    except Exception:
+        pass
+
     # ── Gen4 크로스 진화 method 수정 (2026-03-23) ──
     for sql in GEN4_EVO_METHOD_FIX:
         try:

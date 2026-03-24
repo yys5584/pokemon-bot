@@ -448,7 +448,8 @@ async def _process_floor(query, context, user_id: int, run: dict):
         heal_rate = ds.get_floor_heal_rate(buffs)
         if heal_rate > 0:
             remaining_hp = min(run["max_hp"], remaining_hp + int(run["max_hp"] * heal_rate))
-        await dq.update_run_progress(run["id"], floor, remaining_hp, buffs)
+        await dq.update_run_progress(run["id"], floor, remaining_hp, buffs,
+                                     pp_state=st.get("pp_state"))
 
         hp_bar = _hp_bar(remaining_hp, run["max_hp"])
         hp_pct = int(remaining_hp / run["max_hp"] * 100) if run["max_hp"] else 0
@@ -570,9 +571,14 @@ async def _process_floor_turnbased(query, context, user_id, run, floor, theme_da
 
     st = _state(context)
     if "pp_state" not in st:
-        pp_max = combat["pp_max"]
-        pp_list = [{"current": pp_max, "max": pp_max} for _ in combat["skills"]]
-        st["pp_state"] = pp_list
+        # DB에서 PP 상태 복원 시도 (봇 재시작 대비)
+        db_pp = run.get("pp_state_json")
+        if db_pp and isinstance(db_pp, list) and len(db_pp) == len(combat["skills"]):
+            st["pp_state"] = db_pp
+        else:
+            pp_max = combat["pp_max"]
+            pp_list = [{"current": pp_max, "max": pp_max} for _ in combat["skills"]]
+            st["pp_state"] = pp_list
     combat["pp"] = st["pp_state"]
     st["combat"] = combat
 
@@ -776,7 +782,8 @@ async def _handle_floor_clear(query, context, user_id: int, combat: dict, turn_r
     # DB 업데이트
     run = await dq.get_active_run(user_id)
     if run:
-        await dq.update_run_progress(run["id"], floor, remaining_hp, buffs)
+        await dq.update_run_progress(run["id"], floor, remaining_hp, buffs,
+                                     pp_state=st.get("pp_state"))
 
     # 전투 상태 클리어
     st.pop("combat", None)

@@ -129,18 +129,29 @@ async def get_active_run(user_id: int) -> dict | None:
     d = dict(row)
     if isinstance(d.get("buffs_json"), str):
         d["buffs_json"] = json.loads(d["buffs_json"])
+    if isinstance(d.get("pp_state_json"), str):
+        d["pp_state_json"] = json.loads(d["pp_state_json"])
     return d
 
 
 async def update_run_progress(
-    run_id: int, floor: int, current_hp: int, buffs_json: list
+    run_id: int, floor: int, current_hp: int, buffs_json: list,
+    pp_state: list | None = None,
 ):
     pool = await get_db()
-    await pool.execute(
-        "UPDATE dungeon_runs SET floor_reached = $1, current_hp = $2, "
-        "buffs_json = $3::jsonb WHERE id = $4",
-        floor, current_hp, json.dumps(buffs_json, ensure_ascii=False), run_id,
-    )
+    if pp_state is not None:
+        await pool.execute(
+            "UPDATE dungeon_runs SET floor_reached = $1, current_hp = $2, "
+            "buffs_json = $3::jsonb, pp_state_json = $4::jsonb WHERE id = $5",
+            floor, current_hp, json.dumps(buffs_json, ensure_ascii=False),
+            json.dumps(pp_state, ensure_ascii=False), run_id,
+        )
+    else:
+        await pool.execute(
+            "UPDATE dungeon_runs SET floor_reached = $1, current_hp = $2, "
+            "buffs_json = $3::jsonb WHERE id = $4",
+            floor, current_hp, json.dumps(buffs_json, ensure_ascii=False), run_id,
+        )
 
 
 async def update_run_skips(run_id: int, skips_used: int):
