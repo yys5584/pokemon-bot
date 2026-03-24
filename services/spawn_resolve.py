@@ -101,9 +101,10 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 # 티어: 0(도감<100) > 1(도감<200) > 2(도감<300) > 3(도감≥300)
                 tier = 0 if pdex < thresholds[0] else (1 if pdex < thresholds[1] else (2 if pdex < thresholds[2] else 3))
                 roll = random.random()
-                # 마볼/하볼/우선포획볼: 뉴비스폰에서도 환불 없이 소멸
+                # 뉴비스폰: 마볼은 환불, 하볼/우선포획볼은 소멸
                 if attempt.get("used_master_ball"):
-                    logger.info(f"Newbie spawn: master ball consumed (no refund) for {attempt['user_id']}")
+                    await queries.add_master_balls_bulk([attempt["user_id"]])
+                    logger.info(f"Newbie spawn: refunded master ball to {attempt['user_id']}")
                 if attempt.get("used_hyper_ball"):
                     logger.info(f"Newbie spawn: hyper ball consumed (no refund) for {attempt['user_id']}")
                 if attempt.get("used_priority_ball"):
@@ -220,9 +221,27 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         winner_id = winner["user_id"]
         winner_name = winner["display_name"]
 
-        # 우선포획볼: 사용하면 결과와 무관하게 소멸 (환불 없음)
-
-        # 마볼/하볼/우선포획볼: 사용하면 결과와 무관하게 소멸 (환불 없음)
+        # 하볼/우선포획볼: 소멸 (환불 없음)
+        # 마볼: 패배자 환불
+        from database import item_queries as _iq
+        master_refund_ids = [
+            r["user_id"] for r in results
+            if r["used_master_ball"] and r["user_id"] != winner_id
+        ] if not is_newbie_spawn else []
+        if master_refund_ids:
+            await queries.add_master_balls_bulk(master_refund_ids)
+            for loser in results:
+                if loser["used_master_ball"] and loser["user_id"] != winner_id:
+                    logger.info(f"Refunded master ball to {loser['display_name']} ({loser['user_id']})")
+                    try:
+                        _loser_lang = await get_user_lang(loser["user_id"])
+                        await context.bot.send_message(
+                            chat_id=loser["user_id"],
+                            text=f"{ball_emoji('masterball')} {t(_loser_lang, 'spawn_msg.masterball_refund')}",
+                            parse_mode="HTML",
+                        )
+                    except Exception:
+                        pass
 
         # Collect failed user IDs for title tracking
         failed_ids = [r["user_id"] for r in results if not r["success"]]
