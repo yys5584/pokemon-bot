@@ -217,13 +217,6 @@ async def find_ranked_opponent(user_id: int, season_id: str) -> int | None:
         if team and len(team) >= 1:
             return c["user_id"]
 
-    # 최종 폴백
-    fallback_ids = await rq.find_any_matchable_users(exclude_ids, limit=10)
-    for fid in fallback_ids:
-        team = await bq.get_battle_team(fid)
-        if team and len(team) >= 1:
-            return fid
-
     return None
 
 
