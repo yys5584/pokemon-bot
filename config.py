@@ -1419,27 +1419,27 @@ DUNGEON_TIME_REDUCE_HOURS = 12  # 시간단축권 차감 시간
 
 # --- 마일스톤 보상 ---
 DUNGEON_MILESTONE_REWARDS = {
-    5:  {"bp": 30,  "fragments": 1},
-    10: {"bp": 50,  "fragments": 2, "items": {"dungeon_amulet": 1}},
-    15: {"bp": 80,  "fragments": 2, "items": {"time_reduce_ticket": 1}},
-    20: {"bp": 100, "fragments": 3, "crystals": 1, "items": {"iv_stone_3": 1}},
-    25: {"bp": 120, "fragments": 3, "crystals": 1, "items": {"dungeon_amulet": 1, "time_reduce_ticket": 1, "priority_ball": 1}},
-    30: {"bp": 150, "fragments": 4, "crystals": 2, "rainbow": 1, "items": {"shiny_convert_ticket": 1}},
-    35: {"bp": 180, "fragments": 4},
-    40: {"bp": 200, "fragments": 5, "crystals": 3, "rainbow": 1, "iv_stones": 1, "tickets": 1, "items": {"egg_instant_hatch": 1}},
-    45: {"bp": 230, "fragments": 5, "items": {"priority_ball": 1}},
-    50: {"bp": 280, "fragments": 6, "rainbow": 2, "iv_stones": 1, "items": {"shiny_convert_ticket": 1, "egg_instant_hatch": 1}},
+    10:  {"bp": 20,   "fragments": 1},
+    20:  {"bp": 30,   "items": {"dungeon_amulet": 1}},
+    30:  {"bp": 50,   "crystals": 1},
+    40:  {"bp": 80,   "items": {"iv_reroll_all": 1}},
+    50:  {"bp": 120,  "fragments": 3},
+    60:  {"bp": 200,  "crystals": 2},
+    70:  {"bp": 350,  "items": {"iv_reroll_one": 1}},
+    80:  {"bp": 500,  "items": {"shiny_egg": 1}},
+    90:  {"bp": 700,  "rainbow": 2, "iv_stones": 1},
+    100: {"bp": 1000, "rainbow": 1, "iv_stones": 2},
 }
-DUNGEON_MAX_BP = 2000             # BP 상한
+DUNGEON_MAX_BP = 5000             # BP 상한
 
 # --- 마일스톤 칭호 ---
 DUNGEON_MILESTONE_TITLES = {
-    5:  ("던전 입문자", "🏰"),
-    10: ("던전 탐험가", "⚔️"),
-    20: ("던전 정복자", "🗡"),
-    30: ("던전 마스터", "🔥"),
-    40: ("던전 레전드", "💎"),
-    50: ("던전 챔피언", "👑"),
+    10: ("던전 입문자", "🏰"),
+    20: ("던전 탐험가", "⚔️"),
+    30: ("던전 도전자", "🗡"),
+    50: ("던전 정복자", "🔥"),
+    70: ("던전 마스터", "💎"),
+    100: ("던전 챔피언", "👑"),
 }
 
 # --- 주간 랭킹 보상 ---
@@ -1552,11 +1552,11 @@ CAMP_SHINY_COOLDOWN = {
 # ── 분해 결과 ──
 CAMP_DECOMPOSE_CRYSTAL = {
     "common": 1, "rare": 2, "epic": 3,
-    "legendary": 5, "ultra_legendary": 15,
+    "legendary": 5, "ultra_legendary": 10,
 }
 CAMP_DECOMPOSE_RAINBOW = {
     "common": 0, "rare": 0, "epic": 0,
-    "legendary": 1, "ultra_legendary": 2,
+    "legendary": 0, "ultra_legendary": 1,
 }
 
 # ── 배치 횟수 (도감 기반) ──
@@ -1653,14 +1653,14 @@ GACHA_COST = 100  # 1회 뽑기 비용
 
 # (확률, 아이템키, 표시명, 이모지)
 GACHA_TABLE = [
-    (0.35, "bp_refund",     "BP 환급",          "💰"),
-    (0.20, "hyperball",     "하이퍼볼 ×2",       "🔵"),
-    (0.15, "masterball",    "마스터볼 ×1",       "🟣"),
-    (0.12, "iv_reroll_all", "개체값 재설정권 ×1", "🔄"),
-    (0.08, "bp_jackpot",    "BP 잭팟 +300",      "💎"),
-    (0.05, "iv_reroll_one", "IV 선택 리롤 ×1",   "🎯"),
-    (0.03, "shiny_egg",     "이로치 알 ×1",      "🥚"),
-    (0.02, "shiny_spawn",   "이로치 강스권 ×1",   "✨"),
+    (0.455, "bp_refund",     "BP 환급",          "💰"),
+    (0.32,  "hyperball",     "하이퍼볼 ×2",       "🔵"),
+    (0.075, "masterball",    "마스터볼 ×1",       "🟣"),
+    (0.06,  "iv_reroll_all", "개체값 재설정권 ×1", "🔄"),
+    (0.04,  "bp_jackpot",    "BP 잭팟 +300",      "💎"),
+    (0.025, "iv_reroll_one", "IV 선택 리롤 ×1",   "🎯"),
+    (0.015, "shiny_egg",     "이로치 알 ×1",      "🥚"),
+    (0.01,  "shiny_spawn",   "이로치 강스권 ×1",   "✨"),
 ]
 
 GACHA_BP_REFUND_MIN = 10

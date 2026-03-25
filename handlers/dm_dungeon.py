@@ -1000,8 +1000,10 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
     for i_type, i_qty in rewards.get("items", {}).items():
         try:
             if i_type == "iv_stone_3":
-                # IV스톤은 기존 시스템 재활용
                 await item_queries.add_iv_stones(user_id, i_qty)
+            elif i_type == "shiny_egg":
+                from services.gacha_service import _create_shiny_egg
+                await _create_shiny_egg(user_id)
             else:
                 await item_queries.add_user_item(user_id, i_type, i_qty)
         except Exception as e:
@@ -1058,8 +1060,6 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
         text += t(lang, "dungeon.result_rainbow", amount=rewards["rainbow"]) + "\n"
     if rewards.get("iv_stones", 0) > 0:
         text += t(lang, "dungeon.result_iv_stones", amount=rewards["iv_stones"]) + "\n"
-    if rewards.get("tickets", 0) > 0:
-        text += f"  {TICKET} {t(lang, 'dungeon.result_tickets', amount=rewards['tickets'])}\n"
     # 신규 아이템 표시
     for i_type, i_qty in rewards.get("items", {}).items():
         item_def = config.DUNGEON_ITEM_DEFS.get(i_type, {})
@@ -1069,7 +1069,6 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
             item_name = "IV스톤(+3)"
             item_emoji = "💎"
         text += f"  {item_emoji} {item_name} ×{i_qty}\n"
-
     for t_info in unlocked_titles:
         text += f"  {CROWN} {t(lang, 'dungeon.result_title_unlock', title=t_info['title'])}\n"
 
