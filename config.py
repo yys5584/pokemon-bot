@@ -483,9 +483,9 @@ TYPE_RESISTANCE = {
 }
 
 # --- Battle Rules ---
-BATTLE_CHALLENGE_TIMEOUT = 20       # 도전 대기 시간 (초)
+BATTLE_CHALLENGE_TIMEOUT = 60       # 도전 대기 시간 (1분)
 BATTLE_COOLDOWN_SAME = 300          # 같은 상대 쿨다운 (5분)
-BATTLE_COOLDOWN_GLOBAL = 60         # 전체 배틀 쿨다운 (1분)
+BATTLE_COOLDOWN_GLOBAL = 20         # 전체 배틀 쿨다운 (20초)
 BATTLE_MAX_ROUNDS = 50              # 최대 라운드
 BATTLE_TEAM_MIN = 1                 # 최소 팀원
 BATTLE_TEAM_MAX = 6                 # 최대 팀원
