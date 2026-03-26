@@ -4788,7 +4788,8 @@ async function loadMyPokemon(){
     // Populate type filter
     const typeSelect=document.getElementById("pokeTypeFilter");
     if(typeSelect.options.length<=1){
-        const types=new Set(pokemon.map(p=>p.pokemon_type));
+        const types=new Set();
+        pokemon.forEach(p=>{types.add(p.pokemon_type);if(p.type2)types.add(p.type2)});
         [...types].sort().forEach(t=>{
             const opt=document.createElement("option");
             opt.value=t;opt.textContent=(TYPE_EMOJI_MAP[t]||"")+" "+(TYPE_NAMES[t]||t);
