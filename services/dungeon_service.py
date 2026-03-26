@@ -1596,10 +1596,13 @@ def resolve_dungeon_battle_v2(
         elif bid == "curse" and eff.get("enemy_hp_cut"):
             cut = int(e_hp * eff["enemy_hp_cut"])
             e_hp -= cut
+            log_lines.append(f"💀 저주 발동! 적 HP -{cut} ({int(eff['enemy_hp_cut']*100)}% 감소)")
         elif bid == "random_heal" and eff.get("heal_range"):
             heal_pct = random.randint(*eff["heal_range"]) / 100
             heal_amt = int(p_max_hp * heal_pct)
             p_hp = min(p_max_hp, p_hp + heal_amt)
+            log_lines.append(f"🎲 회복 룰렛! HP +{heal_amt} ({int(heal_pct*100)}%)")
+
 
     type_mult_p, _ = _type_multiplier(player_types, enemy["types"])
     type_mult_e, _ = _type_multiplier(enemy["types"], player_types)

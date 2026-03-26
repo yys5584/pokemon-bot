@@ -488,6 +488,10 @@ async def _process_floor(query, context, user_id: int, run: dict):
             battle_lines += f"\n  {' · '.join(hl_parts)}"
 
         effect_lines = ""
+        # 소모 스킬 로그 (저주, 회복 룰렛 등)
+        for log_line in result.get("log", []):
+            if any(kw in log_line for kw in ["💀", "🎲", "🪞", "🎰", "😤"]):
+                effect_lines += f"\n  {log_line}"
         if result.get("revive_used"):
             effect_lines += "\n  💫 부활의 깃털 발동!"
         if hl.get("lifesteal_heal", 0) > 0:
