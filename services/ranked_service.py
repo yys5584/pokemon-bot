@@ -76,7 +76,7 @@ async def ensure_current_season() -> dict:
 
     # 주간 법칙 선택 (최근 2주와 겹치지 않음)
     recent = await rq.get_recent_rules(2)
-    rule = pick_random_excluding(list(config.WEEKLY_RULES.keys()), recent)
+    rule = pick_random_excluding(config.SEASON_RULE_POOL, recent)
 
     arena_ids = await _select_arenas()
     season = await rq.get_or_create_season(sid, rule, starts, ends, arena_ids)
@@ -611,10 +611,12 @@ async def validate_team_for_ranked(user_id: int, season: dict) -> tuple[bool, st
     if len(team) < config.RANKED_TEAM_SIZE:
         return False, f"팀이 {len(team)}마리뿐입니다! {config.RANKED_TEAM_SIZE}마리를 모두 채워야 배틀할 수 있습니다."
 
-    # COST 제한
-    total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
-    if total_cost > config.RANKED_COST_LIMIT:
-        return False, f"팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT}) 팀을 다시 편성해주세요."
+    # COST 제한 (시즌 룰에 cost_limit이 있으면 그쪽에서 검증)
+    rule_info = config.WEEKLY_RULES.get(season.get("weekly_rule", ""), {})
+    if not rule_info.get("cost_limit"):
+        total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
+        if total_cost > config.RANKED_COST_LIMIT:
+            return False, f"팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT}) 팀을 다시 편성해주세요."
 
     # 초전설 제한
     ultra_count = sum(1 for p in team if p.get("rarity") == "ultra_legendary")
@@ -673,7 +675,7 @@ async def soft_reset_new_season(prev_season_id: str) -> dict:
     starts, ends = season_date_range(new_sid)
 
     recent = await rq.get_recent_rules(2)
-    rule = pick_random_excluding(list(config.WEEKLY_RULES.keys()), recent)
+    rule = pick_random_excluding(config.SEASON_RULE_POOL, recent)
 
     new_season = await rq.get_or_create_season(new_sid, rule, starts, ends, [])
 
