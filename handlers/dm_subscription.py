@@ -758,7 +758,7 @@ async def _handle_premium_shop_buy(query, user_id: int):
     # BP 차감 + 마스터볼 지급
     await bq.add_bp(user_id, -price, "shop_masterball")
     await queries.add_master_ball(user_id, 1)
-    await bq.log_bp_purchase(user_id, "masterball_premium", price)
+    await bq.log_bp_purchase(user_id, "masterball_premium", 1)
 
     new_bp = bp - price
     remaining = max_limit - purchases_today - 1

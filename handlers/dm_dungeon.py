@@ -496,18 +496,24 @@ async def _process_floor(query, context, user_id: int, run: dict):
         if heal_rate_val > 0:
             effect_lines += f"\n  {t(lang, 'dungeon.floor_heal', hp=int(run['max_hp'] * heal_rate_val))}"
 
+        visible_buffs = [b for b in buffs if not b.get("id", "").startswith("_")]
         buff_summary = ""
-        for b in buffs:
-            if b.get("id", "").startswith("_"): continue
+        for b in visible_buffs:
             blv = b.get("lv", 1)
             buff_summary += f"  {ds.LV_EMOJI.get(blv, '⬜')} {b.get('name', '?')} Lv.{blv}\n"
+
+        # 시너지
+        active_syn = ds._get_active_synergies(buffs)
+        syn_line = ""
+        if active_syn:
+            syn_line = "\n✨ " + " / ".join(f"{s['emoji']}{s['name']}" for s in active_syn)
 
         text = (
             f"{CHECK} {t(lang, 'dungeon.floor_victory', floor=floor)}\n"
             f"━━━━━━━━━━━━━━\n"
             f"{battle_lines}{effect_lines}\n\n"
             f"{HEART} {hp_bar} {hp_pct}%\n"
-            f"{SKILL} {t(lang, 'dungeon.buffs_count', count=len([b for b in buffs if not b.get('id','').startswith('_')]))}\n"
+            f"{SKILL} {t(lang, 'dungeon.buffs_count', count=len(visible_buffs))}{syn_line}\n"
         )
         if buff_summary:
             text += buff_summary
@@ -1329,18 +1335,25 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         HEART = icon_emoji("pokecenter")
         SKILL = icon_emoji("skill")
 
-        # 보유 버프 요약
+        # 보유 버프 요약 (내부 마커 제외)
+        visible_buffs = [b for b in buffs if not b.get("id", "").startswith("_")]
         buff_summary = ""
-        for b in buffs:
+        for b in visible_buffs:
             blv = b.get("lv", 1)
             bname = b.get("name", "?")
             buff_summary += f"  {ds.LV_EMOJI.get(blv, '⬜')} {bname} Lv.{blv}\n"
+
+        # 시너지
+        active_syn = ds._get_active_synergies(buffs)
+        syn_line = ""
+        if active_syn:
+            syn_line = "\n✨ " + " / ".join(f"{s['emoji']}{s['name']}" for s in active_syn)
 
         text = (
             f"{CASTLE} {t(lang, 'dungeon.floor_cleared', floor=run_updated['floor_reached'])}\n\n"
             f"{lv_emoji} <b>{chosen['name']} [{tag}]</b> — {chosen['desc']}\n\n"
             f"{HEART} {hp_bar} {hp_pct}%\n"
-            f"{SKILL} {t(lang, 'dungeon.buffs_label')}\n{buff_summary}"
+            f"{SKILL} {t(lang, 'dungeon.buffs_count', count=len(visible_buffs))}{syn_line}\n{buff_summary}"
         )
         buttons = [
             [InlineKeyboardButton(t(lang, "dungeon.btn_next_floor"), callback_data=f"dg_go_{user_id}")],
@@ -1377,7 +1390,14 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         hp_bar = _hp_bar(new_hp, run["max_hp"])
         hp_pct = int(new_hp / run["max_hp"] * 100) if run["max_hp"] else 0
         SKILL = icon_emoji("skill")
-        buff_line = f"{SKILL} {t(lang, 'dungeon.buffs_count', count=len(buffs))}"
+        CASTLE = icon_emoji("container")
+        HEART = icon_emoji("pokecenter")
+        visible_buffs = [b for b in buffs if not b.get("id", "").startswith("_")]
+        buff_line = f"{SKILL} {t(lang, 'dungeon.buffs_count', count=len(visible_buffs))}"
+        # 시너지
+        active_syn = ds._get_active_synergies(buffs)
+        if active_syn:
+            buff_line += "\n✨ " + " / ".join(f"{s['emoji']}{s['name']}" for s in active_syn)
         # 이벤트 결과 표시
         event_result = ""
         if event:
@@ -1385,8 +1405,8 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             one_floor = " (다음 층 1턴)" if event["action"] == "stat_mult" else ""
             event_result = f"\n🎲 {type_tag} {event['name']}\n   {event['desc']}{one_floor}\n"
         text = (
-            f"{t(lang, 'dungeon.floor_label', floor=run['floor_reached'])}\n"
-            f"{hp_bar} {hp_pct}% ({new_hp}/{run['max_hp']})\n"
+            f"{CASTLE} {t(lang, 'dungeon.floor_cleared', floor=run['floor_reached'])}\n"
+            f"{HEART} {hp_bar} {hp_pct}%\n"
             f"{event_result}"
             f"{buff_line}\n"
         )
