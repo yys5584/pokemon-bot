@@ -1597,7 +1597,7 @@ def resolve_dungeon_battle_v2(
             cut = int(e_hp * eff["enemy_hp_cut"])
             e_hp -= cut
         elif bid == "random_heal" and eff.get("heal_range"):
-            heal_pct = random.uniform(*eff["heal_range"])
+            heal_pct = random.randint(*eff["heal_range"]) / 100
             heal_amt = int(p_max_hp * heal_pct)
             p_hp = min(p_max_hp, p_hp + heal_amt)
 

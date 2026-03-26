@@ -6597,15 +6597,17 @@ async function loadCamp(){
         let html='<div class="guide-card" style="margin-bottom:16px;background:linear-gradient(135deg,rgba(76,175,80,.04),rgba(33,150,243,.04));border:1px solid rgba(76,175,80,.2)">';
         html+='<h3>📋 내 캠프 현황</h3>';
 
-        // 거점 캠프
-        if(data.home_camp){
-            const hc=data.home_camp;
-            const link=hc.invite_link?`<a href="${hc.invite_link}" target="_blank" style="color:var(--primary)">${hc.chat_title||"캠프"}</a>`:(hc.chat_title||"캠프");
-            html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-                <div class="card" style="padding:8px 14px;flex:1;min-width:150px">
-                    <div class="label">🏠 거점캠프</div>
+        // 거점 캠프 (구독자는 2개 가능)
+        const camps=data.home_camps||[];
+        if(camps.length>0){
+            html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">`;
+            camps.forEach((hc,i)=>{
+                const link=hc.invite_link?`<a href="${hc.invite_link}" target="_blank" style="color:var(--primary)">${hc.chat_title||"캠프"}</a>`:(hc.chat_title||"캠프");
+                html+=`<div class="card" style="padding:8px 14px;flex:1;min-width:150px">
+                    <div class="label">🏠 거점캠프${camps.length>1?' '+(i+1):''}</div>
                     <div class="value" style="font-size:14px">${link} (Lv.${hc.level})</div>
                 </div>`;
+            });
         }else{
             html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
                 <div class="card" style="padding:8px 14px;flex:1;min-width:150px">
