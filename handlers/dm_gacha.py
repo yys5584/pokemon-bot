@@ -100,7 +100,8 @@ async def gacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📋 <b>{t(lang, 'gacha.reward_list')}:</b>",
     ]
     for prob, key, name, emo in config.GACHA_TABLE:
-        pct = f"{prob*100:.0f}%"
+        pct_val = prob * 100
+        pct = f"{pct_val:.1f}%" if pct_val < 10 else f"{pct_val:.0f}%"
         lines.append(f"  {emo} {name} — {pct}")
 
     lines.append("")
