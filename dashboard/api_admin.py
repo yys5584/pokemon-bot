@@ -674,24 +674,10 @@ async def api_admin_db_dungeon(request):
 
     total_pages = max(1, (total_runs_count + per_page - 1) // per_page)
 
-    # 액션 로그 통계 (1=일반, 2=스킬1, 3=스킬2, 4=방어)
-    action_rows = await pool.fetch(
-        "SELECT action_log FROM dungeon_runs WHERE status = 'completed' AND action_log IS NOT NULL AND action_log != ''"
-    )
+    # 액션 로그 통계 (자동배틀 롤백으로 비활성)
     action_counts = {"normal": 0, "skill1": 0, "skill2": 0, "defend": 0}
     total_actions = 0
-    for row in action_rows:
-        for code in (row["action_log"] or "").split(","):
-            code = code.strip()
-            if code == "1": action_counts["normal"] += 1
-            elif code == "2": action_counts["skill1"] += 1
-            elif code == "3": action_counts["skill2"] += 1
-            elif code == "4": action_counts["defend"] += 1
-            if code in ("1", "2", "3", "4"):
-                total_actions += 1
     action_pct = {}
-    if total_actions > 0:
-        action_pct = {k: round(v / total_actions * 100, 1) for k, v in action_counts.items()}
 
     # 인기 빌드 Top10 (버프 조합별 평균 도달 층)
     import json as _json
