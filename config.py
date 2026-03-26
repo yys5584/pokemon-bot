@@ -483,7 +483,7 @@ TYPE_RESISTANCE = {
 }
 
 # --- Battle Rules ---
-BATTLE_CHALLENGE_TIMEOUT = 30       # 도전 대기 시간 (초)
+BATTLE_CHALLENGE_TIMEOUT = 20       # 도전 대기 시간 (초)
 BATTLE_COOLDOWN_SAME = 300          # 같은 상대 쿨다운 (5분)
 BATTLE_COOLDOWN_GLOBAL = 60         # 전체 배틀 쿨다운 (1분)
 BATTLE_MAX_ROUNDS = 50              # 최대 라운드
