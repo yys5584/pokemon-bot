@@ -1075,8 +1075,8 @@ WEEKLY_RULES = {
 
 # --- Ranked Rewards (주간 보상) ---
 RANKED_REWARDS = {
-    "challenger": {"masterball": 5, "bp": 800},
-    "master":     {"masterball": 3, "bp": 500, "shiny": "epic"},
+    "challenger": {"masterball": 5, "bp": 800, "iv_stone_3": 2},
+    "master":     {"masterball": 3, "bp": 500, "shiny": "epic", "iv_stone_3": 2},
     "diamond":    {"masterball": 2, "bp": 300, "iv_stone_3": 2},
     "platinum":   {"masterball": 1, "bp": 200, "iv_stone_3": 1},
     "gold":       {"masterball": 0, "bp": 300},
