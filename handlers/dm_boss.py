@@ -483,17 +483,29 @@ async def _handle_team_select(query, user_id: int, page: int = 0, filter_key: st
         callback_data=f"boss_tf_{user_id}_all",
     ))
 
-    buttons = [filter_btns]
+    # 등급 필터 (2번째 줄)
+    rarity_btns = []
+    for rkey, rlabel in [("ultra_legendary", "초전설"), ("legendary", "전설"), ("epic", "에픽")]:
+        active = "•" if cur_filter == rkey else ""
+        rarity_btns.append(InlineKeyboardButton(
+            f"{active}{rlabel}", callback_data=f"boss_tf_{user_id}_{rkey}",
+        ))
+
+    buttons = [filter_btns, rarity_btns]
 
     # Pokemon buttons
+    _rarity_short = {"common": "일반", "rare": "레어", "epic": "에픽", "legendary": "전설", "ultra_legendary": "초전설"}
     for p in page_pokemon:
         inst_id = p.get("pokemon_instance_id") or p.get("id")
         name = p["name_ko"]
         shiny_mark = "✨" if p.get("is_shiny") else ""
-        selected = "✅ " if inst_id in draft else ""
-        rarity_short = {"common": "C", "rare": "R", "epic": "E", "legendary": "L", "ultra_legendary": "UL"}.get(p.get("rarity", ""), "")
+        selected = "✅" if inst_id in draft else ""
+        rarity_tag = _rarity_short.get(p.get("rarity", ""), "")
+        # 속성 이모지
+        ptypes = _get_pokemon_types(p)
+        type_emojis = "".join(config.TYPE_EMOJI.get(t, "") for t in ptypes)
         buttons.append([InlineKeyboardButton(
-            f"{selected}{shiny_mark}{name} [{rarity_short}]",
+            f"{selected}{shiny_mark}{type_emojis}{name} [{rarity_tag}]",
             callback_data=f"boss_tsel_{user_id}_{inst_id}",
         )])
 
