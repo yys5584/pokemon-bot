@@ -276,13 +276,15 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         _, shiny_1st_ivs = await queries.give_pokemon_to_user(winner_id, shiny_1st_id, chat_id, is_shiny=True)
     except Exception:
         logger.error(f"Failed to give shiny pokemon to winner {winner_id}")
-    # Bonus: shiny common
-    bonus_1st_id, bonus_1st_name = _random_shiny_pokemon("common")
-    bonus_1st_ivs = {}
+    # Bonus: IV+3 스톤 (일반 이로치 대체)
+    bonus_1st_name = ""
     try:
-        _, bonus_1st_ivs = await queries.give_pokemon_to_user(winner_id, bonus_1st_id, chat_id, is_shiny=True)
+        iv_cnt = getattr(config, "TOURNAMENT_PRIZE_1ST_IV_STONE", 1)
+        from database import item_queries
+        await item_queries.add_item(winner_id, "iv_stone_3", iv_cnt)
+        bonus_1st_name = f"IV+3 ×{iv_cnt}"
     except Exception:
-        logger.error(f"Failed to give bonus shiny common to winner {winner_id}")
+        logger.error(f"Failed to give IV+3 stone to winner {winner_id}")
 
     # ── 2nd place (runner-up) ──
     runner_up_id = None
@@ -313,13 +315,14 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         except Exception:
             logger.error(f"Failed to give shiny pokemon to runner-up {runner_up_id}")
         shiny_2nd_name = s2_name
-        # Bonus: shiny common
-        b2_id, b2_name = _random_shiny_pokemon("common")
+        # Bonus: IV+3 스톤 (일반 이로치 대체)
         try:
-            _, bonus_2nd_ivs = await queries.give_pokemon_to_user(runner_up_id, b2_id, chat_id, is_shiny=True)
+            iv_cnt = getattr(config, "TOURNAMENT_PRIZE_2ND_IV_STONE", 1)
+            from database import item_queries
+            await item_queries.add_item(runner_up_id, "iv_stone_3", iv_cnt)
+            bonus_2nd_name = f"IV+3 ×{iv_cnt}"
         except Exception:
-            logger.error(f"Failed to give bonus shiny common to runner-up {runner_up_id}")
-        bonus_2nd_name = b2_name
+            logger.error(f"Failed to give IV+3 stone to runner-up {runner_up_id}")
 
     # ── Semi-finalists (4강): master balls + shiny epic ──
     finalists = {winner_id}
