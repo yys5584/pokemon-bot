@@ -1240,7 +1240,8 @@ async def _use_time_reduce_ticket(query, user_id: int):
 
     now = config.get_kst_now()
     lines = [f"⏰ <b>이로치 시간단축권</b> (보유: {qty}개)", "",
-             f"12시간 단축할 대상을 선택하세요:"]
+             f"12시간 단축할 대상을 선택하세요:",
+             f"⚠️ 남은 시간 {reduce_hours}시간 이상만 사용 가능"]
     buttons = []
 
     reduce_hours = config.DUNGEON_TIME_REDUCE_HOURS  # 12
