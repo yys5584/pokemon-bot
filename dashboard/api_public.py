@@ -235,6 +235,7 @@ async def api_ranked_season(request):
             "weekly_rule": season["weekly_rule"],
             "weekly_rule_name": rule_info.get("name", ""),
             "weekly_rule_desc": rule_info.get("desc", ""),
+            "weekly_rule_key": season["weekly_rule"],
             "starts_at": str(season["starts_at"]),
             "ends_at": str(season["ends_at"]),
         },

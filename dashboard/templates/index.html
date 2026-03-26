@@ -4036,6 +4036,30 @@ async function loadChannelTop5(){
 }
 
 // --- Ranked Helper Functions (global scope) ---
+function _getRuleDetails(ruleKey){
+    const rules={
+        'epic_water_ice':[
+            '⚔️ 에픽 이하만 편성 가능 (전설/초전설 ❌)',
+            '🧊 에픽(3코) → 물 또는 얼음 타입만 사용 가능',
+            '✅ 레어(2코), 커먼(1코) → 타입 제한 없음',
+            '📊 팀 코스트 18 이내',
+        ],
+        'epic_fire_fight':[
+            '⚔️ 에픽 이하만 편성 가능 (전설/초전설 ❌)',
+            '🔥 에픽(3코) → 불꽃 또는 격투 타입만 사용 가능',
+            '✅ 레어(2코), 커먼(1코) → 타입 제한 없음',
+            '📊 팀 코스트 18 이내',
+        ],
+        'no_ultra':['⚔️ 초전설(6코) 사용 불가','✅ 전설 이하 편성 가능','📊 팀 코스트 18 이내'],
+        'no_legendary':['⚔️ 전설(5코) + 초전설(6코) 사용 불가','✅ 에픽 이하만 편성 가능','📊 팀 코스트 18 이내'],
+        'epic_below':['⚔️ 에픽 이하만 편성 가능 (전설/초전설 ❌)','📊 팀 코스트 18 이내'],
+        'no_normal':['🚫 노말 타입 포켓몬 사용 불가','✅ 그 외 모든 타입/등급 가능','📊 팀 코스트 18 이내'],
+        'no_dragon':['🚫 드래곤 타입 포켓몬 사용 불가','✅ 그 외 모든 타입/등급 가능','📊 팀 코스트 18 이내'],
+        'no_psychic':['🚫 에스퍼 타입 포켓몬 사용 불가','✅ 그 외 모든 타입/등급 가능','📊 팀 코스트 18 이내'],
+        'epic_max_2':['⚔️ 에픽 최대 2마리까지만 편성 가능','✅ 전설/초전설은 기존 제한과 동일','📊 팀 코스트 18 이내'],
+    };
+    return rules[ruleKey]||null;
+}
 function _tbClass(tier){
     const m={unranked:'tb-unranked',bronze:'tb-bronze',silver:'tb-silver',gold:'tb-gold',platinum:'tb-platinum',diamond:'tb-diamond',master:'tb-master',challenger:'tb-challenger'};
     return m[tier]||'tb-unranked';
@@ -4090,6 +4114,14 @@ async function loadBattleRank(){
         heroHtml+=`<div class="rh-season">SEASON ${s.season_id}</div>`;
         heroHtml+=`<div class="rh-title">🏟️ 시즌 ${s.season_id} 랭크전</div>`;
         heroHtml+=`<div class="rh-rule">🔒 ${escHtml(s.weekly_rule_name)} — ${escHtml(s.weekly_rule_desc)}</div>`;
+        // 상세 조건 박스
+        const ruleDetails=_getRuleDetails(s.weekly_rule_key||s.weekly_rule);
+        if(ruleDetails){
+            heroHtml+=`<div style="margin-top:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 16px;font-size:12px;line-height:1.8">`;
+            heroHtml+=`<div style="font-weight:700;color:#FFD700;margin-bottom:4px">📋 편성 조건</div>`;
+            ruleDetails.forEach(d=>{heroHtml+=`<div style="color:rgba(255,255,255,.85)">${d}</div>`;});
+            heroHtml+=`</div>`;
+        }
         heroHtml+=`<div class="rh-stats">`;
         heroHtml+=`<div class="rh-stat"><div class="rh-stat-val">${totalPlayers}</div><div class="rh-stat-label">참여자</div></div>`;
         const placedCount=Object.entries(tierDist).filter(([k])=>k!=='unranked'&&k!=='placement').reduce((a,[,v])=>a+v,0);
