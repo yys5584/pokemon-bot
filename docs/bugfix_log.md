@@ -21,3 +21,21 @@ evo_target = await queries.get_pokemon(target_id)
 2. `except Exception: pass` → 에러 로깅 + 유저에게 오류 팝업 표시
 
 **커밋**: `d14b162`
+
+## 2026-03-25: _register.py 핸들러 import 누락으로 봇 시작 실패
+
+**증상**: 배포 후 봇이 무한 재시작 (restart counter 100+)
+
+**원인**: `_register.py`에서 어뷰징 관련 핸들러 3개를 등록했지만 import를 추가하지 않음
+```python
+# 등록은 했지만
+app.add_handler(MessageHandler(..., abuse_reset_handler))
+app.add_handler(MessageHandler(..., abuse_detail_handler))
+app.add_handler(MessageHandler(..., abuse_list_handler))
+
+# import에는 없었음 → NameError
+```
+
+**교훈**: `_register.py`에 핸들러 등록 시 **반드시 상단 import도 함께 추가**할 것. 배포 전 `python -c "from handlers._register import register_all_handlers"` 로 import 검증 가능.
+
+**커밋**: `7b8b6f0`, `b7a2ca3`

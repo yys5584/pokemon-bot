@@ -424,7 +424,11 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             pokemon_list = await queries.get_user_pokemon_list(user_id)
             idx = max(0, min(idx, len(pokemon_list) - 1))
             text, markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
-            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+            try:
+                await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+            except Exception:
+                pass  # 진화 결과는 이미 show_alert로 표시됨
+            return  # 하위 except에서 "오류 발생" 팝업 방지
 
         elif action in ("t1", "t2"):
             idx = int(parts[3])

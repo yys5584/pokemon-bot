@@ -192,7 +192,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 hearts = hearts_display(p["friendship"], max_f)
                 shiny = shiny_emoji() if p.get("is_shiny") else ""
                 evo_mark = ""
-                if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
+                if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.get_max_friendship(p):
                     evo_mark = " ⭐"
                 # IV grade
                 iv_tag = ""
@@ -370,7 +370,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int, la
     shiny_mark = shiny_emoji() if p.get("is_shiny") else ""
 
     evo_text = ""
-    if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
+    if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.get_max_friendship(p):
         evo_text = "\n⭐ 진화 가능! → '진화 " + str(num) + "' 입력"
     elif p["evolves_to"] and p["evolution_method"] == "trade":
         evo_text = "\n🔄 교환으로 진화 가능"
