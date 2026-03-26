@@ -34,6 +34,7 @@ from handlers.admin_manage import (  # noqa: F401
     stats_handler, channel_list_handler,
     arcade_handler, tournament_chat_handler,
     force_tournament_reg_handler, force_tournament_run_handler,
+    mock_tournament_reg_handler, mock_tournament_run_handler,
     abuse_list_handler, abuse_detail_handler, abuse_reset_handler,
     report_handler,
 )

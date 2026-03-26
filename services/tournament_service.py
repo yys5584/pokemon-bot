@@ -58,6 +58,7 @@ _tournament_state = {
     "running": False,
     "participants": {},       # {user_id: {"name": str, "team": list[dict]}}
     "chat_id": None,
+    "mock": False,            # 모의대회: 보상 없음
 }
 
 
@@ -99,6 +100,7 @@ def _reset_state():
     _tournament_state["running"] = False
     _tournament_state["participants"] = {}
     _tournament_state["chat_id"] = None
+    _tournament_state["mock"] = False
 
 
 def is_tournament_active(chat_id: int) -> bool:
@@ -113,8 +115,11 @@ def is_tournament_active(chat_id: int) -> bool:
 
 # ── Registration ────────────────────────────────────────────────
 
-async def start_registration(context: ContextTypes.DEFAULT_TYPE):
-    """JobQueue callback — 21:00 KST: stop spawns, open registration."""
+async def start_registration(context: ContextTypes.DEFAULT_TYPE, *, mock: bool = False):
+    """JobQueue callback — 21:00 KST: stop spawns, open registration.
+
+    mock=True: 모의대회 (보상 없음, DM 브로드캐스트 없음).
+    """
     chat_id = config.TOURNAMENT_CHAT_ID
     if not chat_id:
         logger.warning("No tournament chat configured, skipping tournament.")
@@ -124,6 +129,7 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
     await _clear_registrations_db()
     _tournament_state["registering"] = True
     _tournament_state["chat_id"] = chat_id
+    _tournament_state["mock"] = mock
 
     # Cancel all spawn jobs for this chat (normal + arcade)
     chat_str = str(chat_id)
@@ -133,29 +139,42 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
         ):
             job.schedule_removal()
 
-    await _safe_send(context.bot, chat_id,
-        text=(
-            "🏟️ 아케이드 토너먼트!\n"
-            "━━━━━━━━━━━━━━━\n\n"
-            "🕘 등록 시간: 지금 ~ 21:50\n"
-            "📋 참가 방법: ㄷ 입력\n"
-            "⚔️ 배틀팀이 등록되어 있어야 참가 가능!\n\n"
-            "🏆 보상\n"
-            f"  🥇 우승: 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP:,}BP + ✨이로치 초전설 + 💎IV+3 + 챔피언 칭호\n"
-            f"  🥈 준우승: 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {config.TOURNAMENT_PRIZE_2ND_BP:,}BP + ✨이로치 전설 + 💎IV+3\n"
-            f"  🏅 4강: 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + ✨이로치(에픽)\n"
-            f"  🎟️ 참가: 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 + {config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP\n\n"
-            "스폰은 대회 종료 후 재개됩니다."
-        ),
-    )
-    logger.info(f"Tournament registration started for chat {chat_id}")
-
-    # Send DM notification to all users
-    if not os.path.exists("/tmp/skip_tournament_dm"):
-        asyncio.create_task(_broadcast_tournament_dm(context))
+    if mock:
+        await _safe_send(context.bot, chat_id,
+            text=(
+                "🏟️ 모의 토너먼트!\n"
+                "━━━━━━━━━━━━━━━\n\n"
+                "📋 참가 방법: ㄷ 입력\n"
+                "⚔️ 배틀팀이 등록되어 있어야 참가 가능!\n\n"
+                "⚠️ 모의대회 — 보상 없음\n\n"
+                "스폰은 대회 종료 후 재개됩니다."
+            ),
+        )
     else:
-        os.remove("/tmp/skip_tournament_dm")
-        logger.info("Skipped tournament DM broadcast (flag file)")
+        await _safe_send(context.bot, chat_id,
+            text=(
+                "🏟️ 아케이드 토너먼트!\n"
+                "━━━━━━━━━━━━━━━\n\n"
+                "🕘 등록 시간: 지금 ~ 21:50\n"
+                "📋 참가 방법: ㄷ 입력\n"
+                "⚔️ 배틀팀이 등록되어 있어야 참가 가능!\n\n"
+                "🏆 보상\n"
+                f"  🥇 우승: 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP:,}BP + ✨이로치 초전설 + 💎IV+3 + 챔피언 칭호\n"
+                f"  🥈 준우승: 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {config.TOURNAMENT_PRIZE_2ND_BP:,}BP + ✨이로치 전설 + 💎IV+3\n"
+                f"  🏅 4강: 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + ✨이로치(에픽)\n"
+                f"  🎟️ 참가: 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 + {config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP\n\n"
+                "스폰은 대회 종료 후 재개됩니다."
+            ),
+        )
+    logger.info(f"Tournament registration started for chat {chat_id} (mock={mock})")
+
+    # Send DM notification to all users (skip for mock)
+    if not mock:
+        if not os.path.exists("/tmp/skip_tournament_dm"):
+            asyncio.create_task(_broadcast_tournament_dm(context))
+        else:
+            os.remove("/tmp/skip_tournament_dm")
+            logger.info("Skipped tournament DM broadcast (flag file)")
 
 
 async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
@@ -537,11 +556,16 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                         parse_mode="HTML",
                     )
                     await asyncio.sleep(3)
-                # Tournament complete — give prizes
+                # Tournament complete — give prizes (skip for mock)
                 if winners:
                     winner_uid, winner_d = winners[0]
-                    all_participants = set(_tournament_state["participants"].keys())
-                    await _award_prizes(context, chat_id, winner_uid, winner_d, bracket, semi_finalists, all_participants, eliminated)
+                    if _tournament_state.get("mock"):
+                        await _safe_send(context.bot, chat_id,
+                            text=f"🏆 모의대회 우승: {winner_d['name']}!\n⚠️ 모의대회이므로 보상 없음",
+                        )
+                    else:
+                        all_participants = set(_tournament_state["participants"].keys())
+                        await _award_prizes(context, chat_id, winner_uid, winner_d, bracket, semi_finalists, all_participants, eliminated)
                 break
 
             # Next round bracket 구성

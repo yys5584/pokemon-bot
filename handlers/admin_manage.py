@@ -269,6 +269,24 @@ async def force_tournament_run_handler(update: Update, context: ContextTypes.DEF
     await start_tournament(context)
 
 
+async def mock_tournament_reg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 모의대회 — start mock tournament registration (no rewards)."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from services.tournament_service import start_registration
+    await start_registration(context, mock=True)
+    await update.message.reply_text("✅ 모의대회 등록 시작! (보상 없음)")
+
+
+async def mock_tournament_run_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 모의진행 — manually trigger mock tournament execution."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from services.tournament_service import start_tournament
+    await update.message.reply_text("⚔️ 모의대회 진행 시작!")
+    await start_tournament(context)
+
+
 # ── Abuse ──────────────────────────────────
 
 async def abuse_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
