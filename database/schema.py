@@ -1533,6 +1533,22 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── Boss Teams (보스전용 팀) (2026-03-27) ──
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS boss_teams (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL REFERENCES users(user_id),
+            slot INTEGER NOT NULL CHECK(slot BETWEEN 1 AND 6),
+            pokemon_instance_id INTEGER NOT NULL REFERENCES user_pokemon(id),
+            UNIQUE(user_id, slot),
+            UNIQUE(user_id, pokemon_instance_id)
+        )
+    """)
+    try:
+        await pool.execute("CREATE INDEX IF NOT EXISTS idx_boss_teams_user ON boss_teams(user_id)")
+    except Exception:
+        pass
+
     # ── Weekly Boss 테이블 (2026-03-26) ──
     await pool.execute("""
         CREATE TABLE IF NOT EXISTS weekly_boss (

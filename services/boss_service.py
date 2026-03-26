@@ -146,10 +146,10 @@ async def attack_boss(user_id: int) -> dict:
     if boss["defeated"]:
         return {"success": False, "error": "보스가 이미 처치되었습니다!"}
 
-    # Get battle team
-    team_data = await battle_queries.get_battle_team(user_id)
+    # Get boss team (fallback to battle team)
+    team_data = await bq.get_boss_team(user_id)
     if not team_data:
-        return {"success": False, "error": "배틀팀이 없습니다! DM에서 '팀등록'으로 팀을 먼저 구성하세요."}
+        return {"success": False, "error": "팀이 없습니다! 보스 화면에서 '보스팀 설정'으로 팀을 구성하세요."}
 
     # Prepare combatants
     player_team = [_prepare_combatant(p) for p in team_data]

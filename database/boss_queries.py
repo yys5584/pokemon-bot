@@ -2,6 +2,7 @@
 
 import logging
 from database.connection import get_db
+from database.battle_queries import get_battle_team  # fallback용
 
 logger = logging.getLogger(__name__)
 
@@ -145,3 +146,50 @@ async def get_participant_count(week_key: str) -> int:
         "SELECT COUNT(*) FROM boss_weekly_damage WHERE week_key = $1",
         week_key,
     ) or 0
+
+
+# ── Boss Team ─────────────────────────────────────────────
+
+async def get_boss_team(user_id: int) -> list[dict]:
+    """Get boss team. Falls back to battle team if no boss team set."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT bt.slot, bt.pokemon_instance_id,
+                  up.pokemon_id, up.friendship, up.is_shiny,
+                  up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd,
+                  pm.name_ko, pm.emoji, pm.rarity,
+                  pm.pokemon_type, pm.stat_type
+           FROM boss_teams bt
+           JOIN user_pokemon up ON bt.pokemon_instance_id = up.id
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE bt.user_id = $1 AND up.is_active = 1
+           ORDER BY bt.slot""",
+        user_id,
+    )
+    if rows:
+        return [dict(r) for r in rows]
+    # Fallback: 배틀팀 사용
+    return await get_battle_team(user_id)
+
+
+async def set_boss_team(user_id: int, instance_ids: list[int]):
+    """Set boss team (replaces existing)."""
+    pool = await get_db()
+    await pool.execute("DELETE FROM boss_teams WHERE user_id = $1", user_id)
+    await pool.executemany(
+        "INSERT INTO boss_teams (user_id, slot, pokemon_instance_id) VALUES ($1, $2, $3)",
+        [(user_id, slot, iid) for slot, iid in enumerate(instance_ids, 1)],
+    )
+
+
+async def clear_boss_team(user_id: int):
+    pool = await get_db()
+    await pool.execute("DELETE FROM boss_teams WHERE user_id = $1", user_id)
+
+
+async def has_boss_team(user_id: int) -> bool:
+    pool = await get_db()
+    cnt = await pool.fetchval(
+        "SELECT COUNT(*) FROM boss_teams WHERE user_id = $1", user_id,
+    )
+    return (cnt or 0) > 0
