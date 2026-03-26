@@ -110,23 +110,32 @@ async def execute_fusion(
     # Create new Pokemon with random IVs
     pokemon_id = pa["pokemon_id"]
 
-    # 이로치+이로치 합성 시 최소 IV A등급(120+) 보장
-    forced_ivs = None
+    # 합성 결과 최소 등급 보장: 두 재료 중 낮은 등급 이상
+    from utils.battle_calc import generate_ivs
+    iv_total_a = sum(pa.get(f"iv_{s}", 0) or 0 for s in ("hp", "atk", "def", "spa", "spdef", "spd"))
+    iv_total_b = sum(pb.get(f"iv_{s}", 0) or 0 for s in ("hp", "atk", "def", "spa", "spdef", "spd"))
+    min_iv_total = min(iv_total_a, iv_total_b)
+
+    # 최소 보장 기준: 재료 중 낮은 쪽의 등급 threshold
+    grade_min, _ = config.get_iv_grade(min_iv_total)
+    MIN_IV_TOTAL = dict(S=160, A=120, B=93, C=62, D=0).get(grade_min, 0)
+
+    # 이로치+이로치는 최소 A등급(120+)
     if both_shiny:
-        from utils.battle_calc import generate_ivs
-        MIN_IV_TOTAL = 120  # A등급 최소
-        for _ in range(200):  # 최대 200번 재시도
-            candidate = generate_ivs(is_shiny=True)
-            total = sum(candidate.values())
-            if total >= MIN_IV_TOTAL:
-                forced_ivs = candidate
-                break
-        if forced_ivs is None:
-            # 극히 드물지만 200번 안에 못 맞추면 강제 보정
-            forced_ivs = generate_ivs(is_shiny=True)
-            while sum(forced_ivs.values()) < MIN_IV_TOTAL:
-                lowest_key = min(forced_ivs, key=forced_ivs.get)
-                forced_ivs[lowest_key] = min(31, forced_ivs[lowest_key] + 1)
+        MIN_IV_TOTAL = max(MIN_IV_TOTAL, 120)
+
+    forced_ivs = None
+    for _ in range(200):
+        candidate = generate_ivs(is_shiny=is_shiny)
+        total = sum(candidate.values())
+        if total >= MIN_IV_TOTAL:
+            forced_ivs = candidate
+            break
+    if forced_ivs is None:
+        forced_ivs = generate_ivs(is_shiny=is_shiny)
+        while sum(forced_ivs.values()) < MIN_IV_TOTAL:
+            lowest_key = min(forced_ivs, key=forced_ivs.get)
+            forced_ivs[lowest_key] = min(31, forced_ivs[lowest_key] + 1)
 
     new_id, new_ivs = await queries.give_pokemon_to_user(
         user_id, pokemon_id, chat_id=None, is_shiny=is_shiny,
