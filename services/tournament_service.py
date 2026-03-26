@@ -178,21 +178,23 @@ async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
                 rule_name = rule_info.get("name", "")
                 rule_desc = rule_info.get("desc", "")
                 if rule_name:
-                    rule_line = f"\n🔒 <b>시즌 법칙: {rule_name}</b>\nㄴ {rule_desc}\n"
+                    cost_limit = rule_info.get("cost_limit")
+                    if cost_limit:
+                        rule_line = f"\n⚠️ <b>이번 시즌: 팀 코스트 {cost_limit} 이하</b>\nㄴ {rule_desc}\n"
+                    else:
+                        rule_line = f"\n🔒 <b>시즌 법칙: {rule_name}</b>\nㄴ {rule_desc}\n"
         except Exception:
             pass
 
         msg = (
-            f"{_bt} 아케이드 토너먼트 개최!\n\n"
-            "⏰ 21:00~21:50 등록 / 22:00 대회 시작\n"
-            f"{icon_emoji('bookmark')} 아래 채널에서 ㄷ 입력으로 참가!\n"
-            f"👉 {config.BOT_CHANNEL_URL}\n\n"
-            f"{_bt} 배틀팀 필수 — DM에서 '팀등록'으로 구성\n"
+            f"{_bt} <b>토너먼트 개최!</b>\n"
             f"{rule_line}\n"
-            f"{icon_emoji('crown')} 우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + 💰{config.TOURNAMENT_PRIZE_1ST_BP:,}BP + {_se}이로치 초전설 + 💎IV+3 + 챔피언 칭호\n"
-            f"🥈 준우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + 💰{config.TOURNAMENT_PRIZE_2ND_BP:,}BP + {_se}이로치 전설 + 💎IV+3\n"
-            f"{icon_emoji('champion')} 4강: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + 💰{config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + {_se}이로치(에픽)\n"
-            f"{icon_emoji('gotcha')} 참가: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 + 💰{config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP"
+            f"⏰ 21:00~21:50 등록 / 22:00 시작\n"
+            f"👉 {config.BOT_CHANNEL_URL} 에서 ㄷ 입력\n\n"
+            f"{icon_emoji('crown')} 우승: {_mb}×{config.TOURNAMENT_PRIZE_1ST_MB} + {_se}초전설 + 💎IV+3\n"
+            f"🥈 준우승: {_mb}×{config.TOURNAMENT_PRIZE_2ND_MB} + {_se}전설 + 💎IV+3\n"
+            f"🏅 4강: {_mb}×{config.TOURNAMENT_PRIZE_SEMI_MB} + {_se}에픽\n"
+            f"🎯 참가: {_mb}×{config.TOURNAMENT_PRIZE_PARTICIPANT_MB} + 💰{config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP"
         )
 
         sent = 0
