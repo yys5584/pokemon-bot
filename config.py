@@ -943,8 +943,8 @@ RANKED_TEAM_SIZE = 6            # 팀 필수 인원
 RANKED_ULTRA_MAX = 1            # 초전설 최대 편성 수
 
 # --- Ranked Cooldowns ---
-RANKED_COOLDOWN_SAME = 1800     # 같은 상대 30분
-RANKED_COOLDOWN_GLOBAL = 120    # 전체 랭크전 2분
+RANKED_COOLDOWN_SAME = 300      # 같은 상대 5분
+RANKED_COOLDOWN_GLOBAL = 0      # 전체 랭크전 쿨다운 없음
 RANKED_DAILY_CAP = 20           # 일일 랭크전 상한
 RANKED_ARENA_CXP_BONUS = 5     # 아레나 채팅방 CXP 보너스
 
