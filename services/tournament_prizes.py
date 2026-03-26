@@ -278,6 +278,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         logger.error(f"Failed to give shiny pokemon to winner {winner_id}")
     # Bonus: IV+3 스톤 (일반 이로치 대체)
     bonus_1st_name = ""
+    bonus_1st_ivs = {}
     try:
         iv_cnt = getattr(config, "TOURNAMENT_PRIZE_1ST_IV_STONE", 1)
         from database import item_queries
