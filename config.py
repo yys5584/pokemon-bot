@@ -935,10 +935,10 @@ RANKED_COST = {
     "legendary": 5,
     "ultra_legendary": 6,
 }
-RANKED_COST_LIMIT = 18          # 6마리 팀 총 코스트 상한 (기본값, 시즌 룰로 오버라이드)
+RANKED_COST_LIMIT = 12          # 6마리 팀 총 코스트 상한 (기본값, 시즌 룰로 오버라이드)
 
 # 시즌 로테이션 풀 (코스트 기반만)
-SEASON_RULE_POOL = ["cost_12", "cost_14", "cost_15", "cost_18", "cost_19", "cost_20"]
+SEASON_RULE_POOL = ["cost_14", "cost_15", "cost_18", "cost_19", "cost_20"]
 RANKED_TEAM_SIZE = 6            # 팀 필수 인원
 RANKED_ULTRA_MAX = 1            # 초전설 최대 편성 수
 
@@ -1034,7 +1034,7 @@ WEEKLY_RULES = {
     "cost_18": {
         "name": "코스트 18 이하",
         "icon": "💰",
-        "desc": "팀 총 코스트 18 이하 (기본 제한)",
+        "desc": "팀 총 코스트 18 이하 (확장)",
         "error": "이번 시즌은 팀 코스트 18 이하만 가능합니다!",
         "cost_limit": 18,
     },
