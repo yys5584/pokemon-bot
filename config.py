@@ -1076,12 +1076,19 @@ WEEKLY_RULES = {
 # --- Ranked Rewards (주간 보상) ---
 RANKED_REWARDS = {
     "challenger": {"masterball": 5, "bp": 800},
-    "master":     {"masterball": 3, "bp": 500},
-    "diamond":    {"masterball": 2, "bp": 300},
-    "platinum":   {"masterball": 1, "bp": 200},
+    "master":     {"masterball": 3, "bp": 500, "shiny": "epic"},
+    "diamond":    {"masterball": 2, "bp": 300, "iv_stone_3": 2},
+    "platinum":   {"masterball": 1, "bp": 200, "iv_stone_3": 1},
     "gold":       {"masterball": 0, "bp": 300},
     "silver":     {"masterball": 0, "bp": 150},
     "bronze":     {"masterball": 0, "bp": 50},
+}
+
+# 순위별 추가 보상 (1~3위, 티어 보상과 별도)
+RANKED_TOP_REWARDS = {
+    1: {"shiny": "ultra_legendary"},
+    2: {"shiny": "legendary"},
+    3: {"shiny": "legendary"},
 }
 
 # --- Ranked Titles ---

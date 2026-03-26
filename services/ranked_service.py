@@ -643,6 +643,12 @@ async def process_season_rewards(season_id: str) -> list[dict]:
 
     from database import queries  # 순환 import 방지
 
+    # RP 순으로 정렬 → 순위 결정 (1~3위 추가 보상용)
+    sorted_records = sorted(records, key=lambda r: r["rp"], reverse=True)
+    rank_map = {}  # user_id → rank
+    for i, rec in enumerate(sorted_records):
+        rank_map[rec["user_id"]] = i + 1
+
     for rec in records:
         peak = rec["peak_tier"]
         reward = config.RANKED_REWARDS.get(peak)
@@ -650,21 +656,68 @@ async def process_season_rewards(season_id: str) -> list[dict]:
             continue
 
         uid = rec["user_id"]
+
+        # 마스터볼
         if reward.get("masterball", 0) > 0:
             await queries.add_master_ball(uid, reward["masterball"])
+
+        # BP
         if reward.get("bp", 0) > 0:
             from database.battle_queries import add_bp
             await add_bp(uid, reward["bp"], "ranked_reward")
 
+        # IV+3 스톤
+        iv_cnt = reward.get("iv_stone_3", 0)
+        if iv_cnt > 0:
+            try:
+                from database import item_queries
+                await item_queries.add_user_item(uid, "iv_stone_3", iv_cnt)
+            except Exception as e:
+                logger.error(f"Failed to give IV+3 stone to {uid}: {e}")
+
+        # 이로치 포켓몬 (티어 보상: 마스터→에픽)
+        shiny_rarity = reward.get("shiny")
+        shiny_name = ""
+        if shiny_rarity:
+            try:
+                pid, pname = _random_shiny_pokemon(shiny_rarity)
+                await queries.give_pokemon_to_user(uid, pid, 0, is_shiny=True)
+                shiny_name = pname
+            except Exception as e:
+                logger.error(f"Failed to give shiny {shiny_rarity} to {uid}: {e}")
+
+        # 순위별 추가 보상 (1~3위 이로치)
+        rank = rank_map.get(uid, 999)
+        top_reward = config.RANKED_TOP_REWARDS.get(rank)
+        top_shiny_name = ""
+        if top_reward and top_reward.get("shiny"):
+            try:
+                pid, pname = _random_shiny_pokemon(top_reward["shiny"])
+                await queries.give_pokemon_to_user(uid, pid, 0, is_shiny=True)
+                top_shiny_name = pname
+            except Exception as e:
+                logger.error(f"Failed to give rank {rank} shiny to {uid}: {e}")
+
         rewarded.append({
             "user_id": uid,
             "tier": peak,
+            "rank": rank,
             "masterball": reward.get("masterball", 0),
             "bp": reward.get("bp", 0),
+            "iv_stone_3": iv_cnt,
+            "shiny": shiny_name,
+            "top_shiny": top_shiny_name,
         })
 
     await rq.mark_rewards_distributed(season_id)
     return rewarded
+
+
+def _random_shiny_pokemon(rarity: str) -> tuple[int, str]:
+    """Pick a random pokemon of the given rarity."""
+    from models.pokemon_data import ALL_POKEMON
+    candidates = [(p[0], p[1]) for p in ALL_POKEMON if p[4] == rarity]
+    return random.choice(candidates)
 
 
 async def soft_reset_new_season(prev_season_id: str) -> dict:
