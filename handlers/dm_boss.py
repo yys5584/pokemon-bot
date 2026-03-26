@@ -128,14 +128,26 @@ async def boss_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         await _handle_team_select(query, user_id, page=0)
 
-    elif data.startswith("boss_tpg_"):
-        # boss_tpg_{uid}_{page} — 팀 선택 페이지
+    elif data.startswith("boss_tf_"):
+        # boss_tf_{uid}_{filter} — 필터 변경
         parts = data.split("_")
-        target_uid, page = int(parts[2]), int(parts[3])
+        target_uid = int(parts[2])
+        fkey = "_".join(parts[3:])  # type names with underscores
         if user_id != target_uid:
             await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
             return
-        await _handle_team_select(query, user_id, page=page)
+        await _handle_team_select(query, user_id, page=0, filter_key=fkey)
+
+    elif data.startswith("boss_tpg_"):
+        # boss_tpg_{uid}_{page}_{filter} — 팀 선택 페이지
+        parts = data.split("_")
+        target_uid = int(parts[2])
+        page = int(parts[3]) - 1  # 1-indexed in callback
+        fkey = "_".join(parts[4:]) if len(parts) > 4 else None
+        if user_id != target_uid:
+            await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+            return
+        await _handle_team_select(query, user_id, page=page, filter_key=fkey)
 
     elif data.startswith("boss_tsel_"):
         # boss_tsel_{uid}_{instance_id} — 포켓몬 토글
@@ -363,12 +375,36 @@ async def _edit_boss_info(query, user_id: int, boss: dict):
 
 # ── Boss Team Selection ───────────────────────────────────
 
-# In-memory draft for team building (user_id -> list of instance_ids)
-_team_drafts: dict[int, list[int]] = {}
+# In-memory draft for team building
+_team_drafts: dict[int, list[int]] = {}  # user_id -> list of instance_ids
+_team_filters: dict[int, str] = {}       # user_id -> filter key ("all", type name, rarity)
 PAGE_SIZE = 8
 
+_RARITY_FILTERS = ["legendary", "ultra_legendary", "epic", "rare"]
+_RARITY_LABEL = {"legendary": "전설", "ultra_legendary": "초전설", "epic": "에픽", "rare": "레어"}
 
-async def _handle_team_select(query, user_id: int, page: int = 0):
+
+def _get_pokemon_types(p: dict) -> list[str]:
+    """Get dual types from base stats, fallback to pokemon_type."""
+    from models.pokemon_base_stats import POKEMON_BASE_STATS
+    bs = POKEMON_BASE_STATS.get(p["pokemon_id"])
+    if bs:
+        return bs[-1]  # dual types list
+    return [p.get("pokemon_type", "normal")]
+
+
+def _apply_filter(pokemon_list: list, filter_key: str) -> list:
+    """Filter pokemon list by type or rarity."""
+    if filter_key == "all":
+        return pokemon_list
+    # Rarity filter
+    if filter_key in _RARITY_LABEL:
+        return [p for p in pokemon_list if p.get("rarity") == filter_key]
+    # Type filter
+    return [p for p in pokemon_list if filter_key in _get_pokemon_types(p)]
+
+
+async def _handle_team_select(query, user_id: int, page: int = 0, filter_key: str | None = None):
     """Show pokemon list for boss team selection."""
     await query.answer()
 
@@ -380,43 +416,79 @@ async def _handle_team_select(query, user_id: int, page: int = 0):
         else:
             _team_drafts[user_id] = []
 
+    if filter_key is not None:
+        _team_filters[user_id] = filter_key
+    cur_filter = _team_filters.get(user_id, "all")
+
     draft = _team_drafts[user_id]
 
     # Get all pokemon
-    pokemon_list = await queries.get_user_pokemon_list(user_id)
-    if not pokemon_list:
+    all_pokemon = await queries.get_user_pokemon_list(user_id)
+    if not all_pokemon:
         await query.edit_message_text("❌ 포켓몬이 없습니다.")
         return
+
+    # Apply filter
+    pokemon_list = _apply_filter(all_pokemon, cur_filter)
 
     total_pages = max(1, (len(pokemon_list) + PAGE_SIZE - 1) // PAGE_SIZE)
     page = max(0, min(page, total_pages - 1))
     start = page * PAGE_SIZE
     page_pokemon = pokemon_list[start:start + PAGE_SIZE]
 
-    # Header
+    # Header — selected pokemon
     selected_names = []
     for inst_id in draft:
-        for p in pokemon_list:
+        for p in all_pokemon:
             pid = p.get("pokemon_instance_id") or p.get("id")
             if pid == inst_id:
                 selected_names.append(f"{type_badge(p['pokemon_id'], p.get('pokemon_type'))}{p['name_ko']}")
                 break
 
+    # Boss weakness hint
+    boss = await get_current_boss()
+    weak_hint = ""
+    if boss:
+        weak_types = get_weakness_types(boss["boss_types"])
+        if weak_types:
+            weak_hint = "💡 약점: " + ", ".join(config.TYPE_EMOJI.get(t, "") + config.TYPE_NAME_KO.get(t, t) for t in weak_types[:4])
+
+    filter_label = "전체" if cur_filter == "all" else (
+        _RARITY_LABEL.get(cur_filter, config.TYPE_NAME_KO.get(cur_filter, cur_filter))
+    )
+
     lines = [
         "🔧 <b>보스팀 설정</b>",
-        f"선택: {len(draft)}/6",
+        f"선택: {len(draft)}/6 | 필터: {filter_label} ({len(pokemon_list)}마리)",
     ]
     if selected_names:
         lines.append(" ".join(selected_names))
-    lines.append("")
-    lines.append("포켓몬을 눌러 추가/제거:")
+    if weak_hint:
+        lines.append(weak_hint)
+
+    # Filter buttons — 약점 속성 우선 + 등급 + 전체
+    filter_btns = []
+    # 약점 속성 필터
+    if boss:
+        weak_types = get_weakness_types(boss["boss_types"])
+        for t in weak_types[:4]:
+            emoji = config.TYPE_EMOJI.get(t, "")
+            active = "•" if cur_filter == t else ""
+            filter_btns.append(InlineKeyboardButton(
+                f"{active}{emoji}", callback_data=f"boss_tf_{user_id}_{t}",
+            ))
+    # 전체
+    filter_btns.append(InlineKeyboardButton(
+        "•전체" if cur_filter == "all" else "전체",
+        callback_data=f"boss_tf_{user_id}_all",
+    ))
+
+    buttons = [filter_btns]
 
     # Pokemon buttons
-    buttons = []
     for p in page_pokemon:
         inst_id = p.get("pokemon_instance_id") or p.get("id")
         name = p["name_ko"]
-        tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
         shiny_mark = "✨" if p.get("is_shiny") else ""
         selected = "✅ " if inst_id in draft else ""
         rarity_short = {"common": "C", "rare": "R", "epic": "E", "legendary": "L", "ultra_legendary": "UL"}.get(p.get("rarity", ""), "")
@@ -425,14 +497,15 @@ async def _handle_team_select(query, user_id: int, page: int = 0):
             callback_data=f"boss_tsel_{user_id}_{inst_id}",
         )])
 
-    # Pagination
-    nav = []
-    if page > 0:
-        nav.append(InlineKeyboardButton("◀", callback_data=f"boss_tpg_{user_id}_{page-1}"))
-    nav.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="boss_noop"))
-    if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("▶", callback_data=f"boss_tpg_{user_id}_{page+1}"))
-    buttons.append(nav)
+    # Pagination (page is 0-indexed, callback sends 1-indexed)
+    if total_pages > 1:
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton("◀", callback_data=f"boss_tpg_{user_id}_{page}_{cur_filter}"))
+        nav.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="boss_noop"))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton("▶", callback_data=f"boss_tpg_{user_id}_{page+2}_{cur_filter}"))
+        buttons.append(nav)
 
     # Action buttons
     actions = []
@@ -468,13 +541,12 @@ async def _handle_team_toggle(query, user_id: int, instance_id: int):
 
     _team_drafts[user_id] = draft
 
-    # Re-render current page (extract page from message buttons)
+    # Re-render current page (extract from nav button text)
     page = 0
     if query.message and query.message.reply_markup:
         for row in query.message.reply_markup.inline_keyboard:
             for btn in row:
-                if btn.callback_data and btn.callback_data.startswith(f"boss_tpg_{user_id}_"):
-                    # Find current page from nav button text
+                if btn.text and "/" in btn.text and btn.callback_data == "boss_noop":
                     try:
                         page = int(btn.text.split("/")[0]) - 1
                     except (ValueError, IndexError):
