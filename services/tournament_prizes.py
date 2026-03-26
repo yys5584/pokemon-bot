@@ -667,7 +667,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         await pool.execute(
             "INSERT INTO board_posts (board_type, user_id, display_name, title, content) "
             "VALUES ($1, $2, $3, $4, $5)",
-            "notice", 1832746512, "TG포켓", notice_title, notice_content,
+            "tournament", 1832746512, "TG포켓", notice_title, notice_content,
         )
         logger.info(f"Tournament result posted to notice board: {notice_title}")
     except Exception:
