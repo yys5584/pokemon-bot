@@ -191,7 +191,7 @@ async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
             f"{rule_line}"
             f"📢 랭크전 / 토너먼트 동일 적용!\n"
             f"🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨\n\n"
-            f"{_bt} <b>토너먼트 21:00 개최</b>\n"
+            f"{_bt} <b>토너먼트 21:00~21:50 등록 / 22:00 시작</b>\n"
             f"👉 {config.BOT_CHANNEL_URL} 에서 ㄷ 입력\n\n"
             f"{icon_emoji('crown')} 우승: {_mb}×{config.TOURNAMENT_PRIZE_1ST_MB} + {_se}초전설 + 💎IV+3 + 챔피언 칭호"
         )
