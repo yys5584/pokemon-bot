@@ -577,11 +577,15 @@ def validate_weekly_rule(team: list[dict], rule_key: str) -> tuple[bool, str]:
         if epic_count > 2:
             return False, rule["error"]
     elif rule_key == "epic_water_ice":
+        if any(p["rarity"] in ("legendary", "ultra_legendary") for p in team):
+            return False, "이번 시즌은 에픽 이하만 편성 가능합니다!"
         for p in team:
             if p["rarity"] == "epic":
                 if not (_has_type(p, "water") or _has_type(p, "ice")):
                     return False, rule["error"]
     elif rule_key == "epic_fire_fight":
+        if any(p["rarity"] in ("legendary", "ultra_legendary") for p in team):
+            return False, "이번 시즌은 에픽 이하만 편성 가능합니다!"
         for p in team:
             if p["rarity"] == "epic":
                 if not (_has_type(p, "fire") or _has_type(p, "fighting")):
