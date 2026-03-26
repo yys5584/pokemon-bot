@@ -591,6 +591,13 @@ def validate_weekly_rule(team: list[dict], rule_key: str) -> tuple[bool, str]:
                 if not (_has_type(p, "fire") or _has_type(p, "fighting")):
                     return False, rule["error"]
 
+    # --- 코스트 제한 ---
+    if rule.get("cost_limit"):
+        total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
+        limit = rule["cost_limit"]
+        if total_cost > limit:
+            return False, f"이번 시즌은 팀 코스트 {limit} 이하만 가능합니다! (현재: {total_cost})"
+
     return True, ""
 
 
