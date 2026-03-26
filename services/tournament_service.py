@@ -272,11 +272,13 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
     await _save_registration_db(user_id, display_name)
 
     count = len(_tournament_state["participants"])
-    return True, (
+    msg = (
         f"{icon_emoji('check')} {display_name} 참가 등록 완료!\n"
-        f"현재 참가자: {count}명\n"
-        f"💡 21:50에 배틀팀이 확정됩니다. 그 전에 팀을 변경할 수 있습니다."
+        f"현재 참가자: {count}명"
     )
+    if not _tournament_state.get("mock"):
+        msg += "\n💡 21:50에 배틀팀이 확정됩니다. 그 전에 팀을 변경할 수 있습니다."
+    return True, msg
 
 
 async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
