@@ -172,6 +172,22 @@ async def _handle_attack(query, context, user_id: int):
         lines.append("")
         lines.append(f"🎁 보상: {' + '.join(reward_parts)}")
 
+    # 딜량 % 기여도 (상위 10명)
+    wk = boss["week_key"]
+    ranking = await bq.get_weekly_ranking(wk, limit=10)
+    total_dmg = sum(r["total_damage"] for r in ranking)
+    if total_dmg > 0 and ranking:
+        lines.append("")
+        lines.append("📊 <b>기여도</b>")
+        medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+        for i, entry in enumerate(ranking):
+            rank = i + 1
+            medal = medals.get(rank, f"{rank}.")
+            pct_dmg = entry["total_damage"] / total_dmg * 100
+            name = entry["display_name"]
+            me = " ◀" if entry["user_id"] == user_id else ""
+            lines.append(f"  {medal} {name} {pct_dmg:.1f}%{me}")
+
     # Defeated
     if defeated_now:
         lines.extend([
@@ -180,7 +196,7 @@ async def _handle_attack(query, context, user_id: int):
             "참여자 전원에게 보너스가 지급됩니다!",
         ])
 
-    buttons = [[InlineKeyboardButton("📊 랭킹", callback_data=f"boss_rank_{user_id}")]]
+    buttons = [[InlineKeyboardButton("📊 전체 랭킹", callback_data=f"boss_rank_{user_id}")]]
     markup = InlineKeyboardMarkup(buttons)
 
     try:
@@ -216,17 +232,20 @@ async def _handle_ranking(query, user_id: int):
         "━━━━━━━━━━━━━━━",
     ]
 
+    total_dmg = sum(r["total_damage"] for r in ranking)
     medals = {1: "🥇", 2: "🥈", 3: "🥉"}
     for i, entry in enumerate(ranking):
         rank = i + 1
         medal = medals.get(rank, f"{rank}.")
         name = entry["display_name"]
         dmg = _format_number(entry["total_damage"])
+        pct_dmg = (entry["total_damage"] / total_dmg * 100) if total_dmg > 0 else 0
         is_me = " ◀" if entry["user_id"] == user_id else ""
-        lines.append(f"{medal} {name} — {dmg}{is_me}")
+        lines.append(f"{medal} {name} — {dmg} ({pct_dmg:.1f}%){is_me}")
 
     if user_rank and user_rank > len(ranking):
-        lines.append(f"\n내 순위: {user_rank}위 ({_format_number(user_weekly['total_damage'])})")
+        my_pct = (user_weekly['total_damage'] / total_dmg * 100) if total_dmg > 0 else 0
+        lines.append(f"\n내 순위: {user_rank}위 — {_format_number(user_weekly['total_damage'])} ({my_pct:.1f}%)")
     elif not user_rank:
         lines.append("\n아직 참여하지 않았습니다.")
 
