@@ -1532,3 +1532,46 @@ async def create_tables():
             await pool.execute(sql, timeout=30)
         except Exception:
             pass
+
+    # ── Weekly Boss 테이블 (2026-03-26) ──
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_boss (
+            id SERIAL PRIMARY KEY,
+            week_key TEXT UNIQUE NOT NULL,
+            pokemon_id INT NOT NULL,
+            pokemon_name TEXT NOT NULL,
+            boss_types TEXT[] NOT NULL,
+            max_hp BIGINT NOT NULL,
+            current_hp BIGINT NOT NULL,
+            defeated BOOLEAN DEFAULT FALSE,
+            defeated_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            ended_at TIMESTAMPTZ
+        )
+    """)
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS boss_attacks (
+            id SERIAL PRIMARY KEY,
+            week_key TEXT NOT NULL,
+            user_id BIGINT NOT NULL,
+            damage_dealt BIGINT NOT NULL,
+            attack_date DATE NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    try:
+        await pool.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_boss_attacks_daily "
+            "ON boss_attacks(week_key, user_id, attack_date)"
+        )
+    except Exception:
+        pass
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS boss_weekly_damage (
+            week_key TEXT NOT NULL,
+            user_id BIGINT NOT NULL,
+            total_damage BIGINT NOT NULL DEFAULT 0,
+            attack_count INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (week_key, user_id)
+        )
+    """)

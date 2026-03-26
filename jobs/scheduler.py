@@ -13,6 +13,7 @@ from jobs.ranked_jobs import (
     ranked_decay_job,
 )
 from jobs.dungeon_jobs import dungeon_weekly_ranking_job, dungeon_daily_ranking_job
+from jobs.boss_jobs import boss_weekly_reset_job
 from services.tournament_service import start_registration, start_tournament, snapshot_teams
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,14 @@ def register_all_jobs(app):
         dungeon_daily_ranking_job,
         time=dt_time(0, 25, 0, tzinfo=_KST),
         name="dungeon_daily_ranking",
+    )
+
+    # --- 주간보스 ---
+    # 월요일 00:10 KST: 지난주 보상 + 새 보스 생성
+    jq.run_daily(
+        boss_weekly_reset_job,
+        time=dt_time(0, 10, 0, tzinfo=_KST),
+        name="boss_weekly_reset",
     )
 
     # --- 구독 결제 ---

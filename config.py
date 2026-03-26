@@ -1737,3 +1737,54 @@ CAMP_INTERACTION_TEMPLATES = [
     "{name1}의 {p1}(이/가) {name2}의 {p2}(을/를) 구경하고 있다 👀",
     "{name1}의 {p1}와(과) {name2}의 {p2}(이/가) 나란히 잠들었다 💤💤",
 ]
+
+# ============================================================
+# Weekly Boss (주간보스 레이드)
+# ============================================================
+BOSS_MAX_HP = 500_000
+BOSS_BATTLE_MAX_ROUNDS = 60  # 보스전 턴 제한
+
+# 보스 후보 풀: (pokemon_id, name, types)
+BOSS_POKEMON_POOL = [
+    (150, "뮤츠", ["psychic"]),
+    (249, "루기아", ["psychic", "flying"]),
+    (250, "칠색조", ["fire", "flying"]),
+    (144, "프리저", ["ice", "flying"]),
+    (145, "썬더", ["electric", "flying"]),
+    (146, "파이어", ["fire", "flying"]),
+    (243, "라이코", ["electric"]),
+    (244, "앤테이", ["fire"]),
+    (245, "스이쿤", ["water"]),
+    (151, "뮤", ["psychic"]),
+    (251, "세레비", ["psychic", "grass"]),
+]
+
+# 보스 스탯 배율 (초전설 풀강 기준 × 이 배율)
+BOSS_STAT_MULT = {
+    "hp": 1.0,   # HP는 별도로 BOSS_MAX_HP 사용
+    "atk": 1.8,
+    "def": 1.5,
+    "spa": 1.8,
+    "spdef": 1.5,
+    "spd": 1.2,
+}
+
+# 데일리 마일스톤 보상 (딜량 구간별, 최고 도달 구간만 지급)
+BOSS_DAILY_MILESTONES = {
+    500:  {"bp": 30},
+    1000: {"bp": 50},
+    2000: {"bp": 80, "fragments": 2},
+    3000: {"bp": 100, "fragments": 3},
+    5000: {"bp": 150, "fragments": 5, "iv_reroll_one": 1},
+}
+
+# 주간 랭킹 보상 (순위별)
+BOSS_WEEKLY_REWARDS = {
+    1:       {"bp": 500, "masterball": 2},
+    (2, 3):  {"bp": 300, "masterball": 1},
+    (4, 10): {"bp": 200, "time_reduce_ticket": 2},
+    (11, 30): {"bp": 100, "time_reduce_ticket": 1},
+}
+
+# 보스 처치 보너스 (참여자 전원)
+BOSS_DEFEAT_BONUS = {"bp": 100, "masterball": 1}

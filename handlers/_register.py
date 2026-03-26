@@ -76,6 +76,7 @@ from handlers.dm_mission import mission_handler
 from handlers.dm_release import release_handler, release_callback
 from handlers.dm_fusion import fusion_handler, fusion_callback
 from handlers.dm_dungeon import dungeon_handler, dungeon_callback
+from handlers.dm_boss import boss_handler, boss_callback
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
@@ -214,6 +215,7 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(방생|release)$"), release_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(합성|fusion)$"), fusion_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🏰\s*)?(던전|dungeon|地牢)$"), dungeon_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(보스|boss)$"), boss_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(📋\s*|📌\s*)?(미션|mission|任务|任務)$"), mission_handler))
 
     # Subscription / Premium system (DM + Group)
@@ -398,6 +400,9 @@ def register_all_handlers(app):
 
     # Dungeon (던전) callback
     app.add_handler(CallbackQueryHandler(dungeon_callback, pattern=r"^dg_"))
+
+    # Boss (주간보스) callback
+    app.add_handler(CallbackQueryHandler(boss_callback, pattern=r"^boss_"))
 
     # Title selection callback
     app.add_handler(CallbackQueryHandler(title_callback, pattern=r"^title_"))
