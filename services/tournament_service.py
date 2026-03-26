@@ -161,18 +161,34 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE):
 async def _broadcast_tournament_dm(context: ContextTypes.DEFAULT_TYPE):
     """Send DM to all registered users about tournament registration."""
     try:
-        user_ids = await queries.get_recently_active_user_ids(minutes=240)
+        user_ids = await queries.get_recently_active_user_ids(minutes=360)
         logger.info(f"Broadcasting tournament DM to {len(user_ids)} users")
 
         _mb = ball_emoji("masterball")
         _se = shiny_emoji()
         _bt = icon_emoji("battle")
+
+        # 시즌 룰 안내
+        rule_line = ""
+        try:
+            from services.ranked_service import ensure_current_season
+            season = await ensure_current_season()
+            if season:
+                rule_info = config.WEEKLY_RULES.get(season["weekly_rule"], {})
+                rule_name = rule_info.get("name", "")
+                rule_desc = rule_info.get("desc", "")
+                if rule_name:
+                    rule_line = f"\n🔒 <b>시즌 법칙: {rule_name}</b>\nㄴ {rule_desc}\n"
+        except Exception:
+            pass
+
         msg = (
             f"{_bt} 아케이드 토너먼트 개최!\n\n"
             "⏰ 21:00~21:50 등록 / 22:00 대회 시작\n"
             f"{icon_emoji('bookmark')} 아래 채널에서 ㄷ 입력으로 참가!\n"
             f"👉 {config.BOT_CHANNEL_URL}\n\n"
-            f"{_bt} 배틀팀 필수 — DM에서 '팀등록'으로 구성\n\n"
+            f"{_bt} 배틀팀 필수 — DM에서 '팀등록'으로 구성\n"
+            f"{rule_line}\n"
             f"{icon_emoji('crown')} 우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + 💰{config.TOURNAMENT_PRIZE_1ST_BP:,}BP + {_se}이로치(초전설+일반) + 챔피언 칭호\n"
             f"🥈 준우승: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + 💰{config.TOURNAMENT_PRIZE_2ND_BP:,}BP + {_se}이로치(전설+일반)\n"
             f"{icon_emoji('champion')} 4강: {_mb}마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + 💰{config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + {_se}이로치(에픽)\n"
@@ -206,7 +222,7 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
     if user_id in _tournament_state["participants"]:
         return False, "이미 등록되었습니다!"
 
-    # Check battle team exists + cost validation
+    # Check battle team exists + cost validation + season rule
     team = await bq.get_battle_team(user_id)
     if not team:
         return False, "배틀팀이 없습니다! DM에서 '팀등록'으로 팀을 먼저 구성하세요."
@@ -217,6 +233,17 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
             f"❌ 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n"
             f"코스트 {config.RANKED_COST_LIMIT} 이하로 편성해주세요."
         )
+
+    # 시즌 룰 검증
+    try:
+        from services.ranked_service import validate_team_for_ranked, ensure_current_season
+        season = await ensure_current_season()
+        if season:
+            ok, err = await validate_team_for_ranked(user_id, season)
+            if not ok:
+                return False, f"❌ 시즌 법칙 위반!\n{err}\n\n팀을 변경 후 다시 참가해주세요."
+    except Exception:
+        pass  # 시즌 없으면 스킵
 
     _tournament_state["participants"][user_id] = {
         "name": display_name,
