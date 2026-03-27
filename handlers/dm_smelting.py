@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 PAGE_SIZE = 8
 
 RARITY_FILTERS = [
-    ("all", "전체"),
     ("common", "일반"),
     ("rare", "레어"),
     ("epic", "에픽"),
@@ -51,6 +50,7 @@ def _get_state(context) -> dict:
             "selected_ids": [],
             "rarity_filter": "all",
             "shiny_filter": False,
+            "sort_desc": True,  # True=내림차(이로치→IV높은순), False=오름차
             "pokemon_cache": None,
         }
     return context.user_data[key]
@@ -88,12 +88,25 @@ def _get_rates_display(gauge: float) -> tuple[float, float]:
 
 # ── 포켓몬 필터 ────────────────────────────────────────────
 
-def _filter_pokemon(pokemon_list: list[dict], rarity_filter: str, shiny_filter: bool) -> list[dict]:
+RARITY_SORT_ORDER = {"ultra_legendary": 5, "legendary": 4, "epic": 3, "rare": 2, "common": 1}
+
+
+def _sort_key(p: dict) -> tuple:
+    """정렬 키: (이로치 여부, 등급, IV합계)."""
+    return (
+        1 if p.get("is_shiny") else 0,
+        RARITY_SORT_ORDER.get(p.get("rarity", "common"), 0),
+        pokemon_iv_total(p),
+    )
+
+
+def _filter_pokemon(pokemon_list: list[dict], rarity_filter: str, shiny_filter: bool, sort_desc: bool = True) -> list[dict]:
     filtered = pokemon_list
     if rarity_filter != "all":
         filtered = [p for p in filtered if p.get("rarity") == rarity_filter]
     if shiny_filter:
         filtered = [p for p in filtered if p.get("is_shiny")]
+    filtered = sorted(filtered, key=_sort_key, reverse=sort_desc)
     return filtered
 
 
@@ -150,8 +163,9 @@ def _build_select_panel(
     page: int,
     rarity_filter: str,
     shiny_filter: bool,
+    sort_desc: bool = True,
 ) -> tuple[str, InlineKeyboardMarkup]:
-    filtered = _filter_pokemon(pokemon_list, rarity_filter, shiny_filter)
+    filtered = _filter_pokemon(pokemon_list, rarity_filter, shiny_filter, sort_desc)
     total = len(filtered)
     max_page = max(0, (total - 1) // PAGE_SIZE)
     page = min(page, max_page)
@@ -174,7 +188,7 @@ def _build_select_panel(
 
     rows: list[list[InlineKeyboardButton]] = []
 
-    # 등급 필터 (2줄 × 3)
+    # 등급 필터 (2줄) + 이로치 토글 + 정렬
     filter_row1 = []
     filter_row2 = []
     for i, (key, label) in enumerate(RARITY_FILTERS):
@@ -193,6 +207,12 @@ def _build_select_panel(
         f"{shiny_mark}✨이로치",
         callback_data=f"sml_sf_{user_id}",
     ))
+    # 정렬 토글
+    sort_label = "🔽 내림차" if sort_desc else "🔼 오름차"
+    filter_row1.append(InlineKeyboardButton(
+        sort_label,
+        callback_data=f"sml_sort_{user_id}",
+    ))
     rows.append(filter_row1)
     rows.append(filter_row2)
 
@@ -203,12 +223,11 @@ def _build_select_panel(
         check = "✅" if is_selected else "⬜"
         rarity_emoji = config.RARITY_EMOJI.get(p.get("rarity", ""), "")
         name = p.get("name_ko", "???")
-        rarity_label = config.RARITY_LABEL.get(p.get("rarity", ""), "")
         shiny_mark = "✨" if p.get("is_shiny") else ""
         iv_t = pokemon_iv_total(p)
         grade = iv_grade(iv_t)
 
-        label = f"{check} {rarity_emoji} {shiny_mark}{name} [{rarity_label}] [{grade}]"
+        label = f"{check} {rarity_emoji} {shiny_mark}{name} [{grade}]"
         rows.append([InlineKeyboardButton(
             label,
             callback_data=f"sml_tog_{user_id}_{iid}",
@@ -523,7 +542,7 @@ async def smelting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state["shiny_filter"] = False
 
         text, kb = _build_select_panel(
-            user_id, pokemon_list, [], 0, "all", False,
+            user_id, pokemon_list, [], 0, "all", False, state.get("sort_desc", True),
         )
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
@@ -536,6 +555,9 @@ async def smelting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ultra_legendary 처리
         if len(parts) > 4:
             rarity = "_".join(parts[3:])
+        # 같은 필터 다시 누르면 해제 (→ all)
+        if state["rarity_filter"] == rarity:
+            rarity = "all"
         state["rarity_filter"] = rarity
         state["page"] = 0
         await query.answer()
@@ -543,7 +565,23 @@ async def smelting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cache = state.get("pokemon_cache") or []
         text, kb = _build_select_panel(
             user_id, cache, state["selected_ids"],
-            0, rarity, state["shiny_filter"],
+            0, rarity, state["shiny_filter"], state.get("sort_desc", True),
+        )
+        try:
+            await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+        except Exception:
+            pass
+
+    # ── 정렬 토글 ──
+    elif action == "sort":
+        state["sort_desc"] = not state.get("sort_desc", True)
+        state["page"] = 0
+        await query.answer()
+
+        cache = state.get("pokemon_cache") or []
+        text, kb = _build_select_panel(
+            user_id, cache, state["selected_ids"],
+            0, state["rarity_filter"], state["shiny_filter"], state.get("sort_desc", True),
         )
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
@@ -559,7 +597,7 @@ async def smelting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cache = state.get("pokemon_cache") or []
         text, kb = _build_select_panel(
             user_id, cache, state["selected_ids"],
-            0, state["rarity_filter"], state["shiny_filter"],
+            0, state["rarity_filter"], state["shiny_filter"], state.get("sort_desc", True),
         )
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
@@ -590,7 +628,7 @@ async def smelting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cache = state.get("pokemon_cache") or []
         text, kb = _build_select_panel(
             user_id, cache, selected,
-            state["page"], state["rarity_filter"], state["shiny_filter"],
+            state["page"], state["rarity_filter"], state["shiny_filter"], state.get("sort_desc", True),
         )
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
@@ -610,7 +648,7 @@ async def smelting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cache = state.get("pokemon_cache") or []
         text, kb = _build_select_panel(
             user_id, cache, state["selected_ids"],
-            page, state["rarity_filter"], state["shiny_filter"],
+            page, state["rarity_filter"], state["shiny_filter"], state.get("sort_desc", True),
         )
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
@@ -621,12 +659,15 @@ async def smelting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif action == "reset":
         state["selected_ids"] = []
         state["page"] = 0
+        state["rarity_filter"] = "all"
+        state["shiny_filter"] = False
+        state["sort_desc"] = True
         await query.answer("선택이 초기화되었습니다.")
 
         cache = state.get("pokemon_cache") or []
         text, kb = _build_select_panel(
             user_id, cache, [],
-            0, state["rarity_filter"], state["shiny_filter"],
+            0, state["rarity_filter"], state["shiny_filter"], state.get("sort_desc", True),
         )
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
@@ -666,7 +707,7 @@ async def smelting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cache = state.get("pokemon_cache") or []
         text, kb = _build_select_panel(
             user_id, cache, state["selected_ids"],
-            state["page"], state["rarity_filter"], state["shiny_filter"],
+            state["page"], state["rarity_filter"], state["shiny_filter"], state.get("sort_desc", True),
         )
         try:
             await query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
