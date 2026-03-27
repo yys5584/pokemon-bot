@@ -176,8 +176,8 @@ async def schedule_all_chats(app):
             count = chat["member_count"]
         await schedule_spawns_for_chat(app, cid, count)
 
-    # 동시 5개씩 배치 (Telegram API rate limit 방지)
-    sem = asyncio.Semaphore(5)
+    # 동시 20개씩 배치 (Telegram API rate limit: 30/sec)
+    sem = asyncio.Semaphore(20)
     async def _limited(chat):
         async with sem:
             try:
