@@ -64,8 +64,11 @@ async def pick_random_pokemon(rarity: str) -> dict:
     return random.choices(candidates, weights=weights, k=1)[0]
 
 
-async def schedule_spawns_for_chat(app, chat_id: int, member_count: int):
-    """Schedule today's spawns for a single chat."""
+async def schedule_spawns_for_chat(app, chat_id: int, member_count: int, chat_data: dict | None = None):
+    """Schedule today's spawns for a single chat.
+
+    chat_data: 벌크 로드된 chat_rooms 행. 있으면 개별 DB 조회 스킵.
+    """
     from services.spawn_execute import execute_spawn
 
     # Cancel ALL spawn-related jobs for this chat (scheduled, retries, welcome)
@@ -80,24 +83,28 @@ async def schedule_spawns_for_chat(app, chat_id: int, member_count: int):
     if base_spawns <= 0:
         return
 
-    # Apply chat-specific multiplier
-    chat_mult = await queries.get_spawn_multiplier(chat_id)
+    # Apply chat-specific multiplier (벌크 데이터 or 개별 조회)
+    if chat_data:
+        chat_mult = chat_data.get("spawn_multiplier", 1.0) or 1.0
+    else:
+        chat_mult = await queries.get_spawn_multiplier(chat_id)
     # Apply global event multiplier
     event_mult = await get_spawn_boost()
     num_spawns = min(config.SPAWN_MAX_DAILY, max(1, int(base_spawns * chat_mult * event_mult)))
 
-    # Chat level bonus spawns
+    # Chat level bonus spawns (벌크 데이터 or 개별 조회)
     level_info = None
     try:
-        level_row = await queries.get_chat_level(chat_id)
-        if level_row:
-            level_info = config.get_chat_level_info(level_row["cxp"])
-            if level_info["spawn_bonus"] > 0:
-                num_spawns = min(config.SPAWN_MAX_DAILY, num_spawns + level_info["spawn_bonus"])
+        if chat_data:
+            cxp = chat_data.get("cxp", 0) or 0
+        else:
+            level_row = await queries.get_chat_level(chat_id)
+            cxp = level_row.get("cxp", 0) if level_row else 0
+        level_info = config.get_chat_level_info(cxp)
+        if level_info["spawn_bonus"] > 0:
+            num_spawns = min(config.SPAWN_MAX_DAILY, num_spawns + level_info["spawn_bonus"])
     except Exception as e:
         logger.error(f"Chat level lookup failed for {chat_id}: {e}")
-
-    await queries.update_chat_spawn_info(chat_id, num_spawns)
 
     now = config.get_kst_now()
     end_of_day = now.replace(hour=23, minute=59, second=59)
@@ -157,12 +164,14 @@ async def schedule_all_chats(app):
 
     chats = await queries.get_all_active_chats()
 
-    # 채팅방별 스폰 스케줄링 (병렬, API 호출 없이 DB 캐시 멤버수 사용)
-    sem = asyncio.Semaphore(20)
+    # 채팅방별 스폰 스케줄링 (벌크 데이터 전달, 개별 DB 조회 0)
+    sem = asyncio.Semaphore(50)
     async def _schedule_one(chat):
         async with sem:
             try:
-                await schedule_spawns_for_chat(app, chat["chat_id"], chat["member_count"])
+                await schedule_spawns_for_chat(
+                    app, chat["chat_id"], chat["member_count"], chat_data=chat,
+                )
             except Exception as e:
                 logger.error(f"Failed to schedule for chat {chat['chat_id']}: {e}")
 
