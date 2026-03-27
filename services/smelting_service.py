@@ -187,11 +187,13 @@ async def execute_smelting(
     if not user or user.get("battle_points", 0) < config.SMELTING_BP_COST:
         return {"success": False, "error": "BP가 부족합니다."}
 
-    # 2. 포켓몬 검증
-    protected = await queries.get_protected_pokemon_ids(user_id)
+    # 2. 포켓몬 검증 (병렬 조회)
+    protected, *fetched = await asyncio.gather(
+        queries.get_protected_pokemon_ids(user_id),
+        *(queries.get_user_pokemon_by_id(iid) for iid in instance_ids),
+    )
     pokemon_list = []
-    for iid in instance_ids:
-        p = await queries.get_user_pokemon_by_id(iid)
+    for iid, p in zip(instance_ids, fetched):
         if not p or p.get("user_id") != user_id:
             return {"success": False, "error": "포켓몬을 찾을 수 없습니다."}
         if iid in protected:
@@ -240,19 +242,25 @@ async def execute_smelting(
             pid for pid, data in POKEMON_BASE_STATS.items()
             if data.get("rarity") == shiny_rarity
         ]
-        if candidates:
-            chosen_pid = random.choice(candidates)
-            new_id, _ = await queries.give_pokemon_to_user(
-                user_id, chosen_pid, chat_id=None, is_shiny=1,
-            )
-            pdata = POKEMON_BASE_STATS.get(chosen_pid, {})
-            result_detail = {
-                "pokemon_id": chosen_pid,
-                "instance_id": new_id,
-                "name": pdata.get("name_ko", "???"),
-                "rarity": shiny_rarity,
-            }
-            reward = {"type": "shiny", "detail": result_detail}
+        if not candidates:
+            # fallback: 일반 등급에서 재시도
+            shiny_rarity = "common"
+            candidates = [
+                pid for pid, data in POKEMON_BASE_STATS.items()
+                if data.get("rarity") == "common"
+            ]
+        chosen_pid = random.choice(candidates)
+        new_id, _ = await queries.give_pokemon_to_user(
+            user_id, chosen_pid, chat_id=None, is_shiny=1,
+        )
+        pdata = POKEMON_BASE_STATS.get(chosen_pid, {})
+        result_detail = {
+            "pokemon_id": chosen_pid,
+            "instance_id": new_id,
+            "name": pdata.get("name_ko", "???"),
+            "rarity": shiny_rarity,
+        }
+        reward = {"type": "shiny", "detail": result_detail}
 
         # 게이지 리셋
         await sq.reset_smelting_gauge(user_id)
