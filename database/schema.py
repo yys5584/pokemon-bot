@@ -1591,3 +1591,27 @@ async def create_tables():
             PRIMARY KEY (week_key, user_id)
         )
     """)
+
+    # ── 이로치 제련소 ──
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS smelting_gauge (
+            user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+            gauge NUMERIC(6,2) DEFAULT 0,
+            highest_rarity TEXT DEFAULT 'common',
+            rarity_contributions JSONB DEFAULT '{}',
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS smelting_log (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT REFERENCES users(user_id),
+            materials JSONB NOT NULL,
+            gauge_before NUMERIC(6,2) NOT NULL,
+            gauge_after NUMERIC(6,2) NOT NULL,
+            result TEXT NOT NULL,
+            result_detail JSONB,
+            reward_detail JSONB,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)

@@ -75,6 +75,7 @@ from handlers.group_trade import group_trade_handler, group_trade_callback_handl
 from handlers.dm_mission import mission_handler
 from handlers.dm_release import release_handler, release_callback
 from handlers.dm_fusion import fusion_handler, fusion_callback
+from handlers.dm_smelting import smelting_handler, smelting_callback
 from handlers.dm_dungeon import dungeon_handler, dungeon_callback
 from handlers.dm_boss import boss_handler, boss_callback
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
@@ -214,6 +215,7 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?(거래소|market)$"), market_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(방생|release)$"), release_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(합성|fusion)$"), fusion_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(제련소?|smelting)$"), smelting_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🏰\s*)?(던전|dungeon|地牢)$"), dungeon_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(보스|boss)$"), boss_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(📋\s*|📌\s*)?(미션|mission|任务|任務)$"), mission_handler))
@@ -397,6 +399,7 @@ def register_all_handlers(app):
 
     # Fusion (합성) callback
     app.add_handler(CallbackQueryHandler(fusion_callback, pattern=r"^fus_"))
+    app.add_handler(CallbackQueryHandler(smelting_callback, pattern=r"^sml_"))
 
     # Dungeon (던전) callback
     app.add_handler(CallbackQueryHandler(dungeon_callback, pattern=r"^dg_"))
