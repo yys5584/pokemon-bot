@@ -284,8 +284,18 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     user_id = query.from_user.id
-    lang = await get_user_lang(user_id)
     item_key = query.data.replace("shop_", "")
+
+    # 거래소 바로가기 (lang 불필요 → 즉시 응답)
+    if item_key == "market":
+        await query.answer()
+        from handlers.dm_market import _build_listing_page
+        listings, total = await market_queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
+        text_msg, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE)
+        await query.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
+        return
+
+    lang = await get_user_lang(user_id)
 
     # Map callback to item name for bp_buy logic
     item_map = {
@@ -296,15 +306,6 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "hyperball3": "하이퍼볼3",
         "arcade": "아케이드",
     }
-    # 거래소 바로가기
-    if item_key == "market":
-        await query.answer()
-        from handlers.dm_market import _build_listing_page
-        listings, total = await market_queries.get_active_listings(page=0, page_size=config.MARKET_PAGE_SIZE)
-        text_msg, markup = _build_listing_page(listings, total, 0, config.MARKET_PAGE_SIZE)
-        await query.message.reply_text(text_msg, reply_markup=markup, parse_mode="HTML")
-        return
-
     item = item_map.get(item_key)
     if not item:
         await query.answer(t(lang, "shop.unknown_item"), show_alert=True)

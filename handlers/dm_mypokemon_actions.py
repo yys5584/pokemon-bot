@@ -242,7 +242,6 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     parts = data.split("_")
     action = parts[1]
     user_id = int(parts[2])
-    lang = await get_user_lang(user_id)
 
     if query.from_user.id != user_id:
         return
@@ -252,6 +251,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     if action not in _self_answer_actions:
         await query.answer()
 
+    lang = await get_user_lang(user_id)
     pokemon_list = await queries.get_user_pokemon_list(user_id)
     if not pokemon_list:
         try:

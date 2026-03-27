@@ -171,12 +171,14 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
     action = parts[1]  # accept or decline
     challenge_id = int(parts[2])
     expected_defender = int(parts[3])
-    lang = await get_user_lang(query.from_user.id)
-
     # Only defender can respond
     if query.from_user.id != expected_defender:
+        lang = await get_user_lang(query.from_user.id)
         await query.answer(t(lang, "error.not_your_button"), show_alert=True)
         return
+
+    await query.answer()
+    lang = await get_user_lang(query.from_user.id)
 
     challenge = await bq.get_challenge_by_id(challenge_id)
     if not challenge:
@@ -204,8 +206,6 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
         except Exception:
             pass
         return
-
-    await query.answer()
 
     if action == "decline":
         await bq.update_challenge_status(challenge_id, "declined")
