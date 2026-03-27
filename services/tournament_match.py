@@ -390,6 +390,28 @@ async def _run_match(
             )
         await asyncio.sleep(3)
 
+        # ── 카운트다운 애니메이션 ──
+        countdown_msg = await _safe_send(context.bot, chat_id, text="⚡ 3")
+        await asyncio.sleep(1)
+        if countdown_msg:
+            try:
+                await countdown_msg.edit_text("⚡⚡ 2")
+            except Exception:
+                pass
+        await asyncio.sleep(1)
+        if countdown_msg:
+            try:
+                await countdown_msg.edit_text("⚡⚡⚡ 1")
+            except Exception:
+                pass
+        await asyncio.sleep(1)
+        if countdown_msg:
+            try:
+                await countdown_msg.edit_text("✦═✦═✦═✦═✦═✦═✦═✦\n⚔️ FIGHT!\n✦═✦═✦═✦═✦═✦═✦═✦")
+            except Exception:
+                pass
+        await asyncio.sleep(2)
+
         # 상황기반 멘트 준비 (매치업별 멘트 미리 생성)
         _comment_rounds = _build_gif_rounds(result["turn_data"], p1_data, p2_data)
         _comment_map = {}  # matchup_idx → comment
@@ -414,11 +436,12 @@ async def _run_match(
                 _running_c_hp = td["c_hp"]
                 _running_d_hp = td["d_hp"]
 
-                # 매치업 시작 전 상황기반 멘트
+                # 매치업 시작 전 상황기반 멘트 (극적 연출)
                 _comment = _comment_map.get(_current_matchup_idx, "")
                 if _comment and _current_matchup_idx > 0:
-                    await _safe_send(context.bot, chat_id,
-                        text=f"💬 {_comment}",
+                    _score_text = f"[{_score_c} - {_score_d}]"
+                    _comment_msg = await _safe_send(context.bot, chat_id,
+                        text=f"━══════════════════━\n🧑‍🔬 문박사: {_comment}\n  📊 현재 스코어 {_score_text}\n━══════════════════━",
                     )
                     await asyncio.sleep(2)
 
@@ -547,12 +570,54 @@ async def _run_match(
                 await _safe_send(context.bot, chat_id, text=f"💬 {_last_comment}")
                 await asyncio.sleep(1)
 
-        win_text = f"\n🎉 {winner_data['name']} 우승! (남은 {remaining}마리)"
-        if mvp_line:
-            win_text += f"\n{mvp_line}"
-        await _safe_send(context.bot, chat_id, text=win_text)
+        # ── 우승 확정 축하 애니메이션 ──
+        import random as _rng
+        _mc_final = [
+            "이건... 역대급이었다!!!",
+            "소름이 돋는 결승이었습니다!!!",
+            "전설의 배틀! 역사에 남을 경기!!!",
+            "문박사도 이런 결승은 처음입니다!!!",
+            "관중들이 일어났습니다!!!",
+        ]
+        border = "✦═✦═✦═✦═✦═✦═✦═✦"
+        winner_name = winner_data['name']
 
-        # 🎬 결승전 GIF 하이라이트 — 비활성화 (품질 이슈)
+        # 드라마틱 멈춤
+        drama_msg = await _safe_send(context.bot, chat_id, text="🧑‍🔬 문박사: 승부가... 갈립니다...!!!")
+        await asyncio.sleep(2)
+        if drama_msg:
+            try:
+                await drama_msg.edit_text("🧑‍🔬 문박사: ...")
+            except Exception:
+                pass
+        await asyncio.sleep(1.5)
+        if drama_msg:
+            try:
+                await drama_msg.edit_text(
+                    f"{border}\n\n"
+                    f"🏆 <b>{winner_name} 우승!!!</b>\n"
+                    f"🎊 남은 {remaining}마리\n\n"
+                    f"🧑‍🔬 문박사: {_rng.choice(_mc_final)}\n\n"
+                    f"{border}",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+        await asyncio.sleep(1)
+        # 테두리 반짝 효과
+        if drama_msg:
+            try:
+                await drama_msg.edit_text(
+                    f"✦═══════════════════✦\n\n"
+                    f"🏆 <b>{winner_name} 우승!!!</b>\n"
+                    f"🎊 남은 {remaining}마리\n"
+                    f"{mvp_line}\n\n"
+                    f"🧑‍🔬 문박사: {_rng.choice(_mc_final)}\n\n"
+                    f"✦═══════════════════✦",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
 
         # 🎤 우승 인터뷰
         await asyncio.sleep(3)
