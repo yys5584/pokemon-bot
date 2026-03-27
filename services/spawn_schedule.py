@@ -157,15 +157,17 @@ async def schedule_all_chats(app):
 
     chats = await queries.get_all_active_chats()
 
-    # 채팅방별 스폰 스케줄링 (API 호출 없이 DB 캐시 멤버수 사용)
-    for chat in chats:
-        cid = chat["chat_id"]
-        if cid in config.ARCADE_CHAT_IDS:
-            continue
-        try:
-            await schedule_spawns_for_chat(app, cid, chat["member_count"])
-        except Exception as e:
-            logger.error(f"Failed to schedule for chat {cid}: {e}")
+    # 채팅방별 스폰 스케줄링 (병렬, API 호출 없이 DB 캐시 멤버수 사용)
+    sem = asyncio.Semaphore(20)
+    async def _schedule_one(chat):
+        async with sem:
+            try:
+                await schedule_spawns_for_chat(app, chat["chat_id"], chat["member_count"])
+            except Exception as e:
+                logger.error(f"Failed to schedule for chat {chat['chat_id']}: {e}")
+
+    targets = [c for c in chats if c["chat_id"] not in config.ARCADE_CHAT_IDS]
+    await asyncio.gather(*[_schedule_one(c) for c in targets])
 
     # Schedule permanent arcade channels (repeating every N seconds)
     schedule_arcade_spawns(app)
