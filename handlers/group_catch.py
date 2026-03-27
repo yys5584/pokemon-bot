@@ -120,6 +120,11 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
+    # 밴 체크
+    if await queries.is_user_banned(user_id):
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
+
     if is_tournament_active(chat_id):
         return
 
@@ -228,6 +233,10 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
+    if await queries.is_user_banned(user_id):
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
+
     if is_tournament_active(chat_id):
         return
 
@@ -327,6 +336,10 @@ async def priority_ball_handler(update: Update, context: ContextTypes.DEFAULT_TY
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
+    if await queries.is_user_banned(user_id):
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
+
     if is_tournament_active(chat_id):
         return
 
@@ -424,6 +437,10 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     lang = await get_user_lang(user_id)
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
+
+    if await queries.is_user_banned(user_id):
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
 
     if is_tournament_active(chat_id):
         return

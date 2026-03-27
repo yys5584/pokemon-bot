@@ -38,6 +38,10 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     to_user = msg.reply_to_message.from_user
     chat_id = msg.chat_id
 
+    # 밴 체크
+    if await queries.is_user_banned(from_user.id):
+        return
+
     # Can't trade with self
     if from_user.id == to_user.id:
         await msg.reply_text("자기 자신에게는 교환할 수 없습니다.")

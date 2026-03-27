@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 # Users
 # ============================================================
 
+async def is_user_banned(user_id: int) -> bool:
+    """Check if user is banned (banned_until > NOW())."""
+    pool = await get_db()
+    row = await pool.fetchval(
+        "SELECT banned_until > NOW() FROM users WHERE user_id = $1",
+        user_id,
+    )
+    return bool(row)
+
+
 async def ensure_user(user_id: int, display_name: str, username: str | None = None):
     """Register or update a user. New users get welcome bonus (500 BP + 10 AI tokens). No master balls (earned via journey)."""
     async def _do():

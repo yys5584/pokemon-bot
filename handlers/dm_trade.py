@@ -24,6 +24,11 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
     lang = await get_user_lang(user_id)
+
+    if await queries.is_user_banned(user_id):
+        await update.message.reply_text("🚫 이용이 제한된 계정입니다.")
+        return
+
     await queries.ensure_user(
         user_id,
         update.effective_user.first_name or t(lang, "common.trainer"),
