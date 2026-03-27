@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800;900&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 1456px;
+  height: 816px;
+  font-family: 'Noto Sans KR', sans-serif;
+  background: #0d0d0d;
+  color: #e0e0e0;
+  overflow: hidden;
+}
+.card {
+  width: 1456px;
+  height: 816px;
+  position: relative;
+  border-top: 4px solid #e63946;
+}
+.side-label {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 5px;
+  color: #333;
+}
+.header {
+  padding: 36px 52px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.ver-badge {
+  background: #e63946;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+  padding: 8px 20px;
+  border-radius: 10px;
+}
+.header h1 {
+  font-size: 52px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -1.5px;
+}
+.header .date {
+  font-size: 18px;
+  color: #555;
+  font-weight: 600;
+}
+.content {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 32px;
+  padding: 28px 52px 0 52px;
+  margin-left: 28px;
+}
+.sec-title {
+  font-size: 28px;
+  font-weight: 900;
+  color: #e63946;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sec-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #e63946;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.info-card {
+  border-left: 3px solid #333;
+  padding: 13px 16px;
+  margin-bottom: 10px;
+  background: rgba(255,255,255,0.02);
+}
+.info-card .label {
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 5px;
+}
+.info-card .desc {
+  font-size: 15px;
+  color: #ddd;
+  line-height: 1.65;
+}
+.accent { color: #e63946; font-weight: 700; }
+.white { color: #fff; font-weight: 700; }
+.info-card.blue { border-color: #3b82f6; }
+.info-card.green { border-color: #22c55e; }
+.info-card.purple { border-color: #8b5cf6; }
+.info-card.gold { border-color: #f59e0b; }
+
+/* 등급 테이블 */
+.grade-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+.grade-table th {
+  font-size: 14px;
+  font-weight: 700;
+  color: #666;
+  text-align: left;
+  padding: 6px 0;
+  border-bottom: 1px solid #222;
+}
+.grade-table td {
+  font-size: 17px;
+  padding: 10px 0;
+  border-bottom: 1px solid #1a1a1a;
+  vertical-align: middle;
+}
+.grade-table .rarity {
+  font-weight: 800;
+  font-size: 18px;
+}
+.grade-table .freq {
+  color: #e63946;
+  font-weight: 800;
+  font-size: 18px;
+}
+.grade-table .note {
+  color: #999;
+  font-size: 14px;
+}
+.rarity-c { color: #aaa; }
+.rarity-u { color: #5b5; }
+.rarity-r { color: #58f; }
+.rarity-e { color: #c5f; }
+.rarity-l { color: #fa0; }
+
+/* 시너지 칩 */
+.syn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.syn-chip {
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: 8px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.syn-chip .emoji { font-size: 22px; }
+.syn-chip .name { font-size: 16px; font-weight: 800; color: #f59e0b; }
+
+/* 포켓몬 */
+.pokemon-art {
+  position: absolute;
+  bottom: 0;
+  left: 80px;
+  display: flex;
+  align-items: flex-end;
+}
+.pokemon-art img {
+  height: 160px;
+  filter: drop-shadow(0 4px 20px rgba(0,0,0,0.5));
+  opacity: 0.8;
+}
+.brand {
+  position: absolute;
+  bottom: 20px;
+  right: 52px;
+  font-size: 28px;
+  font-weight: 900;
+  color: #e63946;
+  font-style: italic;
+}
+.cta {
+  position: absolute;
+  bottom: 26px;
+  left: 80px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #555;
+}
+.cta b { color: #e63946; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="side-label">PATCH NOTES</div>
+
+  <div class="header">
+    <div class="header-left">
+      <div class="ver-badge">신규 컨텐츠</div>
+      <h1>🏰 던전</h1>
+    </div>
+    <div class="date">2026.03.18</div>
+  </div>
+
+  <div class="content">
+    <!-- 좌측 -->
+    <div>
+      <div class="sec-title">플레이 방법</div>
+
+      <div class="info-card blue">
+        <div class="label">📖 시작</div>
+        <div class="desc">
+          봇 DM → <span class="accent">「던전」</span> 입력<br>
+          포켓몬 <span class="white">1마리</span> 선택 → 입장권 소모 → 시작
+        </div>
+      </div>
+
+      <div class="info-card green">
+        <div class="label">⚔️ 진행</div>
+        <div class="desc">
+          매 층 <span class="white">자동 배틀</span> → 승리 시 <span class="accent">버프 선택</span><br>
+          5층마다 <span class="white">관장전</span> · HP는 다음 층으로 이월
+        </div>
+      </div>
+
+      <div class="info-card purple">
+        <div class="label">⬆️ 뱀서식 레벨업</div>
+        <div class="desc">
+          같은 버프를 뽑으면 <span class="accent">Lv.1→2→3</span> 강화!<br>
+          <span class="white">버프 15종</span> + 히든 시너지 <span class="white">6종</span><br>
+          전략적 빌드로 고층 돌파
+        </div>
+      </div>
+    </div>
+
+    <!-- 우측 -->
+    <div>
+      <div class="sec-title">등급별 버프 주기</div>
+
+      <div class="info-card gold">
+        <div class="label">⭐ 등급이 낮을수록 버프가 자주!</div>
+        <div class="desc" style="margin-bottom:4px">약한 포켓몬도 빌드로 강해질 수 있습니다</div>
+        <table class="grade-table">
+          <tr>
+            <th>등급</th>
+            <th>코스트</th>
+            <th>버프 주기</th>
+            <th></th>
+          </tr>
+          <tr>
+            <td><span class="rarity rarity-c">커먼 · 언커먼</span></td>
+            <td class="desc">1~2</td>
+            <td class="freq">매 층</td>
+            <td class="note">버프 폭풍</td>
+          </tr>
+          <tr>
+            <td><span class="rarity rarity-r">레어</span></td>
+            <td class="desc">4</td>
+            <td class="freq">2층마다</td>
+            <td class="note">밸런스</td>
+          </tr>
+          <tr>
+            <td><span class="rarity rarity-e">에픽</span></td>
+            <td class="desc">5</td>
+            <td class="freq">3층마다</td>
+            <td class="note">스탯으로 버팀</td>
+          </tr>
+          <tr>
+            <td><span class="rarity rarity-l">전설 · 초전설</span></td>
+            <td class="desc">6</td>
+            <td class="freq">4층마다</td>
+            <td class="note">순수 깡스탯</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="info-card gold" style="margin-top:6px">
+        <div class="label">✨ 히든 시너지 6종 — 버프 조합으로 발동!</div>
+      </div>
+    </div>
+
+    <!-- 3열: 보상 & 신규 아이템 -->
+    <div>
+      <div class="sec-title">보상</div>
+
+      <div class="info-card blue">
+        <div class="label">🏆 마일스톤 보상</div>
+        <div class="desc">
+          5층마다 <span class="white">BP · 조각 · 입장권</span> 지급<br>
+          <span class="accent">20F+</span> 결정 · <span class="accent">30F+</span> 무지개결정<br>
+          <span class="accent">40F · 50F</span> 💠 <span class="white">IV스톤</span> 획득
+        </div>
+      </div>
+
+      <div class="info-card purple">
+        <div class="label">💠 IV스톤</div>
+        <div class="desc">
+          원하는 포켓몬의 <span class="white">IV 스탯 +3</span><br>
+          DM → 「아이템」에서 사용
+        </div>
+      </div>
+
+      <div class="info-card green">
+        <div class="label">🧩 만능 조각</div>
+        <div class="desc">
+          이로치 전환 시 <span class="white">아무 타입</span> 대체
+        </div>
+      </div>
+
+      <div class="info-card" style="border-color:#555">
+        <div class="label">💎 결정 · 🌈 무지개결정</div>
+        <div class="desc">
+          캠프 이로치 전환 재화
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="cta">봇 DM → <b>「던전」</b></div>
+  <div class="brand">TGPoke</div>
+</div>
+</body>
+</html>

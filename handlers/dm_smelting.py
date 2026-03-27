@@ -218,7 +218,7 @@ def _build_select_panel(
     nav_row = []
     if page > 0:
         nav_row.append(InlineKeyboardButton("◀", callback_data=f"sml_pg_{user_id}_{page - 1}"))
-    nav_row.append(InlineKeyboardButton(f"{page + 1}/{max_page + 1}", callback_data="noop"))
+    nav_row.append(InlineKeyboardButton(f"{page + 1}/{max_page + 1}", callback_data=f"sml_noop_{user_id}"))
     if page < max_page:
         nav_row.append(InlineKeyboardButton("▶", callback_data=f"sml_pg_{user_id}_{page + 1}"))
     rows.append(nav_row)
@@ -478,6 +478,11 @@ async def smelting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     state = _get_state(context)
+
+    # ── noop ──
+    if action == "noop":
+        await query.answer()
+        return
 
     # ── 메인 메뉴 → 선택 시작 ──
     if action == "start":

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주간보스 기획서 — TGPoke</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #0f0f1a; color: #e0e0e0; line-height: 1.6; }
+
+  .container { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+
+  h1 { font-size: 28px; color: #fff; margin-bottom: 8px; }
+  h1 span { color: #ff6b6b; }
+  .subtitle { color: #888; font-size: 14px; margin-bottom: 40px; }
+
+  h2 { font-size: 20px; color: #ffd93d; margin: 36px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #2a2a3a; }
+  h3 { font-size: 16px; color: #6bcfff; margin: 20px 0 10px; }
+
+  .card { background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 16px 0; border: 1px solid #2a2a3a; }
+  .card.highlight { border-color: #ff6b6b44; background: linear-gradient(135deg, #1a1a2e, #2a1525); }
+  .card.blue { border-color: #6bcfff44; background: linear-gradient(135deg, #1a1a2e, #152a35); }
+  .card.green { border-color: #4ecb7144; background: linear-gradient(135deg, #1a1a2e, #152a1a); }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th { background: #252540; color: #ffd93d; text-align: left; padding: 10px 14px; font-size: 13px; font-weight: 600; }
+  td { padding: 10px 14px; border-bottom: 1px solid #1f1f35; font-size: 14px; }
+  tr:hover td { background: #ffffff08; }
+
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+  .tag.red { background: #ff6b6b22; color: #ff6b6b; }
+  .tag.blue { background: #6bcfff22; color: #6bcfff; }
+  .tag.gold { background: #ffd93d22; color: #ffd93d; }
+  .tag.green { background: #4ecb7122; color: #4ecb71; }
+
+  ul { padding-left: 20px; margin: 8px 0; }
+  li { margin: 4px 0; font-size: 14px; }
+  li::marker { color: #666; }
+
+  .mockup { background: #0d0d18; border-radius: 10px; padding: 16px 20px; margin: 12px 0; font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; line-height: 1.7; white-space: pre-wrap; border: 1px solid #1f1f35; color: #ccc; }
+  .mockup .em { color: #ffd93d; }
+  .mockup .hp { color: #ff6b6b; }
+  .mockup .info { color: #6bcfff; }
+  .mockup .reward { color: #4ecb71; }
+  .mockup .dim { color: #666; }
+
+  .hp-bar { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+  .hp-bar-track { flex: 1; height: 18px; background: #333; border-radius: 9px; overflow: hidden; }
+  .hp-bar-fill { height: 100%; border-radius: 9px; transition: width 0.5s; }
+  .hp-bar-fill.high { background: linear-gradient(90deg, #4ecb71, #2ecc71); }
+  .hp-bar-fill.mid { background: linear-gradient(90deg, #ffd93d, #f39c12); }
+  .hp-bar-fill.low { background: linear-gradient(90deg, #ff6b6b, #e74c3c); }
+  .hp-label { font-size: 13px; color: #888; min-width: 40px; text-align: right; }
+
+  .cycle { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .cycle-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #1a1a2e; border-radius: 8px; border-left: 3px solid #ffd93d; }
+  .cycle-item .time { font-size: 13px; color: #ffd93d; font-weight: 600; min-width: 120px; }
+  .cycle-item .desc { font-size: 14px; }
+
+  .reward-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  @media (max-width: 600px) { .reward-grid { grid-template-columns: 1fr; } }
+  .reward-card { background: #252540; border-radius: 10px; padding: 14px; text-align: center; }
+  .reward-card .rank { font-size: 24px; margin-bottom: 4px; }
+  .reward-card .items { font-size: 13px; color: #bbb; line-height: 1.5; }
+
+  .stat-row { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0; }
+  .stat-box { flex: 1; min-width: 120px; background: #252540; border-radius: 8px; padding: 12px; text-align: center; }
+  .stat-box .val { font-size: 22px; font-weight: 700; color: #fff; }
+  .stat-box .label { font-size: 12px; color: #888; margin-top: 2px; }
+
+  .note { font-size: 13px; color: #888; margin-top: 8px; font-style: italic; }
+  .future { opacity: 0.6; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>🐉 주간보스 <span>Weekly Boss Raid</span></h1>
+<div class="subtitle">TGPoke v3.0 — 비동기 협력 레이드 시스템</div>
+
+<!-- ─── 개요 ─── -->
+<h2>📋 개요</h2>
+<div class="card">
+  매주 등장하는 강력한 보스 포켓몬을 <b>전체 유저가 협력</b>해서 공격하는 비동기 레이드.<br>
+  하루 1회 공격, 딜량 기록 → 데일리 마일스톤 + 주간 랭킹 보상.
+</div>
+
+<div class="stat-row">
+  <div class="stat-box"><div class="val">1회/일</div><div class="label">공격 횟수</div></div>
+  <div class="stat-box"><div class="val">500K</div><div class="label">보스 HP</div></div>
+  <div class="stat-box"><div class="val">7일</div><div class="label">주간 사이클</div></div>
+  <div class="stat-box"><div class="val">DM</div><div class="label">참여 위치</div></div>
+</div>
+
+<!-- ─── 핵심 규칙 ─── -->
+<h2>⚙️ 핵심 규칙</h2>
+<table>
+  <tr><th>항목</th><th>내용</th></tr>
+  <tr><td>주기</td><td>월요일 00:00 ~ 일요일 23:59 <span class="tag blue">KST</span></td></tr>
+  <tr><td>공격</td><td>하루 1회 (자정 리셋)</td></tr>
+  <tr><td>참여</td><td>봇 DM에서 <code>보스</code> 명령</td></tr>
+  <tr><td>전투</td><td>배틀팀 6마리 vs 보스 1마리 <span class="tag gold">자동전투</span></td></tr>
+  <tr><td>HP</td><td>고정 50만. 전체 유저 공유 (다같이 깎기)</td></tr>
+  <tr><td>처치</td><td>잡으면 추가 보너스 / 못 잡아도 일요일 종료</td></tr>
+</table>
+
+<!-- ─── 보스 ─── -->
+<h2>🐉 보스</h2>
+
+<h3>등장 방식</h3>
+<div class="card">
+  <ul>
+    <li>매주 월요일 자동 생성</li>
+    <li><b>전설/초전설</b> 포켓몬 중 랜덤 (직전 주와 중복 방지)</li>
+    <li>속성은 해당 포켓몬의 원래 속성</li>
+  </ul>
+</div>
+
+<h3>보스 스탯</h3>
+<div class="card highlight">
+  <table>
+    <tr><td>❤️ HP</td><td><b>500,000</b> (조정 가능)</td></tr>
+    <tr><td>⚔️ 공격/방어</td><td>초전설급 × 높은 배율</td></tr>
+    <tr><td>🌿 속성</td><td>원작 상성 그대로 적용</td></tr>
+  </table>
+</div>
+
+<h3>HP 세팅 근거</h3>
+<div class="card">
+  <ul>
+    <li>초전설 풀강 팀 → 1회 딜량 <b>~3,000~5,000</b></li>
+    <li>일반 12코 팀 → 1회 딜량 <b>~1,500~3,000</b></li>
+    <li>DAU 20명 × 7일 = 140타 → 예상 총딜 350K~700K</li>
+    <li><span class="tag red">500,000이면 간신히 잡히는 수준</span></li>
+  </ul>
+</div>
+
+<!-- ─── 전투 ─── -->
+<h2>⚔️ 전투</h2>
+<div class="card blue">
+  <h3 style="margin-top:0">방식</h3>
+  <ul>
+    <li>던전 자동전투 엔진 재활용</li>
+    <li>내 배틀팀 6마리가 순서대로 보스와 싸움</li>
+    <li>전멸 or 턴 제한(60턴)까지의 <b>총 딜량</b> 기록</li>
+    <li>상성 유리한 팀 구성이 핵심 전략</li>
+  </ul>
+  <h3>보스 행동</h3>
+  <ul>
+    <li>매턴 공격 (일반 / 속성 / 풀어택 랜덤)</li>
+    <li>방어·회복 없음 <span class="tag gold">샌드백</span></li>
+  </ul>
+</div>
+
+<!-- ─── 보상 ─── -->
+<h2>🎁 보상</h2>
+
+<h3>1. 데일리 마일스톤 <span class="tag green">매일 즉시 지급</span></h3>
+<div class="card">
+  <p style="margin-bottom:10px">공격 직후 딜량에 따라 보상. <b>최고 도달 구간만 지급.</b></p>
+  <table>
+    <tr><th>딜량</th><th>보상</th></tr>
+    <tr><td>500+</td><td>💰 30 BP</td></tr>
+    <tr><td>1,000+</td><td>💰 50 BP</td></tr>
+    <tr><td>2,000+</td><td>💰 80 BP + 🧩 조각 2개</td></tr>
+    <tr><td>3,000+</td><td>💰 100 BP + 🧩 조각 3개</td></tr>
+    <tr><td>5,000+</td><td>💰 150 BP + 🧩 조각 5개 + 🔄 IV리롤 1개</td></tr>
+  </table>
+</div>
+
+<h3>2. 주간 랭킹 <span class="tag gold">월요일 정산</span></h3>
+<div class="card">
+  <p style="margin-bottom:10px">주간 누적 딜량 기준 순위별 보상.</p>
+</div>
+<div class="reward-grid">
+  <div class="reward-card" style="border:1px solid #ffd93d33">
+    <div class="rank">🥇</div>
+    <div class="items">500 BP<br>💎 IV+3<br>🟣 마스터볼 ×2</div>
+  </div>
+  <div class="reward-card" style="border:1px solid #c0c0c033">
+    <div class="rank">🥈 2~3위</div>
+    <div class="items">300 BP<br>💎 IV+3<br>🟣 마스터볼 ×1</div>
+  </div>
+  <div class="reward-card" style="border:1px solid #cd7f3233">
+    <div class="rank">4~10위</div>
+    <div class="items">200 BP<br>⏰ 시간단축권 ×2</div>
+  </div>
+  <div class="reward-card">
+    <div class="rank">11~30위</div>
+    <div class="items">100 BP<br>⏰ 시간단축권 ×1</div>
+  </div>
+</div>
+
+<h3>3. 보스 처치 보너스 <span class="tag red">참여자 전원</span></h3>
+<div class="card highlight">
+  보스 HP를 0으로 만들면 <b>그 주 참여자 전원</b>에게:<br>
+  🟣 마스터볼 1개 + 💰 100 BP
+</div>
+
+<!-- ─── UX 목업 ─── -->
+<h2>📱 UX 흐름</h2>
+
+<h3>1. 보스 정보 확인</h3>
+<div class="mockup"><span class="em">🐉 주간보스: 레쿠쟈</span>
+<span class="dim">━━━━━━━━━━━━━━━</span>
+<span class="hp">❤️ HP: 382,150 / 500,000 (76%)</span></div>
+<div class="hp-bar">
+  <div class="hp-bar-track"><div class="hp-bar-fill high" style="width:76%"></div></div>
+  <div class="hp-label">76%</div>
+</div>
+<div class="mockup"><span class="info">🌿 속성: 드래곤/비행
+💡 약점: 얼음(4x), 드래곤, 바위, 페어리</span>
+
+<span class="dim">📊 내 기록</span>
+  오늘: 미공격
+  주간 누적: 8,420 (12위)
+
+<span class="em">[ ⚔️ 공격! (오늘 1회) ]  [ 📊 랭킹 보기 ]</span></div>
+
+<h3>2. 공격 결과</h3>
+<div class="mockup"><span class="em">⚔️ 보스전 결과!</span>
+<span class="dim">━━━━━━━━━━━━━━━</span>
+🐉 레쿠쟈 vs 내 팀
+
+총 딜량: <b>3,847</b>
+남은 보스 HP: 378,303 / 500,000
+
+<span class="reward">🎁 마일스톤 보상: 100 BP + 조각 3개</span></div>
+
+<h3>3. 보스 처치!</h3>
+<div class="mockup"><span class="em">🎉🎉🎉 보스 처치! 🎉🎉🎉</span>
+<span class="dim">━━━━━━━━━━━━━━━</span>
+🐉 레쿠쟈 격파!
+참여자 35명의 힘으로 처치했습니다!
+
+<span class="reward">🎁 처치 보너스: 전원 마스터볼 1개 + 100 BP</span></div>
+
+<h3>4. 주간 랭킹</h3>
+<div class="mockup"><span class="em">📊 주간보스 랭킹</span>
+<span class="dim">━━━━━━━━━━━━━━━</span>
+🐉 레쿠쟈 | HP: 0 / 500,000 <span class="reward">✅ 처치!</span>
+
+🥇 러스트 — 28,450
+🥈 Han — 25,120
+🥉 문유 — 22,800
+ 4. Turri — 19,500
+ 5. Jun_P3 — 18,200
+<span class="dim"> ...</span>
+
+<span class="info">내 순위: 12위 (8,420)</span></div>
+
+<!-- ─── 주간 사이클 ─── -->
+<h2>📅 주간 사이클</h2>
+<div class="cycle">
+  <div class="cycle-item"><div class="time">월 00:10</div><div class="desc">지난주 랭킹 보상 정산 + 새 보스 생성</div></div>
+  <div class="cycle-item"><div class="time">월~일 매일</div><div class="desc">하루 1회 공격 가능 (자정 리셋)</div></div>
+  <div class="cycle-item"><div class="time">보스 HP → 0</div><div class="desc">처치 알림 + 참여자 전원 보너스</div></div>
+  <div class="cycle-item"><div class="time">일 23:59</div><div class="desc">주간 종료 (못 잡았어도 끝)</div></div>
+</div>
+
+<!-- ─── 향후 확장 ─── -->
+<h2 class="future">🔮 향후 확장</h2>
+<div class="card future">
+  <ul>
+    <li>보스별 특수 능력 (독 데미지, 반사, 분노 등)</li>
+    <li>보스 처치 시 한정 포켓몬 포획 기회</li>
+    <li>시즌 누적 랭킹</li>
+    <li>보스 난이도 자동 조절 (DAU 연동)</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

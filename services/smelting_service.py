@@ -9,6 +9,7 @@ import config
 from database import queries
 from database import smelting_queries as sq
 from database import item_queries
+from database.connection import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +218,7 @@ async def execute_smelting(
         old_contribs[k] = old_contribs.get(k, 0) + v
 
     # 5. BP 차감 + 포켓몬 소각 (deactivate)
-    pool = await queries.get_db()
+    pool = await get_db()
     await pool.execute(
         "UPDATE users SET battle_points = battle_points - $1 WHERE user_id = $2",
         config.SMELTING_BP_COST, user_id,
@@ -234,7 +235,7 @@ async def execute_smelting(
         # 이로치 등급 판정 + 랜덤 포켓몬 생성
         shiny_rarity = roll_shiny_rarity(old_contribs)
         # 해당 등급에서 랜덤 포켓몬
-        from models.pokemon import POKEMON_BASE_STATS
+        from models.pokemon_base_stats import POKEMON_BASE_STATS
         candidates = [
             pid for pid, data in POKEMON_BASE_STATS.items()
             if data.get("rarity") == shiny_rarity

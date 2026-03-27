@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<title>등급별 밸런스 리폼 기획안</title>
+<style>
+body { font-family: -apple-system, 'Malgun Gothic', sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #0d1117; color: #c9d1d9; line-height: 1.7; }
+h1 { color: #58a6ff; border-bottom: 2px solid #30363d; padding-bottom: 12px; }
+h2 { color: #79c0ff; margin-top: 40px; border-bottom: 1px solid #21262d; padding-bottom: 8px; }
+h3 { color: #d2a8ff; }
+table { border-collapse: collapse; width: 100%%; margin: 16px 0; }
+th, td { border: 1px solid #30363d; padding: 8px 12px; text-align: left; }
+th { background: #161b22; color: #58a6ff; font-weight: 600; }
+tr:nth-child(even) { background: #161b22; }
+td:first-child { white-space: nowrap; }
+code { background: #161b22; color: #f0883e; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #161b22; padding: 16px; border-radius: 8px; overflow-x: auto; border: 1px solid #30363d; }
+pre code { background: none; padding: 0; color: #c9d1d9; }
+blockquote { border-left: 3px solid #58a6ff; margin: 16px 0; padding: 8px 16px; background: #161b22; border-radius: 0 8px 8px 0; }
+blockquote p { margin: 4px 0; color: #8b949e; }
+strong { color: #f0883e; }
+hr { border: none; border-top: 1px solid #30363d; margin: 30px 0; }
+</style>
+</head><body>
+<h1>등급별 밸런스 리폼 기획안 — 코스트당 밸류</h1>
+<h2>1. 현재 문제</h2>
+<h3>코스트 대비 효율이 역전됨</h3>
+<table>
+<thead>
+<tr>
+<th>등급</th>
+<th>코스트</th>
+<th>BST 평균</th>
+<th>전투력</th>
+<th><strong>전투력/코스트</strong></th>
+<th>배틀 승률</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>일반</td>
+<td>1</td>
+<td>305</td>
+<td>682</td>
+<td><strong>682</strong></td>
+<td>39.2%</td>
+</tr>
+<tr>
+<td>레어</td>
+<td>2</td>
+<td>451</td>
+<td>799</td>
+<td><strong>400</strong></td>
+<td>50.5%</td>
+</tr>
+<tr>
+<td>에픽</td>
+<td>4</td>
+<td>525</td>
+<td>925</td>
+<td><strong>231</strong></td>
+<td>58.7%</td>
+</tr>
+<tr>
+<td>전설</td>
+<td>5</td>
+<td>588</td>
+<td>927</td>
+<td><strong>185</strong></td>
+<td>53.6%</td>
+</tr>
+<tr>
+<td>초전설</td>
+<td>6</td>
+<td>655</td>
+<td>958</td>
+<td><strong>160</strong></td>
+<td>61.8%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>코스트 1당 밸류: 일반(682) &gt; 레어(400) &gt; 에픽(231) &gt; 전설(185) &gt; 초전설(160)</strong></p>
+<p>일반이 코스트 대비 <strong>4.3배</strong> 효율적. 전설은 에픽 대비 코스트 1 더 쓰고 전투력 0.3% 차이.</p>
+<h3>실 데이터가 증명함</h3>
+<pre><code>배틀팀 등급 분포:                    배틀 평균 딜:
+  일반     590 (29.9%)              일반     126
+  레어     608 (30.8%)  ← 가장 많음  에픽     468
+  에픽     456 (23.1%)              전설     511  ← 에픽과 43 차이
+  전설     164 (8.3%)   ← 안 씀     초전설   1012
+  초전설    155 (7.9%)
+</code></pre>
+<ul>
+<li><strong>전설 딜(511) ≈ 에픽 딜(468)</strong> — 코스트 1 더 쓰고 10% 차이</li>
+<li><strong>에픽 승률(58.7%) &gt; 전설 승률(53.6%)</strong> — 에픽이 더 이김</li>
+<li>전설 코스트 5를 쓸 바에 에픽(4) + 일반(1) 조합이 나음</li>
+</ul>
+<hr />
+<h2>2. 설계 원칙</h2>
+<h3>2-1. 코스트당 밸류 균등화</h3>
+<blockquote>
+<p>"코스트 1을 더 쓰면, 그만큼의 가치를 얻어야 한다"</p>
+</blockquote>
+<p><strong>목표: 1v1에서 높은 등급이 이기지만, 코스트 효율은 비슷하게.</strong></p>
+<p>핵심 공식:</p>
+<pre><code>코스트 N의 포켓몬 ≈ 코스트 1 포켓몬 N마리의 합산 가치
+→ 전설(코스트5) ≈ 일반 5마리가 순차로 싸운 것과 비슷한 총 딜
+→ 하지만 1v1에서는 전설이 일반을 원턴킬
+</code></pre>
+<h3>2-2. 등급 = 확실한 벽</h3>
+<blockquote>
+<p>"한카리아스(에픽)와 스이쿤(전설)이 싸우면 스이쿤이 이기거나 비긴다 (상성이 나쁘지 않다면)"</p>
+</blockquote>
+<ul>
+<li>1v1: 상위 등급이 <strong>항상</strong> 승리 (상성 무관하면)</li>
+<li>같은 등급: 상성 + IV + 타입이 결정</li>
+<li>등급 2단계 차이: 상성 불리해도 승리</li>
+</ul>
+<h3>2-3. 팀 빌딩의 선택지</h3>
+<blockquote>
+<p>"코스트를 생각하면 한카리아스가 더 좋은 거지"</p>
+</blockquote>
+<p><strong>팀 코스트 18, 6마리 제한:</strong></p>
+<table>
+<thead>
+<tr>
+<th>팀 구성</th>
+<th>코스트</th>
+<th>총 전투력</th>
+<th>장점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>에픽×4 + 일반×2</td>
+<td>4×4+1×2=18</td>
+<td>6마리, 두꺼운 라인업</td>
+<td></td>
+</tr>
+<tr>
+<td>초전설+에픽×2+레어+일반×2</td>
+<td>6+8+2+2=18</td>
+<td>에이스+서포트</td>
+<td></td>
+</tr>
+<tr>
+<td>전설×2+에픽+레어×2+일반</td>
+<td>10+4+4+1=19 ← 초과</td>
+<td>불가능</td>
+<td></td>
+</tr>
+<tr>
+<td>전설+에픽×2+레어+일반×2</td>
+<td>5+8+2+2+1=18 ← 5마리?</td>
+<td>코스트 남음</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>전설(코스트5)의 딜레마:</strong>
+- 전설 1마리 = 에픽(4) + 일반(1) 두 자리를 먹음
+- 전설이 에픽+일반 합산보다 <strong>확실히 강해야</strong> 쓸 이유가 생김
+- 현재: 전설 딜 511 &lt; 에픽 딜 468 + 일반 딜 126 = 594 → <strong>안 씀</strong></p>
+<hr />
+<h2>3. BST 리폼안</h2>
+<h3>3-1. 등급별 목표 BST 상한</h3>
+<p>현재 BST를 건드리지 않되, <strong>상한선(cap)</strong>을 적용.
+상한 초과 포켓몬만 깎이고, 약한 포켓몬은 그대로.</p>
+<table>
+<thead>
+<tr>
+<th>등급</th>
+<th>현재 BST</th>
+<th>상한</th>
+<th>영향받는 포켓몬</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>일반</td>
+<td>180~450</td>
+<td><strong>400</strong></td>
+<td>체리꼬(450→400), 골덕(480→400 ← 레어로 승격?)</td>
+</tr>
+<tr>
+<td>레어</td>
+<td>285~535</td>
+<td><strong>480</strong></td>
+<td>덩쿠림보(535→480), 하마돈(525→480)</td>
+</tr>
+<tr>
+<td>에픽</td>
+<td>440~670</td>
+<td><strong>560</strong></td>
+<td>게을킹(670→560), 한카리아스(600→560), 망나뇽(600→560)</td>
+</tr>
+<tr>
+<td>전설</td>
+<td>480~730</td>
+<td><strong>660</strong></td>
+<td>레지기가스(730→660)</td>
+</tr>
+<tr>
+<td>초전설</td>
+<td>600~720</td>
+<td><strong>없음</strong></td>
+<td>변경 없음</td>
+</tr>
+</tbody>
+</table>
+<p><strong>적용 방식: 비례 스케일링</strong></p>
+<pre><code class="language-python">if pokemon_bst &gt; cap:
+    scale = cap / pokemon_bst  # 예: 600/670 = 0.836
+    각 스탯 = int(원래 스탯 * scale)
+</code></pre>
+<p>원래 스탯 비율은 유지 (공격형은 여전히 공격형).</p>
+<h3>3-2. 리폼 후 전투력 비교</h3>
+<p>BST 상한 적용 후:</p>
+<table>
+<thead>
+<tr>
+<th>포켓몬</th>
+<th>등급</th>
+<th>코스트</th>
+<th>원래 BST</th>
+<th>리폼 BST</th>
+<th>전투력</th>
+<th><strong>전투력/코스트</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>피카츄</td>
+<td>일반</td>
+<td>1</td>
+<td>315</td>
+<td>315</td>
+<td>575</td>
+<td><strong>575</strong></td>
+</tr>
+<tr>
+<td>체리꼬</td>
+<td>일반</td>
+<td>1</td>
+<td>450</td>
+<td>400</td>
+<td>710</td>
+<td><strong>710</strong></td>
+</tr>
+<tr>
+<td>눈설왕</td>
+<td>레어</td>
+<td>2</td>
+<td>494</td>
+<td>480</td>
+<td>810</td>
+<td><strong>405</strong></td>
+</tr>
+<tr>
+<td>하마돈</td>
+<td>레어</td>
+<td>2</td>
+<td>525</td>
+<td>480</td>
+<td>810</td>
+<td><strong>405</strong></td>
+</tr>
+<tr>
+<td>한카리아스</td>
+<td>에픽</td>
+<td>4</td>
+<td>600</td>
+<td>560</td>
+<td>1520</td>
+<td><strong>380</strong></td>
+</tr>
+<tr>
+<td>게을킹</td>
+<td>에픽</td>
+<td>4</td>
+<td>670</td>
+<td>560</td>
+<td>1520</td>
+<td><strong>380</strong></td>
+</tr>
+<tr>
+<td>스이쿤</td>
+<td>전설</td>
+<td>5</td>
+<td>580</td>
+<td>580</td>
+<td>1630</td>
+<td><strong>326</strong></td>
+</tr>
+<tr>
+<td>히드런</td>
+<td>전설</td>
+<td>5</td>
+<td>600</td>
+<td>600</td>
+<td>1680</td>
+<td><strong>336</strong></td>
+</tr>
+<tr>
+<td>뮤츠</td>
+<td>초전설</td>
+<td>6</td>
+<td>680</td>
+<td>680</td>
+<td>1855</td>
+<td><strong>309</strong></td>
+</tr>
+<tr>
+<td>펄기아</td>
+<td>초전설</td>
+<td>6</td>
+<td>680</td>
+<td>680</td>
+<td>1786</td>
+<td><strong>298</strong></td>
+</tr>
+</tbody>
+</table>
+<h3>3-3. 리폼 후 코스트 효율</h3>
+<table>
+<thead>
+<tr>
+<th>등급</th>
+<th>코스트</th>
+<th>전투력/코스트</th>
+<th>vs 일반</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>일반</td>
+<td>1</td>
+<td>~640</td>
+<td>1.0x</td>
+</tr>
+<tr>
+<td>레어</td>
+<td>2</td>
+<td>~405</td>
+<td>0.63x</td>
+</tr>
+<tr>
+<td>에픽</td>
+<td>4</td>
+<td>~380</td>
+<td>0.59x</td>
+</tr>
+<tr>
+<td>전설</td>
+<td>5</td>
+<td>~330</td>
+<td>0.52x</td>
+</tr>
+<tr>
+<td>초전설</td>
+<td>6</td>
+<td>~305</td>
+<td>0.48x</td>
+</tr>
+</tbody>
+</table>
+<p><strong>여전히 일반이 코스트 효율 최고</strong> — 이건 맞는 구조. 다만 현재(4.3배)보다 격차가 크게 줄어듦(2.1배).</p>
+<p><strong>핵심:</strong> 전설의 1v1 전투력(1630) &gt; 에픽(1520)으로 <strong>확실한 벽</strong>. 코스트 효율은 에픽(380) &gt; 전설(330)이라 <strong>팀 빌딩에서 선택지</strong>.</p>
+<hr />
+<h2>4. 1v1 시뮬레이션 예측</h2>
+<h3>4-1. 같은 등급 내 (상성 보통)</h3>
+<table>
+<thead>
+<tr>
+<th>대결</th>
+<th>예측</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>한카리아스(에픽 560) vs 망나뇽(에픽 560)</td>
+<td>50:50 (상성/IV 결정)</td>
+</tr>
+<tr>
+<td>스이쿤(전설 580) vs 히드런(전설 600)</td>
+<td>히드런 약간 유리 (BST 차)</td>
+</tr>
+</tbody>
+</table>
+<h3>4-2. 등급 간 (상성 보통)</h3>
+<table>
+<thead>
+<tr>
+<th>대결</th>
+<th>예측</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>한카리아스(에픽 560) vs 스이쿤(전설 580)</td>
+<td><strong>스이쿤 승</strong> (BST 차 + 등급)</td>
+</tr>
+<tr>
+<td>게을킹(에픽 560) vs 스이쿤(전설 580)</td>
+<td><strong>스이쿤 승</strong> (게을킹 너프됨)</td>
+</tr>
+<tr>
+<td>히드런(전설 600) vs 뮤츠(초전설 680)</td>
+<td><strong>뮤츠 압승</strong></td>
+</tr>
+</tbody>
+</table>
+<h3>4-3. 등급 간 (상성 유리)</h3>
+<table>
+<thead>
+<tr>
+<th>대결</th>
+<th>예측</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>한카리아스(에픽, 땅) vs 썬더(전설, 전기)</td>
+<td><strong>한카리아스 승</strong> (땅→전기 2.0x, BST 차 극복)</td>
+</tr>
+<tr>
+<td>망나뇽(에픽, 드래곤) vs 프리저(전설, 얼음)</td>
+<td><strong>프리저 승</strong> (얼음→드래곤 2.0x + 등급)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>상성 + 등급 → 상위 등급이 상성까지 유리하면 압승, 상성 불리해도 등급으로 커버 가능.</strong></p>
+<hr />
+<h2>5. 팀 빌딩 시나리오</h2>
+<h3>시나리오 A: 에픽 풀팀 (현 메타)</h3>
+<pre><code>에픽×4 + 레어×1 = 코스트 18
+한카리아스(560) + 메타그로스(560) + 망나뇽(560) + 마기라스(560) + 하마돈(480)
+총 전투력: ~7,200
+</code></pre>
+<h3>시나리오 B: 전설 혼합 (리폼 후 가능)</h3>
+<pre><code>전설×1 + 에픽×2 + 레어×1 + 일반×2 = 코스트 5+8+2+2=17 (1 여유)
+스이쿤(580) + 한카리아스(560) + 메타그로스(560) + 하마돈(480) + 피카츄(315) + 토게틱(340)
+총 전투력: ~5,800
+</code></pre>
+<h3>시나리오 C: 초전설 에이스</h3>
+<pre><code>초전설×1 + 에픽×1 + 레어×2 + 일반×2 = 코스트 6+4+4+2+2=18
+뮤츠(680) + 한카리아스(560) + 하마돈(480) + 눈설왕(480) + 피카츄(315) + 토게틱(340)
+총 전투력: ~6,400
+</code></pre>
+<h3>분석</h3>
+<table>
+<thead>
+<tr>
+<th>팀</th>
+<th>총 전투력</th>
+<th>에이스 파워</th>
+<th>라인업 두께</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A: 에픽 풀</td>
+<td>7,200</td>
+<td>560 (보통)</td>
+<td>두꺼움 (5마리 다 강함)</td>
+</tr>
+<tr>
+<td>B: 전설 혼합</td>
+<td>5,800</td>
+<td>580 (높음)</td>
+<td>약함 (하위 2마리 약함)</td>
+</tr>
+<tr>
+<td>C: 초전설 에이스</td>
+<td>6,400</td>
+<td>680 (최강)</td>
+<td>중간</td>
+</tr>
+</tbody>
+</table>
+<p><strong>A(에픽풀)가 총 전투력 최고</strong> — 코스트 효율이 좋으니까.
+<strong>C(초전설)는 뮤츠가 2~3마리 킬</strong> — 에이스 전략.
+<strong>B(전설)는 스이쿤이 에픽팀 1마리를 확실히 잡고</strong> 나머지 라인업으로 버팀.</p>
+<p>→ <strong>세 팀 다 이길 수 있는 구조</strong> = 건강한 메타</p>
+<hr />
+<h2>6. 구현 계획</h2>
+<h3>6-1. BST 상한 적용 (Phase 1 — 핵심)</h3>
+<pre><code class="language-python"># config.py
+BST_CAP_BY_RARITY = {
+    &quot;common&quot;: 400,
+    &quot;rare&quot;: 480,
+    &quot;epic&quot;: 560,
+    &quot;legendary&quot;: 660,
+    &quot;ultra_legendary&quot;: None,  # 상한 없음
+}
+</code></pre>
+<pre><code class="language-python"># utils/battle_calc.py — calc_battle_stats() 수정
+# 기존 스탯 계산 후 BST 상한 적용
+if bst_cap and current_bst &gt; bst_cap:
+    scale = bst_cap / current_bst
+    stats = {k: int(v * scale) for k, v in stats.items()}
+</code></pre>
+<p><strong>배틀, 토너먼트, 랭크전, 던전 — 전부 적용.</strong></p>
+<h3>6-2. 영향받는 포켓몬 (주요)</h3>
+<table>
+<thead>
+<tr>
+<th>포켓몬</th>
+<th>등급</th>
+<th>BST</th>
+<th>리폼 후</th>
+<th>변화</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>게을킹</td>
+<td>에픽</td>
+<td>670</td>
+<td>560</td>
+<td><strong>-16%</strong> (가장 큰 너프)</td>
+</tr>
+<tr>
+<td>한카리아스</td>
+<td>에픽</td>
+<td>600</td>
+<td>560</td>
+<td>-7%</td>
+</tr>
+<tr>
+<td>망나뇽</td>
+<td>에픽</td>
+<td>600</td>
+<td>560</td>
+<td>-7%</td>
+</tr>
+<tr>
+<td>메타그로스</td>
+<td>에픽</td>
+<td>600</td>
+<td>560</td>
+<td>-7%</td>
+</tr>
+<tr>
+<td>마기라스</td>
+<td>에픽</td>
+<td>600</td>
+<td>560</td>
+<td>-7%</td>
+</tr>
+<tr>
+<td>레지기가스</td>
+<td>전설</td>
+<td>730</td>
+<td>660</td>
+<td>-10%</td>
+</tr>
+<tr>
+<td>하마돈</td>
+<td>레어</td>
+<td>525</td>
+<td>480</td>
+<td>-9%</td>
+</tr>
+<tr>
+<td>덩쿠림보</td>
+<td>레어</td>
+<td>535</td>
+<td>480</td>
+<td>-10%</td>
+</tr>
+<tr>
+<td>체리꼬</td>
+<td>일반</td>
+<td>450</td>
+<td>400</td>
+<td>-11%</td>
+</tr>
+</tbody>
+</table>
+<h3>6-3. 일정</h3>
+<ol>
+<li><strong>시뮬레이션</strong>: BST 상한 적용 후 배틀 시뮬 돌려서 검증</li>
+<li><strong>던전 밸런스</strong>: BST 상한이면 던전 등급배율(DUNGEON_RARITY_STAT_MULT) 제거 가능</li>
+<li><strong>공지</strong>: "밸런스 패치 — 등급별 전투력 상한 도입"</li>
+<li><strong>배포</strong>: 한 번에 적용 (점진적 적용 시 혼란)</li>
+</ol>
+<hr />
+<h2>7. FAQ</h2>
+<p><strong>Q: 내 게을킹이 너프되는데?</strong>
+A: 에픽 등급에 맞는 전투력으로 조정. 대신 전설/초전설이 확실히 강해져서 등급의 의미가 생김.</p>
+<p><strong>Q: 전설을 써야 하는 이유?</strong>
+A: 1v1에서 에픽을 확실히 이김. 에이스로 쓰면 2~3마리 킬 가능. 팀에 전설 1마리 + 일반 필러 vs 에픽 풀팀은 대등한 승부.</p>
+<p><strong>Q: 일반 포켓몬은 쓸모없어지나?</strong>
+A: 코스트 1이라 코스트 효율은 최고. 팀 채우기에 필수. 상성 맞으면 충분히 활약.</p>
+<p><strong>Q: 초전설은 너무 강하지 않나?</strong>
+A: 코스트 6(팀의 1/3). 초전설 넣으면 나머지 5마리가 약해짐. 초전설 1마리가 3킬 해도 나머지가 무너지면 짐.</p>
+<p><strong>Q: 게을킹/레지기가스는?</strong>
+A: BST 상한 적용 안 함. 본가에서 게으름 특성 때문에 높은 BST를 가진 거라, 상한을 씌우면 이중 너프. 대신 2턴마다 빈둥빈둥하는 페널티가 밸런스를 잡아줌.</p>
+<hr />
+<h2>8. 실 데이터 기반 영향 분석</h2>
+<h3>8-1. 너프 영향 분포 (풀팀 257명)</h3>
+<table>
+<thead>
+<tr>
+<th>너프량</th>
+<th>유저 수</th>
+<th>비율</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0 (영향 없음)</td>
+<td>106명</td>
+<td>41%</td>
+</tr>
+<tr>
+<td>1~50 BST</td>
+<td>110명</td>
+<td>43%</td>
+</tr>
+<tr>
+<td>51~100 BST</td>
+<td>30명</td>
+<td>12%</td>
+</tr>
+<tr>
+<td>101~200 BST</td>
+<td>11명</td>
+<td>4%</td>
+</tr>
+<tr>
+<td>200+ BST</td>
+<td>0명</td>
+<td>0%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>84%의 유저가 50 BST 이하 너프</strong> — 체감 거의 없음.
+나머지 16%도 최대 -5% 수준.</p>
+<h3>8-2. 등급별 너프 대상</h3>
+<table>
+<thead>
+<tr>
+<th>등급</th>
+<th>총 사용</th>
+<th>너프 대상</th>
+<th>비율</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>일반</td>
+<td>477마리</td>
+<td>15마리</td>
+<td>3%</td>
+</tr>
+<tr>
+<td>레어</td>
+<td>472마리</td>
+<td>147마리</td>
+<td>31%</td>
+</tr>
+<tr>
+<td>에픽</td>
+<td>338마리</td>
+<td>86마리</td>
+<td>25%</td>
+</tr>
+<tr>
+<td>전설</td>
+<td>136마리</td>
+<td>2마리</td>
+<td>1%</td>
+</tr>
+<tr>
+<td>초전설</td>
+<td>119마리</td>
+<td>0마리</td>
+<td>0%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>전설/초전설은 전혀 안 깎임</strong> → 상대적으로 강해짐.</p>
+<h3>8-3. 상위 랭크전 유저 영향 (최근 7일)</h3>
+<table>
+<thead>
+<tr>
+<th>유저</th>
+<th>팀 구성</th>
+<th>현재 전투력</th>
+<th>리폼 후</th>
+<th>변화</th>
+<th>너프 대상</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>딸딸기</td>
+<td>URCEEC</td>
+<td>9,460</td>
+<td>9,232</td>
+<td>-2.4%</td>
+<td>메타그로스, 한카리아스</td>
+</tr>
+<tr>
+<td>Jun</td>
+<td>ECEEEC</td>
+<td>8,946</td>
+<td>8,722</td>
+<td>-2.5%</td>
+<td>메타그로스, 한카리아스</td>
+</tr>
+<tr>
+<td>러스트</td>
+<td>UERRRR</td>
+<td>9,161</td>
+<td>8,984</td>
+<td>-1.9%</td>
+<td>한카리아스</td>
+</tr>
+<tr>
+<td>아크</td>
+<td>ELLRRR</td>
+<td>—</td>
+<td>—</td>
+<td>0%</td>
+<td>영향 없음 (전설 중심)</td>
+</tr>
+<tr>
+<td>PEPECAT</td>
+<td>RRRRUE</td>
+<td>9,032</td>
+<td>9,032</td>
+<td>0%</td>
+<td>영향 없음</td>
+</tr>
+<tr>
+<td>Turri</td>
+<td>RERLEC</td>
+<td>9,047</td>
+<td>8,718</td>
+<td>-3.6%</td>
+<td>메타그로스, 한카리아스, 글라이온, 코뿌리</td>
+</tr>
+</tbody>
+</table>
+<h3>8-4. 메타 변화 예측</h3>
+<p><strong>현재 메타:</strong>
+- 에픽(한카리아스/메타그로스 BST 600) 중심
+- 전설은 코스트 대비 가성비 나빠서 46%만 사용
+- 초전설은 에이스로 사용, 나머지 에픽+일반 필러</p>
+<p><strong>리폼 후 예측:</strong>
+- 한카리아스/메타그로스 BST 600→560 (−7%)
+- 썬더/스이쿤 등 전설(BST 580) 변동 없음 → <strong>에픽보다 강해짐</strong>
+- 전설 코스트5의 가치 상승 → 사용률 46% → 60%+ 예상
+- "전설 에이스 + 레어/일반 서포트" 덱이 "에픽 풀팀"과 대등</p>
+<h3>8-5. 챔피언 Turri 팀 분석</h3>
+<pre><code>팀1 (cost 18):
+  *코뿌리(R)      BST 485 → 480 (-5)
+  *메타그로스(E)   BST 600 → 560 (-40) ⚠️
+  *글라이온(R)     BST 510 → 480 (-30) ⚠️
+  *썬더(L)        BST 580 → 변경없음 ✅
+  *한카리아스(E)   BST 600 → 560 (-40) ⚠️
+  *입치트(C)      BST 380 → 변경없음 ✅
+
+리폼 후: 썬더(전설)가 팀 에이스로 올라감.
+에픽 2마리가 깎이면서 전설의 상대적 가치 상승.
+→ Turri처럼 전설을 쓰던 유저가 오히려 이득.
+</code></pre></body></html>

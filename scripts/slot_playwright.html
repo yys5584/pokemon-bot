@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 500px; height: 400px;
+  background: #0A0E1A;
+  display: flex; flex-direction: column; align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 배경 그라데이션 오버레이 */
+body::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(255,215,0,0.08) 0%, transparent 60%),
+              radial-gradient(ellipse at 50% 100%, rgba(0,245,255,0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.title {
+  margin-top: 18px;
+  font-family: 'Black Han Sans', sans-serif;
+  font-size: 30px;
+  color: #FFD700;
+  text-shadow: 0 0 10px rgba(255,215,0,0.5), 0 0 30px rgba(255,215,0,0.2);
+  position: relative;
+  z-index: 2;
+}
+
+.slot-machine {
+  margin-top: 16px;
+  background: rgba(15, 15, 35, 0.8);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 20px 28px;
+  border: 1px solid rgba(255,215,0,0.2);
+  box-shadow: 0 0 40px rgba(255,215,0,0.05), inset 0 1px 0 rgba(255,255,255,0.05);
+  position: relative;
+  z-index: 2;
+}
+
+.reels { display: flex; gap: 14px; }
+
+.reel {
+  width: 120px; height: 120px;
+  background: #080812;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  border: 2px solid rgba(255,215,0,0.15);
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+}
+
+.reel-strip {
+  position: absolute; left: 0; right: 0;
+  display: flex; flex-direction: column; align-items: center;
+}
+
+.reel-strip img {
+  width: 100px; height: 100px;
+  object-fit: contain;
+  padding: 10px;
+  flex-shrink: 0;
+}
+
+/* 스피닝 블러 오버레이 */
+.reel .blur-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg,
+    rgba(8,8,18,0.7) 0%, transparent 20%, transparent 80%, rgba(8,8,18,0.7) 100%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.reel.spinning .blur-overlay { opacity: 1; }
+
+/* 속도선 */
+.reel .speed-lines {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(180deg,
+    transparent, transparent 6px,
+    rgba(0,245,255,0.04) 6px, rgba(0,245,255,0.04) 8px);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.reel.spinning .speed-lines { opacity: 1; }
+
+/* 릴 글로우 테두리 */
+.reel-glow {
+  position: absolute; inset: -3px;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 4;
+  transition: opacity 0.3s;
+}
+
+/* 멈춤 플래시 */
+.stop-flash {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.6);
+  border-radius: 14px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+  transition: opacity 0.15s;
+}
+
+.subtitle {
+  margin-top: 16px;
+  font-family: 'Black Han Sans', sans-serif;
+  font-size: 22px;
+  color: rgba(180,180,220,0.8);
+  text-align: center;
+  min-height: 30px;
+  position: relative;
+  z-index: 2;
+}
+
+/* 결과 오버레이 */
+.result-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; opacity: 0;
+  z-index: 10;
+}
+.result-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 32px; font-weight: 900;
+  letter-spacing: 2px;
+}
+.success .result-text {
+  color: #4ecb71;
+  text-shadow: 0 0 10px #4ecb71, 0 0 30px #4ecb71, 0 0 60px rgba(78,203,113,0.3);
+}
+.jackpot .result-text {
+  color: #FFD700;
+  text-shadow: 0 0 10px #FFD700, 0 0 30px #FFD700, 0 0 60px rgba(255,215,0,0.5), 0 0 100px rgba(255,215,0,0.2);
+}
+.near .result-text {
+  color: #ff6b6b;
+  text-shadow: 0 0 10px rgba(255,107,107,0.5);
+}
+.fail .result-text {
+  color: #555;
+}
+
+/* 화면 플래시 */
+.flash {
+  position: fixed; inset: 0;
+  opacity: 0; pointer-events: none;
+  z-index: 9;
+}
+
+/* 파티클 */
+.particles {
+  position: fixed; inset: 0;
+  pointer-events: none; overflow: hidden;
+  z-index: 8;
+}
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+/* 빛 갈라짐 (한국 가챠 스타일) */
+.light-crack {
+  position: fixed;
+  top: 50%; left: 50%;
+  width: 0; height: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 7;
+}
+.light-ray {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 3px; height: 300px;
+  transform-origin: center top;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 7;
+}
+
+/* 등급 바 (하단) */
+.rarity-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 4px;
+  background: #111;
+  z-index: 2;
+  overflow: hidden;
+}
+.rarity-bar-fill {
+  height: 100%;
+  width: 0;
+  transition: width 0.3s, background 0.3s;
+}
+</style>
+</head>
+<body>
+
+<div class="title">이로치 제련소</div>
+
+<div class="slot-machine">
+  <div class="reels">
+    <div class="reel" id="reel0">
+      <div class="reel-strip" id="strip0"></div>
+      <div class="blur-overlay"></div>
+      <div class="speed-lines"></div>
+      <div class="reel-glow" id="glow0"></div>
+      <div class="stop-flash" id="flash0"></div>
+    </div>
+    <div class="reel" id="reel1">
+      <div class="reel-strip" id="strip1"></div>
+      <div class="blur-overlay"></div>
+      <div class="speed-lines"></div>
+      <div class="reel-glow" id="glow1"></div>
+      <div class="stop-flash" id="flash1"></div>
+    </div>
+    <div class="reel" id="reel2">
+      <div class="reel-strip" id="strip2"></div>
+      <div class="blur-overlay"></div>
+      <div class="speed-lines"></div>
+      <div class="reel-glow" id="glow2"></div>
+      <div class="stop-flash" id="flash2"></div>
+    </div>
+  </div>
+</div>
+
+<div class="subtitle" id="subtitle"></div>
+<div class="rarity-bar"><div class="rarity-bar-fill" id="rarityBar"></div></div>
+
+<div class="flash" id="flashOverlay"></div>
+<div class="result-overlay" id="resultOverlay">
+  <div class="result-text" id="resultText"></div>
+</div>
+<div class="particles" id="particles"></div>
+
+<script>
+const POKEMON = [25, 6, 9, 3, 131, 149, 150, 130, 248, 376];
+const params = new URLSearchParams(window.location.search);
+const finalPids = (params.get('result') || '6,6,6').split(',').map(Number);
+const resultType = params.get('type') || 'shiny';
+const ASSET_BASE = '../assets/pokemon/';
+
+function buildStrip(idx) {
+  const strip = document.getElementById('strip' + idx);
+  const shuffled = [...POKEMON].sort(() => Math.random() - 0.5);
+  const items = [];
+  for (let i = 0; i < 25; i++) items.push(shuffled[i % shuffled.length]);
+  items.push(finalPids[idx]);
+  items.push(POKEMON[Math.floor(Math.random() * POKEMON.length)]);
+  items.forEach(pid => {
+    const img = document.createElement('img');
+    img.src = ASSET_BASE + pid + '.png';
+    strip.appendChild(img);
+  });
+  return items.length;
+}
+
+function animateReel(idx, stopAt, duration) {
+  return new Promise(resolve => {
+    const strip = document.getElementById('strip' + idx);
+    const reel = document.getElementById('reel' + idx);
+    const targetY = -(stopAt * 120) + 10;
+    reel.classList.add('spinning');
+    strip.style.transition = `transform ${duration}ms cubic-bezier(0.15, 0.85, 0.35, 1.02)`;
+    strip.style.transform = `translateY(${targetY}px)`;
+    setTimeout(() => {
+      reel.classList.remove('spinning');
+      const flash = document.getElementById('flash' + idx);
+      flash.style.opacity = '0.8';
+      setTimeout(() => flash.style.opacity = '0', 120);
+      resolve();
+    }, duration);
+  });
+}
+
+function setGlow(idx, color) {
+  const g = document.getElementById('glow' + idx);
+  g.style.border = `2px solid ${color}`;
+  g.style.boxShadow = `0 0 15px ${color}, 0 0 30px ${color}40`;
+  g.animate([{opacity:0},{opacity:1}], {duration:300, fill:'forwards'});
+}
+
+function showParticles(count, colors, dur=2000) {
+  const c = document.getElementById('particles');
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const color = colors[i % colors.length];
+    const sz = 3 + Math.random() * 8;
+    const sx = 250 + (Math.random()-0.5)*100;
+    const sy = 200;
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 80 + Math.random() * 250;
+    const ex = sx + Math.cos(ang)*dist;
+    const ey = sy + Math.sin(ang)*dist - 120;
+    p.style.cssText = `left:${sx}px;top:${sy}px;width:${sz}px;height:${sz}px;background:${color};
+      border-radius:${Math.random()>0.5?'50%':'2px'};`;
+    c.appendChild(p);
+    p.animate([
+      {transform:'translate(0,0) scale(0)',opacity:1},
+      {transform:`translate(${ex-sx}px,${ey-sy}px) scale(1)`,opacity:1,offset:0.6},
+      {transform:`translate(${ex-sx}px,${ey-sy+100}px) scale(0.3)`,opacity:0},
+    ], {duration:dur+Math.random()*600, delay:Math.random()*200});
+    setTimeout(() => p.remove(), dur+1000);
+  }
+}
+
+function flashScreen(color, dur=200) {
+  const f = document.getElementById('flashOverlay');
+  f.style.background = `radial-gradient(circle, ${color}cc, ${color}44)`;
+  f.style.opacity = '0.9';
+  setTimeout(() => f.style.opacity = '0', dur);
+}
+
+function showLightRays(color, count=12) {
+  const body = document.body;
+  for (let i = 0; i < count; i++) {
+    const ray = document.createElement('div');
+    ray.className = 'light-ray';
+    const angle = (360/count)*i;
+    ray.style.cssText = `background:linear-gradient(180deg,${color},transparent);
+      transform:rotate(${angle}deg);`;
+    body.appendChild(ray);
+    ray.animate([
+      {opacity:0, height:'0px'},
+      {opacity:0.8, height:'400px', offset:0.3},
+      {opacity:0, height:'400px'},
+    ], {duration:1200, delay:i*30});
+    setTimeout(() => ray.remove(), 1500);
+  }
+}
+
+function showResult(text, cls) {
+  const o = document.getElementById('resultOverlay');
+  const t = document.getElementById('resultText');
+  o.className = 'result-overlay ' + cls;
+  t.textContent = text;
+  o.animate([
+    {opacity:0,transform:'scale(0.3) translateY(20px)'},
+    {opacity:1,transform:'scale(1.15) translateY(0)',offset:0.5},
+    {opacity:1,transform:'scale(1) translateY(0)'},
+  ], {duration:600, fill:'forwards'});
+}
+
+function setRarityBar(pct, color) {
+  const bar = document.getElementById('rarityBar');
+  bar.style.width = pct + '%';
+  bar.style.background = color;
+  bar.style.boxShadow = `0 0 10px ${color}`;
+}
+
+async function run() {
+  const sub = document.getElementById('subtitle');
+  buildStrip(0); buildStrip(1); buildStrip(2);
+  const finalIdx = 25;
+
+  for (let r = 0; r < 3; r++) {
+    document.getElementById('strip'+r).style.transition = 'none';
+    document.getElementById('strip'+r).style.transform = 'translateY(0)';
+  }
+
+  // 시작
+  sub.textContent = '제련 시작...';
+  setRarityBar(10, '#444');
+  await new Promise(r => setTimeout(r, 600));
+
+  sub.textContent = '회전 중...';
+  setRarityBar(20, '#4488FF');
+
+  // 1번 릴
+  await animateReel(0, finalIdx, 1400);
+  sub.textContent = '첫 번째!';
+  setRarityBar(40, '#4488FF');
+  if (finalPids[0] === finalPids[1] || finalPids[0] === finalPids[2]) {
+    setGlow(0, '#FFD700');
+  }
+  await new Promise(r => setTimeout(r, 400));
+
+  // 2번 릴
+  await animateReel(1, finalIdx, 1700);
+  setRarityBar(60, '#BF00FF');
+
+  if (finalPids[0] === finalPids[1]) {
+    sub.textContent = '두 개 일치...!';
+    sub.style.color = '#FFD700';
+    setGlow(1, '#FFD700');
+    setRarityBar(80, '#FFD700');
+    await new Promise(r => setTimeout(r, 600));
+
+    // 극적 정지 — 화면 살짝 어두워짐
+    document.body.style.filter = 'brightness(0.7)';
+    sub.textContent = '. . .';
+    await new Promise(r => setTimeout(r, 1200));
+    document.body.style.filter = 'brightness(1)';
+  } else {
+    sub.textContent = '두 번째!';
+    await new Promise(r => setTimeout(r, 400));
+  }
+
+  // 3번 릴
+  await animateReel(2, finalIdx, 2000);
+  await new Promise(r => setTimeout(r, 200));
+
+  // 결과
+  if (resultType === 'jackpot') {
+    flashScreen('#FFD700', 400);
+    showLightRays('#FFD700', 16);
+    setGlow(2, '#FFD700');
+    setRarityBar(100, 'linear-gradient(90deg, #FF00FF, #00FFFF, #FFD700)');
+    await new Promise(r => setTimeout(r, 300));
+    showParticles(60, ['#FFD700','#FF1493','#00F5FF','#4ecb71','#FF6B6B','#BF00FF'], 3000);
+    showResult('MEGA JACKPOT', 'jackpot');
+    sub.textContent = '메가스톤 획득!!!';
+    sub.style.color = '#FFD700';
+  } else if (resultType === 'shiny') {
+    flashScreen('#4ecb71', 300);
+    showLightRays('#4ecb71', 10);
+    setGlow(2, '#4ecb71');
+    setRarityBar(100, '#4ecb71');
+    await new Promise(r => setTimeout(r, 200));
+    showParticles(35, ['#4ecb71','#FFD700','#00F5FF','#fff'], 2000);
+    showResult('SUCCESS', 'success');
+    sub.textContent = '이로치 제련 성공!';
+    sub.style.color = '#4ecb71';
+  } else if (resultType === 'near') {
+    setRarityBar(85, '#ff6b6b');
+    showResult('아깝다...!!!', 'near');
+    sub.textContent = '재료 소멸...';
+    sub.style.color = '#ff6b6b';
+  } else {
+    setRarityBar(30, '#333');
+    showResult('실패', 'fail');
+    sub.textContent = '불꽃이 꺼졌다';
+    sub.style.color = '#555';
+  }
+
+  await new Promise(r => setTimeout(r, 3000));
+  window.__slotDone = true;
+}
+
+setTimeout(run, 300);
+</script>
+</body>
+</html>

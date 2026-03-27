@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>커뮤니티 시스템 구현 기획서</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 900px; margin: 0 auto; padding: 20px 40px; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
+  h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
+  h2 { color: #58a6ff; border-bottom: 1px solid #21262d; padding-bottom: 6px; margin-top: 32px; }
+  h3 { color: #d2a8ff; }
+  h4 { color: #7ee787; }
+  table { border-collapse: collapse; width: 100%%; margin: 12px 0; }
+  th, td { border: 1px solid #30363d; padding: 8px 12px; text-align: left; }
+  th { background: #161b22; color: #58a6ff; }
+  tr:nth-child(even) { background: #161b22; }
+  code { background: #161b22; padding: 2px 6px; border-radius: 4px; color: #e6edf3; font-size: 0.9em; }
+  pre { background: #161b22; padding: 16px; border-radius: 8px; overflow-x: auto; border: 1px solid #30363d; }
+  pre code { padding: 0; background: none; }
+  hr { border: none; border-top: 1px solid #30363d; margin: 24px 0; }
+  strong { color: #e6edf3; }
+  ul, ol { padding-left: 24px; }
+  li { margin: 4px 0; }
+  a { color: #58a6ff; }
+  blockquote { border-left: 3px solid #30363d; padding-left: 16px; color: #8b949e; margin: 12px 0; }
+  input[type=checkbox] { margin-right: 6px; }
+</style>
+</head>
+<body>
+<h1>커뮤니티 시스템 구현 기획서</h1>
+<blockquote>작성일: 2026-03-08 | 기반: feature_proposals.md #2, #6</blockquote>
+
+<hr>
+
+<h2>개요</h2>
+
+<p>채팅방 레벨 시스템 + 채널 네트워크를 구현하여:</p>
+<ul>
+<li>채널 운영자에게 봇 유지 인센티브 제공</li>
+<li>유저 활동량 증가 (레벨업 동기)</li>
+<li>채팅방 간 유저 풀 확대 (크로스 프로모션)</li>
+</ul>
+
+<p><strong>기존 인프라 활용:</strong></p>
+<ul>
+<li><code>chat_rooms.spawn_multiplier</code> → 레벨별 스폰 보너스에 연결</li>
+<li><code>chat_rooms.invite_link</code> → 채널 네트워크 디렉토리에 활용</li>
+<li><code>chat_activity</code> 테이블 → CXP 보조 지표로 활용</li>
+<li><code>spawn_service.calculate_daily_spawns()</code> → 레벨 보너스 주입 지점</li>
+</ul>
+
+<hr>
+
+<h2>Phase 1: 채팅방 레벨 시스템</h2>
+
+<h3>1.1 DB 스키마</h3>
+
+<code>-- chat_rooms 테이블에 컬럼 추가 (새 테이블 X, 기존 확장)
+ALTER TABLE chat_rooms ADD COLUMN cxp INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE chat_rooms ADD COLUMN chat_level INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE chat_rooms ADD COLUMN cxp_today INTEGER NOT NULL DEFAULT 0;
+
+-- 일일 CXP 기록 (분석용, 선택)
+CREATE TABLE IF NOT EXISTS chat_cxp_log (
+    id SERIAL PRIMARY KEY,
+    chat_id BIGINT REFERENCES chat_rooms(chat_id),
+    action TEXT NOT NULL,          -- 'catch', 'battle', 'trade'
+    user_id BIGINT,
+    amount INTEGER NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_cxp_log_chat ON chat_cxp_log(chat_id, created_at);</code></pre>
+
+<p><strong>chat_rooms 기존 테이블 확장 이유:</strong></p>
+<ul>
+<li>별도 <code>chat_levels</code> 테이블을 만들면 JOIN이 필요 → 스폰 스케줄링 시 쿼리 복잡</li>
+<li><code>chat_rooms</code>에 3개 컬럼 추가가 더 단순</li>
+</ul>
+
+<h3>1.2 CXP (채팅방 경험치) 적립 규칙</h3>
+
+<table><thead><tr><th>행동</th><th>CXP</th><th>적립 위치 (코드)</th></tr></thead><tbody>
+<tr><td>포켓몬 포획 성공</td><td>+1</td><td><code>handlers/group.py</code> catch 성공 후</td></tr>
+<tr><td>채팅방 내 배틀 완료</td><td>+2</td><td><code>handlers/battle.py</code> 배틀 결과 콜백</td></tr>
+<tr><td>교환 완료</td><td>+1</td><td><code>services/trade_service.py</code> 교환 성공 후</td></tr>
+<tr><td>강제스폰 사용</td><td>+1</td><td><code>handlers/group.py</code> 강스권 사용 시</td></tr>
+</tbody></table>
+
+<p><strong>일일 CXP 상한: 50</strong> (어뷰징 방지)</p>
+<ul>
+<li><code>cxp_today</code> 컬럼으로 추적</li>
+<li>자정 리셋 시 <code>cxp_today = 0</code> 초기화 (<code>midnight_reset</code>에 추가)</li>
+</ul>
+
+<h3>1.3 레벨 테이블 &amp; 혜택</h3>
+
+<table><thead><tr><th>레벨</th><th>필요 누적CXP</th><th>혜택</th><th>구현 방식</th></tr></thead><tbody>
+<tr><td>Lv.1</td><td>0</td><td>기본</td><td>-</td></tr>
+<tr><td>Lv.2</td><td>100</td><td>일일 스폰 +1</td><td><code>spawn_bonus += 1</code></td></tr>
+<tr><td>Lv.3</td><td>300</td><td>에픽 확률 +10%</td><td><code>rarity_boost.epic = 1.1</code></td></tr>
+<tr><td>Lv.4</td><td>600</td><td>일일 스폰 +2 + 전설 +5%</td><td><code>spawn_bonus += 2</code>, <code>rarity_boost.legend = 1.05</code></td></tr>
+<tr><td>Lv.5</td><td>1000</td><td>명예의 전당 해금</td><td>최초포획 기록 표시 기능</td></tr>
+<tr><td>Lv.6</td><td>1500</td><td>주간 보너스 스폰 (토요일)</td><td>토요일 추가 스폰 1회</td></tr>
+<tr><td>Lv.7</td><td>2000</td><td>이로치 확률 +3%</td><td><code>shiny_boost = 1.03</code></td></tr>
+<tr><td>Lv.8</td><td>3000</td><td>채팅방 전용 칭호 해금</td><td>"🏠 [방이름] 주민" 칭호</td></tr>
+<tr><td>Lv.9</td><td>5000</td><td>(미래) 레이드 보스 자격</td><td>예약 - Phase 3</td></tr>
+<tr><td>Lv.10</td><td>8000</td><td>채팅방 리더보드 + 월간 MVP</td><td>대시보드 연동</td></tr>
+</tbody></table>
+
+<h3>1.4 config.py 추가</h3>
+
+<code># ─── 채팅방 레벨 ─────────────────────────────────
+CHAT_LEVEL_THRESHOLDS = [
+    # (level, required_cxp, spawn_bonus, rarity_boosts)
+    (1,  0,     0, {}),
+    (2,  100,   1, {}),
+    (3,  300,   1, {"epic": 1.10}),
+    (4,  600,   2, {"epic": 1.10, "legendary": 1.05}),
+    (5,  1000,  2, {"epic": 1.10, "legendary": 1.05}),
+    (6,  1500,  2, {"epic": 1.10, "legendary": 1.05}),
+    (7,  2000,  2, {"epic": 1.10, "legendary": 1.05, "shiny": 1.03}),
+    (8,  3000,  3, {"epic": 1.15, "legendary": 1.08, "shiny": 1.05}),
+    (9,  5000,  3, {"epic": 1.15, "legendary": 1.10, "shiny": 1.05}),
+    (10, 8000,  4, {"epic": 1.20, "legendary": 1.15, "shiny": 1.08}),
+]
+
+CXP_PER_CATCH = 1
+CXP_PER_BATTLE = 2
+CXP_PER_TRADE = 1
+CXP_PER_FORCE_SPAWN = 1
+CXP_DAILY_CAP = 50
+
+def get_chat_level_info(cxp: int):
+    """CXP로 현재 레벨 + 혜택 조회."""
+    result = CHAT_LEVEL_THRESHOLDS[0]
+    for threshold in CHAT_LEVEL_THRESHOLDS:
+        if cxp &gt;= threshold[1]:
+            result = threshold
+        else:
+            break
+    level, _, spawn_bonus, rarity_boosts = result
+    # 다음 레벨까지 남은 CXP
+    next_threshold = None
+    for t in CHAT_LEVEL_THRESHOLDS:
+        if t[1] &gt; cxp:
+            next_threshold = t[1]
+            break
+    return {
+        "level": level,
+        "spawn_bonus": spawn_bonus,
+        "rarity_boosts": rarity_boosts,
+        "next_cxp": next_threshold,  # None이면 MAX
+    }</code></pre>
+
+<h3>1.5 queries.py 추가 함수</h3>
+
+<code>async def add_chat_cxp(chat_id: int, amount: int, action: str, user_id: int = None):
+    """CXP 적립 (일일 상한 체크 포함). 레벨업 시 new_level 반환."""
+    pool = await get_db()
+
+    # 일일 상한 체크
+    row = await pool.fetchrow(
+        "SELECT cxp, chat_level, cxp_today FROM chat_rooms WHERE chat_id = $1",
+        chat_id,
+    )
+    if not row or row["cxp_today"] &gt;= config.CXP_DAILY_CAP:
+        return None  # 상한 도달
+
+    actual = min(amount, config.CXP_DAILY_CAP - row["cxp_today"])
+    new_cxp = row["cxp"] + actual
+
+    # 레벨 계산
+    info = config.get_chat_level_info(new_cxp)
+    new_level = info["level"]
+    leveled_up = new_level &gt; row["chat_level"]
+
+    await pool.execute(
+        """UPDATE chat_rooms
+           SET cxp = $1, chat_level = $2, cxp_today = cxp_today + $3
+           WHERE chat_id = $4""",
+        new_cxp, new_level, actual, chat_id,
+    )
+
+    # 로그 (선택적)
+    await pool.execute(
+        """INSERT INTO chat_cxp_log (chat_id, action, user_id, amount)
+           VALUES ($1, $2, $3, $4)""",
+        chat_id, action, user_id, actual,
+    )
+
+    return new_level if leveled_up else None
+
+
+async def get_chat_level(chat_id: int):
+    """채팅방 레벨 정보 조회."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT cxp, chat_level, cxp_today FROM chat_rooms WHERE chat_id = $1",
+        chat_id,
+    )
+    if not row:
+        return {"cxp": 0, "chat_level": 1, "cxp_today": 0}
+    return dict(row)
+
+
+async def reset_daily_cxp():
+    """자정에 cxp_today 리셋."""
+    pool = await get_db()
+    await pool.execute("UPDATE chat_rooms SET cxp_today = 0")</code></pre>
+
+<h3>1.6 스폰 시스템 연동</h3>
+
+<p><strong><code>spawn_service.py</code> 수정:</strong></p>
+
+<code># schedule_spawns_for_chat() 내부
+async def schedule_spawns_for_chat(app, chat_id):
+    ...
+    base_spawns = calculate_daily_spawns(member_count)
+    chat_mult = await queries.get_spawn_multiplier(chat_id)
+    event_mult = await get_spawn_boost()
+
+    # ★ 레벨 보너스 추가
+    chat_data = await queries.get_chat_level(chat_id)
+    level_info = config.get_chat_level_info(chat_data["cxp"])
+    level_bonus = level_info["spawn_bonus"]
+
+    num_spawns = min(SPAWN_MAX_DAILY,
+                     max(1, int(base_spawns * chat_mult * event_mult) + level_bonus))
+    ...</code></pre>
+
+<p><strong>레어리티 보정 (포획 시):</strong></p>
+
+<code># catch 로직에서 rarity 결정 시
+chat_data = await queries.get_chat_level(chat_id)
+level_info = config.get_chat_level_info(chat_data["cxp"])
+rarity_boosts = level_info["rarity_boosts"]
+
+# 기존 확률에 boost 적용
+if "epic" in rarity_boosts:
+    epic_rate *= rarity_boosts["epic"]
+if "legendary" in rarity_boosts:
+    legendary_rate *= rarity_boosts["legendary"]
+if "shiny" in rarity_boosts:
+    shiny_rate *= rarity_boosts["shiny"]</code></pre>
+
+<h3>1.7 CXP 적립 Hook 위치</h3>
+
+<h4>포획 성공 시 (<code>handlers/group.py</code>)</h4>
+<code># catch 성공 후 (catch_pokemon 함수 내)
+# 기존 코드 뒤에 추가:
+asyncio.create_task(_add_cxp_bg(chat_id, config.CXP_PER_CATCH, "catch", user_id, context))</code></pre>
+
+<h4>배틀 완료 시 (<code>handlers/battle.py</code>)</h4>
+<code># 배틀 결과 콜백에서
+# 채팅방 배틀인 경우에만:
+if chat_id and chat_id &lt; 0:  # 그룹 채팅
+    asyncio.create_task(_add_cxp_bg(chat_id, config.CXP_PER_BATTLE, "battle", user_id, context))</code></pre>
+
+<h4>교환 완료 시 (<code>services/trade_service.py</code>)</h4>
+<code># 교환 성공 후
+# 교환이 일어난 채팅방 chat_id가 있으면:
+asyncio.create_task(_add_cxp_bg(chat_id, config.CXP_PER_TRADE, "trade", user_id, None))</code></pre>
+
+<h4>공통 백그라운드 함수</h4>
+<code>async def _add_cxp_bg(chat_id, amount, action, user_id, context):
+    """CXP 적립 + 레벨업 알림 (논블로킹)."""
+    try:
+        new_level = await queries.add_chat_cxp(chat_id, amount, action, user_id)
+        if new_level and context:
+            info = config.get_chat_level_info(
+                (await queries.get_chat_level(chat_id))["cxp"]
+            )
+            benefit = _level_benefit_text(new_level)
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=(
+                    f"🎊 &lt;b&gt;채팅방 레벨 UP!&lt;/b&gt;\n"
+                    f"━━━━━━━━━━━━━━\n"
+                    f"🏅 Lv.{new_level} 달성!\n"
+                    f"{benefit}\n"
+                    f"━━━━━━━━━━━━━━"
+                ),
+                parse_mode="HTML",
+            )
+    except Exception:
+        pass</code></pre>
+
+<h3>1.8 명령어: <code>/방정보</code></h3>
+
+<p><strong>기존 명령어 체계에 추가 (그룹 채팅 전용)</strong></p>
+
+<code>📊 크립토 라운지 프로필
+━━━━━━━━━━━━━━
+🏅 레벨: Lv.5 (CXP 1,234/1,500)
+📈 오늘 획득: 23/50 CXP
+👥 활동 트레이너: 23명
+🎯 총 포획수: 1,847마리
+✨ 이로치 출현: 12회
+━━━━━━━━━━━━━━
+🎁 현재 혜택: 스폰 +2, 에픽 +10%, 전설 +5%
+📊 다음 레벨까지: 266 CXP</code></pre>
+
+<p><strong>구현:</strong> <code>handlers/group.py</code>에 <code>chat_info_handler</code> 추가</p>
+
+<h3>1.9 자정 리셋 추가</h3>
+
+<code># main.py midnight_reset() 내부에 추가
+await queries.reset_daily_cxp()</code></pre>
+
+<hr>
+
+<h2>Phase 2: 채널 네트워크 &amp; 크로스 프로모션</h2>
+
+<h3>2.1 DB 스키마</h3>
+
+<code>-- chat_rooms 테이블에 컬럼 추가
+ALTER TABLE chat_rooms ADD COLUMN directory_opt_in INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE chat_rooms ADD COLUMN directory_description TEXT DEFAULT '';
+ALTER TABLE chat_rooms ADD COLUMN directory_approved INTEGER NOT NULL DEFAULT 0;
+
+-- 유저별 방문 기록 (이적 보너스용)
+CREATE TABLE IF NOT EXISTS user_chat_visits (
+    user_id BIGINT NOT NULL,
+    chat_id BIGINT NOT NULL,
+    first_catch_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, chat_id)
+);
+
+-- 크로스 프로모션 표시 기록 (스팸 방지)
+CREATE TABLE IF NOT EXISTS cross_promo_log (
+    user_id BIGINT NOT NULL,
+    date TEXT NOT NULL,
+    show_count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, date)
+);</code></pre>
+
+<h3>2.2 채팅방 디렉토리</h3>
+
+<h4>등록 프로세스</h4>
+<p>1. 채팅방 운영자(관리자)가 <code>/방등록</code> 입력</p>
+<p>2. 봇이 초대 링크 + 설명 입력 요청 (DM으로)</p>
+<p>3. <code>directory_opt_in = 1</code> 설정</p>
+<p>4. 봇 관리자(우리)가 승인 → <code>directory_approved = 1</code></p>
+<ul>
+<li>또는 Lv.3 이상이면 자동 승인</li>
+</ul>
+
+<h4>조회: <code>/채팅방목록</code> (DM 또는 그룹)</h4>
+
+<code>🏠 활발한 포켓몬 채팅방
+━━━━━━━━━━━━━━━━━
+1. 🏅 Lv.7 크립토 라운지 (45명) — "이로치 성지"
+2. 🏅 Lv.5 텔레 포켓몬 (32명) — "뉴비 환영!"
+3. 🏅 Lv.4 코인방 (28명) — "배틀 활발"
+━━━━━━━━━━━━━━━━━
+💡 방 이름을 클릭하면 참여할 수 있어요!</code></pre>
+
+<ul>
+<li>레벨순 정렬</li>
+<li>각 항목에 InlineKeyboardButton (초대 링크)</li>
+<li>Lv.3 미만 또는 미승인 방은 비노출</li>
+</ul>
+
+<h3>2.3 크로스 프로모션</h3>
+
+<h4>표시 조건</h4>
+<ul>
+<li>포획 성공 시 <strong>5% 확률</strong></li>
+<li>해당 유저가 오늘 본 프로모 횟수 &lt; 3</li>
+<li>자기 채팅방은 제외</li>
+<li>디렉토리 등록 + 승인된 방만</li>
+</ul>
+
+<h4>메시지 형식</h4>
+<code>📢 [크립토 라운지] 에서도 포켓몬을 잡을 수 있어요! (Lv.7 🏅 보너스 적용 중) [참여하기]</code></pre>
+<ul>
+<li>포획 성공 메시지 끝에 한 줄 추가</li>
+<li><code>[참여하기]</code> = InlineKeyboardButton → 초대 링크</li>
+</ul>
+
+<h4>구현 위치</h4>
+<p><code>handlers/group.py</code> catch 성공 메시지 조립 시:</p>
+
+<code>promo_text = await _maybe_cross_promo(user_id, chat_id)
+if promo_text:
+    msg += f"\n\n{promo_text}"</code></pre>
+
+<h3>2.4 이적 보너스 (새 채팅방 첫 포획)</h3>
+
+<h4>로직</h4>
+<p>1. 포획 성공 시 <code>user_chat_visits</code> 테이블 체크</p>
+<p>2. 해당 <code>(user_id, chat_id)</code> 쌍이 없으면 → 첫 방문</p>
+<p>3. 보상: BP 50 + 인라인 축하</p>
+<p>4. <code>INSERT INTO user_chat_visits</code> 기록</p>
+
+<h4>메시지</h4>
+<code>🆕 {이름}님이 새로운 채팅방에서 포켓몬 여행을 시작합니다! (+50 BP)</code></pre>
+
+<h3>2.5 대시보드 연동</h3>
+
+<p><code>dashboard/server.py</code>에 엔드포인트 추가:</p>
+
+<code>@app.get("/api/chat-directory")
+async def chat_directory():
+    """채팅방 디렉토리 (레벨순)."""
+    ...
+
+@app.get("/api/chat/{chat_id}/profile")
+async def chat_profile(chat_id: int):
+    """채팅방 프로필 (레벨, CXP, 통계)."""
+    ...</code></pre>
+
+<p><code>dashboard/templates/</code> 또는 SPA에 채팅방 디렉토리 페이지 추가.</p>
+
+<hr>
+
+<h2>구현 순서 (Step-by-Step)</h2>
+
+<h3>Step 1: DB 마이그레이션 (30분)</h3>
+<ul>
+<li><input type="checkbox" disabled> <code>chat_rooms</code>에 <code>cxp</code>, <code>chat_level</code>, <code>cxp_today</code> 컬럼 추가</li>
+<li><input type="checkbox" disabled> <code>chat_cxp_log</code> 테이블 생성</li>
+<li><input type="checkbox" disabled> 기존 채팅방들 <code>chat_level = 1, cxp = 0</code> 초기화</li>
+</ul>
+
+<h3>Step 2: config + queries (1시간)</h3>
+<ul>
+<li><input type="checkbox" disabled> <code>config.py</code>에 레벨 테이블, CXP 상수, <code>get_chat_level_info()</code> 추가</li>
+<li><input type="checkbox" disabled> <code>queries.py</code>에 <code>add_chat_cxp()</code>, <code>get_chat_level()</code>, <code>reset_daily_cxp()</code> 추가</li>
+</ul>
+
+<h3>Step 3: CXP 적립 Hook (1시간)</h3>
+<ul>
+<li><input type="checkbox" disabled> <code>handlers/group.py</code> 포획 성공 후 CXP +1</li>
+<li><input type="checkbox" disabled> <code>handlers/battle.py</code> 배틀 완료 후 CXP +2</li>
+<li><input type="checkbox" disabled> <code>services/trade_service.py</code> 교환 완료 후 CXP +1</li>
+<li><input type="checkbox" disabled> 레벨업 시 채팅방 알림 메시지</li>
+<li><input type="checkbox" disabled> <code>midnight_reset</code>에 <code>reset_daily_cxp()</code> 추가</li>
+</ul>
+
+<h3>Step 4: 스폰 보너스 연동 (30분)</h3>
+<ul>
+<li><input type="checkbox" disabled> <code>spawn_service.py</code>에서 레벨별 스폰 +N 적용</li>
+<li><input type="checkbox" disabled> 레어리티 보정 적용 (스폰 시 확률 조정)</li>
+</ul>
+
+<h3>Step 5: <code>/방정보</code> 명령어 (30분)</h3>
+<ul>
+<li><input type="checkbox" disabled> <code>handlers/group.py</code>에 <code>chat_info_handler</code> 추가</li>
+<li><input type="checkbox" disabled> <code>main.py</code>에 핸들러 등록</li>
+</ul>
+
+<h3>Step 6: 채널 네트워크 DB (30분)</h3>
+<ul>
+<li><input type="checkbox" disabled> <code>chat_rooms</code>에 디렉토리 컬럼 추가</li>
+<li><input type="checkbox" disabled> <code>user_chat_visits</code>, <code>cross_promo_log</code> 테이블 생성</li>
+</ul>
+
+<h3>Step 7: <code>/방등록</code>, <code>/채팅방목록</code> 명령어 (1시간)</h3>
+<ul>
+<li><input type="checkbox" disabled> 방등록 핸들러 (관리자 전용)</li>
+<li><input type="checkbox" disabled> 채팅방목록 핸들러 (전체 공개)</li>
+</ul>
+
+<h3>Step 8: 크로스 프로모션 + 이적 보너스 (1시간)</h3>
+<ul>
+<li><input type="checkbox" disabled> 포획 시 5% 크로스 프로모 표시</li>
+<li><input type="checkbox" disabled> 새 채팅방 첫 포획 보너스</li>
+</ul>
+
+<h3>Step 9: 대시보드 연동 (1시간)</h3>
+<ul>
+<li><input type="checkbox" disabled> API 엔드포인트 추가</li>
+<li><input type="checkbox" disabled> 채팅방 디렉토리 페이지</li>
+</ul>
+
+<hr>
+
+<h2>수치 밸런스 참고</h2>
+
+<h3>CXP 적립 속도 예시 (활발한 채팅방 기준)</h3>
+
+<table><thead><tr><th>일일 활동</th><th>CXP</th></tr></thead><tbody>
+<tr><td>포획 30회</td><td>30</td></tr>
+<tr><td>배틀 5회</td><td>10</td></tr>
+<tr><td>교환 3회</td><td>3</td></tr>
+<tr><td><strong>합계</strong></td><td><strong>43 (일일 상한 50 내)</strong></td></tr>
+</tbody></table>
+
+<table><thead><tr><th>레벨</th><th>도달 예상</th><th>누적 기간</th></tr></thead><tbody>
+<tr><td>Lv.2 (100)</td><td>~3일</td><td>3일</td></tr>
+<tr><td>Lv.3 (300)</td><td>~5일</td><td>8일</td></tr>
+<tr><td>Lv.4 (600)</td><td>~7일</td><td>15일</td></tr>
+<tr><td>Lv.5 (1000)</td><td>~10일</td><td>25일</td></tr>
+<tr><td>Lv.7 (2000)</td><td>~24일</td><td>49일</td></tr>
+<tr><td>Lv.10 (8000)</td><td>~143일</td><td>~5개월</td></tr>
+</tbody></table>
+
+<p><strong>비활발한 채팅방 (일 10 CXP):</strong></p>
+<ul>
+<li>Lv.3 도달: ~30일 (1달)</li>
+<li>Lv.5 도달: ~100일 (3달)</li>
+</ul>
+
+<p>→ 활발한 방은 1달 내 체감 가능, 비활발한 방도 꾸준히 하면 성장.</p>
+
+<h3>경제 영향</h3>
+
+<ul>
+<li>스폰 증가: Lv.5에서 +2회 = 기존 3회 → 5회 (67% 증가)</li>
+<li>레어리티 보정: 에픽 +10% = 기존 5% → 5.5% (체감 미미, 상징적)</li>
+<li>BP 영향: 크로스 프로모 이적 보너스 50 BP × 신규 방문 = 일회성이라 인플레 없음</li>
+</ul>
+
+<hr>
+
+<h2>리스크 &amp; 대응</h2>
+
+<table><thead><tr><th>리스크</th><th>대응</th></tr></thead><tbody>
+<tr><td>CXP 어뷰징 (봇 계정으로 무한 포획)</td><td>일일 상한 50 + 기존 catch_limits 연동</td></tr>
+<tr><td>디렉토리 스팸 방</td><td>관리자 승인제 + Lv.3 이상 조건</td></tr>
+<tr><td>크로스 프로모 스팸</td><td>5% 확률 + 일 3회 상한</td></tr>
+<tr><td>레벨 혜택이 너무 강함</td><td>보정치 보수적 설정 (에픽 +10% = 실질 0.5%p)</td></tr>
+<tr><td>소규모 채팅방 소외</td><td>Lv.1-3 구간을 빠르게 통과하도록 설계</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>명령어 정리</h2>
+
+<table><thead><tr><th>명령어</th><th>위치</th><th>설명</th></tr></thead><tbody>
+<tr><td><code>방정보</code></td><td>그룹</td><td>채팅방 레벨/CXP/통계 표시</td></tr>
+<tr><td><code>방등록</code></td><td>그룹 (관리자)</td><td>디렉토리 등록 신청</td></tr>
+<tr><td><code>채팅방목록</code></td><td>DM/그룹</td><td>등록된 채팅방 리스트</td></tr>
+</tbody></table>
+
+<p><strong>기존 명령어 수정 없음.</strong> 새 명령어 3개만 추가.</p>
+
+<hr>
+
+<h2>파일별 수정 목록</h2>
+
+<table><thead><tr><th>파일</th><th>수정 내용</th></tr></thead><tbody>
+<tr><td><code>config.py</code></td><td>레벨 테이블, CXP 상수, <code>get_chat_level_info()</code></td></tr>
+<tr><td><code>database/queries.py</code></td><td><code>add_chat_cxp()</code>, <code>get_chat_level()</code>, <code>reset_daily_cxp()</code> + 디렉토리 쿼리들</td></tr>
+<tr><td><code>database/schema.py</code></td><td><code>chat_cxp_log</code>, <code>user_chat_visits</code>, <code>cross_promo_log</code> 테이블</td></tr>
+<tr><td><code>handlers/group.py</code></td><td>CXP hook (포획), <code>chat_info_handler</code>, <code>chat_list_handler</code>, 크로스 프로모, 이적 보너스</td></tr>
+<tr><td><code>handlers/battle.py</code></td><td>CXP hook (배틀)</td></tr>
+<tr><td><code>services/trade_service.py</code></td><td>CXP hook (교환)</td></tr>
+<tr><td><code>services/spawn_service.py</code></td><td>레벨별 스폰 보너스 + 레어리티 보정</td></tr>
+<tr><td><code>main.py</code></td><td>핸들러 등록 + <code>midnight_reset</code>에 <code>reset_daily_cxp()</code></td></tr>
+<tr><td><code>dashboard/server.py</code></td><td>API 엔드포인트</td></tr>
+</tbody></table>
+
+</body>
+</html>

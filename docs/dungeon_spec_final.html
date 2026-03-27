@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>포켓몬 던전 (로그라이크) 최종 설계서 v1.0</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap');
+
+  :root {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --surface2: #22223a;
+    --border: #2d2d4a;
+    --text: #e0e0f0;
+    --text-dim: #8888aa;
+    --accent: #7c5cff;
+    --accent2: #5c8cff;
+    --gold: #ffd700;
+    --red: #ff5566;
+    --green: #44cc88;
+    --blue: #4488ff;
+    --purple: #aa66ff;
+    --orange: #ff8844;
+    --cyan: #44ccdd;
+    --pink: #ff66aa;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #1a1040 0%, #0f0f1a 50%, #0a1a2a 100%);
+    padding: 80px 40px 60px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 30% 50%, rgba(124,92,255,0.08) 0%, transparent 50%),
+                radial-gradient(circle at 70% 50%, rgba(68,136,255,0.06) 0%, transparent 50%);
+    animation: heroGlow 8s ease-in-out infinite alternate;
+  }
+  @keyframes heroGlow {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(-2%, 2%); }
+  }
+  .hero * { position: relative; z-index: 1; }
+  .hero h1 {
+    font-size: 2.8em;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), var(--accent2), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+    letter-spacing: -1px;
+  }
+  .hero .subtitle {
+    color: var(--text-dim);
+    font-size: 1.1em;
+    margin-bottom: 24px;
+  }
+  .hero .version {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 6px 20px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    color: var(--accent);
+  }
+
+  /* Layout */
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Nav */
+  .toc {
+    position: sticky;
+    top: 0;
+    background: rgba(15,15,26,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+    padding: 12px 0;
+  }
+  .toc-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .toc a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.78em;
+    padding: 4px 10px;
+    border-radius: 12px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .toc a:hover {
+    background: var(--surface2);
+    color: var(--accent);
+  }
+
+  /* Sections */
+  section {
+    padding: 56px 0 40px;
+    border-bottom: 1px solid var(--border);
+  }
+  section:last-child { border-bottom: none; }
+
+  h2 {
+    font-size: 1.8em;
+    font-weight: 700;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    border-radius: 10px;
+    font-size: 0.6em;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  h3 {
+    font-size: 1.2em;
+    font-weight: 600;
+    margin: 32px 0 16px;
+    color: var(--accent2);
+  }
+  h4 {
+    font-size: 1.05em;
+    font-weight: 600;
+    margin: 24px 0 12px;
+    color: var(--cyan);
+  }
+
+  p { margin-bottom: 14px; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin: 16px 0;
+  }
+  .card.highlight {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, rgba(124,92,255,0.06), rgba(68,136,255,0.04));
+  }
+  .card.gold {
+    border-color: var(--gold);
+    background: linear-gradient(135deg, rgba(255,215,0,0.04), rgba(255,136,68,0.03));
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.92em;
+  }
+  thead th {
+    background: var(--surface2);
+    color: var(--accent2);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--accent);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:hover { background: rgba(124,92,255,0.04); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* Problem-solution table */
+  .problem-table td:first-child { color: var(--red); font-weight: 500; }
+  .problem-table td:last-child { color: var(--green); font-weight: 500; }
+
+  /* Code blocks */
+  .codeblock {
+    background: #0d0d18;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.88em;
+    line-height: 1.8;
+    overflow-x: auto;
+    margin: 16px 0;
+    white-space: pre-wrap;
+    color: #ccd0e8;
+  }
+  .codeblock .comment { color: #666688; }
+  .codeblock .keyword { color: var(--purple); }
+  .codeblock .number { color: var(--orange); }
+  .codeblock .string { color: var(--green); }
+  .codeblock .func { color: var(--cyan); }
+
+  /* UI Mockup */
+  .mockup {
+    background: #0a0a14;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin: 16px 0;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.88em;
+    line-height: 1.9;
+    white-space: pre-wrap;
+    color: #dde;
+  }
+  .mockup .title { color: var(--gold); font-weight: bold; }
+  .mockup .btn {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 10px;
+    margin: 2px;
+    color: var(--accent2);
+    font-size: 0.95em;
+  }
+  .mockup .sep { color: var(--border); }
+  .mockup .win { color: var(--green); font-weight: bold; }
+  .mockup .lose { color: var(--red); font-weight: bold; }
+  .mockup .info { color: var(--text-dim); }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 0.8em;
+    font-weight: 600;
+  }
+  .tag-common { background: #333; color: #aaa; }
+  .tag-rare { background: #1a2a4a; color: #5588ff; }
+  .tag-epic { background: #2a1a3a; color: #aa66ff; }
+  .tag-legendary { background: #3a2a0a; color: var(--gold); }
+  .tag-ultra { background: #3a0a1a; color: #ff66aa; }
+
+  .grade-normal { color: #aaa; }
+  .grade-advanced { color: var(--blue); }
+  .grade-rare { color: var(--purple); }
+  .grade-legend { color: var(--gold); }
+
+  /* Grid */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  @media (max-width: 640px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 2em; }
+    .toc a { font-size: 0.72em; padding: 3px 7px; }
+  }
+
+  /* Flow arrows */
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin: 16px 0;
+    text-align: center;
+    font-size: 0.95em;
+  }
+  .flow .step {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    margin: 4px;
+  }
+  .flow .arrow { color: var(--accent); margin: 0 4px; }
+
+  /* Synergy */
+  .synergy-card {
+    background: linear-gradient(135deg, rgba(255,215,0,0.05), rgba(170,102,255,0.05));
+    border: 1px solid var(--gold);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .synergy-card .combo { color: var(--text-dim); font-size: 0.9em; }
+  .synergy-card .result { color: var(--gold); font-weight: 700; font-size: 1.05em; }
+  .synergy-card .effect { color: var(--text); font-size: 0.9em; }
+
+  /* Stat bars */
+  .stat-bar-wrap { margin: 4px 0; display: flex; align-items: center; gap: 8px; }
+  .stat-bar-label { width: 90px; font-size: 0.85em; color: var(--text-dim); text-align: right; }
+  .stat-bar-bg { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .stat-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+  .stat-bar-val { width: 50px; font-size: 0.8em; color: var(--text-dim); }
+
+  /* Scaling chart */
+  .scaling-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 160px;
+    margin: 20px 0;
+    padding: 0 8px;
+  }
+  .scaling-bar {
+    flex: 1;
+    min-width: 0;
+    border-radius: 4px 4px 0 0;
+    position: relative;
+    transition: height 0.4s;
+  }
+  .scaling-bar .floor-label {
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.65em;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .scaling-bar .val-label {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.65em;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  /* Reward loop */
+  .loop-diagram {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .loop-box {
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border);
+  }
+  .loop-box h4 { margin-top: 0; }
+  .loop-box .loop-steps { font-size: 0.9em; color: var(--text-dim); line-height: 2; }
+  .loop-box .loop-steps .arrow-r { color: var(--accent); }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 40px 24px;
+    color: var(--text-dim);
+    font-size: 0.85em;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Scroll to top */
+  .back-top {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 40px;
+    height: 40px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2em;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 200;
+  }
+  .back-top.show { opacity: 0.8; }
+  .back-top:hover { opacity: 1; }
+
+  /* Print */
+  @media print {
+    body { background: #fff; color: #222; }
+    .toc, .back-top { display: none; }
+    .hero { background: none; border-bottom: 2px solid #222; }
+    .hero h1 { -webkit-text-fill-color: #222; }
+    .card, .mockup, .codeblock { border-color: #ccc; background: #f8f8f8; }
+    table th { background: #eee; border-bottom-color: #222; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>🏰 포켓몬 던전</h1>
+  <div class="subtitle">로그라이크 × 뱀서라이크 — 1마리로 도전하는 무한의 탑</div>
+  <div class="version">v1.0 — 2026-03-18 | 리서치 기반 설계</div>
+</div>
+
+<!-- TOC -->
+<nav class="toc">
+  <div class="toc-inner">
+    <a href="#concept">컨셉</a>
+    <a href="#flow">게임 흐름</a>
+    <a href="#theme">던전 테마</a>
+    <a href="#scaling">난이도</a>
+    <a href="#buffs">버프 시스템</a>
+    <a href="#type">상성</a>
+    <a href="#ticket">입장권</a>
+    <a href="#reward">보상 체계</a>
+    <a href="#stat">스탯 반영</a>
+    <a href="#ui">UI 흐름</a>
+    <a href="#loop">보상 루프</a>
+    <a href="#db">DB 스키마</a>
+    <a href="#roadmap">개발 로드맵</a>
+    <a href="#impact">기대 효과</a>
+  </div>
+</nav>
+
+<div class="container">
+
+<!-- 1. Concept -->
+<section id="concept">
+  <h2><span class="num">01</span> 컨셉 요약</h2>
+  <div class="card highlight">
+    <p style="font-size:1.15em; font-weight:600; margin-bottom:12px;">
+      1마리 포켓몬으로 도전하는 로그라이크 던전
+    </p>
+    <p style="color:var(--text-dim);">
+      매 층 랜덤 적과 자동 배틀 → 승리 시 버프 3개 중 택1 (뱀서 스타일).<br>
+      버프가 쌓일수록 포켓몬이 괴물로 성장. 어디까지 갈 수 있나?<br>
+      투자한 포켓몬(이로치 + S급 IV + 고친밀도)일수록 고층 도달.<br>
+      매일 던전 테마가 바뀜 → 다양한 포켓몬 사용 유도. 입장권 필요 → 긴장감.
+    </p>
+  </div>
+
+  <h3>핵심 키워드</h3>
+  <div class="grid-2">
+    <div class="card"><strong>🎮 1마리</strong> — 팀 구성 고민 없이 즉시 참여</div>
+    <div class="card"><strong>🎲 랜덤 적</strong> — 매 런 다른 경험, 상성 운 요소</div>
+    <div class="card"><strong>⬆️ 버프 선택</strong> — 뱀서 레벨업 느낌, 플레이어 전략</div>
+    <div class="card"><strong>🎫 입장권</strong> — 자원 관리, 매일 접속 동기</div>
+    <div class="card"><strong>💪 육성=층수</strong> — 이로치/IV/친밀도 투자의 목적지</div>
+    <div class="card"><strong>🏆 랭킹</strong> — 엔드게임 경쟁, 소셜 화제</div>
+  </div>
+
+  <h3>해결하는 문제</h3>
+  <table class="problem-table">
+    <thead><tr><th>현재 문제</th><th>던전이 해결</th></tr></thead>
+    <tbody>
+      <tr><td>❌ DAU 200 이하 하락</td><td>✅ 일일 무료 입장권 → 매일 접속 동기</td></tr>
+      <tr><td>❌ 캠프 참여율 0%</td><td>✅ 이로치=층수, 조각 수요 폭증</td></tr>
+      <tr><td>❌ 엔드게임 할 것 없음</td><td>✅ 랭킹 경쟁, 마일스톤 칭호</td></tr>
+      <tr><td>❌ 커먼/레어 쓸모없음</td><td>✅ 코스트별 버프 차등 → 커먼 역전 가능</td></tr>
+      <tr><td>❌ IV/이로치 투자 동기 없음</td><td>✅ S급 이로치 = 10층+ 차이</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 2. Flow -->
+<section id="flow">
+  <h2><span class="num">02</span> 게임 흐름</h2>
+  <div class="flow">
+    <span class="step">DM: "던전"</span>
+    <span class="arrow">→</span>
+    <span class="step">🎫 입장권 확인</span>
+    <span class="arrow">→</span>
+    <span class="step">📍 오늘의 테마</span>
+    <span class="arrow">→</span>
+    <span class="step">🐉 포켓몬 선택</span>
+    <span class="arrow">→</span>
+    <span class="step">⚔️ 던전 시작!</span>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h4 style="margin-top:0">매 층 루프</h4>
+      <p style="color:var(--text-dim); font-size:0.9em; line-height:2;">
+        적 등장 (테마 기반 랜덤)<br>
+        → 자동 배틀 (상성 적용)<br>
+        → 승리 시: 버프 3개 중 택1<br>
+        → 패배 시: 런 종료 → 보상 정산
+      </p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">특수 층</h4>
+      <p style="color:var(--text-dim); font-size:0.9em; line-height:2;">
+        <strong style="color:var(--orange)">5층마다 보스</strong> — 스탯 ×1.5, 트레이드오프 버프<br>
+        <strong style="color:var(--red)">10층마다 관장급</strong> — 타입 통일, 스탯 ×2.0<br>
+        <strong style="color:var(--cyan)">이벤트 층</strong> — 상점/도박/보물 (10% 확률)
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Theme -->
+<section id="theme">
+  <h2><span class="num">03</span> 던전 테마 (일일 랜덤)</h2>
+  <p style="color:var(--text-dim);">매일 자정(KST) 테마가 바뀜. 테마에 따라 적 타입 분포와 보너스 버프가 달라짐.</p>
+  <table>
+    <thead><tr><th>테마</th><th>적 타입 비중</th><th>유리한 포켓몬</th><th>보너스 버프</th></tr></thead>
+    <tbody>
+      <tr><td>🌿 고대 숲</td><td>풀/독/벌레 60%</td><td>불/비행/얼음</td><td>불꽃 계열 ↑</td></tr>
+      <tr><td>🔥 화산</td><td>불/드래곤/격투 60%</td><td>물/땅/바위</td><td>물 계열 ↑</td></tr>
+      <tr><td>🌊 심해</td><td>물/얼음/비행 60%</td><td>전기/풀</td><td>전기 계열 ↑</td></tr>
+      <tr><td>⚡ 발전소</td><td>전기/강철/노말 60%</td><td>땅/격투/불</td><td>땅 계열 ↑</td></tr>
+      <tr><td>🪨 동굴</td><td>땅/바위/고스트 60%</td><td>물/풀/얼음</td><td>얼음 계열 ↑</td></tr>
+      <tr><td>🔮 신전</td><td>에스퍼/악/페어리 60%</td><td>악/강철/독</td><td>악 계열 ↑</td></tr>
+      <tr><td style="color:var(--gold)">🐉 용의 둥지</td><td style="color:var(--gold)">드래곤 80%</td><td>페어리/얼음</td><td style="color:var(--gold)">주말 특수 (토~일)</td></tr>
+    </tbody>
+  </table>
+  <div class="card" style="font-size:0.9em; color:var(--text-dim);">
+    💡 "오늘 화산이네, 갸라도스로 가야지" → 매일 다른 전략<br>
+    ⚠️ 5층 보스는 테마 벗어날 수 있음 → 방심 불가
+  </div>
+</section>
+
+<!-- 4. Scaling -->
+<section id="scaling">
+  <h2><span class="num">04</span> 적 생성 & 난이도 스케일링</h2>
+
+  <h3>4-1. 적 포켓몬 생성</h3>
+  <div class="card" style="font-size:0.9em; color:var(--text-dim); line-height:2;">
+    • 테마 타입 풀에서 <strong style="color:var(--text)">60%</strong>, 기타 타입에서 <strong style="color:var(--text)">40%</strong> 확률 랜덤 선택<br>
+    • 적 희귀도: 층수에 비례 (1~5층 커먼 → 6~15층 레어 혼합 → 16+ 에픽 혼합)<br>
+    • 적 IV: 0 고정 (순수 스케일링으로 난이도 조절)
+  </div>
+
+  <h3>4-2. 구간별 가속 스케일링</h3>
+  <div class="codeblock"><span class="keyword">def</span> <span class="func">enemy_scaling</span>(floor):
+    <span class="keyword">if</span> floor <= <span class="number">10</span>:
+        <span class="keyword">return</span> <span class="number">1.0</span> + floor * <span class="number">0.06</span>       <span class="comment"># 1~10: 1.06~1.60 (입문)</span>
+    <span class="keyword">elif</span> floor <= <span class="number">20</span>:
+        <span class="keyword">return</span> <span class="number">1.60</span> + (floor-<span class="number">10</span>) * <span class="number">0.10</span>  <span class="comment"># 11~20: 1.70~2.60 (중반)</span>
+    <span class="keyword">elif</span> floor <= <span class="number">30</span>:
+        <span class="keyword">return</span> <span class="number">2.60</span> + (floor-<span class="number">20</span>) * <span class="number">0.15</span>  <span class="comment"># 21~30: 2.75~4.10 (후반)</span>
+    <span class="keyword">else</span>:
+        <span class="keyword">return</span> <span class="number">4.10</span> + (floor-<span class="number">30</span>) * <span class="number">0.20</span>  <span class="comment"># 31+: 4.30~∞ (극한)</span></div>
+
+  <!-- Visual scaling chart -->
+  <div style="margin:24px 0;">
+    <div class="scaling-chart">
+      <div class="scaling-bar" style="height:16%; background:var(--green);">
+        <span class="val-label">×1.30</span>
+        <span class="floor-label">5F</span>
+      </div>
+      <div class="scaling-bar" style="height:20%; background:var(--green);">
+        <span class="val-label">×1.60</span>
+        <span class="floor-label">10F</span>
+      </div>
+      <div class="scaling-bar" style="height:26%; background:var(--blue);">
+        <span class="val-label">×2.10</span>
+        <span class="floor-label">15F</span>
+      </div>
+      <div class="scaling-bar" style="height:32%; background:var(--blue);">
+        <span class="val-label">×2.60</span>
+        <span class="floor-label">20F</span>
+      </div>
+      <div class="scaling-bar" style="height:41%; background:var(--purple);">
+        <span class="val-label">×3.35</span>
+        <span class="floor-label">25F</span>
+      </div>
+      <div class="scaling-bar" style="height:51%; background:var(--purple);">
+        <span class="val-label">×4.10</span>
+        <span class="floor-label">30F</span>
+      </div>
+      <div class="scaling-bar" style="height:75%; background:var(--orange);">
+        <span class="val-label">×6.10</span>
+        <span class="floor-label">40F</span>
+      </div>
+      <div class="scaling-bar" style="height:100%; background:var(--red);">
+        <span class="val-label">×8.10</span>
+        <span class="floor-label">50F</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>4-3. 층 타입</h3>
+  <table>
+    <thead><tr><th>타입</th><th>확률</th><th>설명</th></tr></thead>
+    <tbody>
+      <tr><td>일반</td><td>60%</td><td>적 1마리</td></tr>
+      <tr><td style="color:var(--orange)">엘리트</td><td>20%</td><td>적 스탯 ×1.3, 보상 ×1.5</td></tr>
+      <tr><td style="color:var(--cyan)">이벤트</td><td>10%</td><td>특수 선택 (상점/도박/보물)</td></tr>
+      <tr><td style="color:var(--red)">보스</td><td>고정</td><td>5/10/15/20... 층마다</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4-4. 이벤트 층</h3>
+  <div class="grid-2">
+    <div class="card"><strong>🏪 상점</strong><br><span style="color:var(--text-dim); font-size:0.9em;">BP 소모해 HP 30% 회복 (50BP) 또는 버프 1개 구매 (100BP)</span></div>
+    <div class="card"><strong>🎁 보물</strong><br><span style="color:var(--text-dim); font-size:0.9em;">무조건 버프 1개 추가 획득</span></div>
+    <div class="card"><strong>❓ 도박</strong><br><span style="color:var(--text-dim); font-size:0.9em;">HP 20% 걸기 → 성공(50%): 희귀 버프 / 실패: HP 감소</span></div>
+    <div class="card"><strong>🔄 변환</strong><br><span style="color:var(--text-dim); font-size:0.9em;">현재 버프 1개를 한 등급 위로 업그레이드</span></div>
+  </div>
+</section>
+
+<!-- 5. Buff System -->
+<section id="buffs">
+  <h2><span class="num">05</span> 버프 시스템</h2>
+
+  <h3>5-1. 코스트별 버프 주기</h3>
+  <table>
+    <thead><tr><th>희귀도</th><th>코스트</th><th>버프 주기</th><th>전략</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag tag-common">커먼</span></td><td>1</td><td><strong>매 층</strong></td><td>버프 잔뜩 쌓아서 역전</td></tr>
+      <tr><td><span class="tag tag-rare">레어</span></td><td>2</td><td><strong>매 층</strong></td><td>커먼과 동급</td></tr>
+      <tr><td><span class="tag tag-epic">에픽</span></td><td>4</td><td><strong>2층마다</strong></td><td>기본 스탯으로 중반 커버</td></tr>
+      <tr><td><span class="tag tag-legendary">전설</span></td><td>5</td><td><strong>3층마다</strong></td><td>높은 기본 스탯</td></tr>
+      <tr><td><span class="tag tag-ultra">초전설</span></td><td>6</td><td><strong>4층마다</strong></td><td>압도적 기본 스탯, 버프 최소</td></tr>
+    </tbody>
+  </table>
+  <div class="card" style="font-size:0.9em; color:var(--text-dim);">
+    📊 20층 기준: 커먼 버프 <strong style="color:var(--green)">20개</strong> vs 초전설 버프 <strong style="color:var(--red)">5개</strong><br>
+    → 커먼은 시너지 빌드, 초전설은 스탯 압살
+  </div>
+
+  <h3>5-2. 버프 카테고리 (7종)</h3>
+  <p style="color:var(--text-dim); font-size:0.9em;">매 선택 시 <strong style="color:var(--text)">서로 다른 카테고리</strong>에서 3개 제시 (같은 카테고리 중복 방지).</p>
+
+  <h4>1) 직접 스탯</h4>
+  <table>
+    <thead><tr><th>이름</th><th>등급</th><th>효과</th></tr></thead>
+    <tbody>
+      <tr><td>🗡 공격 강화</td><td><span class="grade-normal">일반</span></td><td>공격력 +15%</td></tr>
+      <tr><td>🗡 강력한 일격</td><td><span class="grade-advanced">고급</span></td><td>공격력 +25%</td></tr>
+      <tr><td>🗡 궁극의 힘</td><td><span class="grade-rare">희귀</span></td><td>공격력 +40%</td></tr>
+      <tr><td>❤️ 체력 강화</td><td><span class="grade-normal">일반</span></td><td>HP +15%</td></tr>
+      <tr><td>❤️ 불굴의 체력</td><td><span class="grade-advanced">고급</span></td><td>HP +25%</td></tr>
+      <tr><td>🛡 방어 강화</td><td><span class="grade-normal">일반</span></td><td>방어력 +15%</td></tr>
+      <tr><td>🛡 철벽 방어</td><td><span class="grade-advanced">고급</span></td><td>방어력 +30%</td></tr>
+      <tr><td>💨 쾌속</td><td><span class="grade-normal">일반</span></td><td>스피드 +15%</td></tr>
+    </tbody>
+  </table>
+
+  <h4>2) 조건부</h4>
+  <table>
+    <thead><tr><th>이름</th><th>등급</th><th>효과</th></tr></thead>
+    <tbody>
+      <tr><td>🔥 위기의 힘</td><td><span class="grade-advanced">고급</span></td><td>HP 30% 이하 시 공격 2배</td></tr>
+      <tr><td>⚔️ 선봉장</td><td><span class="grade-normal">일반</span></td><td>첫 턴 데미지 +50%</td></tr>
+      <tr><td>💀 처형자</td><td><span class="grade-advanced">고급</span></td><td>적 HP 20% 이하 시 데미지 2배</td></tr>
+      <tr><td>🦸 역전의 용사</td><td><span class="grade-rare">희귀</span></td><td>상성 불리 시 공격 +40%</td></tr>
+    </tbody>
+  </table>
+
+  <h4>3) 시너지 (조합 진화) ✨</h4>
+  <p style="color:var(--text-dim); font-size:0.9em; margin-bottom:16px;">
+    두 버프가 만나면 <strong style="color:var(--gold)">진화</strong>! 조합은 미공개 → 발견하는 재미. 힌트는 버프 설명에.
+  </p>
+
+  <table>
+    <thead><tr><th>버프 A</th><th>버프 B</th><th>효과</th></tr></thead>
+    <tbody>
+      <tr><td>화염 강타 (불 +20%)</td><td>잔불 (화상 매턴 3%)</td><td>각각의 개별 효과</td></tr>
+      <tr><td>전기 충격 (전기 +20%)</td><td>마비 (행동불능 15%)</td><td>각각의 개별 효과</td></tr>
+      <tr><td>속공 (스피드 +20%)</td><td>연속타 (2연타 20%)</td><td>각각의 개별 효과</td></tr>
+      <tr><td>철벽 (방어 +25%)</td><td>반격 (피해 15% 반사)</td><td>각각의 개별 효과</td></tr>
+    </tbody>
+  </table>
+
+  <h4 style="color:var(--gold);">시너지 진화 결과</h4>
+  <div class="synergy-card">
+    <div style="font-size:1.5em;">🔥</div>
+    <div>
+      <div class="combo">화염 강타 + 잔불 →</div>
+      <div class="result">🔥🔥🔥 업화</div>
+      <div class="effect">화상 데미지 3배, 중첩 가능</div>
+    </div>
+  </div>
+  <div class="synergy-card">
+    <div style="font-size:1.5em;">⚡</div>
+    <div>
+      <div class="combo">전기 충격 + 마비 →</div>
+      <div class="result">⚡⚡⚡ 뇌전</div>
+      <div class="effect">마비 시 추가 데미지 2배</div>
+    </div>
+  </div>
+  <div class="synergy-card">
+    <div style="font-size:1.5em;">💨</div>
+    <div>
+      <div class="combo">속공 + 연속타 →</div>
+      <div class="result">💨💨💨 질풍</div>
+      <div class="effect">2연타 50%, 스피드 비례 추가뎀</div>
+    </div>
+  </div>
+  <div class="synergy-card">
+    <div style="font-size:1.5em;">🛡</div>
+    <div>
+      <div class="combo">철벽 + 반격 →</div>
+      <div class="result">🛡🛡🛡 카운터</div>
+      <div class="effect">반사 50%, 공격 시 적 방어 무시</div>
+    </div>
+  </div>
+
+  <h4>4) 트레이드오프 (보스 클리어 시 등장)</h4>
+  <table>
+    <thead><tr><th>이름</th><th>효과</th></tr></thead>
+    <tbody>
+      <tr><td>⚡ 유리 대포</td><td>공격 <span style="color:var(--green)">+50%</span>, 방어 <span style="color:var(--red)">-30%</span></td></tr>
+      <tr><td>🐢 철벽</td><td>방어 <span style="color:var(--green)">+50%</span>, 공격 <span style="color:var(--red)">-20%</span></td></tr>
+      <tr><td>🎲 도박꾼</td><td>버프 등급 <span style="color:var(--green)">2단계↑</span>, HP <span style="color:var(--red)">20% 즉시 감소</span></td></tr>
+      <tr><td>💀 사신의 계약</td><td>공격 <span style="color:var(--green)">+80%</span>, <span style="color:var(--red)">매 층 HP 3% 감소</span></td></tr>
+      <tr><td>♻️ 재생의 축복</td><td>매턴 HP <span style="color:var(--green)">5% 회복</span>, 공격 <span style="color:var(--red)">-25%</span></td></tr>
+    </tbody>
+  </table>
+
+  <h4>5) 유틸리티</h4>
+  <table>
+    <thead><tr><th>이름</th><th>등급</th><th>효과</th></tr></thead>
+    <tbody>
+      <tr><td>👁 감정사의 눈</td><td><span class="grade-advanced">고급</span></td><td>버프 선택지 3→4개</td></tr>
+      <tr><td>🍀 행운의 부적</td><td><span class="grade-rare">희귀</span></td><td>고급+ 버프 등장률 2배</td></tr>
+      <tr><td>🏪 상인의 코</td><td><span class="grade-normal">일반</span></td><td>이벤트 층 등장 확률 2배</td></tr>
+    </tbody>
+  </table>
+
+  <h4>6) 생존</h4>
+  <table>
+    <thead><tr><th>이름</th><th>등급</th><th>효과</th></tr></thead>
+    <tbody>
+      <tr><td>🧛 생명력 흡수</td><td><span class="grade-advanced">고급</span></td><td>공격 데미지의 10% HP 회복</td></tr>
+      <tr><td>🪶 부활의 깃털</td><td><span class="grade-legend">전설</span></td><td>사망 시 1회 부활 (HP 30%)</td></tr>
+      <tr><td>🌿 자연 치유</td><td><span class="grade-normal">일반</span></td><td>매 층 클리어 시 HP 5% 회복</td></tr>
+      <tr><td>💊 응급 처치</td><td><span class="grade-advanced">고급</span></td><td>매 층 클리어 시 HP 8% 회복</td></tr>
+    </tbody>
+  </table>
+
+  <h4>7) 상성 조작</h4>
+  <table>
+    <thead><tr><th>이름</th><th>등급</th><th>효과</th></tr></thead>
+    <tbody>
+      <tr><td>🔄 상성 경감</td><td><span class="grade-advanced">고급</span></td><td>불리 배율 ×0.67 → ×0.85</td></tr>
+      <tr><td>⚪ 무속성 일격</td><td><span class="grade-rare">희귀</span></td><td>상성 무시 공격 30% 확률</td></tr>
+      <tr><td>🎯 약점 간파</td><td><span class="grade-advanced">고급</span></td><td>유리 배율 ×1.5 → ×2.0</td></tr>
+      <tr><td>🛡 속성 방벽</td><td><span class="grade-advanced">고급</span></td><td>상성 불리 추가 데미지 50% 감소</td></tr>
+      <tr><td>🌈 만능 적응</td><td><span class="grade-legend">전설</span></td><td>모든 상성 ×1.0 (유리도 불리도 없음)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5-3. 버프 등급별 등장 확률</h3>
+  <table>
+    <thead><tr><th>층 구간</th><th><span class="grade-normal">일반</span></th><th><span class="grade-advanced">고급</span></th><th><span class="grade-rare">희귀</span></th><th><span class="grade-legend">전설</span></th></tr></thead>
+    <tbody>
+      <tr><td>1~5</td><td>70%</td><td>25%</td><td>5%</td><td>0%</td></tr>
+      <tr><td>6~10</td><td>50%</td><td>35%</td><td>13%</td><td>2%</td></tr>
+      <tr><td>11~20</td><td>35%</td><td>35%</td><td>25%</td><td>5%</td></tr>
+      <tr><td>21~30</td><td>20%</td><td>35%</td><td>35%</td><td>10%</td></tr>
+      <tr><td>31+</td><td>10%</td><td>30%</td><td>40%</td><td>20%</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 6. Type -->
+<section id="type">
+  <h2><span class="num">06</span> 상성 시스템 (던전용)</h2>
+  <p style="color:var(--text-dim);">기본 배틀과 동일하되, 면역만 완화:</p>
+  <table>
+    <thead><tr><th>상성</th><th>배율</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td style="color:var(--green)">유리</td><td style="color:var(--green)">×1.5</td><td>기존과 동일</td></tr>
+      <tr><td style="color:var(--red)">불리</td><td style="color:var(--red)">×0.67</td><td>기존과 동일</td></tr>
+      <tr><td style="color:var(--orange)">면역</td><td style="color:var(--orange)">×0.3</td><td><strong>던전 전용 완화</strong> (기존 ×0)</td></tr>
+    </tbody>
+  </table>
+  <div class="card" style="font-size:0.9em; color:var(--text-dim);">
+    ☝️ 면역 타입이 나와도 "어렵지만 불가능하진 않음"<br>
+    → 상성 버프로 극복 가능 = 버프 선택의 전략적 가치 ↑
+  </div>
+</section>
+
+<!-- 7. Ticket -->
+<section id="ticket">
+  <h2><span class="num">07</span> 입장권 시스템</h2>
+
+  <h3>7-1. 획득 방법</h3>
+  <table>
+    <thead><tr><th>방법</th><th>수량</th><th>주기</th></tr></thead>
+    <tbody>
+      <tr><td>매일 무료 지급</td><td>1장</td><td>일일 리셋 (KST 자정)</td></tr>
+      <tr><td>구독자 보너스</td><td>+1장</td><td>일일 (베이직/채널장)</td></tr>
+      <tr><td>BP 구매</td><td>1장/50BP</td><td>일일 2장 한도</td></tr>
+      <tr><td>배틀 10승</td><td>1장</td><td>누적 (리셋 없음)</td></tr>
+      <tr><td>캠프 정산 보상</td><td>0~1장</td><td>라운드 (6회/일), 확률적</td></tr>
+      <tr><td style="color:var(--green)">10층 관장 클리어</td><td>1장</td><td>런 내 (환급)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7-2. 구독자 차별화</h3>
+  <table>
+    <thead><tr><th></th><th>무료</th><th>베이직 ($3.9)</th><th>채널장 ($9.9)</th></tr></thead>
+    <tbody>
+      <tr><td>일일 무료</td><td>1장</td><td style="color:var(--blue)">2장</td><td style="color:var(--gold)">3장</td></tr>
+      <tr><td>BP 구매가</td><td>50BP/장</td><td style="color:var(--blue)">40BP/장</td><td style="color:var(--gold)">30BP/장</td></tr>
+      <tr><td>일일 한도</td><td>3장</td><td style="color:var(--blue)">5장</td><td style="color:var(--gold)">7장</td></tr>
+      <tr><td>리롤</td><td>불가</td><td style="color:var(--blue)">1회/런</td><td style="color:var(--gold)">3회/런</td></tr>
+      <tr><td>보상 배율</td><td>×1.0</td><td style="color:var(--blue)">×1.2</td><td style="color:var(--gold)">×1.5</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7-3. 리롤 & 스킵</h3>
+  <div class="grid-2">
+    <div class="card">
+      <strong>🔄 리롤</strong><br>
+      <span style="color:var(--text-dim); font-size:0.9em;">현재 버프 선택지 3개를 다시 굴림<br>(무료 유저 불가, 구독자 전용)</span>
+    </div>
+    <div class="card">
+      <strong>⏭ 스킵</strong><br>
+      <span style="color:var(--text-dim); font-size:0.9em;">버프를 건너뛰고 HP 5% 회복<br>(모든 유저, 런당 2회)</span>
+    </div>
+  </div>
+</section>
+
+<!-- 8. Reward -->
+<section id="reward">
+  <h2><span class="num">08</span> 보상 체계</h2>
+
+  <h3>8-1. 런 보상 (종료 시 일괄 지급)</h3>
+  <div class="card" style="font-size:0.95em;">
+    <code>층수 × 10 BP (기본) + 보스 클리어 보너스 + 이벤트 층 보너스</code>
+  </div>
+  <table>
+    <thead><tr><th>마일스톤</th><th>보상</th></tr></thead>
+    <tbody>
+      <tr><td>5층 보스</td><td>+50 BP, 테마 조각 1개</td></tr>
+      <tr><td style="color:var(--orange)">10층 관장</td><td>+100 BP, 테마 조각 2개, <strong style="color:var(--green)">입장권 1장</strong></td></tr>
+      <tr><td>15층 보스</td><td>+150 BP, 테마 조각 2개</td></tr>
+      <tr><td style="color:var(--orange)">20층 관장</td><td>+200 BP, 테마 조각 3개, <strong style="color:var(--purple)">결정 1개</strong></td></tr>
+      <tr><td>25층 보스</td><td>+250 BP, 결정 1개</td></tr>
+      <tr><td style="color:var(--red)">30층 관장</td><td>+300 BP, 결정 2개, <strong style="color:var(--gold)">무지개 결정 1개</strong></td></tr>
+      <tr><td style="color:var(--red)">40층 관장</td><td>+400 BP, 결정 3개, 무지개 1개, <strong style="color:var(--pink)">IV스톤 1개</strong></td></tr>
+      <tr><td style="color:var(--gold)">50층 관장</td><td>+500 BP, 무지개 2개, IV스톤 1개, <strong style="color:var(--gold)">칭호</strong></td></tr>
+    </tbody>
+  </table>
+
+  <p style="color:var(--text-dim); font-size:0.9em;">
+    <strong>테마 조각</strong>: 당일 던전 테마에 해당하는 캠프 조각 (화산 → 화산 조각)<br>
+    → 던전 돌면 캠프 조각이 쌓임 → 이로치 전환 → 더 강한 포켓몬 → 더 높은 층
+  </p>
+
+  <h3>8-2. 신규 아이템</h3>
+  <div class="grid-2">
+    <div class="card gold">
+      <h4 style="margin-top:0; color:var(--gold);">💎 IV 스톤</h4>
+      <p style="color:var(--text-dim); font-size:0.9em;">
+        선택한 IV 스탯 +3 (최대 31)<br>
+        획득처: 던전 40층+, 시즌 보상<br><br>
+        가챠 IV 리롤의 <strong style="color:var(--gold)">확정 상위호환</strong><br>
+        던전 고층 도달의 핵심 동기
+      </p>
+    </div>
+    <div class="card gold">
+      <h4 style="margin-top:0; color:var(--gold);">🌈 만능 조각</h4>
+      <p style="color:var(--text-dim); font-size:0.9em;">
+        아무 필드 타입의 조각으로 사용 가능<br>
+        획득처: 던전 20층+, 시즌 보상<br><br>
+        "숲 조각은 넘치는데 화산 조각이 없다" <strong style="color:var(--gold)">문제 해결</strong><br>
+        캠프 시스템 활성화 촉진
+      </p>
+    </div>
+  </div>
+
+  <h3>8-3. 주간 랭킹 보상</h3>
+  <p style="color:var(--text-dim); font-size:0.9em;">매주 월요일 00:00 KST 리셋. 해당 주 최고 도달 층수 기준.</p>
+  <table>
+    <thead><tr><th>순위</th><th>보상</th></tr></thead>
+    <tbody>
+      <tr><td style="color:var(--gold); font-weight:700;">🥇 1위</td><td>마스터볼 1개 + 주간 칭호 <span style="color:var(--gold)">"던전 왕"</span></td></tr>
+      <tr><td style="color:#ccc; font-weight:700;">🥈 2~3위</td><td>결정 5개 + 입장권 3장</td></tr>
+      <tr><td style="color:#cd7f32; font-weight:700;">🥉 4~10위</td><td>결정 3개 + 입장권 2장</td></tr>
+      <tr><td>11~30위</td><td>결정 1개 + 입장권 1장</td></tr>
+      <tr><td>31~100위</td><td>입장권 1장</td></tr>
+    </tbody>
+  </table>
+
+  <h3>8-4. 개인 최고층 마일스톤 (1회성)</h3>
+  <table>
+    <thead><tr><th>층</th><th>칭호</th><th>보상</th></tr></thead>
+    <tbody>
+      <tr><td>5</td><td>던전 입문자</td><td>BP 100</td></tr>
+      <tr><td>10</td><td>던전 탐험가</td><td>입장권 3장</td></tr>
+      <tr><td>20</td><td>던전 정복자</td><td>결정 3개</td></tr>
+      <tr><td>30</td><td style="color:var(--purple)">던전 마스터</td><td>결정 5개 + 만능 조각 2개</td></tr>
+      <tr><td>40</td><td style="color:var(--gold)">던전 레전드</td><td>무지개 결정 1개 + IV 스톤 1개</td></tr>
+      <tr><td>50</td><td style="color:var(--pink)">던전 챔피언</td><td>마스터볼 1개 + IV 스톤 2개</td></tr>
+    </tbody>
+  </table>
+  <div class="card" style="font-size:0.9em; color:var(--text-dim);">
+    칭호에 최고층 표시: <strong style="color:var(--gold)">"던전 챔피언 [52F]"</strong>
+  </div>
+
+  <h3>8-5. 시즌 마일스톤 (4주 시즌)</h3>
+  <table>
+    <thead><tr><th>조건</th><th>보상</th></tr></thead>
+    <tbody>
+      <tr><td>시즌 10회 도전</td><td>조각 랜덤 5개</td></tr>
+      <tr><td>시즌 25회 도전</td><td>결정 3개 + 만능 조각 1개</td></tr>
+      <tr><td>시즌 50회 도전</td><td>IV 스톤 1개 + 칭호</td></tr>
+      <tr><td style="color:var(--gold)">시즌 1위</td><td style="color:var(--gold)">시즌 전용 칭호 + 마스터볼</td></tr>
+    </tbody>
+  </table>
+
+  <h3>8-6. 포켓몬별 최고층 기록</h3>
+  <div class="card" style="font-size:0.9em; color:var(--text-dim);">
+    각 포켓몬(인스턴스)으로 달성한 최고층 기록 저장.<br>
+    → "이 포켓몬으로 30층 가봤어?" → 다양한 포켓몬 도전 유도<br>
+    → <strong style="color:var(--text)">내포켓몬 상세에 던전 기록 표시</strong>
+  </div>
+</section>
+
+<!-- 9. Stat -->
+<section id="stat">
+  <h2><span class="num">09</span> 포켓몬 스탯 반영</h2>
+
+  <div class="codeblock">기본 배틀 스탯 그대로 사용 (기존 calc_battle_stats)
+= 종족값 × 성격배율 × (1 + 친밀도×0.04) × 진화단계 × IV보정 × 희귀도보정</div>
+
+  <h3>투자에 따른 차이</h3>
+  <table>
+    <thead><tr><th>상태</th><th>실효 배율</th><th>예상 한계층</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag tag-common">커먼</span> C급 일반</td><td>×1.0 (기준)</td><td>~10층</td></tr>
+      <tr><td><span class="tag tag-rare">레어</span> A급 일반</td><td>×1.15</td><td>~15층</td></tr>
+      <tr><td><span class="tag tag-epic">에픽</span> A급 이로치</td><td>×1.55</td><td>~22층 (버프 2층마다)</td></tr>
+      <tr><td><span class="tag tag-legendary">전설</span> S급 이로치</td><td>×1.75</td><td>~28층 (버프 3층마다)</td></tr>
+      <tr><td><span class="tag tag-common">커먼</span> S급 이로치 ⭐</td><td style="color:var(--green)">×1.36 + 매층 버프</td><td style="color:var(--green)">~35층+ (빌드)</td></tr>
+      <tr><td><span class="tag tag-ultra">초전설</span> S급 이로치</td><td>×2.0</td><td>~32층 (버프 4층마다)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card highlight" style="font-size:0.95em;">
+    ⭐ <strong>커먼 S급 이로치 + 시너지 빌드 > 초전설 기본</strong>이 가능한 구조<br>
+    → 모든 희귀도의 포켓몬에 가치 부여
+  </div>
+</section>
+
+<!-- 10. UI -->
+<section id="ui">
+  <h2><span class="num">10</span> UI 흐름 (텔레그램 인라인)</h2>
+
+  <h3>10-1. 입장</h3>
+  <div class="mockup"><span class="title">🏰 포켓몬 던전</span>
+
+🎫 입장권: 3장
+🏆 내 최고: 23층
+
+📍 오늘의 던전: 🔥 <span style="color:var(--orange)">화산</span>
+   불/드래곤/격투 타입 적 출현!
+   💧 물 계열 버프 보너스
+
+포켓몬을 선택하세요:
+
+<span style="font-size:0.9em;">필터:</span> <span class="btn" style="background:var(--accent); color:#fff; border-color:var(--accent);">전체</span> <span class="btn" style="border-color:var(--gold); color:var(--gold);">⭐추천</span> <span class="btn">💧물</span> <span class="btn">🌍땅</span> <span class="btn">🪨바위</span>
+       <span class="btn">✨이로치</span> <span class="btn">S급</span> <span class="btn">즐겨찾기</span>
+
+<span class="btn">✨갸라도스 S💧</span> <span class="btn">마기라스 A🪨</span> <span class="btn">늪짱 A💧🌍</span>
+<span class="btn">잠만보 B</span>       <span class="btn">▶ 더보기</span></div>
+
+  <div class="card" style="font-size:0.9em; color:var(--text-dim);">
+    <strong style="color:var(--text);">필터 설명:</strong><br>
+    <strong style="color:var(--gold);">⭐추천</strong> — 오늘 테마에 상성 유리한 타입 자동 필터 (화산 → 물/땅/바위)<br>
+    <strong>타입 필터</strong> — 테마 유리 타입 탭이 상단에 자동 표시<br>
+    <strong>✨이로치 / S급 / 즐겨찾기</strong> — 투자한 포켓몬 빠르게 찾기<br>
+    기본 정렬: 던전 최고 기록 > 전투력 순
+  </div>
+
+  <h3>10-2. 배틀 결과</h3>
+  <div class="mockup"><span class="title">📍 12층 ⚔️ 엘리트</span>
+
+✨ 갸라도스 [S] vs 🔥 리자몽 [에픽]
+<span class="sep">━━━━━━━━━━━━━━</span>
+💧 물 vs 불 = <span style="color:var(--green)">유리! (×1.5)</span>
+
+⚔️ 갸라도스 → <span style="color:var(--gold)">580</span> 데미지 (치명타!)
+💥 리자몽 → 120 데미지
+
+<span class="win">✅ 승리!</span> HP: 78% → 71%
+
+🗡 현재 버프 (7개):
+<span class="info">공격+40% | HP+25% | 화염강타 | 잔불 | ...</span>
+
+<span class="btn">🎁 버프 선택</span></div>
+
+  <h3>10-3. 버프 선택</h3>
+  <div class="mockup"><span class="title">📍 12층 클리어!</span> 버프를 선택하세요:
+
+1️⃣ 🗡 <span style="color:var(--blue)">강력한 일격</span> <span style="color:var(--blue)">[고급]</span>
+   공격력 +25%
+
+2️⃣ 💀 <span style="color:var(--blue)">처형자</span> <span style="color:var(--blue)">[고급]</span>
+   적 HP 20% 이하 시 데미지 2배
+
+3️⃣ ⚡ 전기 충격 <span style="color:#aaa">[일반]</span>
+   전기 추가데미지 +20%
+   <span style="color:var(--gold)">💡 전기 계열과 함께하면...</span></div>
+
+  <h3>10-4. 시너지 발동!</h3>
+  <div class="mockup" style="text-align:center; border-color:var(--gold);">
+<span style="color:var(--gold); font-size:1.1em; font-weight:bold;">✨ 시너지 발동!</span>
+
+🔥 화염 강타 + 🔥 잔불
+<span style="color:var(--gold); font-weight:bold;">═══ 🔥🔥🔥 업화 🔥🔥🔥 ═══</span>
+<span style="color:var(--text-dim);">화상 데미지 3배, 중첩 가능!</span>
+
+<span class="btn">✅ 다음 층으로</span></div>
+
+  <h3>10-5. 보스전</h3>
+  <div class="mockup"><span class="title">📍 10층 ★ 관장전!</span>
+
+⚠️ 🐉 <span style="color:var(--red)">관장 보라</span> 등장!
+드래곤 타입 — 스탯 ×2.0
+
+✨ 갸라도스 [S] vs 🐉 보만다 [전설]
+<span class="sep">━━━━━━━━━━━━━━</span>
+...배틀 진행...
+
+<span class="win">✅ 관장 격파!</span>
+
+🎁 보스 버프를 선택하세요:
+<span class="btn">⚡ 유리 대포: 공+50% 방-30%</span>
+<span class="btn">🐢 철벽: 방+50% 공-20%</span>
+<span class="btn">🎲 도박꾼: 버프등급↑↑ HP-20%</span></div>
+
+  <h3>10-6. 결과 화면</h3>
+  <div class="mockup"><span class="lose">💀 27층에서 패배...</span>
+
+<span class="title">🏰 던전 결과</span>
+<span class="sep">━━━━━━━━━━━━━━━━</span>
+📍 도달: 27층 <span style="color:var(--gold)">(최고 갱신! 🎉)</span>
+🐉 포켓몬: ✨ 갸라도스 [S]
+🔥 던전: 화산
+🗡 버프 14개 (시너지 2개 발동)
+
+💰 보상:
+  BP +370
+  🧩 화산 조각 ×5
+  💎 결정 ×1
+  🏆 칭호 해금: <span style="color:var(--gold)">"던전 정복자"</span>
+
+📊 랭킹: 서버 7위 / 1위: 42층 (LastMoney)
+
+<span class="btn">🔄 다시 도전 (🎫2장)</span> <span class="btn">📊 랭킹</span> <span class="btn">❌ 닫기</span></div>
+</section>
+
+<!-- 11. Loop -->
+<section id="loop">
+  <h2><span class="num">11</span> 보상 루프 요약</h2>
+
+  <div class="loop-diagram">
+    <div class="loop-box" style="background: linear-gradient(135deg, rgba(68,204,136,0.08), rgba(68,136,255,0.05)); border-color: var(--green);">
+      <h4 style="color:var(--green);">🔄 일일 루프</h4>
+      <div class="loop-steps">
+        던전 도전 <span class="arrow-r">→</span> BP + 테마 조각 획득<br>
+        <span class="arrow-r">→</span> 조각으로 이로치 전환 (캠프)<br>
+        <span class="arrow-r">→</span> 이로치 포켓몬으로 더 높은 층<br>
+        <span class="arrow-r">→</span> 더 많은 보상
+      </div>
+    </div>
+    <div class="loop-box" style="background: linear-gradient(135deg, rgba(68,136,255,0.08), rgba(170,102,255,0.05)); border-color: var(--blue);">
+      <h4 style="color:var(--blue);">🔄 주간 루프</h4>
+      <div class="loop-steps">
+        주간 랭킹 <span class="arrow-r">→</span> 결정/입장권/마볼 보상<br>
+        <span class="arrow-r">→</span> 결정으로 에픽+ 이로치 전환<br>
+        <span class="arrow-r">→</span> 전투력 상승<br>
+        <span class="arrow-r">→</span> 다음 주 더 높은 순위
+      </div>
+    </div>
+    <div class="loop-box" style="background: linear-gradient(135deg, rgba(170,102,255,0.08), rgba(255,102,170,0.05)); border-color: var(--purple);">
+      <h4 style="color:var(--purple);">🔄 시즌 루프</h4>
+      <div class="loop-steps">
+        시즌 마일스톤 <span class="arrow-r">→</span> IV 스톤/만능 조각<br>
+        <span class="arrow-r">→</span> IV 최적화<br>
+        <span class="arrow-r">→</span> 영구 전투력 상승<br>
+        <span class="arrow-r">→</span> 다음 시즌 더 높은 기록
+      </div>
+    </div>
+    <div class="loop-box" style="background: linear-gradient(135deg, rgba(255,215,0,0.08), rgba(255,136,68,0.05)); border-color: var(--gold);">
+      <h4 style="color:var(--gold);">🔄 육성 루프</h4>
+      <div class="loop-steps">
+        포획 (좋은 IV) <span class="arrow-r">→</span> 밥/놀기 (친밀도)<br>
+        <span class="arrow-r">→</span> 캠프 (조각) <span class="arrow-r">→</span> 이로치 전환<br>
+        <span class="arrow-r">→</span> 던전 도전 <span class="arrow-r">→</span> 보상<br>
+        <span class="arrow-r">→</span> 더 나은 포켓몬 육성
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 12. DB -->
+<section id="db">
+  <h2><span class="num">12</span> DB 스키마</h2>
+  <div class="codeblock"><span class="comment">-- 유저 던전 관련 컬럼</span>
+<span class="keyword">ALTER TABLE</span> users <span class="keyword">ADD COLUMN</span> dungeon_tickets <span class="keyword">INT NOT NULL DEFAULT</span> <span class="number">1</span>;
+<span class="keyword">ALTER TABLE</span> users <span class="keyword">ADD COLUMN</span> dungeon_tickets_bought_today <span class="keyword">INT NOT NULL DEFAULT</span> <span class="number">0</span>;
+<span class="keyword">ALTER TABLE</span> users <span class="keyword">ADD COLUMN</span> dungeon_best_floor <span class="keyword">INT NOT NULL DEFAULT</span> <span class="number">0</span>;
+<span class="keyword">ALTER TABLE</span> users <span class="keyword">ADD COLUMN</span> dungeon_season_runs <span class="keyword">INT NOT NULL DEFAULT</span> <span class="number">0</span>;
+
+<span class="comment">-- 던전 런 기록</span>
+<span class="keyword">CREATE TABLE</span> dungeon_runs (
+    id <span class="keyword">SERIAL PRIMARY KEY</span>,
+    user_id <span class="keyword">BIGINT NOT NULL</span>,
+    pokemon_instance_id <span class="keyword">INT NOT NULL</span>,
+    pokemon_id <span class="keyword">INT NOT NULL</span>,
+    pokemon_name <span class="keyword">TEXT NOT NULL</span>,
+    is_shiny <span class="keyword">BOOLEAN DEFAULT</span> <span class="number">FALSE</span>,
+    iv_grade <span class="keyword">TEXT</span>,
+    floor_reached <span class="keyword">INT NOT NULL DEFAULT</span> <span class="number">0</span>,
+    theme <span class="keyword">TEXT NOT NULL</span>,
+    buffs_json <span class="keyword">JSONB DEFAULT</span> <span class="string">'[]'</span>,
+    synergies_found <span class="keyword">JSONB DEFAULT</span> <span class="string">'[]'</span>,
+    bp_earned <span class="keyword">INT DEFAULT</span> <span class="number">0</span>,
+    fragments_earned <span class="keyword">INT DEFAULT</span> <span class="number">0</span>,
+    started_at <span class="keyword">TIMESTAMPTZ DEFAULT</span> <span class="func">NOW()</span>,
+    ended_at <span class="keyword">TIMESTAMPTZ</span>,
+    season_key <span class="keyword">TEXT</span>
+);
+
+<span class="keyword">CREATE INDEX</span> idx_dungeon_ranking <span class="keyword">ON</span> dungeon_runs(season_key, floor_reached <span class="keyword">DESC</span>);
+<span class="keyword">CREATE INDEX</span> idx_dungeon_user <span class="keyword">ON</span> dungeon_runs(user_id, started_at <span class="keyword">DESC</span>);
+
+<span class="comment">-- 포켓몬별 던전 최고 기록</span>
+<span class="keyword">CREATE TABLE</span> dungeon_pokemon_records (
+    user_id <span class="keyword">BIGINT NOT NULL</span>,
+    pokemon_instance_id <span class="keyword">INT NOT NULL</span>,
+    best_floor <span class="keyword">INT NOT NULL DEFAULT</span> <span class="number">0</span>,
+    best_theme <span class="keyword">TEXT</span>,
+    updated_at <span class="keyword">TIMESTAMPTZ DEFAULT</span> <span class="func">NOW()</span>,
+    <span class="keyword">PRIMARY KEY</span> (user_id, pokemon_instance_id)
+);
+
+<span class="comment">-- 시너지 도감</span>
+<span class="keyword">CREATE TABLE</span> dungeon_synergy_log (
+    user_id <span class="keyword">BIGINT NOT NULL</span>,
+    synergy_key <span class="keyword">TEXT NOT NULL</span>,
+    discovered_at <span class="keyword">TIMESTAMPTZ DEFAULT</span> <span class="func">NOW()</span>,
+    <span class="keyword">PRIMARY KEY</span> (user_id, synergy_key)
+);
+
+<span class="comment">-- 신규 아이템</span>
+<span class="keyword">ALTER TABLE</span> users <span class="keyword">ADD COLUMN</span> iv_stones <span class="keyword">INT NOT NULL DEFAULT</span> <span class="number">0</span>;
+<span class="keyword">ALTER TABLE</span> users <span class="keyword">ADD COLUMN</span> universal_fragments <span class="keyword">INT NOT NULL DEFAULT</span> <span class="number">0</span>;</div>
+</section>
+
+<!-- 13. Roadmap -->
+<section id="roadmap">
+  <h2><span class="num">13</span> 개발 로드맵</h2>
+
+  <div class="grid-2" style="margin-top:20px;">
+    <div class="card" style="border-color:var(--green);">
+      <h4 style="color:var(--green); margin-top:0;">Phase 1: MVP (3~4일)</h4>
+      <div style="color:var(--text-dim); font-size:0.9em; line-height:2;">
+        ☐ DB 스키마 + 마이그레이션<br>
+        ☐ 던전 입장 핸들러 (DM: "던전")<br>
+        ☐ 포켓몬 선택 UI<br>
+        ☐ 오늘의 테마 시스템<br>
+        ☐ 적 생성 (테마 기반 랜덤 + 스케일링)<br>
+        ☐ 배틀 로직 (기존 엔진 활용)<br>
+        ☐ 직접 스탯 + 생존 버프만 우선 구현<br>
+        ☐ 버프 선택 UI (인라인 버튼 3개)<br>
+        ☐ 결과 화면 + 보상 지급 (BP + 조각)<br>
+        ☐ 입장권 차감/지급
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--blue);">
+      <h4 style="color:var(--blue); margin-top:0;">Phase 2: 완성 (2~3일)</h4>
+      <div style="color:var(--text-dim); font-size:0.9em; line-height:2;">
+        ☐ 시너지 버프 + 조합 진화<br>
+        ☐ 트레이드오프 버프 (보스 전용)<br>
+        ☐ 이벤트 층 (상점/도박/보물)<br>
+        ☐ 주간 랭킹 + 대시보드 탭<br>
+        ☐ 마일스톤 칭호 시스템<br>
+        ☐ IV 스톤 / 만능 조각 아이템
+      </div>
+    </div>
+  </div>
+  <div class="card" style="border-color:var(--purple);">
+    <h4 style="color:var(--purple); margin-top:0;">Phase 3: 구독 & 튜닝 (1~2일)</h4>
+    <div style="color:var(--text-dim); font-size:0.9em; line-height:2;">
+      ☐ 구독자 리롤/스킵 시스템 &nbsp;|&nbsp;
+      ☐ 시즌 시스템 + 시즌 마일스톤 &nbsp;|&nbsp;
+      ☐ 포켓몬별 던전 기록 &nbsp;|&nbsp;
+      ☐ 시너지 도감 &nbsp;|&nbsp;
+      ☐ 밸런스 조정
+    </div>
+  </div>
+</section>
+
+<!-- 14. Impact -->
+<section id="impact">
+  <h2><span class="num">14</span> 기대 효과 (정량 예측)</h2>
+
+  <table>
+    <thead><tr><th>지표</th><th>현재</th><th>던전 출시 후 예상</th><th>변화</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>DAU</td>
+        <td style="color:var(--red)">140~185</td>
+        <td style="color:var(--green)">200~250</td>
+        <td style="color:var(--green)">+30~40%</td>
+      </tr>
+      <tr>
+        <td>캠프 참여율</td>
+        <td style="color:var(--red)">~0%</td>
+        <td style="color:var(--green)">15~25%</td>
+        <td style="color:var(--green)">대폭 상승</td>
+      </tr>
+      <tr>
+        <td>일일 접속 루틴</td>
+        <td>포획만</td>
+        <td style="color:var(--green)">포획 + 던전 + 캠프</td>
+        <td style="color:var(--green)">루프 다양화</td>
+      </tr>
+      <tr>
+        <td>엔드게임 이탈</td>
+        <td style="color:var(--red)">높음</td>
+        <td style="color:var(--green)">랭킹/마일스톤 유지</td>
+        <td style="color:var(--green)">↓</td>
+      </tr>
+      <tr>
+        <td>커먼/레어 가치</td>
+        <td style="color:var(--red)">없음</td>
+        <td style="color:var(--green)">버프 빌드로 역전</td>
+        <td style="color:var(--green)">가치 부여</td>
+      </tr>
+      <tr>
+        <td>이로치 전환 수요</td>
+        <td style="color:var(--red)">낮음</td>
+        <td style="color:var(--green)">급증</td>
+        <td style="color:var(--green)">층수 = 투자</td>
+      </tr>
+      <tr>
+        <td>주간 이탈률</td>
+        <td style="color:var(--red)">47.7%</td>
+        <td style="color:var(--green)">30~35%</td>
+        <td style="color:var(--green)">-13~18%p</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  TGPoke Bot — 포켓몬 던전 설계서 v1.0<br>
+  2026-03-18 | 기반: 외부 리서치 (뱀서/슬더스/서머너즈워/AFK아레나/포켓로그) + 내부 경제 분석
+</div>
+
+<!-- Back to top -->
+<button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<script>
+window.addEventListener('scroll', () => {
+  document.getElementById('backTop').classList.toggle('show', window.scrollY > 400);
+});
+</script>
+
+</body>
+</html>

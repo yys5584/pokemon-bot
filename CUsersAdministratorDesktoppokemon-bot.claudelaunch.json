@@ -1,0 +1,1 @@
+version:0.0.1 configurations:[name:preview] configurations:[runtimeExecutable:python] configurations:[runtimeArgs:[dashboard/run_preview.py]] configurations:[port:8080]

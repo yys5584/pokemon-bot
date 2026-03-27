@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;800&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 480px;
+  font-family: 'Noto Sans KR', -apple-system, sans-serif;
+  background: #fff;
+  color: #1a1a1a;
+  -webkit-font-smoothing: antialiased;
+}
+.page { padding: 40px 30px 36px; }
+
+/* 헤더 — 미니멀 */
+.header { margin-bottom: 36px; }
+.header .tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #f43f5e;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.header h1 {
+  font-size: 32px;
+  font-weight: 800;
+  color: #111;
+  line-height: 1.25;
+  letter-spacing: -0.5px;
+}
+.header .date {
+  font-size: 13px;
+  color: #aaa;
+  margin-top: 8px;
+  font-weight: 300;
+}
+
+/* 구분선 */
+hr.thin {
+  border: none;
+  height: 1px;
+  background: #eee;
+  margin: 28px 0;
+}
+
+/* 섹션 */
+.section { margin-bottom: 32px; }
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.section-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #111;
+  margin-bottom: 14px;
+  letter-spacing: -0.3px;
+}
+
+/* 스텝 리스트 */
+.step-list { list-style: none; }
+.step-list li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+.step-list .num {
+  width: 26px;
+  height: 26px;
+  background: #111;
+  color: #fff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.step-list .text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #444;
+  padding-top: 2px;
+}
+.step-list .text strong { color: #111; }
+.step-list .text em {
+  font-style: normal;
+  color: #f43f5e;
+  font-weight: 600;
+}
+
+/* 레벨업 박스 */
+.lv-box {
+  background: #f8f8fa;
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 6px;
+}
+.lv-box .label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  margin-bottom: 12px;
+}
+.lv-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.lv-row:last-child { margin-bottom: 0; }
+.lv-tag {
+  font-size: 11px;
+  font-weight: 600;
+  width: 42px;
+  text-align: center;
+  padding: 2px 0;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.lv-tag.t1 { background: #e8e8e8; color: #777; }
+.lv-tag.t2 { background: #dbeafe; color: #3b82f6; }
+.lv-tag.t3 { background: #ede9fe; color: #8b5cf6; }
+.lv-track {
+  flex: 1;
+  height: 6px;
+  background: #e8e8ec;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.lv-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+.lv-fill.f1 { width: 33%; background: #bbb; }
+.lv-fill.f2 { width: 66%; background: #3b82f6; }
+.lv-fill.f3 { width: 100%; background: linear-gradient(90deg, #8b5cf6, #a855f7); }
+.lv-val {
+  font-size: 12px;
+  color: #666;
+  min-width: 48px;
+  text-align: right;
+  font-weight: 600;
+}
+.lv-val.max { color: #8b5cf6; }
+
+/* 버프 카드 */
+.buff-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.buff-section-label:first-of-type { margin-top: 0; }
+.buff-section-label .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot.blue { background: #3b82f6; }
+.dot.red { background: #f43f5e; }
+.dot.green { background: #22c55e; }
+.dot.gold { background: #f59e0b; }
+
+.buff-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.buff-item {
+  background: #f8f8fa;
+  border-radius: 10px;
+  padding: 12px;
+}
+.buff-item .name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 2px;
+}
+.buff-item .range {
+  font-size: 11px;
+  color: #999;
+  font-weight: 400;
+}
+.buff-item.new .name::after {
+  content: 'NEW';
+  font-size: 9px;
+  font-weight: 800;
+  color: #fff;
+  background: #f43f5e;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* 시너지 */
+.syn-card {
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.syn-card .emoji {
+  font-size: 22px;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 1px;
+}
+.syn-card .name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #92400e;
+}
+.syn-card .hint {
+  font-size: 11px;
+  color: #b45309;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.syn-footer {
+  text-align: center;
+  font-size: 12px;
+  color: #d97706;
+  font-weight: 600;
+  margin-top: 12px;
+}
+
+/* 힌트 박스 */
+.hint-box {
+  background: #f0fdf4;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+.hint-box .label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #16a34a;
+  margin-bottom: 4px;
+}
+.hint-box .text {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.6;
+}
+
+/* GIF 섹션 */
+.gif-section {
+  background: #111;
+  border-radius: 14px;
+  padding: 20px;
+  color: #eee;
+}
+.gif-section .title {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 10px;
+  color: #fff;
+}
+.gif-section .text {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.7;
+}
+.gif-section .text b { color: #fbbf24; }
+.gif-poke {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.gif-poke span {
+  background: rgba(255,255,255,0.08);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+/* 변경 리스트 */
+.change-list {
+  list-style: none;
+}
+.change-list li {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.7;
+  padding-left: 16px;
+  position: relative;
+  margin-bottom: 4px;
+}
+.change-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  background: #ddd;
+  border-radius: 50%;
+}
+.change-list li strong { color: #111; }
+.change-list li .up { color: #22c55e; font-weight: 600; }
+
+/* CTA */
+.cta {
+  text-align: center;
+  margin-top: 36px;
+  padding: 24px;
+  background: #111;
+  border-radius: 14px;
+}
+.cta .cmd {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fbbf24;
+}
+.cta .sub {
+  font-size: 12px;
+  color: #666;
+  margin-top: 6px;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 헤더 -->
+  <div class="header">
+    <div class="tag">Update v2.0</div>
+    <h1>🏰 던전 시스템<br>대규모 업데이트</h1>
+    <div class="date">2026.03.18</div>
+  </div>
+
+  <hr class="thin">
+
+  <!-- 이용 방법 -->
+  <div class="section">
+    <div class="section-label">How to play</div>
+    <ul class="step-list">
+      <li>
+        <div class="num">1</div>
+        <div class="text">봇 DM에서 <em>「던전」</em> 입력</div>
+      </li>
+      <li>
+        <div class="num">2</div>
+        <div class="text"><strong>포켓몬 선택</strong> → 입장권 소모 → 던전 시작</div>
+      </li>
+      <li>
+        <div class="num">3</div>
+        <div class="text">매 층 <strong>자동 배틀</strong> → 승리하면 <em>버프 선택</em></div>
+      </li>
+      <li>
+        <div class="num">4</div>
+        <div class="text">같은 버프를 다시 뽑으면 <em>레벨업!</em><br>조합을 완성하면 <em>히든 시너지</em> 발동</div>
+      </li>
+    </ul>
+  </div>
+
+  <hr class="thin">
+
+  <!-- 레벨업 -->
+  <div class="section">
+    <div class="section-title">⬆️ 레벨업 시스템</div>
+    <div style="font-size:13px; color:#777; line-height:1.6; margin-bottom:14px;">
+      같은 버프를 선택할 때마다 강화됩니다.<br>
+      Lv.3 MAX에 도달하면 선택지에서 사라져요.
+    </div>
+    <div class="lv-box">
+      <div class="label">예시 — 공격 강화</div>
+      <div class="lv-row">
+        <span class="lv-tag t1">Lv.1</span>
+        <div class="lv-track"><div class="lv-fill f1"></div></div>
+        <span class="lv-val">+15%</span>
+      </div>
+      <div class="lv-row">
+        <span class="lv-tag t2">Lv.2</span>
+        <div class="lv-track"><div class="lv-fill f2"></div></div>
+        <span class="lv-val">+30%</span>
+      </div>
+      <div class="lv-row">
+        <span class="lv-tag t3">Lv.3</span>
+        <div class="lv-track"><div class="lv-fill f3"></div></div>
+        <span class="lv-val max">+45%</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="thin">
+
+  <!-- 버프 목록 -->
+  <div class="section">
+    <div class="section-title">🗡 버프 목록</div>
+
+    <div class="buff-section-label"><span class="dot blue"></span> 스탯 계열</div>
+    <div class="buff-grid">
+      <div class="buff-item"><div class="name">공격 강화</div><div class="range">+15% → +45%</div></div>
+      <div class="buff-item"><div class="name">특공 강화</div><div class="range">+15% → +45%</div></div>
+      <div class="buff-item"><div class="name">체력 강화</div><div class="range">+15% → +40%</div></div>
+      <div class="buff-item"><div class="name">방어 / 특방 / 스피드</div><div class="range">+15% → +35%</div></div>
+    </div>
+
+    <div class="buff-section-label"><span class="dot red"></span> 전투 계열</div>
+    <div class="buff-grid">
+      <div class="buff-item new"><div class="name">크리 강화</div><div class="range">크리 확률 +10~25%</div></div>
+      <div class="buff-item new"><div class="name">이중타격</div><div class="range">15~30% 2회 공격</div></div>
+      <div class="buff-item new"><div class="name">회피 본능</div><div class="range">10~25% 공격 회피</div></div>
+      <div class="buff-item new"><div class="name">가시갑옷</div><div class="range">피해 15~35% 반사</div></div>
+    </div>
+
+    <div class="buff-section-label"><span class="dot green"></span> 생존 계열</div>
+    <div class="buff-grid">
+      <div class="buff-item"><div class="name">흡혈</div><div class="range">공격의 8~20% 회복</div></div>
+      <div class="buff-item"><div class="name">층간 회복</div><div class="range">매층 HP 5~15%</div></div>
+      <div class="buff-item new"><div class="name">보호막</div><div class="range">매층 10~20% 실드</div></div>
+      <div class="buff-item"><div class="name">부활의 깃털</div><div class="range">사망 시 1회 부활</div></div>
+    </div>
+  </div>
+
+  <hr class="thin">
+
+  <!-- 히든 시너지 -->
+  <div class="section">
+    <div class="section-title">✨ 히든 시너지</div>
+    <div style="font-size:13px; color:#777; line-height:1.6; margin-bottom:14px;">
+      특정 버프 조합을 완성하면 숨겨진 효과가 발동됩니다.
+    </div>
+
+    <div class="syn-card">
+      <div class="emoji">🔥</div>
+      <div><div class="name">필살연격</div><div class="hint">크리티컬 시 특수 효과 발동</div></div>
+    </div>
+    <div class="syn-card">
+      <div class="emoji">👻</div>
+      <div><div class="name">잔상</div><div class="hint">회피 성공 시 특수 효과 발동</div></div>
+    </div>
+    <div class="syn-card">
+      <div class="emoji">💀</div>
+      <div><div class="name">사신의 낫</div><div class="hint">적을 일격에 처치하는 숨겨진 효과</div></div>
+    </div>
+
+    <div class="syn-footer">... 외 3종 더 (총 6종)</div>
+
+    <div class="hint-box">
+      <div class="label">💡 힌트</div>
+      <div class="text">같은 성격의 버프끼리 Lv.2 이상으로 조합해보세요.<br>조건 달성 시 자동으로 알림이 옵니다!</div>
+    </div>
+  </div>
+
+  <hr class="thin">
+
+  <!-- 스킬 GIF -->
+  <div class="section">
+    <div class="gif-section">
+      <div class="title">🎬 스킬 GIF 연출</div>
+      <div class="text">
+        매 층 배틀에서 <b>실시간 스킬 이펙트 GIF</b>가 재생!<br>
+        초전설 포켓몬은 <b>전용 궁극기 연출</b>
+      </div>
+      <div class="gif-poke">
+        <span>뮤츠</span>
+        <span>레쿠쟈</span>
+        <span>루기아</span>
+        <span>칠색조</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="thin">
+
+  <!-- 기타 -->
+  <div class="section">
+    <div class="section-title">📋 기타 변경</div>
+    <ul class="change-list">
+      <li>버프 스킵 시 HP <span class="up">50% 회복</span> (기존 5%)</li>
+      <li>전능의 기운 전스탯 <span class="up">+15%</span> (기존 10%)</li>
+      <li>던전 UI 커스텀이모지 전면 적용</li>
+      <li>배틀 결과에 <strong>상세 전투 요약</strong> 표시</li>
+      <li>보유 버프 + 시너지 <strong>실시간 표시</strong></li>
+    </ul>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <div class="cmd">봇 DM → 「던전」</div>
+    <div class="sub">지금 바로 도전하세요!</div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TGPoke 10일 운영 리포트 | 2026.03.03 ~ 03.12</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f1117;--card:#181b23;--card2:#1e222d;--border:#2a2e3a;
+  --text:#e8e8ec;--text2:#9a9db0;--text3:#6b6e80;
+  --red:#e53935;--orange:#ff6f61;--green:#43a047;--blue:#42a5f5;
+  --yellow:#fdd835;--purple:#ab47bc;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+
+/* Header */
+.header{text-align:center;padding:48px 0 32px;border-bottom:1px solid var(--border);margin-bottom:32px}
+.header .badge{display:inline-block;background:linear-gradient(135deg,var(--red),var(--orange));color:#fff;font-size:11px;font-weight:700;padding:4px 14px;border-radius:20px;letter-spacing:1px;margin-bottom:16px;text-transform:uppercase}
+.header h1{font-size:28px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px}
+.header .sub{color:var(--text2);font-size:14px}
+
+/* Section */
+.section{margin-bottom:40px}
+.section-title{font-size:18px;font-weight:700;margin-bottom:16px;padding-left:12px;border-left:3px solid var(--red);display:flex;align-items:center;gap:8px}
+.section-title .num{color:var(--red);font-size:13px;font-weight:800}
+
+/* Cards */
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 16px}
+.kpi .label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.kpi .value{font-size:28px;font-weight:800;letter-spacing:-1px}
+.kpi .delta{font-size:12px;margin-top:4px}
+.kpi .delta.up{color:var(--green)}.kpi .delta.down{color:var(--red)}
+.kpi.wide{grid-column:1/-1}
+
+/* Chart container */
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 16px;margin-bottom:16px;overflow-x:auto}
+.chart-card h3{font-size:14px;font-weight:600;margin-bottom:14px;color:var(--text2)}
+.chart-label{font-size:10px;fill:var(--text3)}
+.chart-val{font-size:10px;fill:var(--text);font-weight:600}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;padding:10px 8px;border-bottom:1px solid var(--border)}
+td{padding:10px 8px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+.mono{font-family:'SF Mono',Consolas,monospace;font-size:12px}
+
+/* Tags */
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:0.3px}
+.tag-red{background:rgba(229,57,53,0.15);color:var(--red)}
+.tag-green{background:rgba(67,160,71,0.15);color:var(--green)}
+.tag-orange{background:rgba(255,111,97,0.15);color:var(--orange)}
+.tag-blue{background:rgba(66,165,245,0.15);color:var(--blue)}
+.tag-purple{background:rgba(171,71,188,0.15);color:var(--purple)}
+
+/* Timeline */
+.timeline{position:relative;padding-left:24px;margin:16px 0}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--border)}
+.tl-item{position:relative;margin-bottom:20px}
+.tl-item::before{content:'';position:absolute;left:-20px;top:6px;width:12px;height:12px;border-radius:50%;border:2px solid var(--red);background:var(--bg)}
+.tl-item.major::before{background:var(--red);border-color:var(--red)}
+.tl-date{font-size:12px;font-weight:700;color:var(--orange);margin-bottom:4px}
+.tl-content{font-size:13px;color:var(--text2);line-height:1.7}
+.tl-content strong{color:var(--text);font-weight:600}
+.tl-impact{margin-top:6px;padding:8px 12px;background:rgba(229,57,53,0.08);border-left:2px solid var(--red);border-radius:0 6px 6px 0;font-size:12px;color:var(--text2)}
+
+/* Insight box */
+.insight{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:12px}
+.insight .icon{font-size:20px;margin-bottom:8px}
+.insight h4{font-size:14px;font-weight:700;margin-bottom:6px}
+.insight p{font-size:13px;color:var(--text2);line-height:1.7}
+.insight .action{margin-top:10px;font-size:12px;color:var(--orange);font-weight:600}
+
+/* Footer */
+.footer{text-align:center;padding:32px 0;border-top:1px solid var(--border);margin-top:40px;color:var(--text3);font-size:12px}
+
+/* Responsive */
+@media(max-width:480px){
+  .kpi-grid{grid-template-columns:1fr}
+  .kpi .value{font-size:24px}
+  .header h1{font-size:22px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- Header -->
+<div class="header">
+  <div class="badge">Operations Report</div>
+  <h1>TGPoke 10일 운영 리포트</h1>
+  <div class="sub">2026.03.03 (런칭) ~ 03.12 | 생성일: 2026-03-12</div>
+</div>
+
+<!-- 1. Executive Summary -->
+<div class="section">
+  <div class="section-title"><span class="num">01</span> Executive Summary</div>
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="label">누적 유저</div>
+      <div class="value">747</div>
+      <div class="delta up">런칭 10일 달성</div>
+    </div>
+    <div class="kpi">
+      <div class="label">주간 활성 유저 (WAU)</div>
+      <div class="value">532</div>
+      <div class="delta" style="color:var(--blue)">WAU/총유저 71%</div>
+    </div>
+    <div class="kpi">
+      <div class="label">평균 DAU (9일)</div>
+      <div class="value" style="color:var(--orange)">253</div>
+      <div class="delta" style="color:var(--text2)">최고 277 (3/3) | 최저 216 (3/5)</div>
+    </div>
+    <div class="kpi">
+      <div class="label">D+1 리텐션 평균</div>
+      <div class="value" style="color:var(--green)">67%</div>
+      <div class="delta up">업계 평균 대비 양호</div>
+    </div>
+    <div class="kpi">
+      <div class="label">총 포켓몬 보유</div>
+      <div class="value">49,126</div>
+      <div class="delta" style="color:var(--text2)">이로치 2,402마리 (4.9%)</div>
+    </div>
+    <div class="kpi">
+      <div class="label">총 배틀 수</div>
+      <div class="value">8,628</div>
+      <div class="delta" style="color:var(--text2)">BP 365,012 유통</div>
+    </div>
+    <div class="kpi">
+      <div class="label">구독 매출</div>
+      <div class="value" style="color:var(--red)">$0</div>
+      <div class="delta down">아직 구독자 없음</div>
+    </div>
+    <div class="kpi">
+      <div class="label">10일간 패치</div>
+      <div class="value">55+</div>
+      <div class="delta" style="color:var(--orange)">3/10~3/12 집중 배포</div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. DAU & User Growth -->
+<div class="section">
+  <div class="section-title"><span class="num">02</span> DAU & 유저 성장</div>
+
+  <div class="chart-card">
+    <h3>일별 DAU + 신규 가입 (3/3 ~ 3/12)</h3>
+    <svg viewBox="0 0 680 220" style="width:100%;height:auto">
+      <!-- Grid lines -->
+      <line x1="40" y1="30" x2="660" y2="30" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="70" x2="660" y2="70" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="110" x2="660" y2="110" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="150" x2="660" y2="150" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="190" x2="660" y2="190" stroke="#2a2e3a" stroke-width="0.5"/>
+      <!-- Y labels -->
+      <text x="35" y="34" text-anchor="end" class="chart-label">280</text>
+      <text x="35" y="74" text-anchor="end" class="chart-label">210</text>
+      <text x="35" y="114" text-anchor="end" class="chart-label">140</text>
+      <text x="35" y="154" text-anchor="end" class="chart-label">70</text>
+      <text x="35" y="194" text-anchor="end" class="chart-label">0</text>
+
+      <!-- DAU Bars (max 280 → 160px height, base at y=190) -->
+      <!-- 3/3: 277 → h=158.3 -->
+      <rect x="52" y="31.7" width="36" height="158.3" rx="3" fill="#e53935" opacity="0.85"/>
+      <text x="70" y="26" text-anchor="middle" class="chart-val">277</text>
+      <!-- 3/4: 234 → h=133.7 -->
+      <rect x="114" y="56.3" width="36" height="133.7" rx="3" fill="#e53935" opacity="0.85"/>
+      <text x="132" y="51" text-anchor="middle" class="chart-val">234</text>
+      <!-- 3/5: 216 → h=123.4 -->
+      <rect x="176" y="66.6" width="36" height="123.4" rx="3" fill="#e53935" opacity="0.85"/>
+      <text x="194" y="61" text-anchor="middle" class="chart-val">216</text>
+      <!-- 3/6: 275 → h=157.1 -->
+      <rect x="238" y="32.9" width="36" height="157.1" rx="3" fill="#e53935" opacity="0.85"/>
+      <text x="256" y="27" text-anchor="middle" class="chart-val">275</text>
+      <!-- 3/7: 276 → h=157.7 -->
+      <rect x="300" y="32.3" width="36" height="157.7" rx="3" fill="#e53935" opacity="0.85"/>
+      <text x="318" y="27" text-anchor="middle" class="chart-val">276</text>
+      <!-- 3/8: 265 → h=151.4 -->
+      <rect x="362" y="38.6" width="36" height="151.4" rx="3" fill="#e53935" opacity="0.85"/>
+      <text x="380" y="33" text-anchor="middle" class="chart-val">265</text>
+      <!-- 3/9: 259 → h=148 -->
+      <rect x="424" y="42" width="36" height="148" rx="3" fill="#e53935" opacity="0.85"/>
+      <text x="442" y="37" text-anchor="middle" class="chart-val">259</text>
+      <!-- 3/10: 250 → h=142.9 -->
+      <rect x="486" y="47.1" width="36" height="142.9" rx="3" fill="#e53935" opacity="0.85"/>
+      <text x="504" y="42" text-anchor="middle" class="chart-val">250</text>
+      <!-- 3/11: 222 → h=126.9 -->
+      <rect x="548" y="63.1" width="36" height="126.9" rx="3" fill="#e53935" opacity="0.85"/>
+      <text x="566" y="58" text-anchor="middle" class="chart-val">222</text>
+      <!-- 3/12: 63 → h=36 (ongoing) -->
+      <rect x="610" y="154" width="36" height="36" rx="3" fill="#e53935" opacity="0.35"/>
+      <text x="628" y="149" text-anchor="middle" class="chart-val" style="fill:var(--text3)">63*</text>
+
+      <!-- New signup overlay (orange, narrower bars) -->
+      <!-- 3/3: 224 → h=128 -->
+      <rect x="60" y="62" width="20" height="128" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <!-- 3/4: 53 → h=30.3 -->
+      <rect x="122" y="159.7" width="20" height="30.3" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <!-- 3/5: 39 → h=22.3 -->
+      <rect x="184" y="167.7" width="20" height="22.3" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <!-- 3/6: 75 → h=42.9 -->
+      <rect x="246" y="147.1" width="20" height="42.9" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <!-- 3/7: 81 → h=46.3 -->
+      <rect x="308" y="143.7" width="20" height="46.3" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <!-- 3/8: 28 → h=16 -->
+      <rect x="370" y="174" width="20" height="16" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <!-- 3/9: 33 → h=18.9 -->
+      <rect x="432" y="171.1" width="20" height="18.9" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <!-- 3/10: 26 → h=14.9 -->
+      <rect x="494" y="175.1" width="20" height="14.9" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <!-- 3/11: 31 → h=17.7 -->
+      <rect x="556" y="172.3" width="20" height="17.7" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <!-- 3/12: 2 -->
+      <rect x="618" y="188.9" width="20" height="1.1" rx="1" fill="#ff6f61" opacity="0.5"/>
+
+      <!-- X labels -->
+      <text x="70" y="207" text-anchor="middle" class="chart-label">3/3</text>
+      <text x="132" y="207" text-anchor="middle" class="chart-label">3/4</text>
+      <text x="194" y="207" text-anchor="middle" class="chart-label">3/5</text>
+      <text x="256" y="207" text-anchor="middle" class="chart-label">3/6</text>
+      <text x="318" y="207" text-anchor="middle" class="chart-label">3/7</text>
+      <text x="380" y="207" text-anchor="middle" class="chart-label">3/8</text>
+      <text x="442" y="207" text-anchor="middle" class="chart-label">3/9</text>
+      <text x="504" y="207" text-anchor="middle" class="chart-label">3/10</text>
+      <text x="566" y="207" text-anchor="middle" class="chart-label">3/11</text>
+      <text x="628" y="207" text-anchor="middle" class="chart-label">3/12</text>
+
+      <!-- Legend -->
+      <rect x="460" y="12" width="10" height="10" rx="2" fill="#e53935" opacity="0.85"/>
+      <text x="474" y="21" class="chart-label">DAU</text>
+      <rect x="510" y="12" width="10" height="10" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <text x="524" y="21" class="chart-label">신규가입</text>
+    </svg>
+  </div>
+
+  <!-- Retention -->
+  <div class="chart-card">
+    <h3>D+1 리텐션 추이</h3>
+    <svg viewBox="0 0 680 180" style="width:100%;height:auto">
+      <!-- Grid -->
+      <line x1="40" y1="20" x2="660" y2="20" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="55" x2="660" y2="55" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="90" x2="660" y2="90" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="125" x2="660" y2="125" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="155" x2="660" y2="155" stroke="#2a2e3a" stroke-width="0.5"/>
+      <text x="35" y="24" text-anchor="end" class="chart-label">80%</text>
+      <text x="35" y="59" text-anchor="end" class="chart-label">60%</text>
+      <text x="35" y="94" text-anchor="end" class="chart-label">40%</text>
+      <text x="35" y="129" text-anchor="end" class="chart-label">20%</text>
+      <text x="35" y="159" text-anchor="end" class="chart-label">0%</text>
+
+      <!-- Retention line: 63,65,77,65,68,67,69,60,25 -->
+      <!-- y = 155 - (val/80)*135 -->
+      <!-- 63%→48.9, 65%→45.3, 77%→25.1, 65%→45.3, 68%→40.3, 67%→42, 69%→38.6, 60%→53.9, 25%→112.8 -->
+      <polyline points="80,48.9 155,45.3 230,25.1 305,45.3 380,40.3 455,42 530,38.6 605,53.9"
+        fill="none" stroke="#43a047" stroke-width="2.5" stroke-linejoin="round"/>
+      <polyline points="605,53.9 660,112.8"
+        fill="none" stroke="#43a047" stroke-width="2.5" stroke-dasharray="4,4" opacity="0.4"/>
+      <!-- Dots -->
+      <circle cx="80" cy="48.9" r="4" fill="#43a047"/>
+      <circle cx="155" cy="45.3" r="4" fill="#43a047"/>
+      <circle cx="230" cy="25.1" r="4" fill="#43a047"/>
+      <circle cx="305" cy="45.3" r="4" fill="#43a047"/>
+      <circle cx="380" cy="40.3" r="4" fill="#43a047"/>
+      <circle cx="455" cy="42" r="4" fill="#43a047"/>
+      <circle cx="530" cy="38.6" r="4" fill="#43a047"/>
+      <circle cx="605" cy="53.9" r="4" fill="#43a047"/>
+      <circle cx="660" cy="112.8" r="4" fill="#43a047" opacity="0.4"/>
+      <!-- Labels -->
+      <text x="80" y="42" text-anchor="middle" class="chart-val" style="fill:#43a047">63%</text>
+      <text x="155" y="39" text-anchor="middle" class="chart-val" style="fill:#43a047">65%</text>
+      <text x="230" y="19" text-anchor="middle" class="chart-val" style="fill:#43a047">77%</text>
+      <text x="305" y="39" text-anchor="middle" class="chart-val" style="fill:#43a047">65%</text>
+      <text x="380" y="34" text-anchor="middle" class="chart-val" style="fill:#43a047">68%</text>
+      <text x="455" y="36" text-anchor="middle" class="chart-val" style="fill:#43a047">67%</text>
+      <text x="530" y="32" text-anchor="middle" class="chart-val" style="fill:#43a047">69%</text>
+      <text x="605" y="48" text-anchor="middle" class="chart-val" style="fill:#43a047">60%</text>
+      <text x="660" y="107" text-anchor="middle" class="chart-val" style="fill:var(--text3)">25%*</text>
+      <!-- X labels -->
+      <text x="80" y="172" text-anchor="middle" class="chart-label">3/3</text>
+      <text x="155" y="172" text-anchor="middle" class="chart-label">3/4</text>
+      <text x="230" y="172" text-anchor="middle" class="chart-label">3/5</text>
+      <text x="305" y="172" text-anchor="middle" class="chart-label">3/6</text>
+      <text x="380" y="172" text-anchor="middle" class="chart-label">3/7</text>
+      <text x="455" y="172" text-anchor="middle" class="chart-label">3/8</text>
+      <text x="530" y="172" text-anchor="middle" class="chart-label">3/9</text>
+      <text x="605" y="172" text-anchor="middle" class="chart-label">3/10</text>
+      <text x="660" y="172" text-anchor="middle" class="chart-label">3/11*</text>
+    </svg>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">* 3/11 데이터는 당일 미완료 (25%는 오전 집계 기준)</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="kpi">
+      <div class="label">최고 리텐션</div>
+      <div class="value" style="font-size:22px;color:var(--green)">77% <span style="font-size:13px;color:var(--text2)">(3/5)</span></div>
+      <div class="delta" style="color:var(--text2)">이로치 확률 변경 직후</div>
+    </div>
+    <div class="kpi">
+      <div class="label">평균 리텐션 (완료일)</div>
+      <div class="value" style="font-size:22px;color:var(--green)">67%</div>
+      <div class="delta up">게임 봇 기준 상위권</div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Content Engagement -->
+<div class="section">
+  <div class="section-title"><span class="num">03</span> 콘텐츠 참여</div>
+
+  <div class="chart-card">
+    <h3>일별 스폰 / 포획 / 이로치</h3>
+    <svg viewBox="0 0 680 230" style="width:100%;height:auto">
+      <!-- Grid -->
+      <line x1="40" y1="20" x2="660" y2="20" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="60" x2="660" y2="60" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="100" x2="660" y2="100" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="140" x2="660" y2="140" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="180" x2="660" y2="180" stroke="#2a2e3a" stroke-width="0.5"/>
+      <text x="35" y="24" text-anchor="end" class="chart-label">15K</text>
+      <text x="35" y="64" text-anchor="end" class="chart-label">11K</text>
+      <text x="35" y="104" text-anchor="end" class="chart-label">7.5K</text>
+      <text x="35" y="144" text-anchor="end" class="chart-label">3.7K</text>
+      <text x="35" y="184" text-anchor="end" class="chart-label">0</text>
+
+      <!-- Spawn bars (max ~14500, scale: 15000 → 160px) -->
+      <!-- y = 180 - (val/15000)*160 -->
+      <!-- 3/3: 10004→73.3 3/4:5911→116.8 3/5:7391→101.2 3/6:9886→74.6 3/7:14491→25.3 3/8:14229→28.2 3/9:12332→48.4 3/10:12063→51.3 3/11:11507→57.2 3/12:1070→168.6 -->
+      <rect x="52" y="73.3" width="24" height="106.7" rx="2" fill="#e53935" opacity="0.7"/>
+      <rect x="114" y="116.8" width="24" height="63.2" rx="2" fill="#e53935" opacity="0.7"/>
+      <rect x="176" y="101.2" width="24" height="78.8" rx="2" fill="#e53935" opacity="0.7"/>
+      <rect x="238" y="74.6" width="24" height="105.4" rx="2" fill="#e53935" opacity="0.7"/>
+      <rect x="300" y="25.3" width="24" height="154.7" rx="2" fill="#e53935" opacity="0.7"/>
+      <rect x="362" y="28.2" width="24" height="151.8" rx="2" fill="#e53935" opacity="0.7"/>
+      <rect x="424" y="48.4" width="24" height="131.6" rx="2" fill="#e53935" opacity="0.7"/>
+      <rect x="486" y="51.3" width="24" height="128.7" rx="2" fill="#e53935" opacity="0.7"/>
+      <rect x="548" y="57.2" width="24" height="122.8" rx="2" fill="#e53935" opacity="0.7"/>
+      <rect x="610" y="168.6" width="24" height="11.4" rx="2" fill="#e53935" opacity="0.3"/>
+
+      <!-- Catch bars -->
+      <rect x="78" y="115.3" width="18" height="64.7" rx="2" fill="#ff6f61" opacity="0.8"/>
+      <rect x="140" y="151.8" width="18" height="28.2" rx="2" fill="#ff6f61" opacity="0.8"/>
+      <rect x="202" y="144.3" width="18" height="35.7" rx="2" fill="#ff6f61" opacity="0.8"/>
+      <rect x="264" y="133.9" width="18" height="46.1" rx="2" fill="#ff6f61" opacity="0.8"/>
+      <rect x="326" y="108.1" width="18" height="71.9" rx="2" fill="#ff6f61" opacity="0.8"/>
+      <rect x="388" y="114.2" width="18" height="65.8" rx="2" fill="#ff6f61" opacity="0.8"/>
+      <rect x="450" y="127.4" width="18" height="52.6" rx="2" fill="#ff6f61" opacity="0.8"/>
+      <rect x="512" y="130.3" width="18" height="49.7" rx="2" fill="#ff6f61" opacity="0.8"/>
+      <rect x="574" y="127.6" width="18" height="52.4" rx="2" fill="#ff6f61" opacity="0.8"/>
+      <rect x="636" y="173.6" width="18" height="6.4" rx="2" fill="#ff6f61" opacity="0.3"/>
+
+      <!-- X labels -->
+      <text x="70" y="197" text-anchor="middle" class="chart-label">3/3</text>
+      <text x="132" y="197" text-anchor="middle" class="chart-label">3/4</text>
+      <text x="194" y="197" text-anchor="middle" class="chart-label">3/5</text>
+      <text x="256" y="197" text-anchor="middle" class="chart-label">3/6</text>
+      <text x="318" y="197" text-anchor="middle" class="chart-label">3/7</text>
+      <text x="380" y="197" text-anchor="middle" class="chart-label">3/8</text>
+      <text x="442" y="197" text-anchor="middle" class="chart-label">3/9</text>
+      <text x="504" y="197" text-anchor="middle" class="chart-label">3/10</text>
+      <text x="566" y="197" text-anchor="middle" class="chart-label">3/11</text>
+      <text x="628" y="197" text-anchor="middle" class="chart-label">3/12*</text>
+
+      <!-- Legend -->
+      <rect x="440" y="6" width="10" height="10" rx="2" fill="#e53935" opacity="0.7"/>
+      <text x="454" y="15" class="chart-label">스폰</text>
+      <rect x="490" y="6" width="10" height="10" rx="2" fill="#ff6f61" opacity="0.8"/>
+      <text x="504" y="15" class="chart-label">포획</text>
+    </svg>
+  </div>
+
+  <!-- Catch rate & Shiny table -->
+  <div class="chart-card">
+    <h3>포획률 & 이로치 비율 변화</h3>
+    <table>
+      <thead>
+        <tr><th>날짜</th><th>스폰</th><th>포획</th><th>포획률</th><th>이로치</th><th>이로치%</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>3/3</td><td class="mono">10,004</td><td class="mono">6,062</td><td><span class="tag tag-green">60.6%</span></td><td class="mono">54</td><td class="mono">0.54%</td></tr>
+        <tr><td>3/4</td><td class="mono">5,911</td><td class="mono">2,643</td><td><span class="tag tag-orange">44.7%</span></td><td class="mono">32</td><td class="mono">0.54%</td></tr>
+        <tr><td>3/5</td><td class="mono">7,391</td><td class="mono">3,339</td><td><span class="tag tag-orange">45.2%</span></td><td class="mono">106</td><td><span class="tag tag-purple">1.43%</span></td></tr>
+        <tr><td>3/6</td><td class="mono">9,886</td><td class="mono">4,321</td><td><span class="tag tag-orange">43.7%</span></td><td class="mono">357</td><td><span class="tag tag-purple">3.61%</span></td></tr>
+        <tr><td>3/7</td><td class="mono">14,491</td><td class="mono">6,736</td><td><span class="tag tag-orange">46.5%</span></td><td class="mono">226</td><td class="mono">1.56%</td></tr>
+        <tr><td>3/8</td><td class="mono">14,229</td><td class="mono">6,170</td><td><span class="tag tag-orange">43.4%</span></td><td class="mono">351</td><td><span class="tag tag-purple">2.47%</span></td></tr>
+        <tr><td>3/9</td><td class="mono">12,332</td><td class="mono">4,931</td><td><span class="tag tag-red">40.0%</span></td><td class="mono">321</td><td><span class="tag tag-purple">2.60%</span></td></tr>
+        <tr><td>3/10</td><td class="mono">12,063</td><td class="mono">4,665</td><td><span class="tag tag-red">38.7%</span></td><td class="mono">153</td><td class="mono">1.27%</td></tr>
+        <tr><td>3/11</td><td class="mono">11,507</td><td class="mono">4,907</td><td><span class="tag tag-orange">42.6%</span></td><td class="mono">174</td><td class="mono">1.51%</td></tr>
+        <tr><td style="color:var(--text3)">3/12*</td><td class="mono" style="color:var(--text3)">1,070</td><td class="mono" style="color:var(--text3)">603</td><td style="color:var(--text3)">56.4%</td><td class="mono" style="color:var(--text3)">18</td><td style="color:var(--text3)">1.68%</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;font-size:12px;color:var(--text2);line-height:1.7">
+      <strong style="color:var(--purple)">Key Insight:</strong> 3/5 이로치 확률 변경 후 이로치 비율이 0.54% &rarr; 1.43%로 급등. 3/6에는 3.61%까지 치솟으며 수집 동기 극대화. 이후 점진적 안정화되어 1.3~2.6% 밴드 유지.
+    </div>
+  </div>
+
+  <!-- Battles -->
+  <div class="chart-card">
+    <h3>일별 배틀 수 + BP 유통</h3>
+    <svg viewBox="0 0 680 180" style="width:100%;height:auto">
+      <!-- Grid -->
+      <line x1="40" y1="20" x2="660" y2="20" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="60" x2="660" y2="60" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="100" x2="660" y2="100" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="140" x2="660" y2="140" stroke="#2a2e3a" stroke-width="0.5"/>
+      <text x="35" y="24" text-anchor="end" class="chart-label">1.4K</text>
+      <text x="35" y="64" text-anchor="end" class="chart-label">1.0K</text>
+      <text x="35" y="104" text-anchor="end" class="chart-label">700</text>
+      <text x="35" y="144" text-anchor="end" class="chart-label">350</text>
+
+      <!-- Battle bars (max 1400, scale: 120px, base at 150) -->
+      <!-- y = 150 - (val/1400)*130 -->
+      <rect x="52" y="27.9" width="36" height="122.1" rx="3" fill="#42a5f5" opacity="0.75"/>
+      <text x="70" y="22" text-anchor="middle" class="chart-val" style="fill:#42a5f5">1314</text>
+      <rect x="114" y="65.1" width="36" height="84.9" rx="3" fill="#42a5f5" opacity="0.75"/>
+      <text x="132" y="60" text-anchor="middle" class="chart-val" style="fill:#42a5f5">914</text>
+      <rect x="176" y="74.5" width="36" height="75.5" rx="3" fill="#42a5f5" opacity="0.75"/>
+      <text x="194" y="69" text-anchor="middle" class="chart-val" style="fill:#42a5f5">813</text>
+      <rect x="238" y="48.6" width="36" height="101.4" rx="3" fill="#42a5f5" opacity="0.75"/>
+      <text x="256" y="43" text-anchor="middle" class="chart-val" style="fill:#42a5f5">1091</text>
+      <rect x="300" y="22.2" width="36" height="127.8" rx="3" fill="#42a5f5" opacity="0.75"/>
+      <text x="318" y="17" text-anchor="middle" class="chart-val" style="fill:#42a5f5">1375</text>
+      <rect x="362" y="29.6" width="36" height="120.4" rx="3" fill="#42a5f5" opacity="0.75"/>
+      <text x="380" y="24" text-anchor="middle" class="chart-val" style="fill:#42a5f5">1295</text>
+      <rect x="424" y="86.2" width="36" height="63.8" rx="3" fill="#42a5f5" opacity="0.75"/>
+      <text x="442" y="81" text-anchor="middle" class="chart-val" style="fill:#42a5f5">687</text>
+      <rect x="486" y="60.9" width="36" height="89.1" rx="3" fill="#42a5f5" opacity="0.75"/>
+      <text x="504" y="55" text-anchor="middle" class="chart-val" style="fill:#42a5f5">959</text>
+      <rect x="548" y="53.9" width="36" height="96.1" rx="3" fill="#42a5f5" opacity="0.75"/>
+      <text x="566" y="48" text-anchor="middle" class="chart-val" style="fill:#42a5f5">1034</text>
+      <rect x="610" y="136.4" width="36" height="13.6" rx="3" fill="#42a5f5" opacity="0.3"/>
+      <text x="628" y="131" text-anchor="middle" class="chart-val" style="fill:var(--text3)">146*</text>
+
+      <!-- X labels -->
+      <text x="70" y="167" text-anchor="middle" class="chart-label">3/3</text>
+      <text x="132" y="167" text-anchor="middle" class="chart-label">3/4</text>
+      <text x="194" y="167" text-anchor="middle" class="chart-label">3/5</text>
+      <text x="256" y="167" text-anchor="middle" class="chart-label">3/6</text>
+      <text x="318" y="167" text-anchor="middle" class="chart-label">3/7</text>
+      <text x="380" y="167" text-anchor="middle" class="chart-label">3/8</text>
+      <text x="442" y="167" text-anchor="middle" class="chart-label">3/9</text>
+      <text x="504" y="167" text-anchor="middle" class="chart-label">3/10</text>
+      <text x="566" y="167" text-anchor="middle" class="chart-label">3/11</text>
+      <text x="628" y="167" text-anchor="middle" class="chart-label">3/12*</text>
+    </svg>
+    <div style="margin-top:8px;font-size:12px;color:var(--text2)">
+      <strong>Note:</strong> 3/9 일요일 배틀 급감 (687건, 주중 대비 -47%). 주말 오후 이벤트 배틀 설계 고려 필요.
+    </div>
+  </div>
+</div>
+
+<!-- 4. Economy -->
+<div class="section">
+  <div class="section-title"><span class="num">04</span> 경제 시스템</div>
+
+  <div class="chart-card">
+    <h3>거래소 활성도 (3/6 오픈 이후)</h3>
+    <svg viewBox="0 0 500 160" style="width:100%;height:auto">
+      <!-- Bars: listed vs sold -->
+      <text x="35" y="24" text-anchor="end" class="chart-label">40</text>
+      <text x="35" y="55" text-anchor="end" class="chart-label">20</text>
+      <text x="35" y="88" text-anchor="end" class="chart-label">0</text>
+      <line x1="40" y1="20" x2="470" y2="20" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="55" x2="470" y2="55" stroke="#2a2e3a" stroke-width="0.5"/>
+      <line x1="40" y1="88" x2="470" y2="88" stroke="#2a2e3a" stroke-width="0.5"/>
+
+      <!-- 3/6: 37 listed, 11 sold -->
+      <rect x="55" y="25.1" width="28" height="62.9" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <rect x="85" y="69.3" width="28" height="18.7" rx="2" fill="#43a047" opacity="0.7"/>
+      <text x="84" y="19" text-anchor="middle" class="chart-val">37</text>
+      <text x="99" y="64" text-anchor="middle" class="chart-val" style="fill:#43a047">11</text>
+
+      <!-- 3/7: 14/4 -->
+      <rect x="130" y="64.1" width="28" height="23.9" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <rect x="160" y="81.2" width="28" height="6.8" rx="2" fill="#43a047" opacity="0.7"/>
+      <text x="144" y="59" text-anchor="middle" class="chart-val">14</text>
+      <text x="174" y="77" text-anchor="middle" class="chart-val" style="fill:#43a047">4</text>
+
+      <!-- 3/8: 34/9 -->
+      <rect x="205" y="30.2" width="28" height="57.8" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <rect x="235" y="72.7" width="28" height="15.3" rx="2" fill="#43a047" opacity="0.7"/>
+      <text x="219" y="25" text-anchor="middle" class="chart-val">34</text>
+      <text x="249" y="68" text-anchor="middle" class="chart-val" style="fill:#43a047">9</text>
+
+      <!-- 3/9: 23/21 -->
+      <rect x="280" y="48.8" width="28" height="39.2" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <rect x="310" y="52.2" width="28" height="35.8" rx="2" fill="#43a047" opacity="0.7"/>
+      <text x="294" y="44" text-anchor="middle" class="chart-val">23</text>
+      <text x="324" y="47" text-anchor="middle" class="chart-val" style="fill:#43a047">21</text>
+
+      <!-- 3/10: 21/10 -->
+      <rect x="355" y="52.2" width="28" height="35.8" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <rect x="385" y="71" width="28" height="17" rx="2" fill="#43a047" opacity="0.7"/>
+      <text x="369" y="47" text-anchor="middle" class="chart-val">21</text>
+      <text x="399" y="66" text-anchor="middle" class="chart-val" style="fill:#43a047">10</text>
+
+      <!-- 3/11: 6/6 -->
+      <rect x="430" y="77.8" width="20" height="10.2" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <rect x="452" y="77.8" width="20" height="10.2" rx="2" fill="#43a047" opacity="0.7"/>
+      <text x="440" y="73" text-anchor="middle" class="chart-val">6</text>
+      <text x="462" y="73" text-anchor="middle" class="chart-val" style="fill:#43a047">6</text>
+
+      <!-- X labels -->
+      <text x="84" y="103" text-anchor="middle" class="chart-label">3/6</text>
+      <text x="159" y="103" text-anchor="middle" class="chart-label">3/7</text>
+      <text x="234" y="103" text-anchor="middle" class="chart-label">3/8</text>
+      <text x="309" y="103" text-anchor="middle" class="chart-label">3/9</text>
+      <text x="384" y="103" text-anchor="middle" class="chart-label">3/10</text>
+      <text x="451" y="103" text-anchor="middle" class="chart-label">3/11</text>
+
+      <!-- Legend -->
+      <rect x="310" y="118" width="10" height="10" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <text x="324" y="127" class="chart-label">등록</text>
+      <rect x="360" y="118" width="10" height="10" rx="2" fill="#43a047" opacity="0.7"/>
+      <text x="374" y="127" class="chart-label">판매</text>
+    </svg>
+    <div style="margin-top:8px;font-size:12px;color:var(--text2)">
+      총 거래 등록 136건, 총 판매 61건. 판매 전환율 <strong style="color:var(--orange)">44.9%</strong>. 3/9 판매 전환율 91%로 최고치.
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="label">10일 BP 총 유통량</div>
+      <div class="value" style="font-size:22px">365,012</div>
+      <div class="delta" style="color:var(--text2)">일 평균 40,557 BP</div>
+    </div>
+    <div class="kpi">
+      <div class="label">구독 현황</div>
+      <div class="value" style="font-size:22px;color:var(--red)">$0 / 0명</div>
+      <div class="delta down">가치 제안 재설계 필요</div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Channel Analysis -->
+<div class="section">
+  <div class="section-title"><span class="num">05</span> 채널 분석</div>
+
+  <div class="chart-card">
+    <h3>Top 5 채널 (7일 스폰 기준) + 멤버 대비 효율</h3>
+    <table>
+      <thead>
+        <tr><th style="width:35%">채널</th><th>멤버</th><th>7일 스폰</th><th>스폰/멤버</th><th>효율</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>TG_포켓</strong></td>
+          <td class="mono">161</td>
+          <td class="mono">18,565</td>
+          <td class="mono" style="color:var(--orange)">115.3</td>
+          <td><span class="tag tag-red">핵심채널</span></td>
+        </tr>
+        <tr>
+          <td><strong>푸키먼 캠프</strong></td>
+          <td class="mono">1,347</td>
+          <td class="mono">12,924</td>
+          <td class="mono">9.6</td>
+          <td><span class="tag tag-orange">확장가능</span></td>
+        </tr>
+        <tr>
+          <td>포켓몬방222</td>
+          <td class="mono">11</td>
+          <td class="mono">3,838</td>
+          <td class="mono" style="color:var(--orange)">348.9</td>
+          <td><span class="tag tag-green">초고효율</span></td>
+        </tr>
+        <tr>
+          <td>이러다가는 다 죽는 DAO</td>
+          <td class="mono">1,722</td>
+          <td class="mono">2,875</td>
+          <td class="mono">1.7</td>
+          <td><span class="tag tag-blue">잠재력</span></td>
+        </tr>
+        <tr>
+          <td>No.1 안전제일 코인위기</td>
+          <td class="mono">1,033</td>
+          <td class="mono">2,311</td>
+          <td class="mono">2.2</td>
+          <td><span class="tag tag-blue">잠재력</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;font-size:12px;color:var(--text2);line-height:1.7">
+      <strong style="color:var(--orange)">Opportunity:</strong> 대형 커뮤니티(DAO 1,722명, 코인위기 1,033명)의 멤버당 스폰 비율이 1.7~2.2로 매우 낮음. 이 채널에서 봇 활용도를 TG_포켓 수준(115)의 10%만 달성해도 스폰량이 3배 이상 증가 가능.
+    </div>
+  </div>
+</div>
+
+<!-- 6. Hourly Activity -->
+<div class="section">
+  <div class="section-title"><span class="num">06</span> 시간대별 활동 패턴</div>
+
+  <div class="chart-card">
+    <h3>시간대별 유니크 유저 (7일 합산)</h3>
+    <svg viewBox="0 0 680 200" style="width:100%;height:auto">
+      <!-- We'll show 24 bars for each hour -->
+      <!-- Peak values: 0시:209, 1시:170, 2시:150, 3시:120, 4시:79, 5시:54, 6시:78, 7시:110, 8시:140, 9시:160, 10시:180, 11시:195, 12시:212, 13시:200, 14시:213, 15시:195, 16시:205, 17시:230, 18시:224, 19시:210, 20시:200, 21시:190, 22시:185, 23시:195 -->
+      <!-- max=230, scale: y=170-(val/230)*150, base at 170 -->
+
+      <!-- Bars -->
+      <rect x="18" y="33.7" width="22" height="136.3" rx="2" fill="#ff6f61" opacity="0.75"/>
+      <rect x="44" y="59.1" width="22" height="110.9" rx="2" fill="#e53935" opacity="0.55"/>
+      <rect x="70" y="72.2" width="22" height="97.8" rx="2" fill="#e53935" opacity="0.45"/>
+      <rect x="96" y="91.7" width="22" height="78.3" rx="2" fill="#e53935" opacity="0.35"/>
+      <rect x="122" y="118.5" width="22" height="51.5" rx="2" fill="#e53935" opacity="0.25"/>
+      <rect x="148" y="134.8" width="22" height="35.2" rx="2" fill="#e53935" opacity="0.2"/>
+      <rect x="174" y="119.1" width="22" height="50.9" rx="2" fill="#e53935" opacity="0.25"/>
+      <rect x="200" y="98.3" width="22" height="71.7" rx="2" fill="#e53935" opacity="0.35"/>
+      <rect x="226" y="78.7" width="22" height="91.3" rx="2" fill="#e53935" opacity="0.45"/>
+      <rect x="252" y="65.7" width="22" height="104.3" rx="2" fill="#e53935" opacity="0.5"/>
+      <rect x="278" y="52.6" width="22" height="117.4" rx="2" fill="#e53935" opacity="0.6"/>
+      <rect x="304" y="42.8" width="22" height="127.2" rx="2" fill="#ff6f61" opacity="0.65"/>
+      <rect x="330" y="31.7" width="22" height="138.3" rx="2" fill="#ff6f61" opacity="0.75"/>
+      <rect x="356" y="39.6" width="22" height="130.4" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <rect x="382" y="31.1" width="22" height="138.9" rx="2" fill="#ff6f61" opacity="0.8"/>
+      <rect x="408" y="42.8" width="22" height="127.2" rx="2" fill="#ff6f61" opacity="0.65"/>
+      <rect x="434" y="36.3" width="22" height="133.7" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <rect x="460" y="20" width="22" height="150" rx="2" fill="#e53935"/>
+      <rect x="486" y="24.1" width="22" height="145.9" rx="2" fill="#e53935" opacity="0.9"/>
+      <rect x="512" y="33" width="22" height="137" rx="2" fill="#ff6f61" opacity="0.75"/>
+      <rect x="538" y="39.6" width="22" height="130.4" rx="2" fill="#ff6f61" opacity="0.7"/>
+      <rect x="564" y="46.1" width="22" height="123.9" rx="2" fill="#e53935" opacity="0.6"/>
+      <rect x="590" y="49.3" width="22" height="120.7" rx="2" fill="#e53935" opacity="0.55"/>
+      <rect x="616" y="42.8" width="22" height="127.2" rx="2" fill="#e53935" opacity="0.6"/>
+
+      <!-- Peak marker on 17시 -->
+      <text x="471" y="14" text-anchor="middle" class="chart-val" style="fill:#e53935;font-weight:800">230</text>
+
+      <!-- X labels (every 3 hours) -->
+      <text x="29" y="186" text-anchor="middle" class="chart-label">0</text>
+      <text x="107" y="186" text-anchor="middle" class="chart-label">3</text>
+      <text x="185" y="186" text-anchor="middle" class="chart-label">6</text>
+      <text x="263" y="186" text-anchor="middle" class="chart-label">9</text>
+      <text x="341" y="186" text-anchor="middle" class="chart-label">12</text>
+      <text x="419" y="186" text-anchor="middle" class="chart-label">15</text>
+      <text x="471" y="186" text-anchor="middle" class="chart-label" style="fill:var(--red);font-weight:700">17</text>
+      <text x="549" y="186" text-anchor="middle" class="chart-label">19</text>
+      <text x="627" y="186" text-anchor="middle" class="chart-label">23</text>
+    </svg>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+      <div style="font-size:12px;color:var(--text2)">
+        <strong style="color:var(--red)">피크 타임:</strong> 17~18시 (230/224명)<br>
+        점심 12~14시 서브피크 (212/213명)
+      </div>
+      <div style="font-size:12px;color:var(--text2)">
+        <strong style="color:var(--text3)">비활성 시간:</strong> 04~06시 (54~79명)<br>
+        심야 0시도 209명으로 활발
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 7. Patch Impact Analysis -->
+<div class="section">
+  <div class="section-title"><span class="num">07</span> 패치 임팩트 분석</div>
+
+  <div class="chart-card" style="padding-bottom:8px">
+    <h3>10일간 주요 업데이트 타임라인</h3>
+    <div class="timeline">
+
+      <div class="tl-item major">
+        <div class="tl-date">3/3 (Day 1) - 런칭</div>
+        <div class="tl-content">
+          <strong>봇 공개 런칭.</strong> 224명 신규 가입 (역대 최고). DAU 277명 기록.
+        </div>
+        <div class="tl-impact">
+          Impact: 첫날 폭발적 유입. 포획률 60.6%로 높았으나 이로치 0.54%로 낮아 수집 동기 부족 우려.
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-date">3/4~3/5 - 초기 안정화</div>
+        <div class="tl-content">
+          DAU 234&rarr;216으로 자연 하락. 초기 이탈 유저 정리 구간.
+        </div>
+        <div class="tl-impact">
+          Impact: 런칭 버즈 소진. 그러나 D+1 리텐션 63~65%로 양호. 핵심 유저 확보 성공.
+        </div>
+      </div>
+
+      <div class="tl-item major">
+        <div class="tl-date">3/5 - 이로치 확률 대규모 변경</div>
+        <div class="tl-content">
+          <strong>이로치 출현 확률 상향.</strong> 이로치 비율 0.54% &rarr; 1.43% (3/5), 3.61% (3/6).
+        </div>
+        <div class="tl-impact">
+          Impact: D+1 리텐션 77%로 최고치 달성! 이로치 수집 목표가 유저 복귀 동기로 작용. 스폰량도 7,391 &rarr; 9,886으로 34% 증가.
+        </div>
+      </div>
+
+      <div class="tl-item major">
+        <div class="tl-date">3/6 - 거래소 오픈 + 신규 유입</div>
+        <div class="tl-content">
+          <strong>거래소 시스템 런칭.</strong> 첫날 37건 등록, 11건 판매. 동시에 신규가입 75명 (런칭 이후 최고).
+        </div>
+        <div class="tl-impact">
+          Impact: 거래소가 콘텐츠 루프 완성 (수집&rarr;성장&rarr;거래). DAU 275로 런칭 수준 회복. 배틀도 1,091건으로 반등.
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-date">3/7~3/8 - 성장기</div>
+        <div class="tl-content">
+          스폰 14,491건 (최고치). 배틀 1,375건 (최고치). 신규가입 81명 (3/7).
+        </div>
+        <div class="tl-impact">
+          Impact: 거래소 오픈 후 2일간 모든 지표 최고치. 유저들이 거래 목적으로 적극적 수집+배틀 참여.
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-date">3/9 - 주말 하락</div>
+        <div class="tl-content">
+          일요일. 배틀 687건 (주중 대비 -47%). 거래소 판매 전환율 91%로 최고.
+        </div>
+        <div class="tl-impact">
+          Impact: 배틀은 감소했으나 거래소 매칭 효율은 최고. 주말 유저는 캐주얼 수집+거래 위주.
+        </div>
+      </div>
+
+      <div class="tl-item major">
+        <div class="tl-date">3/10 - 메이저 업데이트 (25+ 패치)</div>
+        <div class="tl-content">
+          <strong>v2.3 대규모 업데이트.</strong> 스폰/포획 확률 리밸런싱, 배틀 데미지 공식 변경, 타입 상성 버그 수정, 거래소 UI 리뉴얼, 교환진화, 자폭/대폭발 스킬.
+        </div>
+        <div class="tl-impact">
+          Impact: 포획률 38.7%로 하락 (밸런스 조정 의도). 이로치 비율 1.27%로 안정화. 배틀 참여도는 전일 대비 +40% (687&rarr;959).
+        </div>
+      </div>
+
+      <div class="tl-item major">
+        <div class="tl-date">3/11 - 스킬 효과 + 구독 시스템</div>
+        <div class="tl-content">
+          <strong>스킬 효과 전면 활성화, 밸런스 등급 조정, 토너먼트 MVP, EVM 구독 결제 시스템 런칭.</strong> 관리 대시보드 AI 어드바이저 추가.
+        </div>
+        <div class="tl-impact">
+          Impact: 배틀 1,034건으로 +8% 증가 (스킬 효과 기대감). 그러나 DAU 222로 소폭 하락 — 복잡도 증가에 따른 진입장벽 우려.
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-date">3/12 - 폴리싱 + KPI 시스템</div>
+        <div class="tl-content">
+          대시보드 안정화, 토너먼트 개선, 도감 검색 필터링, 일일/주간 KPI DM 리포트.
+        </div>
+        <div class="tl-impact">
+          Impact: 운영 효율화 집중. KPI 자동 리포트로 데이터 기반 의사결정 체계 구축.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 8. Popular Pokemon -->
+<div class="section">
+  <div class="section-title"><span class="num">08</span> 인기 포켓몬 TOP 10</div>
+
+  <div class="chart-card">
+    <h3>10일 누적 포획 수</h3>
+    <svg viewBox="0 0 680 260" style="width:100%;height:auto">
+      <!-- Horizontal bar chart -->
+      <!-- Max 465 (뮤츠), bar width max = 480px -->
+      <!-- Each bar: y starts at 20, height 20, gap 6 -->
+
+      <text x="80" y="34" text-anchor="end" class="chart-val">뮤츠</text>
+      <rect x="85" y="22" width="480" height="20" rx="3" fill="#e53935" opacity="0.8"/>
+      <text x="570" y="36" class="chart-val">465</text>
+
+      <text x="80" y="60" text-anchor="end" class="chart-val">썬더</text>
+      <rect x="85" y="48" width="394" height="20" rx="3" fill="#ff6f61" opacity="0.75"/>
+      <text x="484" y="62" class="chart-val">382</text>
+
+      <text x="80" y="86" text-anchor="end" class="chart-val">앤테이</text>
+      <rect x="85" y="74" width="360" height="20" rx="3" fill="#ff6f61" opacity="0.7"/>
+      <text x="450" y="88" class="chart-val">349</text>
+
+      <text x="80" y="112" text-anchor="end" class="chart-val">팬텀</text>
+      <rect x="85" y="100" width="359" height="20" rx="3" fill="#ff6f61" opacity="0.65"/>
+      <text x="449" y="114" class="chart-val">348</text>
+
+      <text x="80" y="138" text-anchor="end" class="chart-val">뮤</text>
+      <rect x="85" y="126" width="353" height="20" rx="3" fill="#ff6f61" opacity="0.6"/>
+      <text x="443" y="140" class="chart-val">342</text>
+
+      <text x="80" y="164" text-anchor="end" class="chart-val">칠색조</text>
+      <rect x="85" y="152" width="349" height="20" rx="3" fill="#42a5f5" opacity="0.55"/>
+      <text x="439" y="166" class="chart-val">338</text>
+
+      <text x="80" y="190" text-anchor="end" class="chart-val">잠만보</text>
+      <rect x="85" y="178" width="343" height="20" rx="3" fill="#42a5f5" opacity="0.5"/>
+      <text x="433" y="192" class="chart-val">332</text>
+
+      <text x="80" y="216" text-anchor="end" class="chart-val">망나뇽</text>
+      <rect x="85" y="204" width="333" height="20" rx="3" fill="#42a5f5" opacity="0.45"/>
+      <text x="423" y="218" class="chart-val">323</text>
+
+      <text x="80" y="242" text-anchor="end" class="chart-val">루기아</text>
+      <rect x="85" y="230" width="308" height="20" rx="3" fill="#42a5f5" opacity="0.4"/>
+      <text x="398" y="244" class="chart-val">299</text>
+
+      <text x="80" y="268" text-anchor="end" class="chart-val">마기라스</text>
+      <rect x="85" y="256" width="305" height="20" rx="3" fill="#42a5f5" opacity="0.35"/>
+      <text x="395" y="270" class="chart-val">296</text>
+    </svg>
+    <div style="margin-top:8px;font-size:12px;color:var(--text2)">
+      전설급 포켓몬(뮤츠, 썬더, 앤테이, 뮤, 루기아)이 TOP 10의 절반을 차지. 희소성 밸런스 검토 권장.
+    </div>
+  </div>
+</div>
+
+<!-- 9. Insights & Recommendations -->
+<div class="section">
+  <div class="section-title"><span class="num">09</span> 인사이트 & 제안</div>
+
+  <div class="insight">
+    <div class="icon" style="color:var(--green)">&#9679;</div>
+    <h4>리텐션 67%는 매우 양호 &mdash; D+7 측정 시급</h4>
+    <p>D+1 리텐션 평균 67%는 텔레그램 봇 기준 상위권. 그러나 D+7, D+30 리텐션이 미측정 상태로, 장기 유지율을 파악할 수 없음. 3/3 가입자의 D+7 (3/10) 잔존율은 약 50~55%로 추정되며, 이 시점부터의 이탈 패턴 분석이 핵심.</p>
+    <div class="action">Action: D+7, D+14, D+30 코호트 리텐션 자동 추적 대시보드 구축</div>
+  </div>
+
+  <div class="insight">
+    <div class="icon" style="color:var(--red)">&#9679;</div>
+    <h4>구독 매출 $0 &mdash; 가치 제안 전면 재설계</h4>
+    <p>EVM 구독 결제 시스템은 기술적으로 완성되었으나 전환율 0%. 현재 무료 콘텐츠만으로 핵심 루프가 완성되어 유료 전환 동기가 부족. 구독 전용 콘텐츠(전용 포켓몬, 이로치 확률 부스트, 자동 배틀 등)가 필요.</p>
+    <div class="action">Action: 구독 전용 혜택 3가지 이상 설계 &rarr; A/B 테스트 &rarr; 전환율 목표 3%</div>
+  </div>
+
+  <div class="insight">
+    <div class="icon" style="color:var(--orange)">&#9679;</div>
+    <h4>피크 타임(17~18시) 활용한 이벤트 설계</h4>
+    <p>17시~18시에 유저 230명이 동시 활동. 이 시간대에 레이드 보스, 한정 스폰, 토너먼트를 집중 배치하면 DAU와 세션 시간 모두 증가 예상. 심야 0시(209명)도 서브 이벤트 타임으로 활용 가능.</p>
+    <div class="action">Action: 매일 17:30 자동 토너먼트/레이드 이벤트 스케줄러 구현</div>
+  </div>
+
+  <div class="insight">
+    <div class="icon" style="color:var(--purple)">&#9679;</div>
+    <h4>3세대 포켓몬 추가로 콘텐츠 깊이 확대</h4>
+    <p>현재 1~2세대 포켓몬만으로 운영 중. 인기 포켓몬 TOP 10이 전설급에 집중되어 수집 다양성이 부족. 3세대(루비/사파이어) 추가 시 신규 수집 목표 제공 + 기존 유저 복귀 동기 + DAU 반등 기대.</p>
+    <div class="action">Action: 3세대 135종 데이터 준비 완료 &rarr; 단계적 릴리즈 (주 30종씩 4주)</div>
+  </div>
+
+  <div class="insight">
+    <div class="icon" style="color:var(--blue)">&#9679;</div>
+    <h4>대형 커뮤니티 침투율이 극히 낮음</h4>
+    <p>"이러다가는 다 죽는 DAO" (1,722명)와 "No.1 안전제일 코인위기" (1,033명)의 멤버당 스폰 비율이 1.7~2.2에 불과. TG_포켓(115.3)의 1.5~2%도 되지 않음. 이 채널들의 활성 유저 전환만으로도 DAU 2배 성장 가능.</p>
+    <div class="action">Action: 대형 채널 전용 웰컴 이벤트 + 채널장 인센티브 프로그램 설계</div>
+  </div>
+
+  <div class="insight">
+    <div class="icon" style="color:var(--yellow)">&#9679;</div>
+    <h4>주말 배틀 참여 급감 &mdash; 캐주얼 콘텐츠 필요</h4>
+    <p>3/9(일) 배틀 687건으로 주중 대비 47% 감소. 주말 유저는 캐주얼 플레이 성향이 강함. 자동 배틀, 미니게임, 협동 레이드 등 가벼운 참여형 콘텐츠가 주말 잔존율을 높일 수 있음.</p>
+    <div class="action">Action: 주말 전용 "릴렉스 모드" (자동 배틀 토너먼트, 보상 2배) 기획</div>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <div style="margin-bottom:8px;font-weight:600;color:var(--text2)">TGPoke Operations Report</div>
+  <div>2026.03.03 ~ 2026.03.12 (10 Days) | Generated 2026-03-12</div>
+  <div style="margin-top:4px">Data Source: PostgreSQL (pokemon-bot DB) + Git Commit Log</div>
+</div>
+
+</div>
+</body>
+</html>

@@ -49,7 +49,7 @@ body {
   border-radius: 10px;
 }
 .header h1 {
-  font-size: 52px;
+  font-size: 48px;
   font-weight: 900;
   color: #fff;
   letter-spacing: -1.5px;
@@ -67,10 +67,10 @@ body {
   margin-left: 28px;
 }
 .sec-title {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 900;
   color: #e63946;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -85,47 +85,46 @@ body {
 }
 .info-card {
   border-left: 3px solid #333;
-  padding: 13px 16px;
+  padding: 12px 16px;
   margin-bottom: 10px;
   background: rgba(255,255,255,0.02);
 }
 .info-card .label {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 800;
   color: #fff;
   margin-bottom: 5px;
 }
 .info-card .desc {
-  font-size: 15px;
+  font-size: 14px;
   color: #ddd;
   line-height: 1.7;
 }
 .accent { color: #e63946; font-weight: 700; }
 .white { color: #fff; font-weight: 700; }
 
-/* 구독 테이블 */
 .sub-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 15px;
+  font-size: 14px;
   margin-top: 8px;
 }
 .sub-table th {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: #666;
   text-align: center;
-  padding: 6px 4px;
+  padding: 5px 4px;
   border-bottom: 1px solid #222;
 }
 .sub-table td {
-  padding: 7px 4px;
+  padding: 6px 4px;
   text-align: center;
-  font-size: 16px;
+  font-size: 14px;
   border-bottom: 1px solid #1a1a1a;
   color: #ccc;
 }
-.sub-table tr td:nth-child(1) { color: #999; text-align: left; font-weight: 600; font-size: 14px; }
+.sub-table tr td:nth-child(1) { color: #999; text-align: left; font-weight: 600; font-size: 13px; }
 .sub-table tr td:nth-child(2) { color: #666; }
 .sub-table tr td:nth-child(3) { color: #ccc; }
 .sub-table tr td:nth-child(4) { color: #e63946; font-weight: 800; }
@@ -163,7 +162,7 @@ body {
   </div>
 
   <div class="content">
-    <!-- 좌측: 전투 + 보상 -->
+    <!-- 좌측: 핵심 변경 -->
     <div>
       <div class="sec-title">전투 시스템</div>
 
@@ -172,27 +171,32 @@ body {
         <div class="desc">
           자동배틀 → <span class="accent">턴제 수동 전투</span>로 전환<br>
           매 턴 <span class="white">스킬 / 일반공격 / 방어</span> 선택<br>
-          적 의도 미리 표시 · PP 관리 · 히든 시너지 6종
+          적 의도 미리 표시 · PP 관리 · 버프 시너지
         </div>
       </div>
 
       <div class="info-card">
-        <div class="label">🏆 마일스톤 보상 + 랭킹</div>
+        <div class="label">🏆 마일스톤 + 랭킹 보상</div>
         <div class="desc">
           <span class="white">5층마다</span> BP · 조각 · 신규 아이템 지급<br>
-          <span class="accent">일일/주간 랭킹</span> 보상 자동 DM 지급<br>
-          주간 1위: IV스톤 · 리롤 · 시간단축권 + 칭호
+          <span class="accent">일일 TOP 5</span> — 개체선택리롤권 ×2<br>
+          <span class="accent">주간 랭킹</span> — IV스톤 · 전환권 · 리롤권 + 칭호
         </div>
       </div>
 
       <div class="info-card">
-        <div class="label">🎁 신규 아이템</div>
+        <div class="label">🎁 신규 아이템 5종</div>
         <div class="desc">
-          ✨ 이로치전환권 — 조각 없이 전환 시작<br>
-          🎯 우선포획볼 — 다음 포획 100% 성공<br>
-          🔮 던전부적 — 다음 런 버프 1개로 시작<br>
-          ⏰ 시간단축권 — 전환 대기 12시간 단축<br>
-          🥚 알즉부화권 — 이로치 알 즉시 부화
+          ✨ 이로치전환권 · 🎯 우선포획볼 · 🔮 던전부적<br>
+          ⏰ 시간단축권 · 🥚 알즉부화권
+        </div>
+      </div>
+
+      <div class="info-card">
+        <div class="label">🔄 버프 리롤</div>
+        <div class="desc">
+          보스 클리어 시 버프 선택지 <span class="accent">다시 굴리기</span><br>
+          무료 <span class="white">🔒</span> · 베이직 <span class="white">1회</span> · 채널장 <span class="accent">3회</span>
         </div>
       </div>
     </div>
@@ -209,16 +213,23 @@ body {
           <tr><td>BP 배율</td><td>×1.0</td><td>×1.2</td><td>×1.5</td></tr>
           <tr><td>아이템 · 조각</td><td>×1</td><td>×2</td><td>×3</td></tr>
           <tr><td>버프 리롤</td><td>🔒</td><td>1회/런</td><td>3회/런</td></tr>
-          <tr><td>일일 입장권</td><td>1장</td><td>2장</td><td>3장</td></tr>
           <tr><td>일일 런 횟수</td><td>3회</td><td>3회</td><td>5회</td></tr>
         </table>
       </div>
 
       <div class="info-card">
-        <div class="label">💠 IV스톤 시스템 변경</div>
+        <div class="label">🎮 버튼 컬러 UI</div>
         <div class="desc">
-          포켓몬당 <span class="accent">최대 2회</span> 사용 제한<br>
-          던전 마일스톤 + 주간 랭킹 보상으로 획득
+          스킬 <span class="accent">빨강</span> · 방어 <span style="color:#3498db;font-weight:700">파랑</span> · 일반 회색<br>
+          직관적인 전투 UI로 몰입감 UP
+        </div>
+      </div>
+
+      <div class="info-card">
+        <div class="label">🛡️ 캡차 보안 강화</div>
+        <div class="desc">
+          매크로 포획 탐지 시 <span class="accent">자동 24h 정지</span><br>
+          무응답 3회 → 즉시 차단 + 관리자 알림
         </div>
       </div>
     </div>
