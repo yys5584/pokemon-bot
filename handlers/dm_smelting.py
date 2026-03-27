@@ -463,6 +463,10 @@ async def smelting_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
 
+    # 관리자 전용 (테스트 중)
+    if user_id not in config.ADMIN_IDS:
+        return
+
     # 상태 초기화
     _clear_state(context)
 
