@@ -148,8 +148,9 @@ async def post_init(application: Application):
                 chat_id=config.ADMIN_IDS[0],
                 text="🔄 봇이 재시작되었습니다.",
             )
-        except Exception:
-            pass
+            logger.info(f"Admin restart notify sent to {config.ADMIN_IDS[0]}")
+        except Exception as e:
+            logger.error(f"Admin restart notify failed: {e}")
 
     application.job_queue.run_once(
         _notify_admin_restart, when=10, name="admin_restart_notify",
