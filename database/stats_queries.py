@@ -19,7 +19,7 @@ async def get_total_stats() -> dict:
     row = await pool.fetchrow("""
         SELECT
             (SELECT COUNT(*) FROM users) AS total_users,
-            (SELECT COUNT(*) FROM chat_rooms WHERE is_active = 1) AS total_chats,
+            (SELECT COUNT(*) FROM chat_rooms) AS total_chats,
             (SELECT COUNT(*) FROM spawn_log) AS total_spawns,
             (SELECT COUNT(*) FROM spawn_log WHERE caught_by_user_id IS NOT NULL) AS total_catches,
             (SELECT COUNT(*) FROM trades WHERE status = 'accepted') AS total_trades,

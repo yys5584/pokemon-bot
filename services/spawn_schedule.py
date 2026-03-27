@@ -17,17 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 def calculate_daily_spawns(member_count: int) -> int:
-    """Calculate how many spawns per day based on member count.
-    Optimized for small groups (10~50 members)."""
+    """Calculate how many spawns per day — 모든 채팅방 동일 2회."""
     if member_count < config.SPAWN_MIN_MEMBERS:
         return 0
-
-    for min_m, max_m, spawns in config.SPAWN_TIERS:
-        if min_m <= member_count <= max_m:
-            return spawns
-
-    # 500+ members: original formula
-    return 2 + (member_count - 10) // 500
+    return 2
 
 
 async def roll_rarity(midnight_bonus: bool = False, rarity_boosts: dict | None = None) -> str:
@@ -164,28 +157,15 @@ async def schedule_all_chats(app):
 
     chats = await queries.get_all_active_chats()
 
-    # 채팅방별 멤버수 조회 + 스폰 스케줄링 병렬 처리
-    async def _schedule_one(chat):
+    # 채팅방별 스폰 스케줄링 (API 호출 없이 DB 캐시 멤버수 사용)
+    for chat in chats:
         cid = chat["chat_id"]
         if cid in config.ARCADE_CHAT_IDS:
-            return
+            continue
         try:
-            count = await app.bot.get_chat_member_count(cid)
-            await queries.update_chat_member_count(cid, count)
-        except Exception:
-            count = chat["member_count"]
-        await schedule_spawns_for_chat(app, cid, count)
-
-    # 동시 20개씩 배치 (Telegram API rate limit: 30/sec)
-    sem = asyncio.Semaphore(20)
-    async def _limited(chat):
-        async with sem:
-            try:
-                await _schedule_one(chat)
-            except Exception as e:
-                logger.error(f"Failed to schedule for chat {chat['chat_id']}: {e}")
-
-    await asyncio.gather(*[_limited(c) for c in chats])
+            await schedule_spawns_for_chat(app, cid, chat["member_count"])
+        except Exception as e:
+            logger.error(f"Failed to schedule for chat {cid}: {e}")
 
     # Schedule permanent arcade channels (repeating every N seconds)
     schedule_arcade_spawns(app)
