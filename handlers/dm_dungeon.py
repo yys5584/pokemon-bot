@@ -1568,12 +1568,44 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         return
 
     elif action == "quit":
-        # 포기
+        # 포기 확인 화면
+        run = await dq.get_active_run(user_id)
+        if not run:
+            await query.answer(t(lang, "dungeon.no_active_run"))
+            return
+        floor = run["floor_reached"]
+        await query.answer()
+        text = (
+            f"⚠️ <b>정말 포기하시겠습니까?</b>\n\n"
+            f"현재 <b>{floor}층</b>까지의 진행이 모두 사라집니다.\n"
+            f"획득한 보상만 정산됩니다."
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔙 돌아가기", callback_data=f"dg_qno_{user_id}")],
+            [InlineKeyboardButton("🏳️ 네, 포기합니다", callback_data=f"dg_qyes_{user_id}")],
+        ])
+        await _send_fresh(query, context, user_id, text, reply_markup=kb)
+        return
+
+    elif action == "qyes":
+        # 포기 확정
         run = await dq.get_active_run(user_id)
         if run:
             await _finish_run(query, context, user_id, run, run["floor_reached"])
         else:
             await query.answer(t(lang, "dungeon.no_active_run"))
+        return
+
+    elif action == "qno":
+        # 포기 취소 → 이어하기 화면으로 복귀
+        await query.answer("계속 도전! 💪")
+        run = await dq.get_active_run(user_id)
+        if run:
+            text, kb = await _build_resume_screen(user_id, run, lang)
+            await _send_fresh(query, context, user_id, text, reply_markup=kb)
+        else:
+            text, kb = await _build_entry_screen(user_id, lang)
+            await _send_fresh(query, context, user_id, text, reply_markup=kb)
         return
 
     elif action == "retry":
