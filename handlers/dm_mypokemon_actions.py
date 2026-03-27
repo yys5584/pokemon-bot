@@ -252,7 +252,15 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.answer()
 
     lang = await get_user_lang(user_id)
-    pokemon_list = await queries.get_user_pokemon_list(user_id)
+
+    # 포켓몬 목록 캐싱 (첫 호출만 DB, 이후 캐시)
+    cache_key = "mypoke_cache"
+    cache_uid_key = "mypoke_cache_uid"
+    if context.user_data.get(cache_uid_key) != user_id or cache_key not in context.user_data:
+        context.user_data[cache_key] = await queries.get_user_pokemon_list(user_id)
+        context.user_data[cache_uid_key] = user_id
+
+    pokemon_list = context.user_data[cache_key]
     if not pokemon_list:
         try:
             await query.edit_message_text(t(lang, "my_pokemon.no_pokemon"))
@@ -386,6 +394,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 asyncio.create_task(_feed_mission())
             # Refresh detail
             pokemon_list = await queries.get_user_pokemon_list(user_id)
+            context.user_data[cache_key] = pokemon_list
             idx = max(0, min(idx, len(pokemon_list) - 1))
             text, markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
@@ -410,6 +419,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                         pass
                 asyncio.create_task(_play_mission())
             pokemon_list = await queries.get_user_pokemon_list(user_id)
+            context.user_data[cache_key] = pokemon_list
             idx = max(0, min(idx, len(pokemon_list) - 1))
             text, markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
@@ -422,6 +432,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             result = await _do_evolve(p, user_id, lang=lang)
             await query.answer(result, show_alert=True)
             pokemon_list = await queries.get_user_pokemon_list(user_id)
+            context.user_data[cache_key] = pokemon_list
             idx = max(0, min(idx, len(pokemon_list) - 1))
             text, markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
             try:
@@ -450,6 +461,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             result = await _do_set_slot(p, user_id, team_num, slot, lang=lang)
             await query.answer(result, show_alert=True)
             pokemon_list = await queries.get_user_pokemon_list(user_id)
+            context.user_data[cache_key] = pokemon_list
             idx = max(0, min(idx, len(pokemon_list) - 1))
             text, markup = _build_detail_view(user_id, pokemon_list, idx, page, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
@@ -536,6 +548,7 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
             # 목록으로 복귀
             pokemon_list = await queries.get_user_pokemon_list(user_id)
+            context.user_data[cache_key] = pokemon_list
             if pokemon_list:
                 text, markup = _build_list_view(user_id, pokemon_list, page, filt=filt, lang=lang)
                 await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
