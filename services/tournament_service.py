@@ -608,3 +608,17 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     _reset_state()
     await _clear_registrations_db()
     await _resume_spawns(context, chat_id)
+
+    # 대회 종료 15분 후 아케이드 자동 재시작
+    async def _restart_arcade(ctx):
+        from services.spawn_schedule import schedule_arcade_spawns, restore_temp_arcades
+        try:
+            schedule_arcade_spawns(ctx.application)
+            await restore_temp_arcades(ctx.application)
+            logger.info("Arcade spawns restarted after tournament")
+        except Exception as e:
+            logger.error(f"Failed to restart arcade after tournament: {e}")
+
+    context.application.job_queue.run_once(
+        _restart_arcade, when=900, name="arcade_restart_after_tournament",
+    )
