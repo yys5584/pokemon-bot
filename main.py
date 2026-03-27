@@ -153,7 +153,7 @@ async def post_init(application: Application):
             logger.error(f"Admin restart notify failed: {e}")
 
     application.job_queue.run_once(
-        _notify_admin_restart, when=10, name="admin_restart_notify",
+        _notify_admin_restart, when=60, name="admin_restart_notify",
     )
 
     # 던전 진행 중 유저에게 재시작 안내 (봇 시작 20초 후)
