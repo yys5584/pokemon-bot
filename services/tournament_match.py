@@ -730,7 +730,7 @@ async def _run_match(
         if _comment_rounds:
             _last_comment = _comment_rounds[-1].get("comment", "")
             if _last_comment:
-                await _safe_send(context.bot, chat_id, text=f"{icon_emoji('bookmark')} {_last_comment}")
+                await _safe_send(context.bot, chat_id, text=f"{icon_emoji('bookmark')} {_last_comment}", parse_mode="HTML")
                 await asyncio.sleep(1)
 
         # ── 우승 확정 축하 애니메이션 ──

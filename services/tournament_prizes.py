@@ -102,6 +102,7 @@ async def _run_group_stage(context, chat_id: int, players: list, num_groups: int
         label = GROUP_LABELS[gi]
         await _safe_send(context.bot, chat_id,
             text=f"\n{icon_emoji('battle')} {label}조 토너먼트 시작! ({len(group)}명)",
+            parse_mode="HTML",
         )
         await asyncio.sleep(2)
 
@@ -127,12 +128,14 @@ async def _run_group_stage(context, chat_id: int, players: list, num_groups: int
 
                 if p1 is None:
                     await _safe_send(context.bot, chat_id,
-                        text=f"{match_label}{icon_emoji('footsteps')} {p2[1]['name']} — 부전승!")
+                        text=f"{match_label}{icon_emoji('footsteps')} {p2[1]['name']} — 부전승!",
+                        parse_mode="HTML")
                     winners.append(p2)
                     await asyncio.sleep(1)
                 elif p2 is None:
                     await _safe_send(context.bot, chat_id,
-                        text=f"{match_label}{icon_emoji('footsteps')} {p1[1]['name']} — 부전승!")
+                        text=f"{match_label}{icon_emoji('footsteps')} {p1[1]['name']} — 부전승!",
+                        parse_mode="HTML")
                     winners.append(p1)
                     await asyncio.sleep(1)
                 else:

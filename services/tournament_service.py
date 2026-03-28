@@ -520,6 +520,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                     f"방식: 예선 {excess}경기 → {round_label} 본선\n\n"
                     f"예선전을 시작합니다..."
                 ),
+                parse_mode="HTML",
             )
             await asyncio.sleep(3)
 
@@ -542,6 +543,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                     f"방식: 싱글 엘리미네이션\n\n"
                     f"대진표를 생성합니다..."
                 ),
+                parse_mode="HTML",
             )
             await asyncio.sleep(3)
             bracket = _generate_bracket(player_list)
@@ -591,6 +593,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
 
                 await _safe_send(context.bot, chat_id,
                     text=f"\n{icon_emoji('game')} {round_name}",
+                    parse_mode="HTML",
                 )
                 await asyncio.sleep(1)
 
@@ -609,6 +612,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                     uid2, data2 = p2
                     await _safe_send(context.bot, chat_id,
                         text=f"{match_label}{icon_emoji('footsteps')} {data2['name']} — 부전승!",
+                        parse_mode="HTML",
                     )
                     winners.append(p2)
                     round_winner_names.append(data2['name'])
@@ -618,6 +622,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                     uid1, data1 = p1
                     await _safe_send(context.bot, chat_id,
                         text=f"{match_label}{icon_emoji('footsteps')} {data1['name']} — 부전승!",
+                        parse_mode="HTML",
                     )
                     winners.append(p1)
                     round_winner_names.append(data1['name'])
