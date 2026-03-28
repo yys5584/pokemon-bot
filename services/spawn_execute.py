@@ -403,8 +403,8 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             ]
             safe_name = escape_html(winner_name)
             await context.bot.send_message(
-                chat_id=chat_id,
-                text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\nDM에서 '칭호'로 장착하세요!",
+                chat_id=winner_id,
+                text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\n'칭호'를 입력해서 장착하세요!",
                 parse_mode="HTML",
             )
 
