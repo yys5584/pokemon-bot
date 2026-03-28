@@ -164,24 +164,49 @@ async def update_run_skips(run_id: int, skips_used: int):
 
 async def end_run(run_id: int, floor_reached: int, bp_earned: int, fragments_earned: int,
                   death_enemy: str = None, death_enemy_rarity: str = None, death_floor: int = None,
-                  action_log: str = ""):
+                  action_log: str = "", rewards_json: dict | None = None):
     pool = await get_db()
+    rj = json.dumps(rewards_json, ensure_ascii=False) if rewards_json else None
     try:
         await pool.execute(
             "UPDATE dungeon_runs SET status = 'completed', floor_reached = $1, "
             "bp_earned = $2, fragments_earned = $3, ended_at = NOW(), "
             "death_enemy = $5, death_enemy_rarity = $6, death_floor = $7, "
-            "action_log = $8 WHERE id = $4",
+            "action_log = $8, rewards_json = $9::jsonb, rewards_granted = FALSE "
+            "WHERE id = $4",
             floor_reached, bp_earned, fragments_earned, run_id,
-            death_enemy, death_enemy_rarity, death_floor, action_log,
+            death_enemy, death_enemy_rarity, death_floor, action_log, rj,
         )
     except Exception:
-        # action_log/death_enemy 컬럼 미존재 시 폴백
+        # rewards_json/death_enemy 컬럼 미존재 시 폴백
         await pool.execute(
             "UPDATE dungeon_runs SET status = 'completed', floor_reached = $1, "
             "bp_earned = $2, fragments_earned = $3, ended_at = NOW() WHERE id = $4",
             floor_reached, bp_earned, fragments_earned, run_id,
         )
+
+
+async def mark_rewards_granted(run_id: int):
+    """보상 지급 완료 플래그."""
+    pool = await get_db()
+    try:
+        await pool.execute(
+            "UPDATE dungeon_runs SET rewards_granted = TRUE WHERE id = $1", run_id)
+    except Exception:
+        pass  # 컬럼 미존재 시 무시
+
+
+async def get_ungranted_runs() -> list[dict]:
+    """보상 미지급된 완료 런 조회 (봇 재시작 시 복구용)."""
+    pool = await get_db()
+    try:
+        rows = await pool.fetch(
+            "SELECT id, user_id, rewards_json FROM dungeon_runs "
+            "WHERE status = 'completed' AND rewards_granted = FALSE "
+            "AND rewards_json IS NOT NULL AND ended_at > NOW() - INTERVAL '24 hours'")
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
 
 
 async def abandon_run(run_id: int):

@@ -967,10 +967,10 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
     # 액션 로그 저장
     action_log_str = ",".join(st.get("action_log", []))
 
-    # DB 업데이트
+    # DB 업데이트 (rewards_json 저장 → 보상 유실 방지)
     await dq.end_run(run["id"], final_floor, rewards["bp"], rewards["fragments"],
                      death_enemy=death_enemy, death_enemy_rarity=death_enemy_rarity, death_floor=death_floor,
-                     action_log=action_log_str)
+                     action_log=action_log_str, rewards_json=rewards)
     await dq.update_pokemon_record(user_id, run["pokemon_instance_id"], final_floor, run["theme"])
     is_new_record = await dq.update_user_best_floor(user_id, final_floor)
 
@@ -1021,6 +1021,8 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
 
     if reward_errors:
         logger.error(f"dungeon reward errors for user {user_id}: {reward_errors}")
+    else:
+        await dq.mark_rewards_granted(run["id"])
 
     # 칭호 해금
     unlocked_titles = []
@@ -1770,3 +1772,66 @@ async def _start_run(query, context, user_id: int, instance_id: int, use_amulet:
         [InlineKeyboardButton(t(lang, "dungeon.btn_give_up"), callback_data=f"dg_quit_{user_id}")],
     ]
     await _send_fresh(query, context, user_id, text, reply_markup=InlineKeyboardMarkup(buttons))
+
+
+# ══════════════════════════════════════════════════════════
+# 봇 시작 시 미지급 보상 복구
+# ══════════════════════════════════════════════════════════
+
+async def recover_ungranted_rewards():
+    """봇 재시작 시 rewards_granted=FALSE인 완료 런의 보상 재지급."""
+    runs = await dq.get_ungranted_runs()
+    if not runs:
+        return 0
+    recovered = 0
+    for run in runs:
+        user_id = run["user_id"]
+        rewards = run.get("rewards_json")
+        if not rewards:
+            continue
+        run_id = run["id"]
+        errors = []
+        try:
+            if rewards.get("bp", 0) > 0:
+                await queries.add_battle_points(user_id, rewards["bp"])
+        except Exception as e:
+            errors.append(f"BP: {e}")
+        try:
+            if rewards.get("tickets", 0) > 0:
+                await dq.add_dungeon_tickets(user_id, rewards["tickets"])
+        except Exception as e:
+            errors.append(f"tickets: {e}")
+        try:
+            if rewards.get("fragments", 0) > 0:
+                await cq.add_fragments(user_id, rewards.get("field_type", "forest"), rewards["fragments"])
+        except Exception as e:
+            errors.append(f"fragments: {e}")
+        try:
+            if rewards.get("crystals", 0) > 0 or rewards.get("rainbow", 0) > 0:
+                await cq.add_crystals(user_id, rewards.get("crystals", 0), rewards.get("rainbow", 0))
+        except Exception as e:
+            errors.append(f"crystals: {e}")
+        try:
+            if rewards.get("iv_stones", 0) > 0:
+                await item_queries.add_iv_stones(user_id, rewards["iv_stones"])
+        except Exception as e:
+            errors.append(f"iv_stones: {e}")
+        for i_type, i_qty in rewards.get("items", {}).items():
+            try:
+                if i_type == "iv_stone_3":
+                    await item_queries.add_iv_stones(user_id, i_qty)
+                elif i_type == "shiny_egg":
+                    from services.gacha_service import _create_shiny_egg
+                    await _create_shiny_egg(user_id)
+                else:
+                    await item_queries.add_user_item(user_id, i_type, i_qty)
+            except Exception as e:
+                errors.append(f"item_{i_type}: {e}")
+        if not errors:
+            await dq.mark_rewards_granted(run_id)
+            recovered += 1
+        else:
+            logger.error(f"dungeon reward recovery errors run={run_id} user={user_id}: {errors}")
+    if recovered:
+        logger.info(f"Dungeon: recovered {recovered} ungranted reward(s)")
+    return recovered

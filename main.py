@@ -141,6 +141,18 @@ async def post_init(application: Application):
         job_kwargs={"misfire_grace_time": None},  # 절대 스킵 방지
     )
 
+    # 던전 미지급 보상 복구 (20초 후)
+    async def _recover_dungeon_rewards(context):
+        from handlers.dm_dungeon import recover_ungranted_rewards
+        recovered = await recover_ungranted_rewards()
+        if recovered:
+            logger.info(f"[startup] Dungeon rewards recovered: {recovered}")
+
+    application.job_queue.run_once(
+        _recover_dungeon_rewards, when=20, name="startup_dungeon_recover",
+        job_kwargs={"misfire_grace_time": None},
+    )
+
     # 관리자에게 봇 재시작 알림 (10초 후)
     async def _notify_admin_restart(context):
         try:

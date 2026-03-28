@@ -1615,3 +1615,14 @@ async def create_tables():
             created_at TIMESTAMPTZ DEFAULT NOW()
         )
     """)
+
+    # ── 던전 보상 유실 방지 (2026-03-28) ──
+    try:
+        await pool.execute(
+            "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS rewards_json JSONB",
+            timeout=30)
+        await pool.execute(
+            "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS rewards_granted BOOLEAN DEFAULT FALSE",
+            timeout=30)
+    except Exception:
+        pass
