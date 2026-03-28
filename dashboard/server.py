@@ -101,7 +101,7 @@ SESSION_MAX_AGE = 604800  # 7 days
 MAX_SESSIONS = 1000  # prevent DB bloat
 
 # LLM rate limiting: DB-persisted daily usage
-LLM_DAILY_LIMIT = 3
+LLM_DAILY_LIMIT = 999999  # 무제한
 
 
 async def _ensure_session_table():

@@ -3397,16 +3397,12 @@
 
         <!-- AI TEAM ADVISOR -->
         <div class="page" id="page-simulator">
-            <!-- Quota display -->
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;padding:4px 8px;background:var(--card);border:1px solid var(--border);border-radius:8px">
-                <span id="simQuotaLabel" style="font-size:11px;font-weight:700;color:var(--text)">🎫 잔여 -- 크레딧</span>
-                <span style="font-size:10px;color:var(--dim)">분석 1회당 1크레딧 차감</span>
-            </div>
+            <!-- Quota display (removed - unlimited) -->
             <!-- Quick Analysis Buttons -->
             <div style="margin-bottom:10px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
                     <span style="font-size:11px;font-weight:700;color:var(--green)">⚡ 빠른 분석</span>
-                    <span style="font-size:10px;color:var(--muted)">· 1크레딧</span>
+                    <span style="font-size:10px;color:var(--muted)">· 무제한</span>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
                     <button class="chat-quick-btn" style="flex:1;padding:8px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 최강 팀 추천해줘')">
@@ -3429,51 +3425,7 @@
                     위 버튼을 눌러 팀 분석을 시작하세요!
                 </div>
             </div>
-            <!-- Donation Section (hidden) -->
-            <div class="donate-bar-wrap" style="margin-top:14px;display:none">
-                <div class="donate-header">
-                    <div class="donate-title">☕ 서버 운영 후원 <span style="font-size:10px;font-weight:400;color:var(--muted)">(클로드 MAX 멘징비)</span></div>
-                    <div id="donateAmount" class="donate-amount">$0 <span class="goal">/ $200</span></div>
-                </div>
-                <div class="donate-track">
-                    <div id="donateFill" class="donate-fill" style="width:0%"></div>
-                    <span id="donatePct" class="donate-pct">0%</span>
-                </div>
-                <div id="donateLabel" class="donate-label">후원하시면 크레딧 보너스가 지급됩니다!</div>
-            </div>
-            <div class="section" style="margin-top:10px;display:none">
-                <h2>💎 크레딧 추가 후원</h2>
-                <p style="font-size:11px;color:var(--muted);margin-bottom:10px">후원 시 크레딧 보너스가 지급됩니다. 송금 후 아래 확인 버튼을 눌러주세요.</p>
-                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
-                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#fff8f0,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,1)" data-tier="1" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
-                        <div style="font-size:18px">☕</div>
-                        <div style="font-weight:700;font-size:13px">$3</div>
-                        <div style="font-size:11px;color:var(--muted)">+20크레딧</div>
-                        <div style="font-size:10px;color:var(--primary)">🟣 +1마볼</div>
-                    </div>
-                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid var(--primary);background:linear-gradient(180deg,#fff0ec,#fff);box-shadow:0 2px 12px rgba(180,80,50,0.15);transition:all .2s" onclick="selectDonTier(this,2)" data-tier="2" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
-                        <div style="font-size:18px">🔥</div>
-                        <div style="font-weight:700;font-size:13px">$7</div>
-                        <div style="font-size:11px;color:var(--muted)">+50크레딧</div>
-                        <div style="font-size:10px;color:var(--primary)">🟣 +3마볼</div>
-                        <div style="font-size:9px;color:var(--primary);font-weight:700">BEST</div>
-                    </div>
-                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#fffbe6,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,3)" data-tier="3" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
-                        <div style="font-size:18px">⭐</div>
-                        <div style="font-weight:700;font-size:13px">$15</div>
-                        <div style="font-size:11px;color:var(--muted)">+100크레딧</div>
-                        <div style="font-size:10px;color:var(--primary)">🟣 +7마볼</div>
-                    </div>
-                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#f0f4ff,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,'custom')" data-tier="custom" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
-                        <div style="font-size:18px">✏️</div>
-                        <div style="display:flex;align-items:center;justify-content:center;gap:2px"><span style="font-weight:700;font-size:13px">$</span><input type="number" id="customDonAmount" min="10" max="1000" placeholder="10+" style="width:36px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-weight:700;text-align:center;background:var(--card)" oninput="selectCustomTier()" onclick="event.stopPropagation()"></div>
-                        <div id="customQuotaLabel" style="font-size:11px;color:var(--primary);font-weight:700">직접입력</div>
-                    </div>
-                </div>
-                <button id="payBtn" onclick="startPayment()" style="width:100%;padding:14px 20px;font-size:16px;font-weight:700;border:none;border-radius:10px;background:linear-gradient(135deg,#e85d3a,#c0392b);color:#fff;cursor:pointer;margin-bottom:8px;box-shadow:0 4px 15px rgba(200,60,40,0.35);letter-spacing:0.5px;transition:all .2s" onmouseenter="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px rgba(200,60,40,0.45)'" onmouseleave="this.style.transform='';this.style.boxShadow='0 4px 15px rgba(200,60,40,0.35)'">💳 암호화폐로 후원하기</button>
-                <div id="payStatus" style="display:none;text-align:center;font-size:12px;padding:8px;border-radius:6px;margin-bottom:8px"></div>
-                <div style="font-size:10px;color:var(--muted);text-align:center">후원 완료 시 크레딧 + 마스터볼이 자동 지급됩니다.</div>
-            </div>
+            <!-- Donation/Credit section removed -->
         </div>
 
         <!-- ADMIN PANEL -->
@@ -3815,7 +3767,7 @@ function updateAuthUI(){
     const admTab=document.getElementById("adminTab");
     if(_authUser){
         const photo=_authUser.photo_url?`<img class="user-avatar" src="${_authUser.photo_url}" alt="">`:'';
-        area.innerHTML=`<div class="user-info">${photo}<span class="user-name">${escHtml(_authUser.display_name)}</span><span id="quotaBadge" style="background:rgba(255,255,255,.15);color:#FFD54F;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap">🎫 --</span><button class="logout-btn" onclick="telegramLogout()">로그아웃</button></div>`;
+        area.innerHTML=`<div class="user-info">${photo}<span class="user-name">${escHtml(_authUser.display_name)}</span><button class="logout-btn" onclick="telegramLogout()">로그아웃</button></div>`;
         fetchQuota();
         if(admTab)admTab.style.display=_authUser.is_admin?"":"none";
     }else{
@@ -3831,20 +3783,7 @@ async function fetchQuota(){
     }catch(e){}
 }
 function updateQuotaBadge(remaining,bonus){
-    const el=document.getElementById("quotaBadge");
-    if(el){
-        const color=remaining<=0?"#FF8A80":remaining<=3?"#FFD54F":"#A5D6A7";
-        el.style.color=color;
-        el.textContent=`🎫 ${remaining}크레딧`;
-        el.title=`무료 ${Math.max(0,remaining-bonus)} + 보너스 ${bonus}`;
-    }
-    // Also update simulator quota label
-    const sq=document.getElementById("simQuotaLabel");
-    if(sq){
-        const free=Math.max(0,remaining-bonus);
-        sq.textContent=bonus>0?`🎫 ${remaining}크레딧 (무료 ${free} + 보너스 ${bonus})`:`🎫 ${remaining}크레딧`;
-        sq.style.color=remaining<=0?"var(--red)":remaining<=3?"#E65100":"var(--text)";
-    }
+    // Credit system removed - unlimited usage
 }
 
 // --- Tab Navigation with URL routing ---
