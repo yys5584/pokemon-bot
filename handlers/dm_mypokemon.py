@@ -458,8 +458,8 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int, la
     buttons.append([
         InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("🔄 방생", callback_data=f"mypoke_relone_{user_id}_{idx}_{page}"),
-        InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{idx}_{page}"),
-        InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{idx}_{page}"),
+        InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{p['id']}_{page}"),
+        InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{p['id']}_{page}"),
     ])
 
     # Row 4: navigation

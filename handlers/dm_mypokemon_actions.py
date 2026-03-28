@@ -154,6 +154,7 @@ async def _build_slot_picker(user_id: int, p: dict, idx: int, page: int,
     tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
     lines = [f"{icon_emoji('battle')} 팀{team_num}에 {tb}{shiny} {poke_name(p, lang)} 배치", "슬롯을 선택하세요:\n"]
 
+    inst_id = p["id"]  # 인스턴스 ID 기반 (idx 밀림 방지)
     buttons = []
     for s in range(1, 7):
         if s in slot_map:
@@ -172,7 +173,7 @@ async def _build_slot_picker(user_id: int, p: dict, idx: int, page: int,
             lines.append(f"{slot_emojis[s-1]} (빈 슬롯)")
             label = f"{slot_plain[s-1]} 빈 슬롯 ← 배치"
         buttons.append([InlineKeyboardButton(
-            label, callback_data=f"mypoke_tset_{user_id}_{idx}_{page}_{s}_{team_num}"
+            label, callback_data=f"mypoke_tset_{user_id}_{inst_id}_{page}_{s}_{team_num}"
         )])
 
     buttons.append([InlineKeyboardButton("❌ 취소", callback_data=f"mypoke_v_{user_id}_{idx}_{page}")])
@@ -442,22 +443,44 @@ async def my_pokemon_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             return  # 하위 except에서 "오류 발생" 팝업 방지
 
         elif action in ("t1", "t2"):
-            idx = int(parts[3])
+            inst_id = int(parts[3])
             page = int(parts[4]) if len(parts) > 4 else 0
-            idx = max(0, min(idx, len(pokemon_list) - 1))
-            p = pokemon_list[idx]
+            # inst_id로 포켓몬 찾기 (idx 밀림 방지)
+            p = None
+            idx = 0
+            for i, pk in enumerate(pokemon_list):
+                if pk["id"] == inst_id:
+                    p = pk
+                    idx = i
+                    break
+            if p is None:
+                p = await queries.get_user_pokemon_by_id(inst_id)
+                if not p or p.get("user_id") != user_id:
+                    await query.answer("포켓몬을 찾을 수 없습니다.", show_alert=True)
+                    return
             team_num = 1 if action == "t1" else 2
             text, markup = await _build_slot_picker(user_id, p, idx, page, team_num, lang=lang)
             await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
 
         elif action == "tset":
-            # mypoke_tset_{uid}_{idx}_{page}_{slot}_{team_num}
-            idx = int(parts[3])
+            # mypoke_tset_{uid}_{inst_id}_{page}_{slot}_{team_num}
+            inst_id = int(parts[3])
             page = int(parts[4])
             slot = int(parts[5])
             team_num = int(parts[6])
-            idx = max(0, min(idx, len(pokemon_list) - 1))
-            p = pokemon_list[idx]
+            # inst_id로 포켓몬 찾기 (idx 밀림 방지)
+            p = None
+            idx = 0
+            for i, pk in enumerate(pokemon_list):
+                if pk["id"] == inst_id:
+                    p = pk
+                    idx = i
+                    break
+            if p is None:
+                p = await queries.get_user_pokemon_by_id(inst_id)
+                if not p or p.get("user_id") != user_id:
+                    await query.answer("포켓몬을 찾을 수 없습니다.", show_alert=True)
+                    return
             result = await _do_set_slot(p, user_id, team_num, slot, lang=lang)
             await query.answer(result, show_alert=True)
             pokemon_list = await queries.get_user_pokemon_list(user_id)
