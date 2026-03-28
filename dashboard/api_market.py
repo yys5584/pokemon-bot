@@ -554,7 +554,4 @@ def setup_routes(app):
     app.router.add_post("/api/market/sell", api_market_sell)
     app.router.add_post("/api/market/buy", api_market_buy)
     app.router.add_post("/api/market/cancel", api_market_cancel)
-    # Payment & donation
-    app.router.add_get("/api/donation", api_donation)
-    app.router.add_post("/api/payment/create", api_payment_create)
-    app.router.add_post("/api/payment/webhook", api_payment_webhook)
+    # Payment & donation routes removed (credit system removed)

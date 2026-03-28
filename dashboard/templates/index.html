@@ -3935,15 +3935,7 @@ function loadCurrentPage(){
 
 // --- HOME ---
 function renderDonation(data){
-    const current=data.current||0,goal=data.goal||200;
-    const pct=Math.round((current/goal)*100);
-    const isOver=pct>=100;
-    document.getElementById("donateAmount").innerHTML=`$${current} <span class="goal">/ $${goal}</span>${isOver?` <span class="donate-over-badge">🎉 ${pct}% 달성!</span>`:''}`;
-    const fill=document.getElementById("donateFill");
-    fill.style.width=Math.min(pct,100)+"%";
-    if(isOver)fill.classList.add("over");else fill.classList.remove("over");
-    document.getElementById("donatePct").textContent=pct+"%";
-    document.getElementById("donateLabel").textContent=isOver?"감사합니다! 목표를 초과 달성했어요! 🎉":"후원해주시면 더 좋은 서비스를 만들 수 있어요!";
+    // Donation rendering removed
 }
 
 async function loadHome(){
@@ -5302,117 +5294,9 @@ function _openDexModal(pid){
 })();
 
 // --- AI CHAT ADVISOR (session-based) ---
-let _chatHistory=[];
 let _chatBusy=false;
-let _chatMsgs=[];  // [{role, html}] for current session
 
-// Session management
-let _chatSessions=[];  // [{id, name, msgs:[], history:[]}]
-let _curSessionId=null;
-const _SESS_KEY="tgpoke_sessions";
-const _MAX_SESSIONS=6;
-
-function _loadSessions(){
-    try{
-        const d=JSON.parse(localStorage.getItem(_SESS_KEY)||"null");
-        if(d&&d.sessions&&d.sessions.length){
-            _chatSessions=d.sessions.slice(-_MAX_SESSIONS); // trim to max
-            _curSessionId=d.active||_chatSessions[0].id;
-            if(!_chatSessions.find(s=>s.id===_curSessionId)) _curSessionId=_chatSessions[_chatSessions.length-1].id;
-        } else {
-            // Migrate old single-session data
-            const old=JSON.parse(localStorage.getItem("tgpoke_chat")||"null");
-            const firstId=Date.now().toString(36);
-            if(old&&old.msgs&&old.msgs.length){
-                _chatSessions=[{id:firstId,name:"대화 1",msgs:old.msgs.slice(-30),history:old.history||[]}];
-            } else {
-                _chatSessions=[{id:firstId,name:"대화 1",msgs:[],history:[]}];
-            }
-            _curSessionId=firstId;
-            localStorage.removeItem("tgpoke_chat");
-        }
-    }catch(e){
-        const fid=Date.now().toString(36);
-        _chatSessions=[{id:fid,name:"대화 1",msgs:[],history:[]}];
-        _curSessionId=fid;
-    }
-}
-function _saveSessions(){
-    try{
-        // Keep only last 30 msgs per session
-        const trimmed=_chatSessions.map(s=>({...s,msgs:s.msgs.slice(-30),history:(s.history||[]).slice(-10)}));
-        localStorage.setItem(_SESS_KEY,JSON.stringify({sessions:trimmed,active:_curSessionId}));
-    }catch(e){}
-}
-function _getCurSession(){return _chatSessions.find(s=>s.id===_curSessionId)}
-function _switchSession(id){
-    _curSessionId=id;
-    const s=_getCurSession();
-    if(!s)return;
-    _chatMsgs=s.msgs;
-    _chatHistory=s.history||[];
-    _renderChatMsgs();
-    _renderSessionBar();
-    _saveSessions();
-}
-function _createSession(){
-    if(_chatSessions.length>=_MAX_SESSIONS) return; // max 6
-    const id=Date.now().toString(36);
-    const num=_chatSessions.length+1;
-    const s={id,name:"대화 "+num,msgs:[],history:[]};
-    _chatSessions.push(s);
-    _switchSession(id);
-}
-function _deleteSession(id){
-    _chatSessions=_chatSessions.filter(s=>s.id!==id);
-    if(!_chatSessions.length){
-        // Last session deleted — create fresh empty one
-        const fid=Date.now().toString(36);
-        _chatSessions=[{id:fid,name:"대화 1",msgs:[],history:[]}];
-        _switchSession(fid);
-    } else if(_curSessionId===id){
-        _switchSession(_chatSessions[_chatSessions.length-1].id);
-    } else{_renderSessionBar();_saveSessions();}
-}
-function _renderSessionBar(){
-    const bar=document.getElementById("chatSessionBar");
-    if(!bar)return;
-    let h="";
-    _chatSessions.forEach(s=>{
-        const active=s.id===_curSessionId?"active":"";
-        const del=`<span class="sess-tab-del" onclick="event.stopPropagation();_deleteSession('${s.id}')">✕</span>`;
-        h+=`<button class="sess-tab ${active}" onclick="_switchSession('${s.id}')">${s.name}${del}</button>`;
-    });
-    if(_chatSessions.length<_MAX_SESSIONS) h+=`<button class="sess-tab-new" onclick="_createSession()" title="새 대화">+</button>`;
-    bar.innerHTML=h;
-}
-function _renderChatMsgs(){
-    const el=document.getElementById("chatMessages");
-    if(!el)return;
-    if(!_chatMsgs.length){
-        el.innerHTML=`<div class="chat-msg ai"><div class="chat-sender">🤖 배틀 어드바이저</div>포켓몬 배틀 전략 AI입니다. 위 버튼을 누르거나 자유롭게 질문하세요!<br><span style="font-size:11px;color:var(--muted)">예: "내 마기라스 어때?", "페어리 카운터 추천", "팀 약점 분석"</span></div>`;
-        return;
-    }
-    el.innerHTML="";
-    for(const m of _chatMsgs){
-        const div=document.createElement("div");
-        div.className=`chat-msg ${m.role}`;
-        if(m.role==="ai") div.innerHTML='<div class="chat-sender">🤖 배틀 어드바이저</div>'+m.html;
-        else div.innerHTML='<div class="chat-sender">🗣️ 나</div>'+m.html;
-        el.appendChild(div);
-    }
-    el.scrollTop=el.scrollHeight;
-}
-function _restoreChatFromStorage(){
-    _loadSessions();
-    const s=_getCurSession();
-    if(s){
-        _chatMsgs=s.msgs;
-        _chatHistory=s.history||[];
-        _renderChatMsgs();
-    }
-    _renderSessionBar();
-}
+// Chat session/Gemini functions removed
 
 // Mode button mapping → algorithm API (1 token)
 const _MODE_MAP={
@@ -5443,43 +5327,7 @@ async function sendQuick(text){
     document.querySelectorAll('.chat-quick-btn').forEach(b=>{b.style.opacity='1'});
 }
 
-function addChatMsg(role, html){
-    const el=document.getElementById("chatMessages");
-    const div=document.createElement("div");
-    div.className=`chat-msg ${role}`;
-    if(role==="ai") div.innerHTML='<div class="chat-sender">🤖 배틀 어드바이저</div>'+html;
-    else div.innerHTML='<div class="chat-sender">🗣️ 나</div>'+html;
-    el.appendChild(div);
-    el.scrollTop=el.scrollHeight;
-    _chatMsgs.push({role,html});
-    // Auto-name session from first user message
-    const s=_getCurSession();
-    if(s){
-        s.msgs=_chatMsgs;
-        s.history=_chatHistory;
-        if(role==="user"&&s.msgs.filter(m=>m.role==="user").length===1){
-            s.name=html.replace(/<[^>]*>/g,"").slice(0,12)||(s.name);
-            _renderSessionBar();
-        }
-        _saveSessions();
-    }
-    return div;
-}
-
-function showTyping(){
-    const el=document.getElementById("chatMessages");
-    const div=document.createElement("div");
-    div.className="chat-typing";
-    div.id="chatTyping";
-    div.innerHTML="<span></span><span></span><span></span>";
-    el.appendChild(div);
-    el.scrollTop=el.scrollHeight;
-}
-
-function hideTyping(){
-    const t=document.getElementById("chatTyping");
-    if(t) t.remove();
-}
+// Chat message/typing functions removed
 
 function mdToHtml(text){
     // Lightweight markdown → HTML for AI responses
@@ -5544,117 +5392,9 @@ function formatAiResponse(data){
     return html;
 }
 
-async function sendChat(){
-    if(_chatBusy) return;
-    if(!_authUser){telegramConnect();return}
-    const input=document.getElementById("chatInput");
-    const msg=input.value.trim();
-    if(!msg) return;
-    input.value='';
+// sendChat/retry functions removed (Gemini chat removed)
 
-    addChatMsg('user', msg.replace(/</g,'&lt;'));
-    _chatHistory.push({role:'user',content:msg});
-
-    _chatBusy=true;
-    document.getElementById("chatSendBtn").disabled=true;
-    showTyping();
-
-    try{
-        const r=await fetch("/api/my/chat",{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({message:msg, history:_chatHistory.slice(-10)})
-        });
-        const d=await r.json();
-        hideTyping();
-        if(d.error){
-            addChatMsg('ai','죄송합니다. 오류가 발생했어요: '+d.error+_retryBtn(msg));
-        } else if(d.refunded){
-            addChatMsg('ai', d.analysis+_retryBtn(msg));
-            if(d.remaining!==undefined) updateQuotaBadge(d.remaining,d.bonus_remaining||0);
-        } else {
-            let html=formatAiResponse(d);
-            if(d.truncated){
-                html+='<div style="margin-top:8px;padding:6px 10px;background:rgba(139,0,0,.06);border-radius:6px;font-size:11px;color:var(--muted)">⚠️ 답변이 길어서 일부가 잘렸어요.'+_retryBtn(msg)+'</div>';
-            }
-            if(d.remaining!==undefined && !d.no_cost){
-                updateQuotaBadge(d.remaining,d.bonus_remaining||0);
-            }
-            addChatMsg('ai', html);
-            if(d.analysis && !d.no_cost) _chatHistory.push({role:'assistant',content:d.analysis});
-        }
-    }catch(e){
-        hideTyping();
-        addChatMsg('ai','서버 연결에 실패했습니다.'+_retryBtn(msg));
-    }
-    _chatBusy=false;
-    document.getElementById("chatSendBtn").disabled=false;
-}
-function _retryBtn(msg){
-    const escaped=msg.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-    return ' <button onclick="_retryChat(\''+escaped+'\')" style="background:var(--red);color:#fff;border:none;padding:3px 10px;border-radius:5px;font-size:11px;cursor:pointer;margin-left:4px">🔄 다시 시도</button>';
-}
-function _retryChat(msg){
-    document.getElementById("chatInput").value=msg;
-    sendChat();
-}
-
-let _selectedTier=2;
-const _tierAmounts={1:3,2:7,3:15};
-function _calcQuota(usd){return Math.floor(usd/7*50)}
-function _calcMasterBalls(usd){return Math.max(1,Math.floor(usd/3))}
-
-function selectDonTier(el,tier){
-    _selectedTier=tier;
-    document.querySelectorAll('[data-tier]').forEach(c=>c.style.border='2px solid transparent');
-    el.style.border='2px solid var(--primary)';
-    if(tier!=='custom'){
-        document.getElementById("customDonAmount").value="";
-        document.getElementById("customQuotaLabel").textContent="직접입력";
-    }
-}
-function selectCustomTier(){
-    const v=parseInt(document.getElementById("customDonAmount").value)||0;
-    if(v>0){
-        _selectedTier="custom";
-        document.querySelectorAll('[data-tier]').forEach(c=>c.style.border='2px solid transparent');
-        document.querySelector('[data-tier="custom"]').style.border='2px solid var(--primary)';
-        document.getElementById("customQuotaLabel").textContent=`+${_calcQuota(v)}회 +${_calcMasterBalls(v)}마볼`;
-    }else{
-        document.getElementById("customQuotaLabel").textContent="직접입력";
-    }
-}
-async function startPayment(){
-    const btn=document.getElementById("payBtn");
-    const status=document.getElementById("payStatus");
-    const customAmt=_selectedTier==="custom"?parseInt(document.getElementById("customDonAmount").value)||0:0;
-
-    if(_selectedTier==="custom"&&customAmt<10){
-        status.style.display="block";status.style.background="#fff3cd";status.style.color="#856404";
-        status.textContent="직접 입력은 최소 $10부터 가능합니다.";return;
-    }
-
-    btn.disabled=true;btn.textContent="후원 준비 중...";
-    status.style.display="none";
-
-    const body=_selectedTier==="custom"?{custom_amount:customAmt}:{tier:_selectedTier};
-    try{
-        const r=await fetch("/api/payment/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-        const d=await r.json();
-        if(d.ok&&d.invoice_url){
-            window.open(d.invoice_url,"_blank");
-            status.style.display="block";status.style.background="#d4edda";status.style.color="#155724";
-            status.textContent="후원 페이지가 열렸습니다. 완료 후 보상이 자동 지급됩니다!";
-        }else{
-            status.style.display="block";status.style.background="#f8d7da";status.style.color="#721c24";
-            status.textContent=d.error||"후원 생성에 실패했습니다.";
-        }
-    }catch(e){
-        status.style.display="block";status.style.background="#f8d7da";status.style.color="#721c24";
-        status.textContent="서버 연결에 실패했습니다.";
-    }
-    btn.disabled=false;btn.textContent="💳 암호화폐로 후원하기";
-}
+// Payment/donation functions removed
 
 async function loadSimulator(){
     if(!_myPokemon.length){
@@ -5663,10 +5403,7 @@ async function loadSimulator(){
             _myPokemon=await r.json();
         }catch(e){}
     }
-    // Restore chat sessions from localStorage
-    _restoreChatFromStorage();
-    // Load donation progress
-    try{const don=await fetchJSON("/api/donation");if(don)renderDonation(don)}catch(e){renderDonation({current:0,goal:200})}
+    // Chat sessions and donation removed
 }
 
 // --- Admin Panel ---
