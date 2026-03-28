@@ -605,6 +605,7 @@ async def _run_match(
                     _score_text = f"[{_score_c} - {_score_d}]"
                     _comment_msg = await _safe_send(context.bot, chat_id,
                         text=f"━══════════════════━\n문박사: {_comment}\n  {score_icon} 현재 스코어 {_score_text}\n━══════════════════━",
+                        parse_mode="HTML",
                     )
                     await asyncio.sleep(2)
 
