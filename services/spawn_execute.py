@@ -629,9 +629,14 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                      window=window, newbie=newbie_tag)
 
         # Generate card image (run in executor to avoid blocking event loop)
+        from functools import partial
+        _types = pokemon.get("pokemon_type")
+        if isinstance(_types, str):
+            _types = [_types]
         loop = asyncio.get_event_loop()
         card_buf = await loop.run_in_executor(
-            None, generate_card, pokemon["id"], pokemon["name_ko"], rarity, pokemon["emoji"], is_shiny
+            None, partial(generate_card, pokemon["id"], f"야생의 {pokemon['name_ko']}",
+                          rarity, pokemon["emoji"], is_shiny, types=_types)
         )
 
         # 이전 스폰의 포획 메시지가 완전히 전송될 때까지 대기
