@@ -98,7 +98,7 @@ docs/                   # 설계 문서
 
 | 항목 | 값 |
 |------|-----|
-| VM | 158.180.93.94 (ubuntu) |
+| VM | 134.185.118.142 (ubuntu) |
 | SSH 키 | 회사: `./oracle_vm`, 집: `~/.ssh/oracle_vm` |
 | 봇 재시작 | `sudo systemctl restart pokemon-bot` |
 | 로그 | `sudo journalctl -u pokemon-bot -f` |
@@ -112,6 +112,6 @@ docs/                   # 설계 문서
 python dashboard/run_preview.py    # port 8090
 
 # 배포
-ssh -i oracle_vm ubuntu@158.180.93.94
+ssh -i oracle_vm ubuntu@134.185.118.142
 cd ~/pokemon-bot && git pull origin dev && sudo systemctl restart pokemon-bot
 ```

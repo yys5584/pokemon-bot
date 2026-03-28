@@ -867,33 +867,16 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
     iv_total: IV 총합 (0~186). 홀로그래픽 효과 강도 결정.
     types: 타입 목록 (예: ["fire", "dragon"]). 헤더/인포에 표시.
     """
-    # 템플릿 PNG + PIL 텍스트 합성 (Playwright 없이 가벼운 렌더링)
-    tpl_key = _get_template_key(rarity, is_shiny, iv_total)
-    tpl = _load_template(tpl_key)
-    if tpl:
-        card = tpl.copy()
-
-        # 포켓몬 스프라이트
-        if mega_key:
-            sprite_path = ASSETS_DIR / f"{mega_key}.png"
-            if sprite_path.exists():
-                sprite = Image.open(sprite_path).convert("RGBA")
-                max_size = 320
-                ratio = min(max_size / sprite.width, max_size / sprite.height)
-                sprite = sprite.resize((int(sprite.width * ratio), int(sprite.height * ratio)), Image.LANCZOS)
-            else:
-                sprite = _load_sprite(pokemon_id)
-        else:
-            sprite = _load_sprite(pokemon_id)
-        if sprite:
-            sx = (CARD_WIDTH - sprite.width) // 2
-            sy = _ART_Y + (_ART_H - sprite.height) // 2
-            card.paste(sprite, (sx, sy), sprite)
-
-        # 텍스트 (뱃지는 템플릿에 포함)
-        draw = ImageDraw.Draw(card)
-        _draw_header_text_with_name(card, draw, pokemon_id, name_ko, rarity, is_shiny, mega_key, types)
-        _draw_info_text(draw, name_ko, rarity, iv_total, types)
+    # HTML 템플릿 + Playwright 렌더링 (CSS 100% 일치)
+    try:
+        from utils.card_renderer import render_card_html
+        return render_card_html(
+            pokemon_id, name_ko, rarity,
+            is_shiny=is_shiny, mega_key=mega_key,
+            iv_total=iv_total, types=types,
+        )
+    except Exception:
+        pass
 
         buf = io.BytesIO()
         card.convert("RGB").save(buf, format="JPEG", quality=88)
