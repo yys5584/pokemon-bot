@@ -878,13 +878,7 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
     except Exception:
         pass
 
-        buf = io.BytesIO()
-        card.convert("RGB").save(buf, format="JPEG", quality=88)
-        buf.seek(0)
-        buf.name = "card.jpg"
-        return buf
-
-    # 폴백: 기존 PIL 렌더링 (템플릿 없을 때)
+    # 폴백: 기존 PIL 렌더링
     card = _generate_card_legacy(pokemon_id, name_ko, rarity, emoji,
                                  is_shiny, mega_key, iv_total=iv_total, types=types)
     buf = io.BytesIO()
