@@ -7,7 +7,7 @@ import random
 from pathlib import Path
 from functools import lru_cache
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 ASSETS_DIR = Path(__file__).parent.parent / "assets" / "pokemon"
 BALL_DIR = Path(__file__).parent.parent / "assets" / "ball"
@@ -397,48 +397,65 @@ def _draw_tcg_art_bg(card: Image.Image, rarity: str) -> Image.Image:
     return card
 
 
-def _draw_holo_sparkles(card: Image.Image, iv_total: int) -> Image.Image:
-    """IV 연동 홀로그래픽 스파클."""
+def _draw_holo_sparkles(card: Image.Image, iv_total: int, is_shiny: bool = False) -> Image.Image:
+    """IV 연동 홀로그래픽 사선 효과 (HTML holo-shine 레퍼런스 기반).
+
+    일반: -35도 흰색 사선 3줄 + blur, IV 비례 opacity 0.06→0.5.
+    이로치: 프리즘 6색 사선 밴드 + blur.
+    """
     if iv_total is None or iv_total <= 60:
         return card
+
     intensity = min(1.0, (iv_total - 60) / 126)
-    n_sparkles = int(intensity * 80)
-    if n_sparkles <= 0:
-        return card
+
+    W, H = _ART_W, _ART_H
+    sheen = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+
+    # -35도 사선 투영값: t = x*sin35 + y*cos35, 0~diag_len
+    s35 = math.sin(math.radians(35))
+    c35 = math.cos(math.radians(35))
+    diag_len = W * s35 + H * c35
+
+    if is_shiny:
+        # 프리즘 6색 밴드 (HTML --prism-1~6)
+        PRISM = [
+            (255, 119, 115), (255, 237, 95), (168, 255, 95),
+            (131, 255, 247), (120, 148, 255), (216, 117, 255),
+        ]
+        bw = 0.055  # 밴드 폭 비율
+        alpha_max = int(180 * intensity)
+        centers = [0.10 + i * 0.135 for i in range(6)]
+        pixels = sheen.load()
+        for y in range(H):
+            for x in range(W):
+                t = (x * s35 + y * c35) / diag_len
+                for i, ct in enumerate(centers):
+                    dist = abs(t - ct)
+                    if dist < bw:
+                        a = int(alpha_max * (1 - dist / bw))
+                        px = pixels[x, y]
+                        pixels[x, y] = (PRISM[i][0], PRISM[i][1], PRISM[i][2], min(255, px[3] + a))
+    else:
+        # 흰색 3줄 (HTML holo-shine band 위치: 50%, 34%, 65%)
+        alpha_max = int(255 * (0.06 + intensity * 0.44))
+        band_centers = [0.50, 0.34, 0.65]
+        band_widths  = [0.08, 0.04, 0.04]
+        pixels = sheen.load()
+        for y in range(H):
+            for x in range(W):
+                t = (x * s35 + y * c35) / diag_len
+                for ct, bw in zip(band_centers, band_widths):
+                    dist = abs(t - ct)
+                    if dist < bw:
+                        a = int(alpha_max * (1 - dist / bw))
+                        px = pixels[x, y]
+                        pixels[x, y] = (255, 255, 255, min(255, px[3] + a))
+
+    # blur (HTML filter: blur(6px) 근사)
+    sheen = sheen.filter(ImageFilter.GaussianBlur(radius=4))
 
     layer = Image.new("RGBA", card.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(layer)
-    rng = random.Random(iv_total)
-    rainbow = _rainbow_row_rgb(_ART_W)
-
-    for _ in range(n_sparkles):
-        sx = rng.randint(_ART_X + 10, _ART_X + _ART_W - 10)
-        sy = rng.randint(_ART_Y + 10, _ART_Y + _ART_H - 10)
-        color = rainbow[(sx - _ART_X) % len(rainbow)]
-        size = rng.choice([2, 3, 4])
-        alpha = int(80 + intensity * 140)
-        arm = size * 2
-        # 4각 별
-        draw.line([(sx, sy - arm), (sx, sy + arm)], fill=(*color, alpha), width=1)
-        draw.line([(sx - arm, sy), (sx + arm, sy)], fill=(*color, alpha), width=1)
-        draw.ellipse([sx - size, sy - size, sx + size, sy + size], fill=(*color, alpha))
-
-    # S등급 (160+): 대각선 레인보우 쉰
-    if iv_total >= 160:
-        sheen = Image.new("RGBA", (_ART_W, _ART_H), (0, 0, 0, 0))
-        sdraw = ImageDraw.Draw(sheen)
-        for y in range(_ART_H):
-            for x in range(_ART_W):
-                diag = (x + y) % _ART_W
-                c = rainbow[diag % len(rainbow)]
-                dist = abs(((x + y * 0.6) % 200) - 100) / 100  # 0~1 band
-                if dist < 0.15:
-                    a = int(35 * (1 - dist / 0.15))
-                    sdraw.point((x, y), fill=(*c, a))
-        sheen_layer = Image.new("RGBA", card.size, (0, 0, 0, 0))
-        sheen_layer.paste(sheen, (_ART_X, _ART_Y))
-        layer = Image.alpha_composite(layer, sheen_layer)
-
+    layer.paste(sheen, (_ART_X, _ART_Y))
     return Image.alpha_composite(card, layer)
 
 
@@ -631,10 +648,7 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
     if is_shiny:
         card = _draw_tcg_shiny_border(card)
 
-    # 6. 홀로그래픽 (IV 연동)
-    card = _draw_holo_sparkles(card, iv_total)
-
-    # 7. 포켓몬 스프라이트
+    # 6. 포켓몬 스프라이트
     if mega_key:
         sprite_path = ASSETS_DIR / f"{mega_key}.png"
         if sprite_path.exists():
@@ -650,6 +664,9 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
         sx = (CARD_WIDTH - sprite.width) // 2
         sy = _ART_Y + (_ART_H - sprite.height) // 2
         card.paste(sprite, (sx, sy), sprite)
+
+    # 7. 홀로그래픽 (IV 연동) — 스프라이트 위에 오버레이
+    card = _draw_holo_sparkles(card, iv_total, is_shiny=is_shiny)
 
     # 8. 헤더바
     draw = ImageDraw.Draw(card)
