@@ -465,6 +465,7 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         stat_key = f"iv_{stat_short}"
         if stat_short == "spdef":
             stat_key = "iv_spdef"
+        context.user_data.pop("mypoke_cache", None)  # 캐시 무효화
         await _ivstone_execute(query, user_id, instance_id, stat_key)
         return
 
@@ -527,6 +528,7 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         instance_id = int(parts[3])
         if mode == "all":
             await _execute_iv_reroll_all(query, user_id, instance_id)
+            context.user_data.pop("mypoke_cache", None)  # 캐시 무효화
         else:
             await _show_stat_selection(query, user_id, instance_id)
     elif data.startswith("ivr_st_"):
@@ -537,6 +539,7 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if parts[3] == "spdef":
             stat_key = "iv_spdef"
         await _execute_iv_reroll_one(query, user_id, instance_id, stat_key)
+        context.user_data.pop("mypoke_cache", None)  # 캐시 무효화
     elif data.startswith("ivr_ft_"):
         # 등급 필터
         parts = data.split("_")  # ivr_ft_{mode}_{rarity}_{page}
