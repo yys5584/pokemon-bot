@@ -582,6 +582,7 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             return
         await query.answer()
         draft = await _init_draft(context, owner_id, tn)
+
         text_msg, markup = _build_team_slots(owner_id, draft, tn, lang=lang)
         try:
             await query.edit_message_text(text_msg, reply_markup=markup, parse_mode="HTML")

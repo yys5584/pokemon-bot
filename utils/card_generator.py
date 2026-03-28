@@ -128,6 +128,7 @@ def _rainbow_row_rgb(width: int) -> list[tuple]:
     return row
 
 
+
 def _draw_shiny_bottom_rainbow(card: Image.Image, band_height: int = 60) -> Image.Image:
     """Draw a horizontal rainbow gradient band at the bottom of the card."""
     w, h = card.size
@@ -208,90 +209,459 @@ def _draw_shiny_glow(card: Image.Image, accent: tuple) -> Image.Image:
     return Image.alpha_composite(card, layer)
 
 
-def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
-                  is_shiny: bool = False) -> io.BytesIO:
-    """Generate a 16:9 Pokemon card image and return as BytesIO (PNG)."""
+# ── Mega Evolution card effects ──────────────────────────────
+
+_MEGA_PURPLE = (160, 60, 220)
+_MEGA_PINK = (255, 80, 180)
+
+def _draw_mega_glow(card: Image.Image) -> Image.Image:
+    """Draw mega evolution glow: purple-pink energy aura with DNA helix particles."""
+    w, h = card.size
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    cx, cy = w // 2, h // 2 - 20
+
+    # Outer purple glow
+    for i in range(30, 0, -1):
+        alpha = int(45 * (i / 30))
+        r = int(300 * (i / 30))
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(*_MEGA_PURPLE, alpha))
+
+    # Inner pink core
+    for i in range(18, 0, -1):
+        alpha = int(55 * (i / 18))
+        r = int(140 * (i / 18))
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(*_MEGA_PINK, alpha))
+
+    # DNA helix-style double spiral particles
+    rng = random.Random(77)
+    for strand in (0, math.pi):
+        for t in range(60):
+            angle = t * 0.18 + strand
+            dist = 60 + t * 3.2
+            sx = int(cx + dist * math.cos(angle))
+            sy = int(cy - 180 + t * 6)
+            if not (0 <= sx < w and 0 <= sy < h):
+                continue
+            fade = max(0, 220 - t * 3)
+            size = 3 if t % 3 == 0 else 2
+            color = _MEGA_PURPLE if strand == 0 else _MEGA_PINK
+            draw.ellipse([sx - size, sy - size, sx + size, sy + size],
+                         fill=(*color, fade))
+
+    # Scattered energy particles
+    for _ in range(40):
+        angle = rng.uniform(0, 2 * math.pi)
+        dist = rng.uniform(50, 260)
+        sx = int(cx + dist * math.cos(angle))
+        sy = int(cy + dist * math.sin(angle))
+        if not (0 <= sx < w and 0 <= sy < h):
+            continue
+        size = rng.choice([2, 3, 4])
+        alpha = rng.randint(100, 200)
+        color = rng.choice([_MEGA_PURPLE, _MEGA_PINK, (255, 255, 255)])
+        # Diamond shape
+        draw.polygon([(sx, sy - size * 2), (sx + size, sy),
+                       (sx, sy + size * 2), (sx - size, sy)],
+                     fill=(*color, alpha))
+
+    return Image.alpha_composite(card, layer)
+
+
+def _draw_mega_bottom_line(card: Image.Image, line_h: int = 6) -> Image.Image:
+    """Draw a purple→pink gradient line at the bottom (replaces rarity line)."""
+    w, h = card.size
+    pixels = []
+    for y_off in range(line_h):
+        for x in range(w):
+            t = x / w
+            r = int(_MEGA_PURPLE[0] + (_MEGA_PINK[0] - _MEGA_PURPLE[0]) * t)
+            g = int(_MEGA_PURPLE[1] + (_MEGA_PINK[1] - _MEGA_PURPLE[1]) * t)
+            b = int(_MEGA_PURPLE[2] + (_MEGA_PINK[2] - _MEGA_PURPLE[2]) * t)
+            pixels.append((r, g, b, 240))
+    line_img = Image.new("RGBA", (w, line_h))
+    line_img.putdata(pixels)
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    layer.paste(line_img, (0, h - line_h))
+    return Image.alpha_composite(card, layer)
+
+
+# ── TCG Card Layout Constants ─────────────────────────────────
+
+_FRAME_W = 8       # 외부 프레임 두께
+_INNER_PAD = 4     # 이너 보더
+_HEADER_H = 36     # 헤더 높이
+_INFO_H = 70       # 인포바 높이
+
+# 아트윈도우 영역 (프레임+이너패드+헤더 아래 ~ 인포바 위)
+_ART_X = _FRAME_W + _INNER_PAD
+_ART_Y = _FRAME_W + _INNER_PAD + _HEADER_H
+_ART_W = CARD_WIDTH - 2 * (_FRAME_W + _INNER_PAD)
+_ART_H = CARD_HEIGHT - 2 * (_FRAME_W + _INNER_PAD) - _HEADER_H - _INFO_H
+
+# 프레임 색상 (main, accent/bevel)
+_FRAME_COLORS = {
+    "common":          ((100, 110, 105), (70, 80, 75)),
+    "rare":            ((140, 165, 200), (100, 130, 170)),
+    "epic":            ((170, 130, 210), (130, 90, 175)),
+    "legendary":       ((230, 195, 55),  (180, 150, 30)),
+    "ultra_legendary": ((220, 50, 50),   (180, 30, 30)),  # base; will be rainbow
+}
+
+# 타입별 색상 (도트용)
+_TYPE_COLORS = {
+    "normal": (168, 168, 120), "fire": (240, 80, 48), "water": (104, 144, 240),
+    "grass": (120, 200, 80), "electric": (248, 208, 48), "ice": (152, 216, 216),
+    "fighting": (192, 48, 40), "poison": (160, 64, 160), "ground": (224, 192, 104),
+    "flying": (168, 144, 240), "psychic": (248, 88, 136), "bug": (168, 184, 32),
+    "rock": (184, 160, 56), "ghost": (112, 88, 152), "dragon": (112, 56, 248),
+    "dark": (112, 88, 72), "steel": (184, 184, 208), "fairy": (238, 153, 172),
+}
+
+
+def _draw_tcg_frame(card: Image.Image, rarity: str) -> Image.Image:
+    """등급별 TCG 프레임 (8px 외부 테두리 + 4px 이너 보더)."""
+    draw = ImageDraw.Draw(card)
+    w, h = card.size
+    main, bevel = _FRAME_COLORS.get(rarity, _FRAME_COLORS["common"])
+
+    if rarity == "ultra_legendary":
+        # 프리즘 레인보우 프레임
+        row_rgb = _rainbow_row_rgb(w)
+        layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        for y in range(h):
+            for side in ("top", "bottom", "left", "right"):
+                if side == "top" and y < _FRAME_W:
+                    shift = y * 3
+                    for x in range(w):
+                        c = row_rgb[(x + shift) % w]
+                        layer.putpixel((x, y), (*c, 255))
+                elif side == "bottom" and y >= h - _FRAME_W:
+                    shift = y * 3
+                    for x in range(w):
+                        c = row_rgb[(x + shift) % w]
+                        layer.putpixel((x, y), (*c, 255))
+                elif side == "left" and _FRAME_W <= y < h - _FRAME_W:
+                    shift = y * 3
+                    for x in range(_FRAME_W):
+                        c = row_rgb[(x + shift) % w]
+                        layer.putpixel((x, y), (*c, 255))
+                elif side == "right" and _FRAME_W <= y < h - _FRAME_W:
+                    shift = y * 3
+                    for x in range(w - _FRAME_W, w):
+                        c = row_rgb[(x + shift) % w]
+                        layer.putpixel((x, y), (*c, 255))
+        card = Image.alpha_composite(card, layer)
+    else:
+        # 외부 프레임 사각형
+        draw.rectangle([0, 0, w - 1, h - 1], outline=(*main, 255), width=_FRAME_W)
+
+        # 메탈릭 하이라이트 (rare 이상)
+        if rarity in ("rare", "epic", "legendary"):
+            highlight = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            hdraw = ImageDraw.Draw(highlight)
+            # 상단 프레임에 밝은 줄
+            for y in range(2, _FRAME_W - 1):
+                alpha = int(60 * (1 - y / _FRAME_W))
+                bright = tuple(min(255, c + 60) for c in main)
+                hdraw.line([(0, y), (w, y)], fill=(*bright, alpha))
+            card = Image.alpha_composite(card, highlight)
+
+        # 골드 쉬머 (legendary)
+        if rarity == "legendary":
+            shimmer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            rng = random.Random(42)
+            for _ in range(200):
+                sx = rng.randint(0, w - 1)
+                sy = rng.randint(0, h - 1)
+                # 프레임 영역에만
+                if sx < _FRAME_W or sx >= w - _FRAME_W or sy < _FRAME_W or sy >= h - _FRAME_W:
+                    sdraw = ImageDraw.Draw(shimmer)
+                    sdraw.point((sx, sy), fill=(255, 240, 150, rng.randint(40, 100)))
+            card = Image.alpha_composite(card, shimmer)
+
+    # 이너 보더 (어두운 라인)
+    draw = ImageDraw.Draw(card)
+    ix, iy = _FRAME_W, _FRAME_W
+    iw, ih = w - _FRAME_W, h - _FRAME_W
+    draw.rectangle([ix, iy, iw, ih], outline=(*bevel, 180), width=_INNER_PAD)
+
+    return card
+
+
+def _draw_tcg_art_bg(card: Image.Image, rarity: str) -> Image.Image:
+    """아트윈도우 배경 그라데이션."""
     top_col, bot_col = RARITY_COLORS.get(rarity, RARITY_COLORS["common"])
+    art_bg = _make_gradient(_ART_W, _ART_H, top_col, bot_col).convert("RGBA")
+    card.paste(art_bg, (_ART_X, _ART_Y))
+    return card
+
+
+def _draw_holo_sparkles(card: Image.Image, iv_total: int) -> Image.Image:
+    """IV 연동 홀로그래픽 스파클."""
+    if iv_total is None or iv_total <= 60:
+        return card
+    intensity = min(1.0, (iv_total - 60) / 126)
+    n_sparkles = int(intensity * 80)
+    if n_sparkles <= 0:
+        return card
+
+    layer = Image.new("RGBA", card.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    rng = random.Random(iv_total)
+    rainbow = _rainbow_row_rgb(_ART_W)
+
+    for _ in range(n_sparkles):
+        sx = rng.randint(_ART_X + 10, _ART_X + _ART_W - 10)
+        sy = rng.randint(_ART_Y + 10, _ART_Y + _ART_H - 10)
+        color = rainbow[(sx - _ART_X) % len(rainbow)]
+        size = rng.choice([2, 3, 4])
+        alpha = int(80 + intensity * 140)
+        arm = size * 2
+        # 4각 별
+        draw.line([(sx, sy - arm), (sx, sy + arm)], fill=(*color, alpha), width=1)
+        draw.line([(sx - arm, sy), (sx + arm, sy)], fill=(*color, alpha), width=1)
+        draw.ellipse([sx - size, sy - size, sx + size, sy + size], fill=(*color, alpha))
+
+    # S등급 (160+): 대각선 레인보우 쉰
+    if iv_total >= 160:
+        sheen = Image.new("RGBA", (_ART_W, _ART_H), (0, 0, 0, 0))
+        sdraw = ImageDraw.Draw(sheen)
+        for y in range(_ART_H):
+            for x in range(_ART_W):
+                diag = (x + y) % _ART_W
+                c = rainbow[diag % len(rainbow)]
+                dist = abs(((x + y * 0.6) % 200) - 100) / 100  # 0~1 band
+                if dist < 0.15:
+                    a = int(35 * (1 - dist / 0.15))
+                    sdraw.point((x, y), fill=(*c, a))
+        sheen_layer = Image.new("RGBA", card.size, (0, 0, 0, 0))
+        sheen_layer.paste(sheen, (_ART_X, _ART_Y))
+        layer = Image.alpha_composite(layer, sheen_layer)
+
+    return Image.alpha_composite(card, layer)
+
+
+def _draw_tcg_shiny_border(card: Image.Image) -> Image.Image:
+    """이로치 아트윈도우 내부 레인보우 보더 (3px)."""
+    layer = Image.new("RGBA", card.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    bw = 3
+    rainbow = _rainbow_row_rgb(_ART_W)
+
+    # 상단/하단
+    for y_off in range(bw):
+        for x in range(_ART_W):
+            c = rainbow[x]
+            draw.point((_ART_X + x, _ART_Y + y_off), fill=(*c, 220))
+            draw.point((_ART_X + x, _ART_Y + _ART_H - 1 - y_off), fill=(*c, 220))
+    # 좌측/우측
+    v_rainbow = _rainbow_row_rgb(_ART_H)
+    for x_off in range(bw):
+        for y in range(_ART_H):
+            c = v_rainbow[y]
+            draw.point((_ART_X + x_off, _ART_Y + y), fill=(*c, 220))
+            draw.point((_ART_X + _ART_W - 1 - x_off, _ART_Y + y), fill=(*c, 220))
+
+    return Image.alpha_composite(card, layer)
+
+
+def _draw_tcg_header(draw: ImageDraw.Draw, pokemon_id: int, rarity: str,
+                     is_shiny: bool, mega_key: str | None,
+                     types: list[str] | None):
+    """TCG 헤더바: ID 좌측, 타입 중앙, 뱃지 우측."""
+    accent = RARITY_ACCENT.get(rarity, RARITY_ACCENT["common"])
+    font_sm = _get_font(15)
+    font_xs = _get_font(12)
+    hx = _FRAME_W + _INNER_PAD + 8
+    hy = _FRAME_W + _INNER_PAD + 8
+
+    # 헤더 배경 (반투명 어두운 바)
+    draw.rectangle(
+        [_ART_X, _FRAME_W + _INNER_PAD, _ART_X + _ART_W, _ART_Y - 1],
+        fill=(15, 15, 20, 220),
+    )
+
+    # ID 좌측
+    id_text = f"#{pokemon_id:03d}"
+    draw.text((hx, hy), id_text, fill=(200, 200, 200, 200), font=font_sm)
+
+    # 타입 도트 (중앙)
+    if types:
+        total_w = len(types) * 50
+        tx = CARD_WIDTH // 2 - total_w // 2
+        for t in types:
+            color = _TYPE_COLORS.get(t, (150, 150, 150))
+            # 도트
+            draw.ellipse([tx, hy + 2, tx + 14, hy + 16], fill=(*color, 255))
+            # 타입명
+            t_name = t[:3].upper()
+            draw.text((tx + 18, hy + 1), t_name, fill=(200, 200, 200, 220), font=font_xs)
+            tx += 50
+
+    # 뱃지 우측 (등급 → MEGA → 이로치 순, 우→좌)
+    rarity_labels = {"common": "일반", "rare": "레어", "epic": "에픽",
+                     "legendary": "전설", "ultra_legendary": "초전설"}
+    bx = _ART_X + _ART_W - 8  # 우측 끝
+
+    # 등급 뱃지
+    rt = rarity_labels.get(rarity, rarity)
+    rbbox = draw.textbbox((0, 0), rt, font=font_sm)
+    rw = rbbox[2] - rbbox[0]
+    bx -= rw + 16
+    draw.rounded_rectangle([bx, hy - 2, bx + rw + 16, hy + 20], radius=4, fill=(*accent, 210))
+    draw.text((bx + 8, hy), rt, fill=(255, 255, 255), font=font_sm)
+
+    # MEGA 뱃지
+    if mega_key:
+        bx -= 8
+        mt = "MEGA"
+        mbbox = draw.textbbox((0, 0), mt, font=font_sm)
+        mw = mbbox[2] - mbbox[0]
+        bx -= mw + 16
+        draw.rounded_rectangle([bx, hy - 2, bx + mw + 16, hy + 20], radius=4, fill=(160, 60, 220, 220))
+        draw.text((bx + 8, hy), mt, fill=(255, 255, 255), font=font_sm)
+
+    # 이로치 뱃지
+    if is_shiny:
+        bx -= 8
+        st = "✦SHINY"
+        sbbox = draw.textbbox((0, 0), st, font=font_sm)
+        sw = sbbox[2] - sbbox[0]
+        bx -= sw + 16
+        draw.rounded_rectangle([bx, hy - 2, bx + sw + 16, hy + 20], radius=4, fill=(205, 80, 80, 220))
+        draw.text((bx + 8, hy), st, fill=(255, 255, 255), font=font_sm)
+
+
+def _draw_tcg_info(draw: ImageDraw.Draw, name_ko: str, rarity: str,
+                   iv_total: int | None, types: list[str] | None):
+    """TCG 인포바: 이름 + 등급/IV/타입."""
+    accent = RARITY_ACCENT.get(rarity, RARITY_ACCENT["common"])
+    font_name = _get_font(28, "bold")
+    font_detail = _get_font(14)
+
+    info_y = _ART_Y + _ART_H
+    info_x = _ART_X
+    info_w = _ART_W
+
+    # 인포바 배경
+    draw.rectangle(
+        [info_x, info_y, info_x + info_w, CARD_HEIGHT - _FRAME_W - _INNER_PAD],
+        fill=(15, 15, 20, 230),
+    )
+
+    # 구분선 (accent)
+    draw.line([(info_x + 12, info_y + 1), (info_x + info_w - 12, info_y + 1)],
+              fill=(*accent, 180), width=2)
+
+    # 이름 (좌측)
+    nx = info_x + 20
+    ny = info_y + 10
+    draw.text((nx + 1, ny + 1), name_ko, fill=(0, 0, 0, 150), font=font_name)
+    draw.text((nx, ny), name_ko, fill=(255, 255, 255), font=font_name)
+
+    # 2줄째: 등급 + 타입 (좌측), IV 등급 (우측)
+    rarity_labels = {"common": "일반", "rare": "레어", "epic": "에픽",
+                     "legendary": "전설", "ultra_legendary": "초전설"}
+    detail_y = ny + 36
+    detail_parts = [rarity_labels.get(rarity, rarity)]
+    if types:
+        type_ko = {"normal": "노말", "fire": "불꽃", "water": "물", "grass": "풀",
+                   "electric": "전기", "ice": "얼음", "fighting": "격투", "poison": "독",
+                   "ground": "땅", "flying": "비행", "psychic": "에스퍼", "bug": "벌레",
+                   "rock": "바위", "ghost": "고스트", "dragon": "드래곤", "dark": "악",
+                   "steel": "강철", "fairy": "페어리"}
+        type_str = " / ".join(type_ko.get(t, t) for t in types)
+        detail_parts.append(type_str)
+    detail_text = "  ·  ".join(detail_parts)
+    draw.text((nx, detail_y), detail_text, fill=(180, 180, 190), font=font_detail)
+
+    # IV 등급 뱃지 (우측)
+    if iv_total is not None:
+        grade_map = [(160, "S", (255, 215, 0)), (120, "A", (100, 200, 255)),
+                     (93, "B", (140, 230, 140)), (62, "C", (200, 200, 200)),
+                     (0, "D", (160, 160, 160))]
+        grade_letter, grade_color = "D", (160, 160, 160)
+        for threshold, letter, color in grade_map:
+            if iv_total >= threshold:
+                grade_letter, grade_color = letter, color
+                break
+        iv_text = f"IV: {grade_letter}"
+        ivbbox = draw.textbbox((0, 0), iv_text, font=font_name)
+        iv_w = ivbbox[2] - ivbbox[0]
+        iv_x = info_x + info_w - iv_w - 20
+        draw.text((iv_x, ny + 4), iv_text, fill=grade_color, font=_get_font(24, "bold"))
+
+
+def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
+                  is_shiny: bool = False, mega_key: str | None = None,
+                  *, iv_total: int | None = None,
+                  types: list[str] | None = None) -> io.BytesIO:
+    """Generate a TCG-style 16:9 Pokemon card image.
+
+    mega_key: 메가폼 키 (예: "mega_6_x"). 지정 시 메가폼 이미지+이펙트 사용.
+    iv_total: IV 총합 (0~186). 홀로그래픽 효과 강도 결정.
+    types: 타입 목록 (예: ["fire", "dragon"]). 헤더/인포에 표시.
+    """
     accent = RARITY_ACCENT.get(rarity, RARITY_ACCENT["common"])
 
-    # 1. Gradient background
-    card = _make_gradient(CARD_WIDTH, CARD_HEIGHT, top_col, bot_col)
-    card = card.convert("RGBA")
+    # 1. 검정 배경 캔버스
+    card = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (10, 10, 15, 255))
 
-    # 2. Glow behind Pokemon (enhanced for shiny)
+    # 2. TCG 프레임
+    card = _draw_tcg_frame(card, rarity)
+
+    # 3. 아트윈도우 배경
+    card = _draw_tcg_art_bg(card, rarity)
+
+    # 4. 기본 글로우
     glow_layer = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
     glow_draw = ImageDraw.Draw(glow_layer)
-    cx, cy = CARD_WIDTH // 2, CARD_HEIGHT // 2 - 10
+    cx = CARD_WIDTH // 2
+    cy = _ART_Y + _ART_H // 2
     _draw_glow(glow_draw, cx, cy, 200, accent)
     card = Image.alpha_composite(card, glow_layer)
 
-    if is_shiny:
+    # 5. 이로치/메가 이펙트
+    if mega_key:
+        card = _draw_mega_glow(card)
+    elif is_shiny:
         card = _draw_shiny_glow(card, accent)
 
-    # 3. Load and place Pokemon sprite (cached & pre-scaled)
-    sprite = _load_sprite(pokemon_id)
+    if is_shiny:
+        card = _draw_tcg_shiny_border(card)
+
+    # 6. 홀로그래픽 (IV 연동)
+    card = _draw_holo_sparkles(card, iv_total)
+
+    # 7. 포켓몬 스프라이트
+    if mega_key:
+        sprite_path = ASSETS_DIR / f"{mega_key}.png"
+        if sprite_path.exists():
+            sprite = Image.open(sprite_path).convert("RGBA")
+            max_size = 320
+            ratio = min(max_size / sprite.width, max_size / sprite.height)
+            sprite = sprite.resize((int(sprite.width * ratio), int(sprite.height * ratio)), Image.LANCZOS)
+        else:
+            sprite = _load_sprite(pokemon_id)
+    else:
+        sprite = _load_sprite(pokemon_id)
     if sprite:
         sx = (CARD_WIDTH - sprite.width) // 2
-        sy = (CARD_HEIGHT - sprite.height) // 2 - 30
+        sy = _ART_Y + (_ART_H - sprite.height) // 2
         card.paste(sprite, (sx, sy), sprite)
 
-    # 4. Draw rarity accent line at bottom
+    # 8. 헤더바
     draw = ImageDraw.Draw(card)
-    draw.rectangle(
-        [0, CARD_HEIGHT - 4, CARD_WIDTH, CARD_HEIGHT],
-        fill=(*accent, 255),
-    )
+    _draw_tcg_header(draw, pokemon_id, rarity, is_shiny, mega_key, types)
 
-    # 5. Pokemon name text at bottom
-    font = _get_font(32)
-    font_small = _get_font(18)
+    # 9. 인포바
+    _draw_tcg_info(draw, name_ko, rarity, iv_total, types)
 
-    # Name (emoji omitted — font can't render Unicode emoji)
-    text = name_ko
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw = bbox[2] - bbox[0]
-    tx = (CARD_WIDTH - tw) // 2
-    ty = CARD_HEIGHT - 65
-
-    # Text shadow
-    draw.text((tx + 2, ty + 2), text, fill=(0, 0, 0, 180), font=font)
-    draw.text((tx, ty), text, fill=(255, 255, 255, 255), font=font)
-
-    # Rarity label top-right
-    rarity_labels = {"common": "일반", "rare": "레어", "epic": "에픽", "legendary": "전설", "ultra_legendary": "초전설"}
-    rarity_text = rarity_labels.get(rarity, rarity)
-    rbbox = draw.textbbox((0, 0), rarity_text, font=font_small)
-    rw = rbbox[2] - rbbox[0]
-
-    # Rarity badge background
-    badge_x = CARD_WIDTH - rw - 28
-    badge_y = 14
-    draw.rounded_rectangle(
-        [badge_x - 8, badge_y - 4, badge_x + rw + 8, badge_y + 24],
-        radius=6,
-        fill=(*accent, 200),
-    )
-    draw.text((badge_x, badge_y), rarity_text, fill=(255, 255, 255, 255), font=font_small)
-
-    # Shiny badge (left of rarity badge)
-    if is_shiny:
-        shiny_text = "이로치"
-        sbbox = draw.textbbox((0, 0), shiny_text, font=font_small)
-        sw = sbbox[2] - sbbox[0]
-        shiny_x = badge_x - sw - 28
-        draw.rounded_rectangle(
-            [shiny_x - 8, badge_y - 4, shiny_x + sw + 8, badge_y + 24],
-            radius=6,
-            fill=(205, 92, 92, 220),
-        )
-        draw.text((shiny_x, badge_y), shiny_text, fill=(255, 255, 255, 255), font=font_small)
-
-    # 6. Pokemon ID top-left
-    id_text = f"#{pokemon_id:03d}"
-    draw.text((22, 16), id_text, fill=(255, 255, 255, 100), font=font_small)
-
-    # 7. Shiny: thin rainbow accent line at bottom (replaces rarity line)
-    if is_shiny:
+    # 10. 하단 프레임 악센트 (메가/이로치)
+    if mega_key:
+        card = _draw_mega_bottom_line(card)
+    elif is_shiny:
         line_h = 6
         row_rgb = _rainbow_row_rgb(CARD_WIDTH)
         line_pixels = [(*c, 240) for c in row_rgb] * line_h
@@ -301,12 +671,12 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
         rainbow_layer.paste(line_img, (0, CARD_HEIGHT - line_h))
         card = Image.alpha_composite(card, rainbow_layer)
 
-    # Convert to bytes (JPEG: much smaller & faster than PNG)
+    # Convert to bytes
     buf = io.BytesIO()
     card_rgb = card.convert("RGB")
     card_rgb.save(buf, format="JPEG", quality=85)
     buf.seek(0)
-    buf.name = "card.jpg"  # Telegram needs extension hint
+    buf.name = "card.jpg"
     return buf
 
 
