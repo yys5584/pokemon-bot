@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+{{CSS}}
+body { margin:0; padding:0; width:940px; height:520px; background:transparent; }
+</style>
+</head>
+<body>
+<div class="card-wrap {{WRAP_CLASS}}" style="width:940px;height:520px;">
+  <div class="card {{CARD_BG}}">
+    <div class="nameplate {{PLATE_CLASS}}">
+      <div class="name-section">
+        <span class="pokemon-id">#{{POKEMON_ID}}</span>
+        <span class="pokemon-name">{{POKEMON_NAME}}</span>
+        {{SHINY_BADGE}}
+      </div>
+      <div class="hp-section">
+        {{TYPE_ICONS}}
+        <span class="badge {{BADGE_CLASS}}">{{BADGE_TEXT}}</span>
+      </div>
+    </div>
+    <div class="art-frame {{FRAME_CLASS}}">
+      <div class="art-bg {{ART_BG}}"></div>
+      {{GRAIN_DIV}}
+      <div class="art-glow {{GLOW_CLASS}}"></div>
+      {{EFFECT_LAYERS}}
+      <div class="pokemon-container"><img class="pokemon-sprite {{SPRITE_CLASS}}" src="{{SPRITE_SRC}}"></div>
+    </div>
+    <div class="info-panel {{INFO_CLASS}}">
+      <div class="info-left"><span class="info-label">{{INFO_LABEL}}</span></div>
+      <div class="iv-display {{IV_CLASS}}">{{IV_TEXT}}</div>
+    </div>
+    <div class="accent-line {{ACCENT_CLASS}}"></div>
+  </div>
+</div>
+</body>
+</html>

@@ -11,19 +11,24 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 ASSETS_DIR = Path(__file__).parent.parent / "assets" / "pokemon"
 BALL_DIR = Path(__file__).parent.parent / "assets" / "ball"
+TEMPLATE_DIR = Path(__file__).parent.parent / "assets" / "card_templates"
+TYPE_ICON_DIR = Path(__file__).parent.parent / "assets" / "types_png"
 CARD_WIDTH = 960
 CARD_HEIGHT = 540  # 16:9
+_TEMPLATE_SIZE = (940, 520)  # 템플릿 원본 크기
 
 # Font paths by style
 _FONT_PATHS = [
+    "C:/Windows/Fonts/NotoSansKR-VF.ttf",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "C:/Windows/Fonts/malgun.ttf",
-    "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
     "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
 ]
 _FONT_BOLD_PATHS = [
+    "C:/Windows/Fonts/NotoSansKR-VF.ttf",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
     "C:/Windows/Fonts/malgunbd.ttf",
     "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
-    "C:/Windows/Fonts/malgun.ttf",
 ]
 _FONT_IMPACT_PATHS = [
     "C:/Windows/Fonts/impact.ttf",
@@ -75,6 +80,36 @@ def _make_gradient(width: int, height: int, top_color: tuple, bottom_color: tupl
         pixels.extend([color] * width)
     img.putdata(pixels)
     return img
+
+
+_SHINY_VARIANTS = ["gold", "cool", "rose", "toxic"]
+
+
+@lru_cache(maxsize=64)
+def _load_template(key: str) -> Image.Image | None:
+    """카드 배경 템플릿 PNG 로드 (cached). 960×540으로 리사이즈."""
+    path = TEMPLATE_DIR / f"{key}.png"
+    if not path.exists():
+        return None
+    img = Image.open(path).convert("RGBA")
+    if img.size != (CARD_WIDTH, CARD_HEIGHT):
+        img = img.resize((CARD_WIDTH, CARD_HEIGHT), Image.LANCZOS)
+    return img
+
+
+def _get_template_key(rarity: str, is_shiny: bool, iv_total: int | None = None) -> str:
+    """등급/이로치/IV에 따른 템플릿 키 반환."""
+    if is_shiny:
+        variant = random.choice(_SHINY_VARIANTS)
+        return f"shiny_{rarity}_{variant}"
+    # IV → 홀로 레벨
+    if iv_total is None or iv_total <= 60:
+        holo = "none"
+    elif iv_total <= 120:
+        holo = "low"
+    else:
+        holo = "high"
+    return f"normal_{rarity}_{holo}"
 
 
 @lru_cache(maxsize=48)
@@ -610,28 +645,260 @@ def _draw_tcg_info(draw: ImageDraw.Draw, name_ko: str, rarity: str,
         draw.text((iv_x, ny + 4), iv_text, fill=grade_color, font=_get_font(24, "bold"))
 
 
+def _draw_header_text(draw: ImageDraw.Draw, pokemon_id: int, rarity: str,
+                      is_shiny: bool, mega_key: str | None,
+                      types: list[str] | None):
+    """HTML nameplate 레이아웃: 좌) #ID 이름 [SHINY] | 우) 타입dot 등급뱃지."""
+    accent = RARITY_ACCENT.get(rarity, RARITY_ACCENT["common"])
+    font_name = _get_font(26, "bold")
+    font_id = _get_font(14)
+    font_badge = _get_font(16, "bold")
+    font_xs = _get_font(11)
+
+    # nameplate 영역 (HTML: top:8, left:10, right:10, height:48 → 960×540 기준)
+    np_x = 20
+    np_y = 10
+    np_right = CARD_WIDTH - 20
+    np_cy = np_y + 24  # 세로 중앙
+
+    # 좌측: #ID + 이름 + SHINY
+    id_text = f"#{pokemon_id:03d}"
+    draw.text((np_x, np_cy - 7), id_text, fill=(255, 255, 255, 100), font=font_id)
+    id_w = draw.textbbox((0, 0), id_text, font=font_id)[2] + 10
+
+    name_text = f"야생의 {rarity_labels_ko(rarity)}" if not mega_key else "MEGA"
+    # 실제로는 pokemon_name이 generate_card에서 안 넘어오므로, 호출처에서 처리
+    # 여기서는 넘어온 pokemon_id로 표시
+    draw.text((np_x + id_w, np_cy - 14), "", font=font_name)  # placeholder
+
+    if is_shiny:
+        shiny_text = "SHINY"
+        sx = np_x + id_w + 4
+        sbbox = draw.textbbox((0, 0), shiny_text, font=font_xs)
+        sw = sbbox[2] - sbbox[0]
+        draw.rounded_rectangle([sx, np_cy - 6, sx + sw + 10, np_cy + 10], radius=3,
+                               fill=(255, 107, 107))
+        draw.text((sx + 5, np_cy - 4), shiny_text, fill=(255, 255, 255), font=font_xs)
+
+    # 우측: 등급뱃지
+    rarity_labels = {"common": "일반", "rare": "레어", "epic": "에픽",
+                     "legendary": "전설", "ultra_legendary": "초전설"}
+    rt = rarity_labels.get(rarity, rarity)
+    rbbox = draw.textbbox((0, 0), rt, font=font_badge)
+    rw = rbbox[2] - rbbox[0]
+    bx = np_right - rw - 16
+    draw.rounded_rectangle([bx, np_cy - 10, bx + rw + 16, np_cy + 12], radius=4, fill=(*accent, 210))
+    draw.text((bx + 8, np_cy - 8), rt, fill=(255, 255, 255), font=font_badge)
+
+    # 타입 아이콘 (뱃지 왼쪽에 도트)
+    if types:
+        tx = bx - 10
+        for t in reversed(types):
+            color = _TYPE_COLORS.get(t, (150, 150, 150))
+            tx -= 20
+            draw.ellipse([tx, np_cy - 8, tx + 18, np_cy + 10], fill=(*color, 255))
+
+
+# HTML CSS에서 추출한 등급별 뱃지 배경색
+_BADGE_COLORS = {
+    "common":         (140, 140, 140, 216),  # rgba(140,140,140,0.85)
+    "rare":           (60, 120, 220, 216),   # rgba(60,120,220,0.85)
+    "epic":           (177, 133, 219, 216),  # rgba(177,133,219,0.85)
+    "legendary":      (200, 150, 10, 230),   # rgba(200,150,10,0.9)
+    "ultra_legendary": (200, 40, 40, 230),   # rgba(200,40,40,0.9)
+}
+
+
+def _draw_header_text_with_name(card: Image.Image, draw: ImageDraw.Draw, pokemon_id: int, name_ko: str,
+                                rarity: str, is_shiny: bool, mega_key: str | None,
+                                types: list[str] | None):
+    """HTML nameplate 그대로 재현.
+
+    CSS 원본값:
+      nameplate: top:8, left:10, right:10, height:48, padding:0 18px, align-items:center
+      pokemon-id: 15px 700 rgba(255,255,255,0.4)
+      pokemon-name: 28px 900 white, text-shadow
+      shiny-badge: 13px 900 white, bg gradient(#ff6b6b,#ff9f43,#ffd93d), padding:4px 10px, radius:5px
+      badge: 18px 900 white, padding:5px 14px, radius:5px
+      type-icon: 32×32
+      name-section gap: 12px, hp-section gap: 10px
+    """
+    # 폰트 (HTML과 동일 사이즈)
+    font_id = _get_font(15)             # pokemon-id
+    font_name = _get_font(28, "bold")   # pokemon-name
+    font_badge = _get_font(18, "bold")  # badge
+    font_shiny = _get_font(13, "bold")  # shiny-badge
+
+    # nameplate 영역 (940→960 스케일)
+    np_left = 10     # nameplate left
+    np_top = 8       # nameplate top
+    np_h = 50        # height 48 * scale
+    content_x = np_left + 18   # padding-left 18px
+    content_right = CARD_WIDTH - np_left - 18  # padding-right 18px
+    cy = np_top + np_h // 2    # 세로 중앙 = 33
+
+    # ─── 좌측: #ID + 이름 + [SHINY] ───
+    # #ID (CSS: 15px 700 rgba(255,255,255,0.4))
+    id_text = f"#{pokemon_id:03d}"
+    draw.text((content_x, cy - 7), id_text, fill=(255, 255, 255, 102), font=font_id)
+    id_w = draw.textlength(id_text, font=font_id)
+
+    # 이름 (CSS: 28px 900 white, text-shadow, gap 12px)
+    name_x = int(content_x + id_w + 12)
+    draw.text((name_x, cy - 14), name_ko, fill=(255, 255, 255), font=font_name)
+    name_w = draw.textlength(name_ko, font=font_name)
+
+    # SHINY 뱃지 (이름 뒤, CSS: 13px 900, padding 4px 10px, radius 5px,
+    #   bg: linear-gradient(90deg, #ff6b6b, #ff9f43, #ffd93d), margin-left 8px)
+    if is_shiny:
+        sx = int(name_x + name_w + 8)
+        st = "SHINY"
+        sw = int(draw.textlength(st, font=font_shiny))
+        # CSS: padding 4px 10px → 박스 = sw+20 x 21
+        bx1, by1 = sx, cy - 10
+        bx2, by2 = sx + sw + 20, cy + 11
+        # gradient 이미지로 생성
+        gw, gh = bx2 - bx1, by2 - by1
+        grad = Image.new("RGBA", (gw, gh))
+        for x in range(gw):
+            ratio = x / gw
+            if ratio < 0.5:
+                r2 = ratio * 2
+                c = (255, int(107 + 52 * r2), int(107 - 40 * r2), 255)
+            else:
+                r2 = (ratio - 0.5) * 2
+                c = (255, int(159 + 58 * r2), int(67 + 130 * r2), 255)
+            for y in range(gh):
+                grad.putpixel((x, y), c)
+        # 마스크로 둥근모서리
+        mask = Image.new("L", (gw, gh), 0)
+        ImageDraw.Draw(mask).rounded_rectangle([0, 0, gw - 1, gh - 1], radius=5, fill=255)
+        grad.putalpha(mask)
+        card.paste(grad, (bx1, by1), grad)
+        draw.text((sx + 10, cy - 7), st, fill=(255, 255, 255), font=font_shiny)
+
+    # ─── 우측: 타입아이콘 (뱃지는 템플릿에 포함) ───
+    # 뱃지 폭 추정 (타입 아이콘 위치 계산용)
+    rarity_labels = {"common": "일반", "rare": "레어", "epic": "에픽",
+                     "legendary": "전설", "ultra_legendary": "초전설"}
+    rt = rarity_labels.get(rarity, rarity)
+    rw = int(draw.textlength(rt, font=font_badge))
+    badge_total_w = rw + 28  # padding 14px × 2
+    badge_right = content_right
+    badge_left = badge_right - badge_total_w
+
+    # 타입 아이콘 (CSS: 32×32, gap 10px from badge)
+    if types:
+        icon_size = 32
+        tx = badge_left - 10
+        icon_y = cy - icon_size // 2
+        for t in reversed(types):
+            tx -= icon_size
+            icon_path = TYPE_ICON_DIR / f"{t}.png"
+            if icon_path.exists():
+                icon = Image.open(icon_path).convert("RGBA")
+                icon = icon.resize((icon_size, icon_size), Image.LANCZOS)
+                card.paste(icon, (tx, icon_y), icon)
+            else:
+                color = _TYPE_COLORS.get(t, (150, 150, 150))
+                draw.ellipse([tx, icon_y, tx + icon_size, icon_y + icon_size],
+                             fill=(*color, 255))
+            tx -= 10
+
+
+def _draw_info_text(draw: ImageDraw.Draw, name_ko: str, rarity: str,
+                    iv_total: int | None, types: list[str] | None):
+    """HTML info-panel 재현: 좌) 등급 · 타입 | 우) IV: X.
+    HTML 기준: bottom:8, height:32, padding 0 20px, 세로 center.
+    """
+    # CSS 원본: info-panel bottom:8 left:10 right:10 height:32 padding:0 20px
+    # info-label: 15px 700 rgba(255,255,255,0.55)
+    # iv-display: 18px 900
+    font_label = _get_font(15, "bold")
+    font_iv = _get_font(18, "bold")
+
+    # info-panel 세로 중앙 (픽셀 분석: 원본 y≈475~506 → 960×540에서 493~525, 중앙=509)
+    ip_cy = 510
+    content_x = 30
+    content_right = CARD_WIDTH - 30
+
+    # 좌측: 등급 · 타입 (CSS: 15px 700 rgba(255,255,255,0.55) = alpha 140)
+    rarity_labels = {"common": "일반", "rare": "레어", "epic": "에픽",
+                     "legendary": "전설", "ultra_legendary": "초전설"}
+    type_ko = {"normal": "노말", "fire": "불꽃", "water": "물", "grass": "풀",
+               "electric": "전기", "ice": "얼음", "fighting": "격투", "poison": "독",
+               "ground": "땅", "flying": "비행", "psychic": "에스퍼", "bug": "벌레",
+               "rock": "바위", "ghost": "고스트", "dragon": "드래곤", "dark": "악",
+               "steel": "강철", "fairy": "페어리"}
+    parts = [rarity_labels.get(rarity, rarity)]
+    if types:
+        parts.append(" / ".join(type_ko.get(t, t) for t in types))
+    label_text = " · ".join(parts)
+    draw.text((content_x, ip_cy - 7), label_text, fill=(255, 255, 255, 140), font=font_label)
+
+    # 우측: IV 등급 (CSS: 18px 900, 등급별 색상 + text-shadow glow)
+    if iv_total is not None:
+        grade_map = [(160, "S", (255, 215, 0)), (120, "A", (100, 200, 255)),
+                     (93, "B", (140, 230, 140)), (62, "C", (200, 200, 200)),
+                     (0, "D", (160, 160, 160))]
+        grade_letter, grade_color = "D", (160, 160, 160)
+        for threshold, letter, color in grade_map:
+            if iv_total >= threshold:
+                grade_letter, grade_color = letter, color
+                break
+        iv_text = f"IV: {grade_letter}"
+        iv_w = draw.textlength(iv_text, font=font_iv)
+        ix = int(content_right - iv_w)
+        iy = ip_cy - 9
+        # text-shadow glow (S/A/B만)
+        if grade_letter in ("S", "A", "B"):
+            draw.text((ix, iy), iv_text, fill=(*grade_color, 80), font=font_iv)  # glow layer
+        draw.text((ix, iy), iv_text, fill=grade_color, font=font_iv)
+
+
 def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
                   is_shiny: bool = False, mega_key: str | None = None,
                   *, iv_total: int | None = None,
                   types: list[str] | None = None) -> io.BytesIO:
     """Generate a TCG-style 16:9 Pokemon card image.
 
+    HTML로 사전 렌더링된 배경 템플릿 위에 스프라이트+텍스트를 PIL로 합성.
     mega_key: 메가폼 키 (예: "mega_6_x"). 지정 시 메가폼 이미지+이펙트 사용.
     iv_total: IV 총합 (0~186). 홀로그래픽 효과 강도 결정.
     types: 타입 목록 (예: ["fire", "dragon"]). 헤더/인포에 표시.
     """
+    # HTML 템플릿 + Playwright 렌더링 (CSS 100% 일치)
+    try:
+        from utils.card_renderer import render_card_html
+        return render_card_html(
+            pokemon_id, name_ko, rarity,
+            is_shiny=is_shiny, mega_key=mega_key,
+            iv_total=iv_total, types=types,
+        )
+    except Exception:
+        pass
+
+    # 폴백: 기존 PIL 렌더링 (Playwright 없는 환경)
+    card = _generate_card_legacy(pokemon_id, name_ko, rarity, emoji,
+                                 is_shiny, mega_key, iv_total=iv_total, types=types)
+    buf = io.BytesIO()
+    card.convert("RGB").save(buf, format="JPEG", quality=85)
+    buf.seek(0)
+    buf.name = "card.jpg"
+    return buf
+
+
+def _generate_card_legacy(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
+                          is_shiny: bool = False, mega_key: str | None = None,
+                          *, iv_total: int | None = None,
+                          types: list[str] | None = None) -> Image.Image:
+    """기존 PIL 렌더링 (템플릿 없을 때 폴백)."""
     accent = RARITY_ACCENT.get(rarity, RARITY_ACCENT["common"])
 
-    # 1. 검정 배경 캔버스
     card = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (10, 10, 15, 255))
-
-    # 2. TCG 프레임
     card = _draw_tcg_frame(card, rarity)
-
-    # 3. 아트윈도우 배경
     card = _draw_tcg_art_bg(card, rarity)
 
-    # 4. 기본 글로우
     glow_layer = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
     glow_draw = ImageDraw.Draw(glow_layer)
     cx = CARD_WIDTH // 2
@@ -639,7 +906,6 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
     _draw_glow(glow_draw, cx, cy, 200, accent)
     card = Image.alpha_composite(card, glow_layer)
 
-    # 5. 이로치/메가 이펙트
     if mega_key:
         card = _draw_mega_glow(card)
     elif is_shiny:
@@ -648,7 +914,6 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
     if is_shiny:
         card = _draw_tcg_shiny_border(card)
 
-    # 6. 포켓몬 스프라이트
     if mega_key:
         sprite_path = ASSETS_DIR / f"{mega_key}.png"
         if sprite_path.exists():
@@ -665,17 +930,12 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
         sy = _ART_Y + (_ART_H - sprite.height) // 2
         card.paste(sprite, (sx, sy), sprite)
 
-    # 7. 홀로그래픽 (IV 연동) — 스프라이트 위에 오버레이
     card = _draw_holo_sparkles(card, iv_total, is_shiny=is_shiny)
 
-    # 8. 헤더바
     draw = ImageDraw.Draw(card)
     _draw_tcg_header(draw, pokemon_id, rarity, is_shiny, mega_key, types)
-
-    # 9. 인포바
     _draw_tcg_info(draw, name_ko, rarity, iv_total, types)
 
-    # 10. 하단 프레임 악센트 (메가/이로치)
     if mega_key:
         card = _draw_mega_bottom_line(card)
     elif is_shiny:
@@ -688,13 +948,7 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
         rainbow_layer.paste(line_img, (0, CARD_HEIGHT - line_h))
         card = Image.alpha_composite(card, rainbow_layer)
 
-    # Convert to bytes
-    buf = io.BytesIO()
-    card_rgb = card.convert("RGB")
-    card_rgb.save(buf, format="JPEG", quality=85)
-    buf.seek(0)
-    buf.name = "card.jpg"
-    return buf
+    return card
 
 
 # ── Lineup Card (Finals VS image) ─────────────────────────────
