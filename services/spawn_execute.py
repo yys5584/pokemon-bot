@@ -628,16 +628,26 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                      name=poke_name(pokemon, _lang), bonus=bonus_text, weather=weather_tag,
                      window=window, newbie=newbie_tag)
 
-        # Generate card image (run in executor to avoid blocking event loop)
-        from functools import partial
+        # Generate card image (Playwright async 렌더링)
         _types = pokemon.get("pokemon_type")
         if isinstance(_types, str):
             _types = [_types]
-        loop = asyncio.get_event_loop()
-        card_buf = await loop.run_in_executor(
-            None, partial(generate_card, pokemon["id"], f"야생의 {pokemon['name_ko']}",
-                          rarity, pokemon["emoji"], is_shiny, types=_types)
-        )
+        # 스폰 카드용 랜덤 IV (홀로그램 효과만, 실제 IV와 무관)
+        _spawn_iv = random.randint(30, 186)
+        try:
+            from utils.card_renderer import render_card_html_async
+            card_buf = await render_card_html_async(
+                pokemon["id"], f"야생의 {pokemon['name_ko']}", rarity,
+                is_shiny=is_shiny, iv_total=_spawn_iv, types=_types,
+            )
+        except Exception as e:
+            logger.warning(f"Playwright render failed, falling back to PIL: {e}")
+            from functools import partial
+            loop = asyncio.get_event_loop()
+            card_buf = await loop.run_in_executor(
+                None, partial(generate_card, pokemon["id"], f"야생의 {pokemon['name_ko']}",
+                              rarity, pokemon["emoji"], is_shiny, types=_types, iv_total=_spawn_iv)
+            )
 
         # 이전 스폰의 포획 메시지가 완전히 전송될 때까지 대기
         lock = _get_chat_lock(chat_id)

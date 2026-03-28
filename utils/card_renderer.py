@@ -190,44 +190,46 @@ def _build_html(pokemon_id: int, name_ko: str, rarity: str,
     return html
 
 
-# Playwright 브라우저 싱글톤
+# Playwright async 브라우저 싱글톤
 _browser = None
 _playwright = None
 
 
-def _get_browser():
-    """Playwright 브라우저 싱글톤 (프로세스당 1개)."""
+async def _get_browser_async():
+    """Playwright async 브라우저 싱글톤."""
     global _browser, _playwright
     if _browser is None or not _browser.is_connected():
-        from playwright.sync_api import sync_playwright
-        _playwright = sync_playwright().start()
-        _browser = _playwright.chromium.launch()
+        from playwright.async_api import async_playwright
+        _playwright = await async_playwright().start()
+        _browser = await _playwright.chromium.launch()
     return _browser
 
 
-def render_card_html(pokemon_id: int, name_ko: str, rarity: str,
-                     is_shiny: bool = False, mega_key: str | None = None,
-                     iv_total: int | None = None,
-                     types: list[str] | None = None) -> io.BytesIO:
-    """HTML 템플릿으로 카드 렌더링 → JPEG BytesIO 반환."""
+async def render_card_html_async(pokemon_id: int, name_ko: str, rarity: str,
+                                 is_shiny: bool = False, mega_key: str | None = None,
+                                 iv_total: int | None = None,
+                                 types: list[str] | None = None) -> io.BytesIO:
+    """HTML 템플릿으로 카드 렌더링 (async) → JPEG BytesIO 반환."""
     html = _build_html(pokemon_id, name_ko, rarity, is_shiny, iv_total, types, mega_key)
 
-    # 임시 HTML 파일 (Playwright file:// 프로토콜 필요)
-    tmp_path = ROOT / "_tmp_card.html"
+    # 임시 HTML 파일 (동시 요청 충돌 방지: uuid)
+    import uuid
+    tmp_path = ROOT / f"_tmp_card_{uuid.uuid4().hex[:8]}.html"
     tmp_path.write_text(html, encoding="utf-8")
 
-    browser = _get_browser()
-    page = browser.new_page(viewport={"width": 940, "height": 520})
-    page.goto(f"file:///{tmp_path.as_posix()}")
-    page.wait_for_timeout(200)
-    png_bytes = page.screenshot(clip={"x": 0, "y": 0, "width": 940, "height": 520})
-    page.close()
-    tmp_path.unlink(missing_ok=True)
+    try:
+        browser = await _get_browser_async()
+        page = await browser.new_page(viewport={"width": 940, "height": 520})
+        await page.goto(f"file:///{tmp_path.as_posix()}")
+        await page.wait_for_timeout(200)
+        png_bytes = await page.screenshot(clip={"x": 0, "y": 0, "width": 940, "height": 520})
+        await page.close()
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
     # PNG → JPEG 변환
     from PIL import Image
     img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
-    # 960×540으로 리사이즈 (기존 카드 사이즈)
     img = img.resize((960, 540), Image.LANCZOS)
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=88)

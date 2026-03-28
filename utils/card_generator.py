@@ -867,18 +867,7 @@ def generate_card(pokemon_id: int, name_ko: str, rarity: str, emoji: str = "",
     iv_total: IV 총합 (0~186). 홀로그래픽 효과 강도 결정.
     types: 타입 목록 (예: ["fire", "dragon"]). 헤더/인포에 표시.
     """
-    # HTML 템플릿 + Playwright 렌더링 (CSS 100% 일치)
-    try:
-        from utils.card_renderer import render_card_html
-        return render_card_html(
-            pokemon_id, name_ko, rarity,
-            is_shiny=is_shiny, mega_key=mega_key,
-            iv_total=iv_total, types=types,
-        )
-    except Exception:
-        pass
-
-    # 폴백: 기존 PIL 렌더링
+    # 폴백: 기존 PIL 렌더링 (async 렌더러는 spawn_execute에서 직접 호출)
     card = _generate_card_legacy(pokemon_id, name_ko, rarity, emoji,
                                  is_shiny, mega_key, iv_total=iv_total, types=types)
     buf = io.BytesIO()
