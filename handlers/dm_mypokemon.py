@@ -516,6 +516,9 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
+    # Sync cache so callback handler uses the same list/order
+    context.user_data["mypoke_cache"] = pokemon_list
+    context.user_data["mypoke_cache_uid"] = user_id
 
     if not pokemon_list:
         await update.message.reply_text(t(lang, "my_pokemon.no_pokemon"))
