@@ -818,7 +818,7 @@ def _draw_info_text(draw: ImageDraw.Draw, name_ko: str, rarity: str,
     font_iv = _get_font(18, "bold")
 
     # info-panel 세로 중앙 (픽셀 분석: 원본 y≈475~506 → 960×540에서 493~525, 중앙=509)
-    ip_cy = 520
+    ip_cy = 507
     content_x = 30
     content_right = CARD_WIDTH - 30
 
