@@ -42,7 +42,7 @@ async def _run_preliminary_round(context, chat_id: int, players: list, target: i
     for i in range(0, len(prelim_players), 2):
         matches.append((prelim_players[i], prelim_players[i + 1]))
 
-    lines = [f"🏟 예선전 ({len(matches)}경기)"]
+    lines = [f"{icon_emoji('battle')} 예선전 ({len(matches)}경기)"]
 
     prelim_winners = []
     for mi, (p1, p2) in enumerate(matches):
@@ -53,7 +53,7 @@ async def _run_preliminary_round(context, chat_id: int, players: list, target: i
         )
         winner_name = winner_data["name"]
         mark = f"{mi + 1}."
-        lines.append(f"{mark} {p1[1]['name']} vs {p2[1]['name']} → {winner_name} 승리 ✓")
+        lines.append(f"{mark} {p1[1]['name']} vs {p2[1]['name']} → {winner_name} 승리 {icon_emoji('check')}")
 
         winner_tuple = (p1[0], p1[1]) if winner_id == p1[0] else (p2[0], p2[1])
         prelim_winners.append(winner_tuple)
@@ -81,8 +81,9 @@ async def _run_group_stage(context, chat_id: int, players: list, num_groups: int
         groups[i % num_groups].append(p)
 
     # Announce groups
+    _bt = icon_emoji("battle")
     lines = [
-        f"🏟️ 그룹 스테이지 시작!",
+        f"{_bt} 그룹 스테이지 시작!",
         f"━━━━━━━━━━━━━━━",
         f"참가자: {len(players)}명 → {num_groups}그룹",
         "",
@@ -90,8 +91,8 @@ async def _run_group_stage(context, chat_id: int, players: list, num_groups: int
     for gi, group in enumerate(groups):
         label = GROUP_LABELS[gi]
         names = ", ".join(p[1]["name"] for p in group)
-        lines.append(f"🔹 {label}조 ({len(group)}명): {names}")
-    await _safe_send(context.bot, chat_id, text="\n".join(lines))
+        lines.append(f"{icon_emoji('bookmark')} {label}조 ({len(group)}명): {names}")
+    await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
     await asyncio.sleep(5)
 
     # Run each group
@@ -100,7 +101,7 @@ async def _run_group_stage(context, chat_id: int, players: list, num_groups: int
     for gi, group in enumerate(groups):
         label = GROUP_LABELS[gi]
         await _safe_send(context.bot, chat_id,
-            text=f"\n🔷 {label}조 토너먼트 시작! ({len(group)}명)",
+            text=f"\n{icon_emoji('battle')} {label}조 토너먼트 시작! ({len(group)}명)",
         )
         await asyncio.sleep(2)
 
@@ -126,12 +127,12 @@ async def _run_group_stage(context, chat_id: int, players: list, num_groups: int
 
                 if p1 is None:
                     await _safe_send(context.bot, chat_id,
-                        text=f"{match_label}🏃 {p2[1]['name']} — 부전승!")
+                        text=f"{match_label}{icon_emoji('footsteps')} {p2[1]['name']} — 부전승!")
                     winners.append(p2)
                     await asyncio.sleep(1)
                 elif p2 is None:
                     await _safe_send(context.bot, chat_id,
-                        text=f"{match_label}🏃 {p1[1]['name']} — 부전승!")
+                        text=f"{match_label}{icon_emoji('footsteps')} {p1[1]['name']} — 부전승!")
                     winners.append(p1)
                     await asyncio.sleep(1)
                 else:
@@ -157,7 +158,8 @@ async def _run_group_stage(context, chat_id: int, players: list, num_groups: int
                 winner_tuple = winners[0]
                 all_qualifiers.append((*winner_tuple, label, 1))
                 await _safe_send(context.bot, chat_id,
-                    text=f"🏆 {label}조 우승: {winner_tuple[1]['name']}!")
+                    text=f"{icon_emoji('champion_first')} {label}조 우승: {winner_tuple[1]['name']}!",
+                    parse_mode="HTML")
                 await asyncio.sleep(3)
                 break
 
@@ -175,13 +177,13 @@ async def _run_group_stage(context, chat_id: int, players: list, num_groups: int
     # Summary of qualifiers
     qualifier_tuples = [(uid, data) for uid, data, _, _ in all_qualifiers]
     lines = [
-        f"\n🏆 본선 진출자 ({len(qualifier_tuples)}명)",
+        f"\n{icon_emoji('champion_first')} 본선 진출자 ({len(qualifier_tuples)}명)",
         "━━━━━━━━━━━━━━━",
     ]
     for uid, data, label, place in all_qualifiers:
-        rank = "👑" if place == 1 else "🥈"
+        rank = icon_emoji("crown") if place == 1 else icon_emoji("2")
         lines.append(f"{rank} {label}조 {place}위: {data['name']}")
-    await _safe_send(context.bot, chat_id, text="\n".join(lines))
+    await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
     await asyncio.sleep(5)
 
     # Cross-match: A1 vs B2, B1 vs A2, C1 vs D2, D1 vs C2 (for 4 groups)
@@ -396,31 +398,33 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     def _iv_detail(name: str, rarity: str, ivs: dict) -> str:
         if not ivs:
             rarity_label = config.RARITY_LABEL.get(rarity, rarity)
-            return f"✨ {name} (이로치 · {rarity_label})"
+            return f"{shiny_emoji()} {name} (이로치 · {rarity_label})"
         total = iv_total(ivs["iv_hp"], ivs["iv_atk"], ivs["iv_def"],
                          ivs["iv_spa"], ivs["iv_spdef"], ivs["iv_spd"])
         grade, _ = config.get_iv_grade(total)
         rarity_label = config.RARITY_LABEL.get(rarity, rarity)
         return (
-            f"✨ {name} (이로치 · {rarity_label})\n"
+            f"{shiny_emoji()} {name} (이로치 · {rarity_label})\n"
             f"IV: {ivs['iv_hp']}/{ivs['iv_atk']}/{ivs['iv_def']}"
             f"/{ivs['iv_spa']}/{ivs['iv_spdef']}/{ivs['iv_spd']}"
             f" ({total}/186) [{grade}]"
         )
 
     # ── Build prize message (group chat) ──
+    _champ_icon = icon_emoji("champion_first")
+    _crown_icon = icon_emoji("crown")
     lines = [
-        "\n🏆 토너먼트 결과",
+        f"\n{_champ_icon} 토너먼트 결과",
         "━━━━━━━━━━━━━━━",
-        f"🥇 {winner_data['name']}",
-        f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + 💰{config.TOURNAMENT_PRIZE_1ST_BP:,}BP + ✨이로치 {shiny_1st_name} + ✨이로치 {bonus_1st_name} + 🎖️ 챔피언 칭호",
+        f"{_crown_icon} {winner_data['name']}",
+        f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {icon_emoji('coin')}{config.TOURNAMENT_PRIZE_1ST_BP:,}BP + {shiny_emoji()}이로치 {shiny_1st_name} + {shiny_emoji()}이로치 {bonus_1st_name} + {icon_emoji('champion')} 챔피언 칭호",
     ]
 
     if runner_up_id:
         runner_up_user = await queries.get_user(runner_up_id)
         r_name = runner_up_user["display_name"] if runner_up_user else "???"
-        lines.append(f"🥈 {r_name}")
-        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + 💰{config.TOURNAMENT_PRIZE_2ND_BP:,}BP + ✨이로치 {shiny_2nd_name} + ✨이로치 {bonus_2nd_name}")
+        lines.append(f"{icon_emoji('2')} {r_name}")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {icon_emoji('coin')}{config.TOURNAMENT_PRIZE_2ND_BP:,}BP + {shiny_emoji()}이로치 {shiny_2nd_name} + {shiny_emoji()}이로치 {bonus_2nd_name}")
 
     fourth_placers = semi_reward_targets
     if fourth_placers:
@@ -428,31 +432,31 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             u = await queries.get_user(uid)
             u_name = u["display_name"] if u else "???"
             u_shiny_name = shiny_semi_awards.get(uid, ("???", {}))[0]
-            lines.append(f"🏅 {u_name} (4강)")
-            lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + 💰{config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + ✨이로치 {u_shiny_name}")
+            lines.append(f"{icon_emoji('4')} {u_name} (4강)")
+            lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {icon_emoji('coin')}{config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + {shiny_emoji()}이로치 {u_shiny_name}")
 
     if quarter_losers:
         q_names = []
         for uid in quarter_losers:
             u = await queries.get_user(uid)
             q_names.append(u["display_name"] if u else "???")
-        lines.append(f"\n⚔️ 8강 ({len(quarter_losers)}명): {', '.join(q_names)}")
-        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_QUARTER_MB}개 + 💰{config.TOURNAMENT_PRIZE_QUARTER_BP:,}BP")
+        lines.append(f"\n{icon_emoji('battle')} 8강 ({len(quarter_losers)}명): {', '.join(q_names)}")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_QUARTER_MB}개 + {icon_emoji('coin')}{config.TOURNAMENT_PRIZE_QUARTER_BP:,}BP")
 
     if r16_losers:
-        lines.append(f"\n🎯 16강 탈락 ({len(r16_losers)}명)")
-        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_R16_MB}개 + 💰{config.TOURNAMENT_PRIZE_R16_BP:,}BP")
+        lines.append(f"\n{icon_emoji('1')}{icon_emoji('6')} 16강 탈락 ({len(r16_losers)}명)")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_R16_MB}개 + {icon_emoji('coin')}{config.TOURNAMENT_PRIZE_R16_BP:,}BP")
 
     if participant_only:
-        lines.append(f"\n🎟️ 참가 보상 ({len(participant_only)}명)")
-        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 + 💰{config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP")
+        lines.append(f"\n{icon_emoji('check')} 참가 보상 ({len(participant_only)}명)")
+        lines.append(f"   {mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 + {icon_emoji('coin')}{config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP")
 
     # Title unlocks
     if new_titles:
         lines.append("")
         for _, tname, temoji in new_titles:
             badge = icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji
-            lines.append(f"🎉 {winner_data['name']}이(가) 「{badge} {tname}」 칭호를 획득!")
+            lines.append(f"{icon_emoji('champion')} {winner_data['name']}이(가) 「{badge} {tname}」 칭호를 획득!")
 
     lines.append("\n스폰이 곧 재개됩니다.")
 
@@ -479,7 +483,8 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
             await context.bot.send_photo(
                 chat_id=chat_id,
                 photo=champion_img,
-                caption=f"🏆 {winner_data['name']}의 우승 팀",
+                caption=f"{icon_emoji('champion_first')} {winner_data['name']}의 우승 팀",
+                parse_mode="HTML",
             )
     except Exception:
         logger.error(f"Failed to send champion card for {winner_id}", exc_info=True)
@@ -487,18 +492,18 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     # ── Send DMs with detailed prize info ──
     # Winner DM
     winner_dm = (
-        "🏆 토너먼트 우승을 축하합니다!\n"
+        f"{_champ_icon} 토너먼트 우승을 축하합니다!\n"
         "━━━━━━━━━━━━━━━\n\n"
         f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 지급!\n"
-        f"💰 {config.TOURNAMENT_PRIZE_1ST_BP:,}BP 지급!\n"
-        f"🎖️ 챔피언 칭호 획득!\n\n"
+        f"{icon_emoji('coin')} {config.TOURNAMENT_PRIZE_1ST_BP:,}BP 지급!\n"
+        f"{icon_emoji('champion')} 챔피언 칭호 획득!\n\n"
         f"{_iv_detail(shiny_1st_name, config.TOURNAMENT_PRIZE_1ST_SHINY, shiny_1st_ivs)}\n\n"
         f"{_iv_detail(bonus_1st_name, 'common', bonus_1st_ivs)}"
     )
     if new_titles:
         for _, tname, temoji in new_titles:
             badge = icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji
-            winner_dm += f"\n\n🎉 「{badge} {tname}」 칭호를 획득!"
+            winner_dm += f"\n\n{icon_emoji('champion')} 「{badge} {tname}」 칭호를 획득!"
     try:
         await context.bot.send_message(chat_id=winner_id, text=winner_dm, parse_mode="HTML")
     except Exception:
@@ -507,10 +512,10 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     # Runner-up DM
     if runner_up_id:
         dm_text = (
-            "🥈 토너먼트 준우승을 축하합니다!\n"
+            f"{icon_emoji('2')} 토너먼트 준우승을 축하합니다!\n"
             "━━━━━━━━━━━━━━━\n\n"
             f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 지급!\n"
-            f"💰 {config.TOURNAMENT_PRIZE_2ND_BP:,}BP 지급!\n\n"
+            f"{icon_emoji('coin')} {config.TOURNAMENT_PRIZE_2ND_BP:,}BP 지급!\n\n"
             f"{_iv_detail(shiny_2nd_name, config.TOURNAMENT_PRIZE_2ND_SHINY, shiny_2nd_ivs)}\n\n"
             f"{_iv_detail(bonus_2nd_name, 'common', bonus_2nd_ivs)}"
         )
@@ -522,10 +527,10 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     # Semi-finalist DMs (4강)
     for uid, (s_name, s_ivs) in shiny_semi_awards.items():
         dm_text = (
-            "🏅 토너먼트 4강을 축하합니다!\n"
+            f"{icon_emoji('4')} 토너먼트 4강을 축하합니다!\n"
             "━━━━━━━━━━━━━━━\n\n"
             f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 지급!\n"
-            f"💰 {config.TOURNAMENT_PRIZE_SEMI_BP:,}BP 지급!\n\n"
+            f"{icon_emoji('coin')} {config.TOURNAMENT_PRIZE_SEMI_BP:,}BP 지급!\n\n"
             f"{_iv_detail(s_name, config.TOURNAMENT_PRIZE_SEMI_SHINY, s_ivs)}"
         )
         try:
@@ -536,11 +541,11 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     # 8강 탈락 DMs
     for uid in quarter_losers:
         dm_text = (
-            "⚔️ 토너먼트 8강에서 아쉽게 탈락했습니다!\n"
+            f"{icon_emoji('battle')} 토너먼트 8강에서 아쉽게 탈락했습니다!\n"
             "━━━━━━━━━━━━━━━\n\n"
             f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_QUARTER_MB}개 지급!\n"
-            f"💰 {config.TOURNAMENT_PRIZE_QUARTER_BP:,}BP 지급!\n\n"
-            "다음엔 4강을 노려보세요! 💪"
+            f"{icon_emoji('coin')} {config.TOURNAMENT_PRIZE_QUARTER_BP:,}BP 지급!\n\n"
+            "다음엔 4강을 노려보세요!"
         )
         try:
             await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
@@ -550,11 +555,11 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     # 16강 탈락 DMs
     for uid in r16_losers:
         dm_text = (
-            "🎯 토너먼트 16강에서 탈락했습니다!\n"
+            f"{icon_emoji('1')}{icon_emoji('6')} 토너먼트 16강에서 탈락했습니다!\n"
             "━━━━━━━━━━━━━━━\n\n"
             f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_R16_MB}개 지급!\n"
-            f"💰 {config.TOURNAMENT_PRIZE_R16_BP:,}BP 지급!\n\n"
-            "다음엔 8강을 노려보세요! 💪"
+            f"{icon_emoji('coin')} {config.TOURNAMENT_PRIZE_R16_BP:,}BP 지급!\n\n"
+            "다음엔 8강을 노려보세요!"
         )
         try:
             await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
@@ -564,10 +569,10 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     # Participant DMs (earlier rounds or no matches)
     for uid in participant_only:
         dm_text = (
-            "🎟️ 토너먼트 참가 보상!\n"
+            f"{icon_emoji('check')} 토너먼트 참가 보상!\n"
             "━━━━━━━━━━━━━━━\n\n"
             f"{mb_emoji} 마스터볼 {config.TOURNAMENT_PRIZE_PARTICIPANT_MB}개 지급!\n"
-            f"💰 {config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP 지급!\n\n"
+            f"{icon_emoji('coin')} {config.TOURNAMENT_PRIZE_PARTICIPANT_BP:,}BP 지급!\n\n"
             "다음 대회도 기대해 주세요!"
         )
         try:
@@ -628,41 +633,41 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         # Build notice content (HTML for dashboard)
         w_name = winner_data['name']
         notice_lines = [
-            f"🥇 우승: <b>{w_name}</b>",
-            f"   마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP:,}BP + ✨이로치 {shiny_1st_name}",
+            f"{icon_emoji('crown')} 우승: <b>{w_name}</b>",
+            f"   마스터볼 {config.TOURNAMENT_PRIZE_1ST_MB}개 + {config.TOURNAMENT_PRIZE_1ST_BP:,}BP + {shiny_emoji()}이로치 {shiny_1st_name}",
         ]
         if runner_up_id:
             r_user = await queries.get_user(runner_up_id)
             r_name = r_user["display_name"] if r_user else "???"
-            notice_lines.append(f"🥈 준우승: <b>{r_name}</b>")
-            notice_lines.append(f"   마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {config.TOURNAMENT_PRIZE_2ND_BP:,}BP + ✨이로치 {shiny_2nd_name}")
+            notice_lines.append(f"{icon_emoji('2')} 준우승: <b>{r_name}</b>")
+            notice_lines.append(f"   마스터볼 {config.TOURNAMENT_PRIZE_2ND_MB}개 + {config.TOURNAMENT_PRIZE_2ND_BP:,}BP + {shiny_emoji()}이로치 {shiny_2nd_name}")
         for uid in fourth_placers:
             u = await queries.get_user(uid)
             u_name = u["display_name"] if u else "???"
             u_shiny = shiny_semi_awards.get(uid, ("???", {}))[0]
-            notice_lines.append(f"🏅 4강: <b>{u_name}</b>")
-            notice_lines.append(f"   마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + ✨이로치 {u_shiny}")
+            notice_lines.append(f"{icon_emoji('4')} 4강: <b>{u_name}</b>")
+            notice_lines.append(f"   마스터볼 {config.TOURNAMENT_PRIZE_SEMI_MB}개 + {config.TOURNAMENT_PRIZE_SEMI_BP:,}BP + {shiny_emoji()}이로치 {u_shiny}")
 
         if quarter_losers:
             q_names = []
             for uid in quarter_losers:
                 u = await queries.get_user(uid)
                 q_names.append(u["display_name"] if u else "???")
-            notice_lines.append(f"\n⚔️ 8강: {', '.join(q_names)}")
+            notice_lines.append(f"\n{icon_emoji('battle')} 8강: {', '.join(q_names)}")
 
         if r16_losers:
             r16_names = []
             for uid in r16_losers:
                 u = await queries.get_user(uid)
                 r16_names.append(u["display_name"] if u else "???")
-            notice_lines.append(f"🎯 16강: {', '.join(r16_names)}")
+            notice_lines.append(f"{icon_emoji('1')}{icon_emoji('6')} 16강: {', '.join(r16_names)}")
 
         if participant_only:
             p_names = []
             for uid in participant_only:
                 u = await queries.get_user(uid)
                 p_names.append(u["display_name"] if u else "???")
-            notice_lines.append(f"🎟️ 참가: {', '.join(p_names)}")
+            notice_lines.append(f"{icon_emoji('check')} 참가: {', '.join(p_names)}")
 
         notice_lines.append(f"\n참가자 {len(all_participants)}명, 수고하셨습니다!")
         notice_content = "\n".join(notice_lines)

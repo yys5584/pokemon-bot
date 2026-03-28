@@ -134,6 +134,109 @@ def _make_round_comment(rd: dict, r_idx: int, total_rounds: int,
     return f"{name}: {comment}"
 
 
+def _make_broadcast_comment(rd: dict, r_idx: int, total_rounds: int,
+                            p1_score: int, p2_score: int,
+                            p1_name: str, p2_name: str) -> str | None:
+    """Build a commentator-style line for spectators instead of player dialogue."""
+    import random as _rnd
+
+    winner_is_p1 = rd["winner"] == "p1"
+    winner_name = p1_name if winner_is_p1 else p2_name
+    loser_name = p2_name if winner_is_p1 else p1_name
+    winner_poke = rd["p1_poke"] if winner_is_p1 else rd["p2_poke"]
+    loser_poke = rd["p2_poke"] if winner_is_p1 else rd["p1_poke"]
+    type_adv = rd.get("type_advantage", 1.0)
+    crit = rd.get("crit", False)
+    dmg_dealt = rd.get("damage_dealt", 0)
+    dmg_taken = rd.get("damage_taken", 0)
+    turn_count = rd.get("turn_count", 3)
+
+    score_diff_before = p1_score - p2_score
+    winner_was_behind = (winner_is_p1 and score_diff_before < 0) or ((not winner_is_p1) and score_diff_before > 0)
+    winner_was_ahead = (winner_is_p1 and score_diff_before > 0) or ((not winner_is_p1) and score_diff_before < 0)
+
+    pool: list[str] = []
+
+    if r_idx == 0:
+        pool += [
+            "초반부터 템포가 빠릅니다. 첫 포인트의 무게가 꽤 큽니다.",
+            "첫 교환부터 날카롭습니다. 오늘 대회 분위기가 바로 잡히네요.",
+        ]
+
+    if type_adv >= 2.0:
+        pool += [
+            f"{winner_name} 쪽이 상성 좋은 구도를 놓치지 않았습니다.",
+            f"{loser_poke}에게 꽤 버거운 상성이었습니다. {winner_poke}가 정확히 찔렀네요.",
+        ]
+    elif type_adv <= 0.5:
+        pool += [
+            f"{winner_name}, 불리 상성을 정면으로 돌파했습니다.",
+            f"{winner_poke}가 상성 열세를 운영으로 뒤집었습니다.",
+        ]
+
+    if crit and turn_count <= 2:
+        pool += [
+            "급소 한 번에 공기가 바뀌었습니다. 관전자 입장에선 가장 드라마틱한 장면이네요.",
+            "짧게 끝났지만 임팩트는 강했습니다. 급소가 라운드를 찢었습니다.",
+        ]
+    elif crit:
+        pool += [
+            "중간 급소가 흐름을 확 꺾었습니다.",
+            "버티던 쪽도 급소 한 번에는 흔들릴 수밖에 없었습니다.",
+        ]
+
+    if dmg_dealt > 0 and dmg_taken > 0:
+        ratio = dmg_dealt / max(dmg_taken, 1)
+        if ratio >= 3.0:
+            pool += [
+                f"{winner_name} 쪽 교환 비율이 압도적입니다. 거의 일방적인 라운드였습니다.",
+                f"{winner_poke}가 받는 피해보다 주는 피해가 훨씬 컸습니다.",
+            ]
+        elif ratio <= 0.5:
+            pool += [
+                f"{winner_name}, 밀리는 교환을 버텨내고 마지막 한 수를 챙겼습니다.",
+                "체력은 손해였는데 포인트는 가져갑니다. 이런 라운드가 무섭죠.",
+            ]
+
+    if turn_count <= 1:
+        pool += [
+            "교체 각도 못 볼 정도로 빠르게 끝났습니다.",
+            f"{winner_poke}의 압박이 너무 빨랐습니다. 준비한 그림 그대로네요.",
+        ]
+    elif turn_count >= 5:
+        pool += [
+            "길게 끌고 간 끝에 운영이 이겼습니다. 채팅에서 보기 좋은 라운드네요.",
+            "짧은 화력전이 아니라 계산 싸움이었습니다. 이런 경기에서 실력이 보입니다.",
+        ]
+
+    if rd.get("p1_shiny") or rd.get("p2_shiny"):
+        shiny_poke = rd["p1_poke"] if rd.get("p1_shiny") else rd["p2_poke"]
+        pool += [
+            f"이로치 {shiny_poke}까지 등장했습니다. 채팅 반응이 붙을 만한 장면입니다.",
+            f"{shiny_poke}가 화면에 잡히는 순간 분위기가 달라졌습니다.",
+        ]
+
+    if winner_was_behind:
+        pool += [
+            f"{winner_name}, 이 포인트로 추격 불씨를 살립니다.",
+            f"{loser_name}가 달아나지 못했습니다. 흐름이 다시 흔들립니다.",
+        ]
+    elif winner_was_ahead:
+        pool += [
+            f"{winner_name} 쪽으로 흐름이 더 기웁니다. 따라가는 쪽이 급해졌습니다.",
+            "앞서던 쪽이 격차를 더 벌렸습니다. 압박이 커집니다.",
+        ]
+    elif abs(score_diff_before) <= 1 and r_idx == total_rounds - 1:
+        pool += [
+            "여기서 잡는 포인트는 사실상 매치포인트에 가깝습니다.",
+            "마지막 승부처 직전, 가장 무거운 한 점이 나왔습니다.",
+        ]
+
+    if not pool:
+        return None
+    return _rnd.choice(pool)
+
+
 def _build_gif_rounds(turn_data: list[dict], p1_data: dict, p2_data: dict) -> list[dict]:
     """turn_data → make_round_gif용 rounds 리스트 변환."""
     rounds = []
@@ -160,7 +263,9 @@ def _build_gif_rounds(turn_data: list[dict], p1_data: dict, p2_data: dict) -> li
     p1_score, p2_score = 0, 0
     total = len(rounds)
     for i, rd in enumerate(rounds):
-        rd["comment"] = _make_round_comment(
+        rd["comment"] = _make_broadcast_comment(
+            rd, i, total, p1_score, p2_score, p1_name, p2_name,
+        ) or _make_round_comment(
             rd, i, total, p1_score, p2_score, p1_name, p2_name,
         )
         if rd["winner"] == "p1":
@@ -216,6 +321,59 @@ def _matchup_to_round(matchup: dict, turns: list[dict], p1_data: dict, p2_data: 
 
 
 # ── Match Execution ─────────────────────────────────────────────
+
+def _build_match_highlight(result: dict, winner_side: str, winner_name: str, remaining: int) -> str | None:
+    """Return a short highlight line when a match had something worth surfacing."""
+    skill_icon = icon_emoji("skill")
+    battle_icon = icon_emoji("battle")
+    bolt_icon = icon_emoji("bolt")
+    shiny_icon = shiny_emoji()
+    turn_data = result.get("turn_data") or []
+    if not turn_data:
+        return None
+
+    high_rarity = {"legendary", "ultra_legendary"}
+    current_winner_mon = None
+    kill_count: dict[str, int] = {}
+    shiny_names: set[str] = set()
+    crit_count = 0
+    legendary_clash = False
+
+    for td in turn_data:
+        if td["type"] == "matchup":
+            current_winner_mon = td["c_name"] if winner_side == "challenger" else td["d_name"]
+            if td.get("c_shiny"):
+                shiny_names.add(td["c_name"])
+            if td.get("d_shiny"):
+                shiny_names.add(td["d_name"])
+            if td.get("c_rarity") in high_rarity and td.get("d_rarity") in high_rarity:
+                legendary_clash = True
+        elif td["type"] == "turn":
+            crit_key = "c_crit" if winner_side == "challenger" else "d_crit"
+            if td.get(crit_key):
+                crit_count += 1
+        elif td["type"] == "ko" and td["side"] != winner_side and current_winner_mon:
+            kill_count[current_winner_mon] = kill_count.get(current_winner_mon, 0) + 1
+
+    ace_name = None
+    ace_kills = 0
+    if kill_count:
+        ace_name, ace_kills = max(kill_count.items(), key=lambda item: item[1])
+
+    if remaining == 1 and ace_name and ace_kills >= 2:
+        return f"{skill_icon} 하이라이트: {winner_name}, 단 1마리 생존으로 뒤집었습니다. {ace_name}의 클러치가 컸습니다."
+    if ace_name and ace_kills >= 3:
+        return f"{skill_icon} 하이라이트: {ace_name}가 혼자 {ace_kills}마리를 정리했습니다. 흐름이 통째로 넘어갔습니다."
+    if ace_name and ace_name in shiny_names:
+        return f"{shiny_icon} 하이라이트: 이로치 {ace_name} 출전. 관전자 반응이 바로 붙는 매치였습니다."
+    if legendary_clash:
+        return f"{bolt_icon} 하이라이트: 전설급 맞대결 끝에 {winner_name} 쪽으로 흐름이 기울었습니다."
+    if crit_count >= 2:
+        return f"{bolt_icon} 하이라이트: 급소 {crit_count}회. 한 번씩 터질 때마다 분위기가 확 꺾였습니다."
+    if remaining >= 4:
+        return f"{battle_icon} 하이라이트: {winner_name} 승리. 무려 {remaining}마리를 남긴 일방적인 경기였습니다."
+    return None
+
 
 async def _run_match(
     context, chat_id: int,
@@ -302,7 +460,7 @@ async def _run_match(
             if td["type"] == "matchup":
                 c_sh = f"{shiny_emoji()}" if td.get("c_shiny") else ""
                 d_sh = f"{shiny_emoji()}" if td.get("d_shiny") else ""
-                lines.append(f"<b>⚔ {C}{td['c_tb']}{c_sh}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{d_sh}{td['d_name']}({td['d_idx']+1}/{td['d_total']})</b>")
+                lines.append(f"<b>{icon_emoji('battle')} {C}{td['c_tb']}{c_sh}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{d_sh}{td['d_name']}({td['d_idx']+1}/{td['d_total']})</b>")
             elif td["type"] == "turn":
                 if td["first_is_challenger"]:
                     first_mark, second_mark = C, D
@@ -356,6 +514,9 @@ async def _run_match(
         # ── Finals: 턴별 텍스트+이미지 + 상황기반 멘트 ──
         p1_name = p1_data['name']
         p2_name = p2_data['name']
+        battle_icon = icon_emoji("battle")
+        champ_icon = icon_emoji("champion_first")
+        score_icon = icon_emoji("bookmark")
 
         # 라인업 카드
         try:
@@ -375,14 +536,14 @@ async def _run_match(
             )
             await _safe_send_photo(
                 context.bot, chat_id, photo=lineup_buf,
-                caption=f"🏆 결승전! — {p1_name} vs {p2_name}",
+                caption=f"{champ_icon} 결승전! — {p1_name} vs {p2_name}",
                 parse_mode="HTML",
             )
         except Exception:
             logger.error("Failed to generate lineup card", exc_info=True)
             await _safe_send(context.bot, chat_id,
                 text=(
-                    f"🏆 결승전!\n"
+                    f"{champ_icon} 결승전!\n"
                     f"{C}{p1_name} vs {D}{p2_name}\n"
                     f"━━━━━━━━━━━━━━━"
                 ),
@@ -391,23 +552,25 @@ async def _run_match(
         await asyncio.sleep(3)
 
         # ── 카운트다운 애니메이션 ──
-        countdown_msg = await _safe_send(context.bot, chat_id, text="⚡ 3")
+        _bolt = icon_emoji("bolt")
+        _battle = icon_emoji("battle")
+        countdown_msg = await _safe_send(context.bot, chat_id, text=f"{_bolt} 3", parse_mode="HTML")
         await asyncio.sleep(1)
         if countdown_msg:
             try:
-                await countdown_msg.edit_text("⚡⚡ 2")
+                await countdown_msg.edit_text(f"{_bolt}{_bolt} 2", parse_mode="HTML")
             except Exception:
                 pass
         await asyncio.sleep(1)
         if countdown_msg:
             try:
-                await countdown_msg.edit_text("⚡⚡⚡ 1")
+                await countdown_msg.edit_text(f"{_bolt}{_bolt}{_bolt} 1", parse_mode="HTML")
             except Exception:
                 pass
         await asyncio.sleep(1)
         if countdown_msg:
             try:
-                await countdown_msg.edit_text("✦═✦═✦═✦═✦═✦═✦═✦\n⚔️ FIGHT!\n✦═✦═✦═✦═✦═✦═✦═✦")
+                await countdown_msg.edit_text(f"================\n{_battle} FIGHT!\n================", parse_mode="HTML")
             except Exception:
                 pass
         await asyncio.sleep(2)
@@ -441,12 +604,12 @@ async def _run_match(
                 if _comment and _current_matchup_idx > 0:
                     _score_text = f"[{_score_c} - {_score_d}]"
                     _comment_msg = await _safe_send(context.bot, chat_id,
-                        text=f"━══════════════════━\n🧑‍🔬 문박사: {_comment}\n  📊 현재 스코어 {_score_text}\n━══════════════════━",
+                        text=f"━══════════════════━\n문박사: {_comment}\n  {score_icon} 현재 스코어 {_score_text}\n━══════════════════━",
                     )
                     await asyncio.sleep(2)
 
                 await _safe_send(context.bot, chat_id,
-                    text=f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})!",
+                    text=f"{battle_icon} {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})!",
                     parse_mode="HTML",
                 )
                 await asyncio.sleep(3)
@@ -567,7 +730,7 @@ async def _run_match(
         if _comment_rounds:
             _last_comment = _comment_rounds[-1].get("comment", "")
             if _last_comment:
-                await _safe_send(context.bot, chat_id, text=f"💬 {_last_comment}")
+                await _safe_send(context.bot, chat_id, text=f"{icon_emoji('bookmark')} {_last_comment}")
                 await asyncio.sleep(1)
 
         # ── 우승 확정 축하 애니메이션 ──
@@ -579,25 +742,26 @@ async def _run_match(
             "문박사도 이런 결승은 처음입니다!!!",
             "관중들이 일어났습니다!!!",
         ]
-        border = "✦═✦═✦═✦═✦═✦═✦═✦"
+        border = "================"
         winner_name = winner_data['name']
 
         # 드라마틱 멈춤
-        drama_msg = await _safe_send(context.bot, chat_id, text="🧑‍🔬 문박사: 승부가... 갈립니다...!!!")
+        drama_msg = await _safe_send(context.bot, chat_id, text="문박사: 승부가... 갈립니다...!!!")
         await asyncio.sleep(2)
         if drama_msg:
             try:
-                await drama_msg.edit_text("🧑‍🔬 문박사: ...")
+                await drama_msg.edit_text("문박사: ...")
             except Exception:
                 pass
         await asyncio.sleep(1.5)
         if drama_msg:
             try:
+                _champ = icon_emoji("champion_first")
                 await drama_msg.edit_text(
                     f"{border}\n\n"
-                    f"🏆 <b>{winner_name} 우승!!!</b>\n"
-                    f"🎊 남은 {remaining}마리\n\n"
-                    f"🧑‍🔬 문박사: {_rng.choice(_mc_final)}\n\n"
+                    f"{_champ} <b>{winner_name} 우승!!!</b>\n"
+                    f"생존 {remaining}마리\n\n"
+                    f"문박사: {_rng.choice(_mc_final)}\n\n"
                     f"{border}",
                     parse_mode="HTML",
                 )
@@ -607,24 +771,25 @@ async def _run_match(
         # 테두리 반짝 효과
         if drama_msg:
             try:
+                _champ2 = icon_emoji("champion_first")
                 await drama_msg.edit_text(
-                    f"✦═══════════════════✦\n\n"
-                    f"🏆 <b>{winner_name} 우승!!!</b>\n"
-                    f"🎊 남은 {remaining}마리\n"
+                    f"===================\n\n"
+                    f"{_champ2} <b>{winner_name} 우승!!!</b>\n"
+                    f"생존 {remaining}마리\n"
                     f"{mvp_line}\n\n"
-                    f"🧑‍🔬 문박사: {_rng.choice(_mc_final)}\n\n"
-                    f"✦═══════════════════✦",
+                    f"문박사: {_rng.choice(_mc_final)}\n\n"
+                    f"===================",
                     parse_mode="HTML",
                 )
             except Exception:
                 pass
 
-        # 🎤 우승 인터뷰
+        # 우승 인터뷰
         await asyncio.sleep(3)
         mvp_n = _get_mvp_name(result["turn_data"], winner_side)
         speech = _winner_speech(winner_data['name'], mvp_n)
         await _safe_send(context.bot, chat_id,
-            text=f"🎤 <b>우승 인터뷰</b>\n\n{speech}",
+            text=f"{icon_emoji('stationery')} <b>우승 인터뷰</b>\n\n{speech}",
             parse_mode="HTML",
         )
 
@@ -634,7 +799,7 @@ async def _run_match(
         p2_name = p2_data['name']
         await _safe_send(context.bot, chat_id,
             text=(
-                f"⚔️ 준결승! — {C}{p1_name} vs {D}{p2_name}\n"
+                f"{icon_emoji('battle')} 준결승! — {C}{p1_name} vs {D}{p2_name}\n"
                 f"━━━━━━━━━━━━━━━"
             ),
             parse_mode="HTML",
@@ -644,7 +809,7 @@ async def _run_match(
         for _i, td in enumerate(result["turn_data"]):
             if td["type"] == "matchup":
                 await _safe_send(context.bot, chat_id,
-                    text=f"⚔ {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})!",
+                    text=f"{icon_emoji('battle')} {C}{td['c_tb']}{td['c_name']}({td['c_idx']+1}/{td['c_total']}) vs {D}{td['d_tb']}{td['d_name']}({td['d_idx']+1}/{td['d_total']})!",
                     parse_mode="HTML",
                 )
                 await asyncio.sleep(3)
@@ -699,13 +864,13 @@ async def _run_match(
         win_text = f"→ {winner_data['name']} 승리! (남은 {remaining}마리)"
         if mvp_line:
             win_text += f"\n{mvp_line}"
-        await _safe_send(context.bot, chat_id, text=win_text)
+        await _safe_send(context.bot, chat_id, text=win_text, parse_mode="HTML")
 
     elif is_quarter:
         # ── Quarter-finals: grouped by matchup (3s delay) ──
         await _safe_send(context.bot, chat_id,
             text=(
-                f"⚔️ {C}{p1_data['name']} vs {D}{p2_data['name']}\n"
+                f"{icon_emoji('battle')} {C}{p1_data['name']} vs {D}{p2_data['name']}\n"
                 f"━━━━━━━━━━━━━━━"
             ),
             parse_mode="HTML",
@@ -722,13 +887,18 @@ async def _run_match(
         win_text = f"→ {winner_data['name']} 승리! (남은 {remaining}마리)"
         if mvp_line:
             win_text += f"\n{mvp_line}"
-        await _safe_send(context.bot, chat_id, text=win_text)
+        await _safe_send(context.bot, chat_id, text=win_text, parse_mode="HTML")
 
     else:
         # ── Lower rounds: one-line summary (match_label + result combined) ──
-        win_text = f"{match_label}⚔️ {p1_data['name']} vs {p2_data['name']} → {winner_data['name']} 승리!"
+        win_text = f"{match_label}{icon_emoji('battle')} {p1_data['name']} vs {p2_data['name']} → {winner_data['name']} 승리!"
         if mvp_line:
             win_text += f"\n{mvp_line}"
         await _safe_send(context.bot, chat_id, text=win_text, parse_mode="HTML")
+
+    if not is_final:
+        highlight_text = _build_match_highlight(result, winner_side, winner_data["name"], remaining)
+        if highlight_text:
+            await _safe_send(context.bot, chat_id, text=highlight_text, parse_mode="HTML")
 
     return winner_id, winner_data
