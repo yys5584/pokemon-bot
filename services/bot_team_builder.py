@@ -1,8 +1,9 @@
 """NPC 봇 팀 자동 구성 로직.
 
 시즌 룰의 cost_limit에 맞춰 봇 팀을 구성한다.
-- gym 타입: preferred_types에서 같은 타입 포켓몬 6마리
-- npc 타입: 랜덤 rarity 조합
+- gym 타입: preferred_types에서 같은 타입 포켓몬 우선, 부족하면 전체 풀 보충
+- npc 타입: 전체 풀에서 강한 포켓몬 조합
+- 베이스스탯 높은 순으로 선택 (랜덤 아님)
 """
 
 import random
@@ -13,81 +14,88 @@ from database.connection import get_db
 
 logger = logging.getLogger(__name__)
 
-# cost per rarity
 COST = config.RANKED_COST
 
+# 베이스스탯 총합 캐시
+_BASE_STAT_CACHE: dict[int, int] = {}
 
-async def _get_pokemon_by_type(ptype: str) -> dict[str, list[dict]]:
-    """DB에서 특정 타입의 포켓몬을 rarity별로 그룹화하여 반환."""
+
+async def _load_base_stats():
+    """pokemon_base_stats에서 베이스스탯 총합을 로드."""
+    global _BASE_STAT_CACHE
+    if _BASE_STAT_CACHE:
+        return
+    try:
+        from models.pokemon_base_stats import POKEMON_BASE_STATS
+        for pid, stats in POKEMON_BASE_STATS.items():
+            # stats = [hp, atk, def, spa, spdef, spd, [type1, type2]]
+            _BASE_STAT_CACHE[pid] = sum(stats[:6])
+    except Exception as e:
+        logger.warning(f"베이스스탯 로드 실패: {e}")
+
+
+def _get_bst(pokemon_id: int) -> int:
+    """포켓몬의 베이스스탯 총합 반환."""
+    return _BASE_STAT_CACHE.get(pokemon_id, 300)
+
+
+async def _get_pokemon_pool(ptype: str | None = None) -> list[dict]:
+    """DB에서 포켓몬 목록을 가져온다. ptype이 있으면 해당 타입만."""
     pool = await get_db()
-    rows = await pool.fetch(
-        "SELECT id, name_ko, rarity, pokemon_type FROM pokemon_master "
-        "WHERE pokemon_type = $1 ORDER BY id", ptype)
-    result: dict[str, list[dict]] = {
-        "common": [], "rare": [], "epic": [],
-        "legendary": [], "ultra_legendary": [],
-    }
-    for r in rows:
-        result[r["rarity"]].append(dict(r))
-    return result
+    if ptype:
+        rows = await pool.fetch(
+            "SELECT id, name_ko, rarity, pokemon_type FROM pokemon_master "
+            "WHERE pokemon_type = $1 ORDER BY id", ptype)
+    else:
+        rows = await pool.fetch(
+            "SELECT id, name_ko, rarity, pokemon_type FROM pokemon_master ORDER BY id")
+    return [dict(r) for r in rows]
 
 
-async def _get_all_pokemon() -> dict[str, list[dict]]:
-    """DB에서 전체 포켓몬을 rarity별로 그룹화하여 반환."""
-    pool = await get_db()
-    rows = await pool.fetch(
-        "SELECT id, name_ko, rarity, pokemon_type FROM pokemon_master ORDER BY id")
-    result: dict[str, list[dict]] = {
-        "common": [], "rare": [], "epic": [],
-        "legendary": [], "ultra_legendary": [],
-    }
-    for r in rows:
-        result[r["rarity"]].append(dict(r))
-    return result
+def _best_team_for_cost(
+    pokemon_pool: list[dict],
+    cost_limit: int,
+    team_size: int = 6,
+    banned_rarities: set | None = None,
+    used_ids: set | None = None,
+) -> list[dict]:
+    """코스트 제한 내에서 베이스스탯 총합이 높은 6마리를 선택.
 
-
-def _build_team_composition(cost_limit: int, tier: str) -> list[str]:
-    """코스트 제한 내에서 6마리 rarity 조합을 생성.
-
-    Returns list of 6 rarity strings.
+    그리디 알고리즘: 코스트 대비 BST가 높은 순으로 채움.
     """
-    weights = config.BOT_RARITY_WEIGHTS.get(tier, config.BOT_RARITY_WEIGHTS["bronze"])
-    rarity_order = ["ultra_legendary", "legendary", "epic", "rare", "common"]
-    rarity_costs = {r: COST[r] for r in rarity_order}
+    if banned_rarities is None:
+        banned_rarities = set()
+    if used_ids is None:
+        used_ids = set()
 
-    team: list[str] = []
+    # 사용 가능한 포켓몬 필터
+    available = [
+        p for p in pokemon_pool
+        if p["id"] not in used_ids and p["rarity"] not in banned_rarities
+    ]
+
+    # BST/cost 효율 기준 정렬 (높은 순)
+    def sort_key(p):
+        bst = _get_bst(p["id"])
+        cost = COST.get(p["rarity"], 1)
+        return bst  # 순수 BST 높은 순
+
+    available.sort(key=sort_key, reverse=True)
+
+    team = []
     remaining = cost_limit
 
-    for _ in range(6):
-        # 가능한 rarity만 필터 (남은 슬롯의 최소 코스트 고려)
-        slots_left = 6 - len(team) - 1  # 이번 슬롯 제외 남은 슬롯
-        min_remaining = slots_left * 1  # 남은 슬롯은 최소 common(1)
+    for p in available:
+        if len(team) >= team_size:
+            break
 
-        candidates = []
-        for r in rarity_order:
-            cost = rarity_costs[r]
-            if cost <= remaining - min_remaining and weights.get(r, 0) > 0:
-                candidates.append((r, weights[r]))
+        cost = COST.get(p["rarity"], 1)
+        slots_left = team_size - len(team) - 1  # 이번 제외 남은 슬롯
+        min_needed = slots_left * 1  # 남은 슬롯은 최소 common(1)
 
-        if not candidates:
-            # common만 가능
-            team.append("common")
-            remaining -= 1
-            continue
-
-        # 가중 랜덤 선택
-        total_w = sum(w for _, w in candidates)
-        roll = random.random() * total_w
-        cumulative = 0
-        chosen = "common"
-        for r, w in candidates:
-            cumulative += w
-            if roll <= cumulative:
-                chosen = r
-                break
-
-        team.append(chosen)
-        remaining -= rarity_costs[chosen]
+        if cost <= remaining - min_needed:
+            team.append(p)
+            remaining -= cost
 
     return team
 
@@ -101,21 +109,13 @@ async def build_bot_team(
 
     Returns list of dicts: [{pokemon_id, is_shiny, iv_hp, ...}, ...]
     """
-    user_id, name, tier, mmr, npc_type, preferred_types, is_shiny = bot_def
+    await _load_base_stats()
+
+    user_id, name, tier, mmr, npc_type, preferred_types, is_shiny_flag = bot_def
     iv_min, iv_max = config.BOT_IV_RANGES.get(tier, (10, 20))
 
-    # rarity 조합 생성
-    composition = _build_team_composition(cost_limit, tier)
-
-    # 포켓몬 풀 가져오기
-    if npc_type == "gym" and preferred_types:
-        pool_by_rarity = await _get_pokemon_by_type(preferred_types[0])
-    else:
-        pool_by_rarity = await _get_all_pokemon()
-
-    # 시즌 룰에 따른 rarity 필터
-    rule_info = config.WEEKLY_RULES.get(season_rule or "", {})
-    banned_rarities = set()
+    # 시즌 룰에 따른 rarity 금지
+    banned_rarities: set[str] = set()
     if season_rule == "no_ultra":
         banned_rarities.add("ultra_legendary")
     elif season_rule == "no_legendary":
@@ -123,81 +123,65 @@ async def build_bot_team(
     elif season_rule == "epic_below":
         banned_rarities.update(["legendary", "ultra_legendary"])
 
-    # 구성에서 금지 rarity 대체
-    adjusted = []
-    for r in composition:
-        if r in banned_rarities:
-            # epic 이하로 대체
-            if "epic" not in banned_rarities:
-                adjusted.append("epic")
-            elif "rare" not in banned_rarities:
-                adjusted.append("rare")
-            else:
-                adjusted.append("common")
-        else:
-            adjusted.append(r)
+    used_ids: set[int] = set()
 
-    # 코스트 재검증 — 초과 시 하향
-    total_cost = sum(COST[r] for r in adjusted)
-    while total_cost > cost_limit:
-        # 가장 비싼 것부터 한 단계 내림
-        for i, r in enumerate(adjusted):
-            if r == "ultra_legendary":
-                adjusted[i] = "legendary"
-                total_cost -= 1
-                break
-            elif r == "legendary":
-                adjusted[i] = "epic"
-                total_cost -= 1
-                break
-            elif r == "epic":
-                adjusted[i] = "rare"
-                total_cost -= 2
-                break
-            elif r == "rare":
-                adjusted[i] = "common"
-                total_cost -= 1
-                break
+    if npc_type == "gym" and preferred_types:
+        # gym 봇: 메인 타입에서 최강 팀 구성
+        type_pool = await _get_pokemon_pool(preferred_types[0])
+        team_picks = _best_team_for_cost(
+            type_pool, cost_limit, 6, banned_rarities, used_ids)
 
-    # 실제 포켓몬 선택 (중복 방지)
+        # 부족하면 전체 풀에서 보충
+        if len(team_picks) < 6:
+            used_ids.update(p["id"] for p in team_picks)
+            remaining_cost = cost_limit - sum(
+                COST.get(p["rarity"], 1) for p in team_picks)
+            all_pool = await _get_pokemon_pool()
+            extra = _best_team_for_cost(
+                all_pool, remaining_cost, 6 - len(team_picks),
+                banned_rarities, used_ids)
+            team_picks.extend(extra)
+    else:
+        # npc 봇: 전체 풀에서 최강 팀
+        all_pool = await _get_pokemon_pool()
+        # 약간의 랜덤성을 위해 상위 50명 중에서 셔플 후 선택
+        available = [
+            p for p in all_pool
+            if p["rarity"] not in banned_rarities
+        ]
+        available.sort(key=lambda p: _get_bst(p["id"]), reverse=True)
+
+        # 티어별 풀 범위 (마스터는 상위, 브론즈는 중하위)
+        pool_ranges = {
+            "master": (0, 80), "diamond": (20, 120),
+            "platinum": (40, 160), "gold": (60, 200),
+            "silver": (100, 300), "bronze": (150, 400),
+        }
+        lo, hi = pool_ranges.get(tier, (100, 300))
+        hi = min(hi, len(available))
+        lo = min(lo, hi)
+        subset = available[lo:hi]
+        random.shuffle(subset)
+
+        team_picks = _best_team_for_cost(
+            subset, cost_limit, 6, banned_rarities, used_ids)
+
+    # 팀 데이터 생성
     team = []
-    used_ids = set()
-
-    for rarity in adjusted:
-        candidates = [p for p in pool_by_rarity.get(rarity, [])
-                       if p["id"] not in used_ids]
-
-        if not candidates:
-            # 해당 rarity+타입에 포켓몬이 없으면 전체 풀에서 검색
-            fallback = await _get_all_pokemon()
-            candidates = [p for p in fallback.get(rarity, [])
-                           if p["id"] not in used_ids]
-
-        if not candidates:
-            # 정말 없으면 common으로 대체
-            fallback = await _get_all_pokemon()
-            candidates = [p for p in fallback.get("common", [])
-                           if p["id"] not in used_ids]
-
-        if candidates:
-            chosen = random.choice(candidates)
-            used_ids.add(chosen["id"])
-
-            # IV 생성
-            ivs = {
-                "iv_hp": random.randint(iv_min, iv_max),
-                "iv_atk": random.randint(iv_min, iv_max),
-                "iv_def": random.randint(iv_min, iv_max),
-                "iv_spa": random.randint(iv_min, iv_max),
-                "iv_spdef": random.randint(iv_min, iv_max),
-                "iv_spd": random.randint(iv_min, iv_max),
-            }
-
-            team.append({
-                "pokemon_id": chosen["id"],
-                "is_shiny": 1 if is_shiny else 0,
-                **ivs,
-            })
+    for p in team_picks:
+        ivs = {
+            "iv_hp": random.randint(iv_min, iv_max),
+            "iv_atk": random.randint(iv_min, iv_max),
+            "iv_def": random.randint(iv_min, iv_max),
+            "iv_spa": random.randint(iv_min, iv_max),
+            "iv_spdef": random.randint(iv_min, iv_max),
+            "iv_spd": random.randint(iv_min, iv_max),
+        }
+        team.append({
+            "pokemon_id": p["id"],
+            "is_shiny": 1 if is_shiny_flag else 0,
+            **ivs,
+        })
 
     return team
 
