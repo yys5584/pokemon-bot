@@ -1,8 +1,13 @@
 """
-Dungeon Turn-Based Combat Balance Simulation
-=============================================
-Simulates 1000+ dungeon runs per rarity tier to check balance.
-Uses the ACTUAL damage formulas, HP scaling, buff system from codebase.
+Dungeon Auto-Battle Balance Simulation (v2)
+============================================
+⚠️ 이 시뮬은 "보수적 하한선"임. 실제 유저 클리어율보다 낮게 나옴.
+실제 밸런싱 기준은 유저 피드백 + 라이브 로그.
+
+현재 한계:
+- 소모성 버프(저주/회복룰렛/도박사/하드코어) 미반영
+- 포켓몬 선택이 BST 기반 랜덤 (실제는 상성 맞춤)
+- AI 행동이 보수적 (실제 랭커보다 약함)
 
 Usage: python scripts/sim_dungeon_balance.py
 """
@@ -56,8 +61,8 @@ for rarity in ["common", "rare", "epic", "legendary", "ultra_legendary"]:
 # ─── Simulation parameters ───
 
 NUM_RUNS = 1000
-MAX_FLOOR = 55  # simulate up to floor 55
-FRIENDSHIP = 5  # max friendship
+MAX_FLOOR = 100  # 100층 체제
+FRIENDSHIP = 7   # 이로치 최대 친밀도
 IV_GOOD = 31    # 이로치 S급 7풀강 (올맥스)
 IV_AVG = 20     # average IVs
 
@@ -574,11 +579,12 @@ def run_simulation():
 
     print()
     print("=" * 70)
-    print("  BALANCE TARGETS")
+    print("  BALANCE TARGETS (시뮬은 하한선, 실제 유저는 이보다 높음)")
     print("=" * 70)
-    print("  Floor 30: Most good players should reach (>50% for epic+)")
-    print("  Floor 40: Very hard, needs great buffs + luck (<10%)")
-    print("  Floor 50: Nearly impossible, incredible luck only (<1%)")
+    print("  Floor 30: 대부분 도달 (에픽+ S급 50%+)")
+    print("  Floor 50: 상위권 (초전설 S급 풀강 10~20%)")
+    print("  Floor 70: 극소수 (완벽 빌드 + 운)")
+    print("  Floor 100: 사실상 불가능 (<1%)")
     print()
 
     # Assessment
