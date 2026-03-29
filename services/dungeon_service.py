@@ -1771,18 +1771,21 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
     items: dict[str, int] = {}
     milestones = []
 
-    # 마일스톤 보상 — 오늘 최고 기록 넘은 층만
+    # 마일스톤 보상
     for milestone_floor, rewards in sorted(config.DUNGEON_MILESTONE_REWARDS.items()):
-        if floor_reached >= milestone_floor and milestone_floor > daily_best:
+        if floor_reached >= milestone_floor:
+            # BP는 매번 지급
             bp += rewards.get("bp", 0)
-            fragments += rewards.get("fragments", 0)
-            tickets += rewards.get("tickets", 0)
-            crystals += rewards.get("crystals", 0)
-            rainbow += rewards.get("rainbow", 0)
-            iv_stones += rewards.get("iv_stones", 0)
-            for item_type, qty in rewards.get("items", {}).items():
-                items[item_type] = items.get(item_type, 0) + qty
             milestones.append(milestone_floor)
+            # 아이템/조각/결정은 오늘 최고 기록 갱신 시만
+            if milestone_floor > daily_best:
+                fragments += rewards.get("fragments", 0)
+                tickets += rewards.get("tickets", 0)
+                crystals += rewards.get("crystals", 0)
+                rainbow += rewards.get("rainbow", 0)
+                iv_stones += rewards.get("iv_stones", 0)
+                for item_type, qty in rewards.get("items", {}).items():
+                    items[item_type] = items.get(item_type, 0) + qty
 
     # 구독 배율 — BP는 ×1.5, 나머지(조각/결정/아이템)는 ×2/×3
     if sub_tier == "channel_owner":
