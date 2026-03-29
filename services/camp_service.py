@@ -74,7 +74,7 @@ def _weather_line(weather: tuple[str, str, list[str]]) -> str:
             temp_str = f" {w['temp']}°C"
     except Exception:
         pass
-    return f"{weather[1]} 날씨: {weather[0]}{temp_str}"
+    return f"{weather[1]} 서울 날씨: {weather[0]}{temp_str} (실시간)"
 
 
 # ── 포켓몬 이름 캐시 ──
@@ -298,7 +298,7 @@ async def settle_round(chat_id: int, round_time: datetime) -> dict:
         total_score = 0
         user_ids = []
         for p in placements:
-            # 상시 배치 어뷰징 방지: 1시간 미만 유지 시 점수 미인정
+            # 1시간 미만 유지 시 점수 미인정
             placed_at = p.get("placed_at")
             if placed_at and (now - placed_at).total_seconds() < config.CAMP_MIN_HOLD_SECONDS:
                 continue
@@ -319,6 +319,17 @@ async def settle_round(chat_id: int, round_time: datetime) -> dict:
                 bonus["stat_type"] if bonus else None,
                 bonus["stat_value"] if bonus else None,
             )
+
+            # 시간 비례 배율 (18h+=100%, 12~18h=75%, 6~12h=50%, 1~6h=25%)
+            if placed_at:
+                hold_secs = (now - placed_at).total_seconds()
+                tier_mult = 0.25  # 최소 구간 (1~6h)
+                for threshold, mult in config.CAMP_HOLD_TIERS:
+                    if hold_secs >= threshold:
+                        tier_mult = mult
+                        break
+                score = math.ceil(score * tier_mult)
+
             total_score += score
             user_ids.append(p["user_id"])
 
@@ -427,14 +438,14 @@ def build_combined_announcement(
     bonuses: list[dict],
     chat_id: int = 0,
 ) -> str:
-    """정산 결과 + 새 라운드 보너스를 하나의 메시지로 합침."""
+    """정산 결과 + 새 라운드 보너스를 하나의 메시지로 합침 (blockquote 압축)."""
     level_info = get_level_info(camp_level)
     level_name = level_info[5]
     bonus_map = {b["field_id"]: b for b in bonuses}
 
     lines = [f"🏕 <b>캠프 소식</b> ({level_name})"]
 
-    # 새 라운드 날씨
+    # 날씨 (실시간 서울)
     if chat_id:
         weather = get_camp_weather(chat_id)
         lines.append(_weather_line(weather))
@@ -442,35 +453,32 @@ def build_combined_announcement(
         if boosted_names:
             lines.append(f"  → {'/'.join(boosted_names)} 조각 ×{config.CAMP_WEATHER_MULTIPLIER}")
 
-    # 이전 라운드 정산 결과
-    lines.append("")
-    lines.append("📊 <b>지난 라운드 결과</b>")
+    # 이전 라운드 정산 결과 (blockquote)
+    result_lines = []
     for f in round_result["fields"]:
         field_info = config.CAMP_FIELDS.get(f["field_type"], {})
         emoji = field_info.get("emoji", "🏕")
         name = field_info.get("name", f["field_type"])
 
         if not f["users"]:
-            lines.append(f"{emoji} {name}: 비어있음")
+            result_lines.append(f"{emoji} {name}: 비어있음")
             continue
 
         weather_tag = " 🌤" if f.get("weather_boosted") else ""
-        lines.append(f"{emoji} {name}: +{f['per_user']}조각/인 ({f['capped']}/{f['total_score']}점){weather_tag}")
+        result_lines.append(f"{emoji} {name}: +{f['per_user']}조각/인{weather_tag}")
 
     if round_result["total_xp"] > 0:
-        lines.append(f"{icon_emoji('stationery')} 캠프 경험치 +{round_result['total_xp']}")
+        result_lines.append(f"경험치 +{round_result['total_xp']}")
 
     if round_result["level_up"]:
         new_info = get_level_info(round_result["level_up"])
-        lines.append(f"🎉 캠프가 {new_info[5]}(으)로 성장했습니다!")
-        new_fields = new_info[1]
-        old_info = get_level_info(round_result["level_up"] - 1)
-        if new_fields > old_info[1]:
-            lines.append("🆕 새 필드를 열 수 있습니다!")
+        result_lines.append(f"🎉 레벨업! → {new_info[5]}")
 
-    # 새 라운드 보너스
-    lines.append("")
-    lines.append("⭐ <b>이번 라운드 보너스</b>")
+    if result_lines:
+        lines.append("<blockquote expandable>📊 정산\n" + "\n".join(result_lines) + "</blockquote>")
+
+    # 오늘의 보너스 (blockquote)
+    bonus_lines = []
     for field in fields:
         field_info = config.CAMP_FIELDS.get(field["field_type"], {})
         emoji = field_info.get("emoji", "🏕")
@@ -480,20 +488,22 @@ def build_combined_announcement(
         if bonus:
             pname = _pokemon_name(bonus["pokemon_id"])
             stat_name = config.CAMP_IV_STAT_NAMES.get(bonus["stat_type"], "")
-            lines.append(f"{emoji} {name}: {pname} ({stat_name} {bonus['stat_value']}↑)")
+            bonus_lines.append(f"{emoji} {name}: {pname} ({stat_name} {bonus['stat_value']}↑)")
         else:
-            lines.append(f"{emoji} {name}: 타입 맞는 포켓몬 배치")
+            bonus_lines.append(f"{emoji} {name}: 타입 맞는 포켓몬 배치")
 
-    lines.append("")
-    lines.append("💡 배치: 그룹에서 <code>캠프</code> 또는 DM에서 <code>거점캠프</code>")
+    if bonus_lines:
+        lines.append("<blockquote expandable>⭐ 오늘의 보너스\n" + "\n".join(bonus_lines) + "</blockquote>")
+
+    lines.append("💡 배치: <code>캠프</code> 또는 DM <code>거점캠프</code>")
     return "\n".join(lines)
 
 
 def build_bonus_announcement(fields: list[dict], bonuses: list[dict], chat_id: int = 0) -> str:
-    """접수 타임 시작 시 보너스 포켓몬 안내 메시지. (fallback용)"""
+    """정산 결과 없이 보너스만 안내 (fallback용)."""
     bonus_map = {b["field_id"]: b for b in bonuses}
 
-    lines = ["🏕 캠프 라운드 시작!"]
+    lines = ["🏕 <b>캠프 소식</b>"]
 
     if chat_id:
         weather = get_camp_weather(chat_id)
@@ -502,8 +512,7 @@ def build_bonus_announcement(fields: list[dict], bonuses: list[dict], chat_id: i
         if boosted_names:
             lines.append(f"  → {'/'.join(boosted_names)} 조각 ×{config.CAMP_WEATHER_MULTIPLIER}")
 
-    lines.append("")
-
+    bonus_lines = []
     for field in fields:
         field_info = config.CAMP_FIELDS.get(field["field_type"], {})
         emoji = field_info.get("emoji", "🏕")
@@ -513,12 +522,14 @@ def build_bonus_announcement(fields: list[dict], bonuses: list[dict], chat_id: i
         if bonus:
             pname = _pokemon_name(bonus["pokemon_id"])
             stat_name = config.CAMP_IV_STAT_NAMES.get(bonus["stat_type"], "")
-            lines.append(f"{emoji} {name}: {pname} ({stat_name} {bonus['stat_value']}↑)")
+            bonus_lines.append(f"{emoji} {name}: {pname} ({stat_name} {bonus['stat_value']}↑)")
         else:
-            lines.append(f"{emoji} {name}: 타입 맞는 포켓몬 배치")
+            bonus_lines.append(f"{emoji} {name}: 타입 맞는 포켓몬 배치")
 
-    lines.append("")
-    lines.append("💡 배치: 그룹에서 <code>캠프</code> 또는 DM에서 <code>거점캠프</code>")
+    if bonus_lines:
+        lines.append("<blockquote expandable>⭐ 오늘의 보너스\n" + "\n".join(bonus_lines) + "</blockquote>")
+
+    lines.append("💡 배치: <code>캠프</code> 또는 DM <code>거점캠프</code>")
     return "\n".join(lines)
 
 
@@ -630,51 +641,54 @@ async def try_place_pokemon(
 
 def _get_current_round_time(now: datetime) -> datetime:
     """현재 시각 기준 진행 중 라운드의 시작 시각."""
-    hours = config.CAMP_ROUND_HOURS
+    from datetime import timedelta
+
+    hours = sorted(config.CAMP_ROUND_HOURS)
     current_hour = now.hour
 
     # 현재 시간 이하인 가장 가까운 라운드 시각
-    round_hour = hours[0]
+    round_hour = None
     for h in hours:
         if h <= current_hour:
             round_hour = h
         else:
             break
 
-    # 0시(자정) 처리: 현재가 0시 이후 ~ 9시 이전이면 전날 0시 라운드
-    if current_hour < hours[0] and hours[-1] == 0:
-        round_hour = 0
+    if round_hour is not None:
+        return now.replace(hour=round_hour, minute=0, second=0, microsecond=0)
 
-    return now.replace(hour=round_hour, minute=0, second=0, microsecond=0)
+    # 현재가 첫 라운드 이전이면 전날 마지막 라운드
+    return (now - timedelta(days=1)).replace(
+        hour=hours[-1], minute=0, second=0, microsecond=0
+    )
 
 
 def get_previous_round_time(now: datetime) -> datetime:
     """현재 시각 기준 이전 라운드의 시작 시각 (정산용).
 
-    CAMP_ROUND_HOURS=[9,12,15,18,21,0] 기준:
-      now=09:00 → 이전 라운드 = 당일 00:00
-      now=12:00 → 이전 라운드 = 당일 09:00
-      now=00:00 → 이전 라운드 = 당일 21:00
+    CAMP_ROUND_HOURS=[12] 기준:
+      now=12:00 → 이전 라운드 = 전날 12:00
     """
     from datetime import timedelta
 
-    # 시간순 정렬 (0, 9, 12, 15, 18, 21)
     sorted_hours = sorted(config.CAMP_ROUND_HOURS)
     current_hour = now.hour
 
-    # 현재 시각의 인덱스 찾기 → 한 칸 앞이 이전 라운드
     if current_hour in sorted_hours:
         idx = sorted_hours.index(current_hour)
-        prev_hour = sorted_hours[idx - 1]  # idx=0이면 [-1] → 마지막 원소(21)
+        if idx == 0:
+            # 첫 번째(유일한) 라운드 → 전날 마지막 라운드
+            return (now - timedelta(days=1)).replace(
+                hour=sorted_hours[-1], minute=0, second=0, microsecond=0
+            )
+        prev_hour = sorted_hours[idx - 1]
     else:
-        # 라운드 시각이 아닌 시간대 (일반적으론 잡이 정시에만 호출)
         prev_hour = sorted_hours[0]
         for h in sorted_hours:
             if h < current_hour:
                 prev_hour = h
 
     result = now.replace(hour=prev_hour, minute=0, second=0, microsecond=0)
-    # 이전 라운드가 현재보다 큰 시각이면 전날 (예: now=00시, prev=21시)
     if prev_hour > current_hour:
         result -= timedelta(days=1)
     return result

@@ -1035,7 +1035,7 @@ def _build_settlement_dm(result: dict, chat_title: str, camp_level: int) -> str:
 # ═══════════════════════════════════════════════════════
 
 async def camp_round_job(context):
-    """라운드 정산 + 다음 라운드 보너스 생성 (3시간마다)."""
+    """라운드 정산 + 다음 라운드 보너스 생성 (하루 1회 정오)."""
     chat_ids = await cq.get_camp_enabled_chats()
     now = config.get_kst_now()
     logger.info(f"[Camp] Round job for {len(chat_ids)} chats at {now.strftime('%H:%M')}")
