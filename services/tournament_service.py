@@ -814,6 +814,7 @@ async def resume_tournament_from_semi(context: ContextTypes.DEFAULT_TYPE):
                 f"1. 딸딸기 vs Jun_P3\n"
                 f"2. Turri vs 러스트"
             ),
+            parse_mode="HTML",
         )
         await asyncio.sleep(3)
 
