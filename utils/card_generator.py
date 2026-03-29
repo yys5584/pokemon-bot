@@ -881,27 +881,35 @@ def _generate_card_legacy(pokemon_id: int, name_ko: str, rarity: str, emoji: str
                           is_shiny: bool = False, mega_key: str | None = None,
                           *, iv_total: int | None = None,
                           types: list[str] | None = None) -> Image.Image:
-    """기존 PIL 렌더링 (템플릿 없을 때 폴백)."""
+    """PIL 렌더링 — 템플릿 PNG 있으면 배경으로 사용, 없으면 순수 PIL 폴백."""
     accent = RARITY_ACCENT.get(rarity, RARITY_ACCENT["common"])
 
-    card = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (10, 10, 15, 255))
-    card = _draw_tcg_frame(card, rarity)
-    card = _draw_tcg_art_bg(card, rarity)
+    # 템플릿 배경 시도 (HTML에서 미리 렌더링된 PNG)
+    tpl_key = _get_template_key(rarity, is_shiny, iv_total)
+    tpl = _load_template(tpl_key)
 
-    glow_layer = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
-    glow_draw = ImageDraw.Draw(glow_layer)
-    cx = CARD_WIDTH // 2
-    cy = _ART_Y + _ART_H // 2
-    _draw_glow(glow_draw, cx, cy, 200, accent)
-    card = Image.alpha_composite(card, glow_layer)
+    if tpl is not None:
+        card = tpl.copy()
+    else:
+        # 순수 PIL 폴백 (템플릿 없을 때)
+        card = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (10, 10, 15, 255))
+        card = _draw_tcg_frame(card, rarity)
+        card = _draw_tcg_art_bg(card, rarity)
 
-    if mega_key:
-        card = _draw_mega_glow(card)
-    elif is_shiny:
-        card = _draw_shiny_glow(card, accent)
+        glow_layer = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow_layer)
+        cx = CARD_WIDTH // 2
+        cy = _ART_Y + _ART_H // 2
+        _draw_glow(glow_draw, cx, cy, 200, accent)
+        card = Image.alpha_composite(card, glow_layer)
 
-    if is_shiny:
-        card = _draw_tcg_shiny_border(card)
+        if mega_key:
+            card = _draw_mega_glow(card)
+        elif is_shiny:
+            card = _draw_shiny_glow(card, accent)
+
+        if is_shiny:
+            card = _draw_tcg_shiny_border(card)
 
     if mega_key:
         sprite_path = ASSETS_DIR / f"{mega_key}.png"
@@ -919,23 +927,26 @@ def _generate_card_legacy(pokemon_id: int, name_ko: str, rarity: str, emoji: str
         sy = _ART_Y + (_ART_H - sprite.height) // 2
         card.paste(sprite, (sx, sy), sprite)
 
-    card = _draw_holo_sparkles(card, iv_total, is_shiny=is_shiny)
+    # 템플릿 사용 시 홀로/하단라인은 이미 포함되어 있으므로 스킵
+    if tpl is None:
+        card = _draw_holo_sparkles(card, iv_total, is_shiny=is_shiny)
 
     draw = ImageDraw.Draw(card)
     _draw_tcg_header(draw, pokemon_id, rarity, is_shiny, mega_key, types)
     _draw_tcg_info(draw, name_ko, rarity, iv_total, types)
 
-    if mega_key:
-        card = _draw_mega_bottom_line(card)
-    elif is_shiny:
-        line_h = 6
-        row_rgb = _rainbow_row_rgb(CARD_WIDTH)
-        line_pixels = [(*c, 240) for c in row_rgb] * line_h
-        line_img = Image.new("RGBA", (CARD_WIDTH, line_h))
-        line_img.putdata(line_pixels)
-        rainbow_layer = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
-        rainbow_layer.paste(line_img, (0, CARD_HEIGHT - line_h))
-        card = Image.alpha_composite(card, rainbow_layer)
+    if tpl is None:
+        if mega_key:
+            card = _draw_mega_bottom_line(card)
+        elif is_shiny:
+            line_h = 6
+            row_rgb = _rainbow_row_rgb(CARD_WIDTH)
+            line_pixels = [(*c, 240) for c in row_rgb] * line_h
+            line_img = Image.new("RGBA", (CARD_WIDTH, line_h))
+            line_img.putdata(line_pixels)
+            rainbow_layer = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
+            rainbow_layer.paste(line_img, (0, CARD_HEIGHT - line_h))
+            card = Image.alpha_composite(card, rainbow_layer)
 
     return card
 
