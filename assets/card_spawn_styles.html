@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+:root {
+  --mx: 50%;
+  --my: 32%;
+  --posx: 48%;
+  --posy: 35%;
+  --hyp: 0.96;
+  --space: 24%;
+  --foil-opacity: 0.42;
+  --prism-opacity: 0.58;
+  --glare-opacity: 0.72;
+  --prism-space: 4.2%;
+  --foil-blur: 0.9px;
+  --foil-after-blur: 1.3px;
+  --glare-blur: 11px;
+  --glare-x: 16%;
+  --glare-y: 10%;
+  --beam-warm: rgba(255, 210, 118, 0.16);
+  --beam-hot: rgba(255, 248, 208, 0.28);
+  --beam-lime: rgba(176, 230, 132, 0.16);
+  --beam-cyan: rgba(124, 215, 255, 0.18);
+  --beam-violet: rgba(158, 145, 255, 0.16);
+  --beam-pink: rgba(228, 154, 255, 0.15);
+  --beam-soft-white: rgba(255, 255, 255, 0.06);
+  --beam-soft-warm: rgba(255, 234, 172, 0.12);
+  --beam-soft-cool: rgba(145, 222, 255, 0.12);
+  --beam-soft-violet: rgba(170, 150, 255, 0.12);
+  --beam-soft-pink: rgba(255, 188, 221, 0.08);
+  --glare-warm: rgba(255,244,214,0.12);
+  --glare-core: rgba(255,255,255,0.78);
+  --glare-cool: rgba(214,232,255,0.28);
+  --prism-1: rgb(255, 119, 115);
+  --prism-2: rgba(255, 237, 95, 1);
+  --prism-3: rgba(168, 255, 95, 1);
+  --prism-4: rgba(131, 255, 247, 1);
+  --prism-5: rgba(120, 148, 255, 1);
+  --prism-6: rgb(216, 117, 255);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: 960px;
+  min-height: 1680px;
+  padding: 20px 0 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  font-family: 'Noto Sans KR', sans-serif;
+  background:
+    radial-gradient(circle at 50% 10%, rgba(119, 83, 189, 0.18), transparent 28%),
+    linear-gradient(180deg, #222 0%, #17141d 100%);
+}
+
+.label {
+  color: #aaa;
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: 10px;
+}
+
+.card-wrap {
+  width: 940px;
+  height: 520px;
+  border-radius: 16px;
+  padding: 5px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.card-wrap.common {
+  background: linear-gradient(145deg, #888, #555, #888, #333);
+}
+.card-wrap.rare {
+  background: linear-gradient(145deg, #6ab0f5, #2a6fc0, #6ab0f5, #1a4a8a);
+}
+.card-wrap.epic {
+  background: linear-gradient(145deg, #c9a0e8, #7b4fa2, #c9a0e8, #5a2d82);
+}
+.card-wrap.legendary {
+  background: linear-gradient(145deg, #ffe066, #c8900a, #ffe066, #a07010);
+}
+.card-wrap.ultra-legendary {
+  background: linear-gradient(145deg, #ff6b6b, #c0392b, #ff6b6b, #922b21);
+  box-shadow: 0 0 20px rgba(255,80,80,0.35), 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.card.common-bg  { background: linear-gradient(170deg, #2a2a2a 0%, #1a1a1a 40%, #111 100%); }
+.card.rare-bg    { background: linear-gradient(170deg, #0e2a45 0%, #091a30 40%, #060f1e 100%); }
+.card.legendary-bg     { background: linear-gradient(170deg, #2a1e00 0%, #1a1200 40%, #100b00 100%); }
+.card.ultra-legendary-bg { background: linear-gradient(170deg, #2a0000 0%, #1a0000 40%, #100000 100%); }
+
+.badge.common    { background: rgba(140,140,140,0.85); }
+.badge.rare      { background: rgba(60,120,220,0.85); }
+.badge.legendary { background: rgba(200,150,10,0.9); }
+.badge.ultra-legendary { background: rgba(200,40,40,0.9); }
+
+.accent-line.common-accent    { background: linear-gradient(90deg, transparent, rgba(160,160,160,0.5), transparent); }
+.accent-line.rare-accent      { background: linear-gradient(90deg, transparent, rgba(80,150,255,0.6), transparent); }
+.accent-line.legendary-accent { background: linear-gradient(90deg, transparent, rgba(255,210,50,0.7), transparent); }
+.accent-line.ultra-accent     { background: linear-gradient(90deg, #ff6b6b, #ffaa44, #ff6b6b); }
+
+.card-wrap.shiny {
+  background: linear-gradient(145deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #a66cff, #ff6bcb, #ff6b6b);
+  background-size: 400% 400%;
+  box-shadow: 0 0 25px rgba(255,200,100,0.3), 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.card-wrap.shiny.variant-gold {
+  --posx: 46%;
+  --posy: 33%;
+  --foil-opacity: 0.46;
+  --prism-opacity: 0.62;
+  --glare-opacity: 0.78;
+  --prism-space: 4%;
+  --glare-x: 14%;
+  --glare-y: 10%;
+  --beam-warm: rgba(255, 194, 105, 0.2);
+  --beam-hot: rgba(255, 246, 192, 0.34);
+  --beam-lime: rgba(208, 236, 118, 0.18);
+  --beam-cyan: rgba(132, 225, 255, 0.16);
+  --beam-violet: rgba(166, 148, 255, 0.16);
+  --beam-pink: rgba(235, 168, 255, 0.14);
+  --beam-soft-warm: rgba(255, 232, 164, 0.16);
+  --glare-warm: rgba(255, 236, 190, 0.16);
+  --glare-core: rgba(255,255,255,0.84);
+  --glare-cool: rgba(216,236,255,0.22);
+  --prism-1: rgb(255, 146, 108);
+  --prism-2: rgba(255, 241, 126, 1);
+  --prism-3: rgba(198, 255, 112, 1);
+  --prism-4: rgba(152, 255, 230, 1);
+  --prism-5: rgba(134, 172, 255, 1);
+  --prism-6: rgb(224, 144, 255);
+}
+
+.card-wrap.shiny.variant-cool {
+  --posx: 53%;
+  --posy: 31%;
+  --foil-opacity: 0.44;
+  --prism-opacity: 0.66;
+  --glare-opacity: 0.68;
+  --prism-space: 3.8%;
+  --glare-x: 20%;
+  --glare-y: 12%;
+  --beam-warm: rgba(255, 186, 132, 0.14);
+  --beam-hot: rgba(238, 252, 255, 0.24);
+  --beam-lime: rgba(118, 245, 168, 0.18);
+  --beam-cyan: rgba(88, 234, 255, 0.24);
+  --beam-violet: rgba(146, 166, 255, 0.2);
+  --beam-pink: rgba(196, 162, 255, 0.14);
+  --beam-soft-warm: rgba(214, 244, 255, 0.1);
+  --beam-soft-cool: rgba(132, 232, 255, 0.18);
+  --beam-soft-violet: rgba(156, 180, 255, 0.14);
+  --glare-warm: rgba(226,244,255,0.12);
+  --glare-core: rgba(240,251,255,0.74);
+  --glare-cool: rgba(154,235,255,0.34);
+  --prism-1: rgb(255, 128, 146);
+  --prism-2: rgba(250, 230, 132, 1);
+  --prism-3: rgba(132, 247, 135, 1);
+  --prism-4: rgba(108, 255, 255, 1);
+  --prism-5: rgba(120, 176, 255, 1);
+  --prism-6: rgb(183, 136, 255);
+}
+
+.card-wrap.shiny.variant-rose {
+  --posx: 50%;
+  --posy: 37%;
+  --foil-opacity: 0.43;
+  --prism-opacity: 0.68;
+  --glare-opacity: 0.74;
+  --prism-space: 4.4%;
+  --glare-x: 17%;
+  --glare-y: 8%;
+  --beam-warm: rgba(255, 168, 132, 0.16);
+  --beam-hot: rgba(255, 230, 220, 0.3);
+  --beam-lime: rgba(190, 248, 140, 0.14);
+  --beam-cyan: rgba(126, 224, 255, 0.16);
+  --beam-violet: rgba(188, 138, 255, 0.2);
+  --beam-pink: rgba(255, 140, 228, 0.2);
+  --beam-soft-warm: rgba(255, 216, 190, 0.14);
+  --beam-soft-cool: rgba(172, 220, 255, 0.12);
+  --beam-soft-violet: rgba(206, 150, 255, 0.18);
+  --beam-soft-pink: rgba(255, 166, 224, 0.14);
+  --glare-warm: rgba(255,228,214,0.14);
+  --glare-core: rgba(255,246,252,0.8);
+  --glare-cool: rgba(236,198,255,0.28);
+  --prism-1: rgb(255, 128, 120);
+  --prism-2: rgba(255, 226, 110, 1);
+  --prism-3: rgba(186, 255, 122, 1);
+  --prism-4: rgba(115, 246, 220, 1);
+  --prism-5: rgba(138, 152, 255, 1);
+  --prism-6: rgb(255, 126, 232);
+}
+
+.card-wrap.shiny.variant-toxic {
+  --posx: 56%;
+  --posy: 34%;
+  --foil-opacity: 0.48;
+  --prism-opacity: 0.72;
+  --glare-opacity: 0.7;
+  --prism-space: 3.6%;
+  --glare-x: 23%;
+  --glare-y: 11%;
+  --beam-warm: rgba(255, 176, 120, 0.14);
+  --beam-hot: rgba(248, 255, 210, 0.26);
+  --beam-lime: rgba(132, 255, 92, 0.24);
+  --beam-cyan: rgba(72, 255, 238, 0.24);
+  --beam-violet: rgba(126, 162, 255, 0.18);
+  --beam-pink: rgba(208, 124, 255, 0.18);
+  --beam-soft-warm: rgba(234, 255, 170, 0.12);
+  --beam-soft-cool: rgba(100, 255, 242, 0.18);
+  --beam-soft-violet: rgba(132, 176, 255, 0.14);
+  --beam-soft-pink: rgba(220, 136, 255, 0.12);
+  --glare-warm: rgba(236,255,198,0.12);
+  --glare-core: rgba(244,255,238,0.76);
+  --glare-cool: rgba(132,255,238,0.34);
+  --prism-1: rgb(255, 110, 140);
+  --prism-2: rgba(255, 245, 92, 1);
+  --prism-3: rgba(132, 255, 82, 1);
+  --prism-4: rgba(74, 255, 244, 1);
+  --prism-5: rgba(102, 155, 255, 1);
+  --prism-6: rgb(205, 108, 255);
+}
+
+.card {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card.epic-bg {
+  background: linear-gradient(170deg, #2a1545 0%, #1d0e35 40%, #150a28 100%);
+}
+
+.card.epic-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("assets/card_textures/carbon-fibre-v2.png") repeat;
+  background-size: 4px 4px;
+  opacity: 0.45;
+  mix-blend-mode: overlay;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 12px;
+}
+
+.card.shiny-bg {
+  background: linear-gradient(170deg, #2e1a42 0%, #201038 40%, #180a2e 100%);
+}
+
+.nameplate {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  right: 10px;
+  height: 48px;
+  background: linear-gradient(90deg, rgba(60,30,90,0.9), rgba(40,20,65,0.85), rgba(60,30,90,0.9));
+  border-radius: 8px;
+  border: 1px solid rgba(177,133,219,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  z-index: 20;
+}
+
+.nameplate.shiny-plate {
+  background: linear-gradient(90deg,
+    rgba(80,20,20,0.88) 0%,
+    rgba(60,20,50,0.88) 20%,
+    rgba(20,20,60,0.88) 40%,
+    rgba(20,50,60,0.88) 60%,
+    rgba(20,50,30,0.88) 80%,
+    rgba(80,20,20,0.88) 100%
+  );
+  border: 1px solid transparent;
+  background-image:
+    linear-gradient(rgba(20,10,30,0.88), rgba(20,10,30,0.88)),
+    linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #a66cff, #ff6bcb);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+.name-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pokemon-name {
+  font-size: 28px;
+  font-weight: 900;
+  color: white;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+.pokemon-id {
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.4);
+}
+
+.hp-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.type-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+}
+
+.type-icon img {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+}
+
+.badge {
+  padding: 5px 14px;
+  border-radius: 5px;
+  font-size: 18px;
+  font-weight: 900;
+  color: white;
+}
+
+.badge.epic {
+  background: rgba(177,133,219,0.85);
+}
+
+.shiny-badge {
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 900;
+  color: white;
+  background: linear-gradient(90deg, #ff6b6b, #ff9f43, #ffd93d);
+  margin-left: 8px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.art-frame {
+  position: absolute;
+  top: 64px;
+  left: 10px;
+  right: 10px;
+  bottom: 46px;
+  border-radius: 8px;
+  border: 2px solid rgba(177,133,219,0.4);
+  overflow: hidden;
+  z-index: 5;
+  isolation: isolate;
+}
+
+.art-frame.shiny-frame {
+  border: 2px solid transparent;
+  background-image:
+    linear-gradient(#000, #000),
+    linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #a66cff, #ff6bcb);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+.art-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at center 40%, rgba(80,40,120,0.3) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(30,15,50,0.9) 0%, rgba(15,8,28,0.95) 100%);
+}
+/* 등급별 art-bg 배경 */
+.art-bg.common-art {
+  background:
+    radial-gradient(ellipse at center 40%, rgba(100,100,100,0.25) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(15,15,15,0.98) 100%);
+}
+.art-bg.rare-art {
+  background:
+    radial-gradient(ellipse at center 40%, rgba(30,80,180,0.35) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(8,20,48,0.95) 0%, rgba(4,10,28,0.98) 100%);
+}
+.art-bg.epic-art {
+  background:
+    radial-gradient(ellipse at center 40%, rgba(80,40,120,0.3) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(30,15,50,0.9) 0%, rgba(15,8,28,0.95) 100%);
+}
+.art-bg.legendary-art {
+  background:
+    radial-gradient(ellipse at center 40%, rgba(180,130,0,0.35) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(30,20,0,0.95) 0%, rgba(15,10,0,0.98) 100%);
+}
+.art-bg.ultra-art {
+  background:
+    radial-gradient(ellipse at center 40%, rgba(180,20,20,0.4) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(28,5,5,0.95) 0%, rgba(14,2,2,0.98) 100%);
+}
+/* 등급별 art-frame 테두리 */
+.art-frame.common-frame  { border-color: rgba(160,160,160,0.35); }
+.art-frame.rare-frame    { border-color: rgba(60,130,255,0.45); }
+.art-frame.legendary-frame { border-color: rgba(220,170,30,0.5); }
+.art-frame.ultra-frame   { border-color: rgba(220,50,50,0.55); }
+/* 등급별 nameplate / info-panel */
+.nameplate.common-plate  { background: linear-gradient(90deg,rgba(50,50,50,0.9),rgba(35,35,35,0.85),rgba(50,50,50,0.9)); border-color: rgba(160,160,160,0.25); }
+.nameplate.rare-plate    { background: linear-gradient(90deg,rgba(10,30,70,0.9),rgba(8,20,55,0.85),rgba(10,30,70,0.9)); border-color: rgba(60,130,255,0.3); }
+.nameplate.legendary-plate { background: linear-gradient(90deg,rgba(50,35,0,0.9),rgba(35,25,0,0.85),rgba(50,35,0,0.9)); border-color: rgba(220,170,30,0.3); }
+.nameplate.ultra-plate   { background: linear-gradient(90deg,rgba(50,5,5,0.9),rgba(35,3,3,0.85),rgba(50,5,5,0.9)); border-color: rgba(220,50,50,0.3); }
+.info-panel.common-info  { background: linear-gradient(90deg,rgba(50,50,50,0.85),rgba(35,35,35,0.8),rgba(50,50,50,0.85)); border-color: rgba(160,160,160,0.2); }
+.info-panel.rare-info    { background: linear-gradient(90deg,rgba(10,30,70,0.85),rgba(8,20,55,0.8),rgba(10,30,70,0.85)); border-color: rgba(60,130,255,0.25); }
+.info-panel.legendary-info { background: linear-gradient(90deg,rgba(50,35,0,0.85),rgba(35,25,0,0.8),rgba(50,35,0,0.85)); border-color: rgba(220,170,30,0.25); }
+.info-panel.ultra-info   { background: linear-gradient(90deg,rgba(50,5,5,0.85),rgba(35,3,3,0.8),rgba(50,5,5,0.85)); border-color: rgba(220,50,50,0.25); }
+/* 등급별 art-glow */
+.art-glow.common-glow  { background: radial-gradient(circle, rgba(120,120,120,0.3) 0%, rgba(80,80,80,0.12) 35%, transparent 70%); }
+.art-glow.rare-glow    { background: radial-gradient(circle, rgba(40,100,255,0.4) 0%, rgba(20,60,180,0.15) 35%, transparent 70%); }
+.art-glow.legendary-glow { background: radial-gradient(circle, rgba(220,160,0,0.45) 0%, rgba(160,110,0,0.18) 35%, transparent 70%); }
+.art-glow.ultra-glow   { background: radial-gradient(circle, rgba(220,40,40,0.5) 0%, rgba(160,20,20,0.2) 35%, transparent 70%); }
+
+.art-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("assets/card_effects/grain.webp") repeat;
+  background-size: 300px 300px;
+  opacity: 0.35;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.art-glow {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  filter: blur(40px);
+  background: radial-gradient(circle, rgba(180,80,255,0.45) 0%, rgba(150,60,220,0.18) 30%, rgba(120,40,180,0.08) 55%, transparent 75%);
+  z-index: 4;
+}
+
+.pokemon-container {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  transform: translate(-50%, -55%);
+  z-index: 12;
+}
+
+.pokemon-sprite {
+  width: 300px;
+  height: 300px;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 8px 25px rgba(0,0,0,0.6))
+    drop-shadow(0 0 40px rgba(177,133,219,0.25));
+}
+
+.pokemon-sprite.shiny-sprite {
+  filter:
+    drop-shadow(0 10px 28px rgba(0,0,0,0.52))
+    drop-shadow(0 0 46px rgba(255,205,120,0.18));
+}
+
+.holo-shine {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background:
+    linear-gradient(
+      -35deg,
+      transparent 0%,
+      transparent 42%,
+      rgba(255,255,255,0.25) 46%,
+      rgba(255,255,255,0.5) 50%,
+      rgba(255,255,255,0.25) 54%,
+      transparent 58%,
+      transparent 100%
+    ),
+    linear-gradient(
+      -35deg,
+      transparent 0%,
+      transparent 30%,
+      rgba(255,255,255,0.1) 34%,
+      rgba(255,255,255,0.2) 36%,
+      rgba(255,255,255,0.1) 38%,
+      transparent 42%,
+      transparent 100%
+    ),
+    linear-gradient(
+      -35deg,
+      transparent 0%,
+      transparent 60%,
+      rgba(255,255,255,0.1) 64%,
+      rgba(255,255,255,0.2) 66%,
+      rgba(255,255,255,0.1) 68%,
+      transparent 72%,
+      transparent 100%
+    );
+  filter: blur(6px);
+}
+
+.holo-shine.iv-low { opacity: 0.06; }
+.holo-shine.iv-high { opacity: 0.5; }
+
+.normal-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background-image: url('assets/card_effects/glitter.png');
+  background-size: 50% 50%;
+  mix-blend-mode: screen;
+  opacity: 0.1;
+}
+
+.shiny-cosmos {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  background-image: url('assets/card_effects/glitter.png');
+  background-size: 50% 50%;
+  mix-blend-mode: screen;
+  opacity: 0.16;
+}
+
+.shiny-inner-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 45%,
+    rgba(255,220,150,0.12) 0%,
+    rgba(255,180,120,0.06) 25%,
+    rgba(255,140,180,0.03) 40%,
+    transparent 60%
+  );
+}
+
+.art-foil {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  mix-blend-mode: color-dodge;
+  opacity: var(--foil-opacity);
+  -webkit-mask-image: linear-gradient(-30deg,
+    transparent 0%,
+    transparent 28.5%,
+    rgba(0,0,0,0.03) 30.2%,
+    rgba(0,0,0,0.14) 32.1%,
+    rgba(0,0,0,0.28) 34.2%,
+    rgba(0,0,0,0.16) 36.4%,
+    rgba(0,0,0,0.03) 38.7%,
+    transparent 41.5%,
+    transparent 44.6%,
+    rgba(0,0,0,0.10) 46.7%,
+    rgba(0,0,0,0.42) 48.5%,
+    rgba(0,0,0,1) 50%,
+    rgba(0,0,0,0.42) 51.5%,
+    rgba(0,0,0,0.10) 53.3%,
+    transparent 56.2%,
+    transparent 59.4%,
+    rgba(0,0,0,0.03) 61.5%,
+    rgba(0,0,0,0.14) 63.5%,
+    rgba(0,0,0,0.28) 65.6%,
+    rgba(0,0,0,0.16) 67.8%,
+    rgba(0,0,0,0.03) 70.1%,
+    transparent 72.8%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(-30deg,
+    transparent 0%,
+    transparent 28.5%,
+    rgba(0,0,0,0.03) 30.2%,
+    rgba(0,0,0,0.14) 32.1%,
+    rgba(0,0,0,0.28) 34.2%,
+    rgba(0,0,0,0.16) 36.4%,
+    rgba(0,0,0,0.03) 38.7%,
+    transparent 41.5%,
+    transparent 44.6%,
+    rgba(0,0,0,0.10) 46.7%,
+    rgba(0,0,0,0.42) 48.5%,
+    rgba(0,0,0,1) 50%,
+    rgba(0,0,0,0.42) 51.5%,
+    rgba(0,0,0,0.10) 53.3%,
+    transparent 56.2%,
+    transparent 59.4%,
+    rgba(0,0,0,0.03) 61.5%,
+    rgba(0,0,0,0.14) 63.5%,
+    rgba(0,0,0,0.28) 65.6%,
+    rgba(0,0,0,0.16) 67.8%,
+    rgba(0,0,0,0.03) 70.1%,
+    transparent 72.8%,
+    transparent 100%
+  );
+}
+
+.art-foil::before,
+.art-foil::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.art-foil::before {
+  background-image:
+    linear-gradient(
+      60deg,
+      var(--beam-warm) 0%,
+      var(--beam-hot) 18%,
+      var(--beam-lime) 34%,
+      var(--beam-cyan) 50%,
+      var(--beam-violet) 68%,
+      var(--beam-pink) 84%,
+      var(--beam-warm) 100%
+    ),
+    repeating-linear-gradient(
+      60deg,
+      rgba(255,255,255,0.07) 0px,
+      rgba(255,255,255,0.07) 1px,
+      rgba(255,255,255,0.01) 4px,
+      rgba(255,255,255,0.00) 16px
+    );
+  background-blend-mode: screen, soft-light;
+  background-size: 220% 220%, 180% 180%;
+  background-position: var(--posx) var(--posy), center;
+  filter: blur(var(--foil-blur)) brightness(1.02) contrast(1.06) saturate(1.22);
+}
+
+.art-foil::after {
+  background-image:
+    linear-gradient(
+      60deg,
+      var(--beam-soft-white) 0%,
+      var(--beam-soft-warm) 22%,
+      var(--beam-soft-cool) 48%,
+      var(--beam-soft-violet) 72%,
+      var(--beam-soft-pink) 100%
+    );
+  background-blend-mode: screen;
+  background-size: 180% 180%;
+  background-position: calc(100% - var(--posx)) calc(100% - var(--posy));
+  filter: blur(var(--foil-after-blur)) brightness(0.98) contrast(1.02) saturate(1.14);
+  mix-blend-mode: screen;
+  opacity: 0.44;
+}
+
+.art-prism-ref {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: var(--prism-opacity);
+  --space: var(--prism-space);
+  --angle: 133deg;
+  --imgsize: 500px;
+  -webkit-mask-image: linear-gradient(-30deg,
+    transparent 0%,
+    transparent 28.5%,
+    rgba(0,0,0,0.02) 30.2%,
+    rgba(0,0,0,0.10) 32.1%,
+    rgba(0,0,0,0.20) 34.2%,
+    rgba(0,0,0,0.10) 36.4%,
+    rgba(0,0,0,0.02) 38.7%,
+    transparent 41.5%,
+    transparent 44.6%,
+    rgba(0,0,0,0.08) 46.7%,
+    rgba(0,0,0,0.36) 48.5%,
+    rgba(0,0,0,0.86) 50%,
+    rgba(0,0,0,0.36) 51.5%,
+    rgba(0,0,0,0.08) 53.3%,
+    transparent 56.2%,
+    transparent 59.4%,
+    rgba(0,0,0,0.02) 61.5%,
+    rgba(0,0,0,0.10) 63.5%,
+    rgba(0,0,0,0.20) 65.6%,
+    rgba(0,0,0,0.10) 67.8%,
+    rgba(0,0,0,0.02) 70.1%,
+    transparent 72.8%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(-30deg,
+    transparent 0%,
+    transparent 28.5%,
+    rgba(0,0,0,0.02) 30.2%,
+    rgba(0,0,0,0.10) 32.1%,
+    rgba(0,0,0,0.20) 34.2%,
+    rgba(0,0,0,0.10) 36.4%,
+    rgba(0,0,0,0.02) 38.7%,
+    transparent 41.5%,
+    transparent 44.6%,
+    rgba(0,0,0,0.08) 46.7%,
+    rgba(0,0,0,0.36) 48.5%,
+    rgba(0,0,0,0.86) 50%,
+    rgba(0,0,0,0.36) 51.5%,
+    rgba(0,0,0,0.08) 53.3%,
+    transparent 56.2%,
+    transparent 59.4%,
+    rgba(0,0,0,0.02) 61.5%,
+    rgba(0,0,0,0.10) 63.5%,
+    rgba(0,0,0,0.20) 65.6%,
+    rgba(0,0,0,0.10) 67.8%,
+    rgba(0,0,0,0.02) 70.1%,
+    transparent 72.8%,
+    transparent 100%
+  );
+}
+
+.art-prism-ref::before,
+.art-prism-ref::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.art-prism-ref::before {
+  background-image:
+    linear-gradient(
+      -30deg,
+      transparent 0%,
+      transparent 31.8%,
+      rgba(255,255,255,0.00) 33.4%,
+      rgba(255,236,188,0.12) 34.2%,
+      rgba(255,255,255,0.22) 34.9%,
+      rgba(154,232,255,0.18) 35.8%,
+      rgba(255,255,255,0.00) 37.2%,
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      var(--prism-1) calc(var(--space) * 1),
+      var(--prism-2) calc(var(--space) * 2),
+      var(--prism-3) calc(var(--space) * 3),
+      var(--prism-4) calc(var(--space) * 4),
+      var(--prism-5) calc(var(--space) * 5),
+      var(--prism-6) calc(var(--space) * 6),
+      var(--prism-1) calc(var(--space) * 7)
+    ),
+    repeating-linear-gradient(
+      var(--angle),
+      #0e152e 0%,
+      hsl(180, 10%, 60%) 3.8%,
+      hsl(180, 29%, 66%) 4.5%,
+      hsl(180, 10%, 60%) 5.2%,
+      #0e152e 10%,
+      #0e152e 12%
+    );
+  background-blend-mode: screen, color-dodge, hue, hard-light;
+  background-size: 100% 100%, 200% 700%, 300%;
+  background-position: center, 0% var(--posy), var(--posx) var(--posy);
+  filter: brightness(0.98) contrast(3.05) saturate(1.65);
+}
+
+.art-prism-ref::after {
+  background-image:
+    linear-gradient(
+      -30deg,
+      transparent 0%,
+      transparent 48.3%,
+      rgba(255,255,255,0.00) 49.1%,
+      rgba(255,238,194,0.14) 49.7%,
+      rgba(255,255,255,0.32) 50%,
+      rgba(161,226,255,0.18) 50.8%,
+      rgba(255,255,255,0.00) 52.1%,
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      var(--prism-1) calc(var(--space) * 1),
+      var(--prism-2) calc(var(--space) * 2),
+      var(--prism-3) calc(var(--space) * 3),
+      var(--prism-4) calc(var(--space) * 4),
+      var(--prism-5) calc(var(--space) * 5),
+      var(--prism-6) calc(var(--space) * 6),
+      var(--prism-1) calc(var(--space) * 7)
+    ),
+    repeating-linear-gradient(
+      var(--angle),
+      #0e152e 0%,
+      hsl(180, 10%, 60%) 3.8%,
+      hsl(180, 29%, 66%) 4.5%,
+      hsl(180, 10%, 60%) 5.2%,
+      #0e152e 10%,
+      #0e152e 12%
+    );
+  background-blend-mode: screen, color-dodge, hue, hard-light;
+  background-size: 100% 100%, 200% 400%, 195%;
+  background-position: center, 0% var(--posy), calc(var(--posx) * -1) calc(var(--posy) * -1);
+  filter: brightness(1.02) contrast(2.6) saturate(2.05);
+  mix-blend-mode: soft-light;
+  opacity: 0.76;
+}
+
+.art-glare-ref {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: var(--glare-opacity);
+  -webkit-mask-image: linear-gradient(-30deg,
+    transparent 0%,
+    transparent 24%,
+    rgba(0,0,0,0.00) 27.5%,
+    rgba(0,0,0,0.04) 30.2%,
+    rgba(0,0,0,0.14) 32.8%,
+    rgba(0,0,0,0.22) 35.2%,
+    rgba(0,0,0,0.10) 37.8%,
+    rgba(0,0,0,0.02) 40.5%,
+    transparent 43.8%,
+    transparent 44.6%,
+    rgba(0,0,0,0.00) 46.2%,
+    rgba(0,0,0,0.18) 47.8%,
+    rgba(0,0,0,0.52) 49.1%,
+    rgba(0,0,0,1) 50%,
+    rgba(0,0,0,0.52) 50.9%,
+    rgba(0,0,0,0.18) 52.2%,
+    rgba(0,0,0,0.00) 53.8%,
+    transparent 55.4%,
+    transparent 56.2%,
+    rgba(0,0,0,0.00) 59.5%,
+    rgba(0,0,0,0.04) 62.2%,
+    rgba(0,0,0,0.14) 64.8%,
+    rgba(0,0,0,0.22) 67.2%,
+    rgba(0,0,0,0.10) 69.8%,
+    rgba(0,0,0,0.02) 72.5%,
+    transparent 76%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(-30deg,
+    transparent 0%,
+    transparent 24%,
+    rgba(0,0,0,0.00) 27.5%,
+    rgba(0,0,0,0.04) 30.2%,
+    rgba(0,0,0,0.14) 32.8%,
+    rgba(0,0,0,0.22) 35.2%,
+    rgba(0,0,0,0.10) 37.8%,
+    rgba(0,0,0,0.02) 40.5%,
+    transparent 43.8%,
+    transparent 44.6%,
+    rgba(0,0,0,0.00) 46.2%,
+    rgba(0,0,0,0.18) 47.8%,
+    rgba(0,0,0,0.52) 49.1%,
+    rgba(0,0,0,1) 50%,
+    rgba(0,0,0,0.52) 50.9%,
+    rgba(0,0,0,0.18) 52.2%,
+    rgba(0,0,0,0.00) 53.8%,
+    transparent 55.4%,
+    transparent 56.2%,
+    rgba(0,0,0,0.00) 59.5%,
+    rgba(0,0,0,0.04) 62.2%,
+    rgba(0,0,0,0.14) 64.8%,
+    rgba(0,0,0,0.22) 67.2%,
+    rgba(0,0,0,0.10) 69.8%,
+    rgba(0,0,0,0.06) 72.5%,
+    transparent 76%,
+    transparent 100%
+  );
+  background-image:
+    linear-gradient(
+      -30deg,
+      transparent 0%,
+      transparent 23%,
+      rgba(255,255,255,0.00) 28%,
+      var(--glare-warm) 30.5%,
+      rgba(255,255,255,0.24) 33.4%,
+      rgba(255,255,255,0.48) 35.6%,
+      var(--glare-cool) 38.2%,
+      rgba(255,255,255,0.00) 42.8%,
+      transparent 100%
+    ),
+    linear-gradient(
+      -30deg,
+      transparent 0%,
+      transparent 40.5%,
+      rgba(255,255,255,0.00) 45.3%,
+      var(--glare-warm) 47.8%,
+      rgba(255,255,255,0.38) 49.8%,
+      var(--glare-core) 50%,
+      var(--glare-cool) 51.7%,
+      rgba(255,255,255,0.14) 54.1%,
+      rgba(255,255,255,0.00) 58.8%,
+      transparent 100%
+    ),
+    linear-gradient(
+      -30deg,
+      transparent 0%,
+      transparent 57.5%,
+      rgba(255,255,255,0.00) 61.3%,
+      var(--glare-warm) 63.9%,
+      rgba(255,255,255,0.24) 66.5%,
+      rgba(255,255,255,0.46) 68.8%,
+      var(--glare-cool) 71.4%,
+      rgba(255,255,255,0.00) 76%,
+      transparent 100%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,0.95) 0%,
+      rgba(255,247,224,0.48) 7%,
+      rgba(201,231,255,0.18) 18%,
+      rgba(255,255,255,0.00) 38%
+    );
+  background-blend-mode: screen, screen, screen, screen;
+  background-size: 100% 100%, 100% 100%, 100% 100%, 180% 180%;
+  background-position: center, center, center, var(--glare-x) var(--glare-y);
+  filter: blur(var(--glare-blur)) brightness(1.02) saturate(1.02);
+}
+
+.info-panel {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  right: 10px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(60,30,90,0.85), rgba(45,22,70,0.8), rgba(60,30,90,0.85));
+  border: 1px solid rgba(177,133,219,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 20;
+}
+
+.info-panel.shiny-info {
+  background-image:
+    linear-gradient(rgba(15,8,25,0.88), rgba(15,8,25,0.88)),
+    linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #a66cff, #ff6bcb);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  border: 1px solid transparent;
+}
+
+.info-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.info-label {
+  font-size: 15px;
+  color: rgba(255,255,255,0.55);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.iv-display {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.iv-display.iv-hidden {
+  color: rgba(255,255,255,0.45);
+}
+
+.iv-display.iv-shiny-hidden {
+  color: rgba(255,200,100,0.55);
+}
+
+.accent-line {
+  position: absolute;
+  bottom: 0;
+  left: 20px;
+  right: 20px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(177,133,219,0.6), transparent);
+  z-index: 30;
+}
+
+.accent-line.shiny-accent {
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #a66cff, #ff6bcb);
+}
+
+.iv-display.iv-s { color: #ffd700; text-shadow: 0 0 8px rgba(255,215,0,0.5); }
+.iv-display.iv-a { color: #64c8ff; text-shadow: 0 0 8px rgba(100,200,255,0.4); }
+.iv-display.iv-b { color: #8ce68c; text-shadow: 0 0 8px rgba(140,230,140,0.4); }
+.iv-display.iv-c { color: #c8c8c8; }
+.iv-display.iv-d { color: #a0a0a0; }
+</style>
+</head>
+<body>
+
+<div class="label">스폰 카드 - 낮은 IV (홀로 거의 없음)</div>
+<div class="card-wrap epic">
+  <div class="card epic-bg">
+    <div class="nameplate">
+      <div class="name-section">
+        <span class="pokemon-id">#006</span>
+        <span class="pokemon-name">야생의 리자몽</span>
+      </div>
+      <div class="hp-section">
+        <div class="type-icon"><img src="assets/types/fire.svg"></div>
+        <div class="type-icon"><img src="assets/types/flying.svg"></div>
+        <span class="badge epic">에픽</span>
+      </div>
+    </div>
+    <div class="art-frame">
+      <div class="art-bg"></div>
+      <div class="normal-grain"></div>
+      <div class="art-glow"></div>
+      <div class="holo-shine iv-low"></div>
+      <div class="pokemon-container"><img class="pokemon-sprite" src="assets/pokemon/6.png"></div>
+    </div>
+    <div class="info-panel">
+      <div class="info-left"><span class="info-label">에픽 · 불꽃 / 비행</span></div>
+      <div class="iv-display iv-d">IV: D</div>
+    </div>
+    <div class="accent-line"></div>
+  </div>
+</div>
+
+<div class="label">스폰 카드 - 높은 IV (홀로 강하게, 위치 다름)</div>
+<div class="card-wrap epic">
+  <div class="card epic-bg">
+    <div class="nameplate">
+      <div class="name-section">
+        <span class="pokemon-id">#006</span>
+        <span class="pokemon-name">야생의 리자몽</span>
+      </div>
+      <div class="hp-section">
+        <div class="type-icon"><img src="assets/types/fire.svg"></div>
+        <div class="type-icon"><img src="assets/types/flying.svg"></div>
+        <span class="badge epic">에픽</span>
+      </div>
+    </div>
+    <div class="art-frame">
+      <div class="art-bg"></div>
+      <div class="normal-grain"></div>
+      <div class="art-glow"></div>
+      <div class="holo-shine iv-high"></div>
+      <div class="pokemon-container"><img class="pokemon-sprite" src="assets/pokemon/6.png"></div>
+    </div>
+    <div class="info-panel">
+      <div class="info-left"><span class="info-label">에픽 · 불꽃 / 비행</span></div>
+      <div class="iv-display iv-s">IV: S</div>
+    </div>
+    <div class="accent-line"></div>
+  </div>
+</div>
+
+<!-- ══ 전체 등급 ══ -->
+<div class="label">일반 (Common)</div>
+<div class="card-wrap common">
+  <div class="card common-bg">
+    <div class="nameplate common-plate"><div class="name-section"><span class="pokemon-id">#019</span><span class="pokemon-name">야생의 꼬꼬</span></div><div class="hp-section"><span class="badge common">일반</span></div></div>
+    <div class="art-frame common-frame"><div class="art-bg common-art"></div><div class="normal-grain"></div><div class="art-glow common-glow"></div><div class="holo-shine iv-low"></div><div class="pokemon-container"><img class="pokemon-sprite" src="assets/pokemon/19.png"></div></div>
+    <div class="info-panel common-info"><div class="info-left"><span class="info-label">일반 · 노말</span></div><div class="iv-display iv-d">IV: D</div></div>
+    <div class="accent-line common-accent"></div>
+  </div>
+</div>
+
+<div class="label">레어 (Rare)</div>
+<div class="card-wrap rare">
+  <div class="card rare-bg">
+    <div class="nameplate rare-plate"><div class="name-section"><span class="pokemon-id">#130</span><span class="pokemon-name">야생의 갸라도스</span></div><div class="hp-section"><span class="badge rare">레어</span></div></div>
+    <div class="art-frame rare-frame"><div class="art-bg rare-art"></div><div class="normal-grain"></div><div class="art-glow rare-glow"></div><div class="holo-shine iv-high"></div><div class="pokemon-container"><img class="pokemon-sprite" src="assets/pokemon/130.png"></div></div>
+    <div class="info-panel rare-info"><div class="info-left"><span class="info-label">레어 · 물 / 비행</span></div><div class="iv-display iv-c">IV: C</div></div>
+    <div class="accent-line rare-accent"></div>
+  </div>
+</div>
+
+<div class="label">에픽 (Epic)</div>
+<div class="card-wrap epic">
+  <div class="card epic-bg">
+    <div class="nameplate"><div class="name-section"><span class="pokemon-id">#006</span><span class="pokemon-name">야생의 리자몽</span></div><div class="hp-section"><span class="badge epic">에픽</span></div></div>
+    <div class="art-frame"><div class="art-bg epic-art"></div><div class="normal-grain"></div><div class="art-glow"></div><div class="holo-shine iv-high"></div><div class="pokemon-container"><img class="pokemon-sprite" src="assets/pokemon/6.png"></div></div>
+    <div class="info-panel"><div class="info-left"><span class="info-label">에픽 · 불꽃 / 비행</span></div><div class="iv-display iv-b">IV: B</div></div>
+    <div class="accent-line"></div>
+  </div>
+</div>
+
+<div class="label">전설 (Legendary)</div>
+<div class="card-wrap legendary">
+  <div class="card legendary-bg">
+    <div class="nameplate legendary-plate"><div class="name-section"><span class="pokemon-id">#249</span><span class="pokemon-name">야생의 루기아</span></div><div class="hp-section"><span class="badge legendary">전설</span></div></div>
+    <div class="art-frame legendary-frame"><div class="art-bg legendary-art"></div><div class="normal-grain"></div><div class="art-glow legendary-glow"></div><div class="holo-shine iv-high"></div><div class="pokemon-container"><img class="pokemon-sprite" src="assets/pokemon/249.png"></div></div>
+    <div class="info-panel legendary-info"><div class="info-left"><span class="info-label">전설 · 사이킥 / 비행</span></div><div class="iv-display iv-a">IV: A</div></div>
+    <div class="accent-line legendary-accent"></div>
+  </div>
+</div>
+
+<div class="label">초전설 (Ultra Legendary)</div>
+<div class="card-wrap ultra-legendary">
+  <div class="card ultra-legendary-bg">
+    <div class="nameplate ultra-plate"><div class="name-section"><span class="pokemon-id">#384</span><span class="pokemon-name">야생의 레쿠쟈</span></div><div class="hp-section"><span class="badge ultra-legendary">초전설</span></div></div>
+    <div class="art-frame ultra-frame"><div class="art-bg ultra-art"></div><div class="normal-grain"></div><div class="art-glow ultra-glow"></div><div class="holo-shine iv-high"></div><div class="pokemon-container"><img class="pokemon-sprite" src="assets/pokemon/384.png"></div></div>
+    <div class="info-panel ultra-info"><div class="info-left"><span class="info-label">초전설 · 드래곤 / 비행</span></div><div class="iv-display iv-s">IV: S</div></div>
+    <div class="accent-line ultra-accent"></div>
+  </div>
+</div>
+
+<!-- ══ 등급별 이로치 ══ -->
+<div class="label">일반 이로치 (Common Shiny)</div>
+<div class="card-wrap shiny variant-cool" data-random-variant="true">
+  <div class="card common-bg">
+    <div class="nameplate shiny-plate"><div class="name-section"><span class="pokemon-id">#019</span><span class="pokemon-name">야생의 꼬꼬</span><span class="shiny-badge">SHINY</span></div><div class="hp-section"><span class="badge common">일반</span></div></div>
+    <div class="art-frame shiny-frame"><div class="art-bg common-art"></div><div class="art-glow common-glow"></div><div class="shiny-cosmos"></div><div class="shiny-inner-glow"></div><div class="art-foil"></div><div class="art-prism-ref"></div><div class="art-glare-ref"></div><div class="pokemon-container"><img class="pokemon-sprite shiny-sprite" src="assets/pokemon/19.png"></div></div>
+    <div class="info-panel shiny-info"><div class="info-left"><span class="info-label">일반 · 노말</span></div><div class="iv-display iv-s">IV: S</div></div>
+    <div class="accent-line shiny-accent"></div>
+  </div>
+</div>
+
+<div class="label">레어 이로치 (Rare Shiny)</div>
+<div class="card-wrap shiny variant-rose" data-random-variant="true">
+  <div class="card rare-bg">
+    <div class="nameplate shiny-plate"><div class="name-section"><span class="pokemon-id">#130</span><span class="pokemon-name">야생의 갸라도스</span><span class="shiny-badge">SHINY</span></div><div class="hp-section"><span class="badge rare">레어</span></div></div>
+    <div class="art-frame shiny-frame"><div class="art-bg rare-art"></div><div class="art-glow rare-glow"></div><div class="shiny-cosmos"></div><div class="shiny-inner-glow"></div><div class="art-foil"></div><div class="art-prism-ref"></div><div class="art-glare-ref"></div><div class="pokemon-container"><img class="pokemon-sprite shiny-sprite" src="assets/pokemon/130.png"></div></div>
+    <div class="info-panel shiny-info"><div class="info-left"><span class="info-label">레어 · 물 / 비행</span></div><div class="iv-display iv-s">IV: S</div></div>
+    <div class="accent-line shiny-accent"></div>
+  </div>
+</div>
+
+<div class="label">에픽 이로치 (Epic Shiny)</div>
+<div class="card-wrap shiny variant-gold" data-random-variant="true">
+  <div class="card epic-bg">
+    <div class="nameplate shiny-plate"><div class="name-section"><span class="pokemon-id">#006</span><span class="pokemon-name">야생의 리자몽</span><span class="shiny-badge">SHINY</span></div><div class="hp-section"><div class="type-icon"><img src="assets/types/fire.svg"></div><div class="type-icon"><img src="assets/types/flying.svg"></div><span class="badge epic">에픽</span></div></div>
+    <div class="art-frame shiny-frame"><div class="art-bg epic-art"></div><div class="art-glow"></div><div class="shiny-cosmos"></div><div class="shiny-inner-glow"></div><div class="art-foil"></div><div class="art-prism-ref"></div><div class="art-glare-ref"></div><div class="pokemon-container"><img class="pokemon-sprite shiny-sprite" src="assets/pokemon/6.png"></div></div>
+    <div class="info-panel shiny-info"><div class="info-left"><span class="info-label">에픽 · 불꽃 / 비행</span></div><div class="iv-display iv-s">IV: S</div></div>
+    <div class="accent-line shiny-accent"></div>
+  </div>
+</div>
+
+<div class="label">전설 이로치 (Legendary Shiny)</div>
+<div class="card-wrap shiny variant-toxic" data-random-variant="true">
+  <div class="card legendary-bg">
+    <div class="nameplate shiny-plate"><div class="name-section"><span class="pokemon-id">#249</span><span class="pokemon-name">야생의 루기아</span><span class="shiny-badge">SHINY</span></div><div class="hp-section"><span class="badge legendary">전설</span></div></div>
+    <div class="art-frame shiny-frame"><div class="art-bg legendary-art"></div><div class="art-glow legendary-glow"></div><div class="shiny-cosmos"></div><div class="shiny-inner-glow"></div><div class="art-foil"></div><div class="art-prism-ref"></div><div class="art-glare-ref"></div><div class="pokemon-container"><img class="pokemon-sprite shiny-sprite" src="assets/pokemon/249.png"></div></div>
+    <div class="info-panel shiny-info"><div class="info-left"><span class="info-label">전설 · 사이킥 / 비행</span></div><div class="iv-display iv-s">IV: S</div></div>
+    <div class="accent-line shiny-accent"></div>
+  </div>
+</div>
+
+<div class="label">초전설 이로치 (Ultra Legendary Shiny)</div>
+<div class="card-wrap shiny variant-gold" data-random-variant="true">
+  <div class="card ultra-legendary-bg">
+    <div class="nameplate shiny-plate"><div class="name-section"><span class="pokemon-id">#384</span><span class="pokemon-name">야생의 레쿠쟈</span><span class="shiny-badge">SHINY</span></div><div class="hp-section"><span class="badge ultra-legendary">초전설</span></div></div>
+    <div class="art-frame shiny-frame"><div class="art-bg ultra-art"></div><div class="art-glow ultra-glow"></div><div class="shiny-cosmos"></div><div class="shiny-inner-glow"></div><div class="art-foil"></div><div class="art-prism-ref"></div><div class="art-glare-ref"></div><div class="pokemon-container"><img class="pokemon-sprite shiny-sprite" src="assets/pokemon/384.png"></div></div>
+    <div class="info-panel shiny-info"><div class="info-left"><span class="info-label">초전설 · 드래곤 / 비행</span></div><div class="iv-display iv-s">IV: S</div></div>
+    <div class="accent-line shiny-accent"></div>
+  </div>
+</div>
+
+<div class="label">에픽 이로치 (랜덤 변형 참고)</div>
+<div class="card-wrap shiny" id="random-shiny-card" data-random-variant="true">
+  <div class="card shiny-bg">
+    <div class="nameplate shiny-plate">
+      <div class="name-section">
+        <span class="pokemon-id">#006</span>
+        <span class="pokemon-name">야생의 리자몽</span>
+        <span class="shiny-badge">SHINY</span>
+      </div>
+      <div class="hp-section">
+        <div class="type-icon"><img src="assets/types/fire.svg"></div>
+        <div class="type-icon"><img src="assets/types/flying.svg"></div>
+        <span class="badge epic">에픽</span>
+      </div>
+    </div>
+    <div class="art-frame shiny-frame">
+      <div class="art-bg"></div>
+      <div class="art-glow"></div>
+      <div class="shiny-cosmos"></div>
+      <div class="shiny-inner-glow"></div>
+      <div class="art-foil"></div>
+      <div class="art-prism-ref"></div>
+      <div class="art-glare-ref"></div>
+      <div class="pokemon-container"><img class="pokemon-sprite shiny-sprite" src="assets/pokemon/6.png"></div>
+    </div>
+    <div class="info-panel shiny-info">
+      <div class="info-left"><span class="info-label">에픽 · 불꽃 / 비행</span></div>
+      <div class="iv-display iv-s">IV: S</div>
+    </div>
+    <div class="accent-line shiny-accent"></div>
+  </div>
+</div>
+
+<script>
+const holoVariants = [
+  { cls: 'variant-gold', label: 'Gold Shift' },
+  { cls: 'variant-cool', label: 'Cool Shift' },
+  { cls: 'variant-rose', label: 'Rose Shift' },
+  { cls: 'variant-toxic', label: 'Toxic Shift' },
+];
+
+const params = new URLSearchParams(window.location.search);
+const forcedVariant = params.get('variant');
+
+document.querySelectorAll('[data-random-variant="true"]').forEach((card) => {
+  const picked =
+    holoVariants.find((variant) =>
+      variant.cls === forcedVariant || variant.cls === `variant-${forcedVariant}`
+    ) ||
+    holoVariants[Math.floor(Math.random() * holoVariants.length)];
+  card.classList.add(picked.cls);
+});
+</script>
+
+</body>
+</html>

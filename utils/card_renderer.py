@@ -9,7 +9,7 @@ from functools import lru_cache
 
 ROOT = Path(__file__).parent.parent
 TEMPLATE_PATH = ROOT / "assets" / "card_template.html"
-CSS_SOURCE = ROOT / "test_card_spawn.html"
+CSS_SOURCE = ROOT / "assets" / "card_spawn_styles.html"
 
 # 등급별 클래스 매핑 (HTML CSS 원본 그대로)
 _RARITY_MAP = {
