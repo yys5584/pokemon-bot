@@ -107,6 +107,13 @@ async def award_co_champions(context):
         champion_results.append((uid, name, shiny_name, iv_detail))
         awarded.add(uid)
 
+    # 딸딸기 추가 IV+3 스톤 2개 (던전 보상 약속분)
+    try:
+        await item_queries.add_user_item(6007036282, "iv_stone_3", 2)
+        logger.info("딸딸기 IV stone +2 (던전 보상분) 지급 완료")
+    except Exception as e:
+        logger.error(f"딸딸기 추가 IV stone fail: {e}")
+
     # ── 2. 8강 탈락 ──
     for uid, name in QUARTER_LOSERS.items():
         if uid in awarded:
@@ -179,6 +186,9 @@ async def award_co_champions(context):
         if iv_detail:
             dm += f"{iv_detail}\n"
         dm += f"\n🧪 IV+3 스톤 ×1 지급! ('아이템' 입력으로 확인)"
+        # 딸딸기 추가 IV+3 2개 (던전 보상분)
+        if uid == 6007036282:
+            dm += f"\n🧪 IV+3 스톤 ×2 추가 지급! (던전 보상분)"
         try:
             await context.bot.send_message(chat_id=uid, text=dm, parse_mode="HTML")
         except Exception:
