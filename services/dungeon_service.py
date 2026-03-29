@@ -410,7 +410,8 @@ def check_new_synergies(old_buffs: list[dict], new_buffs: list[dict]) -> list[di
 
 
 def generate_buff_choices(
-    floor: int, current_buffs: list[dict], count: int = 3
+    floor: int, current_buffs: list[dict], count: int = 3,
+    is_reroll: bool = False,
 ) -> list[dict]:
     """버프 선택지 생성 — 레벨업 가능한 것 + 새로운 것 혼합."""
     choices = []
@@ -528,16 +529,29 @@ def generate_buff_choices(
         {"id": "random_heal", "name": "🎲 회복 룰렛", "desc": "HP 1~50% 랜덤 회복",
          "effect": {"type": "consumable", "heal_range": [1, 50]}},
     ]
+    consumable_chance = 0.60 if is_reroll else 0.30
+    available_consumables = []
     for cons in _CONSUMABLES:
         marker = f"_used_{cons['id']}"
         if marker in _used or marker in owned_ids:
             continue
-        if random.random() < 0.30:
+        available_consumables.append(cons)
+        if random.random() < consumable_chance:
             choices.append({
                 "id": cons["id"], "name": cons["name"], "category": "consumable",
                 "lv": 0, "is_upgrade": False,
                 "effect": cons["effect"], "desc": cons["desc"],
             })
+
+    # 리롤인데 소모스킬이 하나도 안 들어갔으면 강제 1개 추가
+    has_consumable = any(c.get("category") == "consumable" for c in choices)
+    if is_reroll and not has_consumable and available_consumables:
+        cons = random.choice(available_consumables)
+        choices.append({
+            "id": cons["id"], "name": cons["name"], "category": "consumable",
+            "lv": 0, "is_upgrade": False,
+            "effect": cons["effect"], "desc": cons["desc"],
+        })
 
     random.shuffle(choices)
     return choices[:count]
@@ -1573,36 +1587,37 @@ def resolve_dungeon_battle_v2(
     rage_atk = 0.0
     rage_drain = 0.0
     mimic_active = False
-    for b in buffs:
-        if not b.get("id", "").startswith("_used_"):
-            continue
-        # 이미 사용된 소모 스킬은 건너뜀
+    log_lines = []
+    _pending_consumed = []
     for b in buffs:
         bid = b.get("id", "")
+        if not bid.startswith("_pending_"):
+            continue
         eff = b.get("effect", {})
-        if eff.get("type") != "consumable":
-            continue
-        if any(bb.get("id") == f"_used_{bid}" for bb in buffs):
-            continue
+        # _pending_xxx → 실제 스킬 id 추출
+        real_id = bid.removeprefix("_pending_")
+        _pending_consumed.append(bid)
         # 소모 스킬 적용
-        if bid == "gambler" and eff.get("dmg_range"):
+        if real_id == "gambler" and eff.get("dmg_range"):
             gambler_mult = random.uniform(*eff["dmg_range"])
-        elif bid == "rage" and eff.get("atk_boost"):
+        elif real_id == "rage" and eff.get("atk_boost"):
             rage_turns = eff.get("duration", 3)
             rage_atk = eff["atk_boost"]
             rage_drain = eff.get("hp_drain", 0.05)
-        elif bid == "mimic" and eff.get("mimic"):
+        elif real_id == "mimic" and eff.get("mimic"):
             mimic_active = True
-        elif bid == "curse" and eff.get("enemy_hp_cut"):
+        elif real_id == "curse" and eff.get("enemy_hp_cut"):
             cut = int(e_hp * eff["enemy_hp_cut"])
             e_hp -= cut
             log_lines.append(f"💀 저주 발동! 적 HP -{cut} ({int(eff['enemy_hp_cut']*100)}% 감소)")
-        elif bid == "random_heal" and eff.get("heal_range"):
+        elif real_id == "random_heal" and eff.get("heal_range"):
             heal_pct = random.randint(*eff["heal_range"]) / 100
             heal_amt = int(p_max_hp * heal_pct)
             p_hp = min(p_max_hp, p_hp + heal_amt)
             log_lines.append(f"🎲 회복 룰렛! HP +{heal_amt} ({int(heal_pct*100)}%)")
-
+    # 사용된 pending 마커 제거
+    if _pending_consumed:
+        buffs = [b for b in buffs if b.get("id", "") not in _pending_consumed]
 
     type_mult_p, _ = _type_multiplier(player_types, enemy["types"])
     type_mult_e, _ = _type_multiplier(enemy["types"], player_types)
@@ -1617,7 +1632,7 @@ def resolve_dungeon_battle_v2(
     else:
         type_display = "보통 (×1.0)"
 
-    log_lines = []
+    # log_lines는 소모스킬 블록에서 이미 초기화됨
     total_dmg_dealt = 0
     total_dmg_taken = 0
     _cnt = {"crit": 0, "skill": 0, "dodge": 0, "double": 0,
@@ -1750,6 +1765,7 @@ def resolve_dungeon_battle_v2(
         "log": log_lines, "revive_used": revive_used,
         "revive_consumed": revive_used, "highlights": _cnt,
         "type_mult_enemy": type_mult_e,
+        "buffs": buffs,  # pending 소모스킬 제거된 버프 리스트
     }
 
 

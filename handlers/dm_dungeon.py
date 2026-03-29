@@ -440,6 +440,8 @@ async def _process_floor(query, context, user_id: int, run: dict):
     remaining_hp = result["remaining_hp"]
     won = result["won"]
 
+    # pending 소모스킬이 제거된 buffs 사용
+    buffs = result.get("buffs", buffs)
     buffs = ds.consume_rogue_buffs(buffs)
     if result.get("revive_used"):
         buffs = [b for b in buffs if b.get("id") != "revive"]
@@ -1303,6 +1305,11 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
         elif chosen["id"] == "allstat" and "mult" in eff:
             new_max_hp = int(new_max_hp * eff["mult"])
             new_hp = int(new_hp * eff["mult"])
+        elif chosen["id"] == "hardcore" and "hp_penalty" in eff:
+            # 하드코어: HP -30% 패널티 즉시 적용
+            penalty = 1.0 + eff["hp_penalty"]  # e.g. 1.0 + (-0.30) = 0.70
+            new_max_hp = max(1, int(new_max_hp * penalty))
+            new_hp = max(1, int(new_hp * penalty))
 
         await dq.update_run_progress(run["id"], run["floor_reached"], new_hp, buffs)
         if new_max_hp != run["max_hp"]:
@@ -1514,8 +1521,8 @@ async def _handle_action(query, context, user_id: int, action: str, parts: list[
             import json
             buffs = json.loads(buffs)
 
-        # 새 선택지 생성
-        choices = ds.generate_buff_choices(floor, buffs)
+        # 새 선택지 생성 (리롤: 소모스킬 확률 2배 + 최소 1개 보장)
+        choices = ds.generate_buff_choices(floor, buffs, is_reroll=True)
         st["buff_choices"] = choices
         st["rerolls_used"] = rerolls_used + 1
         remaining = reroll_max - rerolls_used - 1
