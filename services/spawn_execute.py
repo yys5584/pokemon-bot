@@ -403,8 +403,8 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             ]
             safe_name = escape_html(winner_name)
             await context.bot.send_message(
-                chat_id=chat_id,
-                text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\nDM에서 '칭호'로 장착하세요!",
+                chat_id=winner_id,
+                text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\n'칭호'를 입력해서 장착하세요!",
                 parse_mode="HTML",
             )
 
@@ -537,10 +537,18 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                     _level_rarity_boosts = _li["rarity_boosts"]
         except Exception:
             pass
-        rarity = await roll_rarity(midnight_bonus=midnight, rarity_boosts=_level_rarity_boosts)
-
-        # 4. Pick random Pokemon
-        pokemon = await pick_random_pokemon(rarity)
+        # 관리자 포켓몬 ID 지정
+        force_pokemon_id = context.job.data.get("force_pokemon_id")
+        if force_pokemon_id:
+            pokemon = await queries.get_pokemon(force_pokemon_id)
+            if pokemon:
+                rarity = pokemon.get("rarity", "common")
+            else:
+                rarity = await roll_rarity(midnight_bonus=midnight, rarity_boosts=_level_rarity_boosts)
+                pokemon = await pick_random_pokemon(rarity)
+        else:
+            rarity = await roll_rarity(midnight_bonus=midnight, rarity_boosts=_level_rarity_boosts)
+            pokemon = await pick_random_pokemon(rarity)
 
         # 4.5 뉴비 스폰 판정 (관리자 아케이드 전용, 10% 확률) — shiny 판정 전에 결정
         is_newbie_spawn = (chat_id in config.ARCADE_CHAT_IDS) and random.random() < config.NEWBIE_SPAWN_CHANCE
@@ -620,11 +628,30 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                      name=poke_name(pokemon, _lang), bonus=bonus_text, weather=weather_tag,
                      window=window, newbie=newbie_tag)
 
-        # Generate card image (run in executor to avoid blocking event loop)
-        loop = asyncio.get_event_loop()
-        card_buf = await loop.run_in_executor(
-            None, generate_card, pokemon["id"], pokemon["name_ko"], rarity, pokemon["emoji"], is_shiny
-        )
+        # Generate card image (Playwright async 렌더링)
+        _types = pokemon.get("pokemon_type")
+        if isinstance(_types, str):
+            _types = [_types]
+        # 스폰 시 IV 미리 결정 (카드 표시 + 포획 시 동일 IV 사용)
+        from utils.battle_calc import generate_ivs, iv_total as _iv_total_fn
+        _pre_ivs = generate_ivs(is_shiny=is_shiny)
+        _spawn_iv = _iv_total_fn(
+            _pre_ivs["iv_hp"], _pre_ivs["iv_atk"], _pre_ivs["iv_def"],
+            _pre_ivs["iv_spa"], _pre_ivs["iv_spdef"], _pre_ivs["iv_spd"])
+        try:
+            from utils.card_renderer import render_card_html_async
+            card_buf = await render_card_html_async(
+                pokemon["id"], f"야생의 {pokemon['name_ko']}", rarity,
+                is_shiny=is_shiny, iv_total=_spawn_iv, types=_types,
+            )
+        except Exception as e:
+            logger.warning(f"Playwright render failed, falling back to PIL: {e}")
+            from functools import partial
+            loop = asyncio.get_event_loop()
+            card_buf = await loop.run_in_executor(
+                None, partial(generate_card, pokemon["id"], f"야생의 {pokemon['name_ko']}",
+                              rarity, pokemon["emoji"], is_shiny, types=_types, iv_total=_spawn_iv)
+            )
 
         # 이전 스폰의 포획 메시지가 완전히 전송될 때까지 대기
         lock = _get_chat_lock(chat_id)
@@ -648,6 +675,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         session_id = await spawn_queries.create_spawn_session(
             chat_id, pokemon["id"], expires, is_shiny=is_shiny,
             is_newbie_spawn=is_newbie_spawn,
+            pre_ivs=_pre_ivs,
         )
 
         # Update session with message_id

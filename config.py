@@ -30,6 +30,10 @@ ADMIN_IDS = [
     if x.strip().isdigit()
 ]
 
+# --- 점검 모드 ---
+MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "").lower() in ("1", "true", "yes")
+DUNGEON_MAINTENANCE = os.getenv("DUNGEON_MAINTENANCE", "").lower() in ("1", "true", "yes")
+
 # --- URLs ---
 BOT_CHANNEL_URL = "https://t.me/tg_poke"
 DASHBOARD_URL = "https://tgpoke.com"
@@ -136,6 +140,12 @@ MARKET_MIN_PRICE = 100             # 최소 등록가 (BP)
 MARKET_PAGE_SIZE = 5               # 페이지당 목록 수
 MARKET_MAX_ACTIVE_LISTINGS = 10    # 유저당 최대 동시 등록 수
 MARKET_LISTING_EXPIRE_DAYS = 7     # 등록 만료 기간 (일)
+# 등급별 최대 등록가 (이로치 제외, BP 세탁 방지)
+MARKET_MAX_PRICE_BY_RARITY = {
+    "common": 200, "rare": 500, "epic": 1500,
+    "legendary": 3000, "ultra_legendary": 5000,
+}
+MARKET_PAIR_WEEKLY_LIMIT = 3       # 동일 유저 쌍 주당 최대 거래 수
 
 # --- Daily Missions ---
 MISSION_POOL = {
@@ -473,9 +483,9 @@ TYPE_RESISTANCE = {
 }
 
 # --- Battle Rules ---
-BATTLE_CHALLENGE_TIMEOUT = 30       # 도전 대기 시간 (초)
+BATTLE_CHALLENGE_TIMEOUT = 60       # 도전 대기 시간 (1분)
 BATTLE_COOLDOWN_SAME = 300          # 같은 상대 쿨다운 (5분)
-BATTLE_COOLDOWN_GLOBAL = 60         # 전체 배틀 쿨다운 (1분)
+BATTLE_COOLDOWN_GLOBAL = 20         # 전체 배틀 쿨다운 (20초)
 BATTLE_MAX_ROUNDS = 50              # 최대 라운드
 BATTLE_TEAM_MIN = 1                 # 최소 팀원
 BATTLE_TEAM_MAX = 6                 # 최대 팀원
@@ -490,6 +500,19 @@ BATTLE_BASE_POWER = 130              # 기본 기술위력 (본가 스타일 데
 
 # 격턴 스킵 (나태/슬로우스타트): 첫 턴 공격, 둘째 턴 스킵, 반복
 TRUANT_POKEMON = {289, 486}          # 게을킹, 레지기가스
+TRUANT_NORMAL_ATK_PENALTY = 0.7      # 게으름 일반공격 추가 페널티
+
+# 등급별 전투력 하한 (ATK × 내구)
+# 하한 미달 포켓몬은 스탯 비례 스케일업
+# BST 하한 — 같은 등급 내 격차 축소 (최종진화만 적용)
+# 값은 정규화 BST 기준 (raw BST + 85)
+BST_FLOOR_BY_RARITY = {
+    "common": 365,       # raw 280
+    "rare": 485,         # raw 400
+    "epic": 565,         # raw 480
+    "legendary": 705,    # raw 620 (전설 BST 하한 상향)
+    # ultra_legendary: 하한 불필요 (전부 670+)
+}
 
 # --- BP (Battle Points) ---
 BP_WIN_BASE = 20                    # 승리 기본 BP
@@ -497,6 +520,7 @@ BP_WIN_PER_ENEMY = 2               # 상대 팀 사이즈당 추가 BP
 BP_LOSE = 5                         # 패배 참여 보상
 BP_PERFECT_WIN = 50                 # 무피해 완승 보너스
 BP_STREAK_BONUS = 10                # 3연승마다 추가
+BP_BATTLE_DAILY_LIMIT = 20          # 하루 배틀 BP 지급 상한 (20회 초과 시 BP 미지급)
 BP_MASTERBALL_COST = 200            # 마스터볼 1개 가격
 BP_MASTERBALL_DAILY_LIMIT = 3       # 마스터볼 일일 구매 제한
 BP_MASTERBALL_PRICES = [200, 200, 200, 200, 200]  # 일괄 200BP
@@ -518,7 +542,7 @@ ARCADE_PASS_DAILY_LIMIT = 3          # 일일 구매 제한
 # --- Shiny System ---
 SHINY_RATE_NATURAL = 0.0             # 자연 스폰 이로치 확률 0% (확정 스폰만)
 SHINY_RATE_FORCE = 0.01              # 강제스폰 이로치 확률 1%
-SHINY_RATE_ARCADE = 0.01             # 아케이드 이로치 확률 1%
+SHINY_RATE_ARCADE = 0.015            # 아케이드 이로치 확률 1.5%
 
 # ─── 채팅방 레벨 시스템 ─────────────────────────────────
 # (level, required_cxp, spawn_bonus, shiny_boost_pct, rarity_boosts, special)
@@ -668,9 +692,11 @@ TOURNAMENT_MIN_PLAYERS = 4      # 최소 참가자
 TOURNAMENT_PRIZE_1ST_MB = 5     # 우승 마스터볼
 TOURNAMENT_PRIZE_1ST_BP = 5000  # 우승 BP
 TOURNAMENT_PRIZE_1ST_SHINY = "ultra_legendary"  # 우승 이로치 레어리티
+TOURNAMENT_PRIZE_1ST_IV_STONE = 1  # 우승 IV+3 스톤 (일반 이로치 대체)
 TOURNAMENT_PRIZE_2ND_MB = 3     # 준우승 마스터볼
 TOURNAMENT_PRIZE_2ND_BP = 3000  # 준우승 BP
 TOURNAMENT_PRIZE_2ND_SHINY = "legendary"        # 준우승 이로치 레어리티
+TOURNAMENT_PRIZE_2ND_IV_STONE = 1  # 준우승 IV+3 스톤 (일반 이로치 대체)
 TOURNAMENT_PRIZE_SEMI_MB = 2    # 4강 마스터볼
 TOURNAMENT_PRIZE_SEMI_BP = 2000 # 4강 BP
 TOURNAMENT_PRIZE_SEMI_SHINY = "epic"      # 4강 이로치 레어리티
@@ -909,13 +935,111 @@ RANKED_COST = {
     "legendary": 5,
     "ultra_legendary": 6,
 }
-RANKED_COST_LIMIT = 18          # 6마리 팀 총 코스트 상한
+RANKED_COST_LIMIT = 12          # 6마리 팀 총 코스트 상한 (기본값, 시즌 룰로 오버라이드)
+
+# 시즌 로테이션 풀 (코스트 기반만)
+SEASON_RULE_POOL = ["cost_14", "cost_15", "cost_18", "cost_19", "cost_20"]
 RANKED_TEAM_SIZE = 6            # 팀 필수 인원
+
+# ── NPC 봇 상대 ──────────────────────────────────────────
+# (user_id, display_name, tier, mmr, npc_type, preferred_types, is_shiny)
+# npc_type: "gym"=체육관장(동일타입팀), "npc"=일반NPC(랜덤팀)
+RANKED_BOTS = [
+    # ══ 마스터 (10명) — 올이로치, IV 25~31 ══
+    (9991200001, "관장 이향",     "master", 1650, "gym", ["dragon"],   True),
+    (9991200002, "관장 비주기",   "master", 1630, "gym", ["ground"],   True),
+    (9991200003, "관장 아단",     "master", 1610, "gym", ["water"],    True),
+    (9991200004, "관장 전진",     "master", 1590, "gym", ["electric"], True),
+    (9991200005, "관장 강연",     "master", 1580, "gym", ["fire"],     True),
+    (9991200006, "관장 초련",     "master", 1570, "gym", ["psychic"],  True),
+    (9991200007, "관장 금선",     "master", 1560, "gym", ["steel"],    True),
+    (9991200008, "관장 류옥",     "master", 1550, "gym", ["ice"],      True),
+    (9991200009, "관장 멜리사",   "master", 1540, "gym", ["ghost"],    True),
+    (9991200010, "관장 카나",     "master", 1530, "gym", ["normal"],   True),
+    # ══ 다이아 (10명) — 이로치 혼합, IV 22~28 ══
+    (9991100001, "관장 독수",     "diamond", 1500, "gym", ["poison"],   True),
+    (9991100002, "관장 자두",     "diamond", 1490, "gym", ["fighting"], True),
+    (9991100003, "관장 시즈",     "diamond", 1475, "gym", ["fighting"], False),
+    (9991100004, "관장 동관",     "diamond", 1460, "gym", ["water"],    False),
+    (9991100005, "관장 무청",     "diamond", 1445, "gym", ["ice"],      False),
+    (9991100006, "관장 미캉",     "diamond", 1430, "gym", ["steel"],    False),
+    (9991100007, "관장 유미",     "diamond", 1415, "gym", ["ghost"],    False),
+    (9991100008, "관장 다정",     "diamond", 1405, "gym", ["fire"],     False),
+    (9991100009, "관장 규리",     "diamond", 1400, "gym", ["normal"],   False),
+    (9991100010, "관장 상혁",     "diamond", 1395, "gym", ["fighting"], False),
+    # ══ 플래티넘 (10명) — IV 18~25 ══
+    (9990400001, "관장 마티스",   "platinum", 1370, "gym", ["electric"], False),
+    (9990400002, "관장 민화",     "platinum", 1355, "gym", ["grass"],    False),
+    (9990400003, "관장 선전",     "platinum", 1340, "gym", ["electric"], False),
+    (9990400004, "관장 유채",     "platinum", 1325, "gym", ["grass"],    False),
+    (9990400005, "관장 유빈",     "platinum", 1310, "gym", ["normal"],   False),
+    (9990400006, "관장 이슬이",   "platinum", 1295, "gym", ["water"],    False),
+    (9990400007, "관장 호일",     "platinum", 1280, "gym", ["bug"],      False),
+    (9990400008, "관장 원규",     "platinum", 1265, "gym", ["rock"],     False),
+    (9990400009, "관장 비상",     "platinum", 1250, "gym", ["bug"],      False),
+    (9990400010, "관장 웅이",     "platinum", 1240, "gym", ["rock"],     False),
+    # ══ 골드 (10명) — 일반 NPC, IV 15~22 ══
+    (9990300001, "무도가 상민",   "gold", 1260, "npc", None, False),
+    (9990300002, "연구원 소현",   "gold", 1245, "npc", None, False),
+    (9990300003, "엘리트 지훈",   "gold", 1230, "npc", None, False),
+    (9990300004, "불량배 태건",   "gold", 1215, "npc", None, False),
+    (9990300005, "아가씨 미나",   "gold", 1200, "npc", None, False),
+    (9990300006, "슈퍼너드 현우", "gold", 1185, "npc", None, False),
+    (9990300007, "등산가 건우",   "gold", 1170, "npc", None, False),
+    (9990300008, "수영선수 하늘", "gold", 1155, "npc", None, False),
+    (9990300009, "무도가 서진",   "gold", 1140, "npc", None, False),
+    (9990300010, "파일럿 도윤",   "gold", 1125, "npc", None, False),
+    # ══ 실버 (10명) — 일반 NPC, IV 10~18 ══
+    (9990200001, "낚시꾼 영호",   "silver", 1100, "npc", None, False),
+    (9990200002, "캠핑보이 준혁", "silver", 1085, "npc", None, False),
+    (9990200003, "등산가 유진",   "silver", 1070, "npc", None, False),
+    (9990200004, "짧은이 다은",   "silver", 1055, "npc", None, False),
+    (9990200005, "불량배 시우",   "silver", 1040, "npc", None, False),
+    (9990200006, "아가씨 예린",   "silver", 1025, "npc", None, False),
+    (9990200007, "낚시꾼 재민",   "silver", 1010, "npc", None, False),
+    (9990200008, "짧은이 소율",   "silver", 995,  "npc", None, False),
+    (9990200009, "캠핑보이 하준", "silver", 980,  "npc", None, False),
+    (9990200010, "등산가 은비",   "silver", 965,  "npc", None, False),
+    # ══ 브론즈 (10명) — 일반 NPC, IV 5~14 ══
+    (9990100001, "짧은이 민수",   "bronze", 940,  "npc", None, False),
+    (9990100002, "등산가 철수",   "bronze", 920,  "npc", None, False),
+    (9990100003, "짧은이 수진",   "bronze", 900,  "npc", None, False),
+    (9990100004, "낚시꾼 동혁",   "bronze", 880,  "npc", None, False),
+    (9990100005, "캠핑보이 성빈", "bronze", 860,  "npc", None, False),
+    (9990100006, "짧은이 채원",   "bronze", 840,  "npc", None, False),
+    (9990100007, "등산가 지민",   "bronze", 820,  "npc", None, False),
+    (9990100008, "낚시꾼 현서",   "bronze", 800,  "npc", None, False),
+    (9990100009, "짧은이 도현",   "bronze", 780,  "npc", None, False),
+    (9990100010, "캠핑보이 유나", "bronze", 760,  "npc", None, False),
+]
+
+# 봇 user_id 집합 (빠른 조회용)
+RANKED_BOT_IDS = frozenset(b[0] for b in RANKED_BOTS)
+
+# 티어별 봇 IV 범위 (min, max)
+BOT_IV_RANGES = {
+    "master":   (31, 31),  # 올맥스 (186)
+    "diamond":  (31, 31),  # 올맥스 (186)
+    "platinum": (18, 25),
+    "gold":     (15, 22),
+    "silver":   (10, 18),
+    "bronze":   (5, 14),
+}
+
+# 티어별 봇 팀 rarity 가중치 (cost_limit에 맞게 자동 조합)
+BOT_RARITY_WEIGHTS = {
+    "master":   {"ultra_legendary": 3, "legendary": 5, "epic": 10, "rare": 2, "common": 0},
+    "diamond":  {"ultra_legendary": 1, "legendary": 4, "epic": 10, "rare": 5, "common": 1},
+    "platinum": {"ultra_legendary": 0, "legendary": 2, "epic": 8, "rare": 8, "common": 3},
+    "gold":     {"ultra_legendary": 0, "legendary": 0, "epic": 5, "rare": 10, "common": 5},
+    "silver":   {"ultra_legendary": 0, "legendary": 0, "epic": 2, "rare": 8, "common": 10},
+    "bronze":   {"ultra_legendary": 0, "legendary": 0, "epic": 0, "rare": 5, "common": 10},
+}
 RANKED_ULTRA_MAX = 1            # 초전설 최대 편성 수
 
 # --- Ranked Cooldowns ---
-RANKED_COOLDOWN_SAME = 1800     # 같은 상대 30분
-RANKED_COOLDOWN_GLOBAL = 120    # 전체 랭크전 2분
+RANKED_COOLDOWN_SAME = 300      # 같은 상대 5분
+RANKED_COOLDOWN_GLOBAL = 0      # 전체 랭크전 쿨다운 없음
 RANKED_DAILY_CAP = 20           # 일일 랭크전 상한
 RANKED_ARENA_CXP_BONUS = 5     # 아레나 채팅방 CXP 보너스
 
@@ -980,6 +1104,49 @@ WEEKLY_RULES = {
         "desc": "에스퍼 타입 포켓몬 사용 불가 (뮤츠, 뮤, 메타그로스 등)",
         "error": "이번 시즌은 에스퍼 타입 포켓몬을 사용할 수 없습니다!",
     },
+    # --- 코스트 제한 ---
+    "cost_12": {
+        "name": "코스트 12 이하",
+        "icon": "💰",
+        "desc": "6마리 팀 코스트 12 이하\nㄴ 예: 에픽1(4)+레어3(6)+일반2(2)=12 / 에픽2(8)+일반4(4)=12",
+        "error": "이번 시즌은 팀 코스트 12 이하만 가능합니다!",
+        "cost_limit": 12,
+    },
+    "cost_14": {
+        "name": "코스트 14 이하",
+        "icon": "💰",
+        "desc": "팀 총 코스트 14 이하 (에픽 중심)",
+        "error": "이번 시즌은 팀 코스트 14 이하만 가능합니다!",
+        "cost_limit": 14,
+    },
+    "cost_15": {
+        "name": "코스트 15 이하",
+        "icon": "💰",
+        "desc": "팀 총 코스트 15 이하 (에픽+전설 조합)",
+        "error": "이번 시즌은 팀 코스트 15 이하만 가능합니다!",
+        "cost_limit": 15,
+    },
+    "cost_18": {
+        "name": "코스트 18 이하",
+        "icon": "💰",
+        "desc": "팀 총 코스트 18 이하 (확장)",
+        "error": "이번 시즌은 팀 코스트 18 이하만 가능합니다!",
+        "cost_limit": 18,
+    },
+    "cost_19": {
+        "name": "코스트 19 이하",
+        "icon": "💰",
+        "desc": "팀 총 코스트 19 이하 (약간 여유)",
+        "error": "이번 시즌은 팀 코스트 19 이하만 가능합니다!",
+        "cost_limit": 19,
+    },
+    "cost_20": {
+        "name": "코스트 20 이하",
+        "icon": "💰",
+        "desc": "팀 총 코스트 20 이하 (전설/초전설 편성 여유)",
+        "error": "이번 시즌은 팀 코스트 20 이하만 가능합니다!",
+        "cost_limit": 20,
+    },
     # --- 에픽 제한 (코스트 밸런스) ---
     "epic_max_2": {
         "name": "에픽 2마리 제한",
@@ -1003,13 +1170,20 @@ WEEKLY_RULES = {
 
 # --- Ranked Rewards (주간 보상) ---
 RANKED_REWARDS = {
-    "challenger": {"masterball": 5, "bp": 800},
-    "master":     {"masterball": 3, "bp": 500},
-    "diamond":    {"masterball": 2, "bp": 300},
-    "platinum":   {"masterball": 1, "bp": 200},
+    "challenger": {"masterball": 5, "bp": 800, "iv_stone_3": 2},
+    "master":     {"masterball": 3, "bp": 500, "shiny": "epic", "iv_stone_3": 2},
+    "diamond":    {"masterball": 2, "bp": 300, "iv_stone_3": 2},
+    "platinum":   {"masterball": 1, "bp": 200, "iv_stone_3": 1},
     "gold":       {"masterball": 0, "bp": 300},
     "silver":     {"masterball": 0, "bp": 150},
     "bronze":     {"masterball": 0, "bp": 50},
+}
+
+# 순위별 추가 보상 (1~3위, 티어 보상과 별도)
+RANKED_TOP_REWARDS = {
+    1: {"shiny": "ultra_legendary"},
+    2: {"shiny": "legendary"},
+    3: {"shiny": "legendary"},
 }
 
 # --- Ranked Titles ---
@@ -1029,20 +1203,23 @@ SHINY_TITLES = {
     "shiny_legend":  ("전설의 빛",     "crystal",    "이로치 전설 포켓몬 포획",   "shiny_legendary", 1),
 }
 SHINY_MAX_FRIENDSHIP = 7              # 이로치 최대 친밀도
+MEGA_MAX_FRIENDSHIP = 7               # 메가진화 최대 친밀도
 
 def get_max_friendship(pokemon: dict) -> int:
-    """이로치면 7, 일반이면 5."""
-    return SHINY_MAX_FRIENDSHIP if pokemon.get("is_shiny") else MAX_FRIENDSHIP
+    """이로치/메가면 7, 일반이면 5."""
+    if pokemon.get("is_shiny") or pokemon.get("mega_form"):
+        return SHINY_MAX_FRIENDSHIP
+    return MAX_FRIENDSHIP
 UNLOCKABLE_TITLES.update(SHINY_TITLES)
 
 # ============================================================
 # Yacha (야차 - Betting Battle)
 # ============================================================
 
-YACHA_BP_OPTIONS = [100, 200, 500]         # BP 베팅 프리셋
-YACHA_MASTERBALL_OPTIONS = [1, 2, 3]       # 마스터볼 베팅 프리셋
+YACHA_BET_AMOUNT = 100                     # 고정 BP 베팅 금액
 YACHA_COOLDOWN = 600                       # 글로벌 쿨다운 (10분)
 YACHA_CHALLENGE_TIMEOUT = 60               # 수락 대기 시간 (1분)
+YACHA_SAME_OPPONENT_DAILY_LIMIT = 3        # 같은 상대 하루 제한
 
 # 야차 티배깅 멘트 (20개, 랜덤)
 YACHA_TEABAG_MESSAGES = [
@@ -1240,6 +1417,230 @@ ICON_CUSTOM_EMOJI = {
 }
 
 # ============================================================
+# Smelting System (이로치 제련소)
+# ============================================================
+
+# --- 투입 제한 ---
+SMELTING_MIN_POKEMON = 5
+SMELTING_MAX_POKEMON = 10
+SMELTING_BP_COST = 200  # 1회 제련 비용
+SMELTING_REQUIRED_COUNT = 10  # 1회 투입 고정 수량
+SMELTING_SHINY_MULTIPLIER = 2.0  # 이로치 포켓몬 투입 시 게이지 배율
+
+# --- 게이지 기여 (마리당) ---
+SMELTING_GAUGE_PER_RARITY = {
+    "common": 0.2,
+    "rare": 0.5,
+    "epic": 1.5,
+    "legendary": 3.0,
+    "ultra_legendary": 8.0,
+}
+
+# --- 구독 게이지 배율 ---
+SMELTING_SUB_MULTIPLIER = {
+    "free": 1.0,
+    "basic": 1.2,
+    "channel_owner": 1.5,
+}
+
+# --- 제련 결과 확률 (게이지 임계값, 이로치%, 메가스톤%) ---
+# 서비스에서 gauge >= threshold 순회하므로 오름차순
+SMELTING_RATES = [
+    # (threshold, shiny_rate, mega_rate)
+    (0, 1.0, 0.3),      # 0~19%: 이로치 1%, 메가 0.3%
+    (20, 1.5, 0.5),     # 20~39%
+    (40, 2.0, 0.7),     # 40~59%
+    (60, 3.0, 1.0),     # 60~79%
+    (80, 5.0, 1.5),     # 80~99%: 이로치 5%, 메가 1.5%
+]
+# 100% 이상은 서비스에서 확정 mega_ticket 반환
+
+# --- 소각 보상 등급 (실패 시) ---
+SMELTING_REWARD_TIERS = [
+    # (확률, key, label)
+    (0.05, "rare", "🟡 레어"),
+    (0.20, "uncommon", "🔵 언커먼"),
+    (0.75, "common", "⬜ 일반"),
+]
+
+# --- 소각 보상 풀 ---
+SMELTING_REWARD_POOL = {
+    "common": [
+        # (item_key, min_qty, max_qty)
+        ("bp", 50, 150),
+        ("fragment", 1, 2),
+    ],
+    "uncommon": [
+        ("bp", 150, 300),
+        ("fragment", 2, 4),
+        ("hyperball", 1, 2),
+    ],
+    "rare": [
+        ("bp", 300, 500),
+        ("fragment", 3, 5),
+        ("masterball", 1, 1),
+        ("iv_reroll", 1, 1),
+    ],
+}
+
+# --- 메가스톤 등급 판정 (기본, 히든 보정 전) ---
+MEGA_STONE_RATES = {
+    "common": 0.40,
+    "rare": 0.30,
+    "epic": 0.18,
+    "legendary": 0.09,
+    "ultra_legendary": 0.03,
+}
+
+# --- 히든 보정 (1단계 투입 등급 비율 1%당) ---
+MEGASTONE_HIDDEN_BONUS = {
+    "rare": 0.001,           # +0.1%
+    "epic": 0.0015,          # +0.15%
+    "legendary": 0.0008,     # +0.08%
+    "ultra_legendary": 0.0005,  # +0.05%
+}
+
+# --- 이로치 등급 판정 (투입 최고 등급 기준) ---
+SMELTING_SHINY_GRADE = {
+    "common": {"common": 1.0},
+    "rare": {"common": 0.50, "rare": 0.50},
+    "epic": {"common": 0.20, "rare": 0.35, "epic": 0.45},
+    "legendary": {"common": 0.10, "rare": 0.20, "epic": 0.35, "legendary": 0.35},
+    "ultra_legendary": {"common": 0.05, "rare": 0.10, "epic": 0.25, "legendary": 0.35, "ultra_legendary": 0.25},
+}
+
+# --- 소각 보상 (실패/니어미스 시) ---
+SMELTING_FAIL_REWARDS = {
+    "fail": {"bp": (50, 150), "fragments": (1, 2)},
+    "near_miss": {"bp": (100, 300), "fragments": (3, 5)},
+}
+
+# --- 1~4세대 메가진화 가능 포켓몬 (pokemon_id) ---
+MEGA_EVOLUTION_POKEMON = {
+    # 초전설
+    150: {"name": "뮤츠", "mega_forms": ["메가뮤츠X", "메가뮤츠Y"]},
+    384: {"name": "레쿠쟈", "mega_forms": ["메가레쿠쟈"]},
+    # 전설
+    380: {"name": "라티아스", "mega_forms": ["메가라티아스"]},
+    381: {"name": "라티오스", "mega_forms": ["메가라티오스"]},
+    # 에픽
+    6: {"name": "리자몽", "mega_forms": ["메가리자몽X", "메가리자몽Y"]},
+    9: {"name": "거북왕", "mega_forms": ["메가거북왕"]},
+    3: {"name": "이상해꽃", "mega_forms": ["메가이상해꽃"]},
+    130: {"name": "갸라도스", "mega_forms": ["메가갸라도스"]},
+    212: {"name": "핫삼", "mega_forms": ["메가핫삼"]},
+    214: {"name": "헤라크로스", "mega_forms": ["메가헤라크로스"]},
+    248: {"name": "마기라스", "mega_forms": ["메가마기라스"]},
+    359: {"name": "앱솔", "mega_forms": ["메가앱솔"]},
+    373: {"name": "보만다", "mega_forms": ["메가보만다"]},
+    376: {"name": "메타그로스", "mega_forms": ["메가메타그로스"]},
+    445: {"name": "한카리아스", "mega_forms": ["메가한카리아스"]},
+    448: {"name": "루카리오", "mega_forms": ["메가루카리오"]},
+    # 레어
+    65: {"name": "후딘", "mega_forms": ["메가후딘"]},
+    94: {"name": "팬텀", "mega_forms": ["메가팬텀"]},
+    208: {"name": "강철톤", "mega_forms": ["메가강철톤"]},
+    127: {"name": "쁘사이저", "mega_forms": ["메가쁘사이저"]},
+    # 일반
+    15: {"name": "독침붕", "mega_forms": ["메가독침붕"]},
+    18: {"name": "피죤투", "mega_forms": ["메가피죤투"]},
+}
+
+# --- 문박사 MC 멘트 ---
+SMELTING_MC_START = [
+    "자, 제련을 시작하지!",
+    "재료가 준비됐군. 시작해볼까!",
+    "좋아, 불을 지펴보자!",
+    "오늘은 뭐가 나올까... 기대되는군!",
+    "제련로에 불꽃이 타오른다!",
+]
+
+SMELTING_MC_SACRIFICE = [
+    "{name}(이/가) 슬픈 눈으로 당신을 바라본다...",
+    "{name}(이/가) 체념한 표정으로 걸어간다...",
+    "{name}(이/가) 마지막으로 손을 흔든다... ✋",
+    "{name}(이/가) 동료들을 돌아보며 뛰어든다...",
+    "{name}(이/가) 눈을 질끈 감고 뛰어들었다!",
+    "{name}(이/가) 발버둥치다가... 결국 들어갔다",
+    "{name}(이/가) 담담하게 걸어들어간다",
+    "{name}(이/가) 울면서 뛰어든다 '{name}!!!'",
+    "{name}(이/가) 도망치려다 잡혔다... 끌려간다",
+    "{name}(이/가) 스스로 용광로에 뛰어들었다!",
+    "{name}(이/가) 당신에게 머리를 비비고... 떠났다",
+    "{name}(이/가) 웃으면서 사라졌다",
+    "{name}(이/가) 마지막 기술을 쓰며 녹아든다!",
+    "{name}(이/가) 잠든 채로 들어갔다... 모르는 게 약이다",
+    "{name}(이/가) 결의에 찬 눈으로 뛰어든다!",
+    "{name}(이/가) '또 만나자...' 속삭이며 사라졌다",
+    "{name}(이/가) 멍하니 서있다가 떠밀려 들어갔다",
+    "{name}(이/가) 콧노래를 부르며 걸어간다... 대인배",
+    "{name}(이/가) 발을 동동 구르다가... 풍덩!",
+    "{name}(이/가) 뒤도 돌아보지 않고 뛰어들었다",
+]
+
+SMELTING_MC_PROGRESS = [
+    "좋아, 순조롭군",
+    "반응이 안정적이야",
+    "온도가 올라가고 있어!",
+    "오... 반응이 오는데?!",
+    "에너지가 모이고 있다!",
+    "이 빛은... 뭔가 다른데?!",
+    "제련로가 요동치고 있어!!!",
+    "이 에너지... 심상치 않아!!!",
+    "설마... 이 반응은...?!",
+    "마지막이야... 제발!!!!",
+]
+
+SMELTING_MC_FAIL = [
+    "아쉽군... 다음엔 될 거야",
+    "에이~ 아깝다",
+    "흠... 재료가 부족했나",
+    "괜찮아, 게이지는 쌓였으니까",
+    "다음엔 꼭 될 거라 믿어!",
+    "실패도 과학의 일부야...",
+    "제련로가 차갑게 식었다...",
+    "아깝다... 진짜 아깝다",
+    "포켓몬들의 희생이 헛되지 않을 거야...",
+    "음... 뭔가 살짝 부족했어",
+    "조건이 안 맞았나... 쩝",
+    "다음엔 좀 더 좋은 재료를 써보자",
+    "아까워서 눈물이 나오려 한다...",
+    "이런... 제련로가 삐졌나?",
+    "흐음... 운이 안 따라줬어",
+]
+
+SMELTING_MC_SUCCESS = [
+    "나왔다아아아!!! 이로치 확정!!!",
+    "세상에!! 빛나고 있어!!!",
+    "드디어!!! 포켓몬들의 희생이 빛을 발했다!!!",
+    "이로치다!!! 실화냐?!?!",
+    "대박!!! 대성공이야!!!",
+    "역시 내 제자답다... 이로치 탄생!!!",
+    "눈부셔!!! 이로치가 나타났다!!!",
+    "포켓몬들이 하나로 뭉쳐... 이로치가 됐어!!!",
+    "느꼈어... 이번엔 된다고!!! 이로치!!!",
+    "미쳤어!!! 진짜 나왔어!!!",
+]
+
+SMELTING_MC_JACKPOT = [
+    "잠깐... 이거...",
+    "세...7이...",
+    "ㅁ...메가스톤?!?!?!",
+    "역대급이다 진짜!!!! 🔥🔥🔥🔥",
+    "메가스톤 제련권까지?!?! 미친!!!",
+    "이건 전설이 될 거야...",
+    "포켓몬들의 영혼이 메가스톤을 만들었다!!!",
+    "우리 연구소 역사상 처음 보는 결과야!!!",
+]
+
+# 결과별 MC 멘트 매핑
+SMELTING_MC_RESULT = {
+    "shiny": SMELTING_MC_SUCCESS,
+    "mega_ticket": SMELTING_MC_JACKPOT,
+    "fail": SMELTING_MC_FAIL,
+}
+
+# ============================================================
 # Dungeon System (로그라이크 던전)
 # ============================================================
 
@@ -1248,12 +1649,14 @@ DUNGEON_DAILY_TICKETS = {"free": 1, "basic": 2, "channel_owner": 3}
 DUNGEON_TICKET_BP_COST = {"free": 300, "basic": 250, "channel_owner": 200}
 DUNGEON_DAILY_BUY_LIMIT = {"free": 1, "basic": 1, "channel_owner": 3}
 
-# --- 버프 주기 (코스트별) ---
-DUNGEON_BUFF_FREQUENCY = {1: 1, 2: 1, 4: 2, 5: 3, 6: 4}
+# --- 버프 주기 (코스트별 차등: 저코스트=매층, 고코스트=간격↑) ---
+DUNGEON_BUFF_FREQUENCY = {1: 5, 2: 5, 4: 5, 5: 5, 6: 5}  # legacy (미사용)
+DUNGEON_BUFF_INTERVAL = {1: 1, 2: 1, 4: 2, 5: 3, 6: 4}   # 코스트별 버프 주기 (층)
+DUNGEON_BOSS_INTERVAL = 10  # 보스전 주기 (층)
 
 # --- 배틀 ---
 DUNGEON_MAX_ROUNDS = 50
-DUNGEON_CRIT_RATE = 0.10
+DUNGEON_CRIT_RATE = 0.12
 DUNGEON_CRIT_MULT = 1.5
 DUNGEON_SKILL_RATE = 0.30
 DUNGEON_IMMUNITY_MULT = 0.3      # 면역 0x → 0.3x (던전 전용)
@@ -1262,11 +1665,85 @@ DUNGEON_MAX_SKIPS = 2            # 런당 스킵 횟수
 DUNGEON_MAX_BUFFS = 8            # 버프 슬롯 상한
 DUNGEON_BP_PER_FLOOR = 10        # 층당 기본 BP
 DUNGEON_MAX_DAILY_RUNS = {"free": 3, "basic": 3, "channel_owner": 5}  # 일일 런 횟수 (구독별)
+DUNGEON_PRACTICE_MAX = 10  # 연습모드 포함 총 일일 상한
+DUNGEON_MAX_FLOOR = 100    # 던전 최대 층
+DUNGEON_REROLL_LIMIT = {"free": 0, "basic": 1, "channel_owner": 3}   # 버프 리롤 횟수 (런당)
 
 # --- 스킬 배율 (희귀도별, 던전 간소화) ---
 DUNGEON_SKILL_MULT = {
     "common": 1.2, "rare": 1.3, "epic": 1.4,
     "legendary": 1.8, "ultra_legendary": 2.0,
+}
+
+# ── 턴제 전투 시스템 ──
+# PP: 런 전체 공유, 층 넘어가도 안 참
+DUNGEON_PP_BY_RARITY = {
+    "common": 12, "rare": 11, "epic": 9,
+    "legendary": 8, "ultra_legendary": 8,
+}
+DUNGEON_DUAL_TYPE_PP = {             # 듀얼타입 스킬당 PP (등급별)
+    "common": 7, "rare": 6, "epic": 5,
+    "legendary": 5, "ultra_legendary": 5,
+}
+DUNGEON_SINGLE_TYPE_PP_MULT = 1.0    # 단일타입 PP 보정 (없음)
+
+# 던전 전용 등급별 스탯 배율 — BST 하한 도입으로 무력화 (1.0 통일)
+DUNGEON_RARITY_STAT_MULT = {
+    "common": 1.0, "rare": 1.0, "epic": 1.0,
+    "legendary": 1.0, "ultra_legendary": 1.0,
+}
+# 일반공격 배율 (고코스트=PP 적지만 일반 강함)
+DUNGEON_NORMAL_ATK_MULT = {
+    "common": 0.70, "rare": 0.80, "epic": 1.0,
+    "legendary": 1.20, "ultra_legendary": 1.50,
+}
+# 코스트별 적 스케일링 보정 — 등급 역전 방지, 격차 축소
+DUNGEON_COST_SCALING = {
+    "common": 0.30, "rare": 0.55, "epic": 0.68,
+    "legendary": 0.82, "ultra_legendary": 1.00,
+}
+DUNGEON_SPECIAL_MULT = 2.2       # 특수기 기본 배율
+DUNGEON_DEFEND_REDUCE = 0.6      # 방어 시 데미지 40% 감소 (60% 통과)
+DUNGEON_DEF_FACTOR = 0.12        # 방어 차감 계수 (atk - def*0.12)
+DUNGEON_MIN_DMG_RATIO = 0.30     # 최소 데미지 비율 (ATK의 30%)
+DUNGEON_BASE_FLOOR_HEAL = 0.03   # 층간 기본 회복 3%
+DUNGEON_HARD_FLOOR_HEAL = 0.03   # 30층 이후에도 동일 (제한 해제)
+DUNGEON_HARD_FLOOR_THRESHOLD = 999  # 사실상 비활성화 (전 구간 기본 회복)
+DUNGEON_TURN_TIMEOUT = 120       # 턴 타임아웃(초) — 미사용 시 포기 처리
+DUNGEON_MAX_TURNS_PER_FLOOR = 30  # 한 층 최대 턴
+DUNGEON_BOSS_HP_MULT = 1.5       # 보스 HP 배율
+DUNGEON_ELITE_HP_MULT = 1.3      # 엘리트 HP 배율
+
+# 적 의도 확률 (일반 적)
+DUNGEON_ENEMY_INTENT = {
+    "normal_attack": 0.50,
+    "type_attack": 0.25,
+    "charge": 0.10,
+    "defend": 0.15,
+}
+# 보스 전용 추가 의도
+DUNGEON_BOSS_INTENT = {
+    "normal_attack": 0.30,
+    "type_attack": 0.25,
+    "charge": 0.10,
+    "defend": 0.10,
+    "full_attack": 0.15,   # 강력한 전체기
+    "heal": 0.10,          # HP 회복
+}
+
+# 상성 배율 (본가 기준 — 배틀과 동일)
+DUNGEON_TYPE_ADVANTAGE_MULT = 2.0
+DUNGEON_TYPE_DISADVANTAGE_MULT = 0.5
+DUNGEON_TYPE_IMMUNE_MULT = 0.3
+
+# 타입별 대표 기술 (던전 전용 — 이름만, 데미지는 타입 기반)
+DUNGEON_TYPE_SKILLS = {
+    "normal": "몸통박치기", "fire": "화염방사", "water": "파도타기",
+    "grass": "솔라빔", "electric": "번개", "ice": "냉동빔",
+    "fighting": "인파이트", "poison": "오물폭탄", "ground": "지진",
+    "flying": "에어슬래시", "psychic": "사이코키네시스", "bug": "벌레의저항",
+    "rock": "스톤에지", "ghost": "섀도볼", "dragon": "용의파동",
+    "dark": "악의파동", "steel": "아이언테일", "fairy": "문포스",
 }
 
 # --- 테마 (요일별 로테이션, 월=0) ---
@@ -1307,30 +1784,56 @@ DUNGEON_THEME_TO_FIELD = {
     "용의 둥지": "volcano",  # 드래곤 → 화산(fire/dragon/fighting)
 }
 
+# --- 던전 신규 아이템 정의 ---
+DUNGEON_ITEM_DEFS = {
+    "egg_instant_hatch": {"name": "알즉부화권", "emoji": "🥚", "desc": "대기 중인 이로치 알을 즉시 부화"},
+    "dungeon_amulet": {"name": "던전부적", "emoji": "🔮", "desc": "다음 던전 런 시작 시 랜덤 버프 1개 보유"},
+    "shiny_convert_ticket": {"name": "이로치전환권", "emoji": "✨", "desc": "캠프 조각 없이 이로치 전환 시작"},
+    "priority_ball": {"name": "우선포획볼", "emoji": "🎯", "desc": "스폰 시 ㅊㅊ 입력으로 100% 포획"},
+    "time_reduce_ticket": {"name": "이로치 시간단축권", "emoji": "⏰", "desc": "이로치 전환 대기시간 12시간 단축"},
+}
+DUNGEON_TIME_REDUCE_HOURS = 12  # 시간단축권 차감 시간
+
 # --- 마일스톤 보상 ---
 DUNGEON_MILESTONE_REWARDS = {
-    5:  {"bp": 30,  "fragments": 1},
-    10: {"bp": 50,  "fragments": 2},
-    15: {"bp": 80,  "fragments": 2},
-    20: {"bp": 100, "fragments": 3, "crystals": 1},
-    25: {"bp": 120, "fragments": 3, "crystals": 1},
-    30: {"bp": 150, "fragments": 4, "crystals": 2, "rainbow": 1},
-    35: {"bp": 180, "fragments": 4},
-    40: {"bp": 200, "fragments": 5, "crystals": 3, "rainbow": 1, "iv_stones": 1, "tickets": 1},
-    45: {"bp": 230, "fragments": 5},
-    50: {"bp": 280, "fragments": 6, "rainbow": 2, "iv_stones": 1},
+    10:  {"bp": 20,   "fragments": 1},
+    20:  {"bp": 30,   "items": {"dungeon_amulet": 1}},
+    30:  {"bp": 50,   "crystals": 1},
+    40:  {"bp": 80,   "items": {"iv_reroll_all": 1}},
+    50:  {"bp": 120,  "fragments": 3},
+    60:  {"bp": 200,  "crystals": 2},
+    70:  {"bp": 350,  "items": {"iv_reroll_one": 1}},
+    80:  {"bp": 500,  "items": {"shiny_egg": 1}},
+    90:  {"bp": 700,  "rainbow": 2, "iv_stones": 1},
+    100: {"bp": 1000, "rainbow": 1, "iv_stones": 2},
 }
-DUNGEON_MAX_BP = 2000             # BP 상한
+DUNGEON_MAX_BP = 5000             # BP 상한
 
 # --- 마일스톤 칭호 ---
 DUNGEON_MILESTONE_TITLES = {
-    5:  ("던전 입문자", "🏰"),
-    10: ("던전 탐험가", "⚔️"),
-    20: ("던전 정복자", "🗡"),
-    30: ("던전 마스터", "🔥"),
-    40: ("던전 레전드", "💎"),
-    50: ("던전 챔피언", "👑"),
+    10: ("던전 입문자", "🏰"),
+    20: ("던전 탐험가", "⚔️"),
+    30: ("던전 도전자", "🗡"),
+    50: ("던전 정복자", "🔥"),
+    70: ("던전 마스터", "💎"),
+    100: ("던전 챔피언", "👑"),
 }
+
+# --- 주간 랭킹 보상 ---
+DUNGEON_WEEKLY_RANKING_REWARDS = {
+    1: {"iv_stones": 2, "iv_reroll_one": 5, "time_reduce_ticket": 3, "title": "던전 주간왕"},
+    (2, 3): {"iv_stones": 1, "iv_reroll_one": 3, "time_reduce_ticket": 2},
+    (4, 10): {"iv_stones": 1, "iv_reroll_one": 2, "time_reduce_ticket": 1},
+    (11, 30): {"iv_reroll_one": 1, "time_reduce_ticket": 1},
+}
+
+# --- 일일 랭킹 보상 ---
+DUNGEON_DAILY_RANKING_REWARDS = {
+    (1, 5): {"iv_reroll_one": 2},
+}
+
+# IV스톤 포켓몬당 사용 제한
+IVSTONE_PER_POKEMON_LIMIT = 2
 
 # ─── Camp System v2 (포켓몬 캠프) ────────────────────────
 # 최소 참여 조건
@@ -1426,11 +1929,11 @@ CAMP_SHINY_COOLDOWN = {
 # ── 분해 결과 ──
 CAMP_DECOMPOSE_CRYSTAL = {
     "common": 1, "rare": 2, "epic": 3,
-    "legendary": 5, "ultra_legendary": 15,
+    "legendary": 5, "ultra_legendary": 10,
 }
 CAMP_DECOMPOSE_RAINBOW = {
     "common": 0, "rare": 0, "epic": 0,
-    "legendary": 1, "ultra_legendary": 2,
+    "legendary": 0, "ultra_legendary": 1,
 }
 
 # ── 배치 횟수 (도감 기반) ──
@@ -1527,14 +2030,14 @@ GACHA_COST = 100  # 1회 뽑기 비용
 
 # (확률, 아이템키, 표시명, 이모지)
 GACHA_TABLE = [
-    (0.35, "bp_refund",     "BP 환급",          "💰"),
-    (0.20, "hyperball",     "하이퍼볼 ×2",       "🔵"),
-    (0.15, "masterball",    "마스터볼 ×1",       "🟣"),
-    (0.12, "iv_reroll_all", "개체값 재설정권 ×1", "🔄"),
-    (0.08, "bp_jackpot",    "BP 잭팟 +300",      "💎"),
-    (0.05, "iv_reroll_one", "IV 선택 리롤 ×1",   "🎯"),
-    (0.03, "shiny_egg",     "이로치 알 ×1",      "🥚"),
-    (0.02, "shiny_spawn",   "이로치 강스권 ×1",   "✨"),
+    (0.47,   "bp_refund",     "BP 환급",          "💰"),
+    (0.34,   "hyperball",     "하이퍼볼 ×2",       "🔵"),
+    (0.06,   "masterball",    "마스터볼 ×1",       "🟣"),
+    (0.05,   "iv_reroll_all", "개체값 재설정권 ×1", "🔄"),
+    (0.035,  "bp_jackpot",    "BP 잭팟 +300",      "💎"),
+    (0.0175, "iv_reroll_one", "IV 선택 리롤 ×1",   "🎯"),
+    (0.0125, "shiny_egg",     "이로치 알 ×1",      "🥚"),
+    (0.005,  "shiny_spawn",   "이로치 강스권 ×1",   "✨"),
 ]
 
 GACHA_BP_REFUND_MIN = 10
@@ -1563,3 +2066,273 @@ CAMP_INTERACTION_TEMPLATES = [
     "{name1}의 {p1}(이/가) {name2}의 {p2}(을/를) 구경하고 있다 👀",
     "{name1}의 {p1}와(과) {name2}의 {p2}(이/가) 나란히 잠들었다 💤💤",
 ]
+
+# ============================================================
+# Weekly Boss (주간보스 레이드)
+# ============================================================
+BOSS_MAX_HP = 500_000
+BOSS_BATTLE_MAX_ROUNDS = 60  # 보스전 턴 제한
+
+# 보스 후보 풀: (pokemon_id, name, types)
+BOSS_POKEMON_POOL = [
+    (150, "뮤츠", ["psychic"]),
+    (249, "루기아", ["psychic", "flying"]),
+    (250, "칠색조", ["fire", "flying"]),
+    (144, "프리저", ["ice", "flying"]),
+    (145, "썬더", ["electric", "flying"]),
+    (146, "파이어", ["fire", "flying"]),
+    (243, "라이코", ["electric"]),
+    (244, "앤테이", ["fire"]),
+    (245, "스이쿤", ["water"]),
+    (151, "뮤", ["psychic"]),
+    (251, "세레비", ["psychic", "grass"]),
+]
+
+# 보스 스탯 배율 (초전설 풀강 기준 × 이 배율)
+BOSS_STAT_MULT = {
+    "hp": 1.0,   # HP는 별도로 BOSS_MAX_HP 사용
+    "atk": 1.8,
+    "def": 1.5,
+    "spa": 1.8,
+    "spdef": 1.5,
+    "spd": 1.2,
+}
+
+# 데일리 마일스톤 보상 (딜량 구간별, 최고 도달 구간만 지급)
+BOSS_DAILY_MILESTONES = {
+    500:  {"bp": 30},
+    1000: {"bp": 50},
+    2000: {"bp": 80, "fragments": 2},
+    3000: {"bp": 100, "fragments": 3},
+    5000: {"bp": 150, "fragments": 5, "iv_reroll_one": 1},
+}
+
+# 주간 랭킹 보상 (순위별)
+BOSS_WEEKLY_REWARDS = {
+    1:       {"bp": 500, "masterball": 2},
+    (2, 3):  {"bp": 300, "masterball": 1},
+    (4, 10): {"bp": 200, "time_reduce_ticket": 2},
+    (11, 30): {"bp": 100, "time_reduce_ticket": 1},
+}
+
+# 보스 처치 보너스 (참여자 전원)
+BOSS_DEFEAT_BONUS = {"bp": 100, "masterball": 1}
+
+# ============================================================
+# 이로치 제련소
+# ============================================================
+SMELTING_BP_COST = 200          # 1회 제련 비용 (BP)
+SMELTING_REQUIRED_COUNT = 10    # 필수 투입 포켓몬 수
+
+# 마리당 게이지 기여 (일반 / 이로치=10배)
+SMELTING_GAUGE_PER_RARITY = {
+    "common":          0.05,
+    "rare":            0.15,
+    "epic":            0.40,
+    "legendary":       1.00,
+    "ultra_legendary": 2.50,
+}
+SMELTING_SHINY_MULTIPLIER = 10  # 이로치 투입 시 게이지 배율
+
+# 구독 배율
+SMELTING_SUB_MULTIPLIER = {
+    "none":          1.0,
+    "basic":         1.2,
+    "channel_owner": 1.5,
+}
+
+# 게이지 구간별 대성공/메가스톤 확률
+SMELTING_RATES = [
+    # (게이지 하한, 대성공(이로치)%, 메가스톤 제련권%)
+    (0,   2.0,  0.7),
+    (20,  4.0,  1.3),
+    (40,  7.0,  2.6),
+    (60, 12.0,  4.0),
+    (80, 18.0,  6.5),
+]
+
+# 소각 보상 등급 확률
+SMELTING_REWARD_TIERS = [
+    # (확률, 등급키, 라벨)
+    (0.50, "common",    "⬜ 일반"),
+    (0.30, "uncommon",  "🟢 고급"),
+    (0.13, "rare",      "🔵 희귀"),
+    (0.05, "heroic",    "🟣 영웅"),
+    (0.02, "legendary", "🟡 전설"),
+]
+
+# 등급별 소각 보상풀: (아이템키, 최소, 최대)
+SMELTING_REWARD_POOL = {
+    "common": [
+        ("bp", 30, 80),
+        ("fragment", 1, 2),
+        ("hyperball", 1, 2),
+    ],
+    "uncommon": [
+        ("bp", 100, 200),
+        ("fragment", 2, 4),
+        ("masterball", 1, 1),
+    ],
+    "rare": [
+        ("iv_reroll_all", 1, 1),
+        ("fragment", 3, 5),
+        ("bp", 200, 400),
+    ],
+    "heroic": [
+        ("iv_stone_3", 1, 1),
+        ("time_reduce_ticket", 2, 2),
+        ("fragment", 5, 10),
+    ],
+    "legendary": [
+        ("iv_stone_3", 2, 2),
+        ("shiny_spawn", 1, 1),
+        ("bp", 1000, 2000),
+    ],
+}
+
+# 메가스톤 등급 판정 (제련권 사용 시)
+MEGA_STONE_RATES = {
+    "common":          0.40,
+    "rare":            0.30,
+    "epic":            0.18,
+    "legendary":       0.09,
+    "ultra_legendary": 0.03,
+}
+
+# 1~4세대 메가진화 가능 포켓몬 (등급별)
+# mega_key: 이미지/데이터 조회 키 (models/pokemon_mega_data.py 참조)
+MEGA_EVOLUTION_POOL = {
+    "common": [
+        ("mega_15", "메가독침붕"), ("mega_18", "메가피죤투"),
+        ("mega_302", "메가깜까미"),
+    ],
+    "rare": [
+        ("mega_65", "메가후딘"), ("mega_80", "메가야도란"),
+        ("mega_94", "메가팬텀"), ("mega_115", "메가캥카"),
+        ("mega_127", "메가쁘사이저"), ("mega_208", "메가강철톤"),
+        ("mega_308", "메가요가램"), ("mega_310", "메가라이볼트"),
+        ("mega_319", "메가샤크니아"), ("mega_323", "메가폭타"),
+        ("mega_334", "메가파비코리"), ("mega_354", "메가다크펫"),
+        ("mega_362", "메가얼음귀신"), ("mega_428", "메가이어롭"),
+        ("mega_460", "메가눈설왕"),
+    ],
+    "epic": [
+        ("mega_3", "메가이상해꽃"), ("mega_6_x", "메가리자몽X"),
+        ("mega_6_y", "메가리자몽Y"), ("mega_9", "메가거북왕"),
+        ("mega_130", "메가갸라도스"), ("mega_142", "메가프테라"),
+        ("mega_181", "메가전룡"), ("mega_212", "메가핫삼"),
+        ("mega_214", "메가헤라크로스"), ("mega_229", "메가헬가"),
+        ("mega_248", "메가마기라스"), ("mega_254", "메가나무킹"),
+        ("mega_257", "메가번치코"), ("mega_260", "메가라그라지"),
+        ("mega_282", "메가가디안"), ("mega_303", "메가입치트"),
+        ("mega_306", "메가대짱이"), ("mega_359", "메가앱솔"),
+        ("mega_373", "메가보만다"), ("mega_376", "메가메타그로스"),
+        ("mega_445", "메가한카리아스"), ("mega_448", "메가루카리오"),
+        ("mega_475", "메가엘레이드"),
+    ],
+    "legendary": [
+        ("mega_380", "메가라티아스"), ("mega_381", "메가라티오스"),
+    ],
+    "ultra_legendary": [
+        ("mega_150_x", "메가뮤츠X"), ("mega_150_y", "메가뮤츠Y"),
+        ("mega_384", "메가레쿠쟈"),
+    ],
+}
+
+# ─── 문박사 MC 멘트 풀 ──────────────────────────────────────
+SMELTING_MC_SACRIFICE = [
+    # 범용 희생 묘사 (50개) — {name}은 포켓몬 이름으로 치환
+    "{name}(이/가) 슬픈 눈으로 당신을 바라본다...",
+    "{name}(이/가) 발버둥치다 용광로에 빨려 들어갔다!",
+    "{name}(이/가) 체념한 표정으로 걸어 들어간다...",
+    "{name}(이/가) 당신에게 손을 흔들며 뛰어들었다 ✋",
+    "{name}(이/가) 눈물을 흘리며 사라졌다...",
+    "{name}(이/가) 마지막으로 울음소리를 남겼다",
+    "{name}(이/가) 조용히 눈을 감고 들어갔다",
+    "{name}(이/가) 도망치려다 붙잡혔다...!",
+    "{name}(이/가) 용광로 앞에서 떨고 있다...",
+    "{name}(이/가) 동료를 보며 고개를 끄덕이고 들어갔다",
+    "{name}(이/가) \"...안녕\" 하고 사라졌다",
+    "{name}(이/가) 뒤돌아보지 않고 뛰어들었다!",
+    "{name}(이/가) 최후의 발악을 했지만... 소용없었다",
+    "{name}(이/가) 웃으면서 용광로에 뛰어들었다",
+    "{name}(이/가) 눈을 부릅뜨고 당신을 노려본다...",
+    "{name}(이/가) 잠든 채로 끌려 들어갔다 💤",
+    "{name}(이/가) 먹이를 달라고 울었지만... 무시당했다",
+    "{name}(이/가) 용광로를 보고 기절했다...",
+    "{name}(이/가) 의연하게 걸어 들어간다. 전사의 품격...",
+    "{name}(이/가) 마지막으로 기술을 써봤지만 불발이었다",
+    "{name}(이/가) 친구들에게 작별 인사를 했다",
+    "{name}(이/가) 「왜 나야...」 하는 표정이다",
+    "{name}(이/가) 트레이너를 원망하는 눈빛을 보냈다",
+    "{name}(이/가) 꼬리를 말고 떨고 있다...",
+    "{name}(이/가) 놀라서 뒤로 넘어졌다! ...그리고 굴러 들어갔다",
+    "{name}(이/가) 용광로에서 나오는 열기에 녹기 시작했다",
+    "{name}(이/가) 눈물 한 방울을 남기고...",
+    "{name}(이/가) 저항 없이 순순히 들어갔다",
+    "{name}(이/가) 동료의 복수를 다짐하며 들어갔다!",
+    "{name}(이/가) 마지막 힘을 다해 소리쳤다!",
+    "{name}(이/가) 멍하니 서있다가 떠밀려 들어갔다",
+    "{name}(이/가) 하품하면서 들어갔다... 상황파악 못 함",
+    "{name}(이/가) 용광로 앞에서 춤을 추다가... 미끄러졌다",
+    "{name}(이/가) 트레이너에게 박치기를 시도했다! ...실패",
+    "{name}(이/가) 제련로를 맛있는 것으로 착각했다",
+    "{name}(이/가) 비장한 BGM이 흘러나온다... 기분 탓이다",
+    "{name}(이/가) 뒤에서 밀렸다! 누가 밀었는지는 모른다",
+    "{name}(이/가) 「다음 생엔 초전설로...」 유언을 남겼다",
+    "{name}(이/가) 가방에서 꺼내지자마자 상황을 눈치챘다",
+    "{name}(이/가) 포켓볼을 부수고 도망치려 했지만 실패",
+    "{name}(이/가) 「차라리 야생이 나았어...」",
+    "{name}(이/가) 제련로의 온기가 따뜻해서 잠들었다... 영원히",
+    "{name}(이/가) 다른 포켓몬 뒤에 숨었지만 발각됐다",
+    "{name}(이/가) 이상하게 신나 보인다...? 뭐지?",
+    "{name}(이/가) 눈물과 콧물 범벅이 됐다",
+    "{name}(이/가) 하늘을 올려다보며 무언가 기도했다",
+    "{name}(이/가) 발을 질질 끌며 걸어갔다...",
+    "{name}(이/가) 마지막으로 머리를 비볐다 🥺",
+    "{name}(이/가) 「...고마웠어, 트레이너」",
+    "{name}(이/가) 포효하며 스스로 뛰어들었다! 🔥",
+]
+
+# 문박사 진행 멘트 (투입 순서별)
+SMELTING_MC_PROGRESS = [
+    "자, 첫 번째 투입!",
+    "두 번째... 반응이 오기 시작한다",
+    "세 번째! 온도가 올라가고 있어",
+    "네 번째... 제련로가 울리기 시작한다!",
+    "다섯 번째! 에너지가 모이고 있어...",
+    "여섯 번째... 뭔가 느껴지는데?!",
+    "일곱 번째! 거의 다 왔어!",
+    "여덟 번째... 제련로가 요동친다!!!",
+    "아홉 번째!!! 이 반응은...?!",
+    "마지막이야... 제발...!!!",
+]
+
+# 결과별 문박사 리액션
+SMELTING_MC_RESULT = {
+    "shiny": [
+        "!!!!! 나왔다아아아!!! 이로치다!!! 🎉",
+        "세상에... 이건 진짜야!!! ✨✨✨",
+        "제련 대성공!!! 역시 과학의 힘이야!!!",
+        "우오오오!! 빛나고 있어!!! 대박!!!",
+        "이 빛은... 이로치!!! 축하합니다!!! 🎊",
+    ],
+    "mega_ticket": [
+        "?!?!?! 이건... 메가스톤의 기운?!?!",
+        "세상에... 메가스톤 제련권이다!!!!! 🔥🔥🔥",
+        "전설이 아니라 신화급이야!!! 대박!!! ✨✨✨✨",
+        "제련로가 폭발할 뻔했어!!! 메가스톤!!! 🌟",
+    ],
+    "fail": [
+        "아쉽다... 다음엔 분명...!",
+        "제련로가 조용해졌어... 다음 기회를...",
+        "흠... 재료가 부족했나...",
+        "괜찮아, 게이지는 쌓였으니까!",
+        "아깝다... 한 끗 차이였는데...",
+        "과학에도 실패는 있는 법이지...",
+        "다음엔 꼭 될 거야... 아마도...",
+        "제련로가 한숨을 쉬었다...",
+        "실패했지만 데이터는 남았어! (게이지↑)",
+        "음... 배합이 안 맞았나...",
+    ],
+}

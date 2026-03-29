@@ -420,6 +420,8 @@ IV_MIGRATIONS = [
     "ALTER TABLE user_pokemon ADD COLUMN iv_spa SMALLINT DEFAULT NULL",
     "ALTER TABLE user_pokemon ADD COLUMN iv_spdef SMALLINT DEFAULT NULL",
     "ALTER TABLE user_pokemon ADD COLUMN iv_spd SMALLINT DEFAULT NULL",
+    # IV스톤 포켓몬당 사용 횟수 추적
+    "ALTER TABLE user_pokemon ADD COLUMN IF NOT EXISTS ivstone_used SMALLINT DEFAULT 0",
 ]
 
 SHINY_MIGRATIONS = [
@@ -684,6 +686,28 @@ TRADE_EVO_FIX_MIGRATIONS = [
     "UPDATE pokemon_master SET evolves_to = 233, evolution_method = 'trade' WHERE id = 137",  # 폴리곤 → 폴리곤2
 ]
 
+# Gen4 크로스 진화 — method 'none' → 'friendship' 수정
+GEN4_EVO_METHOD_FIX = [
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 82",   # 레어코일 → 자포코일
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 108",  # 내루미 → 핥도그
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 112",  # 코뿌리 → 거대코뿌리
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 114",  # 덩쿠리 → 덩쿠림보
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 125",  # 에레브 → 에레키블
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 126",  # 마그마 → 마그마번
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 176",  # 토게틱 → 토게키스
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 190",  # 에이팜 → 겟핸보숭
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 193",  # 왕자리 → 메가자리
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 198",  # 니로우 → 돈크로우
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 200",  # 무우마 → 무우마직
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 207",  # 글라이거 → 글라이온
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 215",  # 포푸니 → 포푸니라
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 221",  # 메꾸리 → 맘모꾸리
+    "UPDATE pokemon_master SET evolution_method = 'trade' WHERE id = 233",       # 폴리곤2 → 폴리곤Z (교환 진화)
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 299",  # 코코파스 → 대코파스
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 315",  # 로젤리아 → 로즈레이드
+    "UPDATE pokemon_master SET evolution_method = 'friendship' WHERE id = 356",  # 미라몽 → 야느와르몽
+]
+
 
 
 # ─── 캠프 v2 시스템 (2026-03-13) ─────────
@@ -732,6 +756,12 @@ DUNGEON_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_tickets_bought_today INT NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_best_floor INT NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_season_runs INT NOT NULL DEFAULT 0",
+    # 랭킹 보상 분배 추적
+    """CREATE TABLE IF NOT EXISTS dungeon_ranking_rewards (
+        season_key TEXT PRIMARY KEY,
+        reward_type TEXT NOT NULL DEFAULT 'weekly',
+        distributed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
 ]
 
 CAMP_TABLES = [
@@ -1388,6 +1418,50 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── CS 문의 시스템 (2026-03-21) ──
+    cs_migs = [
+        """CREATE TABLE IF NOT EXISTS cs_inquiries (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            display_name TEXT,
+            category TEXT NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            admin_reply TEXT,
+            replied_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )""",
+        "ALTER TABLE cs_inquiries ADD COLUMN IF NOT EXISTS image_filename TEXT",
+        "ALTER TABLE cs_inquiries ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE cs_inquiries ADD COLUMN IF NOT EXISTS like_count INTEGER NOT NULL DEFAULT 0",
+        """CREATE TABLE IF NOT EXISTS cs_likes (
+            user_id BIGINT NOT NULL,
+            inquiry_id INTEGER NOT NULL REFERENCES cs_inquiries(id),
+            PRIMARY KEY (user_id, inquiry_id)
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_cs_inquiries_user ON cs_inquiries(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_cs_inquiries_status ON cs_inquiries(status)",
+    ]
+    for mig in cs_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # ── 매크로 모니터링 스코어 (2026-03-21) ──
+    macro_migs = [
+        "ALTER TABLE abuse_scores ADD COLUMN IF NOT EXISTS monitor_score REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE abuse_scores ADD COLUMN IF NOT EXISTS monitor_detail JSONB",
+        "ALTER TABLE abuse_scores ADD COLUMN IF NOT EXISTS monitored_at TIMESTAMPTZ",
+        "ALTER TABLE abuse_scores ADD COLUMN IF NOT EXISTS is_watched BOOLEAN NOT NULL DEFAULT FALSE",
+    ]
+    for mig in macro_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
     # ── Performance indexes (idempotent) ──
     perf_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_catch_limits_date ON catch_limits(date)",
@@ -1401,3 +1475,170 @@ async def create_tables():
             await pool.execute(idx_sql, timeout=30)
         except Exception:
             pass
+
+    # ── 토너먼트 기록 테이블 (2026-03-23) ──
+    tournament_tables = [
+        """CREATE TABLE IF NOT EXISTS tournament_results (
+            id SERIAL PRIMARY KEY,
+            chat_id BIGINT NOT NULL,
+            tournament_date DATE NOT NULL DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')::date,
+            total_participants INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS tournament_entries (
+            id SERIAL PRIMARY KEY,
+            tournament_id INTEGER NOT NULL REFERENCES tournament_results(id),
+            user_id BIGINT NOT NULL,
+            display_name TEXT,
+            placement TEXT NOT NULL,
+            team_json JSONB,
+            damage_dealt INTEGER DEFAULT 0,
+            kills INTEGER DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_tourn_entries_user ON tournament_entries(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tourn_results_date ON tournament_results(tournament_date)",
+    ]
+    for sql in tournament_tables:
+        try:
+            await pool.execute(sql, timeout=30)
+        except Exception:
+            pass
+
+    # ── 환상 포켓몬 재분류: ultra_legendary → legendary (2026-03-23) ──
+    mythical_reclassify = [
+        "UPDATE pokemon_master SET rarity = 'legendary' WHERE id IN (385, 386, 490, 491, 492)",
+        "ALTER TABLE catch_attempts ADD COLUMN IF NOT EXISTS used_priority_ball INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS action_log TEXT DEFAULT ''",
+        "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS is_practice BOOLEAN DEFAULT FALSE",
+    ]
+    for sql in mythical_reclassify:
+        try:
+            await pool.execute(sql, timeout=30)
+        except Exception:
+            pass
+
+    # ── 던전 PP 상태 영속화 (2026-03-24) ──
+    try:
+        await pool.execute(
+            "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS pp_state_json JSONB",
+            timeout=30)
+    except Exception:
+        pass
+
+    # ── Gen4 크로스 진화 method 수정 (2026-03-23) ──
+    for sql in GEN4_EVO_METHOD_FIX:
+        try:
+            await pool.execute(sql, timeout=30)
+        except Exception:
+            pass
+
+    # ── Boss Teams (보스전용 팀) (2026-03-27) ──
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS boss_teams (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL REFERENCES users(user_id),
+            slot INTEGER NOT NULL CHECK(slot BETWEEN 1 AND 6),
+            pokemon_instance_id INTEGER NOT NULL REFERENCES user_pokemon(id),
+            UNIQUE(user_id, slot),
+            UNIQUE(user_id, pokemon_instance_id)
+        )
+    """)
+    try:
+        await pool.execute("CREATE INDEX IF NOT EXISTS idx_boss_teams_user ON boss_teams(user_id)")
+    except Exception:
+        pass
+
+    # ── Weekly Boss 테이블 (2026-03-26) ──
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_boss (
+            id SERIAL PRIMARY KEY,
+            week_key TEXT UNIQUE NOT NULL,
+            pokemon_id INT NOT NULL,
+            pokemon_name TEXT NOT NULL,
+            boss_types TEXT[] NOT NULL,
+            max_hp BIGINT NOT NULL,
+            current_hp BIGINT NOT NULL,
+            defeated BOOLEAN DEFAULT FALSE,
+            defeated_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            ended_at TIMESTAMPTZ
+        )
+    """)
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS boss_attacks (
+            id SERIAL PRIMARY KEY,
+            week_key TEXT NOT NULL,
+            user_id BIGINT NOT NULL,
+            damage_dealt BIGINT NOT NULL,
+            attack_date DATE NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    try:
+        await pool.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_boss_attacks_daily "
+            "ON boss_attacks(week_key, user_id, attack_date)"
+        )
+    except Exception:
+        pass
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS boss_weekly_damage (
+            week_key TEXT NOT NULL,
+            user_id BIGINT NOT NULL,
+            total_damage BIGINT NOT NULL DEFAULT 0,
+            attack_count INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (week_key, user_id)
+        )
+    """)
+
+    # ── 이로치 제련소 ──
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS smelting_gauge (
+            user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+            gauge NUMERIC(6,2) DEFAULT 0,
+            highest_rarity TEXT DEFAULT 'common',
+            rarity_contributions JSONB DEFAULT '{}',
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS smelting_log (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT REFERENCES users(user_id),
+            materials JSONB NOT NULL,
+            gauge_before NUMERIC(6,2) NOT NULL,
+            gauge_after NUMERIC(6,2) NOT NULL,
+            result TEXT NOT NULL,
+            result_detail JSONB,
+            reward_detail JSONB,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+
+    # ── 던전 보상 유실 방지 (2026-03-28) ──
+    try:
+        await pool.execute(
+            "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS rewards_json JSONB",
+            timeout=30)
+        await pool.execute(
+            "ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS rewards_granted BOOLEAN DEFAULT FALSE",
+            timeout=30)
+    except Exception:
+        pass
+
+    # ── 랭크전 NPC 봇 (2026-03-29) ──
+    try:
+        await pool.execute(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_bot BOOLEAN NOT NULL DEFAULT FALSE",
+            timeout=30)
+    except Exception:
+        pass
+
+    # ── 스폰 카드 IV 일치 (2026-03-29) ──
+    try:
+        await pool.execute(
+            "ALTER TABLE spawn_sessions ADD COLUMN IF NOT EXISTS pre_ivs JSONB",
+            timeout=30)
+    except Exception:
+        pass

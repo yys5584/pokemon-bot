@@ -164,6 +164,7 @@ async def get_ranked_ranking(season_id: str, limit: int = 20) -> list[dict]:
            JOIN users u ON sr.user_id = u.user_id
            LEFT JOIN user_mmr um ON sr.user_id = um.user_id
            WHERE sr.season_id = $1 AND (sr.ranked_wins > 0 OR sr.ranked_losses > 0)
+                 AND COALESCE(u.is_bot, FALSE) = FALSE
            ORDER BY sr.rp DESC
            LIMIT $2""",
         season_id, limit)
@@ -171,13 +172,15 @@ async def get_ranked_ranking(season_id: str, limit: int = 20) -> list[dict]:
 
 
 async def get_all_season_records(season_id: str) -> list[dict]:
-    """보상 분배용: 시즌 전체 기록 (최소 1전 이상)."""
+    """보상 분배용: 시즌 전체 기록 (최소 1전 이상, 봇 제외)."""
     pool = await get_db()
     rows = await pool.fetch(
         """SELECT sr.user_id, sr.rp, sr.tier, sr.peak_tier,
                   sr.ranked_wins, sr.ranked_losses
            FROM season_records sr
-           WHERE sr.season_id = $1 AND (sr.ranked_wins + sr.ranked_losses) > 0""",
+           JOIN users u ON sr.user_id = u.user_id
+           WHERE sr.season_id = $1 AND (sr.ranked_wins + sr.ranked_losses) > 0
+                 AND COALESCE(u.is_bot, FALSE) = FALSE""",
         season_id)
     return [dict(r) for r in rows]
 

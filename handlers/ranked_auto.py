@@ -96,8 +96,8 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text(f"⏳ {t(lang, 'ranked.cooldown_msg', seconds=secs)}")
             return
 
-    # 방어 패배 리셋 (유저가 직접 랭전을 걸었으므로)
-    await rq.reset_defense_losses(user_id, season_id)
+    # 방어 패배 리셋 제거 — 5연패 보호 유지 (자정에 자동 리셋)
+    # await rq.reset_defense_losses(user_id, season_id)
 
     # 승급 보호 해제 (랭전 재진입 시)
     await rq.clear_promo_shield(user_id, season_id)
@@ -133,18 +133,11 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             pass
         return
 
-    # 상대 팀 로드
+    # 상대 팀 로드 (find_ranked_opponent에서 이미 코스트/룰 검증 완료)
     opp_team = await bq.get_battle_team(opponent_id)
     if not opp_team or len(opp_team) < config.RANKED_TEAM_SIZE:
         try:
             await matching_msg.edit_text(f"😢 {t(lang, 'ranked.opp_team_fail')}")
-        except Exception:
-            pass
-        return
-    opp_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in opp_team)
-    if opp_cost > config.RANKED_COST_LIMIT:
-        try:
-            await matching_msg.edit_text(f"😢 {t(lang, 'ranked.opp_cost_fail')}")
         except Exception:
             pass
         return
@@ -185,13 +178,14 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     loser_id = result["loser_id"]
     cache_key = result["cache_key"]
 
-    # 방어 패배 카운트: 상대(방어자)가 졌으면 +1
-    if loser_id == opponent_id:
-        await rq.increment_defense_losses(opponent_id, season_id)
-    else:
-        # 도전자(나)가 졌어도 상대의 defense_losses는 안 건드림
-        # 내가 졌으면 상대 방어 패배 리셋 (상대가 이겼으니)
-        pass
+    # 방어 연속 패배 카운트 (봇이면 스킵)
+    if opponent_id not in config.RANKED_BOT_IDS:
+        if loser_id == opponent_id:
+            # 방어자가 졌으면 +1
+            await rq.increment_defense_losses(opponent_id, season_id)
+        else:
+            # 방어자가 이겼으면 연속 패배 리셋
+            await rq.reset_defense_losses(opponent_id, season_id)
 
     # RP 정보 조합
     rp_lines = []

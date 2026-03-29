@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 async def create_spawn_session(
     chat_id: int, pokemon_id: int, expires_at, message_id: int | None = None,
     is_shiny: bool = False, is_newbie_spawn: bool = False,
+    pre_ivs: dict | None = None,
 ) -> int:
     async def _do():
         pool = await get_db()
@@ -23,10 +24,12 @@ async def create_spawn_session(
             exp = datetime.fromisoformat(expires_at)
         else:
             exp = expires_at
+        import json as _json
+        _ivs_json = _json.dumps(pre_ivs) if pre_ivs else None
         row = await pool.fetchrow(
-            """INSERT INTO spawn_sessions (chat_id, pokemon_id, expires_at, message_id, is_shiny, is_newbie_spawn)
-               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""",
-            chat_id, pokemon_id, exp, message_id, 1 if is_shiny else 0, 1 if is_newbie_spawn else 0,
+            """INSERT INTO spawn_sessions (chat_id, pokemon_id, expires_at, message_id, is_shiny, is_newbie_spawn, pre_ivs)
+               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id""",
+            chat_id, pokemon_id, exp, message_id, 1 if is_shiny else 0, 1 if is_newbie_spawn else 0, _ivs_json,
         )
         return row["id"]
     return await _retry(_do)
@@ -151,12 +154,13 @@ async def cleanup_expired_sessions() -> list[tuple[int, str]]:
 # Catch Attempts
 # ============================================================
 
-async def record_catch_attempt(session_id: int, user_id: int, used_master_ball: bool = False, used_hyper_ball: bool = False):
+async def record_catch_attempt(session_id: int, user_id: int, used_master_ball: bool = False, used_hyper_ball: bool = False, used_priority_ball: bool = False):
     async def _do():
         pool = await get_db()
         await pool.execute(
-            "INSERT INTO catch_attempts (session_id, user_id, used_master_ball, used_hyper_ball) VALUES ($1, $2, $3, $4)",
-            session_id, user_id, 1 if used_master_ball else 0, 1 if used_hyper_ball else 0,
+            "INSERT INTO catch_attempts (session_id, user_id, used_master_ball, used_hyper_ball, used_priority_ball) "
+            "VALUES ($1, $2, $3, $4, $5)",
+            session_id, user_id, 1 if used_master_ball else 0, 1 if used_hyper_ball else 0, 1 if used_priority_ball else 0,
         )
     await _retry(_do)
 

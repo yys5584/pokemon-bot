@@ -20,3 +20,12 @@ sample_*.jpg
 tier_analysis.txt
 .coverage
 *.launch.json
+
+# 민감 정보 포함 스크립트 (DB URL, 봇 토큰 하드코딩)
+scripts/_*.py
+upload_champion_stickers.py
+check_abuse_full.py
+check_ranked.py
+sim_results.json
+sim_result.txt
+*.mp4

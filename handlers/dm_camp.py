@@ -191,6 +191,7 @@ async def camp_dm_callback_handler(update, context):
         _handle_plc, _handle_rm, _handle_fd, _handle_pk, _handle_pp,
         _handle_fback, _handle_clp, _handle_c2p,
         _handle_sethome2_locked, _handle_sethome2, _handle_delhome2,
+        _handle_addfd, _handle_newfd, _handle_chgfd, _handle_chgsel, _handle_chgto,
     )
     from handlers.dm_camp_convert import (
         _handle_conv, _handle_ok, _handle_dec, _handle_decok,
@@ -239,6 +240,18 @@ async def camp_dm_callback_handler(update, context):
         await _handle_sethome2(query, parts)
     elif data.startswith("cdm_delhome2_"):
         await _handle_delhome2(query, parts)
+
+    # ── DM 필드 관리 (소유자) ──
+    elif data.startswith("cdm_addfd_"):
+        await _handle_addfd(query, parts)
+    elif data.startswith("cdm_newfd_"):
+        await _handle_newfd(query, parts)
+    elif data.startswith("cdm_chgfd_"):
+        await _handle_chgfd(query, parts)
+    elif data.startswith("cdm_chgsel_"):
+        await _handle_chgsel(query, parts)
+    elif data.startswith("cdm_chgto_"):
+        await _handle_chgto(query, parts)
 
     # ── 이로치전환/분해 관련 ──
     elif data.startswith("cdm_conv_"):

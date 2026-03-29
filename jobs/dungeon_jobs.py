@@ -1,0 +1,147 @@
+"""던전 랭킹 보상 스케줄러 job."""
+
+import logging
+
+import config
+from database import dungeon_queries as dq, queries, item_queries
+from database import camp_queries as cq
+
+logger = logging.getLogger(__name__)
+
+
+def _get_reward_for_rank(rank: int, reward_table: dict) -> dict | None:
+    """순위에 해당하는 보상 딕셔너리 반환."""
+    for key, rewards in reward_table.items():
+        if isinstance(key, int):
+            if rank == key:
+                return rewards
+        elif isinstance(key, tuple) and len(key) == 2:
+            if key[0] <= rank <= key[1]:
+                return rewards
+    return None
+
+
+async def dungeon_weekly_ranking_job(context):
+    """월요일 00:20 KST — 지난 주 던전 랭킹 보상 자동 분배."""
+    try:
+        now = config.get_kst_now()
+        if now.weekday() != 0:  # 월요일만
+            return
+
+        season_key = dq._previous_season_key()
+        dist_key = f"{season_key}_weekly"
+
+        if await dq.is_reward_distributed(dist_key):
+            logger.info(f"Dungeon weekly rewards already distributed for {season_key}")
+            return
+
+        ranking = await dq.get_previous_week_ranking(limit=30)
+        if not ranking:
+            logger.info("No dungeon weekly ranking data")
+            await dq.mark_reward_distributed(dist_key, "weekly")
+            return
+
+        logger.info(f"Distributing dungeon weekly rewards for {season_key}: {len(ranking)} users")
+
+        for rank, entry in enumerate(ranking, 1):
+            uid = entry["user_id"]
+            rewards = _get_reward_for_rank(rank, config.DUNGEON_WEEKLY_RANKING_REWARDS)
+            if not rewards:
+                continue
+
+            # 보상 지급
+            try:
+                if rewards.get("iv_stones"):
+                    await item_queries.add_iv_stones(uid, rewards["iv_stones"])
+                if rewards.get("iv_reroll_one"):
+                    await item_queries.add_user_item(uid, "iv_reroll_one", rewards["iv_reroll_one"])
+                if rewards.get("time_reduce_ticket"):
+                    await item_queries.add_user_item(uid, "time_reduce_ticket", rewards["time_reduce_ticket"])
+
+                # DM 알림
+                reward_lines = []
+                if rewards.get("iv_stones"):
+                    reward_lines.append(f"  💠 IV스톤(+3) ×{rewards['iv_stones']}")
+                if rewards.get("iv_reroll_one"):
+                    reward_lines.append(f"  🎯 IV 선택 리롤 ×{rewards['iv_reroll_one']}")
+                if rewards.get("time_reduce_ticket"):
+                    reward_lines.append(f"  ⏰ 시간단축권 ×{rewards['time_reduce_ticket']}")
+                if rewards.get("title"):
+                    reward_lines.append(f"  👑 칭호: {rewards['title']}")
+
+                dm_text = (
+                    f"🏰 <b>던전 주간 랭킹 보상!</b>\n\n"
+                    f"📅 시즌: {season_key}\n"
+                    f"🏆 순위: {rank}위 ({entry['floor_reached']}층)\n\n"
+                    + "\n".join(reward_lines)
+                )
+                try:
+                    await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
+                except Exception:
+                    pass  # DM 실패는 무시
+
+            except Exception as e:
+                logger.error(f"Dungeon weekly reward error for user {uid}: {e}")
+
+        await dq.mark_reward_distributed(dist_key, "weekly")
+        logger.info(f"Dungeon weekly rewards distributed for {season_key}")
+
+    except Exception as e:
+        logger.error(f"dungeon_weekly_ranking_job error: {e}", exc_info=True)
+
+
+async def dungeon_daily_ranking_job(context):
+    """매일 00:25 KST — 어제 던전 일일 랭킹 보상 분배."""
+    try:
+        import datetime as _dt
+
+        now = config.get_kst_now()
+        yesterday = (now - _dt.timedelta(days=1)).strftime("%Y-%m-%d")
+        dist_key = f"daily_{yesterday}"
+
+        if await dq.is_reward_distributed(dist_key):
+            logger.info(f"Dungeon daily rewards already distributed for {yesterday}")
+            return
+
+        ranking = await dq.get_daily_ranking(yesterday, limit=10)
+        if not ranking:
+            logger.info(f"No dungeon daily ranking data for {yesterday}")
+            await dq.mark_reward_distributed(dist_key, "daily")
+            return
+
+        logger.info(f"Distributing dungeon daily rewards for {yesterday}: {len(ranking)} users")
+
+        for rank, entry in enumerate(ranking, 1):
+            uid = entry["user_id"]
+            rewards = _get_reward_for_rank(rank, config.DUNGEON_DAILY_RANKING_REWARDS)
+            if not rewards:
+                continue
+
+            try:
+                if rewards.get("iv_reroll_one"):
+                    await item_queries.add_user_item(uid, "iv_reroll_one", rewards["iv_reroll_one"])
+
+                # DM 알림
+                reward_lines = []
+                if rewards.get("iv_reroll_one"):
+                    reward_lines.append(f"  🎯 IV 선택 리롤 ×{rewards['iv_reroll_one']}")
+
+                dm_text = (
+                    f"🏰 <b>던전 일일 랭킹 보상!</b>\n\n"
+                    f"📅 {yesterday}\n"
+                    f"🏆 순위: {rank}위 ({entry['floor_reached']}층)\n\n"
+                    + "\n".join(reward_lines)
+                )
+                try:
+                    await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
+                except Exception:
+                    pass
+
+            except Exception as e:
+                logger.error(f"Dungeon daily reward error for user {uid}: {e}")
+
+        await dq.mark_reward_distributed(dist_key, "daily")
+        logger.info(f"Dungeon daily rewards distributed for {yesterday}")
+
+    except Exception as e:
+        logger.error(f"dungeon_daily_ranking_job error: {e}", exc_info=True)

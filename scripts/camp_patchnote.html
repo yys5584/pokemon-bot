@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    width: 800px;
+    font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    padding: 40px;
+}
+.header {
+    text-align: center;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid #30363d;
+}
+.header h1 {
+    font-size: 32px;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #4CAF50, #FFB74D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.header .sub {
+    font-size: 14px;
+    color: #8b949e;
+}
+.section {
+    margin-bottom: 28px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 14px;
+    padding: 24px;
+}
+.section h2 {
+    font-size: 18px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #30363d;
+}
+.fields-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+}
+.field-card {
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+}
+.field-card .icon { font-size: 32px; }
+.field-card .name { font-weight: 700; font-size: 15px; margin: 4px 0; }
+.field-card .types { font-size: 11px; opacity: 0.85; }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+th, td {
+    padding: 8px 12px;
+    text-align: center;
+    border-bottom: 1px solid #30363d;
+    font-size: 13px;
+}
+th {
+    background: #1c2129;
+    color: #8b949e;
+    font-weight: 600;
+    font-size: 12px;
+}
+.highlight-row {
+    background: rgba(76, 175, 80, 0.1);
+    font-weight: 700;
+}
+.flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+}
+.flow-node {
+    background: #1c2129;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 12px 16px;
+    text-align: center;
+    min-width: 100px;
+}
+.flow-node .icon { font-size: 24px; }
+.flow-node .text { font-size: 12px; font-weight: 700; margin-top: 4px; }
+.flow-node .sub { font-size: 10px; color: #8b949e; }
+.flow-arrow { color: #FFB74D; font-size: 20px; font-weight: 700; }
+
+.time-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+}
+.time-badge {
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.lv10-box {
+    background: linear-gradient(135deg, rgba(76,175,80,.15), rgba(255,183,77,.15));
+    border: 2px solid rgba(76,175,80,.4);
+    border-radius: 14px;
+    padding: 20px;
+    margin-top: 12px;
+}
+.lv10-box h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #4CAF50;
+}
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+.stat-item {
+    background: #1c2129;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+}
+.stat-item .val {
+    font-size: 24px;
+    font-weight: 700;
+    color: #4CAF50;
+}
+.stat-item .label {
+    font-size: 11px;
+    color: #8b949e;
+    margin-top: 4px;
+}
+
+.score-table td:first-child { text-align: left; }
+
+.tip {
+    font-size: 11px;
+    color: #8b949e;
+    margin-top: 8px;
+}
+
+.cmd-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+}
+.cmd-item {
+    background: #1c2129;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.cmd-item .cmd {
+    font-weight: 700;
+    font-size: 14px;
+    color: #58a6ff;
+    white-space: nowrap;
+}
+.cmd-item .desc {
+    font-size: 11px;
+    color: #8b949e;
+}
+
+.footer {
+    text-align: center;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 2px solid #30363d;
+    color: #8b949e;
+    font-size: 12px;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🏕️ 캠프 시스템 오픈</h1>
+    <div class="sub">채팅방 멤버들과 함께 캠프를 운영하세요! 포켓몬을 배치하고 조각을 모아 이로치를 만들 수 있습니다.</div>
+</div>
+
+<!-- 플레이 흐름 -->
+<div class="section">
+    <h2>🎮 플레이 흐름</h2>
+    <div class="flow">
+        <div class="flow-node"><div class="icon">🏕️</div><div class="text">캠프 개설</div><div class="sub">100명+ 방장</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node"><div class="icon">🐾</div><div class="text">포켓몬 배치</div><div class="sub">필드에 배치</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node"><div class="icon">⏳</div><div class="text">라운드 정산</div><div class="sub">3시간마다</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node"><div class="icon">💎</div><div class="text">조각 획득</div><div class="sub">필드별 조각</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node"><div class="icon">✨</div><div class="text">이로치 전환</div><div class="sub">조각 소모</div></div>
+    </div>
+</div>
+
+<!-- Lv.10 기준 스펙 -->
+<div class="section">
+    <h2>🏛️ Lv.10 마을 광장 (최대 레벨)</h2>
+    <div class="lv10-box">
+        <div class="stat-grid">
+            <div class="stat-item"><div class="val">6</div><div class="label">필드 수</div></div>
+            <div class="stat-item"><div class="val">18</div><div class="label">기본 슬롯</div></div>
+            <div class="stat-item"><div class="val">8</div><div class="label">필드 캡</div></div>
+            <div class="stat-item"><div class="val">1,500</div><div class="label">필요 XP</div></div>
+        </div>
+        <p class="tip">💡 멤버 500명당 필드 슬롯 +1 추가 보너스!</p>
+    </div>
+</div>
+
+<!-- 6개 필드 -->
+<div class="section">
+    <h2>🗺️ 6개 필드</h2>
+    <div class="fields-grid">
+        <div class="field-card" style="background:linear-gradient(135deg,#1b3a1b,#2d4a2d);border:1px solid #4CAF50">
+            <div class="icon">🌿</div>
+            <div class="name" style="color:#66BB6A">숲</div>
+            <div class="types">풀 / 벌레 / 독</div>
+        </div>
+        <div class="field-card" style="background:linear-gradient(135deg,#3a1b1b,#4a2d2d);border:1px solid #EF5350">
+            <div class="icon">🔥</div>
+            <div class="name" style="color:#EF5350">화산</div>
+            <div class="types">불꽃 / 드래곤 / 격투</div>
+        </div>
+        <div class="field-card" style="background:linear-gradient(135deg,#1b2a3a,#2d3a4a);border:1px solid #42A5F5">
+            <div class="icon">💧</div>
+            <div class="name" style="color:#42A5F5">호수</div>
+            <div class="types">물 / 얼음 / 비행</div>
+        </div>
+        <div class="field-card" style="background:linear-gradient(135deg,#3a3a1b,#4a4a2d);border:1px solid #FFCA28">
+            <div class="icon">⚡</div>
+            <div class="name" style="color:#FFCA28">도시</div>
+            <div class="types">전기 / 강철 / 노말</div>
+        </div>
+        <div class="field-card" style="background:linear-gradient(135deg,#2a231b,#3a332d);border:1px solid #8D6E63">
+            <div class="icon">🪨</div>
+            <div class="name" style="color:#BCAAA4">동굴</div>
+            <div class="types">땅 / 바위 / 고스트</div>
+        </div>
+        <div class="field-card" style="background:linear-gradient(135deg,#2a1b3a,#3a2d4a);border:1px solid #AB47BC">
+            <div class="icon">🔮</div>
+            <div class="name" style="color:#CE93D8">신전</div>
+            <div class="types">에스퍼 / 악 / 페어리</div>
+        </div>
+    </div>
+</div>
+
+<!-- 라운드 & 점수 -->
+<div class="section">
+    <h2>⏰ 라운드 시스템</h2>
+    <p style="font-size:12px;color:#8b949e;margin-bottom:12px">하루 6라운드, 3시간 간격 자동 진행 (접수 30분 → 파밍 2.5시간 → 정산)</p>
+    <div class="time-badges">
+        <span class="time-badge" style="background:#1a3a5c;color:#42A5F5;border:1px solid #42A5F5">09:00</span>
+        <span class="time-badge" style="background:#1b3a1b;color:#66BB6A;border:1px solid #66BB6A">12:00</span>
+        <span class="time-badge" style="background:#3a2a1b;color:#FFA726;border:1px solid #FFA726">15:00</span>
+        <span class="time-badge" style="background:#3a1b2a;color:#EF5350;border:1px solid #EF5350">18:00</span>
+        <span class="time-badge" style="background:#2a1b3a;color:#AB47BC;border:1px solid #AB47BC">21:00</span>
+        <span class="time-badge" style="background:#2a2a2a;color:#bbb;border:1px solid #666">00:00</span>
+    </div>
+
+    <h3 style="font-size:14px;margin-top:16px;margin-bottom:8px">🎯 배치 점수</h3>
+    <table class="score-table">
+        <tr><th>조건</th><th>점수</th></tr>
+        <tr><td>타입 매칭만</td><td>1점</td></tr>
+        <tr><td><span style="color:#66BB6A;font-weight:700">보너스 포켓몬</span> 배치</td><td><b>2점</b></td></tr>
+        <tr><td>보너스 + IV 조건 충족</td><td><b>4점</b></td></tr>
+        <tr><td>보너스 + 이로치</td><td><b>4점</b></td></tr>
+        <tr><td><span style="color:#EF5350;font-weight:700">보너스 + IV + 이로치</span></td><td><b style="color:#EF5350">7점</b></td></tr>
+    </table>
+</div>
+
+<!-- 이로치 전환 -->
+<div class="section">
+    <h2>✨ 이로치 전환 비용</h2>
+    <table>
+        <tr><th>등급</th><th>조각</th><th>크리스탈</th><th>무지개</th><th>쿨다운</th></tr>
+        <tr><td>🟢 일반</td><td>12</td><td>-</td><td>-</td><td>6시간</td></tr>
+        <tr><td>🔵 레어</td><td>24</td><td>-</td><td>-</td><td>12시간</td></tr>
+        <tr><td>🟣 에픽</td><td>42</td><td>5</td><td>-</td><td>1일</td></tr>
+        <tr><td>🟡 전설</td><td>60</td><td>15</td><td>-</td><td>2일</td></tr>
+        <tr><td>🔴 초전설</td><td>84</td><td>25</td><td>3</td><td>3일</td></tr>
+    </table>
+
+    <h3 style="font-size:14px;margin-top:18px;margin-bottom:8px">🔨 분해 (이로치 → 크리스탈)</h3>
+    <table>
+        <tr><th>분해 대상</th><th>크리스탈</th><th>무지개</th></tr>
+        <tr><td>🟢 일반 이로치</td><td>+1</td><td>-</td></tr>
+        <tr><td>🔵 레어 이로치</td><td>+2</td><td>-</td></tr>
+        <tr><td>🟣 에픽 이로치</td><td>+3</td><td>-</td></tr>
+        <tr><td>🟡 전설 이로치</td><td>+5</td><td>+1</td></tr>
+        <tr><td>🔴 초전설 이로치</td><td>+15</td><td>+2</td></tr>
+    </table>
+</div>
+
+<!-- 명령어 -->
+<div class="section">
+    <h2>💬 캠프 명령어</h2>
+    <div class="cmd-grid">
+        <div class="cmd-item"><span class="cmd">캠프</span><span class="desc">그룹 | 필드 선택 → 포켓몬 배치</span></div>
+        <div class="cmd-item"><span class="cmd">캠프맵</span><span class="desc">그룹 | 월드맵 이미지</span></div>
+        <div class="cmd-item"><span class="cmd">캠프개설</span><span class="desc">그룹 | 방장 전용 (100명+)</span></div>
+        <div class="cmd-item"><span class="cmd">캠프설정</span><span class="desc">그룹 | 필드·승인 관리</span></div>
+        <div class="cmd-item"><span class="cmd">내캠프</span><span class="desc">DM | 조각/크리스탈 현황</span></div>
+        <div class="cmd-item"><span class="cmd">이로치전환</span><span class="desc">DM | 조각으로 이로치 전환</span></div>
+        <div class="cmd-item"><span class="cmd">분해</span><span class="desc">DM | 이로치 → 크리스탈</span></div>
+    </div>
+</div>
+
+<div class="footer">
+    🏕️ TG포켓 캠프 시스템 · tgpoke.com/camp
+</div>
+
+</body>
+</html>

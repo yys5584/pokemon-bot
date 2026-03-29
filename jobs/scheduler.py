@@ -12,6 +12,8 @@ from jobs.ranked_jobs import (
     ranked_mid_season_check_job,
     ranked_decay_job,
 )
+from jobs.dungeon_jobs import dungeon_weekly_ranking_job, dungeon_daily_ranking_job
+from jobs.boss_jobs import boss_weekly_reset_job
 from services.tournament_service import start_registration, start_tournament, snapshot_teams
 
 logger = logging.getLogger(__name__)
@@ -97,6 +99,29 @@ def register_all_jobs(app):
         ranked_decay_job,
         time=dt_time(0, 15, 0, tzinfo=_KST),
         name="ranked_decay",
+    )
+
+    # --- 던전 랭킹 보상 ---
+    # 주간 랭킹 보상 (월요일 00:20 KST)
+    jq.run_daily(
+        dungeon_weekly_ranking_job,
+        time=dt_time(0, 20, 0, tzinfo=_KST),
+        name="dungeon_weekly_ranking",
+    )
+
+    # 일일 랭킹 보상 (매일 00:25 KST)
+    jq.run_daily(
+        dungeon_daily_ranking_job,
+        time=dt_time(0, 25, 0, tzinfo=_KST),
+        name="dungeon_daily_ranking",
+    )
+
+    # --- 주간보스 ---
+    # 월요일 00:10 KST: 지난주 보상 + 새 보스 생성
+    jq.run_daily(
+        boss_weekly_reset_job,
+        time=dt_time(0, 10, 0, tzinfo=_KST),
+        name="boss_weekly_reset",
     )
 
     # --- 구독 결제 ---
@@ -228,6 +253,35 @@ def register_all_jobs(app):
         interval=600,  # 10분마다
         first=120,
         name="shiny_pending_check",
+    )
+
+    # --- 매크로 모니터링 스코어 (매일 04:00 KST) ---
+    async def _monitor_score_job(context):
+        try:
+            from services.abuse_service import compute_monitor_scores
+            total, watched = await compute_monitor_scores()
+            if watched > 0:
+                logger.warning(f"Macro monitor: {watched}/{total} users flagged")
+                # 관리자에게 알림
+                try:
+                    from services.abuse_service import get_watched_users
+                    flagged = await get_watched_users(10)
+                    lines = [f"🚨 매크로 모니터링: {watched}명 감시 대상"]
+                    for f in flagged[:5]:
+                        name = f.get("display_name") or f.get("username") or str(f["user_id"])
+                        lines.append(f"  • {name}: {f['monitor_score']}점")
+                    await context.bot.send_message(
+                        config.ADMIN_ID, "\n".join(lines)
+                    )
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.error(f"Monitor score job failed: {e}")
+
+    jq.run_daily(
+        _monitor_score_job,
+        time=dt_time(4, 0, 0, tzinfo=_KST),
+        name="macro_monitor",
     )
 
     logger.info("All scheduled jobs registered.")

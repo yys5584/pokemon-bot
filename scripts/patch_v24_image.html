@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800;900&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    width: 1920px; height: 1080px;
+    font-family: 'Noto Sans KR', sans-serif;
+    background: #0d0d0d;
+    color: #e8e8e8;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* === BACKGROUND ELEMENTS === */
+  .bg-grid {
+    position:absolute; inset:0;
+    background-image:
+      linear-gradient(rgba(255,80,80,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,80,80,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .bg-glow1 {
+    position:absolute; width:800px; height:800px;
+    background:radial-gradient(circle, rgba(255,80,60,0.08) 0%, transparent 70%);
+    top:-200px; right:-100px;
+  }
+  .bg-glow2 {
+    position:absolute; width:600px; height:600px;
+    background:radial-gradient(circle, rgba(52,152,219,0.06) 0%, transparent 70%);
+    bottom:-100px; left:200px;
+  }
+
+  /* === BORDER FRAME === */
+  .frame {
+    position:absolute; inset:16px;
+    border:2px solid rgba(255,80,60,0.25);
+    border-radius:4px;
+    pointer-events:none;
+  }
+  .frame::before {
+    content:''; position:absolute;
+    top:-2px; left:40px; width:200px; height:4px;
+    background:linear-gradient(90deg, #ff4040, #ff6b6b);
+  }
+  .frame::after {
+    content:''; position:absolute;
+    bottom:-2px; right:40px; width:300px; height:4px;
+    background:linear-gradient(90deg, #ff6b6b, #ff4040);
+  }
+
+  /* === CORNER ACCENTS === */
+  .corner { position:absolute; width:20px; height:20px; }
+  .corner-tl { top:12px; left:12px; border-top:3px solid #ff4040; border-left:3px solid #ff4040; }
+  .corner-tr { top:12px; right:12px; border-top:3px solid #ff4040; border-right:3px solid #ff4040; }
+  .corner-bl { bottom:12px; left:12px; border-bottom:3px solid #ff4040; border-left:3px solid #ff4040; }
+  .corner-br { bottom:12px; right:12px; border-bottom:3px solid #ff4040; border-right:3px solid #ff4040; }
+
+  /* === HEADER === */
+  .header {
+    position:relative; z-index:10;
+    display:flex; align-items:center; gap:24px;
+    padding:36px 56px 24px;
+  }
+  .ver-box {
+    background:linear-gradient(135deg, #ff4040, #cc2020);
+    color:#fff; font-weight:900; font-size:42px;
+    padding:8px 32px; border-radius:4px;
+    letter-spacing:2px;
+    box-shadow: 0 0 30px rgba(255,64,64,0.4);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .header h1 {
+    font-size:48px; font-weight:900; color:#fff;
+    letter-spacing:-1px;
+    text-shadow: 0 0 40px rgba(255,255,255,0.1);
+  }
+  .header .date {
+    margin-left:auto; color:#666; font-size:20px; font-weight:600;
+    letter-spacing:2px;
+  }
+  .header-line {
+    height:2px; margin:0 56px;
+    background:linear-gradient(90deg, #ff4040 0%, rgba(255,64,64,0.3) 50%, transparent 100%);
+  }
+
+  /* === MAIN LAYOUT === */
+  .main {
+    position:relative; z-index:10;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:0 40px;
+    padding:24px 56px 0;
+    height:calc(100% - 120px);
+  }
+
+  /* === LEFT COLUMN === */
+  .left { position:relative; }
+  .sec-header {
+    display:flex; align-items:center; gap:12px;
+    margin-bottom:16px;
+  }
+  .sec-dot {
+    width:10px; height:10px; border-radius:50%;
+    background:#ff4040;
+    box-shadow: 0 0 10px rgba(255,64,64,0.5);
+  }
+  .sec-title {
+    font-size:28px; font-weight:900; color:#ff6b6b;
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  .sec-sub { font-size:17px; color:#666; font-weight:500; margin-left:8px; }
+
+  .skill-card {
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(255,80,60,0.12);
+    border-left:3px solid;
+    border-radius:4px;
+    padding:14px 20px;
+    margin-bottom:10px;
+    position:relative;
+  }
+  .skill-card::after {
+    content:''; position:absolute;
+    top:0; right:0; width:40px; height:100%;
+    background:linear-gradient(90deg, transparent, rgba(255,80,60,0.03));
+  }
+  .sk-name { font-size:22px; font-weight:800; margin-bottom:2px; }
+  .sk-list { font-size:17px; color:#999; line-height:1.6; }
+  .sk-list b { color:#fff; }
+  .sk-effect { font-size:19px; font-weight:700; margin-top:2px; }
+
+  .sc-recoil { border-left-color:#f39c12; }
+  .sc-recoil .sk-name span { color:#f39c12; }
+  .sc-recoil .sk-effect { color:#f39c12; }
+
+  .sc-drain { border-left-color:#2ecc71; }
+  .sc-drain .sk-name span { color:#2ecc71; }
+
+  .sc-priority { border-left-color:#f1c40f; }
+  .sc-priority .sk-name span { color:#f1c40f; }
+  .sc-priority .sk-effect { color:#f1c40f; }
+
+  .sc-etc { border-left-color:#3498db; }
+  .sc-etc .sk-name span { color:#3498db; }
+
+  /* === RIGHT COLUMN === */
+  .right { position:relative; display:flex; flex-direction:column; }
+
+  /* Rarity section */
+  .rarity-sec { margin-bottom:20px; }
+  .rarity-row {
+    display:flex; align-items:center; gap:12px;
+    font-size:19px; margin-bottom:8px;
+    padding:6px 0;
+  }
+  .badge {
+    display:inline-block; padding:4px 16px; border-radius:4px;
+    font-size:16px; font-weight:800; min-width:56px; text-align:center;
+  }
+  .badge-epic { background:rgba(155,89,182,0.3); color:#c39bd3; border:1px solid rgba(155,89,182,0.3); }
+  .badge-rare { background:rgba(52,152,219,0.3); color:#85c1e9; border:1px solid rgba(52,152,219,0.3); }
+  .badge-common { background:rgba(149,165,166,0.2); color:#bdc3c7; border:1px solid rgba(149,165,166,0.2); }
+  .rarity-arrow { color:#ff4040; font-size:22px; font-weight:900; }
+  .rarity-names { color:#ccc; font-size:18px; }
+
+  /* Impact section */
+  .impact-sec { flex:1; }
+  .impact-row {
+    display:flex; align-items:center; gap:14px;
+    margin-bottom:6px; font-size:19px;
+    padding:10px 16px;
+    background:rgba(255,255,255,0.02);
+    border:1px solid rgba(255,255,255,0.04);
+    border-radius:4px;
+  }
+  .impact-row .poke-name { font-weight:800; font-size:22px; min-width:160px; }
+  .impact-row .poke-wr { color:#f39c12; font-size:16px; font-weight:700; }
+  .impact-row .poke-change { color:#aaa; flex:1; font-size:17px; }
+  .tag {
+    padding:4px 14px; border-radius:4px;
+    font-size:15px; font-weight:800; white-space:nowrap;
+    text-align:center; min-width:72px;
+  }
+  .t-nerf { background:rgba(231,76,60,0.2); color:#e74c3c; border:1px solid rgba(231,76,60,0.2); }
+  .t-buff { background:rgba(46,204,113,0.2); color:#2ecc71; border:1px solid rgba(46,204,113,0.2); }
+  .t-same { background:rgba(149,165,166,0.1); color:#95a5a6; border:1px solid rgba(149,165,166,0.15); }
+  .t-new { background:rgba(52,152,219,0.2); color:#3498db; border:1px solid rgba(52,152,219,0.2); }
+
+  .note-text { font-size:15px; color:#555; font-style:italic; margin-top:8px; }
+
+  /* === POKEMON ART OVERLAY === */
+  .pokemon-art {
+    position:absolute; bottom:0; right:20px; z-index:5;
+    display:flex; align-items:flex-end; gap:0;
+    opacity:0.9;
+    filter: drop-shadow(0 0 30px rgba(0,0,0,0.8));
+  }
+  .pokemon-art img {
+    height:320px;
+    object-fit:contain;
+    filter:brightness(0.85) contrast(1.1);
+  }
+  .pokemon-art img:nth-child(1) { transform:translateX(40px); z-index:1; }
+  .pokemon-art img:nth-child(2) { z-index:3; height:380px; }
+  .pokemon-art img:nth-child(3) { transform:translateX(-40px); z-index:2; }
+
+  /* === FOOTER BRAND === */
+  .brand {
+    position:absolute; bottom:28px; right:56px; z-index:20;
+    font-size:26px; font-weight:900; color:#ff4040;
+    letter-spacing:4px;
+    text-shadow: 0 0 20px rgba(255,64,64,0.4);
+  }
+
+  /* === SIDE LABEL === */
+  .side-label {
+    position:absolute; left:28px; top:50%; z-index:10;
+    transform:rotate(-90deg) translateX(-50%);
+    transform-origin:left center;
+    font-size:18px; font-weight:900; color:rgba(255,64,64,0.15);
+    letter-spacing:8px; text-transform:uppercase;
+    white-space:nowrap;
+  }
+</style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow1"></div>
+  <div class="bg-glow2"></div>
+  <div class="frame"></div>
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+  <div class="side-label">PATCH NOTES</div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="ver-box">v2.4</div>
+    <h1>스킬 효과 + 밸런스 패치</h1>
+    <div class="date">2026.03.11</div>
+  </div>
+  <div class="header-line"></div>
+
+  <!-- Main Content -->
+  <div class="main">
+    <!-- Left: Skills -->
+    <div class="left">
+      <div class="sec-header">
+        <div class="sec-dot"></div>
+        <span class="sec-title">스킬 특수 효과</span>
+        <span class="sec-sub">발동(30%) 시 적용</span>
+      </div>
+
+      <div class="skill-card sc-recoil">
+        <div class="sk-name">💢 <span>반동기</span></div>
+        <div class="sk-list">역린 / 인파이트 / 브레이브버드 / 하이점프킥</div>
+        <div class="sk-effect">→ 데미지 <b>x2.0</b>, 자기피해 <b>25%</b></div>
+      </div>
+
+      <div class="skill-card sc-drain">
+        <div class="sk-name">🌿 <span>흡수기</span></div>
+        <div class="sk-list">흡수(<b>25%</b>) / 메가드레인(<b>35%</b>) / 기가드레인(<b>50%</b>) 회복</div>
+      </div>
+
+      <div class="skill-card sc-priority">
+        <div class="sk-name">⚡ <span>선제기</span></div>
+        <div class="sk-list">신속 / 전광석화 / 불릿펀치 / 마하펀치</div>
+        <div class="sk-effect">→ 발동 시 <b>선공</b></div>
+      </div>
+
+      <div class="skill-card sc-etc">
+        <div class="sk-name">🔮 <span>기타</span></div>
+        <div class="sk-list">
+          잠자기: <b>최대HP 35%</b> 회복 · 반격: <b>x1.5</b> 반사<br>
+          손가락흔들기: <b>x0.5~2.5</b> 랜덤 · 자폭/대폭발: 기존 동일
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Rarity + Impact -->
+    <div class="right">
+      <div class="rarity-sec">
+        <div class="sec-header">
+          <div class="sec-dot"></div>
+          <span class="sec-title">등급 밸런스 조정</span>
+        </div>
+        <div class="rarity-row">
+          <span class="badge badge-epic">에픽</span>
+          <span class="rarity-arrow">▸▸▸</span>
+          <span class="badge badge-rare">레어</span>
+          <span class="rarity-names">나인테일 / 골덕 / 날쌩마 / 점토도리</span>
+        </div>
+        <div class="rarity-row">
+          <span class="badge badge-rare">레어</span>
+          <span class="rarity-arrow">▸▸▸</span>
+          <span class="badge badge-common">일반</span>
+          <span class="rarity-names">토게틱 / 코산호 / 마이농</span>
+        </div>
+      </div>
+
+      <div class="impact-sec">
+        <div class="sec-header">
+          <div class="sec-dot"></div>
+          <span class="sec-title">인기 포켓몬 영향</span>
+        </div>
+        <div class="impact-row">
+          <span class="poke-name">🐉 망나뇽 <span class="poke-wr">75.1%</span></span>
+          <span class="poke-change">역린 반동 추가</span>
+          <span class="tag t-same">±0.0%</span>
+        </div>
+        <div class="impact-row">
+          <span class="poke-name">🪲 헤라크로스 <span class="poke-wr">81.8%</span></span>
+          <span class="poke-change">인파이트 반동 추가</span>
+          <span class="tag t-nerf">-3.0%</span>
+        </div>
+        <div class="impact-row">
+          <span class="poke-name">😴 잠만보 <span class="poke-wr">52.6%</span></span>
+          <span class="poke-change">잠자기 회복 추가</span>
+          <span class="tag t-buff">버프</span>
+        </div>
+        <div class="impact-row">
+          <span class="poke-name">🦇 핫삼</span>
+          <span class="poke-change">불릿펀치 선공 추가</span>
+          <span class="tag t-new">효과 추가</span>
+        </div>
+        <div class="impact-row">
+          <span class="poke-name">🔥 윈디</span>
+          <span class="poke-change">신속 선공 추가</span>
+          <span class="tag t-new">효과 추가</span>
+        </div>
+        <div class="note-text">※ 마기라스, 뮤츠, 라이코, 가이오가 등 고티어는 영향 없음</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pokemon Art -->
+  <div class="pokemon-art">
+    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/149.png" alt="Dragonite">
+    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/214.png" alt="Heracross">
+    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/212.png" alt="Scizor">
+  </div>
+
+  <div class="brand">TGPoke</div>
+</body>
+</html>

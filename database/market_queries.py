@@ -313,6 +313,19 @@ async def is_pokemon_locked(instance_id: int) -> tuple[bool, str]:
     return False, ""
 
 
+async def get_pair_trade_count_this_week(user_a: int, user_b: int) -> int:
+    """동일 유저 쌍의 이번 주(KST 월요일 기준) 거래 수."""
+    pool = await get_db()
+    count = await pool.fetchval(
+        "SELECT COUNT(*) FROM market_listings "
+        "WHERE status = 'sold' "
+        "AND sold_at >= date_trunc('week', NOW() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul' "
+        "AND ((seller_id = $1 AND buyer_id = $2) OR (seller_id = $2 AND buyer_id = $1))",
+        user_a, user_b,
+    )
+    return count or 0
+
+
 async def complete_market_purchase(
     listing_id: int, buyer_id: int,
     seller_id: int, price_bp: int, fee_bp: int,

@@ -76,10 +76,19 @@ async def ensure_current_season() -> dict:
 
     # 주간 법칙 선택 (최근 2주와 겹치지 않음)
     recent = await rq.get_recent_rules(2)
-    rule = pick_random_excluding(list(config.WEEKLY_RULES.keys()), recent)
+    rule = pick_random_excluding(config.SEASON_RULE_POOL, recent)
 
     arena_ids = await _select_arenas()
     season = await rq.get_or_create_season(sid, rule, starts, ends, arena_ids)
+
+    # 새 시즌 생성 시 NPC 봇 팀 시딩
+    try:
+        from services.bot_team_builder import seed_bots_for_season
+        await seed_bots_for_season(sid, rule)
+        logger.info(f"시즌 {sid} 봇 시딩 완료 (룰: {rule})")
+    except Exception as e:
+        logger.error(f"시즌 {sid} 봇 시딩 실패: {e}")
+
     return season
 
 
@@ -164,11 +173,14 @@ async def assign_placement_tier(user_id: int, season_id: str) -> dict:
 
 # ─── DM Auto-Matching (MMR 기반) ─────────────────────────
 
-DEFENSE_SHIELD_LIMIT = 5  # 연속 방어 패배 5회 → 보호
+DEFENSE_SHIELD_LIMIT = 3  # 연속 방어 패배 3회 → 매칭 풀에서 제외 (보호)
 
 async def find_ranked_opponent(user_id: int, season_id: str) -> int | None:
-    """MMR 기반 매칭. 점진적 범위 확장."""
+    """MMR 기반 매칭. 점진적 범위 확장. 코스트/시즌룰도 검증."""
     from database import battle_queries as bq
+
+    # 현재 시즌 정보 (코스트/룰 검증용)
+    season = await rq.get_current_season()
 
     # MMR 조회
     mmr_rec = await rq.get_user_mmr(user_id)
@@ -178,14 +190,33 @@ async def find_ranked_opponent(user_id: int, season_id: str) -> int | None:
     recent_opps = await rq.get_recent_opponents(user_id, season_id, limit=3)
     exclude_ids = [user_id] + recent_opps
 
+    async def _is_valid_opponent(opp_id: int) -> bool:
+        """상대 팀이 코스트/시즌룰 충족하는지 검증."""
+        team = await bq.get_battle_team(opp_id)
+        if not team or len(team) < config.RANKED_TEAM_SIZE:
+            return False
+        # 코스트 검증
+        cost_limit = config.RANKED_COST_LIMIT
+        if season:
+            rule_info = config.WEEKLY_RULES.get(season.get("weekly_rule", ""), {})
+            cost_limit = rule_info.get("cost_limit", cost_limit)
+        total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
+        if total_cost > cost_limit:
+            return False
+        # 시즌 룰 검증
+        if season:
+            ok, _ = validate_weekly_rule(team, season.get("weekly_rule", ""))
+            if not ok:
+                return False
+        return True
+
     # 점진적 MMR 범위 확장
     for mmr_range in config.MMR_MATCH_RANGES:  # [200, 300, 400]
         candidates = await rq.find_matchable_users_by_mmr(
             season_id, user_mmr, mmr_range, exclude_ids,
             defense_shield_limit=DEFENSE_SHIELD_LIMIT, limit=10)
         for c in candidates:
-            team = await bq.get_battle_team(c["user_id"])
-            if team and len(team) >= config.RANKED_TEAM_SIZE:
+            if await _is_valid_opponent(c["user_id"]):
                 return c["user_id"]
 
     # 폴백: 기존 티어 기반 (프리시즌/유저 부족 시)
@@ -213,16 +244,8 @@ async def find_ranked_opponent(user_id: int, season_id: str) -> int | None:
         season_id, tier_keys, exclude_ids,
         defense_shield_limit=DEFENSE_SHIELD_LIMIT, limit=10)
     for c in candidates:
-        team = await bq.get_battle_team(c["user_id"])
-        if team and len(team) >= 1:
+        if await _is_valid_opponent(c["user_id"]):
             return c["user_id"]
-
-    # 최종 폴백
-    fallback_ids = await rq.find_any_matchable_users(exclude_ids, limit=10)
-    for fid in fallback_ids:
-        team = await bq.get_battle_team(fid)
-        if team and len(team) >= 1:
-            return fid
 
     return None
 
@@ -361,13 +384,17 @@ async def process_ranked_result(winner_id: int, loser_id: int,
     w_is_placement = not w_rec.get("placement_done", False)
     l_is_placement = not l_rec.get("placement_done", False)
 
-    # 4. MMR 업데이트 (항상, 배치/일반 무관)
+    # 4. MMR 업데이트 (봇이면 스킵)
+    w_is_bot = winner_id in config.RANKED_BOT_IDS
+    l_is_bot = loser_id in config.RANKED_BOT_IDS
     k_w = get_k_factor(w_is_placement)
     k_l = get_k_factor(l_is_placement)
     new_w_mmr = elo_update(w_mmr, l_mmr, True, k_w)
     new_l_mmr = elo_update(l_mmr, w_mmr, False, k_l)
-    await rq.update_user_mmr(winner_id, new_w_mmr)
-    await rq.update_user_mmr(loser_id, new_l_mmr)
+    if not w_is_bot:
+        await rq.update_user_mmr(winner_id, new_w_mmr)
+    if not l_is_bot:
+        await rq.update_user_mmr(loser_id, new_l_mmr)
 
     # 5. 배치 처리
     w_placement_result = None
@@ -421,16 +448,21 @@ async def process_ranked_result(winner_id: int, loser_id: int,
         w_rp_after = w_rp_before + rp_gain
         w_tier_after_key, _, _ = config.get_tier(w_rp_after)
 
-        # 승급 보호 설정
-        w_promoted = await check_and_set_promo_shield(
-            winner_id, season_id, w_rp_before, w_rp_after)
+        # 봇이면 RP/승급 업데이트 스킵
+        if w_is_bot:
+            w_rp_after = w_rp_before
+            w_tier_after_key = w_tier_before
+        else:
+            # 승급 보호 설정
+            w_promoted = await check_and_set_promo_shield(
+                winner_id, season_id, w_rp_before, w_rp_after)
 
-        # 피크 업데이트
-        w_peak_rp = max(w_rec["peak_rp"], w_rp_after)
-        w_peak_tier = w_tier_after_key if w_rp_after >= w_rec["peak_rp"] else w_rec["peak_tier"]
+            # 피크 업데이트
+            w_peak_rp = max(w_rec["peak_rp"], w_rp_after)
+            w_peak_tier = w_tier_after_key if w_rp_after >= w_rec["peak_rp"] else w_rec["peak_tier"]
 
-        await rq.update_rp_win(winner_id, season_id, rp_gain, w_tier_after_key,
-                                w_peak_rp, w_peak_tier)
+            await rq.update_rp_win(winner_id, season_id, rp_gain, w_tier_after_key,
+                                    w_peak_rp, w_peak_tier)
     else:
         w_rp_after = w_rp_before
         w_tier_after_key = w_tier_before
@@ -445,21 +477,27 @@ async def process_ranked_result(winner_id: int, loser_id: int,
         if l_total < config.RANKED_NEWBIE_PROTECTION:
             rp_loss_calc = max(5, rp_loss_calc // 2)
 
-        # 승급 보호 적용
-        # 최신 rec 다시 조회 (placement_done 상태 반영)
-        l_rec_fresh = await rq.get_season_record(loser_id, season_id)
-        rp_loss, l_shield_protected = await apply_rp_loss_with_shield(
-            loser_id, season_id, rp_loss_calc, l_rec_fresh or l_rec)
+        # 봇이면 RP 손실 스킵
+        if l_is_bot:
+            l_rp_after = l_rp_before
+            l_tier_after_key = l_tier_before
+            rp_loss = 0
+        else:
+            # 승급 보호 적용
+            # 최신 rec 다시 조회 (placement_done 상태 반영)
+            l_rec_fresh = await rq.get_season_record(loser_id, season_id)
+            rp_loss, l_shield_protected = await apply_rp_loss_with_shield(
+                loser_id, season_id, rp_loss_calc, l_rec_fresh or l_rec)
 
-        l_rp_after = max(0, l_rp_before - rp_loss)
-        l_tier_after_key, _, _ = config.get_tier(l_rp_after)
+            l_rp_after = max(0, l_rp_before - rp_loss)
+            l_tier_after_key, _, _ = config.get_tier(l_rp_after)
 
-        # 강등 체크
-        old_div = config.get_division_info(l_rp_before)
-        new_div = config.get_division_info(l_rp_after)
-        l_demoted = (new_div[0], new_div[1]) != (old_div[0], old_div[1])
+            # 강등 체크
+            old_div = config.get_division_info(l_rp_before)
+            new_div = config.get_division_info(l_rp_after)
+            l_demoted = (new_div[0], new_div[1]) != (old_div[0], old_div[1])
 
-        await rq.update_rp_lose(loser_id, season_id, rp_loss, l_tier_after_key)
+            await rq.update_rp_lose(loser_id, season_id, rp_loss, l_tier_after_key)
     else:
         l_rp_after = l_rp_before
         l_tier_after_key = l_tier_before
@@ -584,15 +622,26 @@ def validate_weekly_rule(team: list[dict], rule_key: str) -> tuple[bool, str]:
         if epic_count > 2:
             return False, rule["error"]
     elif rule_key == "epic_water_ice":
+        if any(p["rarity"] in ("legendary", "ultra_legendary") for p in team):
+            return False, "이번 시즌은 에픽 이하만 편성 가능합니다!"
         for p in team:
             if p["rarity"] == "epic":
                 if not (_has_type(p, "water") or _has_type(p, "ice")):
                     return False, rule["error"]
     elif rule_key == "epic_fire_fight":
+        if any(p["rarity"] in ("legendary", "ultra_legendary") for p in team):
+            return False, "이번 시즌은 에픽 이하만 편성 가능합니다!"
         for p in team:
             if p["rarity"] == "epic":
                 if not (_has_type(p, "fire") or _has_type(p, "fighting")):
                     return False, rule["error"]
+
+    # --- 코스트 제한 ---
+    if rule.get("cost_limit"):
+        total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
+        limit = rule["cost_limit"]
+        if total_cost > limit:
+            return False, f"이번 시즌은 팀 코스트 {limit} 이하만 가능합니다! (현재: {total_cost})"
 
     return True, ""
 
@@ -607,10 +656,12 @@ async def validate_team_for_ranked(user_id: int, season: dict) -> tuple[bool, st
     if len(team) < config.RANKED_TEAM_SIZE:
         return False, f"팀이 {len(team)}마리뿐입니다! {config.RANKED_TEAM_SIZE}마리를 모두 채워야 배틀할 수 있습니다."
 
-    # COST 제한
-    total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
-    if total_cost > config.RANKED_COST_LIMIT:
-        return False, f"팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT}) 팀을 다시 편성해주세요."
+    # COST 제한 (시즌 룰에 cost_limit이 있으면 그쪽에서 검증)
+    rule_info = config.WEEKLY_RULES.get(season.get("weekly_rule", ""), {})
+    if not rule_info.get("cost_limit"):
+        total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
+        if total_cost > config.RANKED_COST_LIMIT:
+            return False, f"팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT}) 팀을 다시 편성해주세요."
 
     # 초전설 제한
     ultra_count = sum(1 for p in team if p.get("rarity") == "ultra_legendary")
@@ -637,6 +688,12 @@ async def process_season_rewards(season_id: str) -> list[dict]:
 
     from database import queries  # 순환 import 방지
 
+    # RP 순으로 정렬 → 순위 결정 (1~3위 추가 보상용)
+    sorted_records = sorted(records, key=lambda r: r["rp"], reverse=True)
+    rank_map = {}  # user_id → rank
+    for i, rec in enumerate(sorted_records):
+        rank_map[rec["user_id"]] = i + 1
+
     for rec in records:
         peak = rec["peak_tier"]
         reward = config.RANKED_REWARDS.get(peak)
@@ -644,21 +701,68 @@ async def process_season_rewards(season_id: str) -> list[dict]:
             continue
 
         uid = rec["user_id"]
+
+        # 마스터볼
         if reward.get("masterball", 0) > 0:
             await queries.add_master_ball(uid, reward["masterball"])
+
+        # BP
         if reward.get("bp", 0) > 0:
             from database.battle_queries import add_bp
             await add_bp(uid, reward["bp"], "ranked_reward")
 
+        # IV+3 스톤
+        iv_cnt = reward.get("iv_stone_3", 0)
+        if iv_cnt > 0:
+            try:
+                from database import item_queries
+                await item_queries.add_user_item(uid, "iv_stone_3", iv_cnt)
+            except Exception as e:
+                logger.error(f"Failed to give IV+3 stone to {uid}: {e}")
+
+        # 이로치 포켓몬 (티어 보상: 마스터→에픽)
+        shiny_rarity = reward.get("shiny")
+        shiny_name = ""
+        if shiny_rarity:
+            try:
+                pid, pname = _random_shiny_pokemon(shiny_rarity)
+                await queries.give_pokemon_to_user(uid, pid, 0, is_shiny=True)
+                shiny_name = pname
+            except Exception as e:
+                logger.error(f"Failed to give shiny {shiny_rarity} to {uid}: {e}")
+
+        # 순위별 추가 보상 (1~3위 이로치)
+        rank = rank_map.get(uid, 999)
+        top_reward = config.RANKED_TOP_REWARDS.get(rank)
+        top_shiny_name = ""
+        if top_reward and top_reward.get("shiny"):
+            try:
+                pid, pname = _random_shiny_pokemon(top_reward["shiny"])
+                await queries.give_pokemon_to_user(uid, pid, 0, is_shiny=True)
+                top_shiny_name = pname
+            except Exception as e:
+                logger.error(f"Failed to give rank {rank} shiny to {uid}: {e}")
+
         rewarded.append({
             "user_id": uid,
             "tier": peak,
+            "rank": rank,
             "masterball": reward.get("masterball", 0),
             "bp": reward.get("bp", 0),
+            "iv_stone_3": iv_cnt,
+            "shiny": shiny_name,
+            "top_shiny": top_shiny_name,
         })
 
     await rq.mark_rewards_distributed(season_id)
     return rewarded
+
+
+def _random_shiny_pokemon(rarity: str) -> tuple[int, str]:
+    """Pick a random pokemon of the given rarity."""
+    from models.pokemon_data import ALL_POKEMON
+    candidates = [(p[0], p[1]) for p in ALL_POKEMON if p[4] == rarity]
+    return random.choice(candidates)
 
 
 async def soft_reset_new_season(prev_season_id: str) -> dict:
@@ -669,7 +773,7 @@ async def soft_reset_new_season(prev_season_id: str) -> dict:
     starts, ends = season_date_range(new_sid)
 
     recent = await rq.get_recent_rules(2)
-    rule = pick_random_excluding(list(config.WEEKLY_RULES.keys()), recent)
+    rule = pick_random_excluding(config.SEASON_RULE_POOL, recent)
 
     new_season = await rq.get_or_create_season(new_sid, rule, starts, ends, [])
 

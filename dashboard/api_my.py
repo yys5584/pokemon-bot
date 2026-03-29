@@ -358,29 +358,34 @@ async def api_my_camp(request):
         pool = await queries.get_db()
         uid = sess["user_id"]
 
-        # 거점 캠프 정보
+        # 거점 캠프 정보 (구독자는 2개)
         settings_row = await pool.fetchrow(
             """SELECT home_chat_id, home_camp_set_at,
+                      home_chat_id_2, home_camp_set_at_2,
                       COALESCE(camp_notify, TRUE) AS camp_notify
                FROM camp_user_settings WHERE user_id = $1""", uid)
 
-        home_camp = None
-        if settings_row and settings_row["home_chat_id"]:
-            hc = settings_row["home_chat_id"]
-            camp_row, chat_row = await asyncio.gather(
-                pool.fetchrow("SELECT level, xp FROM camps WHERE chat_id = $1", hc),
-                pool.fetchrow("SELECT chat_title, invite_link FROM chat_rooms WHERE chat_id = $1", hc),
-            )
-            if camp_row:
-                home_camp = {
-                    "chat_id": hc,
-                    "chat_title": chat_row["chat_title"] if chat_row else None,
-                    "invite_link": chat_row["invite_link"] if chat_row else None,
-                    "level": camp_row["level"],
-                    "xp": camp_row["xp"],
-                    "set_at": settings_row["home_camp_set_at"].isoformat() if settings_row["home_camp_set_at"] else None,
-                    "notify": settings_row["camp_notify"],
-                }
+        home_camps = []
+        if settings_row:
+            for hc_col, set_col in [("home_chat_id", "home_camp_set_at"), ("home_chat_id_2", "home_camp_set_at_2")]:
+                hc = settings_row[hc_col]
+                if not hc:
+                    continue
+                camp_row, chat_row = await asyncio.gather(
+                    pool.fetchrow("SELECT level, xp FROM camps WHERE chat_id = $1", hc),
+                    pool.fetchrow("SELECT chat_title, invite_link FROM chat_rooms WHERE chat_id = $1", hc),
+                )
+                if camp_row:
+                    home_camps.append({
+                        "chat_id": hc,
+                        "chat_title": chat_row["chat_title"] if chat_row else None,
+                        "invite_link": chat_row["invite_link"] if chat_row else None,
+                        "level": camp_row["level"],
+                        "xp": camp_row["xp"],
+                        "set_at": settings_row[set_col].isoformat() if settings_row[set_col] else None,
+                        "notify": settings_row["camp_notify"],
+                    })
+        home_camp = home_camps[0] if home_camps else None
 
         # 조각
         frag_rows = await pool.fetch(
@@ -418,6 +423,7 @@ async def api_my_camp(request):
 
         return pg_json_response({
             "home_camp": home_camp,
+            "home_camps": home_camps,
             "fragments": fragments,
             "crystals": crystals,
             "placements": placements,

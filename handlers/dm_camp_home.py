@@ -289,6 +289,17 @@ async def home_camp_handler(update, context):
     buttons = []
     buttons.append([InlineKeyboardButton("🏕 배치하기", callback_data=f"cdm_place_{user_id}")])
 
+    # 캠프 소유자 → 필드 관리 버튼
+    if camp.get("created_by") == user_id:
+        max_fields = level_info[1]
+        field_btns = []
+        if len(fields) < max_fields:
+            field_btns.append(InlineKeyboardButton("🆕 필드 추가", callback_data=f"cdm_addfd_{user_id}_{chat_id}"))
+        if fields:
+            field_btns.append(InlineKeyboardButton("🔄 필드 변경", callback_data=f"cdm_chgfd_{user_id}_{chat_id}"))
+        if field_btns:
+            buttons.append(field_btns)
+
     # 거점 변경 가능 여부
     if settings.get("home_camp_set_at"):
         elapsed = (now - settings["home_camp_set_at"]).total_seconds()
@@ -711,6 +722,161 @@ async def _handle_delhome2(query, parts):
         return
 
     success, msg = await cs.remove_home_camp_2(uid)
+    await query.answer(msg, show_alert=True)
+    try:
+        await query.edit_message_text(msg, parse_mode="HTML")
+    except Exception:
+        pass
+
+
+# ═══════════════════════════════════════════════════════
+# DM 필드 관리 (캠프 소유자 전용)
+# ═══════════════════════════════════════════════════════
+
+async def _handle_addfd(query, parts):
+    """cdm_addfd_{uid}_{chat_id} — DM에서 필드 추가 선택."""
+    uid = int(parts[2])
+    chat_id = int(parts[3])
+    if query.from_user.id != uid:
+        await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+        return
+
+    camp = await cq.get_camp(chat_id)
+    if not camp or camp.get("created_by") != uid:
+        await query.answer("캠프 소유자만 가능합니다!", show_alert=True)
+        return
+
+    fields = await cq.get_fields(chat_id)
+    existing_types = {f["field_type"] for f in fields}
+
+    buttons = []
+    row = []
+    for fkey, finfo in config.CAMP_FIELDS.items():
+        if fkey in existing_types:
+            continue
+        label = f"{finfo['emoji']} {finfo['name']}"
+        row.append(InlineKeyboardButton(label, callback_data=f"cdm_newfd_{uid}_{chat_id}_{fkey}"))
+        if len(row) == 3:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
+
+    await query.answer()
+    try:
+        await query.edit_message_text("🆕 추가할 필드를 선택하세요!", reply_markup=InlineKeyboardMarkup(buttons))
+    except Exception:
+        pass
+
+
+async def _handle_newfd(query, parts):
+    """cdm_newfd_{uid}_{chat_id}_{field_type} — DM에서 필드 추가 실행."""
+    uid = int(parts[2])
+    chat_id = int(parts[3])
+    field_type = parts[4]
+    if query.from_user.id != uid:
+        await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+        return
+
+    camp = await cq.get_camp(chat_id)
+    if not camp or camp.get("created_by") != uid:
+        await query.answer("캠프 소유자만 가능합니다!", show_alert=True)
+        return
+
+    success, msg = await cs.add_new_field(chat_id, field_type)
+    await query.answer(msg, show_alert=True)
+    try:
+        await query.edit_message_text(msg, parse_mode="HTML")
+    except Exception:
+        pass
+
+
+async def _handle_chgfd(query, parts):
+    """cdm_chgfd_{uid}_{chat_id} — DM에서 필드 변경 선택."""
+    uid = int(parts[2])
+    chat_id = int(parts[3])
+    if query.from_user.id != uid:
+        await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+        return
+
+    camp = await cq.get_camp(chat_id)
+    if not camp or camp.get("created_by") != uid:
+        await query.answer("캠프 소유자만 가능합니다!", show_alert=True)
+        return
+
+    fields = await cq.get_fields(chat_id)
+    buttons = []
+    for f in fields:
+        fi = config.CAMP_FIELDS.get(f["field_type"], {})
+        label = f"{fi.get('emoji', '🏕')} {fi.get('name', f['field_type'])} 변경"
+        buttons.append([InlineKeyboardButton(label, callback_data=f"cdm_chgsel_{uid}_{chat_id}_{f['id']}")])
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
+
+    await query.answer()
+    try:
+        await query.edit_message_text(
+            "🔄 변경할 필드를 선택하세요!\n⚠️ 변경 시 해당 필드의 배치가 초기화됩니다.",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    except Exception:
+        pass
+
+
+async def _handle_chgsel(query, parts):
+    """cdm_chgsel_{uid}_{chat_id}_{field_id} — 변경 대상 필드 선택 후 새 타입 선택."""
+    uid = int(parts[2])
+    chat_id = int(parts[3])
+    field_id = int(parts[4])
+    if query.from_user.id != uid:
+        await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+        return
+
+    camp = await cq.get_camp(chat_id)
+    if not camp or camp.get("created_by") != uid:
+        await query.answer("캠프 소유자만 가능합니다!", show_alert=True)
+        return
+
+    fields = await cq.get_fields(chat_id)
+    existing_types = {f["field_type"] for f in fields}
+
+    buttons = []
+    row = []
+    for fkey, finfo in config.CAMP_FIELDS.items():
+        if fkey in existing_types:
+            continue
+        label = f"{finfo['emoji']} {finfo['name']}"
+        row.append(InlineKeyboardButton(label, callback_data=f"cdm_chgto_{uid}_{chat_id}_{field_id}_{fkey}"))
+        if len(row) == 3:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+    buttons.append([InlineKeyboardButton("❌ 닫기", callback_data=f"cdm_cancel_{uid}")])
+
+    await query.answer()
+    try:
+        await query.edit_message_text("🔄 변경할 새 필드 타입을 선택하세요!", reply_markup=InlineKeyboardMarkup(buttons))
+    except Exception:
+        pass
+
+
+async def _handle_chgto(query, parts):
+    """cdm_chgto_{uid}_{chat_id}_{field_id}_{field_type} — 필드 변경 실행."""
+    uid = int(parts[2])
+    chat_id = int(parts[3])
+    field_id = int(parts[4])
+    field_type = parts[5]
+    if query.from_user.id != uid:
+        await query.answer("본인만 사용할 수 있습니다!", show_alert=True)
+        return
+
+    camp = await cq.get_camp(chat_id)
+    if not camp or camp.get("created_by") != uid:
+        await query.answer("캠프 소유자만 가능합니다!", show_alert=True)
+        return
+
+    success, msg = await cs.change_field_type(chat_id, field_id, field_type)
     await query.answer(msg, show_alert=True)
     try:
         await query.edit_message_text(msg, parse_mode="HTML")

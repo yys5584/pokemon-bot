@@ -807,6 +807,28 @@ async def execute_battle(
         bp_won = _calculate_bp(winner_team_size, loser_team_size, result["perfect_win"], new_streak)
         bp_lose = config.BP_LOSE
 
+    # 배틀 BP 일일 상한 체크 (승자/패자 각각)
+    try:
+        from database.connection import get_db
+        _pool = await get_db()
+        _today = "(NOW() AT TIME ZONE 'Asia/Seoul')::date AT TIME ZONE 'Asia/Seoul'"
+        if bp_won > 0:
+            winner_today = await _pool.fetchval(
+                f"SELECT COUNT(*) FROM bp_log WHERE user_id = $1 AND source IN ('battle', 'ranked_battle') AND created_at >= {_today}",
+                winner_id,
+            )
+            if winner_today >= config.BP_BATTLE_DAILY_LIMIT:
+                bp_won = 0
+        if bp_lose > 0:
+            loser_today = await _pool.fetchval(
+                f"SELECT COUNT(*) FROM bp_log WHERE user_id = $1 AND source IN ('battle', 'ranked_battle') AND created_at >= {_today}",
+                loser_id,
+            )
+            if loser_today >= config.BP_BATTLE_DAILY_LIMIT:
+                bp_lose = 0
+    except Exception:
+        pass
+
     # 구독자 BP 배율 적용 (일반 + 랭크전 모두)
     if bp_won > 0:
         try:
@@ -817,9 +839,17 @@ async def execute_battle(
         except Exception:
             pass
 
-    # Update stats (ranked still counts in overall battle_wins/losses)
-    await bq.update_battle_stats_win(winner_id, bp_won)
-    await bq.update_battle_stats_lose(loser_id, bp_lose)
+    # 봇이면 BP 무효화
+    if winner_id in config.RANKED_BOT_IDS:
+        bp_won = 0
+    if loser_id in config.RANKED_BOT_IDS:
+        bp_lose = 0
+
+    # Update stats (봇이면 스킵)
+    if winner_id not in config.RANKED_BOT_IDS:
+        await bq.update_battle_stats_win(winner_id, bp_won)
+    if loser_id not in config.RANKED_BOT_IDS:
+        await bq.update_battle_stats_lose(loser_id, bp_lose)
 
     # BP log for unified tracking
     if bp_won > 0:

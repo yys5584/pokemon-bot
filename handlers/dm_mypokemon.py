@@ -192,7 +192,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 hearts = hearts_display(p["friendship"], max_f)
                 shiny = shiny_emoji() if p.get("is_shiny") else ""
                 evo_mark = ""
-                if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
+                if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.get_max_friendship(p):
                     evo_mark = " ⭐"
                 # IV grade
                 iv_tag = ""
@@ -370,7 +370,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int, la
     shiny_mark = shiny_emoji() if p.get("is_shiny") else ""
 
     evo_text = ""
-    if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.MAX_FRIENDSHIP:
+    if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.get_max_friendship(p):
         evo_text = "\n⭐ 진화 가능! → '진화 " + str(num) + "' 입력"
     elif p["evolves_to"] and p["evolution_method"] == "trade":
         evo_text = "\n🔄 교환으로 진화 가능"
@@ -458,8 +458,8 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int, la
     buttons.append([
         InlineKeyboardButton("📋 감정", callback_data=f"mypoke_appr_{user_id}_{idx}_{page}"),
         InlineKeyboardButton("🔄 방생", callback_data=f"mypoke_relone_{user_id}_{idx}_{page}"),
-        InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{idx}_{page}"),
-        InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{idx}_{page}"),
+        InlineKeyboardButton("⚔1 팀1", callback_data=f"mypoke_t1_{user_id}_{p['id']}_{page}"),
+        InlineKeyboardButton("⚔2 팀2", callback_data=f"mypoke_t2_{user_id}_{p['id']}_{page}"),
     ])
 
     # Row 4: navigation
@@ -516,6 +516,9 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
     pokemon_list = await queries.get_user_pokemon_list(user_id)
+    # Sync cache so callback handler uses the same list/order
+    context.user_data["mypoke_cache"] = pokemon_list
+    context.user_data["mypoke_cache_uid"] = user_id
 
     if not pokemon_list:
         await update.message.reply_text(t(lang, "my_pokemon.no_pokemon"))

@@ -31,24 +31,39 @@ CAPTCHA_AUTO_BAN_DURATION = 86400  # 24시간 (초)
 
 
 async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """watched 유저가 캡차 미응답 상태로 포획 시도 시 카운팅.
+    """캡차가 떠있는 상태에서 무시하고 포획 시도 시 카운팅 + 포획 차단.
     15회 이상 누적 시 24시간 자동 정지."""
     try:
-        from database.connection import get_db
-        pool = await get_db()
-        watched = await pool.fetchval(
-            "SELECT is_watched FROM abuse_scores WHERE user_id = $1", user_id)
-        if not watched:
-            return False
+        # 캡차가 떠있는 상태에서만 위반 카운트
+        from services.abuse_service import get_pending_challenge
+        pending = get_pending_challenge(user_id)
+        if not pending:
+            return False  # 캡차 안 떠있으면 정상 포획
+
         # 캡차 미응답 상태로 포획 = 위반 누적
         _captcha_violation_count[user_id] = _captcha_violation_count.get(user_id, 0) + 1
         cnt = _captcha_violation_count[user_id]
 
+        # 매번 DM으로 경고 (포획볼 소모됨 안내)
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=(
+                    f"⚠️ <b>캡차를 먼저 풀어주세요!</b>\n\n"
+                    f"캡차 미응답 상태에서 포획 시도 → 포획볼만 소모됩니다.\n"
+                    f"위 캡차 메시지에서 정답을 선택해주세요.\n\n"
+                    f"🔒 누적 {cnt}/{CAPTCHA_AUTO_BAN_THRESHOLD}회 — {CAPTCHA_AUTO_BAN_THRESHOLD}회 시 <b>24시간 정지</b>"
+                ),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
         # 자동 정지: 임계치 도달 시 24시간 포획 차단
-        if cnt >= CAPTCHA_AUTO_BAN_THRESHOLD and cnt % CAPTCHA_AUTO_BAN_THRESHOLD == 0:
+        if cnt >= CAPTCHA_AUTO_BAN_THRESHOLD:
             from services.abuse_service import _apply_catch_lock
-            strike, duration = _apply_catch_lock(user_id, duration_override=CAPTCHA_AUTO_BAN_DURATION)
-            _captcha_violation_count[user_id] = 0  # 카운터 리셋
+            _apply_catch_lock(user_id, duration_override=CAPTCHA_AUTO_BAN_DURATION)
+            _captcha_violation_count[user_id] = 0
             try:
                 await context.bot.send_message(
                     chat_id=user_id,
@@ -63,6 +78,8 @@ async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_T
                 pass
             # 관리자 알림
             try:
+                from database.connection import get_db
+                pool = await get_db()
                 user = await pool.fetchrow("SELECT display_name, username FROM users WHERE user_id = $1", user_id)
                 uname = f"@{user['username']}" if user and user['username'] else ""
                 dname = user['display_name'] if user else str(user_id)
@@ -73,38 +90,12 @@ async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_T
                 )
             except Exception:
                 pass
-            return True  # 포획 차단
 
-        # 3회마다 경고
-        if cnt % 3 == 0:
-            try:
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text=(
-                        f"⚠️ <b>캡차 미응답 경고 ({cnt}회 누적)</b>\n\n"
-                        f"캡차를 풀지 않고 포획을 계속하고 있습니다.\n"
-                        f"지금 즉시 위 캡차를 풀어주세요!\n\n"
-                        f"🔒 {CAPTCHA_AUTO_BAN_THRESHOLD}회 누적 시 <b>24시간 자동 정지</b>됩니다."
-                    ),
-                    parse_mode="HTML",
-                )
-            except Exception:
-                pass
-            # 관리자에게도 알림
-            try:
-                user = await pool.fetchrow("SELECT display_name, username FROM users WHERE user_id = $1", user_id)
-                uname = f"@{user['username']}" if user and user['username'] else ""
-                dname = user['display_name'] if user else str(user_id)
-                await context.bot.send_message(
-                    chat_id=config.ADMIN_IDS[0],
-                    text=f"🚨 캡차 무시 감지: <b>{dname}</b> {uname} — {cnt}회 누적 포획",
-                    parse_mode="HTML",
-                )
-            except Exception:
-                pass
+        return True  # 항상 포획 차단 (캡차 떠있으면 포획 불가)
     except Exception:
         pass
     return False
+
 
 async def _get_ranked_badge(user_id: int, season_rec: dict | None) -> str:
     """공통: 시즌 레코드에서 랭크 뱃지 HTML 생성."""
@@ -129,10 +120,24 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
+    # 밴 체크
+    if await queries.is_user_banned(user_id):
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
+
     if is_tournament_active(chat_id):
         return
 
+    # 포획 잠금 체크
+    from services.abuse_service import is_catch_locked_async
+    locked, _ = await is_catch_locked_async(user_id)
+    if locked:
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
+
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+    if await _check_captcha_violation(user_id, context):
+        return  # 캡차 미응답 → 포획 차단
 
     try:
         _, session = await asyncio.gather(
@@ -185,10 +190,6 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
                 return
 
-            # 캡차 무시 체크 (watched 유저 대상)
-            if await _check_captcha_violation(user_id, context):
-                return  # 자동 정지됨
-
             await record_attempt(session["id"], user_id)
 
             after_remaining = max(0, remaining - 1) if remaining >= 0 else -1
@@ -232,10 +233,23 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
+    if await queries.is_user_banned(user_id):
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
+
     if is_tournament_active(chat_id):
         return
 
+    # 포획 잠금 체크
+    from services.abuse_service import is_catch_locked_async
+    locked, _ = await is_catch_locked_async(user_id)
+    if locked:
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
+
     schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+    if await _check_captcha_violation(user_id, context):
+        return  # 캡차 미응답 → 포획 차단
 
     try:
         _, session = await asyncio.gather(
@@ -272,10 +286,6 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             if balls < 1:
                 resp = await update.message.reply_text(f"{ball_emoji('masterball')} {t(lang, 'group.no_masterball')}", parse_mode="HTML")
                 schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
-                return
-
-            # 캡차 무시 체크
-            if await _check_captcha_violation(user_id, context):
                 return
 
             remaining = await queries.use_master_ball(user_id)
@@ -315,6 +325,108 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         logger.error(f"Master ball handler error: {e}")
 
 
+async def priority_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 'ㅊㅊ' message — use priority ball (dungeon item, 100% catch)."""
+    if not update.effective_user or not update.effective_chat:
+        return
+
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    lang = await get_user_lang(user_id)
+    display_name = update.effective_user.first_name or t(lang, "common.trainer")
+    username = update.effective_user.username
+
+    if await queries.is_user_banned(user_id):
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
+
+    if is_tournament_active(chat_id):
+        return
+
+    from services.abuse_service import is_catch_locked_async
+    locked, _ = await is_catch_locked_async(user_id)
+    if locked:
+        return
+
+    # ㅊㅊ 메시지는 삭제하지 않음
+
+    try:
+        _, session = await asyncio.gather(
+            queries.ensure_user(user_id, display_name, username),
+            spawn_queries.get_active_spawn(chat_id),
+        )
+        if session is None:
+            return
+
+        if session.get("is_newbie_spawn"):
+            return
+
+        lock_key = (session["id"], user_id)
+        if lock_key in _catch_locks:
+            return
+        _catch_locks.add(lock_key)
+        try:
+            from database.connection import get_db
+            from database import item_queries as _iq
+            pool = await get_db()
+            row, already = await asyncio.gather(
+                pool.fetchrow("SELECT is_resolved FROM spawn_sessions WHERE id = $1", session["id"]),
+                spawn_queries.has_attempted_session(session["id"], user_id),
+            )
+            if not row or row["is_resolved"] == 1:
+                return
+            if already:
+                return
+
+            qty = await _iq.get_user_item(user_id, "priority_ball")
+            if qty < 1:
+                resp = await update.message.reply_text(
+                    f"{ball_emoji('greatball')} 우선포획볼이 없습니다! (던전 보상으로 획득)",
+                    parse_mode="HTML",
+                )
+                schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+                return
+
+            used = await _iq.use_user_item(user_id, "priority_ball")
+            if not used:
+                return
+
+            # record_catch_attempt를 먼저 실행 — 타임아웃 방지
+            await spawn_queries.record_catch_attempt(session["id"], user_id, used_priority_ball=True)
+
+            from services.subscription_service import get_user_tier
+            from services.ranked_service import current_season_id
+            from database import ranked_queries as rq
+            user, sub_tier, season_rec = await asyncio.gather(
+                queries.get_user(user_id),
+                get_user_tier(user_id),
+                rq.get_season_record(user_id, current_season_id()),
+            )
+
+            r_badge = await _get_ranked_badge(user_id, season_rec)
+            decorated = get_decorated_name(
+                display_name,
+                user.get("title", "") if user else "",
+                user.get("title_emoji", "") if user else "",
+                username,
+                html=True,
+                ranked_badge=r_badge,
+            )
+            remaining_qty = await _iq.get_user_item(user_id, "priority_ball")
+            throw_text = format_actor(decorated, "우선포획볼을 던졌다!", sub_tier, lang=lang)
+            msg = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"{ball_emoji('greatball')} {throw_text} (남은: {remaining_qty}개)",
+                parse_mode="HTML",
+            )
+            track_attempt_message(session["id"], chat_id, msg.message_id)
+        finally:
+            _catch_locks.discard(lock_key)
+
+    except Exception as e:
+        logger.error(f"Priority ball handler error: {e}")
+
+
 async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 'ㅎ' message in group chat — use hyper ball (20 BP, 3x catch rate)."""
     if not update.effective_user or not update.effective_chat:
@@ -326,7 +438,18 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     username = update.effective_user.username
 
+    if await queries.is_user_banned(user_id):
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
+        return
+
     if is_tournament_active(chat_id):
+        return
+
+    # 포획 잠금 체크
+    from services.abuse_service import is_catch_locked_async as _is_locked
+    _lk, _ = await _is_locked(user_id)
+    if _lk:
+        schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
         return
 
     try:
@@ -358,10 +481,6 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             if not row or row["is_resolved"] == 1:
                 return
             if already:
-                return
-
-            # 캡차 무시 체크
-            if await _check_captcha_violation(user_id, context):
                 return
 
             success = await queries.use_hyper_ball(user_id)

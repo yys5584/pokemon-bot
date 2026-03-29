@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>텔레그램 홀덤봇 목업</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #fff; font-family: -apple-system, 'Segoe UI', sans-serif; padding: 20px; }
+  h1 { text-align: center; margin-bottom: 30px; font-size: 24px; color: #e0e0e0; }
+  .container { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; }
+  .panel { flex: 1; min-width: 340px; max-width: 420px; }
+  .panel-title { text-align: center; font-size: 14px; color: #888; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase; }
+
+  /* Telegram Chat Mock */
+  .tg-chat { background: #0e1621; border-radius: 16px; overflow: hidden; border: 1px solid #2a2a4a; }
+  .tg-header { background: #17212b; padding: 12px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #2a2a4a; }
+  .tg-header .avatar { width: 36px; height: 36px; border-radius: 50%; background: #3a7bd5; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .tg-header .info { flex: 1; }
+  .tg-header .name { font-size: 14px; font-weight: 600; }
+  .tg-header .members { font-size: 11px; color: #6b7b8d; }
+  .tg-body { padding: 12px; display: flex; flex-direction: column; gap: 8px; min-height: 500px; }
+
+  .msg { max-width: 92%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+  .msg-bot { background: #182533; border-radius: 12px 12px 12px 4px; align-self: flex-start; }
+  .msg-user { background: #2b5278; border-radius: 12px 12px 4px 12px; align-self: flex-end; }
+  .msg .sender { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+  .msg .sender.bot-name { color: #6ab3f3; }
+  .msg .sender.user-name { color: #e88; }
+  .msg .time { font-size: 10px; color: #5a6a7a; text-align: right; margin-top: 2px; }
+
+  .msg-bot .table-img { width: 100%; border-radius: 8px; margin: 6px 0; background: #1a5c2a; padding: 16px; text-align: center; position: relative; }
+  .community-cards { display: flex; gap: 4px; justify-content: center; margin: 10px 0; }
+  .card { width: 42px; height: 58px; background: #fff; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #000; box-shadow: 0 2px 4px rgba(0,0,0,.3); }
+  .card.red { color: #d32f2f; }
+  .card.hidden { background: linear-gradient(135deg, #1a47a0, #2962ff); color: transparent; font-size: 0; }
+  .card.hidden::after { content: "🂠"; font-size: 20px; }
+  .pot-info { color: #ffd54f; font-size: 13px; font-weight: 600; margin-top: 8px; }
+  .blind-info { color: #aaa; font-size: 11px; margin-top: 4px; }
+  .players-ring { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+  .player-chip { background: rgba(0,0,0,.3); padding: 3px 8px; border-radius: 10px; font-size: 11px; color: #ccc; }
+  .player-chip.active { border: 1px solid #ffd54f; color: #ffd54f; }
+  .player-chip.folded { opacity: .4; text-decoration: line-through; }
+
+  .inline-buttons { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .inline-btn { flex: 1; min-width: 45%; padding: 8px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: .15s; }
+  .btn-fold { background: #3a3a4a; color: #ccc; }
+  .btn-check { background: #2a4a6a; color: #7ab8f5; }
+  .btn-call { background: #1a5a3a; color: #6fd6a0; }
+  .btn-raise { background: #5a3a1a; color: #f5b87a; }
+  .btn-allin { background: #6a1a1a; color: #f57a7a; }
+  .btn-join { background: #2b5278; color: #7ab8f5; width: 100%; }
+  .btn-webapp { background: #7b4bd4; color: #e0d0ff; width: 100%; margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .inline-btn:hover { filter: brightness(1.2); }
+
+  .turn-indicator { background: #1a3a2a; border: 1px solid #2a6a3a; border-radius: 8px; padding: 6px 10px; font-size: 12px; color: #6fd6a0; text-align: center; margin-top: 4px; }
+
+  /* highlight message */
+  .msg-highlight { background: #1a2a1a; border-left: 3px solid #4caf50; }
+  .msg-elim { background: #2a1a1a; border-left: 3px solid #f44336; }
+
+  /* Mini App Mock */
+  .mini-app { background: #0a1a0a; border-radius: 16px; overflow: hidden; border: 1px solid #2a4a2a; }
+  .ma-header { background: #0d2818; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1a3a1a; }
+  .ma-header .title { font-size: 14px; font-weight: 600; color: #6fd6a0; }
+  .ma-header .close { color: #888; font-size: 18px; cursor: pointer; }
+  .ma-body { padding: 0; min-height: 500px; display: flex; flex-direction: column; }
+
+  .poker-table { background: radial-gradient(ellipse at center, #1a6b35 0%, #0d4a1f 60%, #082a12 100%); padding: 20px 16px; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border: 8px solid #2a1a0a; border-radius: 0; }
+  .table-felt { border: 2px solid rgba(255,255,255,.08); border-radius: 120px; padding: 30px 20px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+  .seat { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .seat .s-name { font-size: 11px; color: #ddd; font-weight: 600; }
+  .seat .s-chips { font-size: 10px; color: #ffd54f; }
+  .seat .s-bet { font-size: 10px; color: #ff9800; }
+  .seat .s-cards { display: flex; gap: 2px; }
+  .seat .s-card { width: 28px; height: 38px; background: linear-gradient(135deg, #1a47a0, #2962ff); border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+
+  .seats-top { display: flex; gap: 30px; justify-content: center; }
+  .seats-mid { display: flex; justify-content: space-between; width: 100%; padding: 0 8px; }
+  .seats-bot { display: flex; gap: 30px; justify-content: center; }
+
+  .my-cards { display: flex; gap: 6px; justify-content: center; margin-top: 4px; }
+  .my-card { width: 52px; height: 72px; background: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; color: #000; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+  .my-card.red { color: #d32f2f; }
+
+  .ma-community { display: flex; gap: 6px; justify-content: center; }
+  .ma-comm-card { width: 44px; height: 60px; background: #fff; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+  .ma-comm-card.red { color: #d32f2f; }
+  .ma-comm-card.unrevealed { background: rgba(255,255,255,.1); border: 1px dashed rgba(255,255,255,.2); color: transparent; }
+
+  .ma-pot { color: #ffd54f; font-size: 15px; font-weight: 700; text-align: center; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
+
+  .ma-actions { background: #0d1a0d; padding: 12px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #1a3a1a; }
+  .ma-action-row { display: flex; gap: 6px; }
+  .ma-btn { flex: 1; padding: 10px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: .15s; }
+  .ma-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .ma-fold { background: #3a3a4a; color: #ccc; }
+  .ma-call { background: #1a6b35; color: #fff; }
+  .ma-raise { background: #c67a1a; color: #fff; }
+  .ma-allin { background: #b71c1c; color: #fff; }
+
+  .raise-slider { width: 100%; display: flex; align-items: center; gap: 8px; }
+  .raise-slider input[type=range] { flex: 1; accent-color: #c67a1a; }
+  .raise-slider .raise-val { color: #f5b87a; font-size: 14px; font-weight: 600; min-width: 50px; text-align: right; }
+
+  .timer-bar { width: 100%; height: 3px; background: #333; border-radius: 2px; overflow: hidden; margin-top: 4px; }
+  .timer-bar .fill { width: 65%; height: 100%; background: linear-gradient(90deg, #4caf50, #ffd54f); border-radius: 2px; animation: timer 15s linear; }
+  @keyframes timer { from { width: 100%; } to { width: 0%; } }
+
+  .label-tag { display: inline-block; background: #7b4bd4; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px; }
+
+  .section-divider { text-align: center; color: #555; font-size: 11px; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<h1>🃏 텔레그램 홀덤봇 목업</h1>
+
+<div class="container">
+
+  <!-- LEFT: Telegram Chat View -->
+  <div class="panel">
+    <div class="panel-title">채팅방 뷰 (인라인 버튼)</div>
+    <div class="tg-chat">
+      <div class="tg-header">
+        <div class="avatar">🃏</div>
+        <div class="info">
+          <div class="name">크립토 홀덤 🎰</div>
+          <div class="members">42 members, 8 online</div>
+        </div>
+      </div>
+      <div class="tg-body">
+
+        <!-- Tournament open -->
+        <div class="msg msg-bot" style="max-width:100%">
+          <div class="sender bot-name">🃏 홀덤봇</div>
+          <div style="background:#1a2a3a;border-radius:8px;padding:12px;margin:6px 0">
+            <div style="font-size:15px;font-weight:700;margin-bottom:6px">🏆 토너먼트 #47</div>
+            <div style="font-size:12px;color:#aaa;line-height:1.8">
+              바이인: 500칩<br>
+              블라인드: 10/20 (5분마다 인상)<br>
+              인원: <b style="color:#6fd6a0">5/6</b> (최소 4명)<br>
+              상금: 1위 1,500 · 2위 750 · 3위 250
+            </div>
+          </div>
+          <div class="inline-buttons">
+            <button class="inline-btn btn-join">🎮 참가하기 (500칩)</button>
+          </div>
+          <div class="inline-buttons">
+            <button class="inline-btn btn-webapp">🌐 테이블 입장 (Mini App)</button>
+          </div>
+          <div class="time">오후 4:21</div>
+        </div>
+
+        <div class="section-divider">── 게임 시작 ──</div>
+
+        <!-- Game state message (edited) -->
+        <div class="msg msg-bot" style="max-width:100%">
+          <div class="sender bot-name">🃏 홀덤봇</div>
+          <div class="table-img">
+            <div style="font-size:11px;color:#aaa;margin-bottom:6px">토너먼트 #47 · 블라인드 25/50</div>
+            <div class="community-cards">
+              <div class="card red">A♥</div>
+              <div class="card">K♠</div>
+              <div class="card red">7♦</div>
+              <div class="card hidden"></div>
+              <div class="card hidden"></div>
+            </div>
+            <div class="pot-info">💰 POT: 1,200</div>
+            <div class="players-ring">
+              <div class="player-chip active">👑 문유 (1,850)</div>
+              <div class="player-chip">레레이 (1,400)</div>
+              <div class="player-chip folded">크캣 (fold)</div>
+              <div class="player-chip">쌀숭이 (900)</div>
+              <div class="player-chip">N (1,350)</div>
+            </div>
+          </div>
+          <div class="turn-indicator">⏳ 문유님 차례 (12초)</div>
+          <div class="timer-bar"><div class="fill"></div></div>
+          <div class="inline-buttons">
+            <button class="inline-btn btn-fold">접기</button>
+            <button class="inline-btn btn-check">체크</button>
+          </div>
+          <div class="inline-buttons">
+            <button class="inline-btn btn-raise">레이즈 x2</button>
+            <button class="inline-btn btn-allin">올인 🔥</button>
+          </div>
+          <div class="time">오후 4:25 (수정됨)</div>
+        </div>
+
+        <!-- Highlight events -->
+        <div class="msg msg-bot msg-highlight">
+          <div class="sender bot-name">🃏 홀덤봇</div>
+          🔥 <b>문유</b> 레이즈 → 400!
+          <div class="time">오후 4:25</div>
+        </div>
+
+        <div class="msg msg-bot msg-highlight">
+          <div class="sender bot-name">🃏 홀덤봇</div>
+          💥 <b>N</b> 올인! (1,350)
+          <div class="time">오후 4:26</div>
+        </div>
+
+        <div class="msg msg-bot msg-elim">
+          <div class="sender bot-name">🃏 홀덤봇</div>
+          💀 <b>쌀숭이</b> 탈락 (5위) — +50칩
+          <div class="time">오후 4:28</div>
+        </div>
+
+        <!-- User chat -->
+        <div class="msg msg-user">
+          ㅋㅋㅋ 쌀숭이 블러핑하다 터짐
+          <div class="time">오후 4:28</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Mini App View -->
+  <div class="panel">
+    <div class="panel-title">Mini App 뷰 (WebApp)</div>
+    <div class="mini-app">
+      <div class="ma-header">
+        <div class="title">🏆 토너먼트 #47 · 블라인드 25/50</div>
+        <div class="close">✕</div>
+      </div>
+      <div class="ma-body">
+        <div class="poker-table">
+          <div class="table-felt">
+
+            <!-- Top seats -->
+            <div class="seats-top">
+              <div class="seat">
+                <div class="s-cards"><div class="s-card"></div><div class="s-card"></div></div>
+                <div class="s-name">레레이</div>
+                <div class="s-chips">1,400</div>
+                <div class="s-bet">Bet: 200</div>
+              </div>
+              <div class="seat" style="opacity:.35">
+                <div class="s-cards"><div class="s-card" style="background:#555"></div><div class="s-card" style="background:#555"></div></div>
+                <div class="s-name" style="text-decoration:line-through">크캣</div>
+                <div class="s-chips" style="color:#888">Fold</div>
+              </div>
+            </div>
+
+            <!-- Middle seats -->
+            <div class="seats-mid">
+              <div class="seat">
+                <div class="s-cards"><div class="s-card"></div><div class="s-card"></div></div>
+                <div class="s-name">쌀숭이</div>
+                <div class="s-chips">900</div>
+                <div class="s-bet">Bet: 200</div>
+              </div>
+
+              <!-- Community + Pot -->
+              <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+                <div class="ma-community">
+                  <div class="ma-comm-card red">A♥</div>
+                  <div class="ma-comm-card">K♠</div>
+                  <div class="ma-comm-card red">7♦</div>
+                  <div class="ma-comm-card unrevealed"></div>
+                  <div class="ma-comm-card unrevealed"></div>
+                </div>
+                <div class="ma-pot">💰 1,200</div>
+              </div>
+
+              <div class="seat">
+                <div class="s-cards"><div class="s-card"></div><div class="s-card"></div></div>
+                <div class="s-name">N</div>
+                <div class="s-chips">1,350</div>
+                <div class="s-bet">Bet: 200</div>
+              </div>
+            </div>
+
+            <!-- Bottom: Me -->
+            <div class="seats-bot">
+              <div class="seat">
+                <div class="my-cards">
+                  <div class="my-card">A♠</div>
+                  <div class="my-card red">K♥</div>
+                </div>
+                <div class="s-name" style="color:#ffd54f;font-size:13px">👑 문유 (나)</div>
+                <div class="s-chips" style="font-size:12px">1,850</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Action panel -->
+        <div class="ma-actions">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+            <span style="font-size:12px;color:#6fd6a0">⏳ 내 차례</span>
+            <span style="font-size:11px;color:#888">콜: 200</span>
+          </div>
+          <div class="timer-bar"><div class="fill"></div></div>
+          <div class="raise-slider">
+            <span style="font-size:11px;color:#888">200</span>
+            <input type="range" min="200" max="1850" value="400">
+            <span class="raise-val">400</span>
+          </div>
+          <div class="ma-action-row">
+            <button class="ma-btn ma-fold">접기</button>
+            <button class="ma-btn ma-call">콜 200</button>
+            <button class="ma-btn ma-raise">레이즈 400</button>
+          </div>
+          <div class="ma-action-row">
+            <button class="ma-btn ma-allin" style="flex:1">🔥 올인 1,850</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="text-align:center;margin-top:30px;color:#555;font-size:12px">
+  왼쪽: 채팅방에서 바로 플레이 (인라인 버튼) · 오쪽: Mini App으로 풀 테이블 뷰<br>
+  둘 다 동시에 작동 — 같은 게임, 다른 인터페이스
+</div>
+
+</body>
+</html>

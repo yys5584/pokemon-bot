@@ -134,7 +134,17 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = parts[1]
 
     if action == "등록":
+        # 관리자(chat admin) 체크: 봇 관리자가 아니면 채팅방 관리자인지 확인
         if not is_admin(user_id):
+            try:
+                member = await context.bot.get_chat_member(chat_id, user_id)
+                if member.status not in ("administrator", "creator"):
+                    await update.message.reply_text("🚫 아케이드 등록은 채팅방 관리자만 가능합니다.")
+                    return
+            except Exception:
+                await update.message.reply_text("🚫 관리자 권한을 확인할 수 없습니다.")
+                return
+
             room = await queries.get_chat_room(chat_id)
             member_count = room["member_count"] if room else 0
             if member_count < config.SPAWN_MIN_MEMBERS:
@@ -192,6 +202,21 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             config.ARCADE_CHAT_IDS.discard(chat_id)
             await queries.set_arcade(chat_id, False)
+        else:
+            # 티켓 아케이드: 시작한 사람 또는 채팅방 관리자만 해제 가능
+            if not is_admin(user_id):
+                active_pass = await queries.get_active_arcade_pass(chat_id)
+                is_activator = active_pass and active_pass.get("activated_by") == user_id
+                is_chat_admin = False
+                if not is_activator:
+                    try:
+                        member = await context.bot.get_chat_member(chat_id, user_id)
+                        is_chat_admin = member.status in ("administrator", "creator")
+                    except Exception:
+                        pass
+                if not is_activator and not is_chat_admin:
+                    await update.message.reply_text("🚫 아케이드 해제는 시작한 사람 또는 관리자만 가능합니다.")
+                    return
 
         from services.spawn_service import stop_arcade_for_chat
         stop_arcade_for_chat(context.application, chat_id)
@@ -242,6 +267,42 @@ async def force_tournament_run_handler(update: Update, context: ContextTypes.DEF
     from services.tournament_service import start_tournament
     await update.message.reply_text("⚔️ 대회 진행 시작!")
     await start_tournament(context)
+
+
+async def mock_tournament_reg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 모의대회 — start mock tournament registration (no rewards)."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from services.tournament_service import start_registration
+    await start_registration(context, mock=True)
+    await update.message.reply_text("✅ 모의대회 등록 시작! (보상 없음)")
+
+
+async def mock_tournament_run_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 모의진행 — manually trigger mock tournament execution."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from services.tournament_service import start_tournament
+    await update.message.reply_text("⚔️ 모의대회 진행 시작!")
+    await start_tournament(context)
+
+
+async def resume_tournament_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 대회재개 — 3/29 준결승부터 재개 (일시적)."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from services.tournament_service import resume_tournament_from_semi
+    await update.message.reply_text("⚔️ 대회 재개 시작! (준결승부터)")
+    await resume_tournament_from_semi(context)
+
+
+async def co_champion_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 공동우승 — 3/29 대회 4명 공동우승 보상 (일시적)."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from scripts.award_co_champions import award_co_champions
+    await update.message.reply_text("🏆 공동우승 보상 지급 시작!")
+    await award_co_champions(context)
 
 
 # ── Abuse ──────────────────────────────────
@@ -330,7 +391,17 @@ async def abuse_reset_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     target_id = int(parts[1])
     await admin_reset_score(target_id)
-    await update.message.reply_text(f"✅ 유저 {target_id}의 봇 의심 점수가 초기화되었습니다.")
+    # 잠금도 함께 해제
+    from services.abuse_service import _catch_locks, _db_lock_cache
+    _catch_locks.pop(target_id, None)
+    _db_lock_cache.pop(target_id, None)
+    try:
+        from database.connection import get_db
+        pool = await get_db()
+        await pool.execute("UPDATE abuse_scores SET locked_until = NULL WHERE user_id = $1", target_id)
+    except Exception:
+        pass
+    await update.message.reply_text(f"✅ 유저 {target_id}의 점수 + 포획 잠금 초기화 완료.")
 
 
 # ── KPI Report ──────────────────────────────────

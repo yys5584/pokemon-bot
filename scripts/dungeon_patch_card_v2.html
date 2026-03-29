@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800;900&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 1456px;
+  height: 816px;
+  font-family: 'Noto Sans KR', sans-serif;
+  background: #0d0d0d;
+  color: #e0e0e0;
+  overflow: hidden;
+}
+.card {
+  width: 1456px;
+  height: 816px;
+  position: relative;
+  border-top: 4px solid #e63946;
+}
+.side-label {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 5px;
+  color: #333;
+}
+.header {
+  padding: 36px 52px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.ver-badge {
+  background: #e63946;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+  padding: 8px 20px;
+  border-radius: 10px;
+}
+.header h1 {
+  font-size: 52px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -1.5px;
+}
+.header .date {
+  font-size: 18px;
+  color: #555;
+  font-weight: 600;
+}
+.content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  padding: 28px 52px 0 52px;
+  margin-left: 28px;
+}
+.sec-title {
+  font-size: 28px;
+  font-weight: 900;
+  color: #e63946;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sec-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #e63946;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.info-card {
+  border-left: 3px solid #333;
+  padding: 13px 16px;
+  margin-bottom: 10px;
+  background: rgba(255,255,255,0.02);
+}
+.info-card .label {
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 5px;
+}
+.info-card .desc {
+  font-size: 15px;
+  color: #ddd;
+  line-height: 1.7;
+}
+.accent { color: #e63946; font-weight: 700; }
+.white { color: #fff; font-weight: 700; }
+
+/* 구독 테이블 */
+.sub-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+  margin-top: 8px;
+}
+.sub-table th {
+  font-size: 13px;
+  font-weight: 700;
+  color: #666;
+  text-align: center;
+  padding: 6px 4px;
+  border-bottom: 1px solid #222;
+}
+.sub-table td {
+  padding: 7px 4px;
+  text-align: center;
+  font-size: 16px;
+  border-bottom: 1px solid #1a1a1a;
+  color: #ccc;
+}
+.sub-table tr td:nth-child(1) { color: #999; text-align: left; font-weight: 600; font-size: 14px; }
+.sub-table tr td:nth-child(2) { color: #666; }
+.sub-table tr td:nth-child(3) { color: #ccc; }
+.sub-table tr td:nth-child(4) { color: #e63946; font-weight: 800; }
+
+.brand {
+  position: absolute;
+  bottom: 20px;
+  right: 52px;
+  font-size: 28px;
+  font-weight: 900;
+  color: #e63946;
+  font-style: italic;
+}
+.cta {
+  position: absolute;
+  bottom: 26px;
+  left: 80px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #555;
+}
+.cta b { color: #e63946; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="side-label">PATCH NOTES</div>
+
+  <div class="header">
+    <div class="header-left">
+      <div class="ver-badge">v2.8</div>
+      <h1>🏰 던전 대규모 업데이트</h1>
+    </div>
+    <div class="date">2026.03.23</div>
+  </div>
+
+  <div class="content">
+    <!-- 좌측: 전투 + 보상 -->
+    <div>
+      <div class="sec-title">전투 시스템</div>
+
+      <div class="info-card">
+        <div class="label">⚔️ 턴제 수동 전투</div>
+        <div class="desc">
+          자동배틀 → <span class="accent">턴제 수동 전투</span>로 전환<br>
+          매 턴 <span class="white">스킬 / 일반공격 / 방어</span> 선택<br>
+          적 의도 미리 표시 · PP 관리 · 히든 시너지 6종
+        </div>
+      </div>
+
+      <div class="info-card">
+        <div class="label">🏆 마일스톤 보상 + 랭킹</div>
+        <div class="desc">
+          <span class="white">5층마다</span> BP · 조각 · 신규 아이템 지급<br>
+          <span class="accent">일일/주간 랭킹</span> 보상 자동 DM 지급<br>
+          주간 1위: IV스톤 · 리롤 · 시간단축권 + 칭호
+        </div>
+      </div>
+
+      <div class="info-card">
+        <div class="label">🎁 신규 아이템</div>
+        <div class="desc">
+          ✨ 이로치전환권 — 조각 없이 전환 시작<br>
+          🎯 우선포획볼 — 다음 포획 100% 성공<br>
+          🔮 던전부적 — 다음 런 버프 1개로 시작<br>
+          ⏰ 시간단축권 — 전환 대기 12시간 단축<br>
+          🥚 알즉부화권 — 이로치 알 즉시 부화
+        </div>
+      </div>
+    </div>
+
+    <!-- 우측: 구독 혜택 -->
+    <div>
+      <div class="sec-title">구독자 혜택 강화</div>
+
+      <div class="info-card">
+        <div class="label">👑 구독 등급별 비교</div>
+        <div class="desc" style="margin-bottom:4px">던전 보상이 <span class="accent">최대 3배!</span></div>
+        <table class="sub-table">
+          <tr><th></th><th>무료</th><th>베이직</th><th>채널장</th></tr>
+          <tr><td>BP 배율</td><td>×1.0</td><td>×1.2</td><td>×1.5</td></tr>
+          <tr><td>아이템 · 조각</td><td>×1</td><td>×2</td><td>×3</td></tr>
+          <tr><td>버프 리롤</td><td>🔒</td><td>1회/런</td><td>3회/런</td></tr>
+          <tr><td>일일 입장권</td><td>1장</td><td>2장</td><td>3장</td></tr>
+          <tr><td>일일 런 횟수</td><td>3회</td><td>3회</td><td>5회</td></tr>
+        </table>
+      </div>
+
+      <div class="info-card">
+        <div class="label">💠 IV스톤 시스템 변경</div>
+        <div class="desc">
+          포켓몬당 <span class="accent">최대 2회</span> 사용 제한<br>
+          던전 마일스톤 + 주간 랭킹 보상으로 획득
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta">봇 DM → <b>「던전」</b></div>
+  <div class="brand">TGPoke</div>
+</div>
+</body>
+</html>

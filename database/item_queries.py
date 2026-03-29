@@ -199,24 +199,45 @@ async def use_universal_fragments(user_id: int, amount: int) -> bool:
     return row is not None
 
 
+async def get_ivstone_usage(instance_id: int) -> int:
+    """포켓몬의 IV스톤 사용 횟수."""
+    pool = await get_db()
+    val = await pool.fetchval(
+        "SELECT COALESCE(ivstone_used, 0) FROM user_pokemon WHERE id = $1",
+        instance_id)
+    return val or 0
+
+
 async def apply_iv_stone(user_id: int, instance_id: int, stat: str) -> dict | None:
-    """IV 스톤 적용: 해당 스탯 +3 (최대 31). 성공 시 업데이트된 row 반환."""
+    """IV 스톤 적용: 해당 스탯 +3 (최대 31). 포켓몬당 2회 제한.
+    성공 시 업데이트된 row 반환."""
+    import config
     pool = await get_db()
     valid_stats = {"iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"}
     if stat not in valid_stats:
         return None
+    limit = getattr(config, "IVSTONE_PER_POKEMON_LIMIT", 2)
     async with pool.acquire() as conn:
         async with conn.transaction():
+            # 포켓몬당 사용 횟수 체크
+            used_count = await conn.fetchval(
+                "SELECT COALESCE(ivstone_used, 0) FROM user_pokemon WHERE id = $1 AND user_id = $2",
+                instance_id, user_id)
+            if used_count is None:
+                return None
+            if used_count >= limit:
+                return None  # 제한 초과
             # IV 스톤 차감
             used = await conn.fetchrow(
                 "UPDATE users SET iv_stones = iv_stones - 1 WHERE user_id = $1 AND iv_stones > 0 RETURNING iv_stones",
                 user_id)
             if not used:
                 return None
-            # IV 적용
+            # IV 적용 + 사용 횟수 증가
             row = await conn.fetchrow(
-                f"UPDATE user_pokemon SET {stat} = LEAST(COALESCE({stat}, 15) + 3, 31) "
+                f"UPDATE user_pokemon SET {stat} = LEAST(COALESCE({stat}, 15) + 3, 31), "
+                f"ivstone_used = COALESCE(ivstone_used, 0) + 1 "
                 f"WHERE id = $1 AND user_id = $2 "
-                f"RETURNING id, pokemon_id, iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd",
+                f"RETURNING id, pokemon_id, iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd, ivstone_used",
                 instance_id, user_id)
             return dict(row) if row else None

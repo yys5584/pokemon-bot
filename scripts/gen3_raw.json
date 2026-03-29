@@ -1,0 +1,2363 @@
+[
+  {
+    "id": 252,
+    "name_ko": "나무지기",
+    "name_en": "Treecko",
+    "types": [
+      "grass"
+    ],
+    "hp": 40,
+    "atk": 45,
+    "def": 35,
+    "spa": 65,
+    "spdef": 55,
+    "spd": 70,
+    "bst": 310,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 253,
+    "name_ko": "나무돌이",
+    "name_en": "Grovyle",
+    "types": [
+      "grass"
+    ],
+    "hp": 50,
+    "atk": 65,
+    "def": 45,
+    "spa": 85,
+    "spdef": 65,
+    "spd": 95,
+    "bst": 405,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 254,
+    "name_ko": "나무킹",
+    "name_en": "Sceptile",
+    "types": [
+      "grass"
+    ],
+    "hp": 70,
+    "atk": 85,
+    "def": 65,
+    "spa": 105,
+    "spdef": 85,
+    "spd": 120,
+    "bst": 530,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 255,
+    "name_ko": "아차모",
+    "name_en": "Torchic",
+    "types": [
+      "fire"
+    ],
+    "hp": 45,
+    "atk": 60,
+    "def": 40,
+    "spa": 70,
+    "spdef": 50,
+    "spd": 45,
+    "bst": 310,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 256,
+    "name_ko": "영치코",
+    "name_en": "Combusken",
+    "types": [
+      "fire",
+      "fighting"
+    ],
+    "hp": 60,
+    "atk": 85,
+    "def": 60,
+    "spa": 85,
+    "spdef": 60,
+    "spd": 55,
+    "bst": 405,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 257,
+    "name_ko": "번치코",
+    "name_en": "Blaziken",
+    "types": [
+      "fire",
+      "fighting"
+    ],
+    "hp": 80,
+    "atk": 120,
+    "def": 70,
+    "spa": 110,
+    "spdef": 70,
+    "spd": 80,
+    "bst": 530,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 258,
+    "name_ko": "물짱이",
+    "name_en": "Mudkip",
+    "types": [
+      "water"
+    ],
+    "hp": 50,
+    "atk": 70,
+    "def": 50,
+    "spa": 50,
+    "spdef": 50,
+    "spd": 40,
+    "bst": 310,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 259,
+    "name_ko": "늪짱이",
+    "name_en": "Marshtomp",
+    "types": [
+      "water",
+      "ground"
+    ],
+    "hp": 70,
+    "atk": 85,
+    "def": 70,
+    "spa": 60,
+    "spdef": 70,
+    "spd": 50,
+    "bst": 405,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 260,
+    "name_ko": "대짱이",
+    "name_en": "Swampert",
+    "types": [
+      "water",
+      "ground"
+    ],
+    "hp": 100,
+    "atk": 110,
+    "def": 90,
+    "spa": 85,
+    "spdef": 90,
+    "spd": 60,
+    "bst": 535,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 261,
+    "name_ko": "포챠나",
+    "name_en": "Poochyena",
+    "types": [
+      "dark"
+    ],
+    "hp": 35,
+    "atk": 55,
+    "def": 35,
+    "spa": 30,
+    "spdef": 30,
+    "spd": 35,
+    "bst": 220,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 262,
+    "name_ko": "그라에나",
+    "name_en": "Mightyena",
+    "types": [
+      "dark"
+    ],
+    "hp": 70,
+    "atk": 90,
+    "def": 70,
+    "spa": 60,
+    "spdef": 60,
+    "spd": 70,
+    "bst": 420,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 263,
+    "name_ko": "지그제구리",
+    "name_en": "Zigzagoon",
+    "types": [
+      "normal"
+    ],
+    "hp": 38,
+    "atk": 30,
+    "def": 41,
+    "spa": 30,
+    "spdef": 41,
+    "spd": 60,
+    "bst": 240,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 264,
+    "name_ko": "직구리",
+    "name_en": "Linoone",
+    "types": [
+      "normal"
+    ],
+    "hp": 78,
+    "atk": 70,
+    "def": 61,
+    "spa": 50,
+    "spdef": 61,
+    "spd": 100,
+    "bst": 420,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 265,
+    "name_ko": "개무소",
+    "name_en": "Wurmple",
+    "types": [
+      "bug"
+    ],
+    "hp": 45,
+    "atk": 45,
+    "def": 35,
+    "spa": 20,
+    "spdef": 30,
+    "spd": 20,
+    "bst": 195,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 266,
+    "name_ko": "실쿤",
+    "name_en": "Silcoon",
+    "types": [
+      "bug"
+    ],
+    "hp": 50,
+    "atk": 35,
+    "def": 55,
+    "spa": 25,
+    "spdef": 25,
+    "spd": 15,
+    "bst": 205,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 267,
+    "name_ko": "뷰티플라이",
+    "name_en": "Beautifly",
+    "types": [
+      "bug",
+      "flying"
+    ],
+    "hp": 60,
+    "atk": 70,
+    "def": 50,
+    "spa": 100,
+    "spdef": 50,
+    "spd": 65,
+    "bst": 395,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 268,
+    "name_ko": "카스쿤",
+    "name_en": "Cascoon",
+    "types": [
+      "bug"
+    ],
+    "hp": 50,
+    "atk": 35,
+    "def": 55,
+    "spa": 25,
+    "spdef": 25,
+    "spd": 15,
+    "bst": 205,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 269,
+    "name_ko": "독케일",
+    "name_en": "Dustox",
+    "types": [
+      "bug",
+      "poison"
+    ],
+    "hp": 60,
+    "atk": 50,
+    "def": 70,
+    "spa": 50,
+    "spdef": 90,
+    "spd": 65,
+    "bst": 385,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 270,
+    "name_ko": "연꽃몬",
+    "name_en": "Lotad",
+    "types": [
+      "water",
+      "grass"
+    ],
+    "hp": 40,
+    "atk": 30,
+    "def": 30,
+    "spa": 40,
+    "spdef": 50,
+    "spd": 30,
+    "bst": 220,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 271,
+    "name_ko": "로토스",
+    "name_en": "Lombre",
+    "types": [
+      "water",
+      "grass"
+    ],
+    "hp": 60,
+    "atk": 50,
+    "def": 50,
+    "spa": 60,
+    "spdef": 70,
+    "spd": 50,
+    "bst": 340,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 272,
+    "name_ko": "로파파",
+    "name_en": "Ludicolo",
+    "types": [
+      "water",
+      "grass"
+    ],
+    "hp": 80,
+    "atk": 70,
+    "def": 70,
+    "spa": 90,
+    "spdef": 100,
+    "spd": 70,
+    "bst": 480,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 273,
+    "name_ko": "도토링",
+    "name_en": "Seedot",
+    "types": [
+      "grass"
+    ],
+    "hp": 40,
+    "atk": 40,
+    "def": 50,
+    "spa": 30,
+    "spdef": 30,
+    "spd": 30,
+    "bst": 220,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 274,
+    "name_ko": "잎새코",
+    "name_en": "Nuzleaf",
+    "types": [
+      "grass",
+      "dark"
+    ],
+    "hp": 70,
+    "atk": 70,
+    "def": 40,
+    "spa": 60,
+    "spdef": 40,
+    "spd": 60,
+    "bst": 340,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 275,
+    "name_ko": "다탱구",
+    "name_en": "Shiftry",
+    "types": [
+      "grass",
+      "dark"
+    ],
+    "hp": 90,
+    "atk": 100,
+    "def": 60,
+    "spa": 90,
+    "spdef": 60,
+    "spd": 80,
+    "bst": 480,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 276,
+    "name_ko": "테일로",
+    "name_en": "Taillow",
+    "types": [
+      "normal",
+      "flying"
+    ],
+    "hp": 40,
+    "atk": 55,
+    "def": 30,
+    "spa": 30,
+    "spdef": 30,
+    "spd": 85,
+    "bst": 270,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 277,
+    "name_ko": "스왈로",
+    "name_en": "Swellow",
+    "types": [
+      "normal",
+      "flying"
+    ],
+    "hp": 60,
+    "atk": 85,
+    "def": 60,
+    "spa": 75,
+    "spdef": 50,
+    "spd": 125,
+    "bst": 455,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 278,
+    "name_ko": "갈모매",
+    "name_en": "Wingull",
+    "types": [
+      "water",
+      "flying"
+    ],
+    "hp": 40,
+    "atk": 30,
+    "def": 30,
+    "spa": 55,
+    "spdef": 30,
+    "spd": 85,
+    "bst": 270,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 279,
+    "name_ko": "패리퍼",
+    "name_en": "Pelipper",
+    "types": [
+      "water",
+      "flying"
+    ],
+    "hp": 60,
+    "atk": 50,
+    "def": 100,
+    "spa": 95,
+    "spdef": 70,
+    "spd": 65,
+    "bst": 440,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 280,
+    "name_ko": "랄토스",
+    "name_en": "Ralts",
+    "types": [
+      "psychic",
+      "fairy"
+    ],
+    "hp": 28,
+    "atk": 25,
+    "def": 25,
+    "spa": 45,
+    "spdef": 35,
+    "spd": 40,
+    "bst": 198,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 281,
+    "name_ko": "킬리아",
+    "name_en": "Kirlia",
+    "types": [
+      "psychic",
+      "fairy"
+    ],
+    "hp": 38,
+    "atk": 35,
+    "def": 35,
+    "spa": 65,
+    "spdef": 55,
+    "spd": 50,
+    "bst": 278,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 282,
+    "name_ko": "가디안",
+    "name_en": "Gardevoir",
+    "types": [
+      "psychic",
+      "fairy"
+    ],
+    "hp": 68,
+    "atk": 65,
+    "def": 65,
+    "spa": 125,
+    "spdef": 115,
+    "spd": 80,
+    "bst": 518,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 283,
+    "name_ko": "비구술",
+    "name_en": "Surskit",
+    "types": [
+      "bug",
+      "water"
+    ],
+    "hp": 40,
+    "atk": 30,
+    "def": 32,
+    "spa": 50,
+    "spdef": 52,
+    "spd": 65,
+    "bst": 269,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 284,
+    "name_ko": "비나방",
+    "name_en": "Masquerain",
+    "types": [
+      "bug",
+      "flying"
+    ],
+    "hp": 70,
+    "atk": 60,
+    "def": 62,
+    "spa": 100,
+    "spdef": 82,
+    "spd": 80,
+    "bst": 454,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 285,
+    "name_ko": "버섯꼬",
+    "name_en": "Shroomish",
+    "types": [
+      "grass"
+    ],
+    "hp": 60,
+    "atk": 40,
+    "def": 60,
+    "spa": 40,
+    "spdef": 60,
+    "spd": 35,
+    "bst": 295,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 286,
+    "name_ko": "버섯모",
+    "name_en": "Breloom",
+    "types": [
+      "grass",
+      "fighting"
+    ],
+    "hp": 60,
+    "atk": 130,
+    "def": 80,
+    "spa": 60,
+    "spdef": 60,
+    "spd": 70,
+    "bst": 460,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 287,
+    "name_ko": "게을로",
+    "name_en": "Slakoth",
+    "types": [
+      "normal"
+    ],
+    "hp": 60,
+    "atk": 60,
+    "def": 60,
+    "spa": 35,
+    "spdef": 35,
+    "spd": 30,
+    "bst": 280,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 288,
+    "name_ko": "발바로",
+    "name_en": "Vigoroth",
+    "types": [
+      "normal"
+    ],
+    "hp": 80,
+    "atk": 80,
+    "def": 80,
+    "spa": 55,
+    "spdef": 55,
+    "spd": 90,
+    "bst": 440,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 289,
+    "name_ko": "게을킹",
+    "name_en": "Slaking",
+    "types": [
+      "normal"
+    ],
+    "hp": 150,
+    "atk": 160,
+    "def": 100,
+    "spa": 95,
+    "spdef": 65,
+    "spd": 100,
+    "bst": 670,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 290,
+    "name_ko": "토중몬",
+    "name_en": "Nincada",
+    "types": [
+      "bug",
+      "ground"
+    ],
+    "hp": 31,
+    "atk": 45,
+    "def": 90,
+    "spa": 30,
+    "spdef": 30,
+    "spd": 40,
+    "bst": 266,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 291,
+    "name_ko": "아이스크",
+    "name_en": "Ninjask",
+    "types": [
+      "bug",
+      "flying"
+    ],
+    "hp": 61,
+    "atk": 90,
+    "def": 45,
+    "spa": 50,
+    "spdef": 50,
+    "spd": 160,
+    "bst": 456,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 292,
+    "name_ko": "껍질몬",
+    "name_en": "Shedinja",
+    "types": [
+      "bug",
+      "ghost"
+    ],
+    "hp": 1,
+    "atk": 90,
+    "def": 45,
+    "spa": 30,
+    "spdef": 30,
+    "spd": 40,
+    "bst": 236,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 293,
+    "name_ko": "소곤룡",
+    "name_en": "Whismur",
+    "types": [
+      "normal"
+    ],
+    "hp": 64,
+    "atk": 51,
+    "def": 23,
+    "spa": 51,
+    "spdef": 23,
+    "spd": 28,
+    "bst": 240,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 294,
+    "name_ko": "노공룡",
+    "name_en": "Loudred",
+    "types": [
+      "normal"
+    ],
+    "hp": 84,
+    "atk": 71,
+    "def": 43,
+    "spa": 71,
+    "spdef": 43,
+    "spd": 48,
+    "bst": 360,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 295,
+    "name_ko": "폭음룡",
+    "name_en": "Exploud",
+    "types": [
+      "normal"
+    ],
+    "hp": 104,
+    "atk": 91,
+    "def": 63,
+    "spa": 91,
+    "spdef": 73,
+    "spd": 68,
+    "bst": 490,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 296,
+    "name_ko": "마크탕",
+    "name_en": "Makuhita",
+    "types": [
+      "fighting"
+    ],
+    "hp": 72,
+    "atk": 60,
+    "def": 30,
+    "spa": 20,
+    "spdef": 30,
+    "spd": 25,
+    "bst": 237,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 297,
+    "name_ko": "하리뭉",
+    "name_en": "Hariyama",
+    "types": [
+      "fighting"
+    ],
+    "hp": 144,
+    "atk": 120,
+    "def": 60,
+    "spa": 40,
+    "spdef": 60,
+    "spd": 50,
+    "bst": 474,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 298,
+    "name_ko": "루리리",
+    "name_en": "Azurill",
+    "types": [
+      "normal",
+      "fairy"
+    ],
+    "hp": 50,
+    "atk": 20,
+    "def": 40,
+    "spa": 20,
+    "spdef": 40,
+    "spd": 20,
+    "bst": 190,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 299,
+    "name_ko": "코코파스",
+    "name_en": "Nosepass",
+    "types": [
+      "rock"
+    ],
+    "hp": 30,
+    "atk": 45,
+    "def": 135,
+    "spa": 45,
+    "spdef": 90,
+    "spd": 30,
+    "bst": 375,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 300,
+    "name_ko": "에나비",
+    "name_en": "Skitty",
+    "types": [
+      "normal"
+    ],
+    "hp": 50,
+    "atk": 45,
+    "def": 45,
+    "spa": 35,
+    "spdef": 35,
+    "spd": 50,
+    "bst": 260,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 301,
+    "name_ko": "델케티",
+    "name_en": "Delcatty",
+    "types": [
+      "normal"
+    ],
+    "hp": 70,
+    "atk": 65,
+    "def": 65,
+    "spa": 55,
+    "spdef": 55,
+    "spd": 90,
+    "bst": 400,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 302,
+    "name_ko": "깜까미",
+    "name_en": "Sableye",
+    "types": [
+      "dark",
+      "ghost"
+    ],
+    "hp": 50,
+    "atk": 75,
+    "def": 75,
+    "spa": 65,
+    "spdef": 65,
+    "spd": 50,
+    "bst": 380,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 303,
+    "name_ko": "입치트",
+    "name_en": "Mawile",
+    "types": [
+      "steel",
+      "fairy"
+    ],
+    "hp": 50,
+    "atk": 85,
+    "def": 85,
+    "spa": 55,
+    "spdef": 55,
+    "spd": 50,
+    "bst": 380,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 304,
+    "name_ko": "가보리",
+    "name_en": "Aron",
+    "types": [
+      "steel",
+      "rock"
+    ],
+    "hp": 50,
+    "atk": 70,
+    "def": 100,
+    "spa": 40,
+    "spdef": 40,
+    "spd": 30,
+    "bst": 330,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 305,
+    "name_ko": "갱도라",
+    "name_en": "Lairon",
+    "types": [
+      "steel",
+      "rock"
+    ],
+    "hp": 60,
+    "atk": 90,
+    "def": 140,
+    "spa": 50,
+    "spdef": 50,
+    "spd": 40,
+    "bst": 430,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 306,
+    "name_ko": "보스로라",
+    "name_en": "Aggron",
+    "types": [
+      "steel",
+      "rock"
+    ],
+    "hp": 70,
+    "atk": 110,
+    "def": 180,
+    "spa": 60,
+    "spdef": 60,
+    "spd": 50,
+    "bst": 530,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 307,
+    "name_ko": "요가랑",
+    "name_en": "Meditite",
+    "types": [
+      "fighting",
+      "psychic"
+    ],
+    "hp": 30,
+    "atk": 40,
+    "def": 55,
+    "spa": 40,
+    "spdef": 55,
+    "spd": 60,
+    "bst": 280,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 308,
+    "name_ko": "요가램",
+    "name_en": "Medicham",
+    "types": [
+      "fighting",
+      "psychic"
+    ],
+    "hp": 60,
+    "atk": 60,
+    "def": 75,
+    "spa": 60,
+    "spdef": 75,
+    "spd": 80,
+    "bst": 410,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 309,
+    "name_ko": "썬더라이",
+    "name_en": "Electrike",
+    "types": [
+      "electric"
+    ],
+    "hp": 40,
+    "atk": 45,
+    "def": 40,
+    "spa": 65,
+    "spdef": 40,
+    "spd": 65,
+    "bst": 295,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 310,
+    "name_ko": "썬더볼트",
+    "name_en": "Manectric",
+    "types": [
+      "electric"
+    ],
+    "hp": 70,
+    "atk": 75,
+    "def": 60,
+    "spa": 105,
+    "spdef": 60,
+    "spd": 105,
+    "bst": 475,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 311,
+    "name_ko": "플러시",
+    "name_en": "Plusle",
+    "types": [
+      "electric"
+    ],
+    "hp": 60,
+    "atk": 50,
+    "def": 40,
+    "spa": 85,
+    "spdef": 75,
+    "spd": 95,
+    "bst": 405,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 312,
+    "name_ko": "마이농",
+    "name_en": "Minun",
+    "types": [
+      "electric"
+    ],
+    "hp": 60,
+    "atk": 40,
+    "def": 50,
+    "spa": 75,
+    "spdef": 85,
+    "spd": 95,
+    "bst": 405,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 313,
+    "name_ko": "볼비트",
+    "name_en": "Volbeat",
+    "types": [
+      "bug"
+    ],
+    "hp": 65,
+    "atk": 73,
+    "def": 75,
+    "spa": 47,
+    "spdef": 85,
+    "spd": 85,
+    "bst": 430,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 314,
+    "name_ko": "네오비트",
+    "name_en": "Illumise",
+    "types": [
+      "bug"
+    ],
+    "hp": 65,
+    "atk": 47,
+    "def": 75,
+    "spa": 73,
+    "spdef": 85,
+    "spd": 85,
+    "bst": 430,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 315,
+    "name_ko": "로젤리아",
+    "name_en": "Roselia",
+    "types": [
+      "grass",
+      "poison"
+    ],
+    "hp": 50,
+    "atk": 60,
+    "def": 45,
+    "spa": 100,
+    "spdef": 80,
+    "spd": 65,
+    "bst": 400,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 316,
+    "name_ko": "꼴깍몬",
+    "name_en": "Gulpin",
+    "types": [
+      "poison"
+    ],
+    "hp": 70,
+    "atk": 43,
+    "def": 53,
+    "spa": 43,
+    "spdef": 53,
+    "spd": 40,
+    "bst": 302,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 317,
+    "name_ko": "꿀꺽몬",
+    "name_en": "Swalot",
+    "types": [
+      "poison"
+    ],
+    "hp": 100,
+    "atk": 73,
+    "def": 83,
+    "spa": 73,
+    "spdef": 83,
+    "spd": 55,
+    "bst": 467,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 318,
+    "name_ko": "샤프니아",
+    "name_en": "Carvanha",
+    "types": [
+      "water",
+      "dark"
+    ],
+    "hp": 45,
+    "atk": 90,
+    "def": 20,
+    "spa": 65,
+    "spdef": 20,
+    "spd": 65,
+    "bst": 305,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 319,
+    "name_ko": "샤크니아",
+    "name_en": "Sharpedo",
+    "types": [
+      "water",
+      "dark"
+    ],
+    "hp": 70,
+    "atk": 120,
+    "def": 40,
+    "spa": 95,
+    "spdef": 40,
+    "spd": 95,
+    "bst": 460,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 320,
+    "name_ko": "고래왕자",
+    "name_en": "Wailmer",
+    "types": [
+      "water"
+    ],
+    "hp": 130,
+    "atk": 70,
+    "def": 35,
+    "spa": 70,
+    "spdef": 35,
+    "spd": 60,
+    "bst": 400,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 321,
+    "name_ko": "고래왕",
+    "name_en": "Wailord",
+    "types": [
+      "water"
+    ],
+    "hp": 170,
+    "atk": 90,
+    "def": 45,
+    "spa": 90,
+    "spdef": 45,
+    "spd": 60,
+    "bst": 500,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 322,
+    "name_ko": "둔타",
+    "name_en": "Numel",
+    "types": [
+      "fire",
+      "ground"
+    ],
+    "hp": 60,
+    "atk": 60,
+    "def": 40,
+    "spa": 65,
+    "spdef": 45,
+    "spd": 35,
+    "bst": 305,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 323,
+    "name_ko": "폭타",
+    "name_en": "Camerupt",
+    "types": [
+      "fire",
+      "ground"
+    ],
+    "hp": 70,
+    "atk": 100,
+    "def": 70,
+    "spa": 105,
+    "spdef": 75,
+    "spd": 40,
+    "bst": 460,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 324,
+    "name_ko": "코터스",
+    "name_en": "Torkoal",
+    "types": [
+      "fire"
+    ],
+    "hp": 70,
+    "atk": 85,
+    "def": 140,
+    "spa": 85,
+    "spdef": 70,
+    "spd": 20,
+    "bst": 470,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 325,
+    "name_ko": "피그점프",
+    "name_en": "Spoink",
+    "types": [
+      "psychic"
+    ],
+    "hp": 60,
+    "atk": 25,
+    "def": 35,
+    "spa": 70,
+    "spdef": 80,
+    "spd": 60,
+    "bst": 330,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 326,
+    "name_ko": "피그킹",
+    "name_en": "Grumpig",
+    "types": [
+      "psychic"
+    ],
+    "hp": 80,
+    "atk": 45,
+    "def": 65,
+    "spa": 90,
+    "spdef": 110,
+    "spd": 80,
+    "bst": 470,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 327,
+    "name_ko": "얼루기",
+    "name_en": "Spinda",
+    "types": [
+      "normal"
+    ],
+    "hp": 60,
+    "atk": 60,
+    "def": 60,
+    "spa": 60,
+    "spdef": 60,
+    "spd": 60,
+    "bst": 360,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 328,
+    "name_ko": "톱치",
+    "name_en": "Trapinch",
+    "types": [
+      "ground"
+    ],
+    "hp": 45,
+    "atk": 100,
+    "def": 45,
+    "spa": 45,
+    "spdef": 45,
+    "spd": 10,
+    "bst": 290,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 329,
+    "name_ko": "비브라바",
+    "name_en": "Vibrava",
+    "types": [
+      "ground",
+      "dragon"
+    ],
+    "hp": 50,
+    "atk": 70,
+    "def": 50,
+    "spa": 50,
+    "spdef": 50,
+    "spd": 70,
+    "bst": 340,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 330,
+    "name_ko": "플라이곤",
+    "name_en": "Flygon",
+    "types": [
+      "ground",
+      "dragon"
+    ],
+    "hp": 80,
+    "atk": 100,
+    "def": 80,
+    "spa": 80,
+    "spdef": 80,
+    "spd": 100,
+    "bst": 520,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 331,
+    "name_ko": "선인왕",
+    "name_en": "Cacnea",
+    "types": [
+      "grass"
+    ],
+    "hp": 50,
+    "atk": 85,
+    "def": 40,
+    "spa": 85,
+    "spdef": 40,
+    "spd": 35,
+    "bst": 335,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 332,
+    "name_ko": "밤선인",
+    "name_en": "Cacturne",
+    "types": [
+      "grass",
+      "dark"
+    ],
+    "hp": 70,
+    "atk": 115,
+    "def": 60,
+    "spa": 115,
+    "spdef": 60,
+    "spd": 55,
+    "bst": 475,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 333,
+    "name_ko": "파비코",
+    "name_en": "Swablu",
+    "types": [
+      "normal",
+      "flying"
+    ],
+    "hp": 45,
+    "atk": 40,
+    "def": 60,
+    "spa": 40,
+    "spdef": 75,
+    "spd": 50,
+    "bst": 310,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 334,
+    "name_ko": "파비코리",
+    "name_en": "Altaria",
+    "types": [
+      "dragon",
+      "flying"
+    ],
+    "hp": 75,
+    "atk": 70,
+    "def": 90,
+    "spa": 70,
+    "spdef": 105,
+    "spd": 80,
+    "bst": 490,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 335,
+    "name_ko": "쟝고",
+    "name_en": "Zangoose",
+    "types": [
+      "normal"
+    ],
+    "hp": 73,
+    "atk": 115,
+    "def": 60,
+    "spa": 60,
+    "spdef": 60,
+    "spd": 90,
+    "bst": 458,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 336,
+    "name_ko": "세비퍼",
+    "name_en": "Seviper",
+    "types": [
+      "poison"
+    ],
+    "hp": 73,
+    "atk": 100,
+    "def": 60,
+    "spa": 100,
+    "spdef": 60,
+    "spd": 65,
+    "bst": 458,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 337,
+    "name_ko": "루나톤",
+    "name_en": "Lunatone",
+    "types": [
+      "rock",
+      "psychic"
+    ],
+    "hp": 90,
+    "atk": 55,
+    "def": 65,
+    "spa": 95,
+    "spdef": 85,
+    "spd": 70,
+    "bst": 460,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 338,
+    "name_ko": "솔록",
+    "name_en": "Solrock",
+    "types": [
+      "rock",
+      "psychic"
+    ],
+    "hp": 90,
+    "atk": 95,
+    "def": 85,
+    "spa": 55,
+    "spdef": 65,
+    "spd": 70,
+    "bst": 460,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 339,
+    "name_ko": "미꾸리",
+    "name_en": "Barboach",
+    "types": [
+      "water",
+      "ground"
+    ],
+    "hp": 50,
+    "atk": 48,
+    "def": 43,
+    "spa": 46,
+    "spdef": 41,
+    "spd": 60,
+    "bst": 288,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 340,
+    "name_ko": "메깅",
+    "name_en": "Whiscash",
+    "types": [
+      "water",
+      "ground"
+    ],
+    "hp": 110,
+    "atk": 78,
+    "def": 73,
+    "spa": 76,
+    "spdef": 71,
+    "spd": 60,
+    "bst": 468,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 341,
+    "name_ko": "가재군",
+    "name_en": "Corphish",
+    "types": [
+      "water"
+    ],
+    "hp": 43,
+    "atk": 80,
+    "def": 65,
+    "spa": 50,
+    "spdef": 35,
+    "spd": 35,
+    "bst": 308,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 342,
+    "name_ko": "가재장군",
+    "name_en": "Crawdaunt",
+    "types": [
+      "water",
+      "dark"
+    ],
+    "hp": 63,
+    "atk": 120,
+    "def": 85,
+    "spa": 90,
+    "spdef": 55,
+    "spd": 55,
+    "bst": 468,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 343,
+    "name_ko": "오뚝군",
+    "name_en": "Baltoy",
+    "types": [
+      "ground",
+      "psychic"
+    ],
+    "hp": 40,
+    "atk": 40,
+    "def": 55,
+    "spa": 40,
+    "spdef": 70,
+    "spd": 55,
+    "bst": 300,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 344,
+    "name_ko": "점토도리",
+    "name_en": "Claydol",
+    "types": [
+      "ground",
+      "psychic"
+    ],
+    "hp": 60,
+    "atk": 70,
+    "def": 105,
+    "spa": 70,
+    "spdef": 120,
+    "spd": 75,
+    "bst": 500,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 345,
+    "name_ko": "릴링",
+    "name_en": "Lileep",
+    "types": [
+      "rock",
+      "grass"
+    ],
+    "hp": 66,
+    "atk": 41,
+    "def": 77,
+    "spa": 61,
+    "spdef": 87,
+    "spd": 23,
+    "bst": 355,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 346,
+    "name_ko": "릴리요",
+    "name_en": "Cradily",
+    "types": [
+      "rock",
+      "grass"
+    ],
+    "hp": 86,
+    "atk": 81,
+    "def": 97,
+    "spa": 81,
+    "spdef": 107,
+    "spd": 43,
+    "bst": 495,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 347,
+    "name_ko": "아노딥스",
+    "name_en": "Anorith",
+    "types": [
+      "rock",
+      "bug"
+    ],
+    "hp": 45,
+    "atk": 95,
+    "def": 50,
+    "spa": 40,
+    "spdef": 50,
+    "spd": 75,
+    "bst": 355,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 348,
+    "name_ko": "아말도",
+    "name_en": "Armaldo",
+    "types": [
+      "rock",
+      "bug"
+    ],
+    "hp": 75,
+    "atk": 125,
+    "def": 100,
+    "spa": 70,
+    "spdef": 80,
+    "spd": 45,
+    "bst": 495,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 349,
+    "name_ko": "빈티나",
+    "name_en": "Feebas",
+    "types": [
+      "water"
+    ],
+    "hp": 20,
+    "atk": 15,
+    "def": 20,
+    "spa": 10,
+    "spdef": 55,
+    "spd": 80,
+    "bst": 200,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 350,
+    "name_ko": "밀로틱",
+    "name_en": "Milotic",
+    "types": [
+      "water"
+    ],
+    "hp": 95,
+    "atk": 60,
+    "def": 79,
+    "spa": 100,
+    "spdef": 125,
+    "spd": 81,
+    "bst": 540,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 351,
+    "name_ko": "캐스퐁",
+    "name_en": "Castform",
+    "types": [
+      "normal"
+    ],
+    "hp": 70,
+    "atk": 70,
+    "def": 70,
+    "spa": 70,
+    "spdef": 70,
+    "spd": 70,
+    "bst": 420,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 352,
+    "name_ko": "켈리몬",
+    "name_en": "Kecleon",
+    "types": [
+      "normal"
+    ],
+    "hp": 60,
+    "atk": 90,
+    "def": 70,
+    "spa": 60,
+    "spdef": 120,
+    "spd": 40,
+    "bst": 440,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 353,
+    "name_ko": "어둠대신",
+    "name_en": "Shuppet",
+    "types": [
+      "ghost"
+    ],
+    "hp": 44,
+    "atk": 75,
+    "def": 35,
+    "spa": 63,
+    "spdef": 33,
+    "spd": 45,
+    "bst": 295,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 354,
+    "name_ko": "다크펫",
+    "name_en": "Banette",
+    "types": [
+      "ghost"
+    ],
+    "hp": 64,
+    "atk": 115,
+    "def": 65,
+    "spa": 83,
+    "spdef": 63,
+    "spd": 65,
+    "bst": 455,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 355,
+    "name_ko": "해골몽",
+    "name_en": "Duskull",
+    "types": [
+      "ghost"
+    ],
+    "hp": 20,
+    "atk": 40,
+    "def": 90,
+    "spa": 30,
+    "spdef": 90,
+    "spd": 25,
+    "bst": 295,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 356,
+    "name_ko": "미라몽",
+    "name_en": "Dusclops",
+    "types": [
+      "ghost"
+    ],
+    "hp": 40,
+    "atk": 70,
+    "def": 130,
+    "spa": 60,
+    "spdef": 130,
+    "spd": 25,
+    "bst": 455,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 357,
+    "name_ko": "트로피우스",
+    "name_en": "Tropius",
+    "types": [
+      "grass",
+      "flying"
+    ],
+    "hp": 99,
+    "atk": 68,
+    "def": 83,
+    "spa": 72,
+    "spdef": 87,
+    "spd": 51,
+    "bst": 460,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 358,
+    "name_ko": "치렁",
+    "name_en": "Chimecho",
+    "types": [
+      "psychic"
+    ],
+    "hp": 75,
+    "atk": 50,
+    "def": 80,
+    "spa": 95,
+    "spdef": 90,
+    "spd": 65,
+    "bst": 455,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 359,
+    "name_ko": "앱솔",
+    "name_en": "Absol",
+    "types": [
+      "dark"
+    ],
+    "hp": 65,
+    "atk": 130,
+    "def": 60,
+    "spa": 75,
+    "spdef": 60,
+    "spd": 75,
+    "bst": 465,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 360,
+    "name_ko": "마자",
+    "name_en": "Wynaut",
+    "types": [
+      "psychic"
+    ],
+    "hp": 95,
+    "atk": 23,
+    "def": 48,
+    "spa": 23,
+    "spdef": 48,
+    "spd": 23,
+    "bst": 260,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 361,
+    "name_ko": "눈꼬마",
+    "name_en": "Snorunt",
+    "types": [
+      "ice"
+    ],
+    "hp": 50,
+    "atk": 50,
+    "def": 50,
+    "spa": 50,
+    "spdef": 50,
+    "spd": 50,
+    "bst": 300,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 362,
+    "name_ko": "얼음귀신",
+    "name_en": "Glalie",
+    "types": [
+      "ice"
+    ],
+    "hp": 80,
+    "atk": 80,
+    "def": 80,
+    "spa": 80,
+    "spdef": 80,
+    "spd": 80,
+    "bst": 480,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 363,
+    "name_ko": "대굴레오",
+    "name_en": "Spheal",
+    "types": [
+      "ice",
+      "water"
+    ],
+    "hp": 70,
+    "atk": 40,
+    "def": 50,
+    "spa": 55,
+    "spdef": 50,
+    "spd": 25,
+    "bst": 290,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 364,
+    "name_ko": "씨레오",
+    "name_en": "Sealeo",
+    "types": [
+      "ice",
+      "water"
+    ],
+    "hp": 90,
+    "atk": 60,
+    "def": 70,
+    "spa": 75,
+    "spdef": 70,
+    "spd": 45,
+    "bst": 410,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 365,
+    "name_ko": "씨카이저",
+    "name_en": "Walrein",
+    "types": [
+      "ice",
+      "water"
+    ],
+    "hp": 110,
+    "atk": 80,
+    "def": 90,
+    "spa": 95,
+    "spdef": 90,
+    "spd": 65,
+    "bst": 530,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 366,
+    "name_ko": "진주몽",
+    "name_en": "Clamperl",
+    "types": [
+      "water"
+    ],
+    "hp": 35,
+    "atk": 64,
+    "def": 85,
+    "spa": 74,
+    "spdef": 55,
+    "spd": 32,
+    "bst": 345,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 367,
+    "name_ko": "헌테일",
+    "name_en": "Huntail",
+    "types": [
+      "water"
+    ],
+    "hp": 55,
+    "atk": 104,
+    "def": 105,
+    "spa": 94,
+    "spdef": 75,
+    "spd": 52,
+    "bst": 485,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 368,
+    "name_ko": "분홍장이",
+    "name_en": "Gorebyss",
+    "types": [
+      "water"
+    ],
+    "hp": 55,
+    "atk": 84,
+    "def": 105,
+    "spa": 114,
+    "spdef": 75,
+    "spd": 52,
+    "bst": 485,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 369,
+    "name_ko": "시라칸",
+    "name_en": "Relicanth",
+    "types": [
+      "water",
+      "rock"
+    ],
+    "hp": 100,
+    "atk": 90,
+    "def": 130,
+    "spa": 45,
+    "spdef": 65,
+    "spd": 55,
+    "bst": 485,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 370,
+    "name_ko": "사랑동이",
+    "name_en": "Luvdisc",
+    "types": [
+      "water"
+    ],
+    "hp": 43,
+    "atk": 30,
+    "def": 55,
+    "spa": 40,
+    "spdef": 65,
+    "spd": 97,
+    "bst": 330,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 371,
+    "name_ko": "아공이",
+    "name_en": "Bagon",
+    "types": [
+      "dragon"
+    ],
+    "hp": 45,
+    "atk": 75,
+    "def": 60,
+    "spa": 40,
+    "spdef": 30,
+    "spd": 50,
+    "bst": 300,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 372,
+    "name_ko": "쉘곤",
+    "name_en": "Shelgon",
+    "types": [
+      "dragon"
+    ],
+    "hp": 65,
+    "atk": 95,
+    "def": 100,
+    "spa": 60,
+    "spdef": 50,
+    "spd": 50,
+    "bst": 420,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 373,
+    "name_ko": "보만다",
+    "name_en": "Salamence",
+    "types": [
+      "dragon",
+      "flying"
+    ],
+    "hp": 95,
+    "atk": 135,
+    "def": 80,
+    "spa": 110,
+    "spdef": 80,
+    "spd": 100,
+    "bst": 600,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 374,
+    "name_ko": "메탕",
+    "name_en": "Beldum",
+    "types": [
+      "steel",
+      "psychic"
+    ],
+    "hp": 40,
+    "atk": 55,
+    "def": 80,
+    "spa": 35,
+    "spdef": 60,
+    "spd": 30,
+    "bst": 300,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 375,
+    "name_ko": "메탕구",
+    "name_en": "Metang",
+    "types": [
+      "steel",
+      "psychic"
+    ],
+    "hp": 60,
+    "atk": 75,
+    "def": 100,
+    "spa": 55,
+    "spdef": 80,
+    "spd": 50,
+    "bst": 420,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 376,
+    "name_ko": "메타그로스",
+    "name_en": "Metagross",
+    "types": [
+      "steel",
+      "psychic"
+    ],
+    "hp": 80,
+    "atk": 135,
+    "def": 130,
+    "spa": 95,
+    "spdef": 90,
+    "spd": 70,
+    "bst": 600,
+    "is_legendary": false,
+    "is_mythical": false
+  },
+  {
+    "id": 377,
+    "name_ko": "레지락",
+    "name_en": "Regirock",
+    "types": [
+      "rock"
+    ],
+    "hp": 80,
+    "atk": 100,
+    "def": 200,
+    "spa": 50,
+    "spdef": 100,
+    "spd": 50,
+    "bst": 580,
+    "is_legendary": true,
+    "is_mythical": false
+  },
+  {
+    "id": 378,
+    "name_ko": "레지아이스",
+    "name_en": "Regice",
+    "types": [
+      "ice"
+    ],
+    "hp": 80,
+    "atk": 50,
+    "def": 100,
+    "spa": 100,
+    "spdef": 200,
+    "spd": 50,
+    "bst": 580,
+    "is_legendary": true,
+    "is_mythical": false
+  },
+  {
+    "id": 379,
+    "name_ko": "레지스틸",
+    "name_en": "Registeel",
+    "types": [
+      "steel"
+    ],
+    "hp": 80,
+    "atk": 75,
+    "def": 150,
+    "spa": 75,
+    "spdef": 150,
+    "spd": 50,
+    "bst": 580,
+    "is_legendary": true,
+    "is_mythical": false
+  },
+  {
+    "id": 380,
+    "name_ko": "라티아스",
+    "name_en": "Latias",
+    "types": [
+      "dragon",
+      "psychic"
+    ],
+    "hp": 80,
+    "atk": 80,
+    "def": 90,
+    "spa": 110,
+    "spdef": 130,
+    "spd": 110,
+    "bst": 600,
+    "is_legendary": true,
+    "is_mythical": false
+  },
+  {
+    "id": 381,
+    "name_ko": "라티오스",
+    "name_en": "Latios",
+    "types": [
+      "dragon",
+      "psychic"
+    ],
+    "hp": 80,
+    "atk": 90,
+    "def": 80,
+    "spa": 130,
+    "spdef": 110,
+    "spd": 110,
+    "bst": 600,
+    "is_legendary": true,
+    "is_mythical": false
+  },
+  {
+    "id": 382,
+    "name_ko": "가이오가",
+    "name_en": "Kyogre",
+    "types": [
+      "water"
+    ],
+    "hp": 100,
+    "atk": 100,
+    "def": 90,
+    "spa": 150,
+    "spdef": 140,
+    "spd": 90,
+    "bst": 670,
+    "is_legendary": true,
+    "is_mythical": false
+  },
+  {
+    "id": 383,
+    "name_ko": "그란돈",
+    "name_en": "Groudon",
+    "types": [
+      "ground"
+    ],
+    "hp": 100,
+    "atk": 150,
+    "def": 140,
+    "spa": 100,
+    "spdef": 90,
+    "spd": 90,
+    "bst": 670,
+    "is_legendary": true,
+    "is_mythical": false
+  },
+  {
+    "id": 384,
+    "name_ko": "레쿠쟈",
+    "name_en": "Rayquaza",
+    "types": [
+      "dragon",
+      "flying"
+    ],
+    "hp": 105,
+    "atk": 150,
+    "def": 90,
+    "spa": 150,
+    "spdef": 90,
+    "spd": 95,
+    "bst": 680,
+    "is_legendary": true,
+    "is_mythical": false
+  },
+  {
+    "id": 385,
+    "name_ko": "지라치",
+    "name_en": "Jirachi",
+    "types": [
+      "steel",
+      "psychic"
+    ],
+    "hp": 100,
+    "atk": 100,
+    "def": 100,
+    "spa": 100,
+    "spdef": 100,
+    "spd": 100,
+    "bst": 600,
+    "is_legendary": false,
+    "is_mythical": true
+  },
+  {
+    "id": 386,
+    "name_ko": "테오키스",
+    "name_en": "Deoxys Normal",
+    "types": [
+      "psychic"
+    ],
+    "hp": 50,
+    "atk": 150,
+    "def": 50,
+    "spa": 150,
+    "spdef": 50,
+    "spd": 150,
+    "bst": 600,
+    "is_legendary": false,
+    "is_mythical": true
+  }
+]

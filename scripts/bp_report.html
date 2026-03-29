@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TG포켓 BP 경제 보고서</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: #0f1117;
+    color: #e4e4e7;
+    min-height: 100vh;
+  }
+  .report {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid #27272a;
+  }
+  .header h1 {
+    font-size: 2rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .header .subtitle {
+    color: #71717a;
+    font-size: 0.9rem;
+  }
+  .header .date {
+    color: #a1a1aa;
+    font-size: 0.85rem;
+    margin-top: 4px;
+  }
+
+  /* KPI Cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .kpi-card {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .kpi-card .label { color: #71717a; font-size: 0.8rem; margin-bottom: 6px; }
+  .kpi-card .value { font-size: 1.6rem; font-weight: 700; color: #fbbf24; }
+  .kpi-card .sub { color: #52525b; font-size: 0.75rem; margin-top: 4px; }
+
+  /* Section */
+  .section {
+    margin-bottom: 48px;
+  }
+  .section h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    padding-left: 12px;
+    border-left: 3px solid #f59e0b;
+    color: #fafafa;
+  }
+  .chart-container {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .chart-wrapper {
+    position: relative;
+    height: 320px;
+  }
+
+  /* Tables */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .data-table th {
+    background: #1f1f23;
+    color: #a1a1aa;
+    font-weight: 500;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid #27272a;
+  }
+  .data-table td {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    border-bottom: 1px solid #27272a;
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .data-table .bp { color: #fbbf24; font-weight: 600; }
+  .data-table .negative { color: #ef4444; }
+  .data-table .positive { color: #22c55e; }
+  .data-table .total-row { background: #1f1f23; font-weight: 700; }
+
+  /* Insights */
+  .insight-box {
+    background: #1c1917;
+    border: 1px solid #44403c;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 16px;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: #d6d3d1;
+  }
+  .insight-box strong { color: #fbbf24; }
+
+  /* Two column */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .footer {
+    text-align: center;
+    color: #3f3f46;
+    font-size: 0.75rem;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #27272a;
+  }
+
+  @media (max-width: 768px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="report">
+
+<div class="header">
+  <h1>💰 TG포켓 BP 경제 보고서</h1>
+  <div class="subtitle">Battle Points 유통·소비 분석</div>
+  <div class="date">2026.02.28 ~ 2026.03.14 (런칭 이후 전체) | 생성: 2026.03.14 KST</div>
+</div>
+
+<!-- KPI Summary -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="label">현재 총 유통량</div>
+    <div class="value">695,450</div>
+    <div class="sub">785명 보유</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">1인당 평균</div>
+    <div class="value">886</div>
+    <div class="sub">보유자 기준</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">누적 생성 (배틀)</div>
+    <div class="value">442,947</div>
+    <div class="sub">12일간 배틀보상</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">가챠 소비</div>
+    <div class="value">128,300</div>
+    <div class="sub">1,288회 (3/14 도입)</div>
+  </div>
+</div>
+
+<!-- Section 1: Daily BP Generation -->
+<div class="section">
+  <h2>📈 일별 BP 생성량 (배틀 보상)</h2>
+  <div class="chart-container">
+    <div class="chart-wrapper">
+      <canvas id="chartBattleBp"></canvas>
+    </div>
+  </div>
+  <div class="insight-box">
+    📊 <strong>배틀 BP 생성 추이 분석</strong><br><br>
+    • <strong>런칭일(3/3)</strong>: 첫날 <strong>51,324 BP</strong> 최대 생성. 224명 동시 가입 + 튜토리얼 배틀 러시 효과.<br>
+    • <strong>안정 구간(3/4~3/12)</strong>: 일 평균 <strong>38,760 BP</strong> 생성. 주말(3/7~8) <strong>52,738 / 48,078 BP</strong>로 평일 대비 30%↑ — 유저 여가시간 집중 배틀.<br>
+    • <strong>하락 구간(3/13~)</strong>: 15,686 → 24,987으로 급감. 원인 복합적:<br>
+    &nbsp;&nbsp;① 마스터볼 구매 급증(568~566개/일) → BP 소진으로 배틀 동기 약화<br>
+    &nbsp;&nbsp;② 3/14 가챠 도입 → 배틀 외 소비처 분산<br>
+    &nbsp;&nbsp;③ 런칭 2주차 자연 이탈 구간 진입<br>
+    • <strong>건강 신호</strong>: 주말 피크 패턴이 일관적 → 핵심 유저층 형성 중. 다만 평일 활성도 바닥(15K) 유지 전략 필요.
+  </div>
+</div>
+
+<!-- Section 2: BP Inflow vs Outflow Stacked -->
+<div class="section">
+  <h2>⚖️ 일별 BP 유입 vs 유출</h2>
+  <div class="chart-container">
+    <div class="chart-wrapper">
+      <canvas id="chartFlow"></canvas>
+    </div>
+  </div>
+  <div class="insight-box">
+    💡 <strong>유입/유출 구조 분석</strong><br><br>
+    <strong>유입 경로 (초록+파랑):</strong><br>
+    • 배틀 보상: 일 30K~50K BP. 핵심 BP 생성 엔진이자 유저 활동의 직접 보상.<br>
+    • 가입 보너스(500BP/인): 런칭 초기 대규모 유입(3/3: 112K). 이후 감소세 → 자연스러운 추이.<br><br>
+    <strong>유출 경로 (빨강+보라):</strong><br>
+    • 상점(빨강): 마스터볼이 지배적. 3/13~14에 마스터볼 구매 폭증(568, 566개) → 일 ~190K 소각.<br>
+    • 가챠(보라): 3/14 도입 즉시 <strong>128,300 BP 소각</strong> — 배틀 생성의 <strong>5.1배</strong>.<br><br>
+    <strong>⚠️ 구조적 문제:</strong> 가챠 도입 전 11일간은 유출 < 유입 → <strong>순인플레 약 480K BP</strong> 누적.
+    가챠가 이를 하루 만에 역전시켰지만, 유저 BP 잔고 급감 시 배틀/소비 의욕 동반 하락 위험.
+    <strong>적정 소각률(배틀 생성의 80~120%)을 목표로 가챠 가격/보상 조절 필요.</strong>
+  </div>
+</div>
+
+<!-- Section 3: Shop Spending -->
+<div class="section">
+  <h2>🛒 BP 상점 일별 소비 추정</h2>
+  <div class="chart-container">
+    <div class="chart-wrapper">
+      <canvas id="chartShop"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Section 4: Tables -->
+<div class="section">
+  <h2>📋 상점 아이템별 누적 소비</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>아이템</th>
+        <th class="num">총 구매 수</th>
+        <th class="num">단가 (BP)</th>
+        <th class="num">총 소비 BP</th>
+        <th class="num">비율</th>
+      </tr>
+    </thead>
+    <tbody id="shopTable"></tbody>
+  </table>
+</div>
+
+<!-- Section 5: Net Flow -->
+<div class="section">
+  <h2>💹 일별 순 BP 변동 (생성 - 소비)</h2>
+  <div class="chart-container">
+    <div class="chart-wrapper">
+      <canvas id="chartNet"></canvas>
+    </div>
+  </div>
+  <div class="insight-box">
+    🔍 <strong>핵심 지표</strong>: 3/3 런칭일에 신규가입 보너스(224명 × 500BP = 112,000)로 대규모 유입.
+    이후 매일 <strong>순유입 30,000~50,000 BP</strong>. 3/14 가챠 도입일에 처음으로 <strong>순유출 -68,143 BP</strong> 전환.
+    <br>→ 가챠가 인플레 억제에 즉각 효과. 다만 지속성 모니터링 필요.
+  </div>
+</div>
+
+<!-- Section 6: BP Distribution & Top Holders -->
+<div class="two-col">
+  <div class="section">
+    <h2>📊 BP 보유 분포</h2>
+    <div class="chart-container">
+      <div class="chart-wrapper">
+        <canvas id="chartDist"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="section">
+    <h2>🏆 BP 보유 Top 10</h2>
+    <table class="data-table">
+      <thead>
+        <tr><th>#</th><th>유저</th><th class="num">BP</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>peterchat7</td><td class="num bp">10,761</td></tr>
+        <tr><td>2</td><td>Aeokumi</td><td class="num bp">7,999</td></tr>
+        <tr><td>3</td><td>plm2000</td><td class="num bp">6,467</td></tr>
+        <tr><td>4</td><td>salryeojuseyo</td><td class="num bp">6,356</td></tr>
+        <tr><td>5</td><td>lastmoney64</td><td class="num bp">5,978</td></tr>
+        <tr><td>6</td><td>Zzzzz6946</td><td class="num bp">5,332</td></tr>
+        <tr><td>7</td><td>phyllrar</td><td class="num bp">5,301</td></tr>
+        <tr><td>8</td><td>MBM_web3</td><td class="num bp">4,699</td></tr>
+        <tr><td>9</td><td>Monkeyhater_123</td><td class="num bp">4,216</td></tr>
+        <tr><td>10</td><td>Turri0630</td><td class="num bp">4,174</td></tr>
+      </tbody>
+      <tfoot>
+        <tr class="total-row"><td colspan="2">Top 10 합계</td><td class="num bp">61,283</td></tr>
+        <tr><td colspan="2" style="color:#71717a">전체 대비 점유율</td><td class="num" style="color:#71717a">8.8%</td></tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<!-- Section 7: Market -->
+<div class="section">
+  <h2>🏪 거래소 BP 유통</h2>
+  <div class="chart-container">
+    <div class="chart-wrapper" style="height:240px">
+      <canvas id="chartMarket"></canvas>
+    </div>
+  </div>
+  <div class="insight-box">
+    🏪 거래소는 BP를 <strong>유저 간 이동</strong>시키는 구조 (총량 불변, 수수료만 소각).
+    누적 <strong>17,668 BP</strong> 거래, <strong>63건</strong>. 3/9 피크(21건, 4,199 BP). 거래소 활성도는 아직 낮은 편.
+  </div>
+</div>
+
+<!-- Section 8: Signup BP -->
+<div class="section">
+  <h2>👥 신규가입 보너스 BP (500 BP/인)</h2>
+  <div class="chart-container">
+    <div class="chart-wrapper" style="height:240px">
+      <canvas id="chartSignup"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="section">
+  <h2>📝 종합 분석</h2>
+  <div class="insight-box" style="font-size:0.9rem; line-height:1.9">
+    <strong>1. BP 인플레이션 현황</strong><br>
+    런칭 12일간 배틀보상으로 <strong>442,947 BP</strong>, 신규가입 보너스로 약 <strong>395,500 BP</strong> (791명 × 500) 생성.
+    총 생성 약 <strong>838,447 BP</strong> 중 현재 잔존 <strong>695,450 BP</strong> (82.9%).
+    상점/가챠로 약 <strong>143,000 BP</strong> 소각(17.1%).<br><br>
+
+    <strong>2. 가챠 효과 (3/14 도입)</strong><br>
+    도입 첫날 <strong>128,300 BP</strong> 소각 (1,288회 뽑기). 이는 당일 배틀 생성의 <strong>5.1배</strong>.
+    가챠가 BP 싱크로서 매우 효과적. 연일 이 수준이면 BP 디플레이션 우려도 있으므로 생성/소비 밸런스 모니터링 필요.<br><br>
+
+    <strong>3. 상점 소비 패턴</strong><br>
+    마스터볼이 상점 소비의 최대 항목. 특히 3/13~14에 마스터볼 구매 급증(568, 566개).
+    강스권(500 BP)은 고가 싱크로 유효. 아케이드 티켓은 꾸준히 20~50개/일 소비.<br><br>
+
+    <strong>4. 경제 건전성 평가</strong><br>
+    현재 1인당 평균 <strong>886 BP</strong>. 마스터볼 4개 분량.
+    Top 10이 전체의 <strong>8.8%</strong> 보유 → 부의 집중도 양호 (상위 편중 심하지 않음).
+    가챠 도입으로 인플레 억제 시작. <strong>향후 1주간 순유통량 추이가 핵심 모니터링 포인트.</strong>
+  </div>
+</div>
+
+<div class="footer">
+  TG포켓 내부 운영 보고서 | 자동 생성 | 2026.03.14
+</div>
+
+</div>
+
+<script>
+Chart.defaults.color = '#a1a1aa';
+Chart.defaults.borderColor = '#27272a';
+Chart.defaults.font.family = "'Noto Sans KR', sans-serif";
+
+const dates = ['03/03','03/04','03/05','03/06','03/07','03/08','03/09','03/10','03/11','03/12','03/13','03/14'];
+
+// Battle BP by date
+const battleBpData = [51324,34668,32310,40918,52738,48078,26542,36178,37106,42220,15686,24987];
+
+// Signup bonus (500 per user)
+const signupBpData = [0,0,112000,26500,19500,37500,40500,14000,16500,13000,15500,12000,4500,6500];
+// Align to dates starting 03/03
+const signupAligned = [112000,26500,19500,37500,40500,14000,16500,13000,15500,12000,4500,6500];
+
+// Gacha BP (only 03/14)
+const gachaBpData = [0,0,0,0,0,0,0,0,0,0,0,128300];
+
+// Shop BP spending (estimated from item counts × prices)
+// Item prices: masterball avg ~333 (progressive), force_spawn=500, pokeball_reset=200,
+// hyper_ball=20 per ball, arcade_ticket=200, gacha_ticket_5=100
+// Note: cnt is total items (not purchases). hyper_ball cnt is individual balls.
+const shopItems = {
+  'masterball': {price: 333, label: '마스터볼'},
+  'force_spawn_ticket': {price: 500, label: '강스권'},
+  'pokeball_reset': {price: 200, label: '볼리셋'},
+  'hyper_ball': {price: 20, label: '하이퍼볼'},
+  'arcade_ticket': {price: 200, label: '아케이드'},
+  'pokeball_100': {price: 0, label: '볼100개(이벤트)'},
+  'gacha_ticket_5': {price: 100, label: '5연뽑권'},
+  'love_hidden_reward': {price: 0, label: '히든보상'},
+};
+// 런칭 이벤트: 3/3에 강스권, 볼리셋이 무료였음
+const eventFreeItems = {'force_spawn_ticket': ['2026-03-03'], 'pokeball_100': ['2026-03-03','2026-03-04']};
+
+const shopRaw = [{"d": "2026-03-03", "item": "arcade_ticket", "cnt": 47}, {"d": "2026-03-03", "item": "force_spawn_ticket", "cnt": 8351}, {"d": "2026-03-03", "item": "hyper_ball", "cnt": 480}, {"d": "2026-03-03", "item": "masterball", "cnt": 143}, {"d": "2026-03-03", "item": "pokeball_100", "cnt": 1098}, {"d": "2026-03-04", "item": "arcade_ticket", "cnt": 31}, {"d": "2026-03-04", "item": "force_spawn_ticket", "cnt": 56}, {"d": "2026-03-04", "item": "hyper_ball", "cnt": 565}, {"d": "2026-03-04", "item": "masterball", "cnt": 88}, {"d": "2026-03-04", "item": "pokeball_100", "cnt": 37}, {"d": "2026-03-04", "item": "pokeball_reset", "cnt": 16}, {"d": "2026-03-05", "item": "arcade_ticket", "cnt": 17}, {"d": "2026-03-05", "item": "force_spawn_ticket", "cnt": 1}, {"d": "2026-03-05", "item": "hyper_ball", "cnt": 526}, {"d": "2026-03-05", "item": "love_hidden_reward", "cnt": 63}, {"d": "2026-03-05", "item": "masterball", "cnt": 75}, {"d": "2026-03-05", "item": "pokeball_reset", "cnt": 13}, {"d": "2026-03-06", "item": "arcade_ticket", "cnt": 20}, {"d": "2026-03-06", "item": "force_spawn_ticket", "cnt": 6}, {"d": "2026-03-06", "item": "hyper_ball", "cnt": 534}, {"d": "2026-03-06", "item": "love_hidden_reward", "cnt": 82}, {"d": "2026-03-06", "item": "masterball", "cnt": 86}, {"d": "2026-03-06", "item": "pokeball_reset", "cnt": 12}, {"d": "2026-03-07", "item": "arcade_ticket", "cnt": 53}, {"d": "2026-03-07", "item": "force_spawn_ticket", "cnt": 5}, {"d": "2026-03-07", "item": "hyper_ball", "cnt": 945}, {"d": "2026-03-07", "item": "love_hidden_reward", "cnt": 98}, {"d": "2026-03-07", "item": "masterball", "cnt": 159}, {"d": "2026-03-07", "item": "pokeball_reset", "cnt": 35}, {"d": "2026-03-08", "item": "arcade_ticket", "cnt": 35}, {"d": "2026-03-08", "item": "force_spawn_ticket", "cnt": 8}, {"d": "2026-03-08", "item": "hyper_ball", "cnt": 559}, {"d": "2026-03-08", "item": "love_hidden_reward", "cnt": 109}, {"d": "2026-03-08", "item": "masterball", "cnt": 165}, {"d": "2026-03-08", "item": "pokeball_reset", "cnt": 36}, {"d": "2026-03-09", "item": "arcade_ticket", "cnt": 24}, {"d": "2026-03-09", "item": "force_spawn_ticket", "cnt": 6}, {"d": "2026-03-09", "item": "hyper_ball", "cnt": 611}, {"d": "2026-03-09", "item": "love_hidden_reward", "cnt": 110}, {"d": "2026-03-09", "item": "masterball", "cnt": 117}, {"d": "2026-03-09", "item": "pokeball_reset", "cnt": 21}, {"d": "2026-03-10", "item": "arcade_ticket", "cnt": 34}, {"d": "2026-03-10", "item": "force_spawn_ticket", "cnt": 3}, {"d": "2026-03-10", "item": "hyper_ball", "cnt": 375}, {"d": "2026-03-10", "item": "love_hidden_reward", "cnt": 102}, {"d": "2026-03-10", "item": "masterball", "cnt": 76}, {"d": "2026-03-10", "item": "pokeball_reset", "cnt": 21}, {"d": "2026-03-11", "item": "arcade_ticket", "cnt": 27}, {"d": "2026-03-11", "item": "force_spawn_ticket", "cnt": 24}, {"d": "2026-03-11", "item": "hyper_ball", "cnt": 271}, {"d": "2026-03-11", "item": "love_hidden_reward", "cnt": 84}, {"d": "2026-03-11", "item": "masterball", "cnt": 71}, {"d": "2026-03-11", "item": "pokeball_reset", "cnt": 23}, {"d": "2026-03-12", "item": "arcade_ticket", "cnt": 44}, {"d": "2026-03-12", "item": "force_spawn_ticket", "cnt": 5}, {"d": "2026-03-12", "item": "hyper_ball", "cnt": 946}, {"d": "2026-03-12", "item": "love_hidden_reward", "cnt": 97}, {"d": "2026-03-12", "item": "masterball", "cnt": 78}, {"d": "2026-03-12", "item": "pokeball_reset", "cnt": 19}, {"d": "2026-03-13", "item": "arcade_ticket", "cnt": 24}, {"d": "2026-03-13", "item": "hyper_ball", "cnt": 187}, {"d": "2026-03-13", "item": "love_hidden_reward", "cnt": 81}, {"d": "2026-03-13", "item": "masterball", "cnt": 568}, {"d": "2026-03-13", "item": "pokeball_reset", "cnt": 5}, {"d": "2026-03-14", "item": "arcade_ticket", "cnt": 29}, {"d": "2026-03-14", "item": "force_spawn_ticket", "cnt": 4}, {"d": "2026-03-14", "item": "gacha_ticket_5", "cnt": 1}, {"d": "2026-03-14", "item": "hyper_ball", "cnt": 137}, {"d": "2026-03-14", "item": "love_hidden_reward", "cnt": 84}, {"d": "2026-03-14", "item": "masterball", "cnt": 566}, {"d": "2026-03-14", "item": "pokeball_reset", "cnt": 7}];
+
+// Aggregate shop by date
+const shopByDate = {};
+const shopItemTotals = {};
+dates.forEach(d => shopByDate[d] = 0);
+
+shopRaw.forEach(r => {
+  const dd = r.d.slice(5).replace('-','/');
+  const item = shopItems[r.item];
+  if (!item) return;
+  // 이벤트 무료 아이템 체크
+  const isFree = (eventFreeItems[r.item] && eventFreeItems[r.item].includes(r.d)) || item.price === 0;
+  const bp = isFree ? 0 : r.cnt * item.price;
+  if (shopByDate[dd] !== undefined) shopByDate[dd] += bp;
+  if (!shopItemTotals[r.item]) shopItemTotals[r.item] = {cnt: 0, bp: 0};
+  shopItemTotals[r.item].cnt += r.cnt;
+  shopItemTotals[r.item].bp += bp;
+});
+
+const shopDailyData = dates.map(d => shopByDate[d] || 0);
+
+// Build shop table
+const tableBody = document.getElementById('shopTable');
+const totalShopBp = Object.values(shopItemTotals).reduce((s,v) => s + v.bp, 0);
+const sortedItems = Object.entries(shopItemTotals).sort((a,b) => b[1].bp - a[1].bp);
+sortedItems.forEach(([key, val]) => {
+  const info = shopItems[key] || {label: key, price: '?'};
+  const pct = ((val.bp / totalShopBp) * 100).toFixed(1);
+  tableBody.innerHTML += `<tr>
+    <td>${info.label}</td>
+    <td class="num">${val.cnt.toLocaleString()}</td>
+    <td class="num">${info.price.toLocaleString()}</td>
+    <td class="num bp">${val.bp.toLocaleString()}</td>
+    <td class="num">${pct}%</td>
+  </tr>`;
+});
+tableBody.innerHTML += `<tr class="total-row">
+  <td colspan="3">합계</td>
+  <td class="num bp">${totalShopBp.toLocaleString()}</td>
+  <td class="num">100%</td>
+</tr>`;
+
+// Net flow: battle + signup bonus - shop - gacha
+const netData = dates.map((d, i) => {
+  return battleBpData[i] + signupAligned[i] - shopDailyData[i] - gachaBpData[i];
+});
+
+// Chart 1: Battle BP
+new Chart(document.getElementById('chartBattleBp'), {
+  type: 'bar',
+  data: {
+    labels: dates,
+    datasets: [{
+      label: '배틀 보상 BP',
+      data: battleBpData,
+      backgroundColor: '#f59e0b88',
+      borderColor: '#f59e0b',
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: {display: false},
+      tooltip: {callbacks: {label: ctx => ctx.parsed.y.toLocaleString() + ' BP'}}
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {callback: v => (v/1000) + 'K'}
+      }
+    }
+  }
+});
+
+// Chart 2: Flow (stacked inflow vs outflow)
+new Chart(document.getElementById('chartFlow'), {
+  type: 'bar',
+  data: {
+    labels: dates,
+    datasets: [
+      {
+        label: '배틀 보상',
+        data: battleBpData,
+        backgroundColor: '#22c55e88',
+        borderColor: '#22c55e',
+        borderWidth: 1,
+        borderRadius: 2,
+        stack: 'inflow',
+      },
+      {
+        label: '가입 보너스',
+        data: signupAligned,
+        backgroundColor: '#3b82f688',
+        borderColor: '#3b82f6',
+        borderWidth: 1,
+        borderRadius: 2,
+        stack: 'inflow',
+      },
+      {
+        label: '상점 소비',
+        data: shopDailyData.map(v => -v),
+        backgroundColor: '#ef444488',
+        borderColor: '#ef4444',
+        borderWidth: 1,
+        borderRadius: 2,
+        stack: 'outflow',
+      },
+      {
+        label: '가챠 소비',
+        data: gachaBpData.map(v => -v),
+        backgroundColor: '#a855f788',
+        borderColor: '#a855f7',
+        borderWidth: 1,
+        borderRadius: 2,
+        stack: 'outflow',
+      },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      tooltip: {callbacks: {label: ctx => ctx.dataset.label + ': ' + Math.abs(ctx.parsed.y).toLocaleString() + ' BP'}}
+    },
+    scales: {
+      y: {
+        ticks: {callback: v => (v >= 0 ? '+' : '') + (v/1000).toFixed(0) + 'K'}
+      },
+      x: {stacked: true}
+    }
+  }
+});
+
+// Chart 3: Shop spending stacked by category
+const shopCats = ['masterball','force_spawn_ticket','hyper_ball','arcade_ticket','pokeball_reset','pokeball_100'];
+const shopColors = ['#f59e0b','#ef4444','#3b82f6','#22c55e','#8b5cf6','#6366f1'];
+const shopCatLabels = ['마스터볼','강스권','하이퍼볼','아케이드','볼리셋','볼100개'];
+const shopCatData = shopCats.map(cat => {
+  return dates.map(d => {
+    const fullDate = '2026-' + d.replace('/','-');
+    const match = shopRaw.find(r => r.d.slice(5).replace('-','/') === d && r.item === cat);
+    if (!match) return 0;
+    const isFree = (eventFreeItems[cat] && eventFreeItems[cat].includes(match.d)) || (shopItems[cat]?.price === 0);
+    return isFree ? 0 : match.cnt * (shopItems[cat]?.price || 0);
+  });
+});
+
+new Chart(document.getElementById('chartShop'), {
+  type: 'bar',
+  data: {
+    labels: dates,
+    datasets: shopCats.map((cat, i) => ({
+      label: shopCatLabels[i],
+      data: shopCatData[i],
+      backgroundColor: shopColors[i] + '88',
+      borderColor: shopColors[i],
+      borderWidth: 1,
+      stack: 'shop',
+    }))
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      tooltip: {callbacks: {label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString() + ' BP'}},
+      legend: {position: 'top', labels: {boxWidth: 12, padding: 8, font: {size: 11}}}
+    },
+    scales: {
+      y: {
+        stacked: true,
+        ticks: {callback: v => (v/1000) + 'K'}
+      },
+      x: {stacked: true}
+    }
+  }
+});
+
+// Chart 4: Net flow
+new Chart(document.getElementById('chartNet'), {
+  type: 'bar',
+  data: {
+    labels: dates,
+    datasets: [{
+      label: '순 BP 변동',
+      data: netData,
+      backgroundColor: netData.map(v => v >= 0 ? '#22c55e88' : '#ef444488'),
+      borderColor: netData.map(v => v >= 0 ? '#22c55e' : '#ef4444'),
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: {display: false},
+      tooltip: {callbacks: {label: ctx => (ctx.parsed.y >= 0 ? '+' : '') + ctx.parsed.y.toLocaleString() + ' BP'}}
+    },
+    scales: {
+      y: {
+        ticks: {callback: v => (v >= 0 ? '+' : '') + (v/1000).toFixed(0) + 'K'}
+      }
+    }
+  }
+});
+
+// Chart 5: BP Distribution
+const distLabels = ['0','1-499','500-999','1K-3K','3K-5K','5K+'];
+const distCounts = [6, 99, 463, 203, 13, 7];
+const distBp = [0, 23291, 258526, 316587, 48852, 48194];
+
+new Chart(document.getElementById('chartDist'), {
+  type: 'doughnut',
+  data: {
+    labels: distLabels,
+    datasets: [{
+      data: distCounts,
+      backgroundColor: ['#3f3f46','#6366f1','#3b82f6','#22c55e','#f59e0b','#ef4444'],
+      borderWidth: 0,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: {position: 'right', labels: {padding: 12, font: {size: 11}}},
+      tooltip: {callbacks: {
+        label: ctx => {
+          const i = ctx.dataIndex;
+          return `${distCounts[i]}명 (${distBp[i].toLocaleString()} BP)`;
+        }
+      }}
+    }
+  }
+});
+
+// Chart 6: Market
+const marketDates = ['03/06','03/07','03/08','03/09','03/10','03/11','03/13','03/14'];
+const marketBp = [199, 1750, 3700, 4199, 2970, 3050, 1500, 300];
+const marketTrades = [1, 7, 7, 21, 16, 9, 1, 1];
+
+new Chart(document.getElementById('chartMarket'), {
+  type: 'bar',
+  data: {
+    labels: marketDates,
+    datasets: [
+      {
+        label: '거래 BP',
+        data: marketBp,
+        backgroundColor: '#8b5cf688',
+        borderColor: '#8b5cf6',
+        borderWidth: 1,
+        borderRadius: 4,
+        yAxisID: 'y',
+      },
+      {
+        label: '거래 건수',
+        data: marketTrades,
+        type: 'line',
+        borderColor: '#fbbf24',
+        backgroundColor: '#fbbf2433',
+        pointRadius: 4,
+        tension: 0.3,
+        yAxisID: 'y1',
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: {position: 'top', labels: {boxWidth: 12, font: {size: 11}}}
+    },
+    scales: {
+      y: {position: 'left', ticks: {callback: v => v.toLocaleString() + ' BP'}},
+      y1: {position: 'right', grid: {display: false}, ticks: {callback: v => v + '건'}}
+    }
+  }
+});
+
+// Chart 7: Signup
+const signupDates = ['02/28','03/01','03/03','03/04','03/05','03/06','03/07','03/08','03/09','03/10','03/11','03/12','03/13','03/14'];
+const signupCounts = [15,140,224,53,39,75,81,28,33,26,31,24,9,13];
+const signupBp2 = signupCounts.map(c => c * 500);
+
+new Chart(document.getElementById('chartSignup'), {
+  type: 'bar',
+  data: {
+    labels: signupDates,
+    datasets: [
+      {
+        label: '가입자 수',
+        data: signupCounts,
+        backgroundColor: '#3b82f688',
+        borderColor: '#3b82f6',
+        borderWidth: 1,
+        borderRadius: 4,
+        yAxisID: 'y',
+      },
+      {
+        label: '보너스 BP',
+        data: signupBp2,
+        type: 'line',
+        borderColor: '#fbbf24',
+        pointRadius: 3,
+        tension: 0.3,
+        yAxisID: 'y1',
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: {position: 'top', labels: {boxWidth: 12, font: {size: 11}}}
+    },
+    scales: {
+      y: {position: 'left', ticks: {callback: v => v + '명'}},
+      y1: {position: 'right', grid: {display: false}, ticks: {callback: v => (v/1000) + 'K BP'}}
+    }
+  }
+});
+</script>
+</body>
+</html>

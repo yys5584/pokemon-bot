@@ -674,6 +674,38 @@ async def api_admin_db_dungeon(request):
 
     total_pages = max(1, (total_runs_count + per_page - 1) // per_page)
 
+    # 액션 로그 통계 (자동배틀 롤백으로 비활성)
+    action_counts = {"normal": 0, "skill1": 0, "skill2": 0, "defend": 0}
+    total_actions = 0
+    action_pct = {}
+
+    # 인기 빌드 Top10 (버프 조합별 평균 도달 층)
+    import json as _json
+    buff_rows = await pool.fetch(
+        "SELECT buffs_json, floor_reached FROM dungeon_runs "
+        "WHERE status = 'completed' AND buffs_json IS NOT NULL AND floor_reached >= 10 "
+        "ORDER BY floor_reached DESC LIMIT 200"
+    )
+    buff_freq = {}
+    for br in buff_rows:
+        try:
+            buffs = br["buffs_json"] if isinstance(br["buffs_json"], list) else _json.loads(br["buffs_json"])
+            key = "+".join(sorted(b.get("id", "") for b in buffs if not b.get("id", "").startswith("_")))
+            if key:
+                if key not in buff_freq:
+                    buff_freq[key] = {"combo": key, "cnt": 0, "total_floor": 0}
+                buff_freq[key]["cnt"] += 1
+                buff_freq[key]["total_floor"] += br["floor_reached"]
+        except Exception:
+            pass
+    top_builds = []
+    for v in buff_freq.values():
+        v["avg_floor"] = round(v["total_floor"] / v["cnt"], 1) if v["cnt"] > 0 else 0
+        del v["total_floor"]
+        top_builds.append(v)
+    top_builds.sort(key=lambda x: -x["avg_floor"])
+    top_builds = top_builds[:10]
+
     return web.json_response({
         "ok": True,
         "stats": {
@@ -685,6 +717,8 @@ async def api_admin_db_dungeon(request):
         "floor_dist": [{"floor": r["floor"], "cnt": r["cnt"]} for r in floor_dist],
         "rarity_stats": [{"rarity": r["rarity"], "cnt": r["cnt"], "avg": float(r["avg"]), "max_f": r["max_f"]} for r in rarity_stats],
         "death_top": [{"name": r["name"], "rarity": r["rarity"], "cnt": r["cnt"]} for r in death_top],
+        "action_stats": {"counts": action_counts, "pct": action_pct, "total": total_actions},
+        "top_builds": top_builds,
         "recent_runs": [{"pokemon": r["pokemon"], "rarity": r["rarity"], "shiny": r["shiny"], "floor": r["floor"], "bp": r["bp"], "ended_at": r["ended_at"].isoformat() if r["ended_at"] else None, "name": r["name"]} for r in recent_runs],
         "page": page,
         "pages": total_pages,

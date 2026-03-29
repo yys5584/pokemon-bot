@@ -74,6 +74,7 @@ async def create_dungeon_run(
     theme: str,
     current_hp: int,
     max_hp: int,
+    is_practice: bool = False,
 ) -> int:
     """Create a new dungeon run. Returns run ID."""
     pool = await get_db()
@@ -81,11 +82,11 @@ async def create_dungeon_run(
         run_id = await pool.fetchval(
             "INSERT INTO dungeon_runs "
             "(user_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny, "
-            "iv_grade, rarity, floor_reached, theme, current_hp, max_hp, status, season_key) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,0,$8,$9,$10,'active',$11) RETURNING id",
+            "iv_grade, rarity, floor_reached, theme, current_hp, max_hp, status, season_key, is_practice) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,0,$8,$9,$10,'active',$11,$12) RETURNING id",
             user_id, pokemon_instance_id, pokemon_id, pokemon_name, is_shiny,
             iv_grade, rarity, theme, current_hp, max_hp,
-            _current_season_key(),
+            _current_season_key(), is_practice,
         )
     except Exception:
         # rarity 컬럼 미존재 시 폴백
@@ -128,18 +129,29 @@ async def get_active_run(user_id: int) -> dict | None:
     d = dict(row)
     if isinstance(d.get("buffs_json"), str):
         d["buffs_json"] = json.loads(d["buffs_json"])
+    if isinstance(d.get("pp_state_json"), str):
+        d["pp_state_json"] = json.loads(d["pp_state_json"])
     return d
 
 
 async def update_run_progress(
-    run_id: int, floor: int, current_hp: int, buffs_json: list
+    run_id: int, floor: int, current_hp: int, buffs_json: list,
+    pp_state: list | None = None,
 ):
     pool = await get_db()
-    await pool.execute(
-        "UPDATE dungeon_runs SET floor_reached = $1, current_hp = $2, "
-        "buffs_json = $3::jsonb WHERE id = $4",
-        floor, current_hp, json.dumps(buffs_json, ensure_ascii=False), run_id,
-    )
+    if pp_state is not None:
+        await pool.execute(
+            "UPDATE dungeon_runs SET floor_reached = $1, current_hp = $2, "
+            "buffs_json = $3::jsonb, pp_state_json = $4::jsonb WHERE id = $5",
+            floor, current_hp, json.dumps(buffs_json, ensure_ascii=False),
+            json.dumps(pp_state, ensure_ascii=False), run_id,
+        )
+    else:
+        await pool.execute(
+            "UPDATE dungeon_runs SET floor_reached = $1, current_hp = $2, "
+            "buffs_json = $3::jsonb WHERE id = $4",
+            floor, current_hp, json.dumps(buffs_json, ensure_ascii=False), run_id,
+        )
 
 
 async def update_run_skips(run_id: int, skips_used: int):
@@ -151,23 +163,50 @@ async def update_run_skips(run_id: int, skips_used: int):
 
 
 async def end_run(run_id: int, floor_reached: int, bp_earned: int, fragments_earned: int,
-                  death_enemy: str = None, death_enemy_rarity: str = None, death_floor: int = None):
+                  death_enemy: str = None, death_enemy_rarity: str = None, death_floor: int = None,
+                  action_log: str = "", rewards_json: dict | None = None):
     pool = await get_db()
+    rj = json.dumps(rewards_json, ensure_ascii=False) if rewards_json else None
     try:
         await pool.execute(
             "UPDATE dungeon_runs SET status = 'completed', floor_reached = $1, "
             "bp_earned = $2, fragments_earned = $3, ended_at = NOW(), "
-            "death_enemy = $5, death_enemy_rarity = $6, death_floor = $7 WHERE id = $4",
+            "death_enemy = $5, death_enemy_rarity = $6, death_floor = $7, "
+            "action_log = $8, rewards_json = $9::jsonb, rewards_granted = FALSE "
+            "WHERE id = $4",
             floor_reached, bp_earned, fragments_earned, run_id,
-            death_enemy, death_enemy_rarity, death_floor,
+            death_enemy, death_enemy_rarity, death_floor, action_log, rj,
         )
     except Exception:
-        # death_enemy 컬럼 미존재 시 폴백
+        # rewards_json/death_enemy 컬럼 미존재 시 폴백
         await pool.execute(
             "UPDATE dungeon_runs SET status = 'completed', floor_reached = $1, "
             "bp_earned = $2, fragments_earned = $3, ended_at = NOW() WHERE id = $4",
             floor_reached, bp_earned, fragments_earned, run_id,
         )
+
+
+async def mark_rewards_granted(run_id: int):
+    """보상 지급 완료 플래그."""
+    pool = await get_db()
+    try:
+        await pool.execute(
+            "UPDATE dungeon_runs SET rewards_granted = TRUE WHERE id = $1", run_id)
+    except Exception:
+        pass  # 컬럼 미존재 시 무시
+
+
+async def get_ungranted_runs() -> list[dict]:
+    """보상 미지급된 완료 런 조회 (봇 재시작 시 복구용)."""
+    pool = await get_db()
+    try:
+        rows = await pool.fetch(
+            "SELECT id, user_id, rewards_json FROM dungeon_runs "
+            "WHERE status = 'completed' AND rewards_granted = FALSE "
+            "AND rewards_json IS NOT NULL AND ended_at > NOW() - INTERVAL '24 hours'")
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
 
 
 async def abandon_run(run_id: int):
@@ -215,6 +254,18 @@ async def get_user_best_floor(user_id: int) -> int:
     pool = await get_db()
     val = await pool.fetchval(
         "SELECT dungeon_best_floor FROM users WHERE user_id = $1", user_id
+    )
+    return val or 0
+
+
+async def get_daily_best_floor(user_id: int) -> int:
+    """오늘 KST 기준 최고 도달 층 (현재 런 제외)."""
+    pool = await get_db()
+    val = await pool.fetchval(
+        "SELECT COALESCE(MAX(floor_reached), 0) FROM dungeon_runs "
+        "WHERE user_id = $1 AND status = 'completed' "
+        "AND started_at >= date_trunc('day', NOW() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul'",
+        user_id,
     )
     return val or 0
 
@@ -325,3 +376,71 @@ def _current_season_key() -> str:
     now = _dt.datetime.now(kst)
     year, week, _ = now.isocalendar()
     return f"W{year}-{week:02d}"
+
+
+def _previous_season_key() -> str:
+    """Previous week's season key."""
+    import datetime as _dt
+    kst = _dt.timezone(_dt.timedelta(hours=9))
+    now = _dt.datetime.now(kst) - _dt.timedelta(days=7)
+    year, week, _ = now.isocalendar()
+    return f"W{year}-{week:02d}"
+
+
+async def get_daily_ranking(date_str: str | None = None, limit: int = 10) -> list[dict]:
+    """특정 날짜(KST)의 최고층 랭킹. date_str: 'YYYY-MM-DD', None=어제."""
+    pool = await get_db()
+    if date_str is None:
+        import datetime as _dt
+        kst = _dt.timezone(_dt.timedelta(hours=9))
+        yesterday = _dt.datetime.now(kst) - _dt.timedelta(days=1)
+        date_str = yesterday.strftime("%Y-%m-%d")
+    rows = await pool.fetch(
+        """SELECT DISTINCT ON (dr.user_id)
+              dr.user_id, u.display_name, dr.floor_reached
+           FROM dungeon_runs dr
+           JOIN users u ON dr.user_id = u.user_id
+           WHERE dr.status = 'completed'
+             AND (dr.ended_at AT TIME ZONE 'Asia/Seoul')::date = $1::date
+           ORDER BY dr.user_id, dr.floor_reached DESC""",
+        date_str,
+    )
+    result = [dict(r) for r in rows]
+    result.sort(key=lambda x: x["floor_reached"], reverse=True)
+    return result[:limit]
+
+
+async def get_previous_week_ranking(limit: int = 30) -> list[dict]:
+    """지난 주 시즌 랭킹."""
+    pool = await get_db()
+    season_key = _previous_season_key()
+    rows = await pool.fetch(
+        """SELECT DISTINCT ON (dr.user_id)
+              dr.user_id, u.display_name, dr.pokemon_name, dr.floor_reached
+           FROM dungeon_runs dr
+           JOIN users u ON dr.user_id = u.user_id
+           WHERE dr.season_key = $1 AND dr.status = 'completed'
+           ORDER BY dr.user_id, dr.floor_reached DESC""",
+        season_key,
+    )
+    result = [dict(r) for r in rows]
+    result.sort(key=lambda x: x["floor_reached"], reverse=True)
+    return result[:limit]
+
+
+async def is_reward_distributed(key: str) -> bool:
+    """보상 분배 완료 여부."""
+    pool = await get_db()
+    row = await pool.fetchrow(
+        "SELECT 1 FROM dungeon_ranking_rewards WHERE season_key = $1", key)
+    return row is not None
+
+
+async def mark_reward_distributed(key: str, reward_type: str = "weekly"):
+    """보상 분배 완료 기록."""
+    pool = await get_db()
+    await pool.execute(
+        """INSERT INTO dungeon_ranking_rewards (season_key, reward_type)
+           VALUES ($1, $2) ON CONFLICT DO NOTHING""",
+        key, reward_type,
+    )

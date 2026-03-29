@@ -17,13 +17,14 @@ from handlers.start import (
     settings_handler, settings_callback_handler,
 )
 from handlers.group import (
-    catch_handler, master_ball_handler, hyper_ball_handler,
+    catch_handler, master_ball_handler, hyper_ball_handler, priority_ball_handler,
     love_easter_egg, love_hidden_handler,
     attendance_handler, daily_money_handler, ranking_handler,
     log_handler, dashboard_handler, room_info_handler,
     my_pokemon_group_handler, on_chat_activity, close_message_callback,
     catch_keep_callback, catch_release_callback,
     shiny_ticket_spawn_handler, group_lang_handler,
+    captcha_callback_handler,
 )
 from handlers.dm_pokedex import (
     pokedex_handler, pokedex_callback,
@@ -57,7 +58,7 @@ from handlers.battle_ranked import (
     auto_ranked_handler,
 )
 from handlers.battle_yacha import (
-    yacha_handler, yacha_type_callback, yacha_amount_callback,
+    yacha_handler,
     yacha_response_callback, yacha_result_callback,
 )
 from handlers.dm_nurture import (
@@ -74,14 +75,17 @@ from handlers.group_trade import group_trade_handler, group_trade_callback_handl
 from handlers.dm_mission import mission_handler
 from handlers.dm_release import release_handler, release_callback
 from handlers.dm_fusion import fusion_handler, fusion_callback
+from handlers.dm_smelting import smelting_handler, smelting_callback
 from handlers.dm_dungeon import dungeon_handler, dungeon_callback
+from handlers.dm_boss import boss_handler, boss_callback
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
-    pokeball_reset_handler,
+    pokeball_reset_handler, abuse_reset_handler, abuse_detail_handler, abuse_list_handler,
     event_start_handler, event_list_handler, event_end_handler, event_dm_callback,
     stats_handler, channel_list_handler, grant_masterball_handler, grant_bp_handler, grant_subscription_handler,
     arcade_handler, tournament_chat_handler, force_tournament_reg_handler, force_tournament_run_handler,
+    mock_tournament_reg_handler, mock_tournament_run_handler, resume_tournament_handler, co_champion_handler,
     manual_subscription_handler, report_handler,
 )
 from handlers.dm_subscription import (
@@ -91,6 +95,7 @@ from handlers.dm_subscription import (
 )
 from handlers.tournament import tournament_join_handler
 from handlers.dm_gacha import gacha_handler, gacha_callback_handler, item_handler, item_callback_handler
+from handlers.dm_cs import dm_cs_start, cs_callback, cs_text_input
 
 try:
     from handlers.camp import (
@@ -148,8 +153,26 @@ async def weather_handler(update, context):
 
 # --- Main registration function ---
 
+from telegram.ext import TypeHandler, ApplicationHandlerStop
+from telegram import Update
+
+
+async def _maintenance_gate(update, context):
+    """점검 모드: 관리자만 통과, 나머지 완전 무응답 (봇 꺼진 것과 동일)."""
+    if not config.MAINTENANCE_MODE:
+        return
+    user = update.effective_user
+    if user and user.id in config.ADMIN_IDS:
+        return
+    # 일반 유저: 아무 응답 없이 차단 — 봇이 꺼진 것처럼 보임
+    raise ApplicationHandlerStop()
+
+
 def register_all_handlers(app):
     """Register all message/callback handlers on the Application."""
+
+    # 점검 모드 게이트 — group=-1로 모든 핸들러보다 먼저 실행
+    app.add_handler(TypeHandler(Update, _maintenance_gate), group=-1)
 
     dm = filters.ChatType.PRIVATE
     group = filters.ChatType.GROUPS
@@ -192,7 +215,9 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🛒\s*)?(거래소|market)$"), market_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(방생|release)$"), release_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(합성|fusion)$"), fusion_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(제련소?|smelting)$"), smelting_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🏰\s*)?(던전|dungeon|地牢)$"), dungeon_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(보스|boss)$"), boss_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(📋\s*|📌\s*)?(미션|mission|任务|任務)$"), mission_handler))
 
     # Subscription / Premium system (DM + Group)
@@ -205,6 +230,12 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(🏷️\s*)?(칭호|title)$"), title_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(📋\s*)?(상태창|status|状态|狀態)$"), status_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(⚙️\s*)?(설정|settings|设置|設定)$"), settings_handler))
+
+    # CS 문의 시스템
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^(📩\s*)?문의$"), dm_cs_start))
+    async def _cs_text_wrapper(update, context):
+        await cs_text_input(update, context)
+    app.add_handler(MessageHandler(dm & filters.TEXT & ~filters.COMMAND, _cs_text_wrapper), group=-3)
 
     # Camp system v2 (DM)
     if HAS_CAMP:
@@ -251,6 +282,10 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회방(등록|해제)$"), tournament_chat_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회시작$"), force_tournament_reg_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회진행$"), force_tournament_run_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^모의대회$"), mock_tournament_reg_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^모의진행$"), mock_tournament_run_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회재개$"), resume_tournament_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^공동우승$"), co_champion_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^구독승인\s+.+$"), manual_subscription_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^!리포트\s+\d{4}$"), report_handler))
 
@@ -300,11 +335,20 @@ def register_all_handlers(app):
 
     # Admin group commands
     app.add_handler(MessageHandler(group & filters.Regex(r"^스폰배율(\s+.+)?$"), spawn_rate_handler))
-    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스\s*$"), force_spawn_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스(\s+.*)?$"), force_spawn_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^\s*강스권\s*$"), ticket_force_spawn_handler))
-    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*이로치\s*강스\s*$"), shiny_ticket_spawn_handler))
+    app.add_handler(MessageHandler(group & filters.Regex(r"^\s*이로치\s*강스(\s+.*)?$"), shiny_ticket_spawn_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*강제스폰 채널 초기화\s*$"), force_spawn_reset_handler))
     app.add_handler(MessageHandler(filters.Regex(r"^\s*포켓볼초기화\s*$"), pokeball_reset_handler))
+    app.add_handler(MessageHandler(filters.Regex(r"^\s*어뷰징초기화(\s+.+)?$"), abuse_reset_handler))
+    app.add_handler(MessageHandler(filters.Regex(r"^\s*어뷰징상세(\s+.+)?$"), abuse_detail_handler))
+    app.add_handler(MessageHandler(filters.Regex(r"^\s*어뷰징\s*$"), abuse_list_handler))
+
+    # "ㅊㅊ" priority ball handler (group only, exact match) — ㅊ보다 먼저 등록
+    app.add_handler(MessageHandler(
+        group & filters.TEXT & filters.Regex(r"^ㅊㅊ$"),
+        priority_ball_handler,
+    ))
 
     # "ㅊ" / "c" catch handler (group only, exact match)
     app.add_handler(MessageHandler(
@@ -357,9 +401,13 @@ def register_all_handlers(app):
 
     # Fusion (합성) callback
     app.add_handler(CallbackQueryHandler(fusion_callback, pattern=r"^fus_"))
+    app.add_handler(CallbackQueryHandler(smelting_callback, pattern=r"^sml_"))
 
     # Dungeon (던전) callback
     app.add_handler(CallbackQueryHandler(dungeon_callback, pattern=r"^dg_"))
+
+    # Boss (주간보스) callback
+    app.add_handler(CallbackQueryHandler(boss_callback, pattern=r"^boss_"))
 
     # Title selection callback
     app.add_handler(CallbackQueryHandler(title_callback, pattern=r"^title_"))
@@ -389,7 +437,7 @@ def register_all_handlers(app):
     # 가챠 (뽑기) callbacks
     app.add_handler(CallbackQueryHandler(gacha_callback_handler, pattern=r"^gacha_"))
     # 아이템 사용 callbacks
-    app.add_handler(CallbackQueryHandler(item_callback_handler, pattern=r"^(item_|ivr_|ivstone_)"))
+    app.add_handler(CallbackQueryHandler(item_callback_handler, pattern=r"^(item_|ivr_|ivstone_|egg_hatch_|sct_|trt_)"))
 
     # Nurture (feed/play/evolve) duplicate selection callbacks
     app.add_handler(CallbackQueryHandler(nurture_callback_handler, pattern=r"^nurt_"))
@@ -407,10 +455,11 @@ def register_all_handlers(app):
     app.add_handler(CallbackQueryHandler(tutorial_callback, pattern=r"^tut_"))
 
     # Yacha (betting battle) callbacks
-    app.add_handler(CallbackQueryHandler(yacha_type_callback, pattern=r"^yc_"))
-    app.add_handler(CallbackQueryHandler(yacha_amount_callback, pattern=r"^ya_"))
     app.add_handler(CallbackQueryHandler(yacha_response_callback, pattern=r"^yacha_"))
     app.add_handler(CallbackQueryHandler(yacha_result_callback, pattern=r"^yres_"))
+
+    # Captcha callbacks
+    app.add_handler(CallbackQueryHandler(captcha_callback_handler, pattern=r"^captcha_"))
 
     # Help navigation callbacks
     app.add_handler(CallbackQueryHandler(help_callback_handler, pattern=r"^help_"))
@@ -428,6 +477,9 @@ def register_all_handlers(app):
     if HAS_CAMP:
         app.add_handler(CallbackQueryHandler(camp_callback_handler, pattern=r"^camp_"))
         app.add_handler(CallbackQueryHandler(camp_dm_callback_handler, pattern=r"^cdm_"))
+
+    # CS 문의 콜백
+    app.add_handler(CallbackQueryHandler(cs_callback, pattern=r"^cs_"))
 
     # Activity tracker — runs for every group text message (handler group -1)
     app.add_handler(

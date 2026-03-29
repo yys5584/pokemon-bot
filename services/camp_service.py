@@ -841,6 +841,55 @@ async def convert_to_shiny(user_id: int, instance_id: int) -> tuple[bool, str, d
     ), info
 
 
+async def convert_to_shiny_by_ticket(user_id: int, instance_id: int) -> tuple[bool, str, dict | None]:
+    """이로치전환권 사용 — 조각/결정 소비 없이 전환 대기 등록.
+    대기시간은 등급별로 동일.
+    """
+    pokemon = await queries.get_user_pokemon_by_id(instance_id)
+    if not pokemon or pokemon.get("user_id") != user_id:
+        return False, "소유하지 않은 포켓몬입니다.", None
+    if pokemon.get("is_shiny"):
+        return False, "이미 이로치입니다.", None
+
+    # 전환권은 에픽 이하만 허용
+    _blocked = {"legendary", "ultra_legendary"}
+    if pokemon.get("rarity", "common") in _blocked:
+        return False, "❌ 이로치전환권은 에픽 등급 이하 포켓몬만 사용할 수 있습니다.", None
+
+    existing = await cq.get_shiny_pending_for_pokemon(instance_id)
+    if existing:
+        return False, "이미 이로치 전환 대기 중입니다.", None
+
+    pokemon_id = pokemon["pokemon_id"]
+    rarity = pokemon.get("rarity") or _pokemon_rarity(pokemon_id)
+    pname = _pokemon_name(pokemon_id)
+    duration_sec = config.CAMP_SHINY_COOLDOWN.get(rarity, 86400)
+
+    from database.connection import get_db
+    pool = await get_db()
+    try:
+        row = await pool.fetchrow(
+            """INSERT INTO camp_shiny_pending
+               (user_id, instance_id, pokemon_id, rarity, completes_at)
+               VALUES ($1, $2, $3, $4, NOW() + make_interval(secs := $5))
+               RETURNING id""",
+            user_id, instance_id, pokemon_id, rarity, float(duration_sec),
+        )
+        pending_id = row["id"]
+    except Exception as e:
+        logger.error("이로치전환권 대기 등록 실패: %s", e)
+        return False, "전환 처리 중 오류가 발생했습니다.", None
+
+    hours = duration_sec // 3600
+    info = {"pokemon_id": pokemon_id, "name": pname, "rarity": rarity,
+            "duration_sec": duration_sec, "pending_id": pending_id}
+    return True, (
+        f"✨ <b>{pname}</b> 이로치 전환 시작! (전환권 사용)\n\n"
+        f"⏰ {hours}시간 후 전환 완료\n\n"
+        f"전환이 완료되면 DM으로 알려드립니다!"
+    ), info
+
+
 async def process_shiny_pendings() -> list[dict]:
     """완료 시각이 지난 pending 건들을 이로치로 전환.
     Returns: [{"user_id", "pokemon_id", "rarity", "name"}] 완료된 건 목록.

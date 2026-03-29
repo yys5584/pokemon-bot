@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3세대 업데이트 요약</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    line-height: 1.7;
+    padding: 40px 20px;
+  }
+  .container {
+    max-width: 880px;
+    margin: 0 auto;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 48px;
+  }
+  h1 {
+    font-size: 2em;
+    color: #58a6ff;
+    margin-bottom: 8px;
+    border-bottom: 2px solid #21262d;
+    padding-bottom: 12px;
+  }
+  h2 {
+    font-size: 1.4em;
+    color: #79c0ff;
+    margin-top: 36px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #21262d;
+    padding-bottom: 8px;
+  }
+  h3 {
+    font-size: 1.15em;
+    color: #d2a8ff;
+    margin-top: 24px;
+    margin-bottom: 10px;
+  }
+  h4 {
+    font-size: 1em;
+    color: #f0883e;
+    margin-top: 18px;
+    margin-bottom: 8px;
+  }
+  p, li {
+    margin-bottom: 6px;
+  }
+  .overview {
+    background: #1c2333;
+    border-left: 4px solid #58a6ff;
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 20px 0;
+    font-size: 1.05em;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.92em;
+  }
+  th {
+    background: #21262d;
+    color: #79c0ff;
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid #30363d;
+    font-weight: 600;
+  }
+  td {
+    padding: 8px 14px;
+    border: 1px solid #30363d;
+    background: #0d1117;
+  }
+  tr:hover td {
+    background: #161b22;
+  }
+  code {
+    background: #1c2333;
+    color: #79c0ff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+    margin: 12px 0;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.9em;
+    color: #e6edf3;
+  }
+  ul {
+    padding-left: 24px;
+    margin: 8px 0;
+  }
+  li {
+    margin-bottom: 4px;
+  }
+  ol {
+    padding-left: 24px;
+    margin: 8px 0;
+  }
+  ol li {
+    margin-bottom: 6px;
+  }
+  .check {
+    color: #3fb950;
+    font-weight: bold;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid #21262d;
+    margin: 32px 0;
+  }
+  strong {
+    color: #e6edf3;
+  }
+  .badge {
+    display: inline-block;
+    background: #238636;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+  .note-box {
+    background: #1c2128;
+    border: 1px solid #f0883e;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .note-box::before {
+    content: "⚠️ ";
+  }
+  .verify-box {
+    background: #122117;
+    border: 1px solid #238636;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .header-meta {
+    color: #8b949e;
+    font-size: 0.9em;
+    margin-bottom: 24px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>🎮 3세대 업데이트 요약</h1>
+  <div class="header-meta">Pokemon Bot — Gen 3 Hoenn Update</div>
+
+  <div class="overview">
+    3세대 포켓몬 <strong>135종</strong>(#252-386)을 봇에 추가. 기존 251종 → <strong>386종</strong> 확장.
+  </div>
+
+  <hr>
+
+  <h2>📁 변경 파일</h2>
+  <table>
+    <thead>
+      <tr><th>파일</th><th>변경 내용</th><th>상태</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>models/pokemon_data.py</code></td><td>Gen3 import 합침 (386종)</td><td class="check">✅</td></tr>
+      <tr><td><code>models/pokemon_base_stats.py</code></td><td>Gen3 base stats merge (386종)</td><td class="check">✅</td></tr>
+      <tr><td><code>models/pokemon_skills.py</code></td><td>Gen3 스킬 135개 추가 (386종)</td><td class="check">✅</td></tr>
+      <tr><td><code>models/pokemon_battle_data.py</code></td><td>Gen3 배틀데이터 135개 추가 (386종)</td><td class="check">✅</td></tr>
+      <tr><td><code>database/seed.py</code></td><td>임계값 251→386</td><td class="check">✅</td></tr>
+      <tr><td><code>config.py</code></td><td>TITLES(386), 호연 칭호 4개, TRADE_MAP</td><td class="check">✅</td></tr>
+      <tr><td><code>utils/title_checker.py</code></td><td>gen2 쿼리 수정 + gen3 쿼리/분기 추가</td><td class="check">✅</td></tr>
+      <tr><td><code>database/queries.py</code></td><td><code>count_pokedex_gen3()</code> + 대시보드 gen3_count</td><td class="check">✅</td></tr>
+      <tr><td><code>handlers/dm_pokedex.py</code></td><td>251→386, 3세대 카운트, TMI 135개</td><td class="check">✅</td></tr>
+      <tr><td><code>dashboard/templates/index.html</code></td><td>251→386, 3세대 컬럼 추가</td><td class="check">✅</td></tr>
+      <tr><td><code>assets/pokemon/252~386.png</code></td><td>스프라이트 135개 다운로드</td><td class="check">✅</td></tr>
+    </tbody>
+  </table>
+
+  <hr>
+
+  <h2>📋 세부 변경 사항</h2>
+
+  <h3>1. 데이터 파일</h3>
+  <ul>
+    <li><code>pokemon_data.py</code>: <code>ALL_POKEMON_GEN3</code> import + 합침</li>
+    <li><code>pokemon_base_stats.py</code>: <code>POKEMON_BASE_STATS_GEN3</code> dict merge</li>
+    <li><code>pokemon_data_gen3.py</code> / <code>pokemon_base_stats_gen3.py</code>: 크롤링 데이터 (이전 세션에서 생성)</li>
+  </ul>
+
+  <h3>2. 배틀 시스템</h3>
+  <ul>
+    <li><code>pokemon_skills.py</code>: 135개 스킬 (원작 대표기술명 한글, 파워 공식 적용)</li>
+    <li><code>pokemon_battle_data.py</code>: 135개 (primary_type, stat_type) 엔트리</li>
+  </ul>
+
+  <h3>3. DB 시딩</h3>
+  <ul>
+    <li><code>seed_pokemon_data()</code> 임계값: 251 → 386</li>
+    <li><code>seed_battle_data()</code>: Gen3 데이터가 POKEMON_BATTLE_DATA에 merge되면 자동 반영</li>
+  </ul>
+
+  <h3>4. 칭호 시스템</h3>
+
+  <h4>호연 칭호 4개 추가</h4>
+  <table>
+    <thead>
+      <tr><th>칭호 ID</th><th>이름</th><th>조건</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>gen3_starter</code></td><td>호연의 초보</td><td>3세대 도감 15종</td></tr>
+      <tr><td><code>gen3_collector</code></td><td>호연 수집가</td><td>3세대 도감 45종</td></tr>
+      <tr><td><code>gen3_trainer</code></td><td>호연 트레이너</td><td>3세대 도감 75종</td></tr>
+      <tr><td><code>gen3_master</code></td><td>호연 마스터</td><td>3세대 도감 135종</td></tr>
+    </tbody>
+  </table>
+
+  <h4>기존 칭호 수정</h4>
+  <ul>
+    <li>그랜드마스터: 251종 → <strong>386종</strong></li>
+  </ul>
+
+  <h4>title_checker.py 버그 수정</h4>
+  <ul>
+    <li>gen2 쿼리: <code>pokemon_id &gt; 151</code> → <code>BETWEEN 152 AND 251</code> (Gen3 포함 방지)</li>
+    <li>gen3 쿼리 추가: <code>BETWEEN 252 AND 386</code></li>
+  </ul>
+
+  <h3>5. 교환 진화</h3>
+  <pre>349 → 350  (빈티나 → 밀로틱)
+366 → 367  (진주몽 → 헌테일)</pre>
+
+  <h3>6. UI 변경</h3>
+  <ul>
+    <li>도감 표시: <code>/251</code> → <code>/386</code></li>
+    <li>세대별 카운트: <code>1세대/2세대</code> → <code>1세대/2세대/3세대</code></li>
+    <li>대시보드 랭킹: 3세대 컬럼 추가</li>
+  </ul>
+
+  <h3>7. 도감 TMI 텍스트</h3>
+  <ul>
+    <li>135개 커뮤 밈/경쟁 메타/애니 레퍼런스 반영</li>
+    <li>주요: 가디안(퍼리), 레쿠쟈(AG 추방), 앱솔(오해), 게을킹(나태 특성) 등</li>
+  </ul>
+
+  <h3>8. 스프라이트</h3>
+  <ul>
+    <li>PokeAPI official-artwork에서 252~386.png 135개 다운로드</li>
+    <li><code>assets/pokemon/</code> 총 386개 완성</li>
+  </ul>
+
+  <hr>
+
+  <h2>⚠️ 참고사항</h2>
+  <div class="note-box">
+    Gen3 칭호 이모지: 임시로 기존 이모지 사용 (나중에 커스텀 이모지 업로드 후 교체)
+  </div>
+  <div class="note-box">
+    원시회귀(Primal) 폼, 메가진화, 테오키스 폼체인지: 미포함 (기본형만)
+  </div>
+
+  <hr>
+
+  <h2>🧪 배포 후 검증</h2>
+  <div class="verify-box">
+    <ol>
+      <li>봇 시작 → pokemon_master <strong>386건</strong> 시드 확인</li>
+      <li>Gen 3 포켓몬 자연 스폰 + 포획</li>
+      <li>진화 (나무지기→나무돌이→나무킹, 빈티나→밀로틱 교환진화)</li>
+      <li>배틀 (Gen 3 종족값 + 스킬 정상 적용)</li>
+      <li>칭호 (호연 칭호, 그랜드마스터 386)</li>
+      <li>도감 UI (386 기준 수집률)</li>
+    </ol>
+  </div>
+
+</div>
+</body>
+</html>

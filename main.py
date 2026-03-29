@@ -112,6 +112,13 @@ async def post_init(application: Application):
         logger.warning(f"Phase 3 cleanup skipped ({e.__class__.__name__})")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Cleanup done")
 
+    # 포획 잠금 DB 복원
+    try:
+        from services.abuse_service import load_locks_from_db
+        await load_locks_from_db()
+    except Exception as e:
+        logger.warning(f"Load catch locks failed: {e}")
+
     # 봇 시작 후 5초 뒤 미해결 세션 resolve (HTTP 초기화 보장)
     async def _delayed_resolve(context):
         from services.spawn_service import resolve_unresolved_sessions
@@ -132,6 +139,33 @@ async def post_init(application: Application):
     application.job_queue.run_once(
         _delayed_resolve, when=15, name="startup_resolve",
         job_kwargs={"misfire_grace_time": None},  # 절대 스킵 방지
+    )
+
+    # 던전 미지급 보상 복구 (20초 후)
+    async def _recover_dungeon_rewards(context):
+        from handlers.dm_dungeon import recover_ungranted_rewards
+        recovered = await recover_ungranted_rewards()
+        if recovered:
+            logger.info(f"[startup] Dungeon rewards recovered: {recovered}")
+
+    application.job_queue.run_once(
+        _recover_dungeon_rewards, when=20, name="startup_dungeon_recover",
+        job_kwargs={"misfire_grace_time": None},
+    )
+
+    # 관리자에게 봇 재시작 알림 (10초 후)
+    async def _notify_admin_restart(context):
+        try:
+            await context.bot.send_message(
+                chat_id=config.ADMIN_IDS[0],
+                text="🔄 봇이 재시작되었습니다.",
+            )
+            logger.info(f"Admin restart notify sent to {config.ADMIN_IDS[0]}")
+        except Exception as e:
+            logger.error(f"Admin restart notify failed: {e}")
+
+    application.job_queue.run_once(
+        _notify_admin_restart, when=60, name="admin_restart_notify",
     )
 
     # 던전 진행 중 유저에게 재시작 안내 (봇 시작 20초 후)

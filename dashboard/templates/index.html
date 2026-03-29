@@ -10,8 +10,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        :root{--bg:#F5F5F5;--card:#FFFFFF;--border:#EEEEEE;--hover:#FAFAFA;--text:#212121;--muted:#757575;--dim:#BDBDBD;--red:#E53935;--green:#2E7D32;--blue:#1565C0;--purple:#7B1FA2;--gold:#F9A825;--orange:#E65100;--accent:#FFCB05;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-hover:0 8px 24px rgba(0,0,0,.1)}
-        body{font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;-webkit-font-smoothing:antialiased}
+        :root{--bg:#F5F5F5;--card:#FFFFFF;--border:#EEEEEE;--hover:#FAFAFA;--text:#212121;--muted:#757575;--dim:#BDBDBD;--red:#E53935;--green:#2E7D32;--blue:#1565C0;--purple:#7B1FA2;--gold:#F9A825;--orange:#E65100;--accent:#FFCB05;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-hover:0 8px 24px rgba(0,0,0,.1);--input-bg:#F0F0F0;--tooltip-bg:#FFFFFF;--nav-bg:#FFFFFF;--nav-text:#9E9E9E;--nav-active:#212121;--nav-dropdown-bg:#FFFFFF;--nav-dropdown-border:#eeeeee;--modal-bg:#FFFFFF;--table-hover:#FAFAFA;--table-border:#F0F0F0;--table-border-light:#F5F5F5;--dex-caught:#E8F5E9;--dex-uncaught:#FAFAFA;--dex-uncaught-text:#9E9E9E;--chat-ai-bg:#F5F5F5;--chat-typing-bg:#f0ebe0;--tmi-bg:#FFF8E1;--tmi-text:#5D4037}
+        [data-theme="dark"]{--bg:#181A20;--card:#1E2028;--border:#2A2D37;--hover:#252830;--text:#E0E0E0;--muted:#8B8FA3;--dim:#555970;--red:#EF5350;--green:#66BB6A;--blue:#42A5F5;--purple:#AB47BC;--gold:#FFD54F;--orange:#FF9800;--accent:#FFCB05;--shadow:0 1px 4px rgba(0,0,0,.2);--shadow-hover:0 8px 24px rgba(0,0,0,.3);--input-bg:#252830;--tooltip-bg:#2A2D37;--nav-bg:#1E2028;--nav-text:#8B8FA3;--nav-active:#E0E0E0;--nav-dropdown-bg:#252830;--nav-dropdown-border:#2A2D37;--modal-bg:#1E2028;--table-hover:#252830;--table-border:#2A2D37;--table-border-light:#232630;--dex-caught:#1B3A1E;--dex-uncaught:#1A1C24;--dex-uncaught-text:#555970;--chat-ai-bg:#252830;--chat-typing-bg:#2A2D37;--tmi-bg:#2A2518;--tmi-text:#D4B896}
+        body{font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
 
         /* Header */
         .header{background:#E53935;padding:10px 20px;border-bottom:none;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.08)}
@@ -31,16 +32,16 @@
 
         /* My Pokemon Page */
         .poke-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
-        .poke-filter{padding:6px 16px;border:none;border-radius:20px;background:#F0F0F0;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1)}
-        .poke-filter:hover{color:var(--text);background:#E8E8E8}
+        .poke-filter{padding:6px 16px;border:none;border-radius:20px;background:var(--input-bg);color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1)}
+        .poke-filter:hover{color:var(--text);background:var(--hover)}
         .poke-filter.active{background:var(--red);color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(229,57,53,.25)}
         .poke-select{padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12px;cursor:pointer}
         .poke-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:8px}
         .dex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px}
         .dex-cell{padding:4px 6px;border-radius:8px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:4px;border:none;background:var(--card);transition:all .2s cubic-bezier(.4,0,.2,1);box-shadow:0 1px 2px rgba(0,0,0,.04)}
         .dex-cell:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.08)}
-        .dex-cell.caught{background:#E8F5E9}
-        .dex-cell.uncaught{background:#FAFAFA;color:#9E9E9E}
+        .dex-cell.caught{background:var(--dex-caught)}
+        .dex-cell.uncaught{background:var(--dex-uncaught);color:var(--dex-uncaught-text)}
         .dex-cell.ultra_legendary.caught{background:linear-gradient(135deg,#FFCDD2,#EF9A9A)}
         .dex-cell.legendary.caught{background:linear-gradient(135deg,#FFF9C4,#FFF176)}
         .dex-cell.epic.caught{background:linear-gradient(135deg,#E1BEE7,#CE93D8)}
@@ -55,26 +56,26 @@
         .dex-modal-overlay.visible{display:flex}
         @keyframes dexFadeIn{from{opacity:0}to{opacity:1}}
         @keyframes dexSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-        .dex-modal{background:#fff;border-radius:20px;max-width:480px;width:92%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:dexSlideUp .25s cubic-bezier(.4,0,.2,1);position:relative}
+        .dex-modal{background:var(--modal-bg);border-radius:20px;max-width:480px;width:92%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:dexSlideUp .25s cubic-bezier(.4,0,.2,1);position:relative}
         .dex-modal-header{display:flex;align-items:center;gap:16px;padding:24px 24px 0}
-        .dex-modal-sprite{width:120px;height:120px;border-radius:16px;background:#F8F8F8;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .dex-modal-sprite{width:120px;height:120px;border-radius:16px;background:var(--input-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0}
         .dex-modal-sprite img{width:96px;height:96px;image-rendering:pixelated}
         .dex-modal-sprite.uncaught{filter:brightness(0) opacity(.15)}
         .dex-modal-info{flex:1;min-width:0}
         .dex-modal-name{font-size:20px;font-weight:800;color:var(--text)}
         .dex-modal-sub{font-size:12px;color:var(--muted);margin-top:2px}
         .dex-modal-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-        .dex-modal-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border:none;background:#F0F0F0;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--muted)}
+        .dex-modal-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border:none;background:var(--input-bg);border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--muted)}
         .dex-modal-close:hover{background:var(--red);color:#fff}
         .dex-modal-body{padding:16px 24px 24px}
-        .dex-modal-tmi{background:#FFF8E1;border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.7;color:#5D4037;margin-bottom:16px}
+        .dex-modal-tmi{background:var(--tmi-bg);border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.7;color:var(--tmi-text);margin-bottom:16px}
         .dex-modal-tmi::before{content:"💡 ";font-size:13px}
         .dex-modal-section{margin-bottom:16px}
         .dex-modal-section-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
         .dm-stats{display:flex;flex-direction:column;gap:6px}
         .dm-stat{display:flex;align-items:center;gap:8px}
         .dm-stat-name{font-size:11px;color:var(--muted);min-width:28px;font-weight:600}
-        .dm-stat-bar{flex:1;height:8px;background:#F0F0F0;border-radius:4px;overflow:hidden}
+        .dm-stat-bar{flex:1;height:8px;background:var(--input-bg);border-radius:4px;overflow:hidden}
         .dm-stat-fill{height:100%;border-radius:4px;transition:width .5s cubic-bezier(.4,0,.2,1)}
         .dm-stat-val{font-size:12px;font-weight:700;min-width:28px;text-align:right}
         .dm-evo{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;font-weight:500}
@@ -110,13 +111,13 @@
         .iv-s{background:#FFCDD2;color:#B71C1C}.iv-a{background:#FFE0B2;color:#BF360C}.iv-b{background:#BBDEFB;color:#0D47A1}.iv-c{background:#C8E6C9;color:#1B5E20}.iv-d{background:#E0E0E0;color:#424242}
         .synergy-badge{padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;position:relative;cursor:help;border:none}
         .synergy-perfect{background:#EDE7F6;color:#6A1B9A}.synergy-great{background:#E8F5E9;color:#2E7D32}.synergy-normal{background:#E3F2FD;color:#1565C0}.synergy-poor{background:#F5F5F5;color:#757575}
-        .synergy-tip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#fff;color:var(--text);padding:10px 12px;border-radius:10px;font-size:11px;white-space:normal;z-index:100;font-weight:400;line-height:1.6;min-width:210px;max-width:270px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.15)}
-        .synergy-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#fff}
+        .synergy-tip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--tooltip-bg);color:var(--text);padding:10px 12px;border-radius:10px;font-size:11px;white-space:normal;z-index:100;font-weight:400;line-height:1.6;min-width:210px;max-width:270px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.15);border:1px solid var(--border)}
+        .synergy-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--tooltip-bg)}
         .synergy-badge:hover .synergy-tip{display:block}
         .poke-type-icon{width:16px;height:16px;border-radius:3px;vertical-align:middle}
         .type-hover{position:relative;display:inline-block;cursor:help}
-        .type-tip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#fff;color:var(--text);padding:10px 12px;border-radius:10px;font-size:11px;white-space:normal;z-index:100;font-weight:400;line-height:1.6;min-width:180px;max-width:260px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.15)}
-        .type-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#fff}
+        .type-tip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--tooltip-bg);color:var(--text);padding:10px 12px;border-radius:10px;font-size:11px;white-space:normal;z-index:100;font-weight:400;line-height:1.6;min-width:180px;max-width:260px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.15);border:1px solid var(--border)}
+        .type-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--tooltip-bg)}
         .type-hover:hover .type-tip{display:block}
         .poke-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px 8px;margin-top:4px;font-size:11px}
         .poke-stat{display:flex;align-items:center;overflow:hidden}
@@ -124,15 +125,15 @@
         .poke-stat-right{text-align:right;white-space:nowrap;flex-shrink:0}
         .poke-stat-val{font-weight:700;font-size:11px;color:#3A2A18}
         .poke-stat-iv{color:#1B5E20;font-size:10px;font-weight:600;margin-left:1px}
-        .poke-stat-bar{flex:1;height:4px;background:#EEEEEE;border-radius:2px;margin:0 3px;min-width:8px}
+        .poke-stat-bar{flex:1;height:4px;background:var(--border);border-radius:2px;margin:0 3px;min-width:8px}
         .poke-stat-fill{height:100%;border-radius:2px}
         .poke-power{display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:1px solid rgba(0,0,0,.12)}
         .poke-power-label{color:var(--muted);font-size:10px}
         .poke-power-val{font-size:14px;font-weight:700;color:var(--red)}
         .poke-power-diff{font-size:10px;color:var(--green);margin-left:3px}
         .poke-pg{display:flex;justify-content:center;align-items:center;gap:4px;margin-top:8px;flex-wrap:wrap}
-        .poke-pg-btn{min-width:28px;height:28px;border:none;border-radius:8px;background:#F0F0F0;color:var(--text);font-size:11px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);font-weight:600}
-        .poke-pg-btn:hover:not(:disabled):not(.active){background:#E0E0E0}
+        .poke-pg-btn{min-width:28px;height:28px;border:none;border-radius:8px;background:var(--input-bg);color:var(--text);font-size:11px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);font-weight:600}
+        .poke-pg-btn:hover:not(:disabled):not(.active){background:var(--hover)}
         .poke-pg-btn.active{background:var(--red);color:#fff;box-shadow:0 2px 8px rgba(229,57,53,.25)}
         .poke-pg-btn:disabled{opacity:.3;cursor:default}
         .auth-wall{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center}
@@ -149,7 +150,7 @@
         .chat-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
         .chat-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.6;animation:chatIn .3s ease}
         @keyframes chatIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        .chat-msg.ai{align-self:flex-start;background:#F5F5F5;color:var(--text);border-bottom-left-radius:4px}
+        .chat-msg.ai{align-self:flex-start;background:var(--chat-ai-bg);color:var(--text);border-bottom-left-radius:4px}
         .chat-msg.user{align-self:flex-end;background:var(--red);color:#fff;border-bottom-right-radius:4px}
         .chat-msg.ai .chat-sender{font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px}
         .chat-msg.user .chat-sender{font-size:11px;font-weight:600;color:rgba(255,255,255,.8);margin-bottom:4px}
@@ -157,42 +158,52 @@
         .chat-msg.ai .chat-warning{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:5px 8px;font-size:11px;color:#856404;margin-top:6px}
         .chat-msg.ai .chat-meta{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0;font-size:11px;color:var(--muted)}
         .chat-msg.ai .chat-meta b{color:var(--text)}
-        .chat-typing{align-self:flex-start;padding:10px 18px;background:#f0ebe0;border-radius:12px;border-bottom-left-radius:4px}
+        .chat-typing{align-self:flex-start;padding:10px 18px;background:var(--chat-typing-bg);border-radius:12px;border-bottom-left-radius:4px}
         .chat-typing span{display:inline-block;width:6px;height:6px;background:var(--muted);border-radius:50%;animation:typing 1.2s infinite;margin:0 2px}
         .chat-typing span:nth-child(2){animation-delay:.2s}
         .chat-typing span:nth-child(3){animation-delay:.4s}
         @keyframes typing{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
         .chat-quick{display:flex;gap:6px;padding:8px 14px;flex-wrap:wrap;border-top:none;background:var(--bg)}
-        .chat-quick-btn{padding:6px 12px;border:none;border-radius:16px;background:#F0F0F0;color:var(--text);font-size:11px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);white-space:nowrap}
-        .chat-quick-btn:hover{color:var(--red);background:#FFE8E8}
+        .chat-quick-btn{padding:6px 12px;border:none;border-radius:16px;background:var(--input-bg);color:var(--text);font-size:11px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);white-space:nowrap}
+        .chat-quick-btn:hover{color:var(--red);background:var(--hover)}
         .chat-quick-btn.ai-btn{color:#7B1FA2;background:#F3E5F5}
         .chat-quick-btn.ai-btn:hover{background:#E1BEE7;color:#6A1B9A}
         .chat-input-area{display:flex;gap:8px;padding:10px 14px;border-top:none;background:var(--card)}
-        .chat-input{flex:1;border:none;border-radius:20px;padding:8px 16px;font-size:13px;background:#F0F0F0;color:var(--text);outline:none;transition:all .2s;font-family:inherit}
-        .chat-input:focus{background:#E8E8E8;box-shadow:0 0 0 2px rgba(229,57,53,.15)}
+        .chat-input{flex:1;border:none;border-radius:20px;padding:8px 16px;font-size:13px;background:var(--input-bg);color:var(--text);outline:none;transition:all .2s;font-family:inherit}
+        .chat-input:focus{background:var(--hover);box-shadow:0 0 0 2px rgba(229,57,53,.15)}
         .chat-input::placeholder{color:var(--dim)}
         .chat-send{width:36px;height:36px;border:none;border-radius:50%;background:var(--red);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:16px}
         .chat-send:hover{background:#C62828;box-shadow:0 2px 8px rgba(229,57,53,.3)}
         .chat-send:disabled{opacity:.5;cursor:not-allowed;transform:none}
-        .sess-tab{padding:4px 10px;border:none;border-radius:14px;font-size:11px;cursor:pointer;background:#F0F0F0;color:var(--muted);white-space:nowrap;transition:all .2s cubic-bezier(.4,0,.2,1);max-width:120px;overflow:hidden;text-overflow:ellipsis}
+        .sess-tab{padding:4px 10px;border:none;border-radius:14px;font-size:11px;cursor:pointer;background:var(--input-bg);color:var(--muted);white-space:nowrap;transition:all .2s cubic-bezier(.4,0,.2,1);max-width:120px;overflow:hidden;text-overflow:ellipsis}
         .sess-tab.active{background:var(--red);color:#fff;font-weight:700;box-shadow:0 2px 6px rgba(229,57,53,.25)}
-        .sess-tab:hover:not(.active){background:#E0E0E0;color:var(--text)}
+        .sess-tab:hover:not(.active){background:var(--hover);color:var(--text)}
         .sess-tab-new{padding:4px 8px;border:1px dashed #D0D0D0;border-radius:14px;font-size:13px;cursor:pointer;background:transparent;color:var(--muted);transition:all .2s}
         .sess-tab-new:hover{border-color:var(--red);color:var(--red)}
         .sess-tab-del{font-size:10px;margin-left:2px;color:inherit;opacity:.6;cursor:pointer}
         .sess-tab-del:hover{opacity:1}
 
         /* Tab Navigation */
-        .nav{display:flex;gap:0;background:#fff;border-bottom:none;overflow-x:auto;scrollbar-width:none;padding:0 12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+        .nav{display:flex;gap:0;background:var(--nav-bg);border-bottom:none;overflow:visible;scrollbar-width:none;padding:0 12px;box-shadow:0 1px 2px rgba(0,0,0,.04);position:relative;z-index:50}
         .nav::-webkit-scrollbar{display:none}
-        .nav-tab{padding:12px 20px;cursor:pointer;font-size:14px;font-weight:500;color:#9E9E9E;border-bottom:3px solid transparent;white-space:nowrap;transition:all .2s cubic-bezier(.4,0,.2,1)}
-        .nav-tab:hover{color:#212121}
-        .nav-tab.active{color:#212121;font-weight:700;border-bottom-color:#E53935}
+        .nav-tab{padding:12px 20px;cursor:pointer;font-size:14px;font-weight:500;color:var(--nav-text);border-bottom:3px solid transparent;white-space:nowrap;transition:all .2s cubic-bezier(.4,0,.2,1)}
+        .nav-tab:hover{color:var(--nav-active)}
+        .nav-tab.active{color:var(--nav-active);font-weight:700;border-bottom-color:#E53935}
+        .nav-group{position:relative;display:inline-flex;align-items:center}
+        .nav-group-label{padding:12px 20px;cursor:pointer;font-size:14px;font-weight:500;color:var(--nav-text);white-space:nowrap;transition:all .2s;border-bottom:3px solid transparent;user-select:none}
+        .nav-group-label:hover{color:var(--nav-active)}
+        .nav-group.has-active>.nav-group-label{color:var(--nav-active);font-weight:700;border-bottom-color:#E53935}
+        .nav-dropdown{display:none;position:absolute;top:100%;left:0;background:var(--nav-dropdown-bg);border:1px solid var(--nav-dropdown-border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:100;min-width:160px;padding:6px 0}
+        .nav-group.open .nav-dropdown{display:block}
+        @media(hover:hover){.nav-group:hover .nav-dropdown{display:block}}
+        .nav-dropdown .nav-tab{display:block;padding:10px 20px;border-bottom:none;font-size:13px}
+        .nav-dropdown .nav-tab:hover{background:var(--hover)}
+        .nav-dropdown .nav-tab.active{color:#E53935;font-weight:700;background:var(--hover)}
 
         /* Rank Filters */
         .rank-filters{display:flex;gap:6px;margin-bottom:8px}
-        .rank-filter{padding:5px 14px;border:none;border-radius:20px;background:#F0F0F0;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1)}
-        .rank-filter:hover{color:var(--text);background:#E8E8E8}
+        .rank-filter{padding:5px 14px;border:none;border-radius:20px;background:var(--input-bg);color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1)}
+        .rank-filter:hover{color:var(--text);background:var(--hover)}
         .rank-filter.active{background:var(--red);color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(229,57,53,.25)}
 
         /* Container */
@@ -235,9 +246,9 @@
 
         /* Tables */
         table{width:100%;border-collapse:collapse}
-        th{text-align:left;padding:6px 8px;border-bottom:2px solid #F0F0F0;color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase}
-        td{padding:5px 8px;border-bottom:1px solid #F5F5F5;font-size:13px}
-        tr:hover td{background:#FAFAFA;transition:background .15s}
+        th{text-align:left;padding:6px 8px;border-bottom:2px solid var(--table-border);color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase}
+        td{padding:5px 8px;border-bottom:1px solid var(--table-border-light);font-size:13px}
+        tr:hover td{background:var(--table-hover);transition:background .15s}
 
         /* Badges */
         .badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
@@ -384,6 +395,7 @@
             .cards{grid-template-columns:repeat(2,1fr)}
             .container{padding:8px 6px}
             .nav-tab{padding:8px 14px;font-size:12px}
+            .nav-group-label{padding:8px 14px;font-size:12px}
             .header h1{font-size:15px}
             .header-logo{width:22px;height:22px}
             .hide-m{display:none}
@@ -537,6 +549,12 @@
         .skill-tip-divider{border-top:1px solid #333;margin:5px 0}
         .skill-tip-desc{font-size:10px;color:#aaa;margin-top:4px;line-height:1.5}
         .guide-card code{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid var(--border)}
+        #csTable{table-layout:fixed}
+        #csTable td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        #csTable th:nth-child(1){width:30px}#csTable th:nth-child(2){width:55px}#csTable th:nth-child(5){width:50px}#csTable th:nth-child(6){width:55px}
+        .cs-filter{padding:6px 14px;border:1px solid var(--border);border-radius:16px;background:var(--card);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+        .cs-filter:hover{background:var(--border)}
+        .cs-filter.active{background:#58a6ff;color:#fff;border-color:#58a6ff}
         .board-side-item{padding:8px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;transition:background .15s}
         .board-side-item:hover{background:var(--border)}
         .board-side-item.active{background:#58a6ff22;color:#58a6ff}
@@ -658,12 +676,12 @@
 
         /* Ranked table */
         .ranked-tbl{width:100%;border-collapse:collapse}
-        .ranked-tbl th{text-align:left;padding:8px 6px;border-bottom:2px solid #F0F0F0;color:var(--muted);font-size:11px;font-weight:600;white-space:nowrap}
-        .ranked-tbl td{padding:6px;border-bottom:1px solid #F8F8F8;font-size:13px;vertical-align:middle}
+        .ranked-tbl th{text-align:left;padding:8px 6px;border-bottom:2px solid var(--table-border);color:var(--muted);font-size:11px;font-weight:600;white-space:nowrap}
+        .ranked-tbl td{padding:6px;border-bottom:1px solid var(--table-border-light);font-size:13px;vertical-align:middle}
         .ranked-tier-tip{position:relative;cursor:default}
         .ranked-tier-tip:hover::after{content:attr(data-tip);position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 6px);background:#222;color:#fff;padding:4px 10px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:10;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
         .ranked-tier-tip:hover::before{content:'';position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 2px);border:4px solid transparent;border-top-color:#222;z-index:10;pointer-events:none}
-        .ranked-tbl tr:hover td{background:#FAFAFA}
+        .ranked-tbl tr:hover td{background:var(--table-hover)}
         .ranked-tbl .rk-medal{font-size:16px}
         .show-m{display:none}
 
@@ -745,12 +763,93 @@
             .season-timeline{flex-wrap:wrap}
             .stl-segment{min-width:60px}
         }
+        /* ─── Dark Mode Overrides ─── */
+        [data-theme="dark"] .poke-card.ultra_legendary{background:linear-gradient(135deg,#2A1818,#3A2020)}
+        [data-theme="dark"] .poke-card.legendary{background:linear-gradient(135deg,#2A2610,#332D14)}
+        [data-theme="dark"] .poke-card.epic{background:linear-gradient(135deg,#221828,#261C30)}
+        [data-theme="dark"] .poke-card.rare{background:linear-gradient(135deg,#182030,#1C2038)}
+        [data-theme="dark"] .poke-card.shiny{background:linear-gradient(135deg,#2A2418,#2E2020,#223020,#1C2830,#261C30,#2E2218,#2A2418);background-size:300% 300%}
+        [data-theme="dark"] .dex-cell.ultra_legendary.caught{background:linear-gradient(135deg,#2A1818,#3A2020)}
+        [data-theme="dark"] .dex-cell.legendary.caught{background:linear-gradient(135deg,#2A2610,#332D14)}
+        [data-theme="dark"] .dex-cell.epic.caught{background:linear-gradient(135deg,#221828,#261C30)}
+        [data-theme="dark"] .mkt-card.ultra_legendary{background:linear-gradient(135deg,#2A1818,#3A2020);border-color:#3A2020}
+        [data-theme="dark"] .mkt-card.legendary{background:linear-gradient(135deg,#2A2610,#332D14);border-color:#332D14}
+        [data-theme="dark"] .mkt-card.epic{background:linear-gradient(135deg,#221828,#261C30);border-color:#261C30}
+        [data-theme="dark"] .mkt-card.rare{background:linear-gradient(135deg,#182030,#1C2038);border-color:#1C2038}
+        [data-theme="dark"] .mkt-card.common,[data-theme="dark"] .mkt-card:not(.ultra_legendary):not(.legendary):not(.epic):not(.rare):not(.shiny){background:linear-gradient(135deg,#252218,#2A261E);border-color:#2A261E}
+        [data-theme="dark"] .mkt-card{border-color:var(--border)}
+        [data-theme="dark"] .mkt-modal{background:var(--card)}
+        [data-theme="dark"] .mkt-card .mkt-time{color:var(--muted)}
+        [data-theme="dark"] .mkt-card .mkt-seller{color:var(--muted)}
+        [data-theme="dark"] .poke-stat-name{color:var(--muted)}
+        [data-theme="dark"] .poke-stat-val{color:var(--text)}
+        [data-theme="dark"] .poke-stat-iv{color:var(--green)}
+        [data-theme="dark"] .poke-power{border-top-color:var(--border)}
+        [data-theme="dark"] .chat-msg.ai .chat-warning{background:#332D14;border-color:#554A20;color:var(--gold)}
+        [data-theme="dark"] .chat-quick-btn.ai-btn{color:#CE93D8;background:#261C30}
+        [data-theme="dark"] .chat-quick-btn.ai-btn:hover{background:#302040;color:#E1BEE7}
+        [data-theme="dark"] .guide-table th{background:var(--hover)}
+        [data-theme="dark"] .guide-formula{background:var(--hover);border-color:var(--border)}
+        [data-theme="dark"] .guide-card code{background:var(--hover);border-color:var(--border)}
+        [data-theme="dark"] .donate-track{background:#2A2518}
+        [data-theme="dark"] .iv-s{background:#3A1818;color:#EF9A9A}
+        [data-theme="dark"] .iv-a{background:#3A2810;color:#FFCC80}
+        [data-theme="dark"] .iv-b{background:#182838;color:#90CAF9}
+        [data-theme="dark"] .iv-c{background:#1A2E1A;color:#A5D6A7}
+        [data-theme="dark"] .iv-d{background:#2A2A2A;color:#BDBDBD}
+        [data-theme="dark"] .synergy-perfect{background:#261C30;color:#CE93D8}
+        [data-theme="dark"] .synergy-great{background:#1A2E1A;color:#A5D6A7}
+        [data-theme="dark"] .synergy-normal{background:#182838;color:#90CAF9}
+        [data-theme="dark"] .synergy-poor{background:#252830;color:#8B8FA3}
+        [data-theme="dark"] .badge-active{background:#1A2E1A;color:#66BB6A}
+        [data-theme="dark"] .badge-inactive{background:#3A1818;color:#EF5350}
+        [data-theme="dark"] .badge-common{background:#1A2E1A;color:#66BB6A}
+        [data-theme="dark"] .badge-rare{background:#182838;color:#42A5F5}
+        [data-theme="dark"] .badge-epic{background:#261C30;color:#CE93D8}
+        [data-theme="dark"] .badge-ultra_legendary{background:#3A1818;color:#EF9A9A}
+        [data-theme="dark"] .badge-legendary{background:#2A2510;color:#FFD54F}
+        [data-theme="dark"] .tc .tc-se{background:#1A2E1A;color:#66BB6A}
+        [data-theme="dark"] .tc .tc-nve{background:#3A1818;color:#EF9A9A}
+        [data-theme="dark"] .tc .tc-imm{background:#2A2A2A;color:#999}
+        [data-theme="dark"] .tb-placement{background:#2A2010;color:#FF9800;border-color:rgba(255,152,0,.2)}
+        [data-theme="dark"] .ranked-dist-bar-bg{background:rgba(255,255,255,.05)}
+        [data-theme="dark"] .rp-prog-bar{background:rgba(255,255,255,.08)}
+        [data-theme="dark"] .cs-filter.active{background:#1565C0;border-color:#1565C0}
+        [data-theme="dark"] .board-side-item.active{background:rgba(88,166,255,.12);color:#58a6ff}
+        [data-theme="dark"] select,[data-theme="dark"] .poke-select{background:var(--card);color:var(--text);border-color:var(--border)}
+        [data-theme="dark"] input[type="text"],[data-theme="dark"] input[type="number"],[data-theme="dark"] textarea{background:var(--input-bg);color:var(--text);border-color:var(--border)}
+        [data-theme="dark"] .fusion-modal{background:var(--card)}
+        /* Dark mode scrollbar */
+        [data-theme="dark"]::-webkit-scrollbar{width:8px}
+        [data-theme="dark"]::-webkit-scrollbar-track{background:#181A20}
+        [data-theme="dark"]::-webkit-scrollbar-thumb{background:#3A3D47;border-radius:4px}
+        [data-theme="dark"]::-webkit-scrollbar-thumb:hover{background:#4A4D57}
+        [data-theme="dark"] *::-webkit-scrollbar{width:6px}
+        [data-theme="dark"] *::-webkit-scrollbar-track{background:transparent}
+        [data-theme="dark"] *::-webkit-scrollbar-thumb{background:#3A3D47;border-radius:3px}
+        /* Dark mode toggle button */
+        .theme-toggle{background:transparent;border:none;cursor:pointer;padding:4px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.8);transition:all .2s}
+        .theme-toggle:hover{background:rgba(255,255,255,.15)}
+        .theme-toggle svg{width:18px;height:18px}
+        /* Smooth transitions for theme switch */
+        .card,.section,.nav,.nav-dropdown,.poke-card,.dex-cell,.chat-container,.guide-card{transition:background .3s,color .3s,border-color .3s,box-shadow .3s}
     </style>
 </head>
 <body>
+    <script>
+    // Apply saved theme immediately to prevent flash
+    (function(){
+        var t=localStorage.getItem('tgpoke-theme');
+        if(t==='dark') document.documentElement.setAttribute('data-theme','dark');
+    })();
+    </script>
     <div class="header">
         <h1><svg class="header-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="#fff" stroke="#333" stroke-width="4"/><path d="M2 50h96" stroke="#333" stroke-width="4"/><path d="M2 50 A48 48 0 0 1 98 50" fill="#E53935"/><circle cx="50" cy="50" r="14" fill="#fff" stroke="#333" stroke-width="4"/><circle cx="50" cy="50" r="7" fill="#333"/></svg><span>TG</span>Poke</h1>
         <div class="header-right">
+            <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="다크모드 전환">
+                <svg id="themeIconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
             <div id="authArea">
                 <button class="connect-btn" onclick="telegramConnect()">
                     <svg viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
@@ -762,16 +861,27 @@
     </div>
     <div class="nav" id="nav">
         <div class="nav-tab active" data-page="home">홈</div>
-        <div class="nav-tab" data-page="board">💬 게시판</div>
-        <div class="nav-tab" data-page="battlerank">배틀 & 랭킹</div>
+        <div class="nav-tab" data-page="board">📢 공지</div>
+        <div class="nav-group" id="navInfo">
+            <div class="nav-group-label">📊 정보 ▾</div>
+            <div class="nav-dropdown">
+                <div class="nav-tab" data-page="battlerank">⚔️ 배틀 & 랭킹</div>
+                <div class="nav-tab" data-page="tier">🏆 푸키몬 티어</div>
+                <div class="nav-tab" data-page="guide">📖 가이드</div>
+                <div class="nav-tab" data-page="stats">📈 통계</div>
+            </div>
+        </div>
+        <div class="nav-group" id="navMy">
+            <div class="nav-group-label">🎒 내 활동 ▾</div>
+            <div class="nav-dropdown">
+                <div class="nav-tab" data-page="mypokemon">📦 내 푸키몬</div>
+                <div class="nav-tab" data-page="pokedex">📖 도감</div>
+                <div class="nav-tab" data-page="camp">🏕️ 캠프</div>
+                <div class="nav-tab" data-page="simulator">🤖 AI 어드바이저</div>
+            </div>
+        </div>
         <div class="nav-tab" data-page="market">🏪 거래소</div>
-        <div class="nav-tab" data-page="tier">푸키몬 티어</div>
-        <div class="nav-tab" data-page="guide">📖 가이드</div>
-        <div class="nav-tab" data-page="camp">🏕️ 캠프</div>
-        <div class="nav-tab" data-page="stats">통계</div>
-        <div class="nav-tab" data-page="mypokemon"><img src="/static/icons/container.png" style="width:16px;height:16px;vertical-align:middle;margin-right:2px"> 내 푸키몬</div>
-        <div class="nav-tab" data-page="pokedex">📖 도감</div>
-        <div class="nav-tab" data-page="simulator"><img src="/static/icons/computer.png" style="width:16px;height:16px;vertical-align:middle;margin-right:2px"> AI 어드바이저 <span style="font-size:9px;font-weight:700;color:#fff;background:#1976D2;border-radius:4px;padding:1px 4px;vertical-align:middle">BETA</span></div>
+        <div class="nav-tab" data-page="cs">📩 문의</div>
         <div class="nav-tab" data-page="admin" id="adminTab" style="display:none">🔧 관리</div>
     </div>
     <div class="container">
@@ -809,13 +919,9 @@
                 <div id="boardSidebar" style="width:200px;flex-shrink:0">
                     <button id="boardWriteBtn" onclick="boardShowWrite()" style="display:none;width:100%;padding:10px;background:#58a6ff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px">✏️ 글쓰기</button>
                     <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;padding-left:4px">게시판</div>
-                    <div class="board-side-item active" data-board="notice" data-tag="" onclick="boardSideNav(this)">📢 공지사항</div>
-                    <div class="board-side-sub" data-board="notice" data-tag="" onclick="boardSideNav(this)">전체</div>
-                    <div class="board-side-sub" data-board="notice" data-tag="공지" onclick="boardSideNav(this)">공지</div>
-                    <div class="board-side-sub" data-board="notice" data-tag="패치노트" onclick="boardSideNav(this)">패치노트</div>
+                    <div class="board-side-item active" data-board="notice" data-tag="" onclick="boardSideNav(this)">📢 패치노트</div>
+                    <div class="board-side-item" data-board="tournament" data-tag="" onclick="boardSideNav(this)">🏆 토너먼트</div>
                     <div class="board-side-item" data-board="community" data-tag="" onclick="boardSideNav(this)">💬 유저게시판</div>
-                    <div style="border-top:1px solid var(--border);margin:12px 0"></div>
-                    <div class="board-side-item" data-board="legacy" onclick="boardSideNav(this)">📋 이전 패치노트</div>
                 </div>
                 <!-- Main Area -->
                 <div style="flex:1;min-width:0">
@@ -977,6 +1083,99 @@
                         <div id="boardWriteImagePreview" style="margin-top:6px"></div>
                     </div>
                     <button id="boardWriteSubmitBtn" onclick="boardSubmitPost()" style="width:100%;padding:10px;background:#58a6ff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">등록</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CS 문의 -->
+        <div class="page" id="page-cs">
+            <div style="max-width:800px;margin:0 auto">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                    <h2 style="font-size:16px;margin:0">📩 CS 문의</h2>
+                    <button id="csWriteBtn" onclick="csShowWrite()" style="padding:8px 16px;background:#58a6ff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✏️ 문의하기</button>
+                </div>
+                <!-- View Tabs -->
+                <div style="display:flex;gap:6px;margin-bottom:8px">
+                    <button class="cs-filter active" data-view="public" onclick="csViewTab(this)">🌐 공개 문의</button>
+                    <button class="cs-filter" data-view="mine" id="csMineTab" style="display:none" onclick="csViewTab(this)">📋 내 문의</button>
+                    <button class="cs-filter" data-view="admin" id="csAdminTab" style="display:none" onclick="csViewTab(this)">🔧 전체 관리</button>
+                </div>
+                <!-- Status Filter -->
+                <div id="csFilterBar" style="margin-bottom:12px;display:flex;gap:6px">
+                    <button class="cs-filter active" data-status="" onclick="csFilter(this)">전체</button>
+                    <button class="cs-filter" data-status="open" onclick="csFilter(this)">대기중</button>
+                    <button class="cs-filter" data-status="in_progress" onclick="csFilter(this)">처리중</button>
+                    <button class="cs-filter" data-status="resolved" onclick="csFilter(this)">완료</button>
+                </div>
+                <!-- List -->
+                <div id="csListView">
+                    <table id="csTable" style="width:100%;border-collapse:collapse;font-size:12px">
+                        <thead>
+                            <tr style="border-bottom:1px solid var(--border)">
+                                <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:40px">#</th>
+                                <th style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600;width:70px">분류</th>
+                                <th style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600">제목</th>
+                                <th class="hide-m" style="text-align:left;padding:8px 6px;color:var(--muted);font-weight:600;width:80px">작성자</th>
+                                <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:35px">👍</th>
+                                <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:60px">상태</th>
+                                <th style="text-align:center;padding:8px 6px;color:var(--muted);font-weight:600;width:60px">날짜</th>
+                            </tr>
+                        </thead>
+                        <tbody id="csTableBody"></tbody>
+                    </table>
+                    <div id="csPaging" style="text-align:center;margin-top:12px"></div>
+                </div>
+                <!-- Write Form -->
+                <div id="csWriteView" style="display:none">
+                    <div style="margin-bottom:12px">
+                        <label style="font-size:12px;font-weight:600;color:var(--muted)">분류</label>
+                        <select id="csCategory" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);margin-top:4px">
+                            <option value="bug">🐛 버그신고</option>
+                            <option value="suggestion">💡 개선제안</option>
+                            <option value="premium">💎 프리미엄</option>
+                            <option value="other">📋 기타</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom:12px">
+                        <label style="font-size:12px;font-weight:600;color:var(--muted)">제목</label>
+                        <input id="csTitle" type="text" maxlength="100" placeholder="문의 제목" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);margin-top:4px;box-sizing:border-box">
+                    </div>
+                    <div style="margin-bottom:12px">
+                        <label style="font-size:12px;font-weight:600;color:var(--muted)">내용</label>
+                        <textarea id="csContent" rows="6" maxlength="2000" placeholder="문의 내용을 상세히 적어주세요" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);margin-top:4px;resize:vertical;box-sizing:border-box"></textarea>
+                    </div>
+                    <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+                        <label style="font-size:12px;font-weight:600;color:var(--muted);cursor:pointer">
+                            <input id="csPrivate" type="checkbox" style="margin-right:4px">비공개 문의
+                        </label>
+                        <span style="font-size:11px;color:var(--muted)">(체크 시 관리자만 확인 가능)</span>
+                    </div>
+                    <div style="margin-bottom:12px">
+                        <label style="font-size:12px;font-weight:600;color:var(--muted)">첨부 이미지 (선택, 5MB 이하)</label>
+                        <input id="csImage" type="file" accept="image/jpeg,image/png,image/gif,image/webp" style="width:100%;padding:6px;margin-top:4px;font-size:12px">
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <button onclick="csSubmit()" style="padding:10px 24px;background:#58a6ff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">제출</button>
+                        <button onclick="csShowList()" style="padding:10px 24px;background:var(--border);color:var(--text);border:none;border-radius:8px;font-size:13px;cursor:pointer">취소</button>
+                    </div>
+                </div>
+                <!-- Detail View -->
+                <div id="csDetailView" style="display:none">
+                    <button onclick="csShowList()" style="margin-bottom:12px;padding:6px 12px;background:var(--border);color:var(--text);border:none;border-radius:6px;font-size:12px;cursor:pointer">← 목록</button>
+                    <div id="csDetailContent"></div>
+                    <!-- Admin Reply Form -->
+                    <div id="csAdminReply" style="display:none;margin-top:16px;padding:16px;background:var(--card);border-radius:8px;border:1px solid var(--border)">
+                        <label style="font-size:12px;font-weight:600;color:var(--muted)">관리자 답변</label>
+                        <textarea id="csReplyText" rows="4" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);margin-top:4px;resize:vertical;box-sizing:border-box"></textarea>
+                        <div style="display:flex;gap:8px;margin-top:8px">
+                            <select id="csReplyStatus" style="padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text)">
+                                <option value="in_progress">처리중</option>
+                                <option value="resolved">완료</option>
+                                <option value="closed">종료</option>
+                            </select>
+                            <button onclick="csReplySubmit()" style="padding:8px 16px;background:#58a6ff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">답변 등록</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1204,7 +1403,7 @@
                             <table class="guide-table" style="font-size:13px">
                                 <tr><th>항목</th><th>내용</th></tr>
                                 <tr><td>팀 구성</td><td>최대 6마리 (배틀에 출전할 포켓몬 선택)</td></tr>
-                                <tr><td>코스트 제한</td><td>팀 전체 코스트 합 <b>18 이하</b></td></tr>
+                                <tr><td>코스트 제한</td><td>팀 전체 코스트 합 <b>12 이하</b></td></tr>
                                 <tr><td>팀 슬롯</td><td>2개까지 저장 가능. <code>팀선택</code>으로 전환</td></tr>
                             </table>
                             <div style="margin-top:10px;padding:10px;background:rgba(0,0,0,.05);border-radius:8px;font-size:12px">
@@ -1572,12 +1771,20 @@
 
                         <div class="guide-block">
                             <h4>🔥 이중 속성 상성</h4>
-                            <p>방어 포켓몬의 <b>두 타입 모두</b>에 상성이 적용됩니다!</p>
+                            <h5 style="margin:12px 0 6px;color:var(--red)">⚔️ 공격 시 (내 포켓몬이 듀얼타입)</h5>
+                            <p>두 타입 중 <b>더 유리한 타입 하나</b>로 자동 공격합니다. 두 타입이 합산되지 않습니다!</p>
+                            <table class="guide-table">
+                                <tr><th>예시</th><th>타입1</th><th>타입2</th><th>선택</th></tr>
+                                <tr><td>초염몽(불/격투) → 디아루가(강/드래곤)</td><td>불→강2x × 드래곤0.5x = <b>1.0x</b></td><td>격투→강2x × 드래곤1x = <b>2.0x</b></td><td style="color:#52b788;font-weight:700">격투 2.0x 선택</td></tr>
+                                <tr><td>한카리아스(드래곤/땅) → 썬더(전기/비행)</td><td>드래곤→전기1x × 비행1x = <b>1.0x</b></td><td>땅→전기2x × 비행0x = <b>0.0x</b></td><td style="color:#52b788;font-weight:700">드래곤 1.0x 선택</td></tr>
+                            </table>
+                            <h5 style="margin:16px 0 6px;color:var(--red)">🛡️ 방어 시 (상대가 듀얼타입)</h5>
+                            <p>상대의 <b>두 타입 모두</b>에 대해 배율이 곱해집니다!</p>
                             <table class="guide-table">
                                 <tr><th>상황</th><th>배율</th><th>예시</th></tr>
-                                <tr><td style="color:#e74c3c;font-weight:700">이중 효과!</td><td><b style="color:#e74c3c">4.0x</b></td><td>🌿풀 → 💧물+🪨바위 (둘 다 약점)</td></tr>
-                                <tr><td style="color:#52b788">효과 좋음</td><td><b>2.0x</b></td><td>🔥불꽃 → 🌿풀</td></tr>
-                                <tr><td>보통</td><td>1.0x</td><td>약점·저항이 상쇄</td></tr>
+                                <tr><td style="color:#e74c3c;font-weight:700">이중 효과!</td><td><b style="color:#e74c3c">4.0x</b></td><td>❄️얼음 → 한카리아스(🐉드래곤+🌍땅) — 둘 다 약점!</td></tr>
+                                <tr><td style="color:#52b788">효과 좋음</td><td><b>2.0x</b></td><td>👊격투 → 디아루가(⚙️강철+🐉드래곤) — 강철만 약점</td></tr>
+                                <tr><td>상쇄</td><td>1.0x</td><td>🔥불꽃 → 디아루가(⚙️강철+🐉드래곤) — 강철2x × 드래곤0.5x</td></tr>
                                 <tr><td style="color:#e63946">효과 별로</td><td><b>0.5x</b></td><td>🌿풀 → 🔥불꽃</td></tr>
                                 <tr><td style="color:#3498db">이중 저항</td><td><b style="color:#3498db">0.25x</b></td><td>⚪노말 → 🪨바위+⚙️강철 (둘 다 저항)</td></tr>
                                 <tr><td style="color:#555">면역</td><td><b>0x</b></td><td>⚪노말 → 👻고스트 (타입 무효)</td></tr>
@@ -1979,7 +2186,7 @@
                             <p style="font-size:12px;font-weight:700;color:#F57F17;margin:0 0 6px">주의사항</p>
                             <ul style="margin:0;padding-left:18px;font-size:12px;color:#5D4037;line-height:1.8">
                                 <li>거점은 한 번 정하면 <b>7일간 변경 불가</b>입니다. 신중하게 고르세요.</li>
-                                <li>일반 유저: 거점 <b>1개</b> / 구독자: 거점 <b>2개</b>까지 가능</li>
+                                <li>일반 유저: 거점 <b>1개</b> / 구독자(프리미엄): 거점 <b>2개</b>까지 가능</li>
                                 <li>거점이 2개면 두 채팅방에서 동시에 조각을 모을 수 있어서 2배 효율!</li>
                             </ul>
                         </div>
@@ -2473,7 +2680,7 @@
                 <!-- ===== 던전 ===== -->
                 <div class="guide-section" id="guide-dungeon">
                     <h3 style="margin-bottom:12px">🏰 던전 시스템</h3>
-                    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">로그라이크 던전! 포켓몬 1마리로 도전하며 버프를 쌓아 고층을 돌파하세요.</p>
+                    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">로그라이크 턴제 던전! 포켓몬 1마리로 도전하며 버프를 쌓아 고층을 돌파하세요.</p>
 
                     <!-- 이용 방법 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
@@ -2481,20 +2688,20 @@
                         <div style="font-size:13px;color:var(--muted);line-height:1.8">
                             <b style="color:var(--text)">1.</b> 봇 DM에서 <b style="color:var(--red)">「던전」</b> 입력<br>
                             <b style="color:var(--text)">2.</b> 포켓몬 <b style="color:var(--text)">1마리</b> 선택 → 입장권 소모 → 시작<br>
-                            <b style="color:var(--text)">3.</b> 매 층 자동 배틀 → 승리 시 <b style="color:var(--red)">버프 선택</b><br>
-                            <b style="color:var(--text)">4.</b> 같은 버프를 뽑으면 <b style="color:var(--red)">레벨업!</b> (Lv.1→2→3)<br>
-                            <b style="color:var(--text)">5.</b> 패배 시 도달 층에 따라 보상 정산
+                            <b style="color:var(--text)">3.</b> 매 턴 <b style="color:var(--red)">스킬 / 일반공격 / 방어</b> 중 택 1<br>
+                            <b style="color:var(--text)">4.</b> 적의 다음 행동이 <b style="color:var(--text)">미리 표시</b> — 전략적 판단<br>
+                            <b style="color:var(--text)">5.</b> 5층(보스)마다 <b style="color:var(--red)">버프 선택</b> (같은 버프 = 레벨업!)<br>
+                            <b style="color:var(--text)">6.</b> 패배 시 도달 층에 따라 보상 정산 (최대 50층)
                         </div>
                     </div>
 
                     <!-- 입장권 & 테마 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
-                        <div style="font-weight:700;margin-bottom:10px">🎫 입장권 & 던전 테마</div>
+                        <div style="font-weight:700;margin-bottom:10px">🎫 입장권 & 연습모드</div>
                         <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">
                             • 매일 <b style="color:var(--text)">1장</b> 무료 지급 (베이직: 2장, 채널장: 3장)<br>
                             • BP 구매: <b style="color:var(--text)">300 BP</b> (베이직: 250, 채널장: 200)<br>
-                            • 일일 구매 제한: <b style="color:var(--text)">1회</b> (베이직: 1회, 채널장: 3회)<br>
-                            • 일일 도전 제한: <b style="color:var(--text)">3회</b> (채널장: 5회)
+                            • 일일 도전: <b style="color:var(--text)">3회</b> (채널장: 5회) → 이후 <b style="color:var(--red)">연습모드 10회</b> (보상 없음)
                         </div>
                         <div style="font-size:12px;color:var(--muted);margin-bottom:6px">던전 테마는 <b style="color:var(--text)">요일별 로테이션</b>:</div>
                         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">
@@ -2506,101 +2713,122 @@
                             <div style="background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;text-align:center"><b>토</b> 🔮 신전</div>
                             <div style="background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;text-align:center"><b>일</b> 🐉 용의 둥지</div>
                         </div>
-                        <div style="font-size:11px;color:var(--muted);margin-top:6px">* 테마에 따라 적 포켓몬 타입이 달라지며, 조각 보상도 해당 필드 타입으로 지급됩니다.</div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:6px">* 보스(5의 배수)는 반드시 테마 타입. 조각 보상도 해당 필드 타입.</div>
                     </div>
 
-                    <!-- 등급별 버프 주기 -->
+                    <!-- 전투 시스템 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
-                        <div style="font-weight:700;margin-bottom:10px">⭐ 등급별 버프 주기</div>
-                        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">등급이 <b style="color:var(--text)">낮을수록</b> 버프를 자주 받아 빌드가 강력해집니다!</div>
+                        <div style="font-weight:700;margin-bottom:10px">⚔️ 턴제 전투</div>
+                        <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">
+                            매 턴 행동을 선택합니다. 적의 다음 행동이 미리 표시됩니다.<br><br>
+                            • <b style="color:var(--red)">스킬</b> (빨강 버튼) — SPA 기반, <b style="color:var(--text)">상성 배율 적용</b>, PP 소모<br>
+                            • <b style="color:var(--text)">일반공격</b> (회색) — ATK 기반, 상성 무관, PP 무소모<br>
+                            • <b style="color:#3498db">방어</b> (파랑) — 받는 데미지 40% 감소<br><br>
+                            💡 상성 유리할 때 스킬을 쓰면 2배 데미지! PP 관리가 핵심.
+                        </div>
+                    </div>
+
+                    <!-- 구독자 혜택 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">👑 구독자 혜택</div>
                         <table style="width:100%;border-collapse:collapse;font-size:12px">
                             <tr style="border-bottom:1px solid var(--border)">
-                                <th style="text-align:left;padding:6px 0;color:var(--muted);font-size:11px">등급</th>
-                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:11px">코스트</th>
-                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:11px">버프 주기</th>
-                                <th style="text-align:right;padding:6px 0;color:var(--muted);font-size:11px">특징</th>
+                                <th style="text-align:left;padding:6px 0;color:var(--muted);font-size:11px"></th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:11px">무료</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:11px">베이직</th>
+                                <th style="text-align:center;padding:6px 0;color:var(--red);font-size:11px;font-weight:700">채널장</th>
                             </tr>
-                            <tr style="border-bottom:1px solid var(--border)">
-                                <td style="padding:8px 0;color:#aaa;font-weight:700">커먼·언커먼</td>
-                                <td style="text-align:center">1~2</td>
-                                <td style="text-align:center;color:var(--red);font-weight:700">매 층</td>
-                                <td style="text-align:right;color:var(--muted)">버프 폭풍</td>
-                            </tr>
-                            <tr style="border-bottom:1px solid var(--border)">
-                                <td style="padding:8px 0;color:#58f;font-weight:700">레어</td>
-                                <td style="text-align:center">4</td>
-                                <td style="text-align:center;color:var(--red);font-weight:700">2층마다</td>
-                                <td style="text-align:right;color:var(--muted)">밸런스</td>
-                            </tr>
-                            <tr style="border-bottom:1px solid var(--border)">
-                                <td style="padding:8px 0;color:#c5f;font-weight:700">에픽</td>
-                                <td style="text-align:center">5</td>
-                                <td style="text-align:center;color:var(--red);font-weight:700">3층마다</td>
-                                <td style="text-align:right;color:var(--muted)">스탯으로 버팀</td>
-                            </tr>
-                            <tr>
-                                <td style="padding:8px 0;color:#fa0;font-weight:700">전설·초전설</td>
-                                <td style="text-align:center">6</td>
-                                <td style="text-align:center;color:var(--red);font-weight:700">4층마다</td>
-                                <td style="text-align:right;color:var(--muted)">순수 깡스탯</td>
-                            </tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;color:var(--muted)">BP 배율</td><td style="text-align:center">×1</td><td style="text-align:center">×1.2</td><td style="text-align:center;color:var(--red);font-weight:700">×1.5</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;color:var(--muted)">아이템·조각</td><td style="text-align:center">×1</td><td style="text-align:center">×2</td><td style="text-align:center;color:var(--red);font-weight:700">×3</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;color:var(--muted)">버프 리롤</td><td style="text-align:center">🔒</td><td style="text-align:center">1회/런</td><td style="text-align:center;color:var(--red);font-weight:700">3회/런</td></tr>
+                            <tr><td style="padding:6px 0;color:var(--muted)">일일 런</td><td style="text-align:center">3회</td><td style="text-align:center">3회</td><td style="text-align:center;color:var(--red);font-weight:700">5회</td></tr>
                         </table>
-                        <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6">
-                            * 버프는 최대 <b style="color:var(--text)">8개</b>까지 보유 가능<br>
-                            * 생존 계열 (흡혈/층간회복/보호막) 중 <b style="color:var(--red)">1개만</b> 선택 가능 — 나머지 2개는 선택지에서 제외
+                    </div>
+
+                    <!-- 버프 & 빌드 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">⬆️ 버프 시스템</div>
+                        <div style="font-size:12px;color:var(--muted);line-height:1.8">
+                            • 모든 등급 <b style="color:var(--red)">5층(보스)마다</b> 버프 선택<br>
+                            • 같은 버프 선택 시 <b style="color:var(--text)">레벨업</b> (Lv.1→2→3)<br>
+                            • 최대 <b style="color:var(--text)">8개</b>까지 보유<br>
+                            • 생존 계열 (흡혈/층간회복/보호막) 중 <b style="color:var(--red)">1개만</b> 선택 가능<br>
+                            • 구독자는 보스 클리어 시 <b style="color:var(--text)">버프 리롤</b> 가능
+                        </div>
+                    </div>
+
+                    <!-- 신규 아이템 -->
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+                        <div style="font-weight:700;margin-bottom:10px">🎁 신규 아이템</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #8b5cf6">
+                                <div style="font-size:13px;font-weight:700">✨ 이로치전환권</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">조각 없이 이로치 전환 시작</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #22c55e">
+                                <div style="font-size:13px;font-weight:700">🎯 우선포획볼</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">ㅊㅊ로 사용 · 100% 포획</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #3b82f6">
+                                <div style="font-size:13px;font-weight:700">🔮 던전부적</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">다음 런 버프 1개로 시작</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #f59e0b">
+                                <div style="font-size:13px;font-weight:700">⏰ 시간단축권</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">전환/부화 12시간 단축</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #e63946">
+                                <div style="font-size:13px;font-weight:700">🥚 알즉부화권</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">이로치 알 즉시 부화</div>
+                            </div>
+                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #8b5cf6">
+                                <div style="font-size:13px;font-weight:700">💠 IV스톤</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:4px">IV +3 (포켓몬당 2회)</div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- 마일스톤 보상 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
                         <div style="font-weight:700;margin-bottom:10px">🏆 마일스톤 보상</div>
-                        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">보상은 <b style="color:var(--text)">누적</b> 지급됩니다. (20F 도달 시 5~20F 보상 모두 획득)</div>
-                        <table style="width:100%;border-collapse:collapse;font-size:12px">
+                        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+                            보상은 <b style="color:var(--red)">일별 최고 기록 갱신 시</b>에만 지급됩니다.<br>
+                            BP는 매 런마다 지급. 구독자는 아이템·조각 ×2~3배.
+                        </div>
+                        <table style="width:100%;border-collapse:collapse;font-size:11px">
                             <tr style="border-bottom:1px solid var(--border)">
-                                <th style="text-align:left;padding:6px 0;color:var(--muted);font-size:10px">층</th>
-                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">BP</th>
-                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">조각</th>
-                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">입장권</th>
-                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">결정</th>
-                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">무지개</th>
-                                <th style="text-align:center;padding:6px 0;color:var(--muted);font-size:10px">IV스톤</th>
+                                <th style="text-align:left;padding:5px 0;color:var(--muted);font-size:10px">층</th>
+                                <th style="text-align:center;padding:5px 0;color:var(--muted);font-size:10px">BP</th>
+                                <th style="text-align:center;padding:5px 0;color:var(--muted);font-size:10px">보상</th>
                             </tr>
-                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;font-weight:700">5F</td><td style="text-align:center">+30</td><td style="text-align:center">1</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
-                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;font-weight:700">10F</td><td style="text-align:center">+50</td><td style="text-align:center">2</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
-                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;font-weight:700">15F</td><td style="text-align:center">+80</td><td style="text-align:center">2</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
-                            <tr style="border-bottom:1px solid var(--border);background:rgba(230,57,70,0.05)"><td style="padding:6px 0;font-weight:700;color:var(--red)">20F</td><td style="text-align:center">+100</td><td style="text-align:center">3</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--red);font-weight:700">1</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
-                            <tr style="border-bottom:1px solid var(--border);background:rgba(230,57,70,0.05)"><td style="padding:6px 0;font-weight:700;color:var(--red)">25F</td><td style="text-align:center">+120</td><td style="text-align:center">3</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--red);font-weight:700">1</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
-                            <tr style="border-bottom:1px solid var(--border);background:rgba(230,57,70,0.05)"><td style="padding:6px 0;font-weight:700;color:var(--red)">30F</td><td style="text-align:center">+150</td><td style="text-align:center">4</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--red);font-weight:700">2</td><td style="text-align:center;color:var(--red);font-weight:700">1</td><td style="text-align:center;color:var(--muted)">-</td></tr>
-                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;font-weight:700">35F</td><td style="text-align:center">+180</td><td style="text-align:center">4</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
-                            <tr style="border-bottom:1px solid var(--border);background:rgba(245,158,11,0.06)"><td style="padding:6px 0;font-weight:700;color:#f59e0b">40F</td><td style="text-align:center">+200</td><td style="text-align:center">5</td><td style="text-align:center;color:#f59e0b;font-weight:700">1</td><td style="text-align:center;color:#f59e0b;font-weight:700">3</td><td style="text-align:center;color:#f59e0b;font-weight:700">1</td><td style="text-align:center;color:#f59e0b;font-weight:700">1</td></tr>
-                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 0;font-weight:700">45F</td><td style="text-align:center">+230</td><td style="text-align:center">5</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td></tr>
-                            <tr style="background:rgba(245,158,11,0.06)"><td style="padding:6px 0;font-weight:700;color:#f59e0b">50F</td><td style="text-align:center">+280</td><td style="text-align:center">6</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:var(--muted)">-</td><td style="text-align:center;color:#f59e0b;font-weight:700">2</td><td style="text-align:center;color:#f59e0b;font-weight:700">1</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 0;font-weight:700">10F</td><td style="text-align:center">+20</td><td style="text-align:center">🧩 조각 1</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 0;font-weight:700">20F</td><td style="text-align:center">+30</td><td style="text-align:center">🔮 부적</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 0;font-weight:700">30F</td><td style="text-align:center">+50</td><td style="text-align:center">💎 결정 1</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 0;font-weight:700">40F</td><td style="text-align:center">+80</td><td style="text-align:center">🔄 개체값 재설정</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 0;font-weight:700">50F</td><td style="text-align:center">+120</td><td style="text-align:center">🧩 조각 3</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 0;font-weight:700">60F</td><td style="text-align:center">+200</td><td style="text-align:center">💎 결정 2</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 0;font-weight:700">70F</td><td style="text-align:center">+350</td><td style="text-align:center">🎯 IV 선택 리롤</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 0;font-weight:700">80F</td><td style="text-align:center">+500</td><td style="text-align:center">🥚 이로치 알</td></tr>
+                            <tr style="border-bottom:1px solid var(--border);background:rgba(245,158,11,0.06)"><td style="padding:5px 0;font-weight:700;color:#f59e0b">90F</td><td style="text-align:center">+700</td><td style="text-align:center;color:#f59e0b;font-weight:700">🌈 무지개 2 + 💠 IV스톤 1</td></tr>
+                            <tr style="background:rgba(245,158,11,0.06)"><td style="padding:5px 0;font-weight:700;color:#f59e0b">100F</td><td style="text-align:center">+1000</td><td style="text-align:center;color:#f59e0b;font-weight:700">🌈 무지개 1 + 💠 IV스톤 2</td></tr>
                         </table>
                         <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6">
-                            * 조각은 <b style="color:var(--text)">던전 테마</b>에 맞는 캠프 필드 조각으로 지급<br>
-                            * 기본 BP: 층당 +10 BP (구독자 1.2~1.5배)<br>
-                            * BP 일일 상한: <b style="color:var(--text)">2,000 BP</b>
+                            * 기본 BP: 층당 +10 BP (구독자 ×1.2/×1.5)<br>
+                            * 아이템·조각: 구독자 ×2(베이직)/×3(채널장)<br>
+                            * BP 상한: <b style="color:var(--text)">5,000 BP</b><br>
+                            * 연습모드(횟수 초과 시): 보상 없음
                         </div>
                     </div>
 
-                    <!-- 보상 아이템 설명 -->
+                    <!-- 보상 아이템 설명 — 이미 신규 아이템 섹션에 있으므로 기존 아이템만 -->
                     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
-                        <div style="font-weight:700;margin-bottom:10px">💎 보상 아이템</div>
+                        <div style="font-weight:700;margin-bottom:10px">💎 기타 보상</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #8b5cf6">
-                                <div style="font-size:13px;font-weight:700">💠 IV스톤</div>
-                                <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:4px">
-                                    원하는 포켓몬의 <b style="color:var(--text)">IV 스탯 +3</b> (최대 31)<br>
-                                    포켓몬·스탯 직접 선택 가능<br>
-                                    DM → 「아이템」에서 사용
-                                </div>
-                            </div>
                             <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #22c55e">
-                                <div style="font-size:13px;font-weight:700">🧩 만능 조각</div>
+                                <div style="font-size:13px;font-weight:700">🧩 조각</div>
                                 <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:4px">
-                                    캠프 이로치 전환 시 <b style="color:var(--text)">아무 타입</b> 대체<br>
-                                    필드 조각이 부족할 때 자동 보충<br>
-                                    필드 조각 우선 소모 → 부족분만 차감
+                                    던전 테마에 맞는 캠프 필드 조각<br>
+                                    이로치 전환 재료
                                 </div>
                             </div>
                             <div style="background:var(--bg);border-radius:8px;padding:10px 12px;border-left:3px solid #3b82f6">
@@ -3169,16 +3397,12 @@
 
         <!-- AI TEAM ADVISOR -->
         <div class="page" id="page-simulator">
-            <!-- Quota display -->
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;padding:4px 8px;background:var(--card);border:1px solid var(--border);border-radius:8px">
-                <span id="simQuotaLabel" style="font-size:11px;font-weight:700;color:var(--text)">🎫 잔여 -- 크레딧</span>
-                <span style="font-size:10px;color:var(--dim)">분석 1회당 1크레딧 차감</span>
-            </div>
+            <!-- Quota display (removed - unlimited) -->
             <!-- Quick Analysis Buttons -->
             <div style="margin-bottom:10px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
                     <span style="font-size:11px;font-weight:700;color:var(--green)">⚡ 빠른 분석</span>
-                    <span style="font-size:10px;color:var(--muted)">· 1크레딧</span>
+                    <span style="font-size:10px;color:var(--muted)">· 무제한</span>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap">
                     <button class="chat-quick-btn" style="flex:1;padding:8px 8px;display:flex;align-items:center;gap:6px;min-width:0" onclick="sendQuick('내 최강 팀 추천해줘')">
@@ -3201,51 +3425,7 @@
                     위 버튼을 눌러 팀 분석을 시작하세요!
                 </div>
             </div>
-            <!-- Donation Section (hidden) -->
-            <div class="donate-bar-wrap" style="margin-top:14px;display:none">
-                <div class="donate-header">
-                    <div class="donate-title">☕ 서버 운영 후원 <span style="font-size:10px;font-weight:400;color:var(--muted)">(클로드 MAX 멘징비)</span></div>
-                    <div id="donateAmount" class="donate-amount">$0 <span class="goal">/ $200</span></div>
-                </div>
-                <div class="donate-track">
-                    <div id="donateFill" class="donate-fill" style="width:0%"></div>
-                    <span id="donatePct" class="donate-pct">0%</span>
-                </div>
-                <div id="donateLabel" class="donate-label">후원하시면 크레딧 보너스가 지급됩니다!</div>
-            </div>
-            <div class="section" style="margin-top:10px;display:none">
-                <h2>💎 크레딧 추가 후원</h2>
-                <p style="font-size:11px;color:var(--muted);margin-bottom:10px">후원 시 크레딧 보너스가 지급됩니다. 송금 후 아래 확인 버튼을 눌러주세요.</p>
-                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
-                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#fff8f0,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,1)" data-tier="1" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
-                        <div style="font-size:18px">☕</div>
-                        <div style="font-weight:700;font-size:13px">$3</div>
-                        <div style="font-size:11px;color:var(--muted)">+20크레딧</div>
-                        <div style="font-size:10px;color:var(--primary)">🟣 +1마볼</div>
-                    </div>
-                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid var(--primary);background:linear-gradient(180deg,#fff0ec,#fff);box-shadow:0 2px 12px rgba(180,80,50,0.15);transition:all .2s" onclick="selectDonTier(this,2)" data-tier="2" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
-                        <div style="font-size:18px">🔥</div>
-                        <div style="font-weight:700;font-size:13px">$7</div>
-                        <div style="font-size:11px;color:var(--muted)">+50크레딧</div>
-                        <div style="font-size:10px;color:var(--primary)">🟣 +3마볼</div>
-                        <div style="font-size:9px;color:var(--primary);font-weight:700">BEST</div>
-                    </div>
-                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#fffbe6,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,3)" data-tier="3" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
-                        <div style="font-size:18px">⭐</div>
-                        <div style="font-weight:700;font-size:13px">$15</div>
-                        <div style="font-size:11px;color:var(--muted)">+100크레딧</div>
-                        <div style="font-size:10px;color:var(--primary)">🟣 +7마볼</div>
-                    </div>
-                    <div class="card" style="margin:0;text-align:center;cursor:pointer;border:2px solid transparent;background:linear-gradient(180deg,#f0f4ff,#fff);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:all .2s" onclick="selectDonTier(this,'custom')" data-tier="custom" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
-                        <div style="font-size:18px">✏️</div>
-                        <div style="display:flex;align-items:center;justify-content:center;gap:2px"><span style="font-weight:700;font-size:13px">$</span><input type="number" id="customDonAmount" min="10" max="1000" placeholder="10+" style="width:36px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-weight:700;text-align:center;background:var(--card)" oninput="selectCustomTier()" onclick="event.stopPropagation()"></div>
-                        <div id="customQuotaLabel" style="font-size:11px;color:var(--primary);font-weight:700">직접입력</div>
-                    </div>
-                </div>
-                <button id="payBtn" onclick="startPayment()" style="width:100%;padding:14px 20px;font-size:16px;font-weight:700;border:none;border-radius:10px;background:linear-gradient(135deg,#e85d3a,#c0392b);color:#fff;cursor:pointer;margin-bottom:8px;box-shadow:0 4px 15px rgba(200,60,40,0.35);letter-spacing:0.5px;transition:all .2s" onmouseenter="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 20px rgba(200,60,40,0.45)'" onmouseleave="this.style.transform='';this.style.boxShadow='0 4px 15px rgba(200,60,40,0.35)'">💳 암호화폐로 후원하기</button>
-                <div id="payStatus" style="display:none;text-align:center;font-size:12px;padding:8px;border-radius:6px;margin-bottom:8px"></div>
-                <div style="font-size:10px;color:var(--muted);text-align:center">후원 완료 시 크레딧 + 마스터볼이 자동 지급됩니다.</div>
-            </div>
+            <!-- Donation/Credit section removed -->
         </div>
 
         <!-- ADMIN PANEL -->
@@ -3458,6 +3638,28 @@
 const API="";
 let _cache={};
 
+// --- Theme Toggle ---
+function toggleTheme(){
+    const html=document.documentElement;
+    const isDark=html.getAttribute('data-theme')==='dark';
+    if(isDark){
+        html.removeAttribute('data-theme');
+        localStorage.setItem('tgpoke-theme','light');
+    }else{
+        html.setAttribute('data-theme','dark');
+        localStorage.setItem('tgpoke-theme','dark');
+    }
+    updateThemeIcons();
+}
+function updateThemeIcons(){
+    const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+    const sun=document.getElementById('themeIconSun');
+    const moon=document.getElementById('themeIconMoon');
+    if(sun) sun.style.display=isDark?'block':'none';
+    if(moon) moon.style.display=isDark?'none':'block';
+}
+document.addEventListener('DOMContentLoaded',updateThemeIcons);
+
 // --- Utilities ---
 async function fetchJSON(u){
     if(_cache[u]&&Date.now()-_cache[u].t<30000) return _cache[u].d;
@@ -3565,7 +3767,7 @@ function updateAuthUI(){
     const admTab=document.getElementById("adminTab");
     if(_authUser){
         const photo=_authUser.photo_url?`<img class="user-avatar" src="${_authUser.photo_url}" alt="">`:'';
-        area.innerHTML=`<div class="user-info">${photo}<span class="user-name">${escHtml(_authUser.display_name)}</span><span id="quotaBadge" style="background:rgba(255,255,255,.15);color:#FFD54F;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap">🎫 --</span><button class="logout-btn" onclick="telegramLogout()">로그아웃</button></div>`;
+        area.innerHTML=`<div class="user-info">${photo}<span class="user-name">${escHtml(_authUser.display_name)}</span><button class="logout-btn" onclick="telegramLogout()">로그아웃</button></div>`;
         fetchQuota();
         if(admTab)admTab.style.display=_authUser.is_admin?"":"none";
     }else{
@@ -3581,24 +3783,11 @@ async function fetchQuota(){
     }catch(e){}
 }
 function updateQuotaBadge(remaining,bonus){
-    const el=document.getElementById("quotaBadge");
-    if(el){
-        const color=remaining<=0?"#FF8A80":remaining<=3?"#FFD54F":"#A5D6A7";
-        el.style.color=color;
-        el.textContent=`🎫 ${remaining}크레딧`;
-        el.title=`무료 ${Math.max(0,remaining-bonus)} + 보너스 ${bonus}`;
-    }
-    // Also update simulator quota label
-    const sq=document.getElementById("simQuotaLabel");
-    if(sq){
-        const free=Math.max(0,remaining-bonus);
-        sq.textContent=bonus>0?`🎫 ${remaining}크레딧 (무료 ${free} + 보너스 ${bonus})`:`🎫 ${remaining}크레딧`;
-        sq.style.color=remaining<=0?"var(--red)":remaining<=3?"#E65100":"var(--text)";
-    }
+    // Credit system removed - unlimited usage
 }
 
 // --- Tab Navigation with URL routing ---
-const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",market:"/market",tier:"/tier",typechart:"/types",guide:"/guide",camp:"/camp",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",admin:"/admin"};
+const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",market:"/market",tier:"/tier",typechart:"/types",guide:"/guide",camp:"/camp",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",cs:"/cs",admin:"/admin"};
 const ADMIN_CATS=["manage","db","kpi","battle"];
 function switchGuide(id){document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));document.getElementById('guide-'+id).classList.add('active');document.querySelector('.guide-tab[data-guide="'+id+'"]').classList.add('active');if(id==='typechart'){const src=document.getElementById('typeChartGrid');const dst=document.getElementById('typeChartGuide');if(src&&dst&&src.innerHTML&&!src.innerHTML.includes('로딩')){dst.innerHTML=src.innerHTML}else{loadTypeChart().then(()=>{const s2=document.getElementById('typeChartGrid');if(s2)dst.innerHTML=s2.innerHTML})}}}
 const PATH_PAGES=Object.fromEntries(Object.entries(PAGE_PATHS).map(([k,v])=>[v,k]));
@@ -3635,8 +3824,11 @@ function navigateTo(page,pushState=true){
         return;
     }
     document.querySelectorAll(".nav-tab").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll(".nav-group").forEach(g=>g.classList.remove("has-active"));
     document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
     tab.classList.add("active");
+    const parentGroup=tab.closest(".nav-group");
+    if(parentGroup)parentGroup.classList.add("has-active");
     const pgEl=document.getElementById("page-"+page);
     pgEl.classList.add("active");
     const aw=pgEl.querySelector(".auth-wall");
@@ -3648,7 +3840,29 @@ function navigateTo(page,pushState=true){
 }
 
 document.querySelectorAll(".nav-tab").forEach(tab=>{
-    tab.addEventListener("click",()=>navigateTo(tab.dataset.page));
+    tab.addEventListener("click",(e)=>{
+        // 드롭다운 안의 탭 클릭 시 드롭다운 닫기
+        const group=tab.closest(".nav-group");
+        if(group)group.classList.remove("open");
+        document.querySelectorAll(".nav-group").forEach(g=>{if(g!==group)g.classList.remove("open")});
+        navigateTo(tab.dataset.page);
+    });
+});
+// 드롭다운 그룹 클릭 토글 (모바일 터치 지원)
+document.querySelectorAll(".nav-group-label").forEach(label=>{
+    label.addEventListener("click",(e)=>{
+        e.stopPropagation();
+        const group=label.closest(".nav-group");
+        const wasOpen=group.classList.contains("open");
+        document.querySelectorAll(".nav-group").forEach(g=>g.classList.remove("open"));
+        if(!wasOpen)group.classList.add("open");
+    });
+});
+// 바깥 클릭 시 드롭다운 닫기
+document.addEventListener("click",(e)=>{
+    if(!e.target.closest(".nav-group")){
+        document.querySelectorAll(".nav-group").forEach(g=>g.classList.remove("open"));
+    }
 });
 
 // Handle browser back/forward
@@ -3706,6 +3920,7 @@ async function loadPage(page){
         else if(page==="camp") await loadCamp()
         else if(page==="market") await loadMarket()
         else if(page==="board"){if(!_boardLoaded)boardLoadList()}
+        else if(page==="cs"){await csLoadList()}
         else if(page==="admin"){if(_authUser&&_authUser.is_admin)await loadAdmin()}
     }catch(e){console.error("Load error:",e)}
     document.getElementById("lastUpdate").textContent="업데이트: "+new Date().toLocaleTimeString("ko-KR");
@@ -3720,15 +3935,7 @@ function loadCurrentPage(){
 
 // --- HOME ---
 function renderDonation(data){
-    const current=data.current||0,goal=data.goal||200;
-    const pct=Math.round((current/goal)*100);
-    const isOver=pct>=100;
-    document.getElementById("donateAmount").innerHTML=`$${current} <span class="goal">/ $${goal}</span>${isOver?` <span class="donate-over-badge">🎉 ${pct}% 달성!</span>`:''}`;
-    const fill=document.getElementById("donateFill");
-    fill.style.width=Math.min(pct,100)+"%";
-    if(isOver)fill.classList.add("over");else fill.classList.remove("over");
-    document.getElementById("donatePct").textContent=pct+"%";
-    document.getElementById("donateLabel").textContent=isOver?"감사합니다! 목표를 초과 달성했어요! 🎉":"후원해주시면 더 좋은 서비스를 만들 수 있어요!";
+    // Donation rendering removed
 }
 
 async function loadHome(){
@@ -3768,7 +3975,7 @@ async function loadHome(){
             const day=h.day.substring(5);
             return`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
                 <span style="font-size:10px;font-weight:600;color:var(--text)">${h.dau}</span>
-                <div style="width:100%;max-width:32px;height:80px;background:#F0F0F0;border-radius:6px;display:flex;align-items:flex-end;overflow:hidden">
+                <div style="width:100%;max-width:32px;height:80px;background:var(--input-bg);border-radius:6px;display:flex;align-items:flex-end;overflow:hidden">
                     <div style="width:100%;height:${Math.max(pct,4)}%;background:var(--red);border-radius:6px;transition:height .6s cubic-bezier(.4,0,.2,1)"></div>
                 </div>
                 <span style="color:var(--muted);font-size:10px">${day}</span>
@@ -3864,6 +4071,37 @@ async function loadChannelTop5(){
 }
 
 // --- Ranked Helper Functions (global scope) ---
+function _getRuleDetails(ruleKey){
+    const rules={
+        'epic_water_ice':[
+            '⚔️ 에픽 이하만 편성 가능 (전설/초전설 ❌)',
+            '🧊 에픽(3코) → 물 또는 얼음 타입만 사용 가능',
+            '✅ 레어(2코), 커먼(1코) → 타입 제한 없음',
+            '📊 팀 코스트 12 이내',
+        ],
+        'epic_fire_fight':[
+            '⚔️ 에픽 이하만 편성 가능 (전설/초전설 ❌)',
+            '🔥 에픽(3코) → 불꽃 또는 격투 타입만 사용 가능',
+            '✅ 레어(2코), 커먼(1코) → 타입 제한 없음',
+            '📊 팀 코스트 12 이내',
+        ],
+        'no_ultra':['⚔️ 초전설(6코) 사용 불가','✅ 전설 이하 편성 가능','📊 팀 코스트 12 이내'],
+        'no_legendary':['⚔️ 전설(5코) + 초전설(6코) 사용 불가','✅ 에픽 이하만 편성 가능','📊 팀 코스트 12 이내'],
+        'epic_below':['⚔️ 에픽 이하만 편성 가능 (전설/초전설 ❌)','📊 팀 코스트 12 이내'],
+        'no_normal':['🚫 노말 타입 포켓몬 사용 불가','✅ 그 외 모든 타입/등급 가능','📊 팀 코스트 12 이내'],
+        'no_dragon':['🚫 드래곤 타입 포켓몬 사용 불가','✅ 그 외 모든 타입/등급 가능','📊 팀 코스트 12 이내'],
+        'no_psychic':['🚫 에스퍼 타입 포켓몬 사용 불가','✅ 그 외 모든 타입/등급 가능','📊 팀 코스트 12 이내'],
+        'cost_8':['💰 팀 총 코스트 8 이하','✅ 레어(2코) + 커먼(1코) 위주','⚔️ 에픽(4코) 1마리 + 커먼 4마리 가능'],
+        'cost_12':['💰 팀 총 코스트 12 이하','✅ 에픽(4코) 2~3마리 + 레어/커먼 조합','⚔️ 전설(5코) 1마리 넣으면 나머지 7코로 편성'],
+        'cost_14':['💰 팀 총 코스트 14 이하','✅ 에픽 중심 편성 가능','⚔️ 초전설(6코) + 에픽(4코) = 10, 나머지 4코'],
+        'cost_15':['💰 팀 총 코스트 15 이하','✅ 에픽 + 전설 조합 가능','⚔️ 전설(5코) + 에픽(4코)×2 + 커먼(1코)×2 = 15'],
+        'cost_18':['💰 팀 총 코스트 18 이하 (확장)','✅ 초전설(6코) + 전설(5코) + 에픽 조합','⚔️ 확장 코스트 시즌'],
+        'cost_19':['💰 팀 총 코스트 19 이하','✅ 기본보다 약간 여유로운 편성','⚔️ 초전설 + 에픽 다수 가능'],
+        'cost_20':['💰 팀 총 코스트 20 이하','✅ 전설/초전설 자유롭게 편성','⚔️ 풀 코스트에 가까운 여유 시즌'],
+        'epic_max_2':['⚔️ 에픽 최대 2마리까지만 편성 가능','✅ 전설/초전설은 기존 제한과 동일','📊 팀 코스트 12 이내'],
+    };
+    return rules[ruleKey]||null;
+}
 function _tbClass(tier){
     const m={unranked:'tb-unranked',bronze:'tb-bronze',silver:'tb-silver',gold:'tb-gold',platinum:'tb-platinum',diamond:'tb-diamond',master:'tb-master',challenger:'tb-challenger'};
     return m[tier]||'tb-unranked';
@@ -3918,6 +4156,14 @@ async function loadBattleRank(){
         heroHtml+=`<div class="rh-season">SEASON ${s.season_id}</div>`;
         heroHtml+=`<div class="rh-title">🏟️ 시즌 ${s.season_id} 랭크전</div>`;
         heroHtml+=`<div class="rh-rule">🔒 ${escHtml(s.weekly_rule_name)} — ${escHtml(s.weekly_rule_desc)}</div>`;
+        // 상세 조건 박스
+        const ruleDetails=_getRuleDetails(s.weekly_rule_key||s.weekly_rule);
+        if(ruleDetails){
+            heroHtml+=`<div style="margin-top:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 16px;font-size:12px;line-height:1.8">`;
+            heroHtml+=`<div style="font-weight:700;color:#FFD700;margin-bottom:4px">📋 편성 조건</div>`;
+            ruleDetails.forEach(d=>{heroHtml+=`<div style="color:rgba(255,255,255,.85)">${d}</div>`;});
+            heroHtml+=`</div>`;
+        }
         heroHtml+=`<div class="rh-stats">`;
         heroHtml+=`<div class="rh-stat"><div class="rh-stat-val">${totalPlayers}</div><div class="rh-stat-label">참여자</div></div>`;
         const placedCount=Object.entries(tierDist).filter(([k])=>k!=='unranked'&&k!=='placement').reduce((a,[,v])=>a+v,0);
@@ -4202,7 +4448,7 @@ function _renderTierPage(){
             &nbsp;|&nbsp; 컬럼 클릭 시 정렬
         </div>
         <div style="margin-bottom:4px">
-            <b style="color:var(--text)">💎 팀 코스트</b>: 6마리 합계 <b>18</b> 이하 — 일반(1) · 레어(2) · 에픽(4) · 전설(5) · 초전설(6)
+            <b style="color:var(--text)">💎 팀 코스트</b>: 6마리 합계 <b>12</b> 이하 — 일반(1) · 레어(2) · 에픽(4) · 전설(5) · 초전설(6)
         </div>
         <div>
             <b style="color:var(--text)">💡 꿀팁</b>: 이 티어표를 ChatGPT에 캡쳐해서 팀 편성 추천을 받아보세요! 타입 상성과 코스트를 고려한 최적 조합을 알려줍니다.
@@ -4411,7 +4657,6 @@ function toggleFusionMode(){
         btn.style.background="#E8F5E9";btn.style.borderColor="#A5D6A7";btn.classList.remove("active");
         btn.textContent="🔀 합성";
     }
-    _pgState._pokePg=0;
     renderMyPokemon();
 }
 
@@ -4585,7 +4830,8 @@ async function loadMyPokemon(){
     // Populate type filter
     const typeSelect=document.getElementById("pokeTypeFilter");
     if(typeSelect.options.length<=1){
-        const types=new Set(pokemon.map(p=>p.pokemon_type));
+        const types=new Set();
+        pokemon.forEach(p=>{types.add(p.pokemon_type);if(p.type2)types.add(p.type2)});
         [...types].sort().forEach(t=>{
             const opt=document.createElement("option");
             opt.value=t;opt.textContent=(TYPE_EMOJI_MAP[t]||"")+" "+(TYPE_NAMES[t]||t);
@@ -4732,9 +4978,14 @@ function renderMyPokemon(){
     let fusionInfo="";
     if(_fusionMode){
         const selInfo=_fusionSelA?`선택: <b>${_fusionSelA.name_ko}</b> — 같은 종류의 두 번째 포켓몬을 선택하세요`:"같은 종류 2마리를 선택하세요";
-        fusionInfo=`<div style="padding:8px 12px;margin-bottom:8px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;font-size:12px;color:#2E7D32;display:flex;align-items:center;gap:8px">
-            <span style="font-size:16px">🔀</span><span>${selInfo}</span>
-            ${_fusionSelA?'<button onclick="_fusionSelA=null;_fusionSelB=null;_pgState._pokePg=0;renderMyPokemon()" style="margin-left:auto;padding:2px 8px;border:1px solid #A5D6A7;background:#fff;border-radius:4px;font-size:11px;cursor:pointer">선택 초기화</button>':''}
+        fusionInfo=`<div style="padding:8px 12px;margin-bottom:8px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;font-size:12px;color:#2E7D32">
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:16px">🔀</span><span>${selInfo}</span>
+                ${_fusionSelA?'<button onclick="_fusionSelA=null;_fusionSelB=null;renderMyPokemon()" style="margin-left:auto;padding:2px 8px;border:1px solid #A5D6A7;background:var(--card);border-radius:4px;font-size:11px;cursor:pointer;color:var(--text)">선택 초기화</button>':''}
+            </div>
+            <div style="margin-top:6px;font-size:11px;color:#558B2F;line-height:1.5">
+                💡 이로치 + 일반 = <b>이로치</b> 결과 · 이로치 + 이로치 = <b>이로치 (A등급 이상 보장)</b>
+            </div>
         </div>`;
     }
     grid.innerHTML=fusionInfo+slice.map(renderPokemonCard).join("");
@@ -4773,7 +5024,7 @@ function renderTeamView(num){
     const totalCost=team.reduce((s,p)=>s+(COST_MAP[p.rarity]||1),0);
     const costHtml=`<div style="margin-bottom:8px;font-size:12px;color:var(--dim);display:flex;gap:12px;align-items:center">
         <span>팀${num} · ${team.length}마리</span>
-        <span style="font-weight:600;color:${totalCost>18?'var(--red)':'var(--text)'}">코스트 ${totalCost}/18</span>
+        <span style="font-weight:600;color:${totalCost>12?'var(--red)':'var(--text)'}">코스트 ${totalCost}/12</span>
     </div>`;
     grid.innerHTML=costHtml+team.map(renderPokemonCard).join("");
 }
@@ -4980,12 +5231,12 @@ function _openDexModal(pid){
     badges+=`<span style="background:${rc};color:#fff;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">${rl}</span>`;
     if(p.caught){
         const t1n=TYPE_NAMES[p.type1]||p.type1;
-        badges+=`<span style="display:inline-flex;align-items:center;gap:3px;background:#F0F0F0;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600"><img src="/static/types/${p.type1}.png?v=2" style="width:14px;height:14px">${t1n}</span>`;
+        badges+=`<span style="display:inline-flex;align-items:center;gap:3px;background:var(--input-bg);padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600"><img src="/static/types/${p.type1}.png?v=2" style="width:14px;height:14px">${t1n}</span>`;
         if(p.type2){
             const t2n=TYPE_NAMES[p.type2]||p.type2;
-            badges+=`<span style="display:inline-flex;align-items:center;gap:3px;background:#F0F0F0;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600"><img src="/static/types/${p.type2}.png?v=2" style="width:14px;height:14px">${t2n}</span>`;
+            badges+=`<span style="display:inline-flex;align-items:center;gap:3px;background:var(--input-bg);padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600"><img src="/static/types/${p.type2}.png?v=2" style="width:14px;height:14px">${t2n}</span>`;
         }
-        badges+=`<span style="background:#F0F0F0;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">포획률 ${Math.round(p.catch_rate*100)}%</span>`;
+        badges+=`<span style="background:var(--input-bg);padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">포획률 ${Math.round(p.catch_rate*100)}%</span>`;
     }
     document.getElementById("dexModalBadges").innerHTML=badges;
 
@@ -5043,117 +5294,9 @@ function _openDexModal(pid){
 })();
 
 // --- AI CHAT ADVISOR (session-based) ---
-let _chatHistory=[];
 let _chatBusy=false;
-let _chatMsgs=[];  // [{role, html}] for current session
 
-// Session management
-let _chatSessions=[];  // [{id, name, msgs:[], history:[]}]
-let _curSessionId=null;
-const _SESS_KEY="tgpoke_sessions";
-const _MAX_SESSIONS=6;
-
-function _loadSessions(){
-    try{
-        const d=JSON.parse(localStorage.getItem(_SESS_KEY)||"null");
-        if(d&&d.sessions&&d.sessions.length){
-            _chatSessions=d.sessions.slice(-_MAX_SESSIONS); // trim to max
-            _curSessionId=d.active||_chatSessions[0].id;
-            if(!_chatSessions.find(s=>s.id===_curSessionId)) _curSessionId=_chatSessions[_chatSessions.length-1].id;
-        } else {
-            // Migrate old single-session data
-            const old=JSON.parse(localStorage.getItem("tgpoke_chat")||"null");
-            const firstId=Date.now().toString(36);
-            if(old&&old.msgs&&old.msgs.length){
-                _chatSessions=[{id:firstId,name:"대화 1",msgs:old.msgs.slice(-30),history:old.history||[]}];
-            } else {
-                _chatSessions=[{id:firstId,name:"대화 1",msgs:[],history:[]}];
-            }
-            _curSessionId=firstId;
-            localStorage.removeItem("tgpoke_chat");
-        }
-    }catch(e){
-        const fid=Date.now().toString(36);
-        _chatSessions=[{id:fid,name:"대화 1",msgs:[],history:[]}];
-        _curSessionId=fid;
-    }
-}
-function _saveSessions(){
-    try{
-        // Keep only last 30 msgs per session
-        const trimmed=_chatSessions.map(s=>({...s,msgs:s.msgs.slice(-30),history:(s.history||[]).slice(-10)}));
-        localStorage.setItem(_SESS_KEY,JSON.stringify({sessions:trimmed,active:_curSessionId}));
-    }catch(e){}
-}
-function _getCurSession(){return _chatSessions.find(s=>s.id===_curSessionId)}
-function _switchSession(id){
-    _curSessionId=id;
-    const s=_getCurSession();
-    if(!s)return;
-    _chatMsgs=s.msgs;
-    _chatHistory=s.history||[];
-    _renderChatMsgs();
-    _renderSessionBar();
-    _saveSessions();
-}
-function _createSession(){
-    if(_chatSessions.length>=_MAX_SESSIONS) return; // max 6
-    const id=Date.now().toString(36);
-    const num=_chatSessions.length+1;
-    const s={id,name:"대화 "+num,msgs:[],history:[]};
-    _chatSessions.push(s);
-    _switchSession(id);
-}
-function _deleteSession(id){
-    _chatSessions=_chatSessions.filter(s=>s.id!==id);
-    if(!_chatSessions.length){
-        // Last session deleted — create fresh empty one
-        const fid=Date.now().toString(36);
-        _chatSessions=[{id:fid,name:"대화 1",msgs:[],history:[]}];
-        _switchSession(fid);
-    } else if(_curSessionId===id){
-        _switchSession(_chatSessions[_chatSessions.length-1].id);
-    } else{_renderSessionBar();_saveSessions();}
-}
-function _renderSessionBar(){
-    const bar=document.getElementById("chatSessionBar");
-    if(!bar)return;
-    let h="";
-    _chatSessions.forEach(s=>{
-        const active=s.id===_curSessionId?"active":"";
-        const del=`<span class="sess-tab-del" onclick="event.stopPropagation();_deleteSession('${s.id}')">✕</span>`;
-        h+=`<button class="sess-tab ${active}" onclick="_switchSession('${s.id}')">${s.name}${del}</button>`;
-    });
-    if(_chatSessions.length<_MAX_SESSIONS) h+=`<button class="sess-tab-new" onclick="_createSession()" title="새 대화">+</button>`;
-    bar.innerHTML=h;
-}
-function _renderChatMsgs(){
-    const el=document.getElementById("chatMessages");
-    if(!el)return;
-    if(!_chatMsgs.length){
-        el.innerHTML=`<div class="chat-msg ai"><div class="chat-sender">🤖 배틀 어드바이저</div>포켓몬 배틀 전략 AI입니다. 위 버튼을 누르거나 자유롭게 질문하세요!<br><span style="font-size:11px;color:var(--muted)">예: "내 마기라스 어때?", "페어리 카운터 추천", "팀 약점 분석"</span></div>`;
-        return;
-    }
-    el.innerHTML="";
-    for(const m of _chatMsgs){
-        const div=document.createElement("div");
-        div.className=`chat-msg ${m.role}`;
-        if(m.role==="ai") div.innerHTML='<div class="chat-sender">🤖 배틀 어드바이저</div>'+m.html;
-        else div.innerHTML='<div class="chat-sender">🗣️ 나</div>'+m.html;
-        el.appendChild(div);
-    }
-    el.scrollTop=el.scrollHeight;
-}
-function _restoreChatFromStorage(){
-    _loadSessions();
-    const s=_getCurSession();
-    if(s){
-        _chatMsgs=s.msgs;
-        _chatHistory=s.history||[];
-        _renderChatMsgs();
-    }
-    _renderSessionBar();
-}
+// Chat session/Gemini functions removed
 
 // Mode button mapping → algorithm API (1 token)
 const _MODE_MAP={
@@ -5184,43 +5327,7 @@ async function sendQuick(text){
     document.querySelectorAll('.chat-quick-btn').forEach(b=>{b.style.opacity='1'});
 }
 
-function addChatMsg(role, html){
-    const el=document.getElementById("chatMessages");
-    const div=document.createElement("div");
-    div.className=`chat-msg ${role}`;
-    if(role==="ai") div.innerHTML='<div class="chat-sender">🤖 배틀 어드바이저</div>'+html;
-    else div.innerHTML='<div class="chat-sender">🗣️ 나</div>'+html;
-    el.appendChild(div);
-    el.scrollTop=el.scrollHeight;
-    _chatMsgs.push({role,html});
-    // Auto-name session from first user message
-    const s=_getCurSession();
-    if(s){
-        s.msgs=_chatMsgs;
-        s.history=_chatHistory;
-        if(role==="user"&&s.msgs.filter(m=>m.role==="user").length===1){
-            s.name=html.replace(/<[^>]*>/g,"").slice(0,12)||(s.name);
-            _renderSessionBar();
-        }
-        _saveSessions();
-    }
-    return div;
-}
-
-function showTyping(){
-    const el=document.getElementById("chatMessages");
-    const div=document.createElement("div");
-    div.className="chat-typing";
-    div.id="chatTyping";
-    div.innerHTML="<span></span><span></span><span></span>";
-    el.appendChild(div);
-    el.scrollTop=el.scrollHeight;
-}
-
-function hideTyping(){
-    const t=document.getElementById("chatTyping");
-    if(t) t.remove();
-}
+// Chat message/typing functions removed
 
 function mdToHtml(text){
     // Lightweight markdown → HTML for AI responses
@@ -5285,117 +5392,9 @@ function formatAiResponse(data){
     return html;
 }
 
-async function sendChat(){
-    if(_chatBusy) return;
-    if(!_authUser){telegramConnect();return}
-    const input=document.getElementById("chatInput");
-    const msg=input.value.trim();
-    if(!msg) return;
-    input.value='';
+// sendChat/retry functions removed (Gemini chat removed)
 
-    addChatMsg('user', msg.replace(/</g,'&lt;'));
-    _chatHistory.push({role:'user',content:msg});
-
-    _chatBusy=true;
-    document.getElementById("chatSendBtn").disabled=true;
-    showTyping();
-
-    try{
-        const r=await fetch("/api/my/chat",{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({message:msg, history:_chatHistory.slice(-10)})
-        });
-        const d=await r.json();
-        hideTyping();
-        if(d.error){
-            addChatMsg('ai','죄송합니다. 오류가 발생했어요: '+d.error+_retryBtn(msg));
-        } else if(d.refunded){
-            addChatMsg('ai', d.analysis+_retryBtn(msg));
-            if(d.remaining!==undefined) updateQuotaBadge(d.remaining,d.bonus_remaining||0);
-        } else {
-            let html=formatAiResponse(d);
-            if(d.truncated){
-                html+='<div style="margin-top:8px;padding:6px 10px;background:rgba(139,0,0,.06);border-radius:6px;font-size:11px;color:var(--muted)">⚠️ 답변이 길어서 일부가 잘렸어요.'+_retryBtn(msg)+'</div>';
-            }
-            if(d.remaining!==undefined && !d.no_cost){
-                updateQuotaBadge(d.remaining,d.bonus_remaining||0);
-            }
-            addChatMsg('ai', html);
-            if(d.analysis && !d.no_cost) _chatHistory.push({role:'assistant',content:d.analysis});
-        }
-    }catch(e){
-        hideTyping();
-        addChatMsg('ai','서버 연결에 실패했습니다.'+_retryBtn(msg));
-    }
-    _chatBusy=false;
-    document.getElementById("chatSendBtn").disabled=false;
-}
-function _retryBtn(msg){
-    const escaped=msg.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-    return ' <button onclick="_retryChat(\''+escaped+'\')" style="background:var(--red);color:#fff;border:none;padding:3px 10px;border-radius:5px;font-size:11px;cursor:pointer;margin-left:4px">🔄 다시 시도</button>';
-}
-function _retryChat(msg){
-    document.getElementById("chatInput").value=msg;
-    sendChat();
-}
-
-let _selectedTier=2;
-const _tierAmounts={1:3,2:7,3:15};
-function _calcQuota(usd){return Math.floor(usd/7*50)}
-function _calcMasterBalls(usd){return Math.max(1,Math.floor(usd/3))}
-
-function selectDonTier(el,tier){
-    _selectedTier=tier;
-    document.querySelectorAll('[data-tier]').forEach(c=>c.style.border='2px solid transparent');
-    el.style.border='2px solid var(--primary)';
-    if(tier!=='custom'){
-        document.getElementById("customDonAmount").value="";
-        document.getElementById("customQuotaLabel").textContent="직접입력";
-    }
-}
-function selectCustomTier(){
-    const v=parseInt(document.getElementById("customDonAmount").value)||0;
-    if(v>0){
-        _selectedTier="custom";
-        document.querySelectorAll('[data-tier]').forEach(c=>c.style.border='2px solid transparent');
-        document.querySelector('[data-tier="custom"]').style.border='2px solid var(--primary)';
-        document.getElementById("customQuotaLabel").textContent=`+${_calcQuota(v)}회 +${_calcMasterBalls(v)}마볼`;
-    }else{
-        document.getElementById("customQuotaLabel").textContent="직접입력";
-    }
-}
-async function startPayment(){
-    const btn=document.getElementById("payBtn");
-    const status=document.getElementById("payStatus");
-    const customAmt=_selectedTier==="custom"?parseInt(document.getElementById("customDonAmount").value)||0:0;
-
-    if(_selectedTier==="custom"&&customAmt<10){
-        status.style.display="block";status.style.background="#fff3cd";status.style.color="#856404";
-        status.textContent="직접 입력은 최소 $10부터 가능합니다.";return;
-    }
-
-    btn.disabled=true;btn.textContent="후원 준비 중...";
-    status.style.display="none";
-
-    const body=_selectedTier==="custom"?{custom_amount:customAmt}:{tier:_selectedTier};
-    try{
-        const r=await fetch("/api/payment/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-        const d=await r.json();
-        if(d.ok&&d.invoice_url){
-            window.open(d.invoice_url,"_blank");
-            status.style.display="block";status.style.background="#d4edda";status.style.color="#155724";
-            status.textContent="후원 페이지가 열렸습니다. 완료 후 보상이 자동 지급됩니다!";
-        }else{
-            status.style.display="block";status.style.background="#f8d7da";status.style.color="#721c24";
-            status.textContent=d.error||"후원 생성에 실패했습니다.";
-        }
-    }catch(e){
-        status.style.display="block";status.style.background="#f8d7da";status.style.color="#721c24";
-        status.textContent="서버 연결에 실패했습니다.";
-    }
-    btn.disabled=false;btn.textContent="💳 암호화폐로 후원하기";
-}
+// Payment/donation functions removed
 
 async function loadSimulator(){
     if(!_myPokemon.length){
@@ -5404,10 +5403,7 @@ async function loadSimulator(){
             _myPokemon=await r.json();
         }catch(e){}
     }
-    // Restore chat sessions from localStorage
-    _restoreChatFromStorage();
-    // Load donation progress
-    try{const don=await fetchJSON("/api/donation");if(don)renderDonation(don)}catch(e){renderDonation({current:0,goal:200})}
+    // Chat sessions and donation removed
 }
 
 // --- Admin Panel ---
@@ -6242,6 +6238,35 @@ async function admDbDungeon(page){
         }
         h+=`</table></div>`;
 
+        // 액션 통계
+        const ac=d.action_stats||{};
+        const ap=ac.pct||{};
+        h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">`;
+        h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-weight:700;margin-bottom:8px">⚔️ 행동 패턴 (${(ac.total||0).toLocaleString()}턴)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+                <div style="background:var(--bg);border-radius:6px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">일반공격</div><div style="font-size:18px;font-weight:700">${ap.normal||0}%</div></div>
+                <div style="background:var(--bg);border-radius:6px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">스킬1</div><div style="font-size:18px;font-weight:700;color:var(--red)">${ap.skill1||0}%</div></div>
+                <div style="background:var(--bg);border-radius:6px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">스킬2</div><div style="font-size:18px;font-weight:700;color:var(--red)">${ap.skill2||0}%</div></div>
+                <div style="background:var(--bg);border-radius:6px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">방어</div><div style="font-size:18px;font-weight:700;color:#3498db">${ap.defend||0}%</div></div>
+            </div>
+        </div>`;
+
+        // 인기 빌드
+        const builds=d.top_builds||[];
+        h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-weight:700;margin-bottom:8px">🏆 인기 빌드 Top${builds.length}</div>
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 0">버프 조합</th><th style="text-align:center">횟수</th><th style="text-align:right">평균 층</th></tr>`;
+        for(const b of builds){
+            const names=b.combo.split("+").map(id=>{
+                const m={"atk":"공격","spa":"특공","hp":"체력","def":"방어","spdef":"특방","spd":"속도","crit":"크리","double":"이중타격","dodge":"회피","thorns":"가시갑옷","lifesteal":"흡혈","heal":"회복","shield":"보호막","preemptive":"선제","penetrate":"관통","counter":"카운터","revive":"부활","allstat":"전능"};
+                return m[id]||id;
+            }).join(" + ");
+            h+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0;font-size:10px">${escHtml(names)}</td><td style="text-align:center">${b.cnt}</td><td style="text-align:right;font-weight:700">${b.avg_floor}F</td></tr>`;
+        }
+        h+=`</table></div></div>`;
+
         // 런 로그
         h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
             <div style="font-weight:700;margin-bottom:8px">🕐 런 로그 (${s.total_runs}건, ${ds.page}/${d.pages}페이지)</div>
@@ -6359,15 +6384,17 @@ async function loadCamp(){
         let html='<div class="guide-card" style="margin-bottom:16px;background:linear-gradient(135deg,rgba(76,175,80,.04),rgba(33,150,243,.04));border:1px solid rgba(76,175,80,.2)">';
         html+='<h3>📋 내 캠프 현황</h3>';
 
-        // 거점 캠프
-        if(data.home_camp){
-            const hc=data.home_camp;
-            const link=hc.invite_link?`<a href="${hc.invite_link}" target="_blank" style="color:var(--primary)">${hc.chat_title||"캠프"}</a>`:(hc.chat_title||"캠프");
-            html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-                <div class="card" style="padding:8px 14px;flex:1;min-width:150px">
-                    <div class="label">🏠 거점캠프</div>
+        // 거점 캠프 (구독자는 2개 가능)
+        const camps=data.home_camps||[];
+        if(camps.length>0){
+            html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">`;
+            camps.forEach((hc,i)=>{
+                const link=hc.invite_link?`<a href="${hc.invite_link}" target="_blank" style="color:var(--primary)">${hc.chat_title||"캠프"}</a>`:(hc.chat_title||"캠프");
+                html+=`<div class="card" style="padding:8px 14px;flex:1;min-width:150px">
+                    <div class="label">🏠 거점캠프${camps.length>1?' '+(i+1):''}</div>
                     <div class="value" style="font-size:14px">${link} (Lv.${hc.level})</div>
                 </div>`;
+            });
         }else{
             html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
                 <div class="card" style="padding:8px 14px;flex:1;min-width:150px">
@@ -6840,7 +6867,7 @@ function boardSideNav(el, pushState=true) {
     _boardTag = el.dataset.tag || "";
     _boardPage = 1;
 
-    const titles = {notice: "📢 공지사항", community: "💬 유저게시판"};
+    const titles = {notice: "📢 패치노트", tournament: "🏆 토너먼트", community: "💬 유저게시판"};
     document.getElementById("boardTitle").textContent = titles[board] || board;
 
     // Show write button based on context
@@ -7129,6 +7156,160 @@ function _escHtml(s) {
     }
     setInterval(()=>{loaded[currentPage]=false;loadPage(currentPage)},300000);
 })();
+
+// ─── CS 문의 시스템 ───
+let _csPage=1,_csStatus="",_csView="public",_csIsAdmin=false;
+const STATUS_COLORS={open:"#f0ad4e",in_progress:"#5bc0de",resolved:"#5cb85c",closed:"#999"};
+const CAT_ICONS={bug:"🐛",suggestion:"💡",premium:"💎",other:"📋"};
+
+function csViewTab(el){
+    document.querySelectorAll("[data-view]").forEach(b=>b.classList.remove("active"));
+    el.classList.add("active");
+    _csView=el.dataset.view;
+    _csPage=1;
+    loaded["cs"]=false;
+    csLoadList(1);
+}
+
+async function csLoadList(page){
+    _csPage=page||1;
+    const qs=`page=${_csPage}&view=${_csView}`+(_csStatus?`&status=${_csStatus}`:"");
+    const r=await fetch(`/api/cs/inquiries?${qs}`);
+    const d=await r.json();
+    _csIsAdmin=d.is_admin;
+    // show mine/admin tabs if logged in
+    const mineTab=document.getElementById("csMineTab");
+    const admTab2=document.getElementById("csAdminTab");
+    if(mineTab)mineTab.style.display=d.logged_in?"":"none";
+    if(admTab2)admTab2.style.display=d.is_admin?"":"none";
+    const tb=document.getElementById("csTableBody");
+    if(!d.items.length){tb.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">문의 내역이 없습니다.</td></tr>`;document.getElementById("csPaging").innerHTML="";return}
+    tb.innerHTML=d.items.map(i=>{
+        const icon=CAT_ICONS[i.category]||"📋";
+        const sc=STATUS_COLORS[i.status]||"#999";
+        const lock=i.is_public===false?"🔒 ":"";
+        const likes=i.like_count||0;
+        return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="csOpenDetail(${i.id})">
+            <td style="text-align:center;padding:8px 6px;color:var(--muted)">${i.id}</td>
+            <td style="padding:8px 6px">${icon} ${escHtml(i.category_label)}</td>
+            <td style="padding:8px 6px">${lock}${escHtml(i.title)}</td>
+            <td class="hide-m" style="padding:8px 6px;color:var(--muted)">${escHtml(i.display_name||"")}</td>
+            <td style="text-align:center;padding:8px 6px;color:var(--muted);font-size:11px">${likes>0?`👍${likes}`:""}</td>
+            <td style="text-align:center;padding:8px 6px"><span style="background:${sc};color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${escHtml(i.status_label)}</span></td>
+            <td style="text-align:center;padding:8px 6px;color:var(--muted);font-size:11px">${escHtml(i.time_ago)}</td>
+        </tr>`}).join("");
+    // paging
+    let pg="";
+    if(d.pages>1){
+        if(_csPage>1)pg+=`<button onclick="csLoadList(${_csPage-1})" style="margin:0 4px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--text);cursor:pointer">이전</button>`;
+        pg+=`<span style="font-size:12px;color:var(--muted)">${_csPage} / ${d.pages}</span>`;
+        if(_csPage<d.pages)pg+=`<button onclick="csLoadList(${_csPage+1})" style="margin:0 4px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--text);cursor:pointer">다음</button>`;
+    }
+    document.getElementById("csPaging").innerHTML=pg;
+}
+
+function csFilter(el){
+    document.querySelectorAll(".cs-filter").forEach(b=>b.classList.remove("active"));
+    el.classList.add("active");
+    _csStatus=el.dataset.status;
+    loaded["cs"]=false;
+    csLoadList(1);
+}
+
+function csShowWrite(){
+    document.getElementById("csListView").style.display="none";
+    document.getElementById("csDetailView").style.display="none";
+    document.getElementById("csWriteView").style.display="block";
+    document.getElementById("csTitle").value="";
+    document.getElementById("csContent").value="";
+    document.getElementById("csImage").value="";
+}
+function csShowList(){
+    document.getElementById("csWriteView").style.display="none";
+    document.getElementById("csDetailView").style.display="none";
+    document.getElementById("csListView").style.display="block";
+    loaded["cs"]=false;
+    csLoadList(_csPage);
+}
+
+async function csSubmit(){
+    const cat=document.getElementById("csCategory").value;
+    const title=document.getElementById("csTitle").value.trim();
+    const content=document.getElementById("csContent").value.trim();
+    if(!title||!content){alert("제목과 내용을 입력해주세요.");return}
+    const fd=new FormData();
+    fd.append("category",cat);
+    fd.append("title",title);
+    fd.append("content",content);
+    fd.append("is_public",document.getElementById("csPrivate").checked?"false":"true");
+    const imgInput=document.getElementById("csImage");
+    if(imgInput.files.length>0)fd.append("image",imgInput.files[0]);
+    const r=await fetch("/api/cs/inquiries",{method:"POST",body:fd});
+    const d=await r.json();
+    if(d.ok){alert(`문의 #${d.id} 접수 완료!`);csShowList()}
+    else{alert(d.error||"오류 발생")}
+}
+
+async function csOpenDetail(id){
+    const r=await fetch(`/api/cs/inquiries/${id}`);
+    const d=await r.json();
+    if(d.error){alert(d.error);return}
+    document.getElementById("csListView").style.display="none";
+    document.getElementById("csWriteView").style.display="none";
+    document.getElementById("csDetailView").style.display="block";
+
+    const icon=CAT_ICONS[d.category]||"📋";
+    const sc=STATUS_COLORS[d.status]||"#999";
+    let html=`
+        <div style="padding:16px;background:var(--card);border-radius:8px;border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <span style="background:${sc};color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${escHtml(d.status_label)}</span>
+                <span style="font-size:11px;color:var(--muted)">#${d.id} · ${icon} ${escHtml(d.category_label)} · ${escHtml(d.time_ago)}</span>
+            </div>
+            <h3 style="margin:0 0 12px;font-size:15px">${escHtml(d.title)}</h3>
+            <div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${escHtml(d.content)}</div>
+            ${d.image_filename?`<div style="margin-top:12px"><img src="/uploads/cs/${d.image_filename}" style="max-width:100%;border-radius:8px;border:1px solid var(--border)" alt="첨부 이미지"></div>`:""}
+            <div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between">
+                <div style="font-size:11px;color:var(--muted)">작성자: ${escHtml(d.display_name||"")}${d.is_public===false?" · 🔒 비공개":""}</div>
+                <button id="csLikeBtn" onclick="csToggleLike(${d.id})" style="padding:6px 14px;border:1px solid var(--border);border-radius:16px;background:${d.has_liked?"#58a6ff22":"var(--card)"};color:${d.has_liked?"#58a6ff":"var(--text)"};font-size:12px;cursor:pointer;font-weight:600">👍 ${d.like_count||0}</button>
+            </div>
+        </div>`;
+
+    if(d.admin_reply){
+        html+=`
+        <div style="margin-top:12px;padding:16px;background:rgba(88,166,255,0.08);border-radius:8px;border:1px solid rgba(88,166,255,0.2)">
+            <div style="font-size:12px;font-weight:600;color:#58a6ff;margin-bottom:6px">💬 관리자 답변</div>
+            <div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${escHtml(d.admin_reply)}</div>
+        </div>`;
+    }
+    document.getElementById("csDetailContent").innerHTML=html;
+
+    const replyDiv=document.getElementById("csAdminReply");
+    if(d.is_admin){
+        replyDiv.style.display="block";
+        replyDiv.dataset.id=d.id;
+        document.getElementById("csReplyText").value=d.admin_reply||"";
+    }else{replyDiv.style.display="none"}
+}
+
+async function csToggleLike(id){
+    const r=await fetch(`/api/cs/inquiries/${id}/like`,{method:"POST"});
+    const d=await r.json();
+    if(d.error){alert(d.error);return}
+    const btn=document.getElementById("csLikeBtn");
+    if(btn){btn.textContent=`👍 ${d.like_count}`;btn.style.background=d.liked?"#58a6ff22":"var(--card)";btn.style.color=d.liked?"#58a6ff":"var(--text)"}
+}
+
+async function csReplySubmit(){
+    const id=document.getElementById("csAdminReply").dataset.id;
+    const reply=document.getElementById("csReplyText").value.trim();
+    const status=document.getElementById("csReplyStatus").value;
+    if(!reply){alert("답변을 입력해주세요.");return}
+    const r=await fetch(`/api/cs/inquiries/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({admin_reply:reply,status})});
+    const d=await r.json();
+    if(d.ok){alert("답변 등록 완료!");csOpenDetail(parseInt(id))}
+    else{alert(d.error||"오류 발생")}
+}
 </script>
 </body>
 </html>

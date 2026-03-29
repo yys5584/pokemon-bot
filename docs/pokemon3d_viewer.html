@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>TGPoke 3D Viewer</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a1a;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+#canvas-container {
+  flex: 1;
+  position: relative;
+  touch-action: none;
+}
+canvas { display: block; width: 100%; height: 100%; }
+
+/* Top bar */
+.top-bar {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(10,10,26,0.95);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  z-index: 10;
+}
+.pokemon-name {
+  font-size: 18px;
+  font-weight: 700;
+}
+.pokemon-id {
+  font-size: 13px;
+  color: #888;
+}
+.shiny-badge {
+  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  display: none;
+}
+
+/* Bottom controls */
+.controls {
+  padding: 12px 16px 20px;
+  background: rgba(10,10,26,0.95);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  z-index: 10;
+}
+.pokemon-grid {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.pokemon-btn {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.05);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #aaa;
+  transition: all 0.2s;
+  position: relative;
+}
+.pokemon-btn.active {
+  border-color: #4fc3f7;
+  background: rgba(79,195,247,0.15);
+  color: #fff;
+}
+.pokemon-btn img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+.toggle-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.toggle-btn {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.05);
+  color: #ccc;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+.toggle-btn.active {
+  background: rgba(79,195,247,0.2);
+  border-color: #4fc3f7;
+  color: #fff;
+}
+
+/* Loading */
+.loading-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10,10,26,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  transition: opacity 0.3s;
+}
+.loading-overlay.hidden { opacity: 0; pointer-events: none; }
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: #4fc3f7;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Rarity glow */
+.glow-common { box-shadow: 0 0 20px rgba(150,150,150,0.3); }
+.glow-rare { box-shadow: 0 0 30px rgba(79,195,247,0.4); }
+.glow-epic { box-shadow: 0 0 30px rgba(171,71,188,0.5); }
+.glow-legendary { box-shadow: 0 0 40px rgba(255,215,0,0.5); }
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <span class="pokemon-name" id="pokeName">Loading...</span>
+  <span class="pokemon-id" id="pokeId">#---</span>
+  <span class="shiny-badge" id="shinyBadge">SHINY</span>
+</div>
+
+<div id="canvas-container">
+  <div class="loading-overlay" id="loading">
+    <div class="spinner"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="pokemon-grid" id="pokeGrid"></div>
+  <div class="toggle-row">
+    <div class="toggle-btn" id="btnShiny" onclick="toggleShiny()">✨ 이로치</div>
+    <div class="toggle-btn" id="btnAuto" onclick="toggleAutoRotate()">🔄 자동회전</div>
+    <div class="toggle-btn" id="btnAnim" onclick="toggleAnimation()">🎬 애니메이션</div>
+  </div>
+</div>
+
+<!-- Three.js -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+// ── 포켓몬 목록 (인기종 샘플) ──
+const POKEMON_LIST = [
+  { id: 6, name: "리자몽", rarity: "epic" },
+  { id: 25, name: "피카츄", rarity: "rare" },
+  { id: 39, name: "푸린", rarity: "common" },
+  { id: 131, name: "라프라스", rarity: "epic" },
+  { id: 133, name: "이브이", rarity: "rare" },
+  { id: 149, name: "망나뇽", rarity: "epic" },
+  { id: 150, name: "뮤츠", rarity: "legendary" },
+  { id: 248, name: "마기라스", rarity: "epic" },
+  { id: 282, name: "가디안", rarity: "rare" },
+  { id: 376, name: "메타그로스", rarity: "legendary" },
+  { id: 445, name: "한카리아스", rarity: "epic" },
+  { id: 448, name: "루카리오", rarity: "rare" },
+];
+
+const MODEL_BASE = "https://raw.githubusercontent.com/Pokemon-3D-api/assets/refs/heads/main/models/opt";
+const SPRITE_URL = (id) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+
+// ── Three.js 초기화 ──
+const container = document.getElementById('canvas-container');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+
+// 배경 그라데이션
+const bgCanvas = document.createElement('canvas');
+bgCanvas.width = 2; bgCanvas.height = 256;
+const bgCtx = bgCanvas.getContext('2d');
+const grad = bgCtx.createLinearGradient(0, 0, 0, 256);
+grad.addColorStop(0, '#1a1a3e');
+grad.addColorStop(0.5, '#0d0d2b');
+grad.addColorStop(1, '#050510');
+bgCtx.fillStyle = grad;
+bgCtx.fillRect(0, 0, 2, 256);
+scene.background = new THREE.CanvasTexture(bgCanvas);
+
+const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 100);
+camera.position.set(0, 1.5, 4);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 2;
+controls.target.set(0, 0.8, 0);
+controls.minDistance = 1.5;
+controls.maxDistance = 8;
+controls.maxPolarAngle = Math.PI * 0.85;
+
+// 조명
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+keyLight.position.set(3, 5, 3);
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0x4fc3f7, 0.4);
+fillLight.position.set(-3, 2, -2);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xff6090, 0.3);
+rimLight.position.set(0, 3, -4);
+scene.add(rimLight);
+
+// 바닥 원형 플랫폼
+const platformGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.05, 64);
+const platformMat = new THREE.MeshStandardMaterial({
+  color: 0x1a1a3e,
+  metalness: 0.8,
+  roughness: 0.2,
+  transparent: true,
+  opacity: 0.6,
+});
+const platform = new THREE.Mesh(platformGeo, platformMat);
+platform.position.y = -0.025;
+scene.add(platform);
+
+// 바닥 링 글로우
+const ringGeo = new THREE.RingGeometry(1.15, 1.25, 64);
+const ringMat = new THREE.MeshBasicMaterial({
+  color: 0x4fc3f7, transparent: true, opacity: 0.4, side: THREE.DoubleSide
+});
+const ring = new THREE.Mesh(ringGeo, ringMat);
+ring.rotation.x = -Math.PI / 2;
+ring.position.y = 0.01;
+scene.add(ring);
+
+// ── 상태 ──
+let currentModel = null;
+let currentMixer = null;
+let currentAnimations = [];
+let isShiny = false;
+let animPlaying = true;
+let currentPokemon = POKEMON_LIST[0];
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/');
+const loader = new GLTFLoader();
+loader.setDRACOLoader(dracoLoader);
+const clock = new THREE.Clock();
+
+// ── 포켓몬 그리드 생성 ──
+const grid = document.getElementById('pokeGrid');
+POKEMON_LIST.forEach((p, i) => {
+  const btn = document.createElement('div');
+  btn.className = `pokemon-btn ${i === 0 ? 'active' : ''}`;
+  btn.dataset.idx = i;
+  btn.innerHTML = `<img src="${SPRITE_URL(p.id)}" alt="${p.name}" onerror="this.parentElement.textContent='#${p.id}'">`;
+  btn.onclick = () => selectPokemon(i);
+  grid.appendChild(btn);
+});
+
+// ── 모델 로드 ──
+function loadPokemon(pokemon, shiny = false) {
+  const loading = document.getElementById('loading');
+  loading.classList.remove('hidden');
+
+  const form = shiny ? 'shiny' : 'regular';
+  const url = `${MODEL_BASE}/${form}/${pokemon.id}.glb`;
+
+  // 기존 모델 제거
+  if (currentModel) {
+    scene.remove(currentModel);
+    currentModel = null;
+  }
+  if (currentMixer) {
+    currentMixer.stopAllAction();
+    currentMixer = null;
+  }
+
+  loader.load(url, (gltf) => {
+    const model = gltf.scene;
+
+    // 모델 크기 자동 조정
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 2.0 / maxDim;
+    model.scale.setScalar(scale);
+
+    // 중심 맞추기
+    const center = box.getCenter(new THREE.Vector3());
+    model.position.x = -center.x * scale;
+    model.position.y = -box.min.y * scale;
+    model.position.z = -center.z * scale;
+
+    scene.add(model);
+    currentModel = model;
+
+    // 애니메이션
+    currentAnimations = gltf.animations;
+    if (gltf.animations.length > 0) {
+      currentMixer = new THREE.AnimationMixer(model);
+      if (animPlaying) {
+        const action = currentMixer.clipAction(gltf.animations[0]);
+        action.play();
+      }
+      document.getElementById('btnAnim').style.opacity = '1';
+    } else {
+      document.getElementById('btnAnim').style.opacity = '0.4';
+    }
+
+    // 링 색상 변경 (레어리티)
+    const colors = {
+      common: 0x9e9e9e,
+      rare: 0x4fc3f7,
+      epic: 0xab47bc,
+      legendary: 0xffd700,
+    };
+    ringMat.color.setHex(colors[pokemon.rarity] || 0x4fc3f7);
+    platformMat.emissive = new THREE.Color(colors[pokemon.rarity] || 0x4fc3f7);
+    platformMat.emissiveIntensity = 0.1;
+
+    // UI 업데이트
+    document.getElementById('pokeName').textContent = pokemon.name;
+    document.getElementById('pokeId').textContent = `#${String(pokemon.id).padStart(3, '0')}`;
+    const badge = document.getElementById('shinyBadge');
+    badge.style.display = shiny ? 'inline' : 'none';
+
+    loading.classList.add('hidden');
+  },
+  undefined,
+  (err) => {
+    console.error('Model load failed:', err);
+    loading.classList.add('hidden');
+    document.getElementById('pokeName').textContent = '모델 로드 실패';
+  });
+}
+
+function selectPokemon(idx) {
+  currentPokemon = POKEMON_LIST[idx];
+  document.querySelectorAll('.pokemon-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+  loadPokemon(currentPokemon, isShiny);
+}
+
+// ── 토글 함수 (전역) ──
+window.toggleShiny = () => {
+  isShiny = !isShiny;
+  document.getElementById('btnShiny').classList.toggle('active', isShiny);
+  loadPokemon(currentPokemon, isShiny);
+};
+
+window.toggleAutoRotate = () => {
+  controls.autoRotate = !controls.autoRotate;
+  document.getElementById('btnAuto').classList.toggle('active', controls.autoRotate);
+};
+
+window.toggleAnimation = () => {
+  if (!currentMixer || currentAnimations.length === 0) return;
+  animPlaying = !animPlaying;
+  document.getElementById('btnAnim').classList.toggle('active', animPlaying);
+  if (animPlaying) {
+    const action = currentMixer.clipAction(currentAnimations[0]);
+    action.play();
+  } else {
+    currentMixer.stopAllAction();
+  }
+};
+
+// 초기 상태
+document.getElementById('btnAuto').classList.add('active');
+document.getElementById('btnAnim').classList.add('active');
+
+// ── 렌더 루프 ──
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  if (currentMixer) currentMixer.update(delta);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── 리사이즈 ──
+window.addEventListener('resize', () => {
+  camera.aspect = container.clientWidth / container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth, container.clientHeight);
+});
+
+// 초기 로드
+loadPokemon(currentPokemon, false);
+</script>
+</body>
+</html>

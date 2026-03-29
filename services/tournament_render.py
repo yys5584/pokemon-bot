@@ -10,6 +10,7 @@ import re as _re
 from telegram.error import RetryAfter
 
 import config
+from utils.helpers import icon_emoji
 
 logger = logging.getLogger(__name__)
 
@@ -99,10 +100,10 @@ def _render_bracket(bracket, round_results=None) -> str:
             b = _rpad(names[1], nw)
             sp = ' ' * nw
             if winner:
-                tag = f"  ├─🏆 {winner}" if root else f"  ├─ {winner}"
+                tag = f"  ├─WIN {winner}" if root else f"  ├─ {winner}"
                 return [a + " ─┐", sp + tag, b + " ─┘"], 1
             else:
-                tag = "  ├─🏆" if root else "  │"
+                tag = "  ├─WIN" if root else "  │"
                 return [a + " ─┐", sp + tag, b + " ─┘"], 1
 
         mid = n // 2
@@ -123,7 +124,7 @@ def _render_bracket(bracket, round_results=None) -> str:
 
         sp = ' ' * cw
         if root:
-            out.append(sp + (f"  ├─🏆 {winner}" if winner else "  ├─🏆"))
+            out.append(sp + (f"  ├─WIN {winner}" if winner else "  ├─WIN"))
         else:
             out.append(sp + (f"  ├─ {winner}" if winner else "  ├──"))
         jrow = len(out) - 1
@@ -238,13 +239,13 @@ _SWITCH_ULTRA = [
 
 # ── Dramatic entrance effects (4강/결승 전용) ────────────────────
 _DRAMATIC_SERIOUS = [
-    "🔥 {trainer}: {next}, 여기서 지면 끝이야! 가자!",
-    "🔥 {trainer}: 여기까지 왔는데 질 수 없지! {next}!",
-    "🌟 {trainer}: 아직 안 끝났어! {next}, 뒤집어!",
-    "💫 {trainer}: 마지막 한 방, {next} 부탁해!",
-    "💥 {trainer}: {next}, 이 경기 네가 끝내줘!",
-    "🔥 {trainer}: 지금 아니면 언제! {next}!",
-    "💥 {trainer}: 우승까지 한 발, {next} 간다!",
+    f"{icon_emoji('battle')} {{trainer}}: {{next}}, 여기서 지면 끝이야! 가자!",
+    f"{icon_emoji('battle')} {{trainer}}: 여기까지 왔는데 질 수 없지! {{next}}!",
+    f"{icon_emoji('bolt')} {{trainer}}: 아직 안 끝났어! {{next}}, 뒤집어!",
+    f"{icon_emoji('skill')} {{trainer}}: 마지막 한 방, {{next}} 부탁해!",
+    f"{icon_emoji('battle')} {{trainer}}: {{next}}, 이 경기 네가 끝내줘!",
+    f"{icon_emoji('battle')} {{trainer}}: 지금 아니면 언제! {{next}}!",
+    f"{icon_emoji('battle')} {{trainer}}: 우승까지 한 발, {{next}} 간다!",
 ]
 _DRAMATIC_JOKE = []
 
@@ -333,7 +334,7 @@ def _switch_line(trainer: str, dead: str, next_name: str,
 def _extract_mvp(turn_data: list[dict], winner_side: str) -> str | None:
     """Extract MVP Pokemon line from turn_data for the winning side.
 
-    Returns formatted string like "⭐ MVP: 리자몽 (딜 482 / 킬 3)" or None.
+    Returns formatted string like "MVP: 리자몽 (딜 482 / 킬 3)" or None.
     """
     # Track damage dealt and kills per pokemon name on each side
     dmg_by_name: dict[str, int] = {}   # name -> total damage
@@ -375,10 +376,11 @@ def _extract_mvp(turn_data: list[dict], winner_side: str) -> str | None:
     total_dmg = dmg_by_name[mvp_name]
     total_kills = kills_by_name.get(mvp_name, 0)
 
+    _crown = icon_emoji("crown")
     if total_kills > 0:
-        return f"⭐ MVP: {mvp_name} (딜 {total_dmg} / 킬 {total_kills})"
+        return f"{_crown} MVP: {mvp_name} (딜 {total_dmg} / 킬 {total_kills})"
     else:
-        return f"⭐ MVP: {mvp_name} (딜 {total_dmg})"
+        return f"{_crown} MVP: {mvp_name} (딜 {total_dmg})"
 
 
 async def _safe_send(bot, chat_id, text, **kwargs):

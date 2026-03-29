@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 # Users
 # ============================================================
 
+async def is_user_banned(user_id: int) -> bool:
+    """Check if user is banned (banned_until > NOW())."""
+    pool = await get_db()
+    row = await pool.fetchval(
+        "SELECT banned_until > NOW() FROM users WHERE user_id = $1",
+        user_id,
+    )
+    return bool(row)
+
+
 async def ensure_user(user_id: int, display_name: str, username: str | None = None):
     """Register or update a user. New users get welcome bonus (500 BP + 10 AI tokens). No master balls (earned via journey)."""
     async def _do():
@@ -1046,7 +1056,19 @@ async def catch_pokemon_transaction(
 ) -> tuple[int, dict]:
     """Give pokemon + register pokedex + close session in a single transaction."""
     from utils.battle_calc import generate_ivs
-    ivs = generate_ivs(is_shiny=is_shiny)
+    # 스폰 세션에 미리 생성된 IV가 있으면 사용, 없으면 새로 생성
+    ivs = None
+    try:
+        import json as _json
+        _pool = await get_db()
+        _pre = await _pool.fetchval(
+            "SELECT pre_ivs FROM spawn_sessions WHERE id = $1", session_id)
+        if _pre:
+            ivs = _json.loads(_pre) if isinstance(_pre, str) else dict(_pre)
+    except Exception:
+        pass
+    if not ivs:
+        ivs = generate_ivs(is_shiny=is_shiny)
     pool = await get_db()
     async with pool.acquire() as conn:
         async with conn.transaction():

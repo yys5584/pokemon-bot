@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>던전 대개편 기획안 v4.0</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:900px;margin:0 auto;padding:20px 40px;background:#0d1117;color:#c9d1d9;line-height:1.7}
+h1{color:#58a6ff;border-bottom:1px solid #30363d;padding-bottom:10px}
+h2{color:#58a6ff;border-bottom:1px solid #21262d;padding-bottom:6px;margin-top:32px}
+h3{color:#d2a8ff}
+table{border-collapse:collapse;width:100%%;margin:12px 0}
+th,td{border:1px solid #30363d;padding:8px 12px;text-align:left}
+th{background:#161b22;color:#58a6ff}
+tr:nth-child(even){background:#161b22}
+code{background:#161b22;padding:2px 6px;border-radius:4px;color:#e6edf3;font-size:14px}
+pre{background:#161b22;padding:16px;border-radius:8px;overflow-x:auto;border:1px solid #30363d}
+pre code{background:none;padding:0}
+blockquote{border-left:3px solid #30363d;padding-left:16px;color:#8b949e}
+hr{border:none;border-top:1px solid #30363d;margin:24px 0}
+strong{color:#f0f6fc}
+a{color:#58a6ff}
+</style></head><body><h1>🏰 던전 대개편 기획안 v4.0 — 턴제 수동 전투</h1>
+<h2>1. 컨셉</h2>
+<p><strong>현재:</strong> 자동배틀, 버프 고르기만 전략 → "뭔가 빠진 느낌"
+<strong>목표:</strong> 턴마다 직접 선택, 적의 의도를 보고 판단 → "한 턴이 소중한 로그라이크"</p>
+<h3>핵심 레퍼런스</h3>
+<table>
+<thead>
+<tr>
+<th>게임</th>
+<th>차용 요소</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Into the Breach</strong></td>
+<td>적 의도 표시 (다음 턴 뭐 할지 미리 보여줌)</td>
+</tr>
+<tr>
+<td><strong>슬레이 더 스파이어</strong></td>
+<td>AP(행동력) 시스템, 매 턴 2~3개 선택지</td>
+</tr>
+<tr>
+<td><strong>포켓몬 불가사의의 던전</strong></td>
+<td>PP(기술 횟수), 일반공격 무한 + 특수기 제한</td>
+</tr>
+<tr>
+<td><strong>다키스트 던전</strong></td>
+<td>긴장감, 실패의 무게감, 연습모드 없음</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>2. 전투 플로우</h2>
+<h3>2-1. 턴 구조</h3>
+<p>매 턴 유저에게 보이는 화면:</p>
+<pre><code>━━━━━━━━━━━━━━━
+[26층] 🪨 용암 동굴
+━━━━━━━━━━━━━━━
+🆚 마그카르고 (바위/불)
+❤️ ████████░░ 80%
+
+⚠️ 예고: 화염방사 → 내 포켓몬에게 ~120 데미지!
+
+━━━━━━━━━━━━━━━
+🐉 한카리아스 (드래곤/땅)
+❤️ ██████░░░░ 62% (310/500)
+🔮 상성: 유리! (땅→바위 ×1.5)
+
+[⚔️ 일반공격]  [🐉 용의파동 3/5]
+[🪨 지진 2/3]  [🛡️ 방어]
+</code></pre>
+<h3>2-2. 행동 선택지 (4버튼 고정)</h3>
+<table>
+<thead>
+<tr>
+<th>버튼</th>
+<th>효과</th>
+<th>비용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⚔️ <strong>일반공격</strong></td>
+<td>ATK 기반 데미지, 타입 없음</td>
+<td>무료, 무한</td>
+</tr>
+<tr>
+<td>🔥 <strong>특수기1</strong></td>
+<td>포켓몬 타입1 기반, 강력</td>
+<td>PP 소모 (런 전체 공유)</td>
+</tr>
+<tr>
+<td>💧 <strong>특수기2</strong></td>
+<td>포켓몬 타입2 기반, 강력</td>
+<td>PP 소모</td>
+</tr>
+<tr>
+<td>🛡️ <strong>방어</strong></td>
+<td>이번 턴 받는 데미지 50% 감소</td>
+<td>무료</td>
+</tr>
+</tbody>
+</table>
+<h3>2-3. 특수기 PP 시스템</h3>
+<p>포켓몬 타입에서 자동 배정 (유저가 스킬을 고르지 않음):
+- 타입1 → 해당 타입 대표 기술 (이름만, 실제론 타입 데미지)
+- 타입2 → 해당 타입 대표 기술
+- 단일 타입 포켓몬 → 특수기1만 + 일반공격/방어</p>
+<p><strong>PP 설정 (런 전체 공유, 층 넘어가도 안 참):</strong></p>
+<table>
+<thead>
+<tr>
+<th>희귀도</th>
+<th>특수기1 PP</th>
+<th>특수기2 PP</th>
+<th>일반공격 배율</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>일반</td>
+<td>8</td>
+<td>8</td>
+<td>×0.8</td>
+</tr>
+<tr>
+<td>레어</td>
+<td>7</td>
+<td>7</td>
+<td>×0.9</td>
+</tr>
+<tr>
+<td>에픽</td>
+<td>6</td>
+<td>6</td>
+<td>×1.0</td>
+</tr>
+<tr>
+<td>전설</td>
+<td>5</td>
+<td>5</td>
+<td>×1.15</td>
+</tr>
+<tr>
+<td>초전설</td>
+<td>4</td>
+<td>4</td>
+<td>×1.3</td>
+</tr>
+</tbody>
+</table>
+<p><strong>의도:</strong> 고코스트 포켓몬은 PP가 적지만 일반공격이 강함. 저코스트는 PP 풍부. 자원 관리 전략.</p>
+<h3>2-4. 적 의도 시스템 (Into the Breach)</h3>
+<p>적이 다음에 뭘 할지 <strong>미리 표시</strong>:</p>
+<pre><code>⚠️ 예고: 화염방사 → ~120 데미지!    → 방어할지 공격할지 판단
+⚠️ 예고: 방어 태세                    → 공격해도 효과 낮음, 버프 턴?
+⚠️ 예고: 힘 모으기 → 다음 턴 강공격!   → 지금 방어? 아님 먼저 죽이기?
+</code></pre>
+<p>적 행동 패턴:
+| 행동 | 확률 | 설명 |
+|------|------|------|
+| 일반공격 | 50% | 기본 데미지 |
+| 타입공격 | 25% | 적 타입 기반, 상성 적용 |
+| 힘 모으기 | 10% | 이번 턴 안 때리고, 다음 턴 ×2 |
+| 방어 | 15% | 받는 데미지 50% 감소 |</p>
+<p><strong>보스는 특수 패턴 추가:</strong>
+- 5층마다 보스
+- 보스 전용 행동: 전체기(무조건 큰 데미지), 회복, 분노(HP 30% 이하 시 공격력 ×1.5)</p>
+<h3>2-5. 데미지 공식 (단순화)</h3>
+<pre><code>일반공격: ATK × 일반배율 × 편차(0.9~1.1)
+특수기:   (ATK or SPA) × 1.5 × 타입상성 × 편차
+방어 중:  받는 데미지 × 0.5
+</code></pre>
+<p>상성 배율 (본가보다 압축):
+- 유리: ×1.5
+- 불리: ×0.67
+- 면역: ×0.3 (던전에서는 완전 면역 없음)</p>
+<h3>2-6. 상성 툴팁</h3>
+<p>전투 화면에 항상 표시:</p>
+<pre><code>🔮 상성: 유리! (땅→바위 ×1.5)
+💡 특수기 '지진'이 효과적! PP를 아끼지 마세요.
+</code></pre>
+<pre><code>🔮 상성: 불리 (드래곤→페어리 ×0.67)
+💡 방어 위주로, 일반공격으로 버텨보세요.
+</code></pre>
+<h3>2-7. 전투 흐름 (한 턴)</h3>
+<ol>
+<li><strong>적 의도 표시</strong> + 내 상태 표시</li>
+<li><strong>유저 버튼 선택</strong> (⚔️/🔥/💧/🛡️)</li>
+<li><strong>속도 비교</strong> → 빠른 쪽 먼저 행동</li>
+<li><strong>결과 표시</strong> (데미지, HP 변화, 크리티컬 등)</li>
+<li><strong>전투 종료 체크</strong> → 안 끝났으면 다음 턴으로 (메시지 edit)</li>
+</ol>
+<p><strong>한 층 = 3~8턴</strong> (일반), <strong>보스 = 5~15턴</strong>
+<strong>한 층 소요시간 = 30초~1분</strong> (버튼 클릭 속도 기준)</p>
+<h3>2-8. 포기 버튼</h3>
+<p>전투 중 언제든:</p>
+<pre><code>[⚔️ 일반공격]  [🐉 용의파동 3/5]
+[🪨 지진 2/3]  [🏳️ 포기]
+</code></pre>
+<p>포기 시 현재까지 도달한 층 기준 보상 지급.</p>
+<hr />
+<h2>3. 층 테마 시스템</h2>
+<h3>3-1. 구간별 타입 고정</h3>
+<p>각 테마(요일별)마다 5층 단위로 적 타입이 변화. 유저가 패턴을 학습 가능.</p>
+<p><strong>화산 테마 예시:</strong>
+| 구간 | 적 타입 | 분위기 멘트 |
+|------|---------|-----------|
+| 1~4층 | 불 100% | "뜨거운 바람이 불어온다... 불꽃 포켓몬의 영역." |
+| 5층 | 👑 보스: 불 | "동굴 깊은 곳에서 포효가 울려 퍼진다!" |
+| 6~9층 | 불 50% + 바위 50% | "용암이 흐르는 좁은 길... 바위가 길을 막는다." |
+| 10층 | 👑 보스: 바위 | "대지가 진동한다..." |
+| 11~14층 | 물 70% + 얼음 30% | "차가운 지하수가 스며든다... 상성이 뒤집힌다!" |
+| 15층 | 👑 보스: 물 | "거대한 파도가 밀려온다!" |
+| 16~19층 | 풀 50% + 독 50% | "화산재 위에 자란 독초의 숲..." |
+| 20층 | 👑 보스: 풀/독 | "숲의 지배자가 깨어난다!" |
+| 21~24층 | 전기 60% + 강철 40% | "번개가 치는 폐허... 기계 포켓몬이 배회한다." |
+| 25층 | 👑 보스: 전기 | "뇌신이 강림한다!" |
+| 26~29층 | 드래곤 80% + 페어리 20% | "용의 영역... 그리고 그에 맞서는 자들." |
+| 30층 | 👑 보스: 드래곤 | "용왕이 포효한다!" |
+| 31~34층 | 에스퍼 + 고스트 | "현실이 일그러진다..." |
+| 35층 | 👑 보스: 에스퍼 | |
+| 36~39층 | 격투 + 악 | "어둠 속의 투기장..." |
+| 40층 | 👑 보스: 격투 | |
+| 41~44층 | 혼합 (전 타입) | "모든 것이 뒤섞인 카오스..." |
+| 45층 | 👑 보스: 랜덤 전설 | |
+| 46~49층 | 혼합 (강화) | "최후의 시련..." |
+| 50층 | 👑 최종 보스: 초전설 | |</p>
+<h3>3-2. 다음 구간 예고</h3>
+<p>5층 보스 클리어 후:</p>
+<pre><code>✅ 10층 보스 격파!
+🎁 보상: 알 즉시부화권 ×1
+
+⚠️ 다음 구간: 💧 지하수맥 (11~14층)
+&quot;차가운 지하수가 스며든다... 물 타입이 나타나기 시작!&quot;
+💡 물 타입에 대비하세요! 풀/전기 기술이 유효합니다.
+
+[⚔️ 다음 층!]  [🏳️ 여기서 멈추기]
+</code></pre>
+<p>유저가 "여기서 멈추기" 선택 시 → 현재까지 보상 확정, 런 종료.
+(5층 단위 세이브 포인트)</p>
+<hr />
+<h2>4. 버프 시스템 (유지 + 개선)</h2>
+<p>기존 버프 고르기는 <strong>그대로 유지</strong> (Fachenko: "스킬 골라서 올라가는 느낌이 핵심").</p>
+<h3>변경점:</h3>
+<ul>
+<li>버프 선택은 <strong>보스 클리어 후</strong> (5층마다)</li>
+<li>일반 층에서는 전투만</li>
+<li>버프 3개 중 1개 선택 (기존과 동일)</li>
+</ul>
+<h3>신규 버프 (턴제 대응):</h3>
+<table>
+<thead>
+<tr>
+<th>버프</th>
+<th>효과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PP 회복</td>
+<td>특수기 PP +2 회복</td>
+</tr>
+<tr>
+<td>선제공격</td>
+<td>속도 무관 항상 선공</td>
+</tr>
+<tr>
+<td>카운터</td>
+<td>방어 시 받은 데미지의 30% 반사</td>
+</tr>
+<tr>
+<td>관통</td>
+<td>적 방어 무시</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>5. 보상 테이블 (확정)</h2>
+<table>
+<thead>
+<tr>
+<th>층</th>
+<th>보상</th>
+<th>무과금</th>
+<th>베이직($3.9)</th>
+<th>채널장($9.9)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5</td>
+<td>캠프 조각</td>
+<td>10</td>
+<td>20</td>
+<td>40</td>
+</tr>
+<tr>
+<td>10</td>
+<td>알 즉시부화권</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>15</td>
+<td>던전 부적</td>
+<td>1</td>
+<td>2</td>
+<td>4</td>
+</tr>
+<tr>
+<td>20</td>
+<td>IV선택리롤권</td>
+<td>1</td>
+<td>2</td>
+<td>4</td>
+</tr>
+<tr>
+<td>25</td>
+<td>우선포획볼</td>
+<td>1</td>
+<td>2</td>
+<td>4</td>
+</tr>
+<tr>
+<td>30</td>
+<td>이로치전환권(일반~전설)</td>
+<td>1</td>
+<td>1</td>
+<td>2</td>
+</tr>
+<tr>
+<td>35</td>
+<td>캠프 조각</td>
+<td>20</td>
+<td>40</td>
+<td>80</td>
+</tr>
+<tr>
+<td>40</td>
+<td>IV스톤(+3)</td>
+<td>1</td>
+<td>1</td>
+<td>2</td>
+</tr>
+<tr>
+<td>45</td>
+<td>IV선택리롤권</td>
+<td>2</td>
+<td>4</td>
+<td>8</td>
+</tr>
+<tr>
+<td>50</td>
+<td>알 시간단축권</td>
+<td>1</td>
+<td>1</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<h3>일간 랭킹 보상 (별도)</h3>
+<ul>
+<li>1위: IV선택리롤권 ×1</li>
+<li>2~3위: 캠프 조각 ×10</li>
+<li>4~10위: 캠프 조각 ×5</li>
+</ul>
+<hr />
+<h2>6. 신규 아이템</h2>
+<table>
+<thead>
+<tr>
+<th>아이템</th>
+<th>효과</th>
+<th>획득처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🥚 알 즉시부화권</td>
+<td>이로치 알 즉시 부화</td>
+<td>던전 10층</td>
+</tr>
+<tr>
+<td>🛡️ 던전 부적</td>
+<td>다음 런 시작 시 버프 1개 보유</td>
+<td>던전 15층</td>
+</tr>
+<tr>
+<td>⭐ 이로치 전환권</td>
+<td>일반→이로치 (IV 새로 뽑기)</td>
+<td>던전 30/50층</td>
+</tr>
+<tr>
+<td>🟡 우선포획볼</td>
+<td>마볼보다 상위, 무조건 내가 포획</td>
+<td>던전 25층</td>
+</tr>
+<tr>
+<td>⏰ 알 시간단축권</td>
+<td>부화 시간 즉시 완료</td>
+<td>던전 50층</td>
+</tr>
+<tr>
+<td>💎 IV스톤(+3)</td>
+<td>IV +3 (포켓몬당 2회 제한)</td>
+<td>던전 40층</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>7. 밸런스 설계</h2>
+<h3>7-1. 코스트별 차별화 (수정)</h3>
+<table>
+<thead>
+<tr>
+<th>코스트</th>
+<th>희귀도</th>
+<th>버프 주기</th>
+<th>PP</th>
+<th>일반공격력</th>
+<th>전략</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1~2</td>
+<td>일반/레어</td>
+<td>매 보스</td>
+<td>8/8</td>
+<td>×0.8~0.9</td>
+<td>PP 풍부, 특수기 많이 사용</td>
+</tr>
+<tr>
+<td>3~4</td>
+<td>에픽</td>
+<td>매 보스</td>
+<td>6/6</td>
+<td>×1.0</td>
+<td>균형</td>
+</tr>
+<tr>
+<td>5</td>
+<td>전설</td>
+<td>매 보스</td>
+<td>5/5</td>
+<td>×1.15</td>
+<td>강한 일반공격</td>
+</tr>
+<tr>
+<td>6</td>
+<td>초전설</td>
+<td>매 보스</td>
+<td>4/4</td>
+<td>×1.3</td>
+<td>PP 아끼며 일반공격 위주</td>
+</tr>
+</tbody>
+</table>
+<p><strong>버프는 모든 코스트 동일하게 매 보스(5층)마다.</strong> 기존 코스트별 버프 주기 차이를 제거하여 밸런스 역전 해소.</p>
+<h3>7-2. 적 스케일링 (완화)</h3>
+<pre><code>1~10층:  1.0 + floor × 0.02  (1.02 ~ 1.20)
+11~20층: 1.20 + (f-10) × 0.025 (1.225 ~ 1.45)
+21~30층: 1.45 + (f-20) × 0.03  (1.48 ~ 1.75)
+31~40층: 1.75 + (f-30) × 0.04  (1.79 ~ 2.15)
+41~50층: 2.15 + (f-40) × 0.05  (2.20 ~ 2.65)
+</code></pre>
+<p>기존 대비 후반 스케일링 20% 완화. 50층 도전이 현실적으로 가능하도록.</p>
+<hr />
+<h2>8. UI 플로우 (텔레그램)</h2>
+<h3>8-1. 던전 시작</h3>
+<pre><code>🏰 던전 입장!
+테마: 🔥 화산 (월요일)
+포켓몬: ✨한카리아스 [S] (드래곤/땅)
+
+특수기1: 🐉 용의파동 (드래곤) PP 6/6
+특수기2: 🪨 지진 (땅) PP 6/6
+
+⚠️ 구간: 🌋 화산 입구 (1~4층)
+&quot;뜨거운 바람이 불어온다...&quot;
+
+[⚔️ 1층 시작!]
+</code></pre>
+<h3>8-2. 전투 턴 (메시지 edit)</h3>
+<pre><code>━━ 3층 ━━
+🆚 가디 (불) ❤️ ████████░░ 78%
+⚠️ 다음: 불꽃세례 → ~80 데미지
+
+🐉 한카리아스 ❤️ ██████████ 100%
+🔮 상성: 유리! (땅→불 ×1.5)
+💡 '지진'이 효과적!
+
+[⚔️ 일반공격]  [🐉 용의파동 5/6]
+[🪨 지진 6/6]  [🛡️ 방어]
+</code></pre>
+<h3>8-3. 턴 결과 (메시지 edit)</h3>
+<pre><code>━━ 3층 [턴 2] ━━
+⚔️ 한카리아스의 지진! → 가디에게 187 데미지! 💥효과발군!
+🔥 가디의 불꽃세례! → 한카리아스에게 52 데미지
+
+🆚 가디 ❤️ ██░░░░░░░░ 18%
+⚠️ 다음: 물러서기 (방어 태세)
+
+🐉 한카리아스 ❤️ █████████░ 90%
+
+[⚔️ 일반공격]  [🐉 용의파동 5/6]
+[🪨 지진 5/6]  [🛡️ 방어]
+</code></pre>
+<h3>8-4. 층 클리어</h3>
+<pre><code>✅ 3층 클리어!
+━━━━━━━━━━━━━━
+💥크리 1회 · ⚡스킬 2회 · 🛡️방어 1회
+❤️ ██████████ 90% (450/500)
+🐉 용의파동 5/6 · 🪨 지진 5/6
+
+[⚔️ 4층 진행!]  [🏳️ 포기]
+</code></pre>
+<h3>8-5. 보스전 (5층)</h3>
+<pre><code>━━ 5층 👑 보스전 ━━
+🆚 윈디 (불) ❤️ ██████████ 100%
+⭐ BOSS — 체력 ×1.5, 특수 패턴 있음
+⚠️ 다음: 화염방사 → ~150 데미지! ☠️
+
+🐉 한카리아스 ❤️ █████████░ 90%
+🔮 상성: 유리! (땅→불 ×1.5)
+
+[⚔️ 일반공격]  [🐉 용의파동 4/6]
+[🪨 지진 4/6]  [🛡️ 방어]
+</code></pre>
+<h3>8-6. 보스 클리어 → 보상 + 버프 + 예고</h3>
+<pre><code>👑 5층 보스 격파!
+━━━━━━━━━━━━━━
+🎁 보상: 캠프 조각 ×10
+
+🎯 버프 선택:
+[🟪 체력 강화 Lv.1 — HP +15%]
+[🟪 공격 강화 Lv.1 — ATK +15%]
+[🟪 회피 본능 Lv.1 — 회피 10%]
+</code></pre>
+<p>버프 선택 후:</p>
+<pre><code>✅ 공격 강화 Lv.1 선택!
+
+⚠️ 다음 구간: 🪨 용암 동굴 (6~9층)
+&quot;용암이 흐르는 좁은 길...&quot;
+💡 바위 타입 등장! 물/풀 기술이 유효합니다.
+
+[⚔️ 6층 진행!]  [🏳️ 여기서 멈추기]
+</code></pre>
+<hr />
+<h2>9. 기술적 구현 포인트</h2>
+<h3>9-1. 상태 관리</h3>
+<pre><code class="language-python">dungeon_state = {
+    &quot;user_id&quot;: int,
+    &quot;run_id&quot;: int,
+    &quot;floor&quot;: int,
+    &quot;turn&quot;: int,
+    &quot;pokemon&quot;: {...},       # 내 포켓몬 정보
+    &quot;hp&quot;: int, &quot;max_hp&quot;: int,
+    &quot;pp1&quot;: int, &quot;pp1_max&quot;: int,  # 특수기1 PP
+    &quot;pp2&quot;: int, &quot;pp2_max&quot;: int,  # 특수기2 PP
+    &quot;buffs&quot;: [...],
+    &quot;enemy&quot;: {...},         # 현재 적
+    &quot;enemy_intent&quot;: str,    # 적 다음 행동
+    &quot;enemy_hp&quot;: int,
+    &quot;phase&quot;: &quot;battle|buff_select|zone_preview|result&quot;,
+    &quot;message_id&quot;: int,      # edit할 메시지 ID
+}
+</code></pre>
+<h3>9-2. 콜백 데이터 형식</h3>
+<pre><code>dg_atk_{user_id}     → 일반공격
+dg_sk1_{user_id}     → 특수기1
+dg_sk2_{user_id}     → 특수기2
+dg_def_{user_id}     → 방어
+dg_go_{user_id}      → 다음 층
+dg_quit_{user_id}    → 포기
+dg_buf_{user_id}_{i} → 버프 선택
+dg_stop_{user_id}    → 여기서 멈추기
+</code></pre>
+<h3>9-3. 메시지 edit 패턴</h3>
+<ul>
+<li>전투 중 새 메시지 안 보냄 → 기존 메시지 edit</li>
+<li>턴마다 텍스트 + 버튼 갱신</li>
+<li>보스 클리어/층 이동 시에만 새 메시지</li>
+</ul>
+<h3>9-4. 수정 파일</h3>
+<pre><code>services/dungeon_service.py    — 전면 재작성 (턴제 전투, 적 의도, PP)
+services/dungeon_themes.py     — 신규 (층 테마 데이터)
+handlers/dm_dungeon.py         — 전면 재작성 (턴별 콜백 처리)
+database/dungeon_queries.py    — 상태 저장 확장
+database/item_queries.py       — 신규 아이템 CRUD
+database/schema.py             — 마이그레이션
+config.py                      — 던전 상수 추가
+</code></pre>
+<hr />
+<h2>10. 구현 순서</h2>
+<h3>Phase 1 (3일): 턴제 전투 기반</h3>
+<ol>
+<li><code>dungeon_service.py</code> 턴제 전투 엔진 작성</li>
+<li><code>dm_dungeon.py</code> 턴별 콜백 + 메시지 edit</li>
+<li>PP 시스템 + 방어 행동</li>
+<li>적 의도 시스템</li>
+</ol>
+<h3>Phase 2 (2일): 층 테마 + UI</h3>
+<ol>
+<li>테마별 층 구간 데이터</li>
+<li>구간 멘트 + 다음 구간 예고</li>
+<li>상성 툴팁</li>
+<li>전투 하이라이트 (크리/회피 등)</li>
+</ol>
+<h3>Phase 3 (2일): 보상 + 아이템</h3>
+<ol>
+<li>5층 단위 보상 시스템 교체</li>
+<li>신규 아이템 스키마 + CRUD</li>
+<li>구독 배율 적용</li>
+<li>IV스톤 포켓몬당 2회 제한</li>
+</ol>
+<h3>Phase 4 (1일): 밸런스 + 랭킹</h3>
+<ol>
+<li>코스트별 PP/일반공격 밸런스</li>
+<li>스케일링 커브 조정</li>
+<li>데일리/주간 랭킹</li>
+</ol></body></html>

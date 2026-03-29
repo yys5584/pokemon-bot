@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800;900&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 1456px;
+  height: 816px;
+  font-family: 'Noto Sans KR', sans-serif;
+  background: #0d0d0d;
+  color: #e0e0e0;
+  overflow: hidden;
+}
+.card {
+  width: 1456px;
+  height: 816px;
+  position: relative;
+  border-top: 4px solid #fbbf24;
+}
+.side-label {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 5px;
+  color: #333;
+}
+.header {
+  padding: 32px 52px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.ver-badge {
+  background: #fbbf24;
+  color: #000;
+  font-size: 20px;
+  font-weight: 900;
+  padding: 8px 18px;
+  border-radius: 10px;
+}
+.header h1 {
+  font-size: 44px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -1.5px;
+}
+.header .date {
+  font-size: 18px;
+  color: #555;
+  font-weight: 600;
+}
+.content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+  padding: 24px 52px 0 52px;
+  margin-left: 28px;
+}
+.sec-title {
+  font-size: 24px;
+  font-weight: 900;
+  color: #fbbf24;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sec-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #fbbf24;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sec-title .rule {
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  margin-left: 8px;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  padding: 9px 14px;
+  margin-bottom: 5px;
+  border-left: 3px solid #333;
+  background: rgba(255,255,255,0.02);
+}
+.rank-row.gold-border { border-left-color: #fbbf24; }
+.rank-row.silver-border { border-left-color: #94a3b8; }
+.rank-row.bronze-border { border-left-color: #b45309; }
+.rank-row.purple-border { border-left-color: #a855f7; }
+.rank-row.blue-border { border-left-color: #3b82f6; }
+.rank-row.cyan-border { border-left-color: #06b6d4; }
+
+.rank-icon {
+  font-size: 22px;
+  width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.rank-info {
+  flex: 1;
+  margin-left: 10px;
+}
+.rank-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+}
+.rank-tier {
+  font-size: 12px;
+  color: #666;
+  font-weight: 600;
+}
+.reward-badge {
+  font-size: 14px;
+  font-weight: 800;
+  padding: 5px 14px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.badge-ultra { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #000; }
+.badge-legend { background: linear-gradient(135deg, #a78bfa, #7c3aed); color: #fff; }
+.badge-epic { background: linear-gradient(135deg, #34d399, #059669); color: #000; }
+.badge-iv { background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+
+/* 하단 보상 기준 */
+.bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 80px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  background: rgba(255,255,255,0.02);
+  border-top: 1px solid #1a1a1a;
+}
+.bottom-bar .label {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fbbf24;
+  white-space: nowrap;
+}
+.bottom-item {
+  font-size: 13px;
+  color: #888;
+  white-space: nowrap;
+}
+.bottom-item b { color: #ccc; font-weight: 700; }
+.bottom-item .arrow { color: #444; margin: 0 4px; }
+
+.brand {
+  position: absolute;
+  bottom: 16px;
+  right: 52px;
+  font-size: 28px;
+  font-weight: 900;
+  color: #fbbf24;
+  font-style: italic;
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="side-label">SEASON REWARDS</div>
+
+  <div class="header">
+    <div class="header-left">
+      <div class="ver-badge">S01 + S01.5</div>
+      <h1>⚔️ 시즌 보상 지급</h1>
+    </div>
+    <div class="date">2026.03.26</div>
+  </div>
+
+  <div class="content">
+    <!-- 좌측: S01 -->
+    <div>
+      <div class="sec-title">SEASON 01 <span class="rule">— 오픈 시즌</span></div>
+
+      <div class="rank-row gold-border">
+        <div class="rank-icon">🥇</div>
+        <div class="rank-info">
+          <div class="rank-name">Turri</div>
+          <div class="rank-tier">챌린저 · Peak 2411 RP</div>
+        </div>
+        <span class="reward-badge badge-ultra">✨ 이로치 초전설</span>
+      </div>
+
+      <div class="rank-row silver-border">
+        <div class="rank-icon">🥈</div>
+        <div class="rank-info">
+          <div class="rank-name">러스트</div>
+          <div class="rank-tier">챌린저 · Peak 1782 RP</div>
+        </div>
+        <span class="reward-badge badge-legend">✨ 이로치 전설</span>
+      </div>
+
+      <div class="rank-row bronze-border">
+        <div class="rank-icon">🥉</div>
+        <div class="rank-info">
+          <div class="rank-name">LastMoney</div>
+          <div class="rank-tier">다이아 · Peak 1225 RP</div>
+        </div>
+        <span class="reward-badge badge-legend">✨ 이로치 전설</span>
+      </div>
+
+      <div class="rank-row purple-border">
+        <div class="rank-icon">👑</div>
+        <div class="rank-info">
+          <div class="rank-name">무색큐브</div>
+          <div class="rank-tier">챌린저 · Peak 1016 RP</div>
+        </div>
+        <span class="reward-badge badge-epic">✨ 이로치 에픽</span>
+      </div>
+
+      <div class="rank-row blue-border">
+        <div class="rank-icon">💠</div>
+        <div class="rank-info">
+          <div class="rank-name">제리 · PEPECAT · Revuildio · Andrew</div>
+          <div class="rank-tier">다이아</div>
+        </div>
+        <span class="reward-badge badge-iv">💎 IV+3 ×2</span>
+      </div>
+
+      <div class="rank-row cyan-border">
+        <div class="rank-icon">💎</div>
+        <div class="rank-info">
+          <div class="rank-name">아크 · 0lo · Harry · 선물 · 문유 등</div>
+          <div class="rank-tier">플래티넘</div>
+        </div>
+        <span class="reward-badge badge-iv">💎 IV+3 ×1</span>
+      </div>
+    </div>
+
+    <!-- 우측: S01.5 -->
+    <div>
+      <div class="sec-title">SEASON 01.5 <span class="rule">— 노멀 금지</span></div>
+
+      <div class="rank-row gold-border">
+        <div class="rank-icon">🥇</div>
+        <div class="rank-info">
+          <div class="rank-name">오쿠</div>
+          <div class="rank-tier">챌린저 · Peak 1464 RP</div>
+        </div>
+        <span class="reward-badge badge-ultra">✨ 이로치 초전설</span>
+      </div>
+
+      <div class="rank-row silver-border">
+        <div class="rank-icon">🥈</div>
+        <div class="rank-info">
+          <div class="rank-name">러스트</div>
+          <div class="rank-tier">챌린저 · Peak 1462 RP</div>
+        </div>
+        <span class="reward-badge badge-legend">✨ 이로치 전설</span>
+      </div>
+
+      <div class="rank-row bronze-border">
+        <div class="rank-icon">🥉</div>
+        <div class="rank-info">
+          <div class="rank-name">Turri</div>
+          <div class="rank-tier">챌린저 · Peak 1424 RP</div>
+        </div>
+        <span class="reward-badge badge-legend">✨ 이로치 전설</span>
+      </div>
+
+      <div class="rank-row purple-border">
+        <div class="rank-icon">👑</div>
+        <div class="rank-info">
+          <div class="rank-name">E FIGHT · 딸딸기 · 제리</div>
+          <div class="rank-tier">챌린저</div>
+        </div>
+        <span class="reward-badge badge-epic">✨ 이로치 에픽</span>
+      </div>
+
+      <div class="rank-row blue-border">
+        <div class="rank-icon">💠</div>
+        <div class="rank-info">
+          <div class="rank-name">Andrew · Jun · Revuildio</div>
+          <div class="rank-tier">다이아</div>
+        </div>
+        <span class="reward-badge badge-iv">💎 IV+3 ×2</span>
+      </div>
+
+      <div class="rank-row cyan-border">
+        <div class="rank-icon">💎</div>
+        <div class="rank-info">
+          <div class="rank-name">아크 · 쿠링 · Harry 등</div>
+          <div class="rank-tier">플래티넘</div>
+        </div>
+        <span class="reward-badge badge-iv">💎 IV+3 ×1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 하단 보상 기준 -->
+  <div class="bottom-bar">
+    <div class="label">🏆 보상 기준</div>
+    <div class="bottom-item"><b>🥇 1위</b> <span class="arrow">→</span> ✨이로치 초전설</div>
+    <div class="bottom-item"><b>🥈🥉 2~3위</b> <span class="arrow">→</span> ✨이로치 전설</div>
+    <div class="bottom-item"><b>👑 마스터</b> <span class="arrow">→</span> ✨이로치 에픽</div>
+    <div class="bottom-item"><b>💠 다이아</b> <span class="arrow">→</span> 💎IV+3 ×2</div>
+    <div class="bottom-item"><b>💎 플래</b> <span class="arrow">→</span> 💎IV+3 ×1</div>
+  </div>
+
+  <div class="brand">포켓TG</div>
+</div>
+</body>
+</html>

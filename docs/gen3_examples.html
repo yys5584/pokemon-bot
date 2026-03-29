@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gen 3 Examples</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    padding: 30px 20px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { color: #58a6ff; text-align: center; margin-bottom: 8px; font-size: 1.8em; }
+  .subtitle { text-align: center; color: #8b949e; margin-bottom: 32px; }
+
+  /* Spawn section */
+  .section-title {
+    color: #f0883e;
+    font-size: 1.3em;
+    margin: 32px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #21262d;
+  }
+
+  /* Card grid */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+    gap: 24px;
+    margin: 20px 0;
+  }
+  .card-item {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .card-item img {
+    width: 100%;
+    display: block;
+  }
+  .card-info {
+    padding: 16px;
+  }
+  .card-info .spawn-msg {
+    background: #1c2333;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    font-size: 0.95em;
+    line-height: 1.6;
+    border-left: 3px solid #58a6ff;
+  }
+  .card-info .spawn-msg .title-line {
+    font-weight: bold;
+    color: #e6edf3;
+  }
+  .card-info .spawn-msg .catch-line {
+    color: #8b949e;
+    font-size: 0.9em;
+  }
+
+  /* Pokedex section */
+  .pokedex-item {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    gap: 0;
+  }
+  .pokedex-item img {
+    width: 420px;
+    min-height: 236px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .pokedex-info {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    font-size: 0.92em;
+    line-height: 1.7;
+  }
+  .pokedex-info .name {
+    font-size: 1.15em;
+    font-weight: bold;
+    color: #e6edf3;
+    margin-bottom: 6px;
+  }
+  .pokedex-info .meta {
+    color: #8b949e;
+    margin-bottom: 8px;
+  }
+  .pokedex-info .tmi {
+    background: #1c2333;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 8px;
+    color: #d2a8ff;
+    font-size: 0.95em;
+    border-left: 3px solid #d2a8ff;
+  }
+  .rarity-common { color: #82b788; }
+  .rarity-rare { color: #4895ef; }
+  .rarity-epic { color: #b185db; }
+  .rarity-legendary { color: #ffd60a; }
+  .rarity-ultra { color: #ff3232; }
+  .shiny-badge {
+    display: inline-block;
+    background: #cd5c5c;
+    color: #fff;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.8em;
+    margin-left: 6px;
+  }
+  .type-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.8em;
+    color: #fff;
+    margin-right: 4px;
+  }
+  .type-grass { background: #7ac74c; }
+  .type-fire { background: #ee8130; }
+  .type-water { background: #6390f0; }
+  .type-psychic { background: #f95587; }
+  .type-normal { background: #a8a77a; }
+  .type-dark { background: #705746; }
+  .type-steel { background: #b7b7ce; }
+  .type-dragon { background: #6f35fc; }
+  .type-flying { background: #a98ff3; }
+  .type-ice { background: #96d9d6; }
+
+  .evo-chain {
+    color: #79c0ff;
+    font-size: 0.9em;
+    margin-top: 4px;
+  }
+
+  @media (max-width: 900px) {
+    .pokedex-item { flex-direction: column; }
+    .pokedex-item img { width: 100%; }
+    .card-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>3세대 포켓몬 예시</h1>
+  <p class="subtitle">야생 스폰 & 도감 설명 미리보기</p>
+
+  <!-- ========== SPAWN EXAMPLES ========== -->
+  <div class="section-title">🐾 야생의 포켓몬이 나타났다!</div>
+
+  <div class="card-grid">
+    <!-- 나무킹 -->
+    <div class="card-item">
+      <img src="examples/254_나무킹.jpg" alt="나무킹">
+      <div class="card-info">
+        <div class="spawn-msg">
+          <div class="title-line">🐾 야생의 🌿 나무킹이(가) 나타났다!</div>
+          <div class="catch-line">ㅊ 입력으로 잡기 (180초)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 가디안 -->
+    <div class="card-item">
+      <img src="examples/282_가디안.jpg" alt="가디안">
+      <div class="card-info">
+        <div class="spawn-msg">
+          <div class="title-line">🐾 야생의 🔮🧚 가디안이(가) 나타났다!</div>
+          <div class="catch-line">ㅊ 입력으로 잡기 (180초)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 앱솔 (이로치) -->
+    <div class="card-item">
+      <img src="examples/shiny_359_앱솔.jpg" alt="이로치 앱솔">
+      <div class="card-info">
+        <div class="spawn-msg">
+          <div class="title-line">🐾 야생의 ✨이로치 🌑 앱솔이(가) 나타났다!</div>
+          <div class="catch-line">ㅊ 입력으로 잡기 (180초)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 레쿠쟈 -->
+    <div class="card-item">
+      <img src="examples/384_레쿠쟈.jpg" alt="레쿠쟈">
+      <div class="card-info">
+        <div class="spawn-msg">
+          <div class="title-line">🐾 야생의 🐉🦅 레쿠쟈이(가) 나타났다!</div>
+          <div class="catch-line">ㅊ 입력으로 잡기 (180초)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== POKEDEX EXAMPLES ========== -->
+  <div class="section-title">📖 도감 설명 (TMI 예시)</div>
+
+  <!-- 가디안 -->
+  <div class="pokedex-item" style="margin-bottom: 20px;">
+    <img src="examples/282_가디안.jpg" alt="가디안">
+    <div class="pokedex-info">
+      <div class="name">No.282 가디안 (Gardevoir)</div>
+      <div class="meta">
+        등급: <span class="rarity-epic">에픽</span> &nbsp;
+        타입: <span class="type-badge type-psychic">에스퍼</span><span class="type-badge" style="background:#ee99ac;">페어리</span>
+        &nbsp; 포획률: 15%
+      </div>
+      <div class="meta">상태: ✅ 보유 중</div>
+      <div class="evo-chain">📊 진화: 랄토스 → 킬리아 → <b>[가디안]</b> (최종)</div>
+      <div class="tmi">💡 가디안은 원작에서 기사+수호자 컨셉인데 인터넷에서 가장 많이 검색되는 포켓몬 중 하나. 트레이너를 위해 블랙홀도 만드는 헌신 설정이 팬덤에서 아주 크게 해석됨.</div>
+    </div>
+  </div>
+
+  <!-- 게을킹 -->
+  <div class="pokedex-item" style="margin-bottom: 20px;">
+    <img src="examples/289_게을킹.jpg" alt="게을킹">
+    <div class="pokedex-info">
+      <div class="name">No.289 게을킹 (Slaking)</div>
+      <div class="meta">
+        등급: <span class="rarity-epic">에픽</span> &nbsp;
+        타입: <span class="type-badge type-normal">노말</span>
+        &nbsp; 포획률: 15%
+      </div>
+      <div class="meta">상태: ❌ 미보유</div>
+      <div class="evo-chain">📊 진화: 게을로 → 발바로 → <b>[게을킹]</b> (최종)</div>
+      <div class="tmi">💡 게을킹은 종족값 합계 670으로 전설급인데 나태 특성 때문에 한 턴 걸러 행동. 잠재력은 신인데 몸이 안 따라주는 비운.</div>
+    </div>
+  </div>
+
+  <!-- 밀로틱 -->
+  <div class="pokedex-item" style="margin-bottom: 20px;">
+    <img src="examples/350_밀로틱.jpg" alt="밀로틱">
+    <div class="pokedex-info">
+      <div class="name">No.350 밀로틱 (Milotic)</div>
+      <div class="meta">
+        등급: <span class="rarity-rare">희귀</span> &nbsp;
+        타입: <span class="type-badge type-water">물</span>
+        &nbsp; 포획률: 30%
+      </div>
+      <div class="meta">상태: ✅ 보유 중</div>
+      <div class="evo-chain">📊 진화: 빈티나 → <b>[밀로틱]</b> (최종) ⚠️ 교환진화</div>
+      <div class="tmi">💡 밀로틱은 포켓몬 역대 가장 아름다운 포켓몬 투표 상위권 단골. 빈티나의 못생긴 모습에서 이렇게 되다니 신데렐라 스토리.</div>
+    </div>
+  </div>
+
+  <!-- 앱솔 (이로치) -->
+  <div class="pokedex-item" style="margin-bottom: 20px;">
+    <img src="examples/shiny_359_앱솔.jpg" alt="앱솔">
+    <div class="pokedex-info">
+      <div class="name">No.359 앱솔 (Absol) <span class="shiny-badge">이로치</span></div>
+      <div class="meta">
+        등급: <span class="rarity-rare">희귀</span> &nbsp;
+        타입: <span class="type-badge type-dark">악</span>
+        &nbsp; 포획률: 30%
+      </div>
+      <div class="meta">상태: ✅ 보유 중</div>
+      <div class="evo-chain">📊 진화: <b>[앱솔]</b> (단일)</div>
+      <div class="tmi">💡 앱솔은 재해를 예지하고 경고하러 오는데 사람들이 재해의 원인으로 오해함. 포켓몬 세계관 최대 억울이. 메가진화 디자인이 역대급으로 멋있음.</div>
+    </div>
+  </div>
+
+  <!-- 메타그로스 -->
+  <div class="pokedex-item" style="margin-bottom: 20px;">
+    <img src="examples/376_메타그로스.jpg" alt="메타그로스">
+    <div class="pokedex-info">
+      <div class="name">No.376 메타그로스 (Metagross)</div>
+      <div class="meta">
+        등급: <span class="rarity-epic">에픽</span> &nbsp;
+        타입: <span class="type-badge type-steel">강철</span><span class="type-badge type-psychic">에스퍼</span>
+        &nbsp; 포획률: 15%
+      </div>
+      <div class="meta">상태: ❌ 미보유</div>
+      <div class="evo-chain">📊 진화: 메탕 → 메탕구 → <b>[메타그로스]</b> (최종)</div>
+      <div class="tmi">💡 메타그로스는 슈퍼컴퓨터 4개분 두뇌를 가진 600족. 챔피언 다이고의 에이스로 유명. 메가진화 시 다리가 8개가 됨.</div>
+    </div>
+  </div>
+
+  <!-- 레쿠쟈 -->
+  <div class="pokedex-item" style="margin-bottom: 20px;">
+    <img src="examples/384_레쿠쟈.jpg" alt="레쿠쟈">
+    <div class="pokedex-info">
+      <div class="name">No.384 레쿠쟈 (Rayquaza)</div>
+      <div class="meta">
+        등급: <span class="rarity-ultra">초전설</span> &nbsp;
+        타입: <span class="type-badge type-dragon">드래곤</span><span class="type-badge type-flying">비행</span>
+        &nbsp; 포획률: 1%
+      </div>
+      <div class="meta">상태: ❌ 미보유</div>
+      <div class="evo-chain">📊 진화: <b>[레쿠쟈]</b> (단일)</div>
+      <div class="tmi">💡 레쿠쟈는 메가진화 종족값 780으로 너무 강해서 Uber에서도 추방, AG(Anything Goes) 티어가 새로 만들어짐. 기상잠금 특성으로 날씨를 무효화하는 하늘의 중재자.</div>
+    </div>
+  </div>
+
+  <!-- 테오키스 -->
+  <div class="pokedex-item" style="margin-bottom: 20px;">
+    <img src="examples/386_테오키스.jpg" alt="테오키스">
+    <div class="pokedex-info">
+      <div class="name">No.386 테오키스 (Deoxys)</div>
+      <div class="meta">
+        등급: <span class="rarity-legendary">전설</span> &nbsp;
+        타입: <span class="type-badge type-psychic">에스퍼</span>
+        &nbsp; 포획률: 5%
+      </div>
+      <div class="meta">상태: ❌ 미보유</div>
+      <div class="evo-chain">📊 진화: <b>[테오키스]</b> (단일)</div>
+      <div class="tmi">💡 테오키스는 우주 바이러스가 레이저에 변이된 포켓몬. 노말/어택/디펜스/스피드 4개 폼 전환 가능. 어택폼 특공 180은 유리대포의 정석.</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -246,13 +246,13 @@ ALL_POKEMON_GEN4 = [
     (489, "피오네", "Phione", "💧", "legendary", 0.05, None, None, "none"),
 
     # --- Manaphy ---
-    (490, "마나피", "Manaphy", "💧", "ultra_legendary", 0.03, None, None, "none"),
+    (490, "마나피", "Manaphy", "💧", "legendary", 0.03, None, None, "none"),  # 환상→전설
 
     # --- Darkrai ---
-    (491, "다크라이", "Darkrai", "🌑", "ultra_legendary", 0.03, None, None, "none"),
+    (491, "다크라이", "Darkrai", "🌑", "legendary", 0.03, None, None, "none"),  # 환상→전설
 
     # --- Shaymin ---
-    (492, "쉐이미", "Shaymin", "🌿", "ultra_legendary", 0.03, None, None, "none"),
+    (492, "쉐이미", "Shaymin", "🌿", "legendary", 0.03, None, None, "none"),  # 환상→전설
 
     # --- Arceus ---
     (493, "아르세우스", "Arceus", "⭐", "ultra_legendary", 0.03, None, None, "none"),

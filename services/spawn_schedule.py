@@ -17,17 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 def calculate_daily_spawns(member_count: int) -> int:
-    """Calculate how many spawns per day based on member count.
-    Optimized for small groups (10~50 members)."""
+    """Calculate how many spawns per day — 모든 채팅방 동일 2회."""
     if member_count < config.SPAWN_MIN_MEMBERS:
         return 0
-
-    for min_m, max_m, spawns in config.SPAWN_TIERS:
-        if min_m <= member_count <= max_m:
-            return spawns
-
-    # 500+ members: original formula
-    return 2 + (member_count - 10) // 500
+    return 2
 
 
 async def roll_rarity(midnight_bonus: bool = False, rarity_boosts: dict | None = None) -> str:
@@ -71,8 +64,11 @@ async def pick_random_pokemon(rarity: str) -> dict:
     return random.choices(candidates, weights=weights, k=1)[0]
 
 
-async def schedule_spawns_for_chat(app, chat_id: int, member_count: int):
-    """Schedule today's spawns for a single chat."""
+async def schedule_spawns_for_chat(app, chat_id: int, member_count: int, chat_data: dict | None = None):
+    """Schedule today's spawns for a single chat.
+
+    chat_data: 벌크 로드된 chat_rooms 행. 있으면 개별 DB 조회 스킵.
+    """
     from services.spawn_execute import execute_spawn
 
     # Cancel ALL spawn-related jobs for this chat (scheduled, retries, welcome)
@@ -87,24 +83,28 @@ async def schedule_spawns_for_chat(app, chat_id: int, member_count: int):
     if base_spawns <= 0:
         return
 
-    # Apply chat-specific multiplier
-    chat_mult = await queries.get_spawn_multiplier(chat_id)
+    # Apply chat-specific multiplier (벌크 데이터 or 개별 조회)
+    if chat_data:
+        chat_mult = chat_data.get("spawn_multiplier", 1.0) or 1.0
+    else:
+        chat_mult = await queries.get_spawn_multiplier(chat_id)
     # Apply global event multiplier
     event_mult = await get_spawn_boost()
     num_spawns = min(config.SPAWN_MAX_DAILY, max(1, int(base_spawns * chat_mult * event_mult)))
 
-    # Chat level bonus spawns
+    # Chat level bonus spawns (벌크 데이터 or 개별 조회)
     level_info = None
     try:
-        level_row = await queries.get_chat_level(chat_id)
-        if level_row:
-            level_info = config.get_chat_level_info(level_row["cxp"])
-            if level_info["spawn_bonus"] > 0:
-                num_spawns = min(config.SPAWN_MAX_DAILY, num_spawns + level_info["spawn_bonus"])
+        if chat_data:
+            cxp = chat_data.get("cxp", 0) or 0
+        else:
+            level_row = await queries.get_chat_level(chat_id)
+            cxp = level_row.get("cxp", 0) if level_row else 0
+        level_info = config.get_chat_level_info(cxp)
+        if level_info["spawn_bonus"] > 0:
+            num_spawns = min(config.SPAWN_MAX_DAILY, num_spawns + level_info["spawn_bonus"])
     except Exception as e:
         logger.error(f"Chat level lookup failed for {chat_id}: {e}")
-
-    await queries.update_chat_spawn_info(chat_id, num_spawns)
 
     now = config.get_kst_now()
     end_of_day = now.replace(hour=23, minute=59, second=59)
@@ -164,28 +164,19 @@ async def schedule_all_chats(app):
 
     chats = await queries.get_all_active_chats()
 
-    # 채팅방별 멤버수 조회 + 스폰 스케줄링 병렬 처리
+    # 채팅방별 스폰 스케줄링 (벌크 데이터 전달, 개별 DB 조회 0)
+    sem = asyncio.Semaphore(50)
     async def _schedule_one(chat):
-        cid = chat["chat_id"]
-        if cid in config.ARCADE_CHAT_IDS:
-            return
-        try:
-            count = await app.bot.get_chat_member_count(cid)
-            await queries.update_chat_member_count(cid, count)
-        except Exception:
-            count = chat["member_count"]
-        await schedule_spawns_for_chat(app, cid, count)
-
-    # 동시 5개씩 배치 (Telegram API rate limit 방지)
-    sem = asyncio.Semaphore(5)
-    async def _limited(chat):
         async with sem:
             try:
-                await _schedule_one(chat)
+                await schedule_spawns_for_chat(
+                    app, chat["chat_id"], chat["member_count"], chat_data=chat,
+                )
             except Exception as e:
                 logger.error(f"Failed to schedule for chat {chat['chat_id']}: {e}")
 
-    await asyncio.gather(*[_limited(c) for c in chats])
+    targets = [c for c in chats if c["chat_id"] not in config.ARCADE_CHAT_IDS]
+    await asyncio.gather(*[_schedule_one(c) for c in targets])
 
     # Schedule permanent arcade channels (repeating every N seconds)
     schedule_arcade_spawns(app)

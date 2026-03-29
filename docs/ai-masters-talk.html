@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI시대, 당신의 엣지는 무엇인가요?</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+
+  :root {
+    --bg:#0a0a0f; --bg-card:#14141f; --bg-card-alt:#1a1a2a;
+    --accent:#7C5CFC; --accent-glow:rgba(124,92,252,0.2);
+    --accent2:#00D4AA; --accent3:#FF6B6B;
+    --text:#E8E8F0; --text-muted:#8B8FA3; --text-dim:#5A5E73;
+    --border:#222238; --gold:#FFD166;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.8;overflow-x:hidden;}
+
+  .hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:2rem;position:relative;overflow:hidden;}
+  .hero::before{content:'';position:absolute;width:700px;height:700px;background:radial-gradient(circle,var(--accent-glow) 0%,transparent 60%);top:-150px;right:-200px;pointer-events:none;}
+  .hero-tag{display:inline-block;padding:6px 18px;border:1px solid var(--accent);border-radius:100px;color:var(--accent);font-size:0.8rem;font-weight:500;letter-spacing:2px;margin-bottom:2rem;text-transform:uppercase;}
+  .hero h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:900;line-height:1.3;margin-bottom:1.5rem;background:linear-gradient(135deg,#fff 40%,var(--accent) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  .hero-author{font-size:0.85rem;color:var(--text-dim);}
+
+  .section{max-width:880px;margin:0 auto;padding:5rem 2rem;}
+  .ch-num{font-size:0.75rem;color:var(--accent);font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:0.5rem;}
+  .section h2{font-size:clamp(1.6rem,3.5vw,2.4rem);font-weight:900;margin-bottom:2rem;line-height:1.3;}
+  .section h3{font-size:1.15rem;font-weight:700;margin:2.5rem 0 1rem;color:#fff;}
+  .divider{max-width:880px;margin:0 auto;padding:0 2rem;}
+  .divider hr{border:none;border-top:1px solid var(--border);}
+
+  .toc{max-width:880px;margin:0 auto;padding:3rem 2rem 5rem;}
+  .toc h2{font-size:1.4rem;font-weight:900;margin-bottom:2rem;color:#fff;}
+  .toc-item{display:flex;align-items:baseline;gap:1.2rem;padding:1rem 0;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text);transition:all 0.2s;}
+  .toc-item:hover{padding-left:8px;}
+  .toc-item:hover .toc-num{color:var(--accent);}
+  .toc-item:last-child{border-bottom:none;}
+  .toc-num{font-size:0.8rem;font-weight:700;color:var(--text-dim);min-width:24px;letter-spacing:1px;}
+  .toc-title{font-size:1.05rem;font-weight:600;}
+  .toc-desc{font-size:0.85rem;color:var(--text-muted);margin-left:auto;text-align:right;}
+
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1.2rem;margin:1.5rem 0;}
+  .card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.8rem;}
+  .card:hover{border-color:var(--accent);}
+  .card h4{font-size:1rem;font-weight:700;margin-bottom:0.6rem;color:#fff;}
+  .card p{font-size:0.9rem;color:var(--text-muted);line-height:1.7;}
+
+  .big-text{font-size:clamp(1.3rem,3vw,1.8rem);font-weight:700;color:var(--gold);line-height:1.6;margin:1.5rem 0;text-align:center;}
+
+  .question-block{
+    background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+    padding:2.5rem 2rem;margin:2rem 0;text-align:center;
+  }
+  .question-block p{font-size:1.1rem;color:var(--text-muted);line-height:2;margin-bottom:0.5rem;}
+  .question-block .q{font-size:1.2rem;font-weight:700;color:var(--gold);margin:0.8rem 0;}
+
+  .highlight-box{background:linear-gradient(135deg,rgba(124,92,252,0.08),rgba(0,212,170,0.05));border:1px solid rgba(124,92,252,0.3);border-radius:14px;padding:1.8rem;margin:1.5rem 0;line-height:1.9;}
+  .highlight-box strong{color:var(--gold);}
+
+  .callout{display:flex;gap:1rem;align-items:flex-start;background:var(--bg-card);border-left:4px solid var(--accent2);border-radius:0 12px 12px 0;padding:1.5rem;margin:1.5rem 0;}
+  .callout-icon{font-size:1.5rem;flex-shrink:0;}
+  .callout p{color:var(--text-muted);font-size:0.9rem;}
+  .callout strong{color:var(--text);}
+
+  .fail-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.5rem 0;}
+  .fail-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.5rem;position:relative;overflow:hidden;}
+  .fail-card::after{content:'×';position:absolute;top:8px;right:16px;font-size:2.5rem;font-weight:900;color:rgba(255,107,107,0.15);}
+  .fail-card h4{color:var(--accent3);font-size:0.95rem;margin-bottom:0.4rem;}
+  .fail-card p{color:var(--text-muted);font-size:0.85rem;}
+
+  .win-card{background:var(--bg-card);border:1px solid var(--accent);border-radius:14px;padding:1.5rem;margin:1rem 0;}
+  .win-card h4{color:var(--accent2);font-size:0.95rem;margin-bottom:0.4rem;}
+  .win-card p{color:var(--text-muted);font-size:0.85rem;}
+
+  .demo-break{max-width:880px;margin:0 auto;padding:4rem 2rem;text-align:center;position:relative;}
+  .demo-break::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(124,92,252,0.06),rgba(0,212,170,0.04));border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+  .demo-break .inner{position:relative;z-index:1;}
+  .demo-break h3{font-size:1.4rem;font-weight:900;color:#fff;margin-bottom:0.8rem;}
+  .demo-break p{color:var(--text-muted);font-size:0.95rem;}
+  .demo-break .demo-tag{display:inline-block;margin-top:1.2rem;padding:8px 24px;border:1px solid var(--accent);border-radius:100px;color:var(--accent);font-size:0.85rem;font-weight:600;letter-spacing:1px;}
+
+  .example{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.8rem;margin:1.5rem 0;border-left:4px solid var(--accent);}
+  .example-label{font-size:0.7rem;font-weight:700;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:0.6rem;}
+  .example h4{font-size:1.05rem;font-weight:700;color:#fff;margin-bottom:0.6rem;}
+  .example p{color:var(--text-muted);font-size:0.88rem;line-height:1.7;}
+  .example .result{margin-top:0.8rem;padding-top:0.8rem;border-top:1px solid var(--border);color:var(--accent2);font-weight:600;font-size:0.88rem;}
+
+  .tip{display:flex;gap:1.5rem;align-items:flex-start;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.8rem;margin-bottom:1rem;}
+  .tip:hover{border-color:var(--accent);}
+  .tip-num{flex-shrink:0;width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.95rem;color:#fff;}
+  .tip h4{font-size:0.95rem;font-weight:700;margin-bottom:0.3rem;color:#fff;}
+  .tip p{font-size:0.88rem;color:var(--text-muted);line-height:1.7;}
+
+  .vs-row{display:flex;gap:1rem;align-items:flex-start;margin-bottom:0.6rem;}
+  .vs-label{flex-shrink:0;padding:2px 8px;border-radius:6px;font-size:0.7rem;font-weight:700;min-width:24px;text-align:center;}
+  .vs-label.bad{background:rgba(255,107,107,0.15);color:var(--accent3);}
+  .vs-label.good{background:rgba(0,212,170,0.15);color:var(--accent2);}
+  .vs-text{font-size:0.85rem;color:var(--text-muted);padding-top:1px;}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin:1.5rem 0;}
+  .stat{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.2rem;text-align:center;}
+  .stat-value{font-size:1.8rem;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  .stat-label{font-size:0.75rem;color:var(--text-muted);margin-top:0.2rem;}
+  .stat-note{font-size:0.65rem;color:var(--text-dim);margin-top:0.15rem;}
+
+  .outro{min-height:50vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:4rem 2rem;position:relative;}
+  .outro::before{content:'';position:absolute;width:500px;height:500px;background:radial-gradient(circle,var(--accent-glow) 0%,transparent 60%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;}
+  .outro .big{font-size:clamp(1.4rem,3vw,2rem);font-weight:900;color:var(--gold);position:relative;z-index:1;line-height:1.6;}
+  .outro .sub{font-size:1rem;color:var(--text-muted);margin-top:1.5rem;position:relative;z-index:1;line-height:1.8;}
+
+  @media(max-width:640px){
+    .section{padding:3rem 1.2rem;}
+    .card-grid{grid-template-columns:1fr;}
+    .stat-grid{grid-template-columns:repeat(2,1fr);}
+    .tip{flex-direction:column;gap:0.8rem;}
+    .toc-desc{display:none;}
+    .fail-row{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+  <span class="hero-tag">AI Masters 1st Meetup · 2026.04.04</span>
+  <h1>AI시대,<br>당신의 엣지는 무엇인가요?</h1>
+  <p class="hero-author">문유 · 웹3 게임 전략기획</p>
+</div>
+
+<!-- ═══ TOC ═══ -->
+<div class="toc">
+  <h2>목차</h2>
+  <a class="toc-item" href="#ch1"><span class="toc-num">01</span><span class="toc-title">나는 뭘 잘하는가</span><span class="toc-desc">"나는 뭘 팔아야 하지?"</span></a>
+  <a class="toc-item" href="#ch2"><span class="toc-num">02</span><span class="toc-title">같은 도구, 다른 결과</span><span class="toc-desc">자기 이해가 만든 차이</span></a>
+  <a class="toc-item" href="#demo"><span class="toc-num">—</span><span class="toc-title">직접 체험</span><span class="toc-desc">라이브 데모</span></a>
+  <a class="toc-item" href="#ch3"><span class="toc-num">03</span><span class="toc-title">실전에서 통한 것들</span><span class="toc-desc">도메인 × AI 결합법</span></a>
+</div>
+
+<div class="divider"><hr></div>
+
+<!-- ═══════════════════════════════════════
+     CH1 — 나는 뭘 잘하는가
+     ═══════════════════════════════════════ -->
+<div class="section" id="ch1">
+  <div class="ch-num">Chapter 01</div>
+  <h2>나는 뭘 잘하는가</h2>
+
+  <p style="color:var(--text-muted);margin-bottom:2rem;">
+    AI가 코딩을, 디자인을, 번역을 대체하고 있음.<br>
+    쓸수록 느끼게 됨 — <strong style="color:#fff;">그러면 나는 뭘 팔아야 하지? 무슨 스킬을 익혀야 하지?</strong>
+  </p>
+
+  <div class="question-block">
+    <p>AI를 쓰면 쓸수록 결국 이런 질문에 도달하게 됨.</p>
+    <p class="q">나는 뭘 잘하는가?</p>
+    <p class="q">남들과 다른 사고를 가지려면?</p>
+    <p class="q">내가 만들고 싶은 게 뭐지?</p>
+    <p style="margin-top:1rem;font-size:0.9rem;">이건 AI한테 물어봐서 나오는 답이 아님.<br>자기 자신한테 물어야 함.</p>
+  </div>
+
+  <h3>AI가 대체하는 것과 못 하는 것</h3>
+
+  <div class="card-grid">
+    <div class="card">
+      <h4>대체되는 것</h4>
+      <p>코드 작성, 디자인, 번역, 데이터 분석, 문서 작성. 실행 영역은 빠르게 대체되고 있음.</p>
+    </div>
+    <div class="card">
+      <h4>대체 안 되는 것</h4>
+      <p>"뭘 만들지 아는 눈". 시장 감각, 유저 이해, 판단력. 이건 각자의 경험에서만 나옴.</p>
+    </div>
+    <div class="card">
+      <h4>핵심</h4>
+      <p>같은 도구를 줘도 결과가 갈리는 이유 — 도구가 아니라 <strong style="color:var(--gold);">그 도구를 쓰는 사람의 관점</strong>이 다르기 때문.</p>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <p>기술을 더 배우는 게 답이 아닐 수 있음.<br>
+    <strong>자기가 뭘 알고, 뭘 잘하고, 뭘 만들고 싶은지.</strong><br>
+    이 질문에 답할 수 있는 사람이 AI 시대의 대체불가능한 자원이 됨.</p>
+  </div>
+
+  <div class="callout">
+    <span class="callout-icon">📌</span>
+    <div>
+      <p><strong>내 경우</strong> — 구찌 세일즈, IT기획, 크립토 에이전시 창업, 웹3 게임채널 5년. 정규 개발 루트는 아님. 내 역할은 항상 기획과 판단이었음. AI를 만나고 나서야 그 경험이 "대체불가능한 자원"이 된다는 걸 알게 됐음.</p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"><hr></div>
+
+<!-- ═══════════════════════════════════════
+     CH2 — 같은 도구, 다른 결과
+     ═══════════════════════════════════════ -->
+<div class="section" id="ch2">
+  <div class="ch-num">Chapter 02</div>
+  <h2>같은 도구, 다른 결과</h2>
+
+  <p style="color:var(--text-muted);margin-bottom:1.5rem;">
+    같은 Claude Code로 3개를 만듦. 2개는 죽고 1개가 터짐.
+  </p>
+
+  <div class="fail-row">
+    <div class="fail-card">
+      <h4>다마고치 봇</h4>
+      <p>혼자 키우는 게임. 남한테 안 보이니까 자랑도 경쟁도 없음. 동기 부재.</p>
+    </div>
+    <div class="fail-card">
+      <h4>디펜스 게임</h4>
+      <p>구현은 화려. 근데 "ㅊ" 한 번 누르는 것보다 진입장벽이 높으면 아무도 안 함.</p>
+    </div>
+  </div>
+
+  <div class="win-card">
+    <h4>포켓몬 봇 → 1,000명 가입, DAU 200+, 리텐션 67%</h4>
+    <p>도구는 같았음. 달라진 건 <strong style="color:var(--gold);">"내가 뭘 아는지"를 알게 된 것.</strong></p>
+  </div>
+
+  <p style="color:var(--text-muted);margin-top:1.5rem;">
+    처음 2번은 "뭘 만들 수 있는가"를 고민했음. 도구 중심 사고.<br>
+    3번째는 "내가 뭘 아는가"를 고민했음. 자기 이해 중심 사고.<br><br>
+    <strong style="color:#fff;">5년간 텔레그램에서 쌓은 도메인 지식 — 유저가 뭘 원하는지, 채널장이 뭘 고민하는지, 어떤 구조가 바이럴을 만드는지. 이걸 AI와 결합했더니 결과가 나왔음.</strong>
+  </p>
+
+  <div class="highlight-box" style="text-align:center;">
+    <p>"뭘 만들 수 있는가" (도구 중심) → <strong>"내가 뭘 아는가" (자기 이해 중심)</strong><br>
+    이 전환이 핵심이었음.</p>
+  </div>
+</div>
+
+<div class="divider"><hr></div>
+
+<!-- ═══════════════════════════════════════
+     DEMO BREAK
+     ═══════════════════════════════════════ -->
+<div class="demo-break" id="demo">
+  <div class="inner">
+    <h3>그래서 나온 결과물,<br>직접 해보시죠.</h3>
+    <p>채팅방에 입장해서 "ㅊ"을 쳐보세요.</p>
+    <span class="demo-tag">LIVE DEMO</span>
+  </div>
+</div>
+
+<div class="divider"><hr></div>
+
+<!-- ═══════════════════════════════════════
+     CH3 — 실전에서 통한 것들
+     ═══════════════════════════════════════ -->
+<div class="section" id="ch3">
+  <div class="ch-num">Chapter 03</div>
+  <h2>실전에서 통한 것들</h2>
+
+  <p style="color:var(--text-muted);margin-bottom:1.5rem;">
+    자기 이해가 먼저. 그 다음에 도구를 쓰는 방법이 따라옴.<br>
+    도메인 지식을 AI와 결합할 때 실제로 통했던 것들.
+  </p>
+
+  <h3>도메인 × AI가 작동한 순간</h3>
+
+  <div class="example">
+    <div class="example-label">사례 — 유튜브 "가장 많이 본 장면"</div>
+    <h4>리서치도 도메인 감각이 있어야 뽑아낼 수 있음</h4>
+    <p>유튜브에 가장 많이 본 위치가 표시됨. 일반적으로는 "재밌는 부분이구나"로 넘김. 게임 기획자 관점에서는 거기에 그 게임이 터진 이유가 있음.</p>
+    <div class="result">→ 수집형 게임 열광 구간 = "뭔가 터지는 순간". 이걸 채팅방에서 모두가 보게 설계함.</div>
+  </div>
+
+  <div class="example">
+    <div class="example-label">사례 — 텔레그램 채팅방 크롤링</div>
+    <h4>타겟을 아니까 데이터에서 기회가 보임</h4>
+    <p>코인 채팅방을 크롤링. 코인 얘기 안 하고 있었음. 하락장에 사람들이 남아서 수다만 떰. 채널장 최대 고민 = 볼륨 활성화.</p>
+    <div class="result">→ 5년간 이 생태계에 있었으니까 보인 기회. 놀거리를 넣으면 채널장이 알아서 확산시켜줌. 마케팅비 ₩0.</div>
+  </div>
+
+  <div class="example">
+    <div class="example-label">사례 — 일간 KPI 리포트</div>
+    <h4>데이터 → 판단 → 실행까지 하루 단위로 가능</h4>
+    <p>매일 23:55 리포트. "ㅊ 한 번만 치고 이탈한 유저가 많음" — 이 숫자를 보고 원인을 판단하고 5분 만에 패치.</p>
+    <div class="result">→ 도메인 감각이 있으니까 숫자를 보고 바로 판단이 됨. AI가 실행을 해주니까 판단 직후 배포 가능.</div>
+  </div>
+
+  <h3>도구 활용 — 바로 써먹을 수 있는 것들</h3>
+
+  <div class="tip">
+    <div class="tip-num">1</div>
+    <div>
+      <h4>리서치 → 기획을 한 흐름에서</h4>
+      <p>리서치 자료를 AI한테 통째로 넘기고, 같은 대화 안에서 기획서를 깎아나감. 대화를 끊으면 맥락이 날아감.</p>
+    </div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-num">2</div>
+    <div>
+      <h4>방향을 확정하지 말고 문제만 던질 것</h4>
+      <p>답을 정해놓고 물어보면 AI가 거기에 갇힘.</p>
+      <div style="margin:0.8rem 0;">
+        <div class="vs-row"><span class="vs-label bad">X</span><span class="vs-text">"튜토리얼을 DM으로 보내게 해줘"</span></div>
+        <div class="vs-row"><span class="vs-label good">O</span><span class="vs-text">"DM 안 보는 유저가 많아. 자연스럽게 녹이고 싶어."</span></div>
+      </div>
+      <p style="font-size:0.82rem;color:var(--text-dim);">→ AI가 "포획할 때 툴팁을 같이 띄우자"고 제안. 내가 생각 못 한 답이 나옴.</p>
+    </div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-num">3</div>
+    <div>
+      <h4>스크린샷 한 장 > 프롬프트 100줄</h4>
+      <p>AI는 이미지를 잘 읽음. 빨간색으로 표시하고 "이거 왜 이래?" — 이게 제일 빠름.</p>
+    </div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-num">4</div>
+    <div>
+      <h4>AI에게 영혼을 부여할 것</h4>
+      <p>프로젝트 규칙, 실패 기록, 도메인 맥락을 문서에 담아두면 새 대화에서도 같은 맥락 유지. 실수를 기록하면 같은 실수를 반복하지 않음.</p>
+    </div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-num">5</div>
+    <div>
+      <h4>반복 프로세스는 자동화</h4>
+      <p>자주 하는 리서치→기획서 프로세스를 커스텀 스킬로 만듦. 주제만 던지면 커뮤니티 크롤링 → 트렌드 분석 → 기획서 자동 생성.</p>
+    </div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-num">6</div>
+    <div>
+      <h4>커뮤니티의 가치</h4>
+      <p>혼자서는 "내가 뭘 모르는지"를 모름. 트위터 글 100개보다 사람 한 명과 10분 대화가 나음.<br>
+      <strong style="color:var(--gold);">사람과 직접 대화해야 새로운 질문이 생기고, 그 질문을 AI한테 던지면 답이 나옴.</strong></p>
+    </div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-num">7</div>
+    <div>
+      <h4>빠른 피벗</h4>
+      <p>AI 덕분에 이터레이션 비용이 낮음. 틀렸으면 엎고 다시 시작. 하루 단위로 방향을 검증하고 수정하는 속도 — 도메인 감각과 도구의 조합에서 나옴.</p>
+    </div>
+  </div>
+
+  <div class="highlight-box" style="text-align:center;margin-top:2.5rem;">
+    <p style="color:var(--text-muted);">도구는 어디서나 구할 수 있음.<br>
+    <strong>당신만의 관점을 가진 사람이 그 도구를 가장 잘 쓰게 됨.</strong></p>
+  </div>
+</div>
+
+<div class="divider"><hr></div>
+
+<!-- ═══ RESULT ═══ -->
+<div class="section">
+  <p style="color:var(--text-dim);font-size:0.8rem;text-align:center;margin-bottom:1rem;">참고 수치 — 도메인 지식 × AI 결합의 결과</p>
+  <div class="stat-grid">
+    <div class="stat"><div class="stat-value">67%</div><div class="stat-label">D+1 리텐션</div><div class="stat-note">업계 평균 25~35%</div></div>
+    <div class="stat"><div class="stat-value">1,000+</div><div class="stat-label">가입 유저</div></div>
+    <div class="stat"><div class="stat-value">230+</div><div class="stat-label">채팅방</div></div>
+    <div class="stat"><div class="stat-value">₩0</div><div class="stat-label">마케팅 비용</div></div>
+  </div>
+</div>
+
+<!-- ═══ OUTRO ═══ -->
+<div class="outro">
+  <p class="big">나는 뭘 잘하는가.<br>뭘 만들고 싶은가.<br>남들과 다른 내 관점은 뭔가.</p>
+  <p class="sub">이 질문에 답할 수 있다면,<br>AI는 그걸 현실로 만들어줌.</p>
+</div>
+
+<div style="text-align:center;padding:3rem 2rem;color:var(--text-dim);font-size:0.8rem;">
+  <p style="margin-bottom:0.5rem;">문유 · 웹3 게임 전략기획 · <a href="https://t.me/myu_moonyu" style="color:var(--accent);text-decoration:none;">t.me/myu_moonyu</a></p>
+  <p>AI Masters 1st Meetup · 2026.04.04</p>
+</div>
+
+</body>
+</html>

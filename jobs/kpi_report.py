@@ -20,28 +20,32 @@ def _kpi_html_template(title: str, body: str, date_str: str) -> str:
 <title>{title}</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;color:#1a1a2e;padding:24px;line-height:1.6}}
-.report{{max-width:640px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);overflow:hidden}}
-.header{{background:linear-gradient(135deg,#e53935,#ff6f61);color:#fff;padding:28px 32px;text-align:center}}
-.header h1{{font-size:22px;font-weight:700;margin-bottom:4px}}
-.header .date{{font-size:14px;opacity:.85}}
-.body{{padding:24px 28px}}
-.section{{margin-bottom:20px}}
-.section-title{{font-size:15px;font-weight:700;color:#e53935;margin-bottom:10px;display:flex;align-items:center;gap:8px;border-bottom:2px solid #fce4ec;padding-bottom:6px}}
-.grid{{display:grid;grid-template-columns:1fr 1fr;gap:10px}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;color:#1a1a2e;padding:12px;line-height:1.4;font-size:12px}}
+.report{{max-width:640px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.06);overflow:hidden}}
+.header{{background:linear-gradient(135deg,#e53935,#ff6f61);color:#fff;padding:16px 20px;text-align:center}}
+.header h1{{font-size:16px;font-weight:700;margin-bottom:2px}}
+.header .date{{font-size:12px;opacity:.85}}
+.body{{padding:12px 16px}}
+.section{{margin-bottom:12px}}
+.section-title{{font-size:13px;font-weight:700;color:#e53935;margin-bottom:6px;display:flex;align-items:center;gap:6px;border-bottom:1.5px solid #fce4ec;padding-bottom:4px}}
+.grid{{display:grid;grid-template-columns:1fr 1fr;gap:6px}}
 .grid-3{{grid-template-columns:1fr 1fr 1fr}}
-.card{{background:#fafafa;border-radius:10px;padding:14px;text-align:center;border:1px solid #f0f0f0}}
-.card .label{{font-size:11px;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}}
-.card .value{{font-size:22px;font-weight:700;color:#1a1a2e}}
+.grid-4{{grid-template-columns:1fr 1fr 1fr 1fr}}
+.card{{background:#fafafa;border-radius:6px;padding:8px 6px;text-align:center;border:1px solid #f0f0f0}}
+.card .label{{font-size:10px;color:#888;margin-bottom:2px;letter-spacing:.3px}}
+.card .value{{font-size:16px;font-weight:700;color:#1a1a2e}}
 .card .value.accent{{color:#e53935}}
-.card .sub{{font-size:11px;color:#999;margin-top:2px}}
+.card .sub{{font-size:10px;color:#999;margin-top:1px}}
 .channel-list{{list-style:none}}
-.channel-list li{{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;margin-bottom:4px;background:#fafafa;font-size:13px}}
+.channel-list li{{display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-radius:4px;margin-bottom:2px;background:#fafafa;font-size:11px}}
 .channel-list li:nth-child(1){{background:#fff3e0;font-weight:600}}
 .channel-list li:nth-child(2){{background:#fce4ec}}
-.channel-list .rank{{font-weight:700;color:#e53935;min-width:24px}}
-.channel-list .cnt{{color:#666;font-size:12px}}
-.footer{{text-align:center;padding:16px;color:#aaa;font-size:11px;border-top:1px solid #f0f0f0}}
+.channel-list .rank{{font-weight:700;color:#e53935;min-width:20px}}
+.channel-list .cnt{{color:#666;font-size:11px}}
+.row{{display:flex;gap:6px;margin-bottom:4px;font-size:11px}}
+.row .tag{{background:#fafafa;border-radius:4px;padding:3px 8px;border:1px solid #f0f0f0;white-space:nowrap}}
+.row .tag b{{color:#e53935}}
+.footer{{text-align:center;padding:10px;color:#aaa;font-size:10px;border-top:1px solid #f0f0f0}}
 </style></head><body>
 <div class="report">
 <div class="header"><h1>{title}</h1><div class="date">{date_str}</div></div>
@@ -1080,84 +1084,67 @@ async def _send_daily_kpi_report(context, target_date=None):
 {delta_html}
 
 <div class="section">
-<div class="section-title">👥 유저</div>
-<div class="grid grid-3">
+<div class="section-title">👥 유저 · 리텐션</div>
+<div class="grid grid-4">
 <div class="card"><div class="label">DAU</div><div class="value accent">{d['dau']}</div></div>
-<div class="card"><div class="label">신규가입</div><div class="value">{d['new_users']}</div></div>
-<div class="card"><div class="label">실시간(1h)</div><div class="value">{d['active_1h']}</div></div>
+<div class="card"><div class="label">핵심DAU</div><div class="value">{_core_dau}</div><div class="sub">{_core_dau_pct}%</div></div>
+<div class="card"><div class="label">신규</div><div class="value">{d['new_users']}</div></div>
+<div class="card"><div class="label">총유저</div><div class="value">{d['total_users']}</div></div>
 </div>
-<div class="grid" style="margin-top:8px">
-<div class="card"><div class="label">총 유저</div><div class="value">{d['total_users']}</div></div>
+<div class="grid grid-4" style="margin-top:4px">
 <div class="card"><div class="label">D+1 리텐션</div><div class="value accent">{f'{d1_ret}%' if d1_ret is not None else '-'}</div></div>
-{checkin_html}
+<div class="card"><div class="label">D+7 리텐션</div><div class="value" style="color:#ff9800">{f'{d7_ret}%' if d7_ret is not None else '-'}</div></div>
+<div class="card"><div class="label">💰출석</div><div class="value">{_checkin_users}</div></div>
+<div class="card"><div class="label">💕사랑해</div><div class="value">{_love_users}</div></div>
 </div>
-<div style="margin-top:8px"><div class="card"><div class="label">D+7 리텐션</div><div class="value" style="color:#ff9800">{f'{d7_ret}%' if d7_ret is not None else '수집 중'}</div><div class="sub">7일 후부터 표시</div></div></div>
 </div>
 
 <div class="section">
-<div class="section-title">🔥 핵심 DAU (출석/!돈/문유사랑해/방문)</div>
-<div class="grid">
-<div class="card"><div class="label">핵심 DAU</div><div class="value accent">{_core_dau}</div><div class="sub">전체 DAU의 {_core_dau_pct}%</div></div>
-<div class="card"><div class="label">전체 DAU</div><div class="value">{d['dau']}</div></div>
+<div class="section-title">🎯 포획 · ⚔️ 배틀</div>
+<div class="grid grid-4">
+<div class="card"><div class="label">스폰</div><div class="value">{d['spawns']:,}</div></div>
+<div class="card"><div class="label">포획</div><div class="value accent">{d['catches']:,}</div><div class="sub">{catch_rate}%</div></div>
+<div class="card"><div class="label">✨이로치</div><div class="value" style="color:#ff9800">{d['shiny_caught']}</div></div>
+<div class="card"><div class="label">🔴마볼</div><div class="value">{d['mb_used']}</div></div>
 </div>
-<div class="grid grid-3" style="margin-top:8px">
-<div class="card"><div class="label">💰 출석(!돈)</div><div class="value" style="font-size:18px">{_checkin_users}</div></div>
-<div class="card"><div class="label">💕 문유사랑해</div><div class="value" style="font-size:18px">{_love_users}</div></div>
-<div class="card"><div class="label">🏕️ 방문</div><div class="value" style="font-size:18px">{_visit_users}</div></div>
+<div class="grid grid-4" style="margin-top:4px">
+<div class="card"><div class="label">배틀</div><div class="value">{d['battles']}</div></div>
+<div class="card"><div class="label">랭크전</div><div class="value">{d['ranked_battles']}</div></div>
+<div class="card"><div class="label">뽑기</div><div class="value">{gacha_pulls:,}</div><div class="sub">-{gacha_spent:,}BP</div></div>
+<div class="card"><div class="label">🏕️방문</div><div class="value">{_visit_users}</div></div>
 </div>
 </div>
 
 {top_users_html}
-{new_users_html}
-{churned_html}
-
 {shiny_html}
-
-<div class="section">
-<div class="section-title">🎯 스폰 / 포획</div>
-<div class="grid">
-<div class="card"><div class="label">총 스폰</div><div class="value">{d['spawns']:,}</div></div>
-<div class="card"><div class="label">포획</div><div class="value accent">{d['catches']:,}</div><div class="sub">포획률 {catch_rate}%</div></div>
-<div class="card"><div class="label">이로치 포획</div><div class="value" style="color:#ff9800">{d['shiny_caught']}</div></div>
-<div class="card"><div class="label">마스터볼 사용</div><div class="value">{d['mb_used']}</div></div>
-</div></div>
-
 {meta_html}
 
 <div class="section">
-<div class="section-title">⚔️ 배틀</div>
-<div class="grid grid-3">
-<div class="card"><div class="label">총 배틀</div><div class="value">{d['battles']}</div></div>
-<div class="card"><div class="label">랭크전</div><div class="value">{d['ranked_battles']}</div></div>
-<div class="card"><div class="label">BP 생성</div><div class="value">+{d['bp_earned']:,}</div></div>
-</div></div>
-
-<div class="section">
-<div class="section-title">💰 BP 흐름 (당일)</div>
+<div class="section-title">💰 BP 경제</div>
 <div class="grid grid-3">
 <div class="card"><div class="label">생성</div><div class="value" style="color:#4caf50">+{bp_earned:,}</div></div>
 <div class="card"><div class="label">소각</div><div class="value accent">-{bp_total_spent:,}</div></div>
 <div class="card"><div class="label">순변동</div><div class="value" style="color:{'#4caf50' if bp_net >= 0 else '#e53935'}">{bp_net:+,}</div></div>
 </div>
 {bp_source_cards_html}
-<div class="grid" style="margin-top:6px">
-<div class="card"><div class="label">총 유통량</div><div class="value">{bp_circulation:,}</div>{_delta_badge(bp_circulation, prev_bp_circulation) if prev_bp_circulation else ''}<div class="sub">보유자 평균 {bp_avg:,}BP</div></div>
-<div class="card"><div class="label">뽑기</div><div class="value">{gacha_pulls:,}회</div><div class="sub">-{gacha_spent:,}BP</div></div>
-</div></div>
+<div class="grid grid-4" style="margin-top:4px">
+<div class="card"><div class="label">유통량</div><div class="value">{bp_circulation:,}</div>{_delta_badge(bp_circulation, prev_bp_circulation) if prev_bp_circulation else ''}</div>
+<div class="card"><div class="label">평균</div><div class="value">{bp_avg:,}</div></div>
+<div class="card"><div class="label">거래소</div><div class="value">{d['market_sold']}/{d['market_new']}</div><div class="sub">매매/등록</div></div>
+<div class="card"><div class="label">구독$</div><div class="value accent">${d['sub_revenue_today']:.1f}</div><div class="sub">{d['sub_active']}명</div></div>
+</div>
+<div class="grid grid-4" style="margin-top:4px">
+<div class="card"><div class="label">🔴마볼</div><div class="value">{eco['master_balls_circulation']}</div></div>
+<div class="card"><div class="label">🔵하볼</div><div class="value">{eco['hyper_balls_circulation']}</div></div>
+<div class="card" style="grid-column:span 2"><div class="label">뽑기 소각</div><div class="value">{gacha_spent:,}BP</div></div>
+</div>
+</div>
 
-<div class="section">
-<div class="section-title">💰 경제</div>
-<div class="grid">
-<div class="card"><div class="label">마스터볼 보유</div><div class="value">{eco['master_balls_circulation']}</div></div>
-<div class="card"><div class="label">하이퍼볼 보유</div><div class="value">{eco['hyper_balls_circulation']}</div></div>
-<div class="card"><div class="label">거래소</div><div class="value">{d['market_sold']}</div><div class="sub">신규 {d['market_new']}건</div></div>
-<div class="card"><div class="label">구독 매출</div><div class="value accent">${d['sub_revenue_today']:.1f}</div><div class="sub">활성 {d['sub_active']}명</div></div>
-</div></div>
-
+{new_users_html}
+{churned_html}
 {market_html}
 {sub_html}
 {chat_health_html}
-
 {hourly_html}
 {abuse_html}
 {patch_html}
@@ -1180,7 +1167,8 @@ async def _send_daily_kpi_report(context, target_date=None):
                 pass
         logger.info("Daily KPI report (HTML) sent to admins.")
     except Exception as e:
-        logger.error(f"Daily KPI report error: {e}")
+        import traceback
+        logger.error(f"Daily KPI report error: {e}\n{traceback.format_exc()}")
 
 
 async def _send_weekly_kpi_report(context):

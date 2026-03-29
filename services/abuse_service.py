@@ -47,29 +47,103 @@ _catch_locks: dict[int, dict] = {}
 
 
 # ─── 포획 잠금 ────────────────────────────────────
-def is_catch_locked(user_id: int) -> tuple[bool, int]:
-    """포획 잠금 여부 확인. 반환: (잠김 여부, 남은 초)."""
+# DB 캐시: {user_id: locked_until_timestamp}
+_db_lock_cache: dict[int, float] = {}
+
+async def is_catch_locked_async(user_id: int) -> tuple[bool, int]:
+    """포획 잠금 여부 확인 (메모리 + DB). 반환: (잠김 여부, 남은 초)."""
+    # 메모리 체크
     lock = _catch_locks.get(user_id)
-    if not lock:
-        return False, 0
-    remaining = int(lock["locked_until"] - time.time())
-    if remaining <= 0:
+    if lock:
+        remaining = int(lock["locked_until"] - time.time())
+        if remaining > 0:
+            return True, remaining
         _catch_locks.pop(user_id, None)
-        return False, 0
-    return True, remaining
+    # DB 캐시 체크
+    db_until = _db_lock_cache.get(user_id, 0)
+    if db_until > time.time():
+        return True, int(db_until - time.time())
+    # DB 직접 체크 (캐시 미스)
+    try:
+        pool = await get_db()
+        row = await pool.fetchrow(
+            "SELECT locked_until FROM abuse_scores WHERE user_id = $1 AND locked_until > NOW()",
+            user_id)
+        if row and row["locked_until"]:
+            remaining = int(row["locked_until"].timestamp() - time.time())
+            if remaining > 0:
+                _catch_locks[user_id] = {"locked_until": row["locked_until"].timestamp(), "strike": 5}
+                _db_lock_cache[user_id] = row["locked_until"].timestamp()
+                return True, remaining
+    except Exception:
+        pass
+    return False, 0
 
 
-def _apply_catch_lock(user_id: int):
-    """챌린지 실패/타임아웃 시 잠금 적용. 연속 실패에 따라 단계적 잠금."""
+def is_catch_locked(user_id: int) -> tuple[bool, int]:
+    """동기 버전 (메모리+캐시만). 포획 핸들러에서는 async 버전 사용 권장."""
     lock = _catch_locks.get(user_id)
-    strike = (lock["strike"] if lock else 0) + 1
-    duration_idx = min(strike - 1, len(LOCK_DURATIONS) - 1)
-    duration = LOCK_DURATIONS[duration_idx]
+    if lock:
+        remaining = int(lock["locked_until"] - time.time())
+        if remaining > 0:
+            return True, remaining
+        _catch_locks.pop(user_id, None)
+    db_until = _db_lock_cache.get(user_id, 0)
+    if db_until > time.time():
+        return True, int(db_until - time.time())
+    return False, 0
+
+
+def _apply_catch_lock(user_id: int, duration_override: int = None):
+    """챌린지 실패/타임아웃 시 잠금 적용. duration_override로 직접 시간 지정 가능."""
+    if duration_override:
+        duration = duration_override
+        lock = _catch_locks.get(user_id)
+        strike = (lock["strike"] if lock else 0) + 1
+    else:
+        lock = _catch_locks.get(user_id)
+        strike = (lock["strike"] if lock else 0) + 1
+        duration_idx = min(strike - 1, len(LOCK_DURATIONS) - 1)
+        duration = LOCK_DURATIONS[duration_idx]
     _catch_locks[user_id] = {
         "locked_until": time.time() + duration,
         "strike": strike,
     }
+    # DB에도 저장 (재시작 후에도 유지)
+    _db_lock_cache[user_id] = time.time() + duration
+    asyncio.get_event_loop().create_task(_save_lock_to_db(user_id, duration))
     return strike, duration
+
+
+async def _save_lock_to_db(user_id: int, duration: int):
+    """잠금을 DB에 영속화."""
+    try:
+        pool = await get_db()
+        await pool.execute(
+            """UPDATE abuse_scores SET locked_until = NOW() + make_interval(secs => $2), updated_at = NOW()
+               WHERE user_id = $1""",
+            user_id, float(duration))
+    except Exception as e:
+        logger.warning(f"_save_lock_to_db error: {e}")
+
+
+async def load_locks_from_db():
+    """봇 시작 시 DB에서 잠금 복원."""
+    try:
+        pool = await get_db()
+        # locked_until 컬럼 존재 확인 및 추가
+        await pool.execute(
+            "ALTER TABLE abuse_scores ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ")
+        rows = await pool.fetch(
+            "SELECT user_id, locked_until FROM abuse_scores WHERE locked_until > NOW()")
+        for r in rows:
+            remaining = (r["locked_until"].timestamp() - time.time())
+            if remaining > 0:
+                _catch_locks[r["user_id"]] = {"locked_until": r["locked_until"].timestamp(), "strike": 5}
+                _db_lock_cache[r["user_id"]] = r["locked_until"].timestamp()
+        logger.info(f"Loaded {len(rows)} catch locks from DB")
+    except Exception as e:
+        logger.warning(f"load_locks_from_db error: {e}")
 
 
 def format_lock_duration(seconds: int) -> str:
@@ -164,10 +238,22 @@ async def _get_hourly_catch_count(user_id: int) -> int:
 
 # ─── 챌린지 판정 ──────────────────────────────────
 async def should_challenge(user_id: int) -> bool:
-    """시간당 50회 초과 시 챌린지 발동. 캡차 통과하면 카운트 리셋."""
+    """감시 대상(is_watched) 유저만 시간당 50회 초과 시 챌린지 발동."""
+    # 감시 대상인지 먼저 확인
+    try:
+        pool = await get_db()
+        watched = await pool.fetchval(
+            "SELECT is_watched FROM abuse_scores WHERE user_id = $1",
+            user_id,
+        )
+        if not watched:
+            return False  # 감시 대상 아니면 CAPTCHA 안 함
+    except Exception:
+        return False
+
     count = await _get_hourly_catch_count(user_id)
     if count >= HOURLY_CATCH_LIMIT:
-        logger.info(f"Challenge triggered uid={user_id}: {count} catches/hour (limit={HOURLY_CATCH_LIMIT})")
+        logger.info(f"Challenge triggered uid={user_id} (watched): {count} catches/hour")
         return True
     return False
 
@@ -362,6 +448,185 @@ async def get_user_abuse_detail(user_id: int) -> dict | None:
         }
     except Exception:
         return None
+
+
+async def compute_monitor_scores():
+    """일일 매크로 모니터링 스코어 계산 (job에서 호출).
+
+    포획/배틀 패턴 분석 → 의심 스코어 0~100 계산.
+    50+ 시 is_watched = TRUE → 해당 유저만 CAPTCHA 대상.
+    """
+    import json
+    try:
+        pool = await get_db()
+        # 활성 유저 (최근 3일 포획 or 배틀)
+        users = await pool.fetch("""
+            SELECT DISTINCT user_id FROM (
+                SELECT user_id FROM catch_attempts
+                WHERE attempted_at > NOW() - INTERVAL '3 days'
+                UNION
+                SELECT challenger_id AS user_id FROM battle_challenges
+                WHERE created_at > NOW() - INTERVAL '3 days'
+                UNION
+                SELECT defender_id AS user_id FROM battle_challenges
+                WHERE created_at > NOW() - INTERVAL '3 days'
+            ) t
+        """)
+
+        for row in users:
+            uid = row["user_id"]
+            score = 0
+            detail = {}
+
+            # 1) 동일 상대 배틀 반복 (7일, 상위 1쌍)
+            top_pair = await pool.fetchrow("""
+                SELECT opponent_id, cnt FROM (
+                    SELECT CASE WHEN challenger_id = $1 THEN defender_id ELSE challenger_id END AS opponent_id,
+                           COUNT(*) AS cnt
+                    FROM battle_challenges
+                    WHERE (challenger_id = $1 OR defender_id = $1)
+                      AND status = 'completed'
+                      AND created_at > NOW() - INTERVAL '7 days'
+                    GROUP BY opponent_id
+                ) t ORDER BY cnt DESC LIMIT 1
+            """, uid)
+            if top_pair and top_pair["cnt"] >= 20:
+                s = min(40, int(top_pair["cnt"] / 2))
+                score += s
+                detail["battle_repeat"] = {"opponent": top_pair["opponent_id"], "count": top_pair["cnt"], "score": s}
+
+            # 2) 새벽 3~6시(KST) 포획 활동량 (3일)
+            dawn_count = await pool.fetchval("""
+                SELECT COUNT(*) FROM catch_attempts
+                WHERE user_id = $1
+                  AND attempted_at > NOW() - INTERVAL '3 days'
+                  AND EXTRACT(HOUR FROM attempted_at AT TIME ZONE 'Asia/Seoul') BETWEEN 3 AND 5
+            """, uid)
+            if dawn_count and dawn_count >= 30:
+                s = min(25, dawn_count // 4)
+                score += s
+                detail["dawn_activity"] = {"count": dawn_count, "score": s}
+
+            # 3) 포획 응답시간 표준편차 (최근 100건)
+            reaction_stats = await pool.fetchrow("""
+                SELECT STDDEV(reaction_ms) AS std, AVG(reaction_ms) AS avg, COUNT(*) AS cnt
+                FROM (
+                    SELECT reaction_ms FROM catch_attempts
+                    WHERE user_id = $1 AND reaction_ms IS NOT NULL
+                      AND attempted_at > NOW() - INTERVAL '3 days'
+                    ORDER BY attempted_at DESC LIMIT 100
+                ) t
+            """, uid)
+            if reaction_stats and reaction_stats["cnt"] and reaction_stats["cnt"] >= 20:
+                std = reaction_stats["std"] or 0
+                avg = reaction_stats["avg"] or 0
+                # 표준편차 300ms 이하 + 평균 2초 이하 → 봇 의심
+                if std < 300 and avg < 2000:
+                    s = 30
+                    score += s
+                    detail["reaction_consistency"] = {"std_ms": round(float(std)), "avg_ms": round(float(avg)), "score": s}
+                elif std < 500 and avg < 3000:
+                    s = 15
+                    score += s
+                    detail["reaction_consistency"] = {"std_ms": round(float(std)), "avg_ms": round(float(avg)), "score": s}
+
+            # 4) 최장 무중단 활동 (3일, 포획 간격 5분 이내 연속)
+            catches_ts = await pool.fetch("""
+                SELECT attempted_at FROM catch_attempts
+                WHERE user_id = $1 AND attempted_at > NOW() - INTERVAL '3 days'
+                ORDER BY attempted_at
+            """, uid)
+            if catches_ts:
+                max_streak_min = 0
+                current_streak_start = catches_ts[0]["attempted_at"]
+                prev = catches_ts[0]["attempted_at"]
+                for c in catches_ts[1:]:
+                    gap = (c["attempted_at"] - prev).total_seconds()
+                    if gap <= 300:  # 5분 이내
+                        pass
+                    else:
+                        streak_min = (prev - current_streak_start).total_seconds() / 60
+                        max_streak_min = max(max_streak_min, streak_min)
+                        current_streak_start = c["attempted_at"]
+                    prev = c["attempted_at"]
+                streak_min = (prev - current_streak_start).total_seconds() / 60
+                max_streak_min = max(max_streak_min, streak_min)
+
+                if max_streak_min >= 240:  # 4시간+
+                    s = min(20, int(max_streak_min / 30))
+                    score += s
+                    detail["continuous_play"] = {"max_minutes": round(max_streak_min), "score": s}
+
+            # 5) 스폰 이로치 과다 포획 (3일간, spawn_log 기준)
+            shiny_stats = await pool.fetchrow("""
+                SELECT COUNT(*) as shiny_cnt,
+                       COUNT(DISTINCT (spawned_at AT TIME ZONE 'Asia/Seoul')::date) as days
+                FROM spawn_log
+                WHERE caught_by_user_id = $1 AND is_shiny = 1
+                  AND spawned_at > NOW() - INTERVAL '3 days'
+            """, uid)
+            catch_3d = await pool.fetchval(
+                "SELECT COUNT(*) FROM catch_attempts WHERE user_id = $1 AND attempted_at > NOW() - INTERVAL '3 days'",
+                uid)
+            if shiny_stats and shiny_stats["shiny_cnt"] >= 5:
+                shiny_cnt = shiny_stats["shiny_cnt"]
+                days = max(shiny_stats["days"], 1)
+                daily_avg = shiny_cnt / days
+                shiny_pct = round(shiny_cnt / max(catch_3d, 1) * 100, 1) if catch_3d else 0
+
+                # 일평균 20마리+ → 최대 30점, 비율 10%+ → 최대 20점
+                s = 0
+                if daily_avg >= 40:
+                    s += 30
+                elif daily_avg >= 20:
+                    s += min(30, int(daily_avg))
+                elif daily_avg >= 10:
+                    s += min(15, int(daily_avg / 2))
+
+                if shiny_pct >= 10:
+                    s += min(20, int(shiny_pct))
+
+                if s > 0:
+                    score += s
+                    detail["shiny_farming"] = {
+                        "shiny_3d": shiny_cnt, "catches_3d": catch_3d,
+                        "daily_avg": round(daily_avg, 1), "pct": shiny_pct, "score": s
+                    }
+
+            # DB 업데이트
+            is_watched = score >= 50
+            await pool.execute("""
+                INSERT INTO abuse_scores (user_id, monitor_score, monitor_detail, monitored_at, is_watched, updated_at)
+                VALUES ($1, $2, $3, NOW(), $4, NOW())
+                ON CONFLICT (user_id) DO UPDATE SET
+                    monitor_score = $2, monitor_detail = $3, monitored_at = NOW(),
+                    is_watched = $4, updated_at = NOW()
+            """, uid, score, json.dumps(detail, ensure_ascii=False), is_watched)
+
+        watched = await pool.fetchval("SELECT COUNT(*) FROM abuse_scores WHERE is_watched = TRUE")
+        logger.info(f"Monitor scores computed: {len(users)} users, {watched} watched")
+        return len(users), watched
+    except Exception as e:
+        logger.error(f"compute_monitor_scores error: {e}")
+        return 0, 0
+
+
+async def get_watched_users(limit: int = 50) -> list[dict]:
+    """감시 대상 유저 목록 (관리자 대시보드용)."""
+    try:
+        pool = await get_db()
+        rows = await pool.fetch("""
+            SELECT a.user_id, u.display_name, u.username,
+                   a.monitor_score, a.monitor_detail, a.monitored_at, a.is_watched
+            FROM abuse_scores a
+            JOIN users u ON a.user_id = u.user_id
+            WHERE a.monitor_score > 0
+            ORDER BY a.monitor_score DESC
+            LIMIT $1
+        """, limit)
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
 
 
 async def admin_reset_score(user_id: int):
