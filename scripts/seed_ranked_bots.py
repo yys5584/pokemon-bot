@@ -18,13 +18,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import config
-from database.connection import get_db, init_db
+from database.connection import get_db
 from services.ranked_service import ensure_current_season
 from services.bot_team_builder import seed_bots_for_season
 
 
 async def main():
-    await init_db()
     pool = await get_db()
 
     # is_bot 컬럼 추가 (없으면)
