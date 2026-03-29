@@ -1751,7 +1751,7 @@ async def _start_run(query, context, user_id: int, instance_id: int, use_amulet:
     if use_amulet:
         used = await item_queries.use_user_item(user_id, "dungeon_amulet")
         if used:
-            initial_buff = [b for b in ds.generate_buff_choices(0, [], count=3) if b.get("category") != "consumable"]
+            initial_buff = [b for b in ds.generate_buff_choices(0, [], count=3) if b.get("category") != "consumable" and b.get("id") != "hardcore"]
             if initial_buff:
                 buff = initial_buff[0]
                 await dq.update_run_progress(run_id, 0, max_hp, [buff])
