@@ -133,24 +133,9 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             pass
         return
 
-    # 상대 팀 로드 + 룰 검증
+    # 상대 팀 로드 (find_ranked_opponent에서 이미 코스트/룰 검증 완료)
     opp_team = await bq.get_battle_team(opponent_id)
     if not opp_team or len(opp_team) < config.RANKED_TEAM_SIZE:
-        try:
-            await matching_msg.edit_text(f"😢 {t(lang, 'ranked.opp_team_fail')}")
-        except Exception:
-            pass
-        return
-    opp_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in opp_team)
-    if opp_cost > config.RANKED_COST_LIMIT:
-        try:
-            await matching_msg.edit_text(f"😢 {t(lang, 'ranked.opp_cost_fail')}")
-        except Exception:
-            pass
-        return
-    # 상대 시즌 룰 검증
-    ok_opp, _ = await rs.validate_team_for_ranked(opponent_id, season)
-    if not ok_opp:
         try:
             await matching_msg.edit_text(f"😢 {t(lang, 'ranked.opp_team_fail')}")
         except Exception:

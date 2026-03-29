@@ -176,8 +176,11 @@ async def assign_placement_tier(user_id: int, season_id: str) -> dict:
 DEFENSE_SHIELD_LIMIT = 3  # 연속 방어 패배 3회 → 매칭 풀에서 제외 (보호)
 
 async def find_ranked_opponent(user_id: int, season_id: str) -> int | None:
-    """MMR 기반 매칭. 점진적 범위 확장."""
+    """MMR 기반 매칭. 점진적 범위 확장. 코스트/시즌룰도 검증."""
     from database import battle_queries as bq
+
+    # 현재 시즌 정보 (코스트/룰 검증용)
+    season = await rq.get_current_season()
 
     # MMR 조회
     mmr_rec = await rq.get_user_mmr(user_id)
@@ -187,14 +190,33 @@ async def find_ranked_opponent(user_id: int, season_id: str) -> int | None:
     recent_opps = await rq.get_recent_opponents(user_id, season_id, limit=3)
     exclude_ids = [user_id] + recent_opps
 
+    async def _is_valid_opponent(opp_id: int) -> bool:
+        """상대 팀이 코스트/시즌룰 충족하는지 검증."""
+        team = await bq.get_battle_team(opp_id)
+        if not team or len(team) < config.RANKED_TEAM_SIZE:
+            return False
+        # 코스트 검증
+        cost_limit = config.RANKED_COST_LIMIT
+        if season:
+            rule_info = config.WEEKLY_RULES.get(season.get("weekly_rule", ""), {})
+            cost_limit = rule_info.get("cost_limit", cost_limit)
+        total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
+        if total_cost > cost_limit:
+            return False
+        # 시즌 룰 검증
+        if season:
+            ok, _ = validate_weekly_rule(team, season.get("weekly_rule", ""))
+            if not ok:
+                return False
+        return True
+
     # 점진적 MMR 범위 확장
     for mmr_range in config.MMR_MATCH_RANGES:  # [200, 300, 400]
         candidates = await rq.find_matchable_users_by_mmr(
             season_id, user_mmr, mmr_range, exclude_ids,
             defense_shield_limit=DEFENSE_SHIELD_LIMIT, limit=10)
         for c in candidates:
-            team = await bq.get_battle_team(c["user_id"])
-            if team and len(team) >= config.RANKED_TEAM_SIZE:
+            if await _is_valid_opponent(c["user_id"]):
                 return c["user_id"]
 
     # 폴백: 기존 티어 기반 (프리시즌/유저 부족 시)
@@ -222,8 +244,7 @@ async def find_ranked_opponent(user_id: int, season_id: str) -> int | None:
         season_id, tier_keys, exclude_ids,
         defense_shield_limit=DEFENSE_SHIELD_LIMIT, limit=10)
     for c in candidates:
-        team = await bq.get_battle_team(c["user_id"])
-        if team and len(team) >= 1:
+        if await _is_valid_opponent(c["user_id"]):
             return c["user_id"]
 
     return None
