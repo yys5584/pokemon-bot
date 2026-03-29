@@ -716,7 +716,7 @@ async def process_season_rewards(season_id: str) -> list[dict]:
         if iv_cnt > 0:
             try:
                 from database import item_queries
-                await item_queries.add_user_item(uid, "iv_stone_3", iv_cnt)
+                await item_queries.add_iv_stones(uid, iv_cnt)
             except Exception as e:
                 logger.error(f"Failed to give IV+3 stone to {uid}: {e}")
 

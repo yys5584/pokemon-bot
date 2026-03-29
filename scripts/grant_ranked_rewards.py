@@ -67,7 +67,7 @@ async def main():
 
         for key, cnt in [("iv_stone_3_x2", 2), ("iv_stone_3_x1", 1)]:
             for uid in data.get(key, []):
-                await add_user_item(uid, "iv_stone_3", cnt)
+                await add_iv_stones(uid, cnt)
                 msg = f"[IV+3 ×{cnt}] uid={uid}"
                 print(f"  {msg}")
                 log_entries.append(f"{season_label}: {msg}")
@@ -75,7 +75,7 @@ async def main():
     # 토너먼트 IV+3 미지급
     print("\n=== 토너먼트 IV+3 미지급 보상 ===")
     for uid, label in [(7050637391, "우승 러스트"), (336224560, "준우승 Yohan")]:
-        await add_user_item(uid, "iv_stone_3", 1)
+        await add_iv_stones(uid, 1)
         msg = f"[토너먼트 IV+3] {label} uid={uid}"
         print(f"  {msg}")
         log_entries.append(msg)

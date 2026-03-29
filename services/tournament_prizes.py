@@ -287,7 +287,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
     try:
         iv_cnt = getattr(config, "TOURNAMENT_PRIZE_1ST_IV_STONE", 1)
         from database import item_queries
-        await item_queries.add_user_item(winner_id, "iv_stone_3", iv_cnt)
+        await item_queries.add_iv_stones(winner_id, iv_cnt)
         bonus_1st_name = f"IV+3 ×{iv_cnt}"
     except Exception:
         logger.error(f"Failed to give IV+3 stone to winner {winner_id}")
@@ -325,7 +325,7 @@ async def _award_prizes(context, chat_id, winner_id, winner_data,
         try:
             iv_cnt = getattr(config, "TOURNAMENT_PRIZE_2ND_IV_STONE", 1)
             from database import item_queries
-            await item_queries.add_user_item(runner_up_id, "iv_stone_3", iv_cnt)
+            await item_queries.add_iv_stones(runner_up_id, iv_cnt)
             bonus_2nd_name = f"IV+3 ×{iv_cnt}"
         except Exception:
             logger.error(f"Failed to give IV+3 stone to runner-up {runner_up_id}")
