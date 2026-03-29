@@ -173,7 +173,7 @@ async def assign_placement_tier(user_id: int, season_id: str) -> dict:
 
 # ─── DM Auto-Matching (MMR 기반) ─────────────────────────
 
-DEFENSE_SHIELD_LIMIT = 5  # 연속 방어 패배 5회 → 보호
+DEFENSE_SHIELD_LIMIT = 3  # 연속 방어 패배 3회 → 매칭 풀에서 제외 (보호)
 
 async def find_ranked_opponent(user_id: int, season_id: str) -> int | None:
     """MMR 기반 매칭. 점진적 범위 확장."""
