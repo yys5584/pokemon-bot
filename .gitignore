@@ -16,7 +16,13 @@ nul
 test_*.jpg
 test_*.gif
 test_*.png
+test_*.html
 sample_*.jpg
+sample_*.png
+compare*.jpg
+ref_*.png
+pil_*.jpg
+new_*.jpg
 tier_analysis.txt
 .coverage
 *.launch.json
