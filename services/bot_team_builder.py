@@ -58,10 +58,12 @@ def _best_team_for_cost(
     team_size: int = 6,
     banned_rarities: set | None = None,
     used_ids: set | None = None,
+    tier: str | None = None,
 ) -> list[dict]:
     """코스트 제한 내에서 베이스스탯 총합이 높은 6마리를 선택.
 
-    그리디 알고리즘: 코스트 대비 BST가 높은 순으로 채움.
+    그리디 알고리즘: BST 높은 순으로 코스트에 맞게 채움.
+    tier가 있으면 BST 범위를 조절해서 티어별 난이도 차이를 줌.
     """
     if banned_rarities is None:
         banned_rarities = set()
@@ -74,13 +76,29 @@ def _best_team_for_cost(
         if p["id"] not in used_ids and p["rarity"] not in banned_rarities
     ]
 
-    # BST/cost 효율 기준 정렬 (높은 순)
-    def sort_key(p):
-        bst = _get_bst(p["id"])
-        cost = COST.get(p["rarity"], 1)
-        return bst  # 순수 BST 높은 순
+    # BST 높은 순 정렬
+    available.sort(key=lambda p: _get_bst(p["id"]), reverse=True)
 
-    available.sort(key=sort_key, reverse=True)
+    # 티어별 BST 풀 범위 (상위 N% ~ M% 에서 선택)
+    if tier and len(available) > 20:
+        tier_ranges = {
+            "master": (0.0, 0.3),    # 상위 30%
+            "diamond": (0.05, 0.4),  # 5~40%
+            "platinum": (0.1, 0.5),  # 10~50%
+            "gold": (0.2, 0.6),      # 20~60%
+            "silver": (0.3, 0.7),    # 30~70%
+            "bronze": (0.5, 0.9),    # 50~90%
+        }
+        lo_pct, hi_pct = tier_ranges.get(tier, (0.0, 1.0))
+        n = len(available)
+        lo = int(n * lo_pct)
+        hi = int(n * hi_pct)
+        subset = available[lo:hi]
+        # 약간의 랜덤성
+        random.shuffle(subset)
+        # 셔플 후 다시 BST 순으로 (상위 30개만 — 이 안에서 그리디)
+        subset.sort(key=lambda p: _get_bst(p["id"]), reverse=True)
+        available = subset
 
     team = []
     remaining = cost_limit
@@ -90,7 +108,7 @@ def _best_team_for_cost(
             break
 
         cost = COST.get(p["rarity"], 1)
-        slots_left = team_size - len(team) - 1  # 이번 제외 남은 슬롯
+        slots_left = team_size - len(team) - 1
         min_needed = slots_left * 1  # 남은 슬롯은 최소 common(1)
 
         if cost <= remaining - min_needed:
@@ -142,29 +160,10 @@ async def build_bot_team(
                 banned_rarities, used_ids)
             team_picks.extend(extra)
     else:
-        # npc 봇: 전체 풀에서 최강 팀
+        # npc 봇: 전체 풀에서 팀 구성
         all_pool = await _get_pokemon_pool()
-        # 약간의 랜덤성을 위해 상위 50명 중에서 셔플 후 선택
-        available = [
-            p for p in all_pool
-            if p["rarity"] not in banned_rarities
-        ]
-        available.sort(key=lambda p: _get_bst(p["id"]), reverse=True)
-
-        # 티어별 풀 범위 (마스터는 상위, 브론즈는 중하위)
-        pool_ranges = {
-            "master": (0, 80), "diamond": (20, 120),
-            "platinum": (40, 160), "gold": (60, 200),
-            "silver": (100, 300), "bronze": (150, 400),
-        }
-        lo, hi = pool_ranges.get(tier, (100, 300))
-        hi = min(hi, len(available))
-        lo = min(lo, hi)
-        subset = available[lo:hi]
-        random.shuffle(subset)
-
         team_picks = _best_team_for_cost(
-            subset, cost_limit, 6, banned_rarities, used_ids)
+            all_pool, cost_limit, 6, banned_rarities, used_ids, tier=tier)
 
     # 팀 데이터 생성
     team = []
