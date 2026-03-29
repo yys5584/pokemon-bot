@@ -296,6 +296,15 @@ async def resume_tournament_handler(update: Update, context: ContextTypes.DEFAUL
     await resume_tournament_from_semi(context)
 
 
+async def co_champion_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 공동우승 — 3/29 대회 4명 공동우승 보상 (일시적)."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from scripts.award_co_champions import award_co_champions
+    await update.message.reply_text("🏆 공동우승 보상 지급 시작!")
+    await award_co_champions(context)
+
+
 # ── Abuse ──────────────────────────────────
 
 async def abuse_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
