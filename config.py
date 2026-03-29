@@ -1018,8 +1018,8 @@ RANKED_BOT_IDS = frozenset(b[0] for b in RANKED_BOTS)
 
 # 티어별 봇 IV 범위 (min, max)
 BOT_IV_RANGES = {
-    "master":   (25, 31),
-    "diamond":  (22, 28),
+    "master":   (31, 31),  # 올맥스 (186)
+    "diamond":  (31, 31),  # 올맥스 (186)
     "platinum": (18, 25),
     "gold":     (15, 22),
     "silver":   (10, 18),
