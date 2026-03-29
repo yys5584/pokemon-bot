@@ -964,7 +964,11 @@ async def _finish_run(query, context, user_id: int, run: dict, final_floor: int,
                    "rainbow": 0, "iv_stones": 0, "items": {}, "field_type": "forest"}
     else:
         daily_best = await dq.get_daily_best_floor(user_id)
-        rewards = ds.calculate_rewards(final_floor, run["theme"], sub_tier, daily_best=daily_best)
+        run_buffs = run.get("buffs_json", [])
+        if isinstance(run_buffs, str):
+            import json
+            run_buffs = json.loads(run_buffs)
+        rewards = ds.calculate_rewards(final_floor, run["theme"], sub_tier, daily_best=daily_best, buffs=run_buffs)
 
     # 액션 로그 저장
     action_log_str = ",".join(st.get("action_log", []))

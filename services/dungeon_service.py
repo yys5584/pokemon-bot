@@ -578,6 +578,27 @@ def apply_buff_choice(current_buffs: list[dict], choice: dict) -> list[dict]:
         })
         return new_buffs
 
+    # ── 하드코어: 전투 버프 3개 즉시 지급 ──
+    if bid == "hardcore":
+        new_buffs = list(current_buffs)
+        new_buffs.append({
+            "id": "hardcore", "name": choice["name"], "category": "unique",
+            "lv": 1, "effect": choice["effect"], "desc": choice["desc"],
+        })
+        # 전투 버프 풀에서 랜덤 3개 Lv.1 즉시 부여
+        _COMBAT_POOL = ["crit", "double", "dodge", "crisis"]
+        owned = {b["id"] for b in new_buffs}
+        available = [c for c in _COMBAT_POOL if c not in owned]
+        random.shuffle(available)
+        for combat_id in available[:3]:
+            bdef = BUFF_DEFS[combat_id]
+            lv_data = bdef["levels"][0]
+            new_buffs.append({
+                "id": combat_id, "name": bdef["name"], "category": "combat",
+                "lv": 1, "effect": lv_data, "desc": lv_data["desc"],
+            })
+        return new_buffs
+
     # ── 일반 버프 적용 ──
     new_buffs = []
     found = False
@@ -1774,7 +1795,7 @@ def resolve_dungeon_battle_v2(
 # ══════════════════════════════════════════════════════════
 
 def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = None,
-                      daily_best: int = 0) -> dict:
+                      daily_best: int = 0, buffs: list[dict] | None = None) -> dict:
     """런 종료 시 보상 계산.
     daily_best: 오늘 이전 최고 기록. 이보다 높은 마일스톤만 보상."""
     # 기본 BP (항상 지급)
@@ -1819,6 +1840,20 @@ def calculate_rewards(floor_reached: int, theme: str, sub_tier: str | None = Non
         iv_stones = int(iv_stones * item_mult)
         tickets = int(tickets * item_mult)
         items = {k: max(v, int(v * item_mult + 0.5)) for k, v in items.items()}
+
+    # 하드코어 보상 배율
+    if buffs:
+        for b in buffs:
+            if b.get("id") == "hardcore":
+                hc_mult = b.get("effect", {}).get("reward_mult", 1.5)
+                bp = int(bp * hc_mult)
+                fragments = int(fragments * hc_mult)
+                crystals = int(crystals * hc_mult)
+                rainbow = int(rainbow * hc_mult)
+                iv_stones = int(iv_stones * hc_mult)
+                tickets = int(tickets * hc_mult)
+                items = {k: max(v, int(v * hc_mult)) for k, v in items.items()}
+                break
 
     # BP 상한
     bp = min(bp, config.DUNGEON_MAX_BP)
