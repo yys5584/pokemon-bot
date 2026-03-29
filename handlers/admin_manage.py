@@ -287,6 +287,15 @@ async def mock_tournament_run_handler(update: Update, context: ContextTypes.DEFA
     await start_tournament(context)
 
 
+async def resume_tournament_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 대회재개 — 3/29 준결승부터 재개 (일시적)."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from services.tournament_service import resume_tournament_from_semi
+    await update.message.reply_text("⚔️ 대회 재개 시작! (준결승부터)")
+    await resume_tournament_from_semi(context)
+
+
 # ── Abuse ──────────────────────────────────
 
 async def abuse_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

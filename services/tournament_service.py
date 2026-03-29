@@ -736,3 +736,145 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     context.application.job_queue.run_once(
         _restart_arcade, when=900, name="arcade_restart_after_tournament",
     )
+
+
+# ══════════════════════════════════════════════════════════
+# 대회 재개 (일시적, 준결승부터 재개)
+# ══════════════════════════════════════════════════════════
+
+async def resume_tournament_from_semi(context: ContextTypes.DEFAULT_TYPE):
+    """준결승부터 대회 재개 — 3/29 대회 중단 복구용 임시 함수.
+
+    대진: 딸딸기 vs Jun_P3, Turri vs 러스트
+    8강 탈락: 제리, Han, 무색큐브, E FIGHT
+    전체 참가자: tournament_registrations에서 로드 (50명)
+    """
+    chat_id = config.TOURNAMENT_CHAT_ID
+    _bracket_icon = icon_emoji("bookmark")
+
+    # ── 준결승 4명 ID ──
+    SEMI = {
+        6007036282: "딸딸기",
+        7044819211: "Jun_P3",
+        7609021791: "Turri",
+        7050637391: "러스트",
+    }
+    # ── 8강 탈락자 ──
+    QUARTER_ELIMINATED = {
+        7285104306: 8,   # 제리
+        8616523632: 8,   # Han
+        5237146711: 8,   # 무색큐브
+        336224560: 8,    # E FIGHT
+    }
+
+    # 팀 로드
+    participants = {}
+    for uid, name in SEMI.items():
+        team = await bq.get_battle_team(uid)
+        if not team:
+            await _safe_send(context.bot, chat_id,
+                text=f"⚠️ {name}의 배틀팀을 찾을 수 없습니다!")
+            return
+        participants[uid] = {"name": name, "team": team}
+
+    # 전체 참가자 로드 (보상용)
+    pool = await get_db()
+    all_regs = await pool.fetch(
+        "SELECT user_id, display_name FROM tournament_registrations"
+    )
+    all_participants = {r[0] for r in all_regs}
+    if not all_participants:
+        await _safe_send(context.bot, chat_id,
+            text="⚠️ tournament_registrations가 비어있습니다!")
+        return
+
+    # 대진: 딸딸기 vs Jun_P3, Turri vs 러스트
+    bracket = [
+        ((6007036282, participants[6007036282]),
+         (7044819211, participants[7044819211])),
+        ((7609021791, participants[7609021791]),
+         (7050637391, participants[7050637391])),
+    ]
+
+    semi_finalists = set(SEMI.keys())
+    eliminated = dict(QUARTER_ELIMINATED)
+
+    _tournament_state["running"] = True
+    _tournament_state["chat_id"] = chat_id
+    _tournament_state["participants"] = {uid: {"name": name} for uid, name in SEMI.items()}
+
+    try:
+        # ── 준결승 안내 ──
+        await _safe_send(context.bot, chat_id,
+            text=(
+                f"⚔️ 대회 재개! (준결승부터)\n"
+                f"━━━━━━━━━━━━━━━\n\n"
+                f"{_bracket_icon} 준결승 대진표\n"
+                f"━━━━━━━━━━━━━━━\n"
+                f"1. 딸딸기 vs Jun_P3\n"
+                f"2. Turri vs 러스트"
+            ),
+        )
+        await asyncio.sleep(3)
+
+        await _safe_send(context.bot, chat_id,
+            text=f"\n{icon_emoji('game')} 준결승",
+            parse_mode="HTML",
+        )
+        await asyncio.sleep(1)
+
+        # ── 준결승 매치 ──
+        winners = []
+        for mi, (p1, p2) in enumerate(bracket):
+            uid1, data1 = p1
+            uid2, data2 = p2
+            match_label = f"[ {mi + 1}번째 매치 ] "
+            winner_id, winner_data = await _run_match(
+                context, chat_id,
+                uid1, data1, uid2, data2,
+                is_final=False, is_semi=True, is_quarter=False,
+                match_label=match_label,
+            )
+            winners.append((winner_id, winner_data))
+            # 탈락자 기록
+            loser_id = uid2 if winner_id == uid1 else uid1
+            eliminated[loser_id] = 4
+            await asyncio.sleep(3)
+
+        # ── 결승 대진 ──
+        final_bracket = [(winners[0], winners[1])]
+        tree = _render_bracket(final_bracket, {})
+        if tree and len(tree) < 4000:
+            await _safe_send(context.bot, chat_id,
+                text=f"{_bracket_icon} 결승 대진표\n{tree}",
+                parse_mode="HTML",
+            )
+            await asyncio.sleep(5)
+
+        # ── 결승 매치 ──
+        f_p1 = winners[0]
+        f_p2 = winners[1]
+        champion_id, champion_data = await _run_match(
+            context, chat_id,
+            f_p1[0], f_p1[1], f_p2[0], f_p2[1],
+            is_final=True, is_semi=False, is_quarter=False,
+        )
+        await asyncio.sleep(3)
+
+        # ── 보상 지급 ──
+        await _award_prizes(
+            context, chat_id,
+            champion_id, champion_data,
+            final_bracket, semi_finalists,
+            all_participants, eliminated,
+        )
+
+    except Exception as e:
+        logger.error(f"Resume tournament error: {e}", exc_info=True)
+        await _safe_send(context.bot, chat_id,
+            text="⚠️ 대회 재개 중 오류가 발생했습니다.")
+
+    # Cleanup
+    _reset_state()
+    await _clear_registrations_db()
+    await _resume_spawns(context, chat_id)
