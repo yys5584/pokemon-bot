@@ -1056,7 +1056,19 @@ async def catch_pokemon_transaction(
 ) -> tuple[int, dict]:
     """Give pokemon + register pokedex + close session in a single transaction."""
     from utils.battle_calc import generate_ivs
-    ivs = generate_ivs(is_shiny=is_shiny)
+    # 스폰 세션에 미리 생성된 IV가 있으면 사용, 없으면 새로 생성
+    ivs = None
+    try:
+        import json as _json
+        _pool = await get_db()
+        _pre = await _pool.fetchval(
+            "SELECT pre_ivs FROM spawn_sessions WHERE id = $1", session_id)
+        if _pre:
+            ivs = _json.loads(_pre) if isinstance(_pre, str) else dict(_pre)
+    except Exception:
+        pass
+    if not ivs:
+        ivs = generate_ivs(is_shiny=is_shiny)
     pool = await get_db()
     async with pool.acquire() as conn:
         async with conn.transaction():

@@ -80,6 +80,15 @@ async def ensure_current_season() -> dict:
 
     arena_ids = await _select_arenas()
     season = await rq.get_or_create_season(sid, rule, starts, ends, arena_ids)
+
+    # 새 시즌 생성 시 NPC 봇 팀 시딩
+    try:
+        from services.bot_team_builder import seed_bots_for_season
+        await seed_bots_for_season(sid, rule)
+        logger.info(f"시즌 {sid} 봇 시딩 완료 (룰: {rule})")
+    except Exception as e:
+        logger.error(f"시즌 {sid} 봇 시딩 실패: {e}")
+
     return season
 
 
@@ -354,13 +363,17 @@ async def process_ranked_result(winner_id: int, loser_id: int,
     w_is_placement = not w_rec.get("placement_done", False)
     l_is_placement = not l_rec.get("placement_done", False)
 
-    # 4. MMR 업데이트 (항상, 배치/일반 무관)
+    # 4. MMR 업데이트 (봇이면 스킵)
+    w_is_bot = winner_id in config.RANKED_BOT_IDS
+    l_is_bot = loser_id in config.RANKED_BOT_IDS
     k_w = get_k_factor(w_is_placement)
     k_l = get_k_factor(l_is_placement)
     new_w_mmr = elo_update(w_mmr, l_mmr, True, k_w)
     new_l_mmr = elo_update(l_mmr, w_mmr, False, k_l)
-    await rq.update_user_mmr(winner_id, new_w_mmr)
-    await rq.update_user_mmr(loser_id, new_l_mmr)
+    if not w_is_bot:
+        await rq.update_user_mmr(winner_id, new_w_mmr)
+    if not l_is_bot:
+        await rq.update_user_mmr(loser_id, new_l_mmr)
 
     # 5. 배치 처리
     w_placement_result = None
@@ -414,16 +427,21 @@ async def process_ranked_result(winner_id: int, loser_id: int,
         w_rp_after = w_rp_before + rp_gain
         w_tier_after_key, _, _ = config.get_tier(w_rp_after)
 
-        # 승급 보호 설정
-        w_promoted = await check_and_set_promo_shield(
-            winner_id, season_id, w_rp_before, w_rp_after)
+        # 봇이면 RP/승급 업데이트 스킵
+        if w_is_bot:
+            w_rp_after = w_rp_before
+            w_tier_after_key = w_tier_before
+        else:
+            # 승급 보호 설정
+            w_promoted = await check_and_set_promo_shield(
+                winner_id, season_id, w_rp_before, w_rp_after)
 
-        # 피크 업데이트
-        w_peak_rp = max(w_rec["peak_rp"], w_rp_after)
-        w_peak_tier = w_tier_after_key if w_rp_after >= w_rec["peak_rp"] else w_rec["peak_tier"]
+            # 피크 업데이트
+            w_peak_rp = max(w_rec["peak_rp"], w_rp_after)
+            w_peak_tier = w_tier_after_key if w_rp_after >= w_rec["peak_rp"] else w_rec["peak_tier"]
 
-        await rq.update_rp_win(winner_id, season_id, rp_gain, w_tier_after_key,
-                                w_peak_rp, w_peak_tier)
+            await rq.update_rp_win(winner_id, season_id, rp_gain, w_tier_after_key,
+                                    w_peak_rp, w_peak_tier)
     else:
         w_rp_after = w_rp_before
         w_tier_after_key = w_tier_before
@@ -438,21 +456,27 @@ async def process_ranked_result(winner_id: int, loser_id: int,
         if l_total < config.RANKED_NEWBIE_PROTECTION:
             rp_loss_calc = max(5, rp_loss_calc // 2)
 
-        # 승급 보호 적용
-        # 최신 rec 다시 조회 (placement_done 상태 반영)
-        l_rec_fresh = await rq.get_season_record(loser_id, season_id)
-        rp_loss, l_shield_protected = await apply_rp_loss_with_shield(
-            loser_id, season_id, rp_loss_calc, l_rec_fresh or l_rec)
+        # 봇이면 RP 손실 스킵
+        if l_is_bot:
+            l_rp_after = l_rp_before
+            l_tier_after_key = l_tier_before
+            rp_loss = 0
+        else:
+            # 승급 보호 적용
+            # 최신 rec 다시 조회 (placement_done 상태 반영)
+            l_rec_fresh = await rq.get_season_record(loser_id, season_id)
+            rp_loss, l_shield_protected = await apply_rp_loss_with_shield(
+                loser_id, season_id, rp_loss_calc, l_rec_fresh or l_rec)
 
-        l_rp_after = max(0, l_rp_before - rp_loss)
-        l_tier_after_key, _, _ = config.get_tier(l_rp_after)
+            l_rp_after = max(0, l_rp_before - rp_loss)
+            l_tier_after_key, _, _ = config.get_tier(l_rp_after)
 
-        # 강등 체크
-        old_div = config.get_division_info(l_rp_before)
-        new_div = config.get_division_info(l_rp_after)
-        l_demoted = (new_div[0], new_div[1]) != (old_div[0], old_div[1])
+            # 강등 체크
+            old_div = config.get_division_info(l_rp_before)
+            new_div = config.get_division_info(l_rp_after)
+            l_demoted = (new_div[0], new_div[1]) != (old_div[0], old_div[1])
 
-        await rq.update_rp_lose(loser_id, season_id, rp_loss, l_tier_after_key)
+            await rq.update_rp_lose(loser_id, season_id, rp_loss, l_tier_after_key)
     else:
         l_rp_after = l_rp_before
         l_tier_after_key = l_tier_before

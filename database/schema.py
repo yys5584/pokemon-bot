@@ -1626,3 +1626,19 @@ async def create_tables():
             timeout=30)
     except Exception:
         pass
+
+    # ── 랭크전 NPC 봇 (2026-03-29) ──
+    try:
+        await pool.execute(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_bot BOOLEAN NOT NULL DEFAULT FALSE",
+            timeout=30)
+    except Exception:
+        pass
+
+    # ── 스폰 카드 IV 일치 (2026-03-29) ──
+    try:
+        await pool.execute(
+            "ALTER TABLE spawn_sessions ADD COLUMN IF NOT EXISTS pre_ivs JSONB",
+            timeout=30)
+    except Exception:
+        pass

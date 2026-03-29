@@ -632,8 +632,12 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         _types = pokemon.get("pokemon_type")
         if isinstance(_types, str):
             _types = [_types]
-        # 스폰 카드용 랜덤 IV (홀로그램 효과만, 실제 IV와 무관)
-        _spawn_iv = random.randint(30, 186)
+        # 스폰 시 IV 미리 결정 (카드 표시 + 포획 시 동일 IV 사용)
+        from utils.battle_calc import generate_ivs, iv_total as _iv_total_fn
+        _pre_ivs = generate_ivs(is_shiny=is_shiny)
+        _spawn_iv = _iv_total_fn(
+            _pre_ivs["iv_hp"], _pre_ivs["iv_atk"], _pre_ivs["iv_def"],
+            _pre_ivs["iv_spa"], _pre_ivs["iv_spdef"], _pre_ivs["iv_spd"])
         try:
             from utils.card_renderer import render_card_html_async
             card_buf = await render_card_html_async(
@@ -671,6 +675,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         session_id = await spawn_queries.create_spawn_session(
             chat_id, pokemon["id"], expires, is_shiny=is_shiny,
             is_newbie_spawn=is_newbie_spawn,
+            pre_ivs=_pre_ivs,
         )
 
         # Update session with message_id

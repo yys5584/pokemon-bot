@@ -839,9 +839,17 @@ async def execute_battle(
         except Exception:
             pass
 
-    # Update stats (ranked still counts in overall battle_wins/losses)
-    await bq.update_battle_stats_win(winner_id, bp_won)
-    await bq.update_battle_stats_lose(loser_id, bp_lose)
+    # 봇이면 BP 무효화
+    if winner_id in config.RANKED_BOT_IDS:
+        bp_won = 0
+    if loser_id in config.RANKED_BOT_IDS:
+        bp_lose = 0
+
+    # Update stats (봇이면 스킵)
+    if winner_id not in config.RANKED_BOT_IDS:
+        await bq.update_battle_stats_win(winner_id, bp_won)
+    if loser_id not in config.RANKED_BOT_IDS:
+        await bq.update_battle_stats_lose(loser_id, bp_lose)
 
     # BP log for unified tracking
     if bp_won > 0:

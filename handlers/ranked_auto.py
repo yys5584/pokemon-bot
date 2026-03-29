@@ -193,13 +193,10 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     loser_id = result["loser_id"]
     cache_key = result["cache_key"]
 
-    # 방어 패배 카운트: 상대(방어자)가 졌으면 +1
+    # 방어 패배 카운트: 상대(방어자)가 졌으면 +1 (봇이면 스킵)
     if loser_id == opponent_id:
-        await rq.increment_defense_losses(opponent_id, season_id)
-    else:
-        # 도전자(나)가 졌어도 상대의 defense_losses는 안 건드림
-        # 내가 졌으면 상대 방어 패배 리셋 (상대가 이겼으니)
-        pass
+        if opponent_id not in config.RANKED_BOT_IDS:
+            await rq.increment_defense_losses(opponent_id, season_id)
 
     # RP 정보 조합
     rp_lines = []
