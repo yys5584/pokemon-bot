@@ -405,7 +405,7 @@ async def give_pokemon_to_user(
     if ivs is None:
         from utils.battle_calc import generate_ivs
         ivs = generate_ivs(is_shiny=is_shiny)
-    if not personality:
+    if not personality or personality.lower() == "none":
         # 성격 없으면 자동 생성
         from utils.battle_calc import generate_personality, personality_to_str
         _pers = generate_personality(is_shiny=is_shiny)

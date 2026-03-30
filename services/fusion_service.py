@@ -141,8 +141,13 @@ async def execute_fusion(
 
     # 합성 성격: 부모 중 50% 확률로 유전, 둘 다 없으면 랜덤
     from utils.battle_calc import personality_to_str as _pers_str
-    _pers_a = pa.get("personality")
-    _pers_b = pb.get("personality")
+    _pers_a = pa.get("personality") or None
+    _pers_b = pb.get("personality") or None
+    # "None" 문자열 방어
+    if _pers_a and _pers_a.lower() == "none":
+        _pers_a = None
+    if _pers_b and _pers_b.lower() == "none":
+        _pers_b = None
     if _pers_a and _pers_b:
         _inherited = random.choice([_pers_a, _pers_b])
     elif _pers_a or _pers_b:
