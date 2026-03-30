@@ -319,8 +319,12 @@ async def appraisal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             mark = ""
         lines.append(f"{label} {bar} {v}/{max_iv}{mark}")
 
+    from utils.helpers import format_personality_tag as _fpt
+    _pers_tag = _fpt(pokemon.get("personality")).strip()
     lines.append(f"\n총합: {total}/186 ({pct}%)")
     lines.append(f"등급: {grade}")
+    if _pers_tag:
+        lines.append(f"성격: {_pers_tag}")
 
     # Grade flavor text
     flavor = {

@@ -319,7 +319,9 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         iv_sum = iv_total(p.get("iv_hp"), p.get("iv_atk"), p.get("iv_def"),
                           p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
         iv_grade, _ = config.get_iv_grade(iv_sum)
-        iv_tag = f"[{iv_grade}: {iv_sum}] " if iv_sum > 0 else ""
+        from utils.helpers import format_personality_tag as _fpt
+        _pt = _fpt(p.get("personality")).strip()
+        iv_tag = f"[{iv_grade}: {iv_sum}] {_pt+' ' if _pt else ''}" if iv_sum > 0 else ""
         shiny_mark = "✨" if p.get("is_shiny") else ""
         display_name = poke_name(p, lang)
         lines.append(

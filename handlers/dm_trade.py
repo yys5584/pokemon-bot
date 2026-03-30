@@ -105,7 +105,8 @@ async def trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     total = iv_total(p.get("iv_hp"), p.get("iv_atk"), p.get("iv_def"),
                                      p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
                     grade, _ = config.get_iv_grade(total)
-                    iv_tag = f" [{grade}]"
+                    from utils.helpers import format_personality_iv_tag
+                    iv_tag = format_personality_iv_tag(p.get("personality"), grade)
                 hearts = hearts_display(p["friendship"], config.get_max_friendship(p))
                 lines.append(f"  #{i} — {tb} {p['name_ko']}{shiny}{iv_tag}  {hearts}")
             lines.append(f"\n사용법: 교환 @{target_username} {pokemon_name} #번호")

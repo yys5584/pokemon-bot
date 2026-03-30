@@ -237,7 +237,8 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
         if p.get("iv_hp") is not None:
             iv_sum = sum(p.get(f"iv_{st}", 0) for st in ["hp", "atk", "def", "spa", "spdef", "spd"])
             grade, _ = config.get_iv_grade(iv_sum)
-            iv_tag = f" [{grade}]"
+            from utils.helpers import format_personality_iv_tag
+            iv_tag = format_personality_iv_tag(p.get("personality"), grade)
         team_tag = f" 🎯{t(lang, 'team.team_title', num=p['team_num'])}" if p.get("team_num") else ""
         rl = rarity_labels.get(p.get("rarity", ""), "")
         lines.append(f"{i+1}. {rb}{tb}{s} {poke_name(p, lang)} ({rl}){iv_tag}{team_tag}")

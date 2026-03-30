@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 import config
 
 from database import queries
-from utils.helpers import hearts_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji, shiny_emoji, icon_emoji, ball_emoji, resolve_title_badge, pokemon_iv_total as _iv_sum, iv_grade
+from utils.helpers import hearts_display, rarity_badge, rarity_badge_label, escape_html, type_badge, _type_emoji, shiny_emoji, icon_emoji, ball_emoji, resolve_title_badge, pokemon_iv_total as _iv_sum, iv_grade, format_personality_iv_tag
 from utils.card_generator import generate_card, generate_pokedex_card
 from utils.parse import parse_number, parse_name_arg
 from utils.battle_calc import iv_total
@@ -175,7 +175,7 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 iv_tag = ""
                 if p.get("iv_hp") is not None:
                     grade, _ = config.get_iv_grade(_iv_sum(p))
-                    iv_tag = f" [{grade}]"
+                    iv_tag = format_personality_iv_tag(p.get("personality"), grade)
                 lines.append(f"{se} {rb}{tb}{shiny} {poke_name(p, lang)}{iv_tag}")
         lines.append("━━━━━━━")
 
@@ -194,15 +194,15 @@ def _build_list_view(user_id: int, pokemon_list: list, page: int,
                 evo_mark = ""
                 if p["evolves_to"] and p["evolution_method"] == "friendship" and p["friendship"] >= config.get_max_friendship(p):
                     evo_mark = " ⭐"
-                # IV grade
+                # IV grade + personality
                 iv_tag = ""
                 if p.get("iv_hp") is not None:
                     iv_sum = _iv_sum(p)
                     grade, _ = config.get_iv_grade(iv_sum)
                     if filt.get("sort") == "iv":
-                        iv_tag = f" [{grade}]{iv_sum}"
+                        iv_tag = f"{format_personality_iv_tag(p.get('personality'), grade)}{iv_sum}"
                     else:
-                        iv_tag = f" [{grade}]"
+                        iv_tag = format_personality_iv_tag(p.get("personality"), grade)
                 rb = rarity_badge(p.get("rarity", ""))
                 tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
                 team_tag = f" 🎯{p['team_num']}" if p.get("team_num") else ""
@@ -335,14 +335,14 @@ def _build_group_view(user_id: int, pokemon_list: list, pokemon_id: int, page: i
         max_f = config.get_max_friendship(p)
         hearts = hearts_display(p["friendship"], max_f)
 
-        # IV grade
+        # IV grade + personality
         iv_tag = ""
         iv_hp = p.get("iv_hp")
         if iv_hp is not None:
             total = iv_total(iv_hp, p.get("iv_atk"), p.get("iv_def"),
                              p.get("iv_spa"), p.get("iv_spdef"), p.get("iv_spd"))
             grade, _ = config.get_iv_grade(total)
-            iv_tag = f" [{grade}]"
+            iv_tag = format_personality_iv_tag(p.get("personality"), grade)
 
         team_mark = f" ⚔{p.get('team_num') or 1}" if p.get("team_slot") is not None else ""
         lines.append(f"#{num}  {poke_name(first, lang)}{shiny}  {hearts}{iv_tag}{team_mark}")
@@ -393,7 +393,10 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int, la
     if has_iv:
         total_iv = iv_total(iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd)
         grade, _stars = config.get_iv_grade(total_iv)
-        iv_line = f"\nIV: {iv_hp}/{iv_atk}/{iv_def}/{iv_spa}/{iv_spdef}/{iv_spd} ({total_iv}/186) [{grade}]"
+        from utils.helpers import format_personality_tag as _fpt
+        _pers_tag = _fpt(p.get("personality")).strip()
+        _pers_label = f" {_pers_tag}" if _pers_tag else ""
+        iv_line = f"\nIV: {iv_hp}/{iv_atk}/{iv_def}/{iv_spa}/{iv_spdef}/{iv_spd} ({total_iv}/186) [{grade}]{_pers_label}"
 
         # Calculate battle stats with IVs (배틀 엔진과 동일하게 종족값 반영)
         pid = p["pokemon_id"]
@@ -405,6 +408,7 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int, la
             iv_hp=iv_hp, iv_atk=iv_atk, iv_def=iv_def,
             iv_spa=iv_spa, iv_spdef=iv_spdef, iv_spd=iv_spd,
             **(_base_stats or {}),
+            personality_str=p.get("personality"),
         )
         base = calc_battle_stats(
             p["rarity"], p.get("stat_type", "balanced"), p["friendship"],
@@ -565,7 +569,7 @@ async def my_pokemon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 iv_tag = ""
                 if p.get("iv_hp") is not None:
                     grade, _ = config.get_iv_grade(_iv_sum(p))
-                    iv_tag = f" [{grade}]"
+                    iv_tag = format_personality_iv_tag(p.get("personality"), grade)
                 team_tag = f" 🎯팀{p['team_num']}" if p.get("team_num") else ""
                 lines.append(f"{i+1}. {rb}{tb}{s} {poke_name(p, lang)}{iv_tag}{team_tag}")
                 page = idx // MYPOKE_PAGE_SIZE
