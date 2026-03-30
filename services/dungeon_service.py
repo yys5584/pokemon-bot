@@ -185,12 +185,15 @@ def generate_enemy(floor: int, theme: dict, player_rarity: str = "epic") -> dict
     elif is_elite:
         scaling *= 1.3
 
-    # 적 스탯 계산 (IV=0, 친밀도=0, 최종진화)
+    # 적 스탯 계산 (IV=0, 친밀도=0, 최종진화, 랜덤 성격)
+    from utils.battle_calc import generate_personality as _gen_pers, personality_to_str as _pts
+    _enemy_pers = _pts(_gen_pers())
     base_kw = get_normalized_base_stats(enemy["id"]) or {}
     raw_stats = calc_battle_stats(
         enemy["rarity"], "balanced", 0, 3,
         0, 0, 0, 0, 0, 0,
         **base_kw,
+        personality_str=_enemy_pers,
     )
 
     # 스케일링 적용
