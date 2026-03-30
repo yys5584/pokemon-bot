@@ -294,6 +294,16 @@ def calc_battle_stats(
             tier_pct = config.PERSONALITY_TIER_BONUS.get(_pers["tier"], 0.0)
             if tier_pct > 0:
                 type_bonus = config.PERSONALITY_TYPES.get(_pers["type"], {}).get("bonus", {})
+
+                # 공격형: 종족값 기준 공격/특공 중 높은 쪽만 부스트
+                if _pers["type"] == "atk":
+                    _base_atk = base_atk or stats.get("atk", 0)
+                    _base_spa = base_spa or stats.get("spa", 0)
+                    if _base_spa > _base_atk:
+                        type_bonus = {"spa": type_bonus.get("spa", 1.0)}
+                    else:
+                        type_bonus = {"atk": type_bonus.get("atk", 1.0)}
+
                 for stat_key, weight in type_bonus.items():
                     if stat_key in stats:
                         stats[stat_key] = int(stats[stat_key] * (1.0 + tier_pct * weight))
