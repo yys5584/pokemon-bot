@@ -167,6 +167,7 @@ async def build_bot_team(
 
     # 팀 데이터 생성
     team = []
+    from utils.battle_calc import generate_personality, personality_to_str
     for p in team_picks:
         ivs = {
             "iv_hp": random.randint(iv_min, iv_max),
@@ -176,9 +177,11 @@ async def build_bot_team(
             "iv_spdef": random.randint(iv_min, iv_max),
             "iv_spd": random.randint(iv_min, iv_max),
         }
+        _pers = generate_personality()
         team.append({
             "pokemon_id": p["id"],
             "is_shiny": 1 if is_shiny_flag else 0,
+            "personality": personality_to_str(_pers),
             **ivs,
         })
 
@@ -229,12 +232,13 @@ async def seed_bots_for_season(season_id: str, weekly_rule: str):
                 inst_id = await pool.fetchval(
                     """INSERT INTO user_pokemon
                        (user_id, pokemon_id, is_shiny, iv_hp, iv_atk, iv_def,
-                        iv_spa, iv_spdef, iv_spd, friendship, is_active)
-                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 7, 1)
+                        iv_spa, iv_spdef, iv_spd, friendship, is_active, personality)
+                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 7, 1, $10)
                        RETURNING id""",
                     user_id, p["pokemon_id"], p["is_shiny"],
                     p["iv_hp"], p["iv_atk"], p["iv_def"],
-                    p["iv_spa"], p["iv_spdef"], p["iv_spd"])
+                    p["iv_spa"], p["iv_spdef"], p["iv_spd"],
+                    p.get("personality"))
                 instance_ids.append(inst_id)
 
             for slot, inst_id in enumerate(instance_ids, 1):
