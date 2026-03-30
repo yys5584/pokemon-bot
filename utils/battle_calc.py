@@ -65,12 +65,9 @@ def _iv_mult(iv: int | None) -> float:
 
 
 def generate_ivs(is_shiny: bool = False) -> dict[str, int]:
-    """Generate random IVs (레거시 방식, 성격 없이 0~31).
-
-    성격 시스템 이후에는 generate_ivs_with_personality() 사용 권장.
-    """
+    """Generate random IVs (0~31)."""
     low = config.IV_SHINY_MIN if is_shiny else config.IV_MIN
-    high = config.IV_LEGACY_MAX
+    high = config.IV_MAX
     return {
         "iv_hp": random.randint(low, high),
         "iv_atk": random.randint(low, high),
