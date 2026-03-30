@@ -214,11 +214,17 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text(t(lang, "group.my_pokemon_none"))
         return
 
-    matches = [p for p in pokemon_list if name_query in p["name_ko"] or name_query.lower() in poke_name(p, lang).lower()]
+    matches = [(i, p) for i, p in enumerate(pokemon_list)
+               if name_query in p["name_ko"] or name_query.lower() in poke_name(p, lang).lower()]
     if not matches:
         msg = await update.message.reply_text(t(lang, "group.my_pokemon_not_found", name=name_query))
         schedule_delete(msg, 30)
         return
+
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    from utils.helpers import format_personality_iv_tag
+
+    PAGE_SIZE = 10  # mypoke 페이지 사이즈
 
     rarity_labels = {
         "ultra_legendary": t(lang, "rarity.ultra_legendary"),
@@ -229,7 +235,8 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
     }
     lines = [f"🔍 <b>{display_name}</b> {t(lang, 'group.my_pokemon_title', name='', query=name_query, count=len(matches)).strip()}"]
     lines.append("━━━━━━━━━━━━━━━")
-    for i, p in enumerate(matches[:15]):
+    buttons = []
+    for n, (idx, p) in enumerate(matches[:15]):
         rb = rarity_badge(p.get("rarity", "common"))
         tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
         s = " ✨" if p.get("is_shiny") else ""
@@ -237,16 +244,21 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
         if p.get("iv_hp") is not None:
             iv_sum = sum(p.get(f"iv_{st}", 0) for st in ["hp", "atk", "def", "spa", "spdef", "spd"])
             grade, _ = config.get_iv_grade(iv_sum)
-            from utils.helpers import format_personality_iv_tag
             iv_tag = format_personality_iv_tag(p.get("personality"), grade)
         team_tag = f" 🎯{t(lang, 'team.team_title', num=p['team_num'])}" if p.get("team_num") else ""
         rl = rarity_labels.get(p.get("rarity", ""), "")
-        lines.append(f"{i+1}. {rb}{tb}{s} {poke_name(p, lang)} ({rl}){iv_tag}{team_tag}")
+        lines.append(f"{n+1}. {rb}{tb}{s} {poke_name(p, lang)} ({rl}){iv_tag}{team_tag}")
+        page = idx // PAGE_SIZE
+        buttons.append([InlineKeyboardButton(
+            f"{n+1}. {poke_name(p, lang)}{' ✨' if p.get('is_shiny') else ''}",
+            callback_data=f"mypoke_v_{user_id}_{idx}_{page}",
+        )])
 
     if len(matches) > 15:
         lines.append(t(lang, "group.my_pokemon_more", count=len(matches) - 15))
 
-    msg = await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    markup = InlineKeyboardMarkup(buttons) if buttons else None
+    msg = await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
     schedule_delete(msg, 60)
 
 
