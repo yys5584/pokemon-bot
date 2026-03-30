@@ -1909,6 +1909,7 @@ def build_player_stats(pokemon: dict) -> tuple[dict, list[str]]:
         pokemon.get("iv_hp"), pokemon.get("iv_atk"), pokemon.get("iv_def"),
         pokemon.get("iv_spa"), pokemon.get("iv_spdef"), pokemon.get("iv_spd"),
         **base_kw,
+        personality_str=pokemon.get("personality"),
     )
 
     # HP 배율 (배틀과 동일)

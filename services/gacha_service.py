@@ -159,10 +159,10 @@ async def hatch_ready_eggs(bot) -> list[dict]:
         user_id = egg["user_id"]
         pokemon_id = egg["pokemon_id"]
 
-        # 이로치 확정으로 포켓몬 추가 (성격 기반 IV)
-        from utils.battle_calc import generate_personality as _gp, generate_ivs_with_personality as _givp, personality_to_str as _pts
+        # 이로치 확정으로 포켓몬 추가
+        from utils.battle_calc import generate_personality as _gp, generate_ivs, personality_to_str as _pts
         _pers = _gp(is_shiny=True)
-        ivs = _givp(_pers, is_shiny=True)
+        ivs = generate_ivs(is_shiny=True)
         instance_id, final_ivs = await queries.give_pokemon_to_user(
             user_id, pokemon_id, chat_id=None, is_shiny=True, ivs=ivs,
             personality=_pts(_pers))

@@ -403,22 +403,13 @@ async def give_pokemon_to_user(
     iv_dict keys: iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd
     """
     if ivs is None:
-        from utils.battle_calc import generate_personality, generate_ivs_with_personality, personality_to_str
-        if not personality:
-            _pers = generate_personality(is_shiny=is_shiny)
-            personality = personality_to_str(_pers)
-            ivs = generate_ivs_with_personality(_pers, is_shiny=is_shiny)
-        else:
-            from utils.battle_calc import personality_from_str
-            _pers = personality_from_str(personality)
-            if _pers:
-                ivs = generate_ivs_with_personality(_pers, is_shiny=is_shiny)
-            else:
-                from utils.battle_calc import generate_ivs
-                ivs = generate_ivs(is_shiny=is_shiny)
-    elif not personality:
-        # IVs provided but no personality (e.g., trade) - preserve as-is
-        pass
+        from utils.battle_calc import generate_ivs
+        ivs = generate_ivs(is_shiny=is_shiny)
+    if not personality:
+        # 성격 없으면 자동 생성
+        from utils.battle_calc import generate_personality, personality_to_str
+        _pers = generate_personality(is_shiny=is_shiny)
+        personality = personality_to_str(_pers)
 
     pool = await get_db()
     row = await pool.fetchrow(

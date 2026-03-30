@@ -359,14 +359,11 @@ EVENT_TEMPLATES = {
 
 # --- IV (Individual Values) System ---
 IV_MIN = 0
-IV_MAX = 46               # 성격 시스템 도입으로 상한 확장 (기존 31 → 46)
-IV_LEGACY_MAX = 31         # 레거시 포켓몬 최대값
+IV_MAX = 31               # 본가 기준 최대값
 IV_MULT_MIN = 0.85        # IV 0 = 0.85x
-IV_MULT_RANGE = 0.30      # IV 31 = 1.15x, IV 46 = 1.30x
+IV_MULT_RANGE = 0.30      # IV 31 = 1.15x
 IV_SHINY_MIN = 10         # 이로치 최소 IV
 IV_STAT_COUNT = 6          # 6스탯: HP, ATK, DEF, SPA, SPDEF, SPD
-IV_CEILING_MIN = 15        # 성격 상한선 최소값
-IV_CEILING_TOTAL = 186     # 성격 상한선 총합 (고정)
 
 # --- 성격 시스템 ---
 PERSONALITY_TIERS = {
@@ -379,25 +376,25 @@ PERSONALITY_TIERS = {
 PERSONALITY_TYPES = {
     "atk": {
         "name_ko": {"T1": "겁쟁이", "T2": "용감", "T3": "사나움", "T4": "귀신"},
-        "focus": ["iv_atk", "iv_spa"],
-        "optimal": {"iv_hp": 26, "iv_atk": 40, "iv_def": 20, "iv_spa": 42, "iv_spdef": 20, "iv_spd": 38},
+        "bonus": {"atk": 1.0, "spa": 1.0},  # 공격/특공 보너스
     },
     "def": {
         "name_ko": {"T1": "유리몸", "T2": "강철", "T3": "억센", "T4": "불굴"},
-        "focus": ["iv_def", "iv_spdef"],
-        "optimal": {"iv_hp": 38, "iv_atk": 20, "iv_def": 42, "iv_spa": 20, "iv_spdef": 40, "iv_spd": 26},
+        "bonus": {"hp": 0.5, "def": 1.0, "spdef": 0.5},  # 방어/특방 + HP 약간
     },
     "spd": {
         "name_ko": {"T1": "느긋함", "T2": "재빠름", "T3": "질풍", "T4": "신속"},
-        "focus": ["iv_spd"],
-        "optimal": {"iv_hp": 30, "iv_atk": 30, "iv_def": 26, "iv_spa": 30, "iv_spdef": 26, "iv_spd": 44},
+        "bonus": {"spd": 1.5},  # 스피드 집중
     },
     "balance": {
         "name_ko": {"T1": "변덕", "T2": "성실", "T3": "평정심", "T4": "전설"},
-        "focus": [],
-        "optimal": {"iv_hp": 31, "iv_atk": 31, "iv_def": 31, "iv_spa": 31, "iv_spdef": 31, "iv_spd": 31},
+        "bonus": {"hp": 0.5, "atk": 0.5, "def": 0.5, "spa": 0.5, "spdef": 0.5, "spd": 0.5},  # 전스탯 균등
     },
 }
+
+# 성격 티어별 보너스 배율 (PERSONALITY_TYPES.bonus × 이 값 = 최종 % 보너스)
+# T1: 0% (보너스 없음), T2: 3%, T3: 5%, T4: 8%
+PERSONALITY_TIER_BONUS = {"T1": 0.0, "T2": 0.03, "T3": 0.05, "T4": 0.08}
 
 def get_personality_name(tier: str, ptype: str) -> str:
     """성격 이름 반환. 예: get_personality_name("T4", "atk") → "귀신" """

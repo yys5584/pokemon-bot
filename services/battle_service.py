@@ -5,9 +5,6 @@ import random
 import logging
 
 import config
-from database import battle_queries as bq
-from database import queries
-from database import title_queries
 from utils.battle_calc import calc_battle_stats, calc_power, get_type_multiplier, EVO_STAGE_MAP, get_normalized_base_stats, iv_total as _iv_total
 from utils.helpers import type_badge, icon_emoji, rarity_badge, shiny_emoji
 from models.pokemon_skills import POKEMON_SKILLS, get_skill_effect
@@ -107,6 +104,7 @@ def _prepare_combatant(pokemon: dict, is_partner: bool = False, camp_placed: boo
         iv_spdef=pokemon.get("iv_spdef"),
         iv_spd=pokemon.get("iv_spd"),
         **(base or {}),
+        personality_str=pokemon.get("personality"),
     )
 
     # Partner bonus: ATK +5%
@@ -735,6 +733,9 @@ async def execute_battle(
     battle_type: 'normal', 'yacha', 'ranked'
     Returns dict with 'display_text' for the chat message.
     """
+    from database import battle_queries as bq
+    from database import queries
+
     is_ranked = battle_type == "ranked"
     # Get partner info
     c_partner = await bq.get_partner(challenger_id)

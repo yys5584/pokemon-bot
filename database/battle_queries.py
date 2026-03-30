@@ -47,6 +47,7 @@ async def get_battle_team(user_id: int, team_number: int | None = None) -> list[
         """SELECT bt.slot, bt.pokemon_instance_id,
                   up.pokemon_id, up.friendship, up.is_shiny,
                   up.iv_hp, up.iv_atk, up.iv_def, up.iv_spa, up.iv_spdef, up.iv_spd,
+                  up.personality,
                   pm.name_ko, pm.emoji, pm.rarity,
                   pm.pokemon_type, pm.stat_type
            FROM battle_teams bt

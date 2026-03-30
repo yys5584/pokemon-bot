@@ -635,10 +635,10 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             newbie_tag = t(_lang, "spawn_msg.newbie_tag")
 
         # 스폰 시 성격 + IV 미리 결정 (카드 표시 + 포획 시 동일 사용)
-        from utils.battle_calc import generate_personality as _gen_pers, generate_ivs_with_personality, personality_to_str, iv_total as _iv_total_fn
+        from utils.battle_calc import generate_personality as _gen_pers, generate_ivs, personality_to_str, iv_total as _iv_total_fn
         _personality = _gen_pers(is_shiny=is_shiny)
         _personality_str = personality_to_str(_personality)
-        _pre_ivs = generate_ivs_with_personality(_personality, is_shiny=is_shiny)
+        _pre_ivs = generate_ivs(is_shiny=is_shiny)
 
         # 성격 태그 (티어 색상 이모지 + 이름)
         _pers_name = _personality["name"]

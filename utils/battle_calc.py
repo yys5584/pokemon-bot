@@ -57,12 +57,11 @@ def _iv_mult(iv: int | None) -> float:
     공식: 0.85 + (IV / 31) × 0.30
     IV  0 → 0.85x
     IV 15 → 1.00x
-    IV 31 → 1.15x (레거시 만렙)
-    IV 46 → 1.30x (성격 T4 최적화)
+    IV 31 → 1.15x
     """
     if iv is None:
         return 1.0
-    return config.IV_MULT_MIN + (iv / config.IV_LEGACY_MAX) * config.IV_MULT_RANGE
+    return config.IV_MULT_MIN + (iv / config.IV_MAX) * config.IV_MULT_RANGE
 
 
 def generate_ivs(is_shiny: bool = False) -> dict[str, int]:
@@ -237,6 +236,7 @@ def calc_battle_stats(
     base_spa: int | None = None,
     base_spdef: int | None = None,
     base_spd: int | None = None,
+    personality_str: str | None = None,
 ) -> dict:
     """Calculate battle stats (HP, ATK, DEF, SPA, SPDEF, SPD).
 
@@ -284,6 +284,17 @@ def calc_battle_stats(
         if 0 < current_bst < bst_floor:
             scale = bst_floor / current_bst
             stats = {k: max(1, int(v * scale)) for k, v in stats.items()}
+
+    # 성격 보너스: 티어별 % × 유형별 가중치
+    if personality_str:
+        _pers = personality_from_str(personality_str)
+        if _pers:
+            tier_pct = config.PERSONALITY_TIER_BONUS.get(_pers["tier"], 0.0)
+            if tier_pct > 0:
+                type_bonus = config.PERSONALITY_TYPES.get(_pers["type"], {}).get("bonus", {})
+                for stat_key, weight in type_bonus.items():
+                    if stat_key in stats:
+                        stats[stat_key] = int(stats[stat_key] * (1.0 + tier_pct * weight))
 
     return stats
 
