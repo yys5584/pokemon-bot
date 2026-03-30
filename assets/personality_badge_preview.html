@@ -1,43 +1,15 @@
-"""성격 시스템 패치노트 — 텔레그램 DM + 대시보드 공지사항 등록."""
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+body { margin:0; padding:20px; background:#0d1117; font-family:'Noto Sans KR',sans-serif; }
+</style>
+</head>
+<body>
 
-import asyncio
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# ── 텔레그램 DM 공지 (짧고 압축적) ──
-
-TELEGRAM_PATCH_NOTE = """
-🆕 <b>성격 시스템 업데이트!</b>
-
-포켓몬마다 <b>성격</b>이 붙습니다
-
-🎴 스폰 카드에 성격 뱃지가 표시돼요
-ㄴ 좋은 성격일수록 카드가 화려해집니다
-
-⚔️ 성격이 좋으면 <b>배틀에서 더 강해요</b>
-ㄴ 공격형, 방어형, 스피드형, 밸런스형 4종
-ㄴ 등급 높을수록 보너스↑
-
-📋 성격 등급 (16종)
-<code>공격  소심 → 난폭 → 사나움 → 『무쌍』
-방어  유리몸 → 단단 → 억센 → 『철벽』
-속도  굼뜸 → 재빠름 → 질풍 → 『신속』
-밸런스 변덕 → 냉철 → 명석 → 『완벽』</code>
-
-💡 『 』가 붙은 포켓몬을 노려보세요!
-ㄴ 이로치는 최소 2등급 이상 보장
-ㄴ 합성 시 부모 성격을 50% 확률로 물려받아요
-""".strip()
-
-
-# ── 대시보드 공지사항 (HTML 디자인) ──
-
-DASHBOARD_PATCH_NOTE_TITLE = "🆕 성격 시스템 업데이트"
-
-DASHBOARD_PATCH_NOTE = """
-<div style="font-family:'Noto Sans KR',sans-serif;line-height:1.8;color:#e0e0e0;font-size:14px;">
+<div style="font-family:'Noto Sans KR',sans-serif;line-height:1.8;color:#e0e0e0;font-size:14px;max-width:600px;margin:0 auto;">
 
 <div style="background:linear-gradient(135deg,#1a1c2e,#0f1923);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;margin-bottom:20px;">
   <h2 style="margin:0 0 6px;font-size:22px;color:#fff;">🎭 성격 시스템</h2>
@@ -85,32 +57,6 @@ DASHBOARD_PATCH_NOTE = """
 </div>
 
 </div>
-""".strip()
 
-
-async def main():
-    """패치노트를 대시보드 공지사항에 등록."""
-    from database.connection import get_db
-
-    pool = await get_db()
-
-    # 대시보드 공지사항 등록
-    post_id = await pool.fetchval(
-        "INSERT INTO board_posts (board_type, user_id, display_name, tag, title, content, is_pinned) "
-        "VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
-        "notice", 1832746512, "TG포켓", "업데이트",
-        DASHBOARD_PATCH_NOTE_TITLE, DASHBOARD_PATCH_NOTE, 1,
-    )
-    logger.info(f"Dashboard notice posted: id={post_id}")
-
-    print("\n=== 텔레그램 DM 공지 (복사용) ===\n")
-    print(TELEGRAM_PATCH_NOTE)
-    print(f"\n=== 대시보드 공지 등록 완료: post_id={post_id} ===")
-
-
-if __name__ == "__main__":
-    import os, sys
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from dotenv import load_dotenv
-    load_dotenv()
-    asyncio.run(main())
+</body>
+</html>
