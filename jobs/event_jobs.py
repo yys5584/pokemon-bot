@@ -73,9 +73,10 @@ async def _send_quiz_alerts(context: ContextTypes.DEFAULT_TYPE, chat_id: int, in
         return
 
     alert_text = (
-        "🧠 <b>포켓몬 퀴즈 이벤트 시작!</b>\n\n"
-        "5문제 × 30초, 선착순 5명 <b>IV선택리롤</b> 지급!\n"
-        f"👉 <a href=\"{invite_link}\">지금 참여하기</a>"
+        "🧠 <b>오늘의 포켓몬은 뭘까요?</b>\n\n"
+        "5문제 x 30초, 선착순 5명 <b>IV선택리롤</b> 지급!\n"
+        "참가만 해도 BP 지급!\n\n"
+        f"👉 지금 참여하기: {invite_link}"
     )
 
     sent = 0
