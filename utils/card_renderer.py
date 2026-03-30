@@ -228,13 +228,35 @@ async def render_card_html_async(pokemon_id: int, name_ko: str, rarity: str,
     tmp_path = ROOT / f"_tmp_card_{uuid.uuid4().hex[:8]}.html"
     tmp_path.write_text(html, encoding="utf-8")
 
+    import asyncio as _aio
     try:
         browser = await _get_browser_async()
         page = await browser.new_page(viewport={"width": 940, "height": 520})
-        await page.goto(f"file:///{tmp_path.as_posix()}")
-        await page.wait_for_timeout(200)
-        png_bytes = await page.screenshot(clip={"x": 0, "y": 0, "width": 940, "height": 520})
-        await page.close()
+        try:
+            await _aio.wait_for(page.goto(f"file:///{tmp_path.as_posix()}"), timeout=8)
+            await page.wait_for_timeout(200)
+            png_bytes = await _aio.wait_for(
+                page.screenshot(clip={"x": 0, "y": 0, "width": 940, "height": 520}),
+                timeout=5,
+            )
+        except (TimeoutError, _aio.TimeoutError):
+            # Playwright 행 시 브라우저 리셋
+            global _browser, _playwright
+            try:
+                await page.close()
+            except Exception:
+                pass
+            try:
+                await _browser.close()
+            except Exception:
+                pass
+            _browser = None
+            raise
+        finally:
+            try:
+                await page.close()
+            except Exception:
+                pass
     finally:
         tmp_path.unlink(missing_ok=True)
 
