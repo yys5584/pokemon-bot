@@ -37,7 +37,7 @@ from handlers.group_rewards import (  # noqa: F401
 )
 from handlers.group_commands import (  # noqa: F401
     ranking_handler, log_handler, dashboard_handler,
-    room_info_handler, my_pokemon_group_handler,
+    room_info_handler, my_pokemon_group_handler, group_mypoke_callback,
     shiny_ticket_spawn_handler, group_lang_handler,
 )
 
