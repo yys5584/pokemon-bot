@@ -194,6 +194,9 @@ class QuizState:
 # 채팅방별 활성 퀴즈 (메모리)
 _active_quizzes: dict[int, QuizState] = {}
 
+# 오답 쿨다운: {(chat_id, user_id): timestamp}
+_wrong_answer_cooldowns: dict[tuple[int, int], float] = {}
+
 
 def get_active_quiz(chat_id: int) -> QuizState | None:
     return _active_quizzes.get(chat_id)
@@ -273,12 +276,29 @@ async def handle_answer(context, chat_id: int, user_id: int, text: str, display_
     q = state.questions[state.current_q]
     q_num = state.current_q + 1
 
-    # 정답 체크: "ㄷ 포켓몬이름" 형식만 인정 (ㄷ = 답)
+    # "ㄷ" 접두사 체크
     stripped = text.strip()
     if not stripped.startswith("ㄷ ") and not stripped.startswith("ㄷ"):
         return False
     answer = stripped[1:].strip()
+    if not answer:
+        return False
+
+    # 오답 쿨다운 체크 (3초)
+    cooldown_key = (chat_id, user_id)
+    now = time.time()
+    if cooldown_key in _wrong_answer_cooldowns:
+        if now - _wrong_answer_cooldowns[cooldown_key] < 3.0:
+            return False  # 쿨다운 중 → 무시
+
+    # 정답 체크
     if answer != q["name_ko"]:
+        _wrong_answer_cooldowns[cooldown_key] = now
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"❌ <b>{display_name}</b> 오답! (3초 제한)",
+            parse_mode="HTML",
+        )
         return False
 
     # 이미 이 문제 맞춘 유저인지 확인
