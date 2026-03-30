@@ -450,4 +450,57 @@ async def _finalize_quiz(context, state: QuizState):
         parse_mode="HTML",
     )
 
+    # 개인 DM 보상 알림
+    if not state.test_mode:
+        asyncio.create_task(_send_reward_dms(context, state, results, all_participant_ids, rewarded_uids))
+
     _log.info(f"Quiz finalized: event_id={event_id}, participants={len(all_participant_ids)}")
+
+
+async def _send_reward_dms(context, state: QuizState, results: list[dict], all_participant_ids: set[int], rewarded_uids: set[int]):
+    """개인별 보상 DM 발송."""
+    total_q = len(state.questions)
+
+    for r in results:
+        uid = r["user_id"]
+        correct = r["correct_count"]
+        first_count = r["first_count"]
+
+        iv_from_first = first_count * config.QUIZ_REWARD_FIRST["amount"]
+        iv_from_others = 0
+        for q_num, ans_list in state.answers.items():
+            for a_uid, a_rank in ans_list:
+                if a_uid == uid and 2 <= a_rank <= config.QUIZ_MAX_WINNERS_PER_Q:
+                    iv_from_others += config.QUIZ_REWARD_TOP5["amount"]
+        iv_total = iv_from_first + iv_from_others
+
+        bp_total = config.QUIZ_REWARD_PARTICIPATION_BP
+        for q_num, ans_list in state.answers.items():
+            for a_uid, a_rank in ans_list:
+                if a_uid == uid and a_rank > config.QUIZ_MAX_WINNERS_PER_Q:
+                    bp_total += config.QUIZ_REWARD_OTHERS_BP
+
+        lines = [f"🧠 <b>퀴즈 결과: {correct}/{total_q} 정답!</b>\n"]
+        if iv_total > 0:
+            lines.append(f"🎯 IV선택리롤 ×{iv_total} 획득!")
+        if bp_total > 0:
+            lines.append(f"💰 {bp_total:,} BP 획득!")
+
+        try:
+            await context.bot.send_message(
+                chat_id=uid, text="\n".join(lines), parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    # 0문제 참가자 DM
+    for uid in all_participant_ids:
+        if uid not in rewarded_uids:
+            try:
+                await context.bot.send_message(
+                    chat_id=uid,
+                    text=f"🧠 <b>퀴즈 결과: 0/{total_q}</b>\n💰 참가보상 {config.QUIZ_REWARD_PARTICIPATION_BP:,} BP 획득!",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
