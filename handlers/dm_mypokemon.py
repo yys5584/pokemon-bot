@@ -402,18 +402,28 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int, la
         pid = p["pokemon_id"]
         _base_stats = get_normalized_base_stats(pid)
         evo_stage = 3 if _base_stats else EVO_STAGE_MAP.get(pid, 3)
+        _bkw = _base_stats or {}
+        # base: IV없음, 성격없음
+        base = calc_battle_stats(
+            p["rarity"], p.get("stat_type", "balanced"), p["friendship"],
+            evo_stage=evo_stage, **_bkw,
+        )
+        # stats_iv: IV만 적용, 성격없음
+        stats_iv = calc_battle_stats(
+            p["rarity"], p.get("stat_type", "balanced"), p["friendship"],
+            evo_stage=evo_stage,
+            iv_hp=iv_hp, iv_atk=iv_atk, iv_def=iv_def,
+            iv_spa=iv_spa, iv_spdef=iv_spdef, iv_spd=iv_spd,
+            **_bkw,
+        )
+        # stats: IV + 성격 적용
         stats = calc_battle_stats(
             p["rarity"], p.get("stat_type", "balanced"), p["friendship"],
             evo_stage=evo_stage,
             iv_hp=iv_hp, iv_atk=iv_atk, iv_def=iv_def,
             iv_spa=iv_spa, iv_spdef=iv_spdef, iv_spd=iv_spd,
-            **(_base_stats or {}),
+            **_bkw,
             personality_str=p.get("personality"),
-        )
-        base = calc_battle_stats(
-            p["rarity"], p.get("stat_type", "balanced"), p["friendship"],
-            evo_stage=evo_stage,
-            **(_base_stats or {}),
         )
         # 성격 효과 설명
         _pers_effect = ""
@@ -444,9 +454,24 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int, la
                 if _parts:
                     _pers_effect = f"\n성격 효과: {', '.join(_parts)}"
 
+        # 스탯 라인: IV보너스, 성격보너스 분리 표시
+        def _split_bonus(k):
+            v = stats[k]
+            iv_diff = stats_iv[k] - base[k]
+            pers_diff = stats[k] - stats_iv[k]
+            if iv_diff == 0 and pers_diff == 0:
+                return str(v)
+            elif pers_diff == 0:
+                return f"{v}(+{iv_diff})"
+            else:
+                return f"{v}(+{iv_diff},+{pers_diff})"
+
+        _labels = [("hp","체"),("atk","공"),("def","방"),("spa","특공"),("spdef","특방"),("spd","속")]
+        _stat_parts = " ".join(f"{lb}{_split_bonus(k)}" for k, lb in _labels)
+
         stats_line = (
             f"\n{icon_emoji('bolt')} 전투력: {format_power(stats, base)}"
-            f"\n{format_stats_line(stats, base)}"
+            f"\n{_stat_parts}"
             f"{_pers_effect}"
         )
 
