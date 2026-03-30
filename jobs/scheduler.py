@@ -14,6 +14,7 @@ from jobs.ranked_jobs import (
 )
 from jobs.dungeon_jobs import dungeon_weekly_ranking_job, dungeon_daily_ranking_job
 from jobs.boss_jobs import boss_weekly_reset_job
+from jobs.event_jobs import schedule_daily_quiz
 from services.tournament_service import start_registration, start_tournament, snapshot_teams
 
 logger = logging.getLogger(__name__)
@@ -282,6 +283,13 @@ def register_all_jobs(app):
         _monitor_score_job,
         time=dt_time(4, 0, 0, tzinfo=_KST),
         name="macro_monitor",
+    )
+
+    # --- 매일 퀴즈 이벤트 (20:30 KST) ---
+    jq.run_daily(
+        schedule_daily_quiz,
+        time=dt_time(20, 30, 0, tzinfo=_KST),
+        name="daily_quiz",
     )
 
     logger.info("All scheduled jobs registered.")

@@ -96,6 +96,14 @@ from handlers.dm_subscription import (
 from handlers.tournament import tournament_join_handler
 from handlers.dm_gacha import gacha_handler, gacha_callback_handler, item_handler, item_callback_handler
 from handlers.dm_cs import dm_cs_start, cs_callback, cs_text_input
+from handlers.group_event import (
+    quiz_answer_handler,
+    channel_register_handler,
+    channel_link_input_handler,
+    channel_modify_handler,
+    channel_unregister_handler,
+    admin_force_quiz,
+)
 
 try:
     from handlers.camp import (
@@ -480,6 +488,27 @@ def register_all_handlers(app):
 
     # CS 문의 콜백
     app.add_handler(CallbackQueryHandler(cs_callback, pattern=r"^cs_"))
+
+    # ── 매일 퀴즈 이벤트 ──
+    # 그룹: 퀴즈 정답 감지 (group=2 — catch 핸들러보다 후순위)
+    app.add_handler(
+        MessageHandler(group & filters.TEXT & ~filters.COMMAND, quiz_answer_handler),
+        group=2,
+    )
+    # 그룹: 관리자 강제 퀴즈
+    app.add_handler(MessageHandler(
+        group & filters.TEXT & filters.Regex(r"^강제퀴즈$"),
+        admin_force_quiz,
+    ))
+    # DM: 채널등록/수정/해제
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^채널등록$"), channel_register_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^채널수정$"), channel_modify_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^채널해제$"), channel_unregister_handler))
+    # DM: 채널 링크 입력 (등록/수정 시 링크 대기 상태)
+    app.add_handler(MessageHandler(
+        dm & filters.TEXT & filters.Regex(r"^(https?://t\.me/|t\.me/)"),
+        channel_link_input_handler,
+    ))
 
     # Activity tracker — runs for every group text message (handler group -1)
     app.add_handler(

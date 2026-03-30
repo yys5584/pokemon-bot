@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>매일 이벤트 (미니게임) 기획서 v2</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --yellow: #d29922; --red: #f85149;
+    --purple: #bc8cff; --orange: #f0883e; --pink: #f778ba;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Pretendard', 'Noto Sans KR', sans-serif; line-height: 1.7; padding: 2rem; max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.3rem; background: linear-gradient(135deg, var(--orange), var(--pink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 2rem; }
+  h2 { font-size: 1.3rem; color: var(--accent); margin: 2.5rem 0 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.05rem; color: var(--purple); margin: 1.5rem 0 0.6rem; }
+  h4 { font-size: 0.95rem; color: var(--orange); margin: 1.2rem 0 0.5rem; }
+  p, li { font-size: 0.9rem; }
+  ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+  li { margin: 0.3rem 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  strong { color: #fff; }
+  code { background: var(--surface); color: var(--orange); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem; margin: 1rem 0; }
+  .card.highlight { border-color: var(--accent); }
+  .card.warn { border-color: var(--yellow); }
+  .card.star { border-color: var(--green); background: rgba(63,185,80,0.05); }
+  table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.85rem; }
+  th { background: var(--surface); color: var(--accent); padding: 0.6rem 0.8rem; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; }
+  td { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: rgba(88,166,255,0.04); }
+  .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+  .badge-s { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-m { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .badge-l { background: rgba(248,81,73,0.15); color: var(--red); }
+  .philosophy-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 0; }
+  .philosophy-grid .label { color: var(--purple); font-weight: 600; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; white-space: nowrap; }
+  .philosophy-grid .value { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+  .flow-diagram { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; margin: 1rem 0; padding: 1rem; background: var(--surface); border-radius: 8px; font-size: 0.8rem; }
+  .flow-step { background: rgba(88,166,255,0.1); border: 1px solid var(--accent); padding: 0.4rem 0.8rem; border-radius: 6px; }
+  .flow-arrow { color: var(--muted); font-size: 1.2rem; }
+  .game-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem; margin: 1rem 0; position: relative; overflow: hidden; }
+  .game-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .game-card.gc-blue::before { background: var(--accent); }
+  .game-card.gc-purple::before { background: var(--purple); }
+  .game-card.gc-pink::before { background: var(--pink); }
+  .game-title { font-size: 1rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .game-tagline { color: var(--muted); font-size: 0.85rem; font-style: italic; margin-bottom: 0.8rem; }
+  .game-chat { background: var(--bg); border-radius: 8px; padding: 0.8rem; margin: 0.8rem 0; font-size: 0.8rem; }
+  .game-chat .msg { margin: 0.3rem 0; }
+  .game-chat .user { color: var(--accent); font-weight: 600; }
+  .game-chat .bot { color: var(--orange); font-weight: 600; }
+  .game-chat .system { color: var(--muted); font-style: italic; }
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.5rem; margin: 1.5rem 0; }
+  .toc-title { color: var(--accent); font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
+  .toc a { display: block; padding: 0.2rem 0; color: var(--muted); font-size: 0.85rem; }
+  .toc a:hover { color: var(--accent); }
+  blockquote { border-left: 3px solid var(--purple); padding-left: 1rem; margin: 1rem 0; color: var(--muted); font-size: 0.9rem; }
+  .phase-row { display: grid; grid-template-columns: 4rem 1fr auto; gap: 0.8rem; align-items: center; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+  .phase-num { color: var(--orange); font-weight: 700; font-size: 1.1rem; }
+  .sep { border: none; border-top: 1px dashed var(--border); margin: 2rem 0; }
+</style>
+</head>
+<body>
+
+<h1>매일 이벤트 (미니게임) 기획서 v2</h1>
+<p class="subtitle">2026-03-30 리서치 기반 &middot; GAME_PHILOSOPHY.md 준수 &middot; 미니게임 2종 + 폭탄돌리기(별도)</p>
+
+<div class="toc">
+  <div class="toc-title">목차</div>
+  <a href="#research">리서치 요약</a>
+  <a href="#philosophy">게임 철학 적용 체크</a>
+  <a href="#concept">핵심 컨셉 &amp; 시스템 구조</a>
+  <a href="#quiz">미니게임 1: 포켓몬 퀴즈</a>
+  <a href="#royale">미니게임 2: 배틀로얄</a>
+  <a href="#rewards">보상 구조</a>
+  <a href="#bomb">별도: 폭탄돌리기 (상시 미니게임)</a>
+  <a href="#impl">구현 범위</a>
+  <a href="#risk">리스크</a>
+  <a href="#priority">구현 우선순위</a>
+</div>
+
+<!-- ─── 리서치 ─── -->
+<h2 id="research">리서치 요약</h2>
+
+<h3>채팅방 미니게임 &mdash; 뭐가 먹히나</h3>
+<div class="card">
+  <ul>
+    <li><strong>디스코드 뽀삐봇</strong> (19만 서버): 가상재화 도박이 압도적 인기. <a href="https://koreanbots.dev/bots/poppy">한국 디스코드 리스트</a></li>
+    <li><strong>CommunityOne</strong>: 데일리 퀘스트 → <strong>채팅 4배, 28일 리텐션 10배</strong>. <a href="https://blog.communityone.io/best-fun-discord-bots/">CommunityOne</a></li>
+    <li><strong>Rumble Royale</strong>: 수십 명, 봇 내레이션 배틀. 순수 운. 제로 스킬 배리어. <a href="https://ejaw.net/discord-game-bots/">EJAW</a></li>
+    <li><strong>Pokebest 레이드</strong>: 30분마다 보스, 기여도 TOP 3 보상. <a href="https://top.gg/bot/857650250940547115">top.gg</a></li>
+  </ul>
+</div>
+
+<h3>실패 패턴</h3>
+<div class="card warn">
+  <ul>
+    <li><strong>탭투언 피로</strong>: Hamster Kombat 86% 이탈. 게임성 없는 반복 = 3개월 수명</li>
+    <li><strong>이벤트 피로</strong>: 의무감 되면 끝</li>
+    <li><strong>개인 플레이</strong>: 소셜 상호작용 없으면 활성화 효과 제로</li>
+  </ul>
+</div>
+
+<blockquote>
+  <strong>핵심</strong>: 채팅방에서 함께 보고 반응하는 것 자체가 콘텐츠.<br>
+  30초~2분, 결과에 한마디 하고 싶은 게임이 최적.
+</blockquote>
+
+<!-- ─── 게임 철학 ─── -->
+<h2 id="philosophy">게임 철학 적용 체크</h2>
+<div class="card">
+  <div class="philosophy-grid">
+    <div class="label">채팅방이 무대</div>
+    <div class="value">모든 이벤트는 그룹 채팅방에서 진행+결과 표시</div>
+    <div class="label">단순함이 생명</div>
+    <div class="value">참여 = 버튼 1번 or 정답 입력. 설명 불필요</div>
+    <div class="label">KOL 관점</div>
+    <div class="value">"이벤트 때문에 우리 방이 활발" → 봇 유지 동기</div>
+    <div class="label">안 해도 되는가</div>
+    <div class="value">참가상 200BP(체크인 수준). 안 해도 ㅊ는 재밌음</div>
+    <div class="label">옆그레이드</div>
+    <div class="value">성장축 ❌, 새 놀거리 ⭕</div>
+    <div class="label">텔레그램 밖 X</div>
+    <div class="value">채팅방 내 완결</div>
+  </div>
+</div>
+
+<!-- ─── 핵심 컨셉 ─── -->
+<h2 id="concept">핵심 컨셉 &amp; 시스템 구조</h2>
+
+<div class="card star">
+  <p><strong>한 줄</strong>: 매일 저녁 구독 채널에 랜덤 미니게임 스폰 → 30초~2분 → 등수별 보상</p>
+  <p style="margin-top:0.5rem"><strong>포지션</strong>: ㅊ의 이벤트 버전. 매일 다른 게임 → "오늘 뭐야?" 기대감</p>
+</div>
+
+<h3>이벤트 플로우</h3>
+<div class="flow-diagram">
+  <div class="flow-step">20:30~21:00 랜덤</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">등록 채널 중 랜덤 1개</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">이벤트 카드 + 안내</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">DM 알림 + 채널 링크</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">미니게임 30초~2분</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">결과 + 보상</div>
+</div>
+
+<h3>이벤트 채널 등록 (옵트인 방식)</h3>
+<div class="card highlight">
+  <h4 style="margin-top:0">기능 업데이트 시</h4>
+  <ul>
+    <li><code>channel_owner</code> 구독자 전원에게 DM: "매일 이벤트 기능 추가! 참여하시겠습니까?"</li>
+    <li>참여 → 채널 초대링크 입력 안내</li>
+    <li>미참여 → 스킵 (나중에 <code>채널등록</code>으로 언제든 가능)</li>
+  </ul>
+  <h4>등록</h4>
+  <ul>
+    <li><code>채널등록</code> (DM) → 채널 초대링크 입력 → 완료</li>
+    <li><strong>자기 채널 아니어도 OK</strong> &mdash; 원하는 채널 링크 자유 지정</li>
+    <li>1구독 = 1채널</li>
+    <li>초대링크 변경: <code>채널수정</code> (DM)으로 언제든 가능</li>
+  </ul>
+  <h4>해제</h4>
+  <ul>
+    <li><code>채널해제</code> (DM) 또는 구독 만료 시 자동</li>
+  </ul>
+</div>
+
+<p style="color:var(--muted);font-size:0.85rem">Phase 1: 퀴즈만 먼저 구현. 배틀로얄은 Phase 2.</p>
+
+<!-- ─── 퀴즈 ─── -->
+<h2 id="quiz">미니게임 1: 포켓몬 퀴즈</h2>
+
+<div class="game-card gc-blue">
+  <div class="game-title">포켓몬 퀴즈 (Pokemon Quiz)</div>
+  <div class="game-tagline">"포켓몬 박사 대결"</div>
+
+  <h4 style="margin-top:0.8rem">퀴즈 유형 (매일 랜덤) &mdash; 1세대(No.1~151) 한정</h4>
+  <table>
+    <tr><th>유형</th><th>출제</th><th>예시</th></tr>
+    <tr><td>실루엣</td><td>포켓몬 실루엣 이미지</td><td>[검은 실루엣] → "리자몽!"</td></tr>
+    <tr><td>타입</td><td>타입 조합 질문</td><td>"불꽃+비행 포켓몬은?" → "리자몽!"</td></tr>
+    <tr><td>도감 설명</td><td>도감 텍스트</td><td>"꼬리 불꽃이 꺼지면..." → "파이리!"</td></tr>
+  </table>
+
+  <h4>플레이</h4>
+  <ul>
+    <li><strong>5문제 연속 출제</strong>, 문제당 30초 (총 약 3분)</li>
+    <li>매 문제: 실루엣 이미지 → 정답 입력 → <strong>선착순 5명만 정답 인정</strong> → 다음 문제</li>
+    <li>5문제 종료 후 <strong>일괄 정산</strong></li>
+    <li>틀린 답 무시, 6번째 이후 정답도 무시</li>
+    <li>정답 공개: 실루엣 → 컬러 이미지 전환</li>
+    <li>5문제 후 정답 수 합산으로 등수 (동점 시 응답 시간)</li>
+    <li>0문제 맞춰도 참가 보상(200 BP) 지급</li>
+  </ul>
+  <h4>보상 (문제당, 5문제 후 일괄 정산)</h4>
+  <table>
+    <tr><th>항목</th><th>보상</th></tr>
+    <tr><td style="color:var(--yellow);font-weight:700">1등 정답 (최초 정답자)</td><td><strong>IV 선택리롤 2개</strong></td></tr>
+    <tr><td>2~5등 정답</td><td><strong>IV 선택리롤 1개</strong></td></tr>
+    <tr><td style="color:var(--muted)">6등~ 정답</td><td>500 BP</td></tr>
+    <tr><td style="color:var(--muted)">참가 (0문제)</td><td>500 BP</td></tr>
+    <tr><td style="color:var(--green)">최대 (5문제 전부 1등)</td><td><strong>IV 선택리롤 10개</strong></td></tr>
+  </table>
+
+  <div class="game-chat">
+    <div class="msg"><span class="bot">[봇]</span> 🧠 Q1/5 — 이 포켓몬은 누~구일까요? [실루엣]</div>
+    <div class="msg"><span class="user">유저A:</span> 리자몽</div>
+    <div class="msg"><span class="bot">[봇]</span> ✅ 1/5 유저A +500BP</div>
+    <div class="msg"><span class="user">유저B:</span> 리자몽</div>
+    <div class="msg"><span class="bot">[봇]</span> ✅ 2/5 유저B +500BP</div>
+    <div class="msg"><span class="system">... 3명 더 → 5명 마감 ...</span></div>
+    <div class="msg"><span class="user">유저F:</span> 리자몽</div>
+    <div class="msg"><span class="bot">[봇]</span> ⏰ 마감! 정답: 리자몽 [컬러 전환]</div>
+    <div class="msg"><span class="user">유저F:</span> 아 늦었다 ㅋㅋ</div>
+    <div class="msg"><span class="bot">[봇]</span> 🧠 Q2/5 — 누~구일까요? [실루엣]</div>
+    <div class="msg"><span class="system">... Q2~Q5 진행 ...</span></div>
+    <div class="msg"><span class="bot">[봇]</span> 🏆 유저A 5/5 (2,500BP) | 유저B 3/5 (1,500BP) | 참가 보상 200BP</div>
+  </div>
+</div>
+
+<!-- ─── 배틀로얄 ─── -->
+<h2 id="royale">미니게임 2: 배틀로얄</h2>
+
+<div class="game-card gc-purple">
+  <div class="game-title">배틀로얄 (Battle Royale)</div>
+  <div class="game-tagline">"운빨 서바이벌"</div>
+
+  <h4 style="margin-top:0.8rem">플레이</h4>
+  <ul>
+    <li>이벤트 시작 → <code>참가</code> 버튼 (30초 모집, 최대 30명)</li>
+    <li>봇이 라운드별 랜덤 전투 자동 진행</li>
+    <li>매 라운드 2명 매칭 → 승자 생존, 패자 탈락</li>
+    <li><strong>참가자의 대표 포켓몬 이름 사용</strong></li>
+    <li><strong>순수 랜덤</strong> &mdash; 스탯/IV 무관. 잉어킹이 뮤츠 이김</li>
+    <li>내레이션: 기술 사용 연출</li>
+    <li>마지막 생존자 우승</li>
+  </ul>
+
+  <div class="game-chat">
+    <div class="msg"><span class="bot">[봇]</span> ⚔️ Round 1!</div>
+    <div class="msg"><span class="bot">[봇]</span> 피카츄(유저A) vs 뮤츠(유저B) &mdash; 백만볼트! 뮤츠 쓰러졌다!</div>
+    <div class="msg"><span class="user">유저B:</span> 뮤츠가 피카츄한테?? ㅋㅋ</div>
+    <div class="msg"><span class="bot">[봇]</span> 잉어킹(유저C) vs 리자몽(유저D) &mdash; 잉어킹의 역습! 리자몽 탈락!</div>
+    <div class="msg"><span class="user">유저A:</span> ㅋㅋㅋ 잉어킹 사기캐</div>
+    <div class="msg"><span class="bot">[봇]</span> ...</div>
+    <div class="msg"><span class="bot">[봇]</span> 🏆 우승! 잉어킹(유저C)!</div>
+    <div class="msg"><span class="user">유저D:</span> 잉어킹한테 지다니 ㅋㅋㅋ</div>
+  </div>
+</div>
+
+<!-- ─── 보상 ─── -->
+<h2 id="rewards">보상 구조</h2>
+
+<div class="card star">
+  <h4 style="margin-top:0">등수별 보상 (모든 이벤트 공통)</h4>
+  <table>
+    <tr><th>등수</th><th>보상</th></tr>
+    <tr><td style="color:var(--yellow);font-weight:700">1등</td><td><strong>1,500 BP</strong></td></tr>
+    <tr><td style="color:var(--purple);font-weight:700">2~3등</td><td><strong>800 BP</strong></td></tr>
+    <tr><td>4~10등</td><td>500 BP</td></tr>
+    <tr><td style="color:var(--muted)">참가</td><td>200 BP</td></tr>
+  </table>
+  <p style="font-size:0.8rem;color:var(--muted);margin-top:0.5rem">
+    기준: 대회 참가상 500BP, 체크인 200BP, 주간 포획 ~3,000BP
+  </p>
+</div>
+
+<h4>주간 보너스 (선택적 확장)</h4>
+<div class="card">
+  <ul>
+    <li>주 5회+ 참가 → 마스터볼 1개</li>
+    <li>주간 1등 TOP 3 → 임시 MVP 칭호</li>
+  </ul>
+</div>
+
+<!-- ─── 폭탄돌리기 ─── -->
+<hr class="sep">
+<h2 id="bomb">별도: 폭탄돌리기 (상시 미니게임)</h2>
+<p style="color:var(--muted);font-size:0.85rem;margin-bottom:1rem">매일 이벤트와 별개. 채팅방에서 아무 때나 즐기는 상시 명령어.</p>
+
+<div class="game-card gc-pink">
+  <div class="game-title">폭탄 돌리기 (Hot Potato)</div>
+  <div class="game-tagline">"나한테 오지 마"</div>
+
+  <h4 style="margin-top:0.8rem">플레이</h4>
+  <ul>
+    <li><code>폭탄</code> 명령어 → 참가 버튼 (최소 3명, 최대 15명)</li>
+    <li>폭탄이 랜덤 참가자에게 → 제한 시간 안에 <code>패스</code></li>
+    <li>시간 내 패스 못 하면 탈락</li>
+    <li>매 라운드 시간 줄어듦: 10초 → 8초 → 6초 → 5초</li>
+    <li>마지막 생존자 우승</li>
+  </ul>
+
+  <h4>보상</h4>
+  <ul>
+    <li>우승 300BP, 2등 100BP (상시 미니게임이므로 가볍게)</li>
+    <li>일일 참가 5회 제한</li>
+  </ul>
+
+  <div class="game-chat">
+    <div class="msg"><span class="bot">[봇]</span> 💣 폭탄이 유저A에게! 10초!</div>
+    <div class="msg"><span class="user">유저A:</span> 패스!</div>
+    <div class="msg"><span class="bot">[봇]</span> 💣→ 유저C에게! 8초!</div>
+    <div class="msg"><span class="system">... 8초 경과 ...</span></div>
+    <div class="msg"><span class="bot">[봇]</span> 💥 유저C 탈락!</div>
+    <div class="msg"><span class="user">유저B:</span> ㅋㅋㅋ 잠수탄</div>
+  </div>
+
+  <p style="font-size:0.8rem;color:var(--muted);margin-top:0.8rem">난이도: <span class="badge badge-m">M</span> &mdash; 매일 이벤트 이후 별도 배포</p>
+</div>
+
+<!-- ─── 구현 ─── -->
+<h2 id="impl">구현 범위</h2>
+
+<div class="card">
+  <h4 style="margin-top:0">DB</h4>
+  <ul>
+    <li><code>event_channels</code> &mdash; 이벤트 등록 채널</li>
+    <li><code>daily_events</code> &mdash; 일일 이벤트 기록 (유형, 채널, 상태)</li>
+    <li><code>event_participants</code> &mdash; 참가자 기록 (등수, 점수, 보상)</li>
+  </ul>
+
+  <h4>파일</h4>
+  <ul>
+    <li><code>handlers/group_event.py</code> &mdash; 이벤트 핸들러</li>
+    <li><code>services/event_service.py</code> &mdash; 퀴즈 + 배틀로얄 엔진</li>
+    <li><code>jobs/event_jobs.py</code> &mdash; 매일 스폰 스케줄러</li>
+    <li><code>database/event_queries.py</code> &mdash; DB 쿼리</li>
+    <li style="color:var(--muted)"><code>handlers/group_bomb.py</code> &mdash; 폭탄돌리기 (Phase 2)</li>
+  </ul>
+
+  <h4>난이도</h4>
+  <p><span class="badge badge-m">M</span> &mdash; 2종 게임 엔진 + 스폰 시스템 + DM 알림 + 보상</p>
+</div>
+
+<!-- ─── 리스크 ─── -->
+<h2 id="risk">리스크</h2>
+<table>
+  <tr><th>리스크</th><th>심각도</th><th>대응</th></tr>
+  <tr><td>DM 스팸</td><td style="color:var(--yellow)">🟡</td><td>최근 3시간 활동 유저만 + 알림 옵션</td></tr>
+  <tr><td>이벤트 피로</td><td style="color:var(--red)">🔴</td><td>매일 1회, 2분 이내, 선택적</td></tr>
+  <tr><td>퀴즈 정답 공유</td><td style="color:var(--yellow)">🟡</td><td>30초 + 선착순이라 공유해도 빠른 사람이 이김</td></tr>
+  <tr><td>배틀로얄 내레이션 스팸</td><td style="color:var(--yellow)">🟡</td><td>1개 메시지에 모아서 편집 업데이트</td></tr>
+  <tr><td>그룹 메시지 감지</td><td style="color:var(--yellow)">🟡</td><td>이벤트 활성 시에만 + 정확한 정답 매칭</td></tr>
+  <tr><td>보상 인플레</td><td style="color:var(--green)">🟢</td><td>참가상 200BP = 체크인 수준</td></tr>
+</table>
+
+<!-- ─── 우선순위 ─── -->
+<h2 id="priority">구현 우선순위</h2>
+<div class="card">
+  <div class="phase-row" style="border-bottom:2px solid var(--border);font-weight:600;color:var(--accent)">
+    <div>Phase</div><div>내용</div><div>난이도</div>
+  </div>
+  <div class="phase-row">
+    <div class="phase-num">1</div>
+    <div><strong>퀴즈</strong><br><span style="color:var(--muted);font-size:0.8rem">스폰 시스템, DM 알림, 보상, 채널 등록 포함</span></div>
+    <div><span class="badge badge-m">M</span></div>
+  </div>
+  <div class="phase-row">
+    <div class="phase-num">2</div>
+    <div><strong>배틀로얄</strong><br><span style="color:var(--muted);font-size:0.8rem">보상 구조 별도 확정</span></div>
+    <div><span class="badge badge-m">M</span></div>
+  </div>
+  <div class="phase-row">
+    <div class="phase-num">3</div>
+    <div><strong>폭탄돌리기</strong><br><span style="color:var(--muted);font-size:0.8rem">상시 미니게임, 별도 명령어</span></div>
+    <div><span class="badge badge-m">M</span></div>
+  </div>
+  <div class="phase-row" style="border-bottom:none">
+    <div style="color:var(--muted)">후순위</div>
+    <div>주간 월드보스 GO/STOP (DM 솔로)</div>
+    <div><span class="badge badge-m">M</span></div>
+  </div>
+</div>
+
+<p style="margin-top:2rem; color:var(--muted); font-size:0.8rem;">이 문서는 초안. 유저 피드백 후 확정.</p>
+
+</body>
+</html>

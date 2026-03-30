@@ -1642,3 +1642,41 @@ async def create_tables():
             timeout=30)
     except Exception:
         pass
+
+    # ── 매일 이벤트 (퀴즈) 시스템 (2026-03-30) ──
+    event_migs = [
+        """CREATE TABLE IF NOT EXISTS event_channels (
+            id SERIAL PRIMARY KEY,
+            owner_id BIGINT NOT NULL,
+            invite_link TEXT NOT NULL,
+            registered_at TIMESTAMPTZ DEFAULT NOW(),
+            is_active INT DEFAULT 1,
+            UNIQUE(owner_id)
+        )""",
+        """CREATE TABLE IF NOT EXISTS daily_events (
+            id SERIAL PRIMARY KEY,
+            event_date DATE NOT NULL,
+            event_type VARCHAR(20) NOT NULL DEFAULT 'quiz',
+            chat_id BIGINT NOT NULL,
+            status VARCHAR(10) DEFAULT 'pending',
+            started_at TIMESTAMPTZ,
+            ended_at TIMESTAMPTZ,
+            quiz_data JSONB
+        )""",
+        """CREATE TABLE IF NOT EXISTS event_participants (
+            id SERIAL PRIMARY KEY,
+            event_id INT NOT NULL REFERENCES daily_events(id),
+            user_id BIGINT NOT NULL,
+            question_num INT NOT NULL,
+            rank_in_question INT,
+            answered_at TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(event_id, user_id, question_num)
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_daily_events_date ON daily_events(event_date)",
+        "CREATE INDEX IF NOT EXISTS idx_event_participants_event ON event_participants(event_id)",
+    ]
+    for mig in event_migs:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass

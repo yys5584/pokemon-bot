@@ -2344,3 +2344,20 @@ SMELTING_MC_RESULT = {
         "음... 배합이 안 맞았나...",
     ],
 }
+
+
+# ── 매일 이벤트 (퀴즈) ──
+
+QUIZ_SPAWN_HOUR = 20
+QUIZ_SPAWN_MINUTE_MIN = 30       # 20:30 KST
+QUIZ_SPAWN_MINUTE_MAX = 60       # ~21:00 KST
+QUIZ_QUESTION_COUNT = 5
+QUIZ_TIME_PER_QUESTION = 30      # 초
+QUIZ_MAX_WINNERS_PER_Q = 5       # 문제당 선착순 5명
+QUIZ_BETWEEN_QUESTIONS_DELAY = 3  # 문제 간 대기(초)
+
+# 보상 (문제당, 5문제 후 일괄 정산)
+QUIZ_REWARD_FIRST = {"item": "iv_reroll_one", "amount": 2}   # 1등 (최초 정답)
+QUIZ_REWARD_TOP5 = {"item": "iv_reroll_one", "amount": 1}    # 2~5등
+QUIZ_REWARD_OTHERS_BP = 500                                    # 6등+ 정답
+QUIZ_REWARD_PARTICIPATION_BP = 500                             # 참가 (0문제)
