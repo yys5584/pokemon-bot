@@ -299,6 +299,7 @@ _ITEM_NAMES = {
     "shiny_convert_ticket": ("✨ 이로치전환권", "캠프 조각 없이 이로치 전환을 시작합니다."),
     "priority_ball": ("🎯 우선포획볼", "스폰 시 ㅊㅊ 입력으로 100% 포획 (1회 소모)"),
     "time_reduce_ticket": ("⏰ 이로치 시간단축권", "이로치 전환 대기시간 12시간 단축."),
+    "personality_ticket": ("🎭 성격 변경권", "보유 포켓몬 1마리의 성격을 랜덤으로 다시 뽑습니다."),
 }
 
 
@@ -517,6 +518,17 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             parse_mode="HTML",
         )
         return
+    elif data == "item_use_personality_ticket":
+        await _start_personality_change(query, user_id)
+    elif data.startswith("pers_pk_"):
+        # pers_pk_{instance_id}
+        instance_id = int(data.split("_")[2])
+        await _execute_personality_change(query, user_id, instance_id)
+        context.user_data.pop("mypoke_cache", None)
+    elif data.startswith("pers_pg_"):
+        # pers_pg_{page}
+        page = int(data.split("_")[2])
+        await _start_personality_change(query, user_id, page)
     elif data == "item_use_iv_reroll_all":
         await _start_iv_reroll(query, user_id, "all")
     elif data == "item_use_iv_reroll_one":
@@ -1333,3 +1345,98 @@ async def _execute_time_reduce(query, user_id: int, target_id: int, target_type:
     # 대상 못 찾음 — 환불
     await item_queries.add_user_item(user_id, "time_reduce_ticket")
     await query.edit_message_text("❌ 유효하지 않은 대상입니다.")
+
+
+# ── 성격 변경권 ──────────────────────────────────────────────
+
+async def _start_personality_change(query, user_id: int, page: int = 0):
+    """성격 변경 — 포켓몬 선택 화면."""
+    qty = await item_queries.get_user_item(user_id, "personality_ticket")
+    if qty <= 0:
+        await query.edit_message_text("❌ 성격 변경권이 없습니다.")
+        return
+
+    pokemon_list = await queries.get_user_pokemon_list(user_id)
+    if not pokemon_list:
+        await query.edit_message_text("❌ 보유 포켓몬이 없습니다.")
+        return
+
+    PAGE_SIZE = 10
+    total_pages = max(1, (len(pokemon_list) + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * PAGE_SIZE
+    page_items = pokemon_list[start:start + PAGE_SIZE]
+
+    from utils.helpers import format_personality_tag as _fpt, rarity_badge, shiny_emoji as _se
+
+    lines = [f"🎭 <b>성격 변경권</b> (보유: {qty}개)", "성격을 바꿀 포켓몬을 선택하세요.", ""]
+    buttons = []
+    for i, p in enumerate(page_items):
+        shiny = "✨" if p.get("is_shiny") else ""
+        pers = _fpt(p.get("personality")).strip() or "없음"
+        rb = rarity_badge(p.get("rarity", ""))
+        lines.append(f"{start+i+1}. {rb}{shiny} {p['name_ko']} — {pers}")
+        buttons.append([InlineKeyboardButton(
+            f"{p['name_ko']}{shiny} ({pers})",
+            callback_data=f"pers_pk_{p['id']}",
+        )])
+
+    # 페이지네이션
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("◀", callback_data=f"pers_pg_{page-1}"))
+    nav.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="item_noop"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton("▶", callback_data=f"pers_pg_{page+1}"))
+    if len(nav) > 1:
+        buttons.append(nav)
+    buttons.append([InlineKeyboardButton("❌ 취소", callback_data="item_close")])
+
+    await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+
+
+async def _execute_personality_change(query, user_id: int, instance_id: int):
+    """성격 변경 실행 — 랜덤 리롤."""
+    # 아이템 차감
+    remaining = await item_queries.use_user_item(user_id, "personality_ticket")
+    if remaining is None:
+        await query.edit_message_text("❌ 성격 변경권이 없습니다.")
+        return
+
+    # 포켓몬 확인
+    pokemon = await queries.get_user_pokemon_by_id(instance_id)
+    if not pokemon or pokemon["user_id"] != user_id:
+        await item_queries.add_user_item(user_id, "personality_ticket")
+        await query.edit_message_text("❌ 유효하지 않은 포켓몬입니다.")
+        return
+
+    # 기존 성격
+    from utils.helpers import format_personality_tag as _fpt
+    old_tag = _fpt(pokemon.get("personality")).strip() or "없음"
+
+    # 새 성격 생성
+    from utils.battle_calc import generate_personality, personality_to_str
+    is_shiny = bool(pokemon.get("is_shiny"))
+    new_pers = generate_personality(is_shiny=is_shiny)
+    new_pers_str = personality_to_str(new_pers)
+    new_tag = _fpt(new_pers_str).strip()
+
+    # DB 업데이트
+    from database.connection import get_db
+    pool = await get_db()
+    await pool.execute(
+        "UPDATE user_pokemon SET personality = $1 WHERE id = $2",
+        new_pers_str, instance_id,
+    )
+
+    name = pokemon.get("name_ko", "???")
+    shiny = " ✨" if is_shiny else ""
+
+    await query.edit_message_text(
+        f"🎭 <b>성격 변경 완료!</b>\n\n"
+        f"{name}{shiny}\n"
+        f"이전: {old_tag}\n"
+        f"변경: <b>{new_tag}</b>\n\n"
+        f"🎭 남은 변경권: {remaining}개",
+        parse_mode="HTML",
+    )
