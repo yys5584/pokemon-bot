@@ -325,7 +325,12 @@ async def fusion_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         await query.answer("🔀 합성 중...")
-        success, msg, result = await execute_fusion(user_id, state["sel_a"], state["sel_b"])
+        try:
+            success, msg, result = await execute_fusion(user_id, state["sel_a"], state["sel_b"])
+        except Exception as e:
+            logger.error(f"Fusion error for user {user_id}: {e}", exc_info=True)
+            await query.edit_message_text("❌ 합성 중 오류가 발생했습니다. 관리자에게 문의하세요.")
+            return
 
         if not success:
             await query.answer(msg, show_alert=True)
@@ -345,8 +350,9 @@ async def fusion_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += f"HP: {result.get('iv_hp', 0)}  ATK: {result.get('iv_atk', 0)}  DEF: {result.get('iv_def', 0)}\n"
             text += f"SpA: {result.get('iv_spa', 0)}  SpD: {result.get('iv_spdef', 0)}  SPD: {result.get('iv_spd', 0)}\n"
 
-        # Clear state
+        # Clear state + cache invalidation
         context.user_data.pop("fusion_state", None)
+        context.user_data.pop("mypoke_cache", None)
 
         try:
             await query.edit_message_text(text, parse_mode="HTML")

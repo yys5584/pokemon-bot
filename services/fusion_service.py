@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import random
 from database import queries, market_queries
 import config
 

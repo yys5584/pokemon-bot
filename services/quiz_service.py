@@ -189,6 +189,7 @@ class QuizState:
     question_started_at: float = 0.0
     is_accepting: bool = False
     test_mode: bool = False
+    _ending: bool = False  # _end_question 재진입 방지
 
 
 def _roll_reward(table: list[tuple]) -> tuple[str, int, str]:
@@ -258,6 +259,7 @@ async def _send_question(context, state: QuizState):
     state.answers[q_num] = []
     state.question_started_at = time.time()
     state.is_accepting = True
+    state._ending = False  # 다음 문제 시작 시 리셋
 
     await context.bot.send_photo(
         chat_id=state.chat_id,
@@ -370,6 +372,10 @@ async def _question_timeout(context):
 
 async def _end_question(context, state: QuizState):
     """문제 종료 → 정답 공개 → 다음 문제 or 최종 정산."""
+    # 레이스컨디션 방지: timeout + 5th winner 동시 호출 시 한 번만 실행
+    if state._ending:
+        return
+    state._ending = True
     q = state.questions[state.current_q]
     q_num = state.current_q + 1
     total = len(state.questions)
