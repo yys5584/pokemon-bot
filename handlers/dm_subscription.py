@@ -283,6 +283,10 @@ async def subscription_callback_handler(update: Update, context: ContextTypes.DE
     elif data == "sub_status":
         await _show_status(query, user_id)
 
+    # 프리미엄상점: 새로고침 (구매 후 돌아가기)
+    elif data == "sub_pshop_refresh":
+        await _refresh_premium_shop(query, user_id)
+
     # 프리미엄상점: 마스터볼 구매
     elif data == "sub_pshop_mb":
         await _handle_premium_shop_buy(query, user_id)
@@ -498,6 +502,78 @@ async def _send_premium_shop(user_id: int, context):
     await context.bot.send_message(
         chat_id=user_id,
         text="\n".join(lines),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None,
+    )
+
+
+async def _refresh_premium_shop(query, user_id: int):
+    """프리미엄 상점 새로고침 (구매 후 돌아가기 — edit_message_text 사용)."""
+    from database import queries, battle_queries as bq
+
+    purchases_today = await bq.get_bp_purchases_today(user_id, "masterball_premium")
+    sub = await get_user_subscription(user_id)
+    max_limit = sub["benefits"].get("masterball_daily_limit", 5) if sub else 5
+    remaining = max(0, max_limit - purchases_today)
+
+    prices = list(config.BP_MASTERBALL_PRICES)
+    while len(prices) < max_limit:
+        prices.append(500)
+
+    bp = await bq.get_bp(user_id)
+    next_price = prices[purchases_today] if purchases_today < max_limit else None
+
+    lines = [
+        f"{_E_CRYSTAL} <b>프리미엄 상점</b>\n",
+        f"{_E_MASTER} 마스터볼 ({purchases_today}/{max_limit})",
+    ]
+    if next_price:
+        lines.append(f"   다음 가격: {next_price} BP")
+        lines.append(f"   보유 BP: {bp:,}")
+    else:
+        lines.append("   오늘 구매 완료!")
+
+    hb_price = config.BP_HYPER_BALL_COST
+    hb5_cost = int(hb_price * 5 * 0.9)
+    hb10_cost = int(hb_price * 10 * 0.8)
+    hyper_balls = await queries.get_hyper_balls(user_id)
+
+    lines.append("")
+    _E_HYPER = ball_emoji("hyperball")
+    lines.append(f"{_E_HYPER} 하이퍼볼 (보유: {hyper_balls}개)")
+    lines.append(f"   x5 — {hb5_cost} BP (10% 할인)")
+    lines.append(f"   x10 — {hb10_cost} BP (20% 할인)")
+
+    gacha_ticket_cost = config.GACHA_MULTI_TICKET_COST
+    gacha_ticket_daily = config.GACHA_MULTI_TICKET_DAILY
+    gacha_ticket_bought = await bq.get_bp_purchases_today(user_id, "gacha_ticket_5")
+    gacha_ticket_remaining = max(0, gacha_ticket_daily - gacha_ticket_bought)
+
+    lines.append("")
+    lines.append(f"🎰 5연뽑기권 ({gacha_ticket_bought}/{gacha_ticket_daily})")
+    lines.append(f"   {gacha_ticket_cost} BP")
+    if gacha_ticket_remaining <= 0:
+        lines.append("   오늘 구매 완료!")
+
+    keyboard = []
+    if remaining > 0 and next_price and bp >= next_price:
+        keyboard.append([InlineKeyboardButton(
+            f"마스터볼 구매 ({next_price} BP)", callback_data="sub_pshop_mb",
+        )])
+    hb_row = []
+    if bp >= hb5_cost:
+        hb_row.append(InlineKeyboardButton(f"🔵 x5 ({hb5_cost}BP)", callback_data="sub_pshop_hb5"))
+    if bp >= hb10_cost:
+        hb_row.append(InlineKeyboardButton(f"🔵 x10 ({hb10_cost}BP)", callback_data="sub_pshop_hb10"))
+    if hb_row:
+        keyboard.append(hb_row)
+    if gacha_ticket_remaining > 0 and bp >= gacha_ticket_cost:
+        keyboard.append([InlineKeyboardButton(
+            f"🎰 5연뽑기권 ({gacha_ticket_cost} BP)", callback_data="sub_pshop_gacha5",
+        )])
+
+    await query.edit_message_text(
+        "\n".join(lines),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None,
     )
@@ -768,7 +844,19 @@ async def _handle_premium_shop_buy(query, user_id: int):
         f"💰 {price} BP 사용 (잔여: {new_bp:,} BP)\n"
         f"🔴 남은 구매: {remaining}/{max_limit}"
     )
-    await query.edit_message_text(text)
+    # 재구매 / 돌아가기 버튼
+    kb = []
+    if remaining > 0:
+        next_idx = purchases_today + 1
+        next_prices = list(config.BP_MASTERBALL_PRICES)
+        while len(next_prices) < max_limit:
+            next_prices.append(500)
+        if next_idx < len(next_prices) and new_bp >= next_prices[next_idx]:
+            kb.append([InlineKeyboardButton(
+                f"🔴 한 개 더 ({next_prices[next_idx]} BP)", callback_data="sub_pshop_mb",
+            )])
+    kb.append([InlineKeyboardButton("🔙 상점으로", callback_data="sub_pshop_refresh")])
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
 
 
 async def _handle_premium_hyperball_buy(query, user_id: int, qty: int):
@@ -801,7 +889,10 @@ async def _handle_premium_hyperball_buy(query, user_id: int, qty: int):
     await query.edit_message_text(
         f"✅ 하이퍼볼 x{qty} 구매 완료! ({discount} 할인)\n\n"
         f"💰 {cost} BP 사용 (잔여: {new_bp:,} BP)\n"
-        f"🔵 보유 하이퍼볼: {hyper_balls}개"
+        f"🔵 보유 하이퍼볼: {hyper_balls}개",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔙 상점으로", callback_data="sub_pshop_refresh"),
+        ]]),
     )
 
 
@@ -841,6 +932,9 @@ async def _handle_premium_gacha_ticket_buy(query, user_id: int):
         f"🎰 보유 5연뽑기권: {qty}개\n\n"
         f"💡 DM에서 '아이템'을 입력해서 사용하세요!",
         parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔙 상점으로", callback_data="sub_pshop_refresh"),
+        ]]),
     )
 
 

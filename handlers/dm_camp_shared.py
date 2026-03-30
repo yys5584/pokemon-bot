@@ -17,7 +17,9 @@ _callback_dedup: dict[str, float] = {}
 
 
 def _is_duplicate_callback(query, cooldown: float = 1.5) -> bool:
-    key = f"{query.message.message_id}:{query.data}:{query.from_user.id}"
+    # edit_date 포함: 같은 메시지라도 편집 후 재클릭 허용
+    _ed = getattr(query.message, "edit_date", None) or ""
+    key = f"{query.message.message_id}:{query.data}:{query.from_user.id}:{_ed}"
     now = time.monotonic()
     if len(_callback_dedup) > 200:
         cutoff = now - 60
