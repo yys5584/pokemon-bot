@@ -34,7 +34,7 @@ TELEGRAM_PATCH_NOTE = """
 
 # ── 대시보드 공지사항 (HTML 디자인) ──
 
-DASHBOARD_PATCH_NOTE_TITLE = "🆕 성격 시스템 업데이트"
+DASHBOARD_PATCH_NOTE_TITLE = "🆕 v2.6 업데이트 — 성격 시스템 + 퀴즈 이벤트"
 
 DASHBOARD_PATCH_NOTE = """
 <div style="font-family:'Noto Sans KR',sans-serif;line-height:1.8;color:#e0e0e0;font-size:14px;">
@@ -80,8 +80,24 @@ DASHBOARD_PATCH_NOTE = """
 
 </div>
 
-<div style="background:linear-gradient(135deg,rgba(34,197,94,0.1),rgba(15,18,28,0.9));border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:16px;text-align:center;margin-top:16px;">
+<div style="background:linear-gradient(135deg,rgba(34,197,94,0.1),rgba(15,18,28,0.9));border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:16px;text-align:center;margin-top:16px;margin-bottom:24px;">
   <div style="font-size:16px;font-weight:900;color:#86efac;">『 』가 붙은 포켓몬을 노려보세요!</div>
+</div>
+
+<div style="background:linear-gradient(135deg,#1a1c2e,#0f1923);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;margin-bottom:20px;">
+  <h2 style="margin:0 0 6px;font-size:22px;color:#fff;">🧠 매일 퀴즈 이벤트</h2>
+  <p style="margin:0;color:#aaa;font-size:14px;">매일 밤 포켓몬 퀴즈가 열립니다!</p>
+</div>
+
+<div style="padding:0 4px;">
+
+• 매일 <b>20:30 ~ 21:00 (KST)</b> 자동 진행<br>
+• <b>채널장 구독권</b> 보유자가 자신의 채팅방을 퀴즈방으로 등록 가능<br>
+• 등록 방법: 봇 DM에서 <b>"채널등록"</b> 입력 → 초대링크 입력<br>
+• 등록된 방 중 매일 <b>랜덤 1곳</b>에서 퀴즈 진행<br>
+• 정답자에게 <b>BP + 랜덤 상자</b> 보상<br>
+• 등수별 차등 보상 지급
+
 </div>
 
 </div>
