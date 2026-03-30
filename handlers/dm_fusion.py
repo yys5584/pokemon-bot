@@ -345,8 +345,12 @@ async def fusion_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             name = result.get("name_ko", "???")
             shiny = " ⭐이로치" if result.get("is_shiny") else ""
 
+            from utils.helpers import format_personality_tag as _fpt
+            pers_tag = _fpt(result.get("personality")).strip()
+            pers_display = f"  {pers_tag}" if pers_tag else ""
+
             text += f"{emoji} <b>{name}</b>{shiny}\n"
-            text += f"등급: [{grade}] (IV합계: {total})\n\n"
+            text += f"등급: [{grade}] (IV합계: {total}){pers_display}\n\n"
             text += f"HP: {result.get('iv_hp', 0)}  ATK: {result.get('iv_atk', 0)}  DEF: {result.get('iv_def', 0)}\n"
             text += f"SpA: {result.get('iv_spa', 0)}  SpD: {result.get('iv_spdef', 0)}  SPD: {result.get('iv_spd', 0)}\n"
 
