@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>성격 시스템 설계</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --yellow: #d29922; --red: #f85149;
+    --purple: #bc8cff; --orange: #f0883e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Pretendard', 'Noto Sans KR', sans-serif; line-height: 1.7; padding: 2rem; max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.3rem; background: linear-gradient(135deg, var(--yellow), var(--orange)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 2rem; }
+  h2 { font-size: 1.3rem; color: var(--accent); margin: 2.5rem 0 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.05rem; color: var(--purple); margin: 1.5rem 0 0.6rem; }
+  p, li { font-size: 0.9rem; }
+  ul { padding-left: 1.5rem; margin: 0.5rem 0; }
+  li { margin: 0.3rem 0; }
+  strong { color: #fff; }
+  code { background: var(--surface); color: var(--orange); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem; margin: 1rem 0; }
+  table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.85rem; }
+  th { background: var(--surface); color: var(--accent); padding: 0.6rem 0.8rem; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; }
+  td { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: rgba(88,166,255,0.04); }
+  blockquote { border-left: 3px solid var(--purple); padding-left: 1rem; margin: 1rem 0; color: var(--muted); font-size: 0.9rem; }
+  .tier-t1 { color: var(--muted); }
+  .tier-t2 { color: var(--accent); }
+  .tier-t3 { color: var(--purple); }
+  .tier-t4 { color: var(--yellow); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h1>성격 시스템 설계</h1>
+<p class="subtitle">2026-03-30 확정 &middot; 카드 등급 폐기 &rarr; 성격 16종 통합</p>
+
+<h2>1. 핵심 목적</h2>
+<ul>
+  <li><strong>잡는 행위 자체에 재미/의미 부여</strong> &mdash; 도감 완성 후에도 ㅊ 칠 이유</li>
+  <li><strong>채팅방 소셜 이벤트</strong> &mdash; 좋은 성격 뜨면 자랑, 반응, 구경</li>
+  <li><strong>수집욕 자극</strong> &mdash; TCG 레퍼런스, 카드 색 = 직관적 희귀도</li>
+  <li>배틀 몰라도 즉시 이해 가능</li>
+</ul>
+
+<h2>2. 성격 체계</h2>
+<p><strong>성격 = 시스템의 전부.</strong> 별도 "등급" 개념 없음. 성격 이름 안에 티어(강도)와 유형(방향)이 내재.</p>
+
+<h3>16종 (4티어 &times; 4유형)</h3>
+<table>
+  <tr><th>티어</th><th>공격형 (ATK/SPA)</th><th>방어형 (DEF/SPDEF)</th><th>스피드형 (SPD)</th><th>밸런스형</th></tr>
+  <tr><td class="tier-t1">T1 (45%)</td><td>겁쟁이</td><td>유리몸</td><td>느긋함</td><td>변덕</td></tr>
+  <tr><td class="tier-t2">T2 (30%)</td><td>용감</td><td>강철</td><td>재빠름</td><td>성실</td></tr>
+  <tr><td class="tier-t3">T3 (15%)</td><td>사나움</td><td>억센</td><td>질풍</td><td>평정심</td></tr>
+  <tr><td class="tier-t4">T4 (10%)</td><td>귀신</td><td>불굴</td><td>신속</td><td>전설</td></tr>
+</table>
+
+<ul>
+  <li><strong>티어</strong> = IV 상한선 최적화 강도 (높을수록 좋음)</li>
+  <li><strong>유형</strong> = IV 상한선을 몰아주는 방향</li>
+</ul>
+
+<div class="card">
+  <p>"<span class="tier-t4">귀신</span> 리자몽" = 최상위 공격형 &rarr; 금색 카드 &rarr; "미쳤다"</p>
+  <p>"<span class="tier-t1">겁쟁이</span> 리자몽" = 하위 공격형 &rarr; 회색 카드 &rarr; 흔함</p>
+</div>
+
+<h2>3. IV 상한선 시스템</h2>
+
+<h3>기존 IV 등급 (S/A/B/C/D) &mdash; 유지</h3>
+<p>실제 롤된 총합 / 186 기준. 예: 140/186 표시</p>
+
+<h3>성격이 결정하는 것</h3>
+<ul>
+  <li><strong>유형</strong>: 어떤 스탯에 상한선을 몰아줄지 (방향)</li>
+  <li><strong>티어</strong>: 얼마나 몰아줄지 (강도)</li>
+  <li>스탯당 범위: <strong>15 ~ 46</strong></li>
+  <li>상한선 총합: <strong>186</strong> (고정)</li>
+</ul>
+
+<h3>티어별 최적화 강도</h3>
+<table>
+  <tr><th>티어</th><th>최적화 %</th><th>설명</th></tr>
+  <tr><td class="tier-t1">T1</td><td>0%</td><td>완전 랜덤 배분</td></tr>
+  <tr><td class="tier-t2">T2</td><td>33%</td><td>약간 몰아줌</td></tr>
+  <tr><td class="tier-t3">T3</td><td>66%</td><td>꽤 몰아줌</td></tr>
+  <tr><td class="tier-t4">T4</td><td>100%</td><td>유형 방향으로 완전 최적화</td></tr>
+</table>
+
+<p>공식: <code>ceiling = random &times; (1 - opt%) + optimal &times; opt%</code></p>
+
+<h3>유형별 IV 상한선 배분</h3>
+<ul>
+  <li><strong>공격형</strong> (귀신/사나움/용감/겁쟁이): ATK, SPA에 상한선 높게</li>
+  <li><strong>방어형</strong> (불굴/억센/강철/유리몸): DEF, SPDEF에 높게</li>
+  <li><strong>스피드형</strong> (신속/질풍/재빠름/느긋함): SPD에 높게</li>
+  <li><strong>밸런스형</strong> (전설/평정심/성실/변덕): 전체 고르게</li>
+</ul>
+
+<h3>예시: 귀신(T4 공격형) 리자몽</h3>
+<div class="card">
+  <p>ATK 상한 28, SPA 상한 44, SPD 상한 35, DEF 상한 20, SPDEF 상한 20, HP 상한 39 (합 186)</p>
+  <p>겁쟁이(T1 공격형)면 같은 공격형이지만 거의 랜덤 배분</p>
+</div>
+
+<h2>4. 배틀 영향</h2>
+
+<h3>IV &rarr; 배틀 배수 공식 (현행 유지)</h3>
+<div class="card">
+  <code>배수 = 0.85 + (IV / 31) &times; 0.30</code><br>
+  <p style="margin-top:0.5rem">IV 15 = 1.00x &nbsp;|&nbsp; IV 31 = 1.15x (현재 만렙) &nbsp;|&nbsp; IV 46 = 1.30x</p>
+</div>
+
+<h3>실제 ATK 차이 (티어별)</h3>
+<table>
+  <tr><th>포켓몬</th><th>base&times;보정</th><th>T1 최악(IV15)</th><th>T4 풀맥(IV46)</th></tr>
+  <tr><td>일반</td><td>98</td><td>97</td><td>127</td></tr>
+  <tr><td>레어</td><td>116</td><td>115</td><td>150</td></tr>
+  <tr><td>에픽</td><td>135</td><td>134</td><td>175</td></tr>
+  <tr><td>전설</td><td>155</td><td>154</td><td>201</td></tr>
+  <tr><td>초전설</td><td>185</td><td>184</td><td>240</td></tr>
+</table>
+
+<h3>의도된 역전</h3>
+<ul>
+  <li>T4 에픽(175) > T1 전설(154) &mdash; 허용</li>
+  <li>T4 일반(127) < T1 전설(154) &mdash; 티어 역전은 에픽부터만</li>
+</ul>
+
+<h2>5. 비주얼</h2>
+
+<h3>카드 프레임 색</h3>
+<table>
+  <tr><th>티어</th><th>색상</th></tr>
+  <tr><td class="tier-t1">T1</td><td>회색</td></tr>
+  <tr><td class="tier-t2">T2</td><td>파랑</td></tr>
+  <tr><td class="tier-t3">T3</td><td>보라</td></tr>
+  <tr><td class="tier-t4">T4</td><td>금</td></tr>
+</table>
+
+<h3>카드 효과</h3>
+<ul>
+  <li>티어별 텍스처 차등 (grain/홀로 강약 조절)</li>
+  <li>TCG 풀아트 일러 매핑은 보류 (프레임+텍스처로 충분)</li>
+</ul>
+
+<h3>스폰 시 노출</h3>
+<ul>
+  <li><strong>스폰 카드에 성격+프레임 색 즉시 표시</strong></li>
+  <li>스폰 메시지: "야생의 <b>귀신</b> 리자몽이 나타났다!"</li>
+  <li>이로치 전환 시 성격 유지</li>
+</ul>
+
+<h2>5-1. 예시 카드</h2>
+<p style="color:var(--muted);font-size:0.85rem;margin-bottom:1rem">리자몽 기준, 티어별 스폰 카드 미리보기</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0">
+  <!-- T1 -->
+  <div style="background:var(--surface);border:3px solid #6b7280;border-radius:12px;padding:1.2rem;text-align:center">
+    <div style="font-size:0.75rem;color:#6b7280;margin-bottom:0.3rem">T1 (45%)</div>
+    <div style="font-size:2.5rem;margin:0.5rem 0">🔥</div>
+    <div style="font-size:1.1rem;font-weight:700;color:#9ca3af">겁쟁이 리자몽</div>
+    <div style="font-size:0.8rem;color:#6b7280;margin-top:0.3rem">공격형</div>
+    <div style="margin-top:0.8rem;font-size:0.75rem;color:var(--muted);text-align:left;padding:0.5rem;background:var(--bg);border-radius:6px">
+      HP 31 | ATK 32 | DEF 30<br>
+      SPA 33 | SPDEF 29 | SPD 31<br>
+      <span style="color:#6b7280">총합 186 — 거의 랜덤 배분</span>
+    </div>
+  </div>
+
+  <!-- T2 -->
+  <div style="background:var(--surface);border:3px solid #3b82f6;border-radius:12px;padding:1.2rem;text-align:center">
+    <div style="font-size:0.75rem;color:#3b82f6;margin-bottom:0.3rem">T2 (30%)</div>
+    <div style="font-size:2.5rem;margin:0.5rem 0">🔥</div>
+    <div style="font-size:1.1rem;font-weight:700;color:#60a5fa">용감 리자몽</div>
+    <div style="font-size:0.8rem;color:#3b82f6;margin-top:0.3rem">공격형</div>
+    <div style="margin-top:0.8rem;font-size:0.75rem;color:var(--muted);text-align:left;padding:0.5rem;background:var(--bg);border-radius:6px">
+      HP 29 | <b style="color:#60a5fa">ATK 35</b> | DEF 27<br>
+      <b style="color:#60a5fa">SPA 37</b> | SPDEF 28 | SPD 30<br>
+      <span style="color:#3b82f6">총합 186 — 약간 공격 몰아줌</span>
+    </div>
+  </div>
+
+  <!-- T3 -->
+  <div style="background:var(--surface);border:3px solid #a855f7;border-radius:12px;padding:1.2rem;text-align:center">
+    <div style="font-size:0.75rem;color:#a855f7;margin-bottom:0.3rem">T3 (15%)</div>
+    <div style="font-size:2.5rem;margin:0.5rem 0">🔥</div>
+    <div style="font-size:1.1rem;font-weight:700;color:#c084fc">사나움 리자몽</div>
+    <div style="font-size:0.8rem;color:#a855f7;margin-top:0.3rem">공격형</div>
+    <div style="margin-top:0.8rem;font-size:0.75rem;color:var(--muted);text-align:left;padding:0.5rem;background:var(--bg);border-radius:6px">
+      HP 26 | <b style="color:#c084fc">ATK 39</b> | DEF 22<br>
+      <b style="color:#c084fc">SPA 42</b> | SPDEF 24 | SPD 33<br>
+      <span style="color:#a855f7">총합 186 — 꽤 공격 몰아줌</span>
+    </div>
+  </div>
+
+  <!-- T4 -->
+  <div style="background:var(--surface);border:3px solid #eab308;border-radius:12px;padding:1.2rem;text-align:center;box-shadow:0 0 15px rgba(234,179,8,0.2)">
+    <div style="font-size:0.75rem;color:#eab308;margin-bottom:0.3rem">T4 (10%)</div>
+    <div style="font-size:2.5rem;margin:0.5rem 0">🔥</div>
+    <div style="font-size:1.1rem;font-weight:700;color:#facc15">귀신 리자몽</div>
+    <div style="font-size:0.8rem;color:#eab308;margin-top:0.3rem">공격형</div>
+    <div style="margin-top:0.8rem;font-size:0.75rem;color:var(--muted);text-align:left;padding:0.5rem;background:var(--bg);border-radius:6px">
+      HP 20 | <b style="color:#facc15">ATK 44</b> | DEF 18<br>
+      <b style="color:#facc15">SPA 46</b> | SPDEF 20 | SPD 38<br>
+      <span style="color:#eab308">총합 186 — 완전 공격 최적화</span>
+    </div>
+  </div>
+</div>
+
+<p style="color:var(--muted);font-size:0.8rem;margin-top:0.5rem">* 실제 카드는 포켓몬 이미지 + 프레임 색 + 텍스처 효과 적용</p>
+
+<h2>6. 포켓몬 유형 표시</h2>
+<p style="color:var(--muted)">베이스스탯 기반 자동 판정. 도감 + 스폰 카드 하단에 표시. 성격 부여에 영향 없음.</p>
+<table>
+  <tr><th>유형</th><th>판정 기준</th></tr>
+  <tr><td>공격형</td><td>ATK+SPA 최고</td></tr>
+  <tr><td>방어형</td><td>DEF+SPDEF 최고</td></tr>
+  <tr><td>스피드형</td><td>SPD 최고</td></tr>
+  <tr><td>밸런스형</td><td>차이 적음</td></tr>
+</table>
+
+<h2>7. 레거시 포켓몬</h2>
+<ul>
+  <li>마이그레이션 스크립트로 전체 랜덤 부여 (45/30/15/10%)</li>
+  <li>기존 IV는 변경 없음, 성격만 신규 부여</li>
+</ul>
+
+<h2>8. 설계 원칙</h2>
+<ul>
+  <li>수직 성장 ❌ &rarr; 수평 확장 ⭕</li>
+  <li>배틀 몰라도 카드 색깔만으로 가치 직관 이해</li>
+  <li>TCG 수집 문법 차용</li>
+  <li><strong>"성격" 하나만 이해하면 끝</strong></li>
+</ul>
+
+</body>
+</html>

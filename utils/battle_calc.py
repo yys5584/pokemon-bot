@@ -52,20 +52,26 @@ def get_normalized_base_stats(pokemon_id: int) -> dict | None:
 
 
 def _iv_mult(iv: int | None) -> float:
-    """IV → stat multiplier. None (기존 포켓몬) = 1.0 (변화 없음)."""
+    """IV → stat multiplier. None (기존 포켓몬) = 1.0 (변화 없음).
+
+    공식: 0.85 + (IV / 31) × 0.30
+    IV  0 → 0.85x
+    IV 15 → 1.00x
+    IV 31 → 1.15x (레거시 만렙)
+    IV 46 → 1.30x (성격 T4 최적화)
+    """
     if iv is None:
         return 1.0
-    return config.IV_MULT_MIN + (iv / config.IV_MAX) * config.IV_MULT_RANGE
+    return config.IV_MULT_MIN + (iv / config.IV_LEGACY_MAX) * config.IV_MULT_RANGE
 
 
 def generate_ivs(is_shiny: bool = False) -> dict[str, int]:
-    """Generate random IVs for a newly caught pokemon.
+    """Generate random IVs (레거시 방식, 성격 없이 0~31).
 
-    Returns dict with keys: iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd (0~31 each).
-    Shiny pokemon get a minimum of IV_SHINY_MIN (10).
+    성격 시스템 이후에는 generate_ivs_with_personality() 사용 권장.
     """
     low = config.IV_SHINY_MIN if is_shiny else config.IV_MIN
-    high = config.IV_MAX
+    high = config.IV_LEGACY_MAX
     return {
         "iv_hp": random.randint(low, high),
         "iv_atk": random.randint(low, high),
@@ -74,6 +80,124 @@ def generate_ivs(is_shiny: bool = False) -> dict[str, int]:
         "iv_spdef": random.randint(low, high),
         "iv_spd": random.randint(low, high),
     }
+
+
+# ── 성격 시스템 ──
+
+_STAT_KEYS = ["iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"]
+
+
+def generate_personality() -> dict:
+    """성격 랜덤 생성.
+
+    Returns: {"tier": "T3", "type": "atk", "name": "사나움"}
+    티어 확률: T1 45%, T2 30%, T3 15%, T4 10%
+    유형 확률: 균등 25%씩
+    """
+    # 티어 결정
+    roll = random.random()
+    cumulative = 0.0
+    tier = "T1"
+    for t, info in config.PERSONALITY_TIERS.items():
+        cumulative += info["prob"]
+        if roll < cumulative:
+            tier = t
+            break
+
+    # 유형 결정 (균등)
+    ptype = random.choice(list(config.PERSONALITY_TYPES.keys()))
+
+    name = config.get_personality_name(tier, ptype)
+    return {"tier": tier, "type": ptype, "name": name}
+
+
+def _generate_ceilings(personality: dict) -> dict[str, int]:
+    """성격 기반 6스탯 상한선(ceiling) 계산. 총합 = 186."""
+    tier = personality["tier"]
+    ptype = personality["type"]
+    opt_pct = config.PERSONALITY_TIERS[tier]["opt"]
+    optimal = config.PERSONALITY_TYPES[ptype]["optimal"]
+
+    ceil_min = config.IV_CEILING_MIN  # 15
+    ceil_total = config.IV_CEILING_TOTAL  # 186
+
+    # opt% 적용: ceiling = random_base × (1 - opt%) + optimal × opt%
+    # T1(0%): 완전 랜덤, T4(100%): optimal 그대로
+    if opt_pct >= 1.0:
+        # T4: optimal 그대로
+        ceilings = {k: optimal[k] for k in _STAT_KEYS}
+    elif opt_pct <= 0.0:
+        # T1: 균등 랜덤 배분 (총합 186, 각각 15~46)
+        ceilings = _random_ceilings(ceil_total, ceil_min, config.IV_MAX)
+    else:
+        # T2/T3: 혼합
+        rand_ceilings = _random_ceilings(ceil_total, ceil_min, config.IV_MAX)
+        ceilings = {}
+        for k in _STAT_KEYS:
+            blended = rand_ceilings[k] * (1 - opt_pct) + optimal[k] * opt_pct
+            ceilings[k] = max(ceil_min, int(round(blended)))
+
+        # 총합 보정 (반올림 오차)
+        diff = ceil_total - sum(ceilings.values())
+        if diff != 0:
+            # 가장 높은/낮은 값에서 보정
+            sorted_keys = sorted(ceilings, key=lambda k: ceilings[k], reverse=(diff > 0))
+            for i in range(abs(diff)):
+                k = sorted_keys[i % len(sorted_keys)]
+                ceilings[k] += 1 if diff > 0 else -1
+                ceilings[k] = max(ceil_min, min(config.IV_MAX, ceilings[k]))
+
+    return ceilings
+
+
+def _random_ceilings(total: int, floor: int, cap: int) -> dict[str, int]:
+    """총합이 total인 랜덤 상한선 생성 (각 floor~cap)."""
+    n = len(_STAT_KEYS)
+    # 먼저 각각 floor 배분, 나머지를 랜덤 분배
+    remaining = total - floor * n
+    values = [floor] * n
+
+    for _ in range(remaining):
+        idx = random.randint(0, n - 1)
+        if values[idx] < cap:
+            values[idx] += 1
+        else:
+            # cap 도달 시 다른 스탯에 배분
+            candidates = [j for j in range(n) if values[j] < cap]
+            if candidates:
+                values[random.choice(candidates)] += 1
+
+    return {_STAT_KEYS[i]: values[i] for i in range(n)}
+
+
+def generate_ivs_with_personality(personality: dict, is_shiny: bool = False) -> dict[str, int]:
+    """성격 기반 IV 생성.
+
+    1. 성격으로 6스탯 상한선(ceiling) 계산 (총합 186)
+    2. 각 스탯: randint(min, ceiling)
+    """
+    ceilings = _generate_ceilings(personality)
+    low = config.IV_SHINY_MIN if is_shiny else config.IV_MIN
+
+    return {
+        k: random.randint(low, ceilings[k])
+        for k in _STAT_KEYS
+    }
+
+
+def personality_to_str(personality: dict) -> str:
+    """성격 dict → DB 저장용 문자열. "T3:atk:사나움" """
+    return f"{personality['tier']}:{personality['type']}:{personality['name']}"
+
+
+def personality_from_str(s: str | None) -> dict | None:
+    """DB 문자열 → 성격 dict. None이면 None."""
+    if not s:
+        return None
+    parts = s.split(":", 2)
+    if len(parts) != 3:
+        return None
+    return {"tier": parts[0], "type": parts[1], "name": parts[2]}
 
 
 def iv_total(iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd) -> int:

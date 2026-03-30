@@ -359,11 +359,53 @@ EVENT_TEMPLATES = {
 
 # --- IV (Individual Values) System ---
 IV_MIN = 0
-IV_MAX = 31
+IV_MAX = 46               # 성격 시스템 도입으로 상한 확장 (기존 31 → 46)
+IV_LEGACY_MAX = 31         # 레거시 포켓몬 최대값
 IV_MULT_MIN = 0.85        # IV 0 = 0.85x
-IV_MULT_RANGE = 0.30      # IV 31 = 1.15x (0.85 + 0.30)
-IV_SHINY_MIN = 10         # 이로치 최소 IV (10~31)
+IV_MULT_RANGE = 0.30      # IV 31 = 1.15x, IV 46 = 1.30x
+IV_SHINY_MIN = 10         # 이로치 최소 IV
 IV_STAT_COUNT = 6          # 6스탯: HP, ATK, DEF, SPA, SPDEF, SPD
+IV_CEILING_MIN = 15        # 성격 상한선 최소값
+IV_CEILING_TOTAL = 186     # 성격 상한선 총합 (고정)
+
+# --- 성격 시스템 ---
+PERSONALITY_TIERS = {
+    "T1": {"prob": 0.45, "opt": 0.0,  "color": "gray",   "color_rgb": (107, 114, 128)},
+    "T2": {"prob": 0.30, "opt": 0.33, "color": "blue",   "color_rgb": (59, 130, 246)},
+    "T3": {"prob": 0.15, "opt": 0.66, "color": "purple", "color_rgb": (168, 85, 247)},
+    "T4": {"prob": 0.10, "opt": 1.0,  "color": "gold",   "color_rgb": (234, 179, 8)},
+}
+
+PERSONALITY_TYPES = {
+    "atk": {
+        "name_ko": {"T1": "겁쟁이", "T2": "용감", "T3": "사나움", "T4": "귀신"},
+        "focus": ["iv_atk", "iv_spa"],
+        "optimal": {"iv_hp": 26, "iv_atk": 40, "iv_def": 20, "iv_spa": 42, "iv_spdef": 20, "iv_spd": 38},
+    },
+    "def": {
+        "name_ko": {"T1": "유리몸", "T2": "강철", "T3": "억센", "T4": "불굴"},
+        "focus": ["iv_def", "iv_spdef"],
+        "optimal": {"iv_hp": 38, "iv_atk": 20, "iv_def": 42, "iv_spa": 20, "iv_spdef": 40, "iv_spd": 26},
+    },
+    "spd": {
+        "name_ko": {"T1": "느긋함", "T2": "재빠름", "T3": "질풍", "T4": "신속"},
+        "focus": ["iv_spd"],
+        "optimal": {"iv_hp": 30, "iv_atk": 30, "iv_def": 26, "iv_spa": 30, "iv_spdef": 26, "iv_spd": 44},
+    },
+    "balance": {
+        "name_ko": {"T1": "변덕", "T2": "성실", "T3": "평정심", "T4": "전설"},
+        "focus": [],
+        "optimal": {"iv_hp": 31, "iv_atk": 31, "iv_def": 31, "iv_spa": 31, "iv_spdef": 31, "iv_spd": 31},
+    },
+}
+
+def get_personality_name(tier: str, ptype: str) -> str:
+    """성격 이름 반환. 예: get_personality_name("T4", "atk") → "귀신" """
+    return PERSONALITY_TYPES.get(ptype, {}).get("name_ko", {}).get(tier, "???")
+
+def get_personality_tier_color(tier: str) -> tuple[int, int, int]:
+    """성격 티어 RGB 색상."""
+    return PERSONALITY_TIERS.get(tier, {}).get("color_rgb", (107, 114, 128))
 
 # IV grade thresholds (total of 6 stats, max=186)
 IV_GRADE_THRESHOLDS = [
