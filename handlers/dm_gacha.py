@@ -520,15 +520,25 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return
     elif data == "item_use_personality_ticket":
         await _start_personality_change(query, user_id)
+    elif data.startswith("pers_ft_"):
+        # pers_ft_{rarity}_{ptype}_{page}
+        parts = data.split("_")
+        rf = parts[2]
+        pt = parts[3] if len(parts) > 3 else "all"
+        pg = int(parts[4]) if len(parts) > 4 else 0
+        await _start_personality_change(query, user_id, pg, rf, pt)
     elif data.startswith("pers_pk_"):
         # pers_pk_{instance_id}
         instance_id = int(data.split("_")[2])
         await _execute_personality_change(query, user_id, instance_id)
         context.user_data.pop("mypoke_cache", None)
     elif data.startswith("pers_pg_"):
-        # pers_pg_{page}
-        page = int(data.split("_")[2])
-        await _start_personality_change(query, user_id, page)
+        # pers_pg_{rarity}_{ptype}_{page}
+        parts = data.split("_")
+        rf = parts[2] if len(parts) > 2 else "all"
+        pt = parts[3] if len(parts) > 3 else "all"
+        pg = int(parts[4]) if len(parts) > 4 else 0
+        await _start_personality_change(query, user_id, pg, rf, pt)
     elif data == "item_use_iv_reroll_all":
         await _start_iv_reroll(query, user_id, "all")
     elif data == "item_use_iv_reroll_one":
@@ -1349,8 +1359,28 @@ async def _execute_time_reduce(query, user_id: int, target_id: int, target_type:
 
 # ── 성격 변경권 ──────────────────────────────────────────────
 
-async def _start_personality_change(query, user_id: int, page: int = 0):
-    """성격 변경 — 포켓몬 선택 화면."""
+_PERS_TYPE_FILTERS = [
+    ("all", "전체"),
+    ("atk", "공격"),
+    ("def", "방어"),
+    ("spd", "스피드"),
+    ("balance", "밸런스"),
+]
+
+_PERS_PAGE_SIZE = 8
+
+
+def _parse_personality_type(pers_str: str | None) -> str | None:
+    """성격 문자열에서 유형 추출. 예: 'T3_atk' → 'atk'"""
+    if not pers_str or "_" not in pers_str:
+        return None
+    return pers_str.split("_", 1)[1]
+
+
+async def _start_personality_change(query, user_id: int, page: int = 0,
+                                    rarity_filter: str = "all",
+                                    ptype_filter: str = "all"):
+    """성격 변경 — 포켓몬 선택 화면 (등급 + 성격유형 필터)."""
     qty = await item_queries.get_user_item(user_id, "personality_ticket")
     if qty <= 0:
         await query.edit_message_text("❌ 성격 변경권이 없습니다.")
@@ -1361,37 +1391,74 @@ async def _start_personality_change(query, user_id: int, page: int = 0):
         await query.edit_message_text("❌ 보유 포켓몬이 없습니다.")
         return
 
-    PAGE_SIZE = 10
-    total_pages = max(1, (len(pokemon_list) + PAGE_SIZE - 1) // PAGE_SIZE)
-    page = max(0, min(page, total_pages - 1))
-    start = page * PAGE_SIZE
-    page_items = pokemon_list[start:start + PAGE_SIZE]
+    # 등급 필터
+    actual_rarity = _RARITY_KEY_MAP.get(rarity_filter)
+    if actual_rarity:
+        pokemon_list = [p for p in pokemon_list if p.get("rarity") == actual_rarity]
 
-    from utils.helpers import format_personality_tag as _fpt, rarity_badge, shiny_emoji as _se
+    # 성격유형 필터
+    if ptype_filter != "all":
+        pokemon_list = [p for p in pokemon_list
+                        if _parse_personality_type(p.get("personality")) == ptype_filter]
+
+    from utils.helpers import format_personality_tag as _fpt
+    from config import RARITY_EMOJI
+
+    # ── 필터 버튼 (등급) ──
+    rf_row = []
+    for fkey, flabel in _RARITY_FILTERS:
+        mark = "▸" if fkey == rarity_filter else ""
+        rf_row.append(InlineKeyboardButton(
+            f"{mark}{flabel}",
+            callback_data=f"pers_ft_{fkey}_{ptype_filter}_0",
+        ))
+    buttons = [rf_row[:3], rf_row[3:]]
+
+    # ── 필터 버튼 (성격유형) ──
+    pt_row = []
+    for fkey, flabel in _PERS_TYPE_FILTERS:
+        mark = "▸" if fkey == ptype_filter else ""
+        pt_row.append(InlineKeyboardButton(
+            f"{mark}{flabel}",
+            callback_data=f"pers_ft_{rarity_filter}_{fkey}_0",
+        ))
+    buttons.append(pt_row)
+
+    total = len(pokemon_list)
+    if total == 0:
+        lines = [f"🎭 <b>성격 변경권</b> (보유: {qty}개)", "", "해당 조건의 포켓몬이 없습니다."]
+        buttons.append([InlineKeyboardButton("❌ 닫기", callback_data="item_close")])
+        await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+        return
+
+    total_pages = (total + _PERS_PAGE_SIZE - 1) // _PERS_PAGE_SIZE
+    page = max(0, min(page, total_pages - 1))
+    start = page * _PERS_PAGE_SIZE
+    end = min(start + _PERS_PAGE_SIZE, total)
+    page_items = pokemon_list[start:end]
 
     lines = [f"🎭 <b>성격 변경권</b> (보유: {qty}개)", "성격을 바꿀 포켓몬을 선택하세요.", ""]
-    buttons = []
-    for i, p in enumerate(page_items):
+    for p in page_items:
         shiny = "✨" if p.get("is_shiny") else ""
         pers = _fpt(p.get("personality")).strip() or "없음"
-        rb = rarity_badge(p.get("rarity", ""))
-        lines.append(f"{start+i+1}. {rb}{shiny} {p['name_ko']} — {pers}")
+        remoji = RARITY_EMOJI.get(p.get("rarity", ""), "⚪")
         buttons.append([InlineKeyboardButton(
-            f"{p['name_ko']}{shiny} ({pers})",
+            f"{remoji}{shiny} {p['name_ko']} ({pers})",
             callback_data=f"pers_pk_{p['id']}",
         )])
 
     # 페이지네이션
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("◀", callback_data=f"pers_pg_{page-1}"))
+        nav.append(InlineKeyboardButton("◀", callback_data=f"pers_pg_{rarity_filter}_{ptype_filter}_{page-1}"))
     nav.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="item_noop"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("▶", callback_data=f"pers_pg_{page+1}"))
+        nav.append(InlineKeyboardButton("▶", callback_data=f"pers_pg_{rarity_filter}_{ptype_filter}_{page+1}"))
     if len(nav) > 1:
         buttons.append(nav)
-    buttons.append([InlineKeyboardButton("❌ 취소", callback_data="item_close")])
 
+    lines.append(f"({start+1}~{end} / {total}마리)")
+    buttons.append([InlineKeyboardButton("❌ 취소", callback_data="item_close")])
     await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 
 
