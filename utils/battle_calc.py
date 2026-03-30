@@ -87,22 +87,36 @@ def generate_ivs(is_shiny: bool = False) -> dict[str, int]:
 _STAT_KEYS = ["iv_hp", "iv_atk", "iv_def", "iv_spa", "iv_spdef", "iv_spd"]
 
 
-def generate_personality() -> dict:
+def generate_personality(is_shiny: bool = False) -> dict:
     """성격 랜덤 생성.
 
     Returns: {"tier": "T3", "type": "atk", "name": "사나움"}
-    티어 확률: T1 45%, T2 30%, T3 15%, T4 10%
+    일반: T1 45%, T2 30%, T3 15%, T4 10%
+    이로치: T2 55%, T3 27%, T4 18% (T1 제외, 재정규화)
     유형 확률: 균등 25%씩
     """
     # 티어 결정
-    roll = random.random()
-    cumulative = 0.0
-    tier = "T1"
-    for t, info in config.PERSONALITY_TIERS.items():
-        cumulative += info["prob"]
-        if roll < cumulative:
-            tier = t
-            break
+    if is_shiny:
+        # 이로치는 T2 이상 보장
+        tiers = {k: v for k, v in config.PERSONALITY_TIERS.items() if k != "T1"}
+        total_prob = sum(v["prob"] for v in tiers.values())
+        roll = random.random() * total_prob
+        cumulative = 0.0
+        tier = "T2"
+        for t, info in tiers.items():
+            cumulative += info["prob"]
+            if roll < cumulative:
+                tier = t
+                break
+    else:
+        roll = random.random()
+        cumulative = 0.0
+        tier = "T1"
+        for t, info in config.PERSONALITY_TIERS.items():
+            cumulative += info["prob"]
+            if roll < cumulative:
+                tier = t
+                break
 
     # 유형 결정 (균등)
     ptype = random.choice(list(config.PERSONALITY_TYPES.keys()))

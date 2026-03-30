@@ -196,7 +196,8 @@ async def get_listing_by_id(listing_id: int) -> dict | None:
                   pm.evolution_method, pm.evolves_to,
                   up.iv_hp, up.iv_atk, up.iv_def,
                   up.iv_spa, up.iv_spdef, up.iv_spd,
-                  up.friendship, up.user_id AS current_owner_id
+                  up.friendship, up.user_id AS current_owner_id,
+                  up.personality
            FROM market_listings ml
            JOIN users u ON ml.seller_id = u.user_id
            JOIN pokemon_master pm ON ml.pokemon_id = pm.id
@@ -330,7 +331,7 @@ async def complete_market_purchase(
     listing_id: int, buyer_id: int,
     seller_id: int, price_bp: int, fee_bp: int,
     pokemon_instance_id: int, pokemon_id: int,
-    is_shiny: bool, ivs: dict,
+    is_shiny: bool, ivs: dict, personality: str | None = None,
 ) -> int:
     """Execute a market purchase in a single transaction. Returns new_instance_id."""
     pool = await get_db()
@@ -383,15 +384,16 @@ async def complete_market_purchase(
                 pokemon_instance_id,
             )
 
-            # 7. Give pokemon to buyer (preserve IVs + shiny)
+            # 7. Give pokemon to buyer (preserve IVs + shiny + personality)
             new_row = await conn.fetchrow(
                 """INSERT INTO user_pokemon
                        (user_id, pokemon_id, is_shiny,
-                        iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id""",
+                        iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd, personality)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id""",
                 buyer_id, pokemon_id, 1 if is_shiny else 0,
                 ivs.get("iv_hp"), ivs.get("iv_atk"), ivs.get("iv_def"),
                 ivs.get("iv_spa"), ivs.get("iv_spdef"), ivs.get("iv_spd"),
+                personality,
             )
 
             # 8. Register in buyer's pokedex

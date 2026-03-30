@@ -162,6 +162,7 @@ async def buy_listing(
             pokemon_id=listing["pokemon_id"],
             is_shiny=is_shiny,
             ivs=ivs,
+            personality=listing.get("personality"),
         )
     except ValueError as e:
         return False, str(e), None

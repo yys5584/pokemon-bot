@@ -46,7 +46,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         # Get pokemon info
         _prow = await pool.fetchrow(
             "SELECT pm.id, pm.name_ko, pm.name_en, pm.emoji, pm.rarity, pm.catch_rate, "
-            "pm.stat_type, ss.is_shiny "
+            "pm.stat_type, ss.is_shiny, ss.personality "
             "FROM spawn_sessions ss "
             "JOIN pokemon_master pm ON ss.pokemon_id = pm.id "
             "WHERE ss.id = $1", session_id
@@ -60,6 +60,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         pokemon_name = pokemon["name_ko"]
         rarity = pokemon["rarity"]
         is_shiny = bool(pokemon.get("is_shiny"))
+        _pers_str = pokemon.get("personality")  # "T3:atk:사나움" or None
 
         # Get catch attempts
         attempts = await spawn_queries.get_session_attempts(session_id)
@@ -70,7 +71,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             await spawn_queries.close_spawn_session(session_id)
             await spawn_queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon["emoji"],
-                rarity, None, None, 0, is_shiny=is_shiny,
+                rarity, None, None, 0, is_shiny=is_shiny, personality=_pers_str,
             )
             logger.info(f"Overlap resolve {session_id}: no attempts, closed")
             return
@@ -166,7 +167,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             await spawn_queries.close_spawn_session(session_id)
             await spawn_queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon["emoji"],
-                rarity, None, None, participants, is_shiny=is_shiny,
+                rarity, None, None, participants, is_shiny=is_shiny, personality=_pers_str,
             )
             logger.info(f"Overlap resolve {session_id}: all failed, {pokemon_name} escaped")
             return
@@ -227,6 +228,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         # Give Pokemon + register pokedex + close session (transaction)
         _inst_id, caught_ivs = await queries.catch_pokemon_transaction(
             winner_id, pokemon_id, chat_id, is_shiny, session_id,
+            personality=_pers_str,
         )
 
         # Build result message
@@ -359,8 +361,16 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
                 dm_ball = f"{ball_emoji('hyperball')} "
             else:
                 dm_ball = f"{ball_emoji('pokeball')} "
+            # 성격 표시
+            from utils.battle_calc import personality_from_str as _pfs
+            _pers = _pfs(_pers_str)
+            _pers_dm = ""
+            if _pers:
+                _te = {"T1": "⚪", "T2": "🔵", "T3": "🟣", "T4": "🟡"}.get(_pers["tier"], "⚪")
+                _pers_dm = f"{_te} 성격: {_pers['name']}\n"
             dm_text = (
                 f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
+                f"{_pers_dm}"
                 f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
                 f"{format_stats_line(stats_with_iv, stats_base, lang=_dm_lang)}\n\n"
@@ -411,7 +421,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
         # Log
         await spawn_queries.log_spawn(
             chat_id, pokemon_id, pokemon_name, pokemon["emoji"],
-            rarity, winner_id, winner_name, participants, is_shiny=is_shiny,
+            rarity, winner_id, winner_name, participants, is_shiny=is_shiny, personality=_pers_str,
         )
         logger.info(f"Overlap resolve {session_id}: {winner_name} caught {pokemon_name}")
 
@@ -623,18 +633,25 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         newbie_tag = ""
         if is_newbie_spawn:
             newbie_tag = t(_lang, "spawn_msg.newbie_tag")
+        # 성격 태그 (티어 색상 이모지 + 이름)
+        _pers_name = _personality["name"]
+        _pers_tier = _personality["tier"]
+        _tier_emoji = {"T1": "⚪", "T2": "🔵", "T3": "🟣", "T4": "🟡"}.get(_pers_tier, "⚪")
+        personality_tag = f"{_tier_emoji}<b>{_pers_name}</b> "
         caption = t(_lang, "spawn_msg.wild_appeared",
                      icon=icon_emoji('footsteps'), shiny=shiny_text, tb=tb,
                      name=poke_name(pokemon, _lang), bonus=bonus_text, weather=weather_tag,
-                     window=window, newbie=newbie_tag)
+                     window=window, newbie=newbie_tag, personality=personality_tag)
 
         # Generate card image (Playwright async 렌더링)
         _types = pokemon.get("pokemon_type")
         if isinstance(_types, str):
             _types = [_types]
-        # 스폰 시 IV 미리 결정 (카드 표시 + 포획 시 동일 IV 사용)
-        from utils.battle_calc import generate_ivs, iv_total as _iv_total_fn
-        _pre_ivs = generate_ivs(is_shiny=is_shiny)
+        # 스폰 시 성격 + IV 미리 결정 (카드 표시 + 포획 시 동일 사용)
+        from utils.battle_calc import generate_personality as _gen_pers, generate_ivs_with_personality, personality_to_str, iv_total as _iv_total_fn
+        _personality = _gen_pers(is_shiny=is_shiny)
+        _personality_str = personality_to_str(_personality)
+        _pre_ivs = generate_ivs_with_personality(_personality, is_shiny=is_shiny)
         _spawn_iv = _iv_total_fn(
             _pre_ivs["iv_hp"], _pre_ivs["iv_atk"], _pre_ivs["iv_def"],
             _pre_ivs["iv_spa"], _pre_ivs["iv_spdef"], _pre_ivs["iv_spd"])
@@ -675,7 +692,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         session_id = await spawn_queries.create_spawn_session(
             chat_id, pokemon["id"], expires, is_shiny=is_shiny,
             is_newbie_spawn=is_newbie_spawn,
-            pre_ivs=_pre_ivs,
+            pre_ivs=_pre_ivs, personality=_personality_str,
         )
 
         # Update session with message_id
@@ -703,6 +720,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 "rarity": rarity,
                 "is_shiny": is_shiny,
                 "is_newbie_spawn": is_newbie_spawn,
+                "personality": _personality_str,
             },
             name=f"resolve_{session_id}",
         )

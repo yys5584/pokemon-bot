@@ -862,7 +862,7 @@
     "shiny_ticket_empty": "✨ 이로치 강스권이 없습니다."
   },
   "spawn_msg": {
-    "wild_appeared": "{icon} 야생의{shiny} {tb} {name}이(가) 나타났다!{bonus}{weather}\nㅊ 입력으로 잡기 ({window}초){newbie}",
+    "wild_appeared": "{icon} 야생의{shiny} {personality}{tb} {name}이(가) 나타났다!{bonus}{weather}\nㅊ 입력으로 잡기 ({window}초){newbie}",
     "newbie_tag": "\n🌱 이 포켓몬은 새로운 트레이너를 찾고 있어요!\n⚠️ 마스터볼/하이퍼볼은 효과가 없습니다",
     "escaped": "흔들흔들... {icon}{shiny} {badge}{tb} {name} 도망갔다!",
     "catch_newbie": "🌱 새로운 트레이너 {user} — {shiny}{badge}{tb} {name} {verb}{iv}",

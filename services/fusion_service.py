@@ -138,9 +138,12 @@ async def execute_fusion(
             lowest_key = min(forced_ivs, key=forced_ivs.get)
             forced_ivs[lowest_key] = min(31, forced_ivs[lowest_key] + 1)
 
+    # 합성 결과에도 성격 부여
+    from utils.battle_calc import generate_personality as _gen_pers, personality_to_str as _pers_str
+    _fusion_pers = _gen_pers(is_shiny=is_shiny)
     new_id, new_ivs = await queries.give_pokemon_to_user(
         user_id, pokemon_id, chat_id=None, is_shiny=is_shiny,
-        ivs=forced_ivs,
+        ivs=forced_ivs, personality=_pers_str(_fusion_pers),
     )
 
     result = await queries.get_user_pokemon_by_id(new_id)

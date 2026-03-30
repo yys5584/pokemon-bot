@@ -751,6 +751,80 @@ DUNGEON_TABLES = [
     )""",
 ]
 
+# ── 성격 시스템 마이그레이션 (2026-03-30) ──
+PERSONALITY_MIGRATIONS = [
+    "ALTER TABLE user_pokemon ADD COLUMN IF NOT EXISTS personality TEXT DEFAULT NULL",
+    "ALTER TABLE spawn_sessions ADD COLUMN IF NOT EXISTS personality TEXT DEFAULT NULL",
+    "ALTER TABLE spawn_log ADD COLUMN IF NOT EXISTS personality TEXT DEFAULT NULL",
+]
+
+
+async def migrate_personality() -> int:
+    """성격 시스템 마이그레이션: 컬럼 추가 + 레거시 포켓몬 성격 부여.
+    Returns: 업데이트된 포켓몬 수."""
+    import logging
+    _log = logging.getLogger(__name__)
+    pool = await get_db()
+
+    # 1. 컬럼 추가
+    for mig in PERSONALITY_MIGRATIONS:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
+
+    # 2. 레거시 backfill
+    return await _backfill_personality(pool)
+
+
+async def _backfill_personality(pool) -> int:
+    """레거시 포켓몬에 랜덤 성격 부여 (personality IS NULL인 것만).
+    이로치는 T2+ 보장."""
+    import logging
+    _log = logging.getLogger(__name__)
+
+    count = await pool.fetchval(
+        "SELECT COUNT(*) FROM user_pokemon WHERE personality IS NULL AND is_active = 1"
+    )
+    if not count:
+        _log.info("backfill_personality: no NULL personalities, skipping")
+        return 0
+
+    _log.info(f"backfill_personality: {count} pokemon need personality assignment")
+
+    from utils.battle_calc import generate_personality, personality_to_str
+
+    # 배치 처리: 1000개씩
+    batch_size = 1000
+    total_updated = 0
+    while True:
+        rows = await pool.fetch(
+            "SELECT id, is_shiny FROM user_pokemon "
+            "WHERE personality IS NULL AND is_active = 1 "
+            "LIMIT $1", batch_size,
+        )
+        if not rows:
+            break
+
+        # 배치 UPDATE 준비
+        updates = []
+        for r in rows:
+            is_shiny = bool(r["is_shiny"])
+            pers = generate_personality(is_shiny=is_shiny)
+            updates.append((personality_to_str(pers), r["id"]))
+
+        # executemany 대신 batch VALUES로 UPDATE
+        await pool.executemany(
+            "UPDATE user_pokemon SET personality = $1 WHERE id = $2",
+            updates,
+        )
+        total_updated += len(rows)
+        _log.info(f"backfill_personality: updated {total_updated}/{count}")
+
+    _log.info(f"backfill_personality: done, {total_updated} pokemon updated")
+    return total_updated
+
+
 DUNGEON_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_tickets INT NOT NULL DEFAULT 1",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS dungeon_tickets_bought_today INT NOT NULL DEFAULT 0",
@@ -1642,6 +1716,13 @@ async def create_tables():
             timeout=30)
     except Exception:
         pass
+
+    # ── 성격 시스템 (2026-03-30) ──
+    for mig in PERSONALITY_MIGRATIONS:
+        try:
+            await pool.execute(mig, timeout=30)
+        except Exception:
+            pass
 
     # ── 매일 이벤트 (퀴즈) 시스템 (2026-03-30) ──
     event_migs = [

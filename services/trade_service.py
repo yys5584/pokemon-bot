@@ -137,7 +137,7 @@ async def accept_trade(user_id: int, trade_id: int) -> tuple[bool, str, dict | N
     is_evolved = _EVOLVES_FROM.get(offer_pokemon_id) is not None
     new_instance_id, _ivs = await queries.give_pokemon_to_user(
         user_id, offer_pokemon_id, is_shiny=is_shiny, ivs=original_ivs,
-        nurture_locked=is_evolved,
+        nurture_locked=is_evolved, personality=offer_pokemon.get("personality"),
     )
 
     # Phase: pokedex + title updates in parallel (trade status already set above)

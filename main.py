@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from telegram.ext import Application
 
 from database.connection import get_db, close_db
-from database.schema import create_tables
+from database.schema import create_tables, migrate_personality
 from database.seed import seed_pokemon_data, seed_battle_data, migrate_18_types, migrate_assign_ivs, migrate_rarity_v2, migrate_ultra_legendary, migrate_catch_rates_v3, migrate_add_nurture_locked, migrate_trade_evo_fix
 
 from database import queries, item_queries
@@ -80,8 +80,9 @@ async def post_init(application: Application):
                 migrate_catch_rates_v3(),
                 migrate_add_nurture_locked(),
                 migrate_trade_evo_fix(),
-            ), timeout=60)
-            migrated, iv_assigned, _, rarity_migrated, ultra_migrated, catch_migrated, nurture_locked, trade_evo_fixed = results
+                migrate_personality(),
+            ), timeout=120)
+            migrated, iv_assigned, _, rarity_migrated, ultra_migrated, catch_migrated, nurture_locked, trade_evo_fixed, personality_assigned = results
             if migrated:
                 logger.info(f"18-type migration applied: {migrated} pokemon updated.")
             if iv_assigned:
@@ -96,6 +97,8 @@ async def post_init(application: Application):
                 logger.info("Nurture locked column added to user_pokemon.")
             if trade_evo_fixed:
                 logger.info("Trade evolution routes fixed (롱스톤/시드라/스라크/폴리곤).")
+            if personality_assigned:
+                logger.info(f"Personality migration: {personality_assigned} pokemon assigned personalities.")
         except Exception as e:
             logger.warning(f"Phase 2 migrations skipped ({e.__class__.__name__}) — already applied in prod")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready.")

@@ -902,7 +902,7 @@
     "shiny_ticket_empty": "✨ 沒有異色刷新券！"
   },
   "spawn_msg": {
-    "wild_appeared": "{icon} 野生的{shiny} {tb} {name} 出現了！{bonus}{weather}\n輸入 捕 來捕捉（{window}秒）{newbie}",
+    "wild_appeared": "{icon} 野生的{shiny} {personality}{tb} {name} 出現了！{bonus}{weather}\n輸入 捕 來捕捉（{window}秒）{newbie}",
     "newbie_tag": "\n🌱 這隻寶可夢正在尋找新訓練師！\n⚠️ 大師球/高級球無效",
     "escaped": "搖了搖... {icon}{shiny} {badge}{tb} {name} 逃跑了！",
     "catch_newbie": "🌱 新訓練師 {user} — {shiny}{badge}{tb} {name} {verb}{iv}",

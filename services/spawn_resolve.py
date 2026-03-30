@@ -32,6 +32,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
     rarity = data["rarity"]
     is_shiny = data.get("is_shiny", False)
     is_newbie_spawn = data.get("is_newbie_spawn", False)
+    _personality_str = data.get("personality")  # "T3:atk:사나움" or None
     # Mini-dict for poke_name() until full pokemon dict is loaded
     _poke_mini = {"name_ko": pokemon_name, "name_en": pokemon_name_en}
 
@@ -78,7 +79,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await spawn_queries.close_spawn_session(session_id)
             await spawn_queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
-                rarity, None, None, 0, is_shiny=is_shiny,
+                rarity, None, None, 0, is_shiny=is_shiny, personality=_personality_str,
             )
             return
 
@@ -206,7 +207,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await spawn_queries.close_spawn_session(session_id)
             await spawn_queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, pokemon_emoji,
-                rarity, None, None, participants, is_shiny=is_shiny,
+                rarity, None, None, participants, is_shiny=is_shiny, personality=_personality_str,
             )
             return
 
@@ -249,6 +250,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # Give Pokemon + register pokedex + close session (transaction)
         _inst_id, caught_ivs = await queries.catch_pokemon_transaction(
             winner_id, pokemon_id, chat_id, is_shiny, session_id,
+            personality=_personality_str,
         )
 
         # Mission: catch
@@ -288,13 +290,19 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         )
         shiny_label = f"{shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label')}" if is_shiny else ""
 
-        # IV grade display
-        from utils.battle_calc import iv_total
+        # IV grade + personality display
+        from utils.battle_calc import iv_total, personality_from_str as _pfs
         iv_sum = iv_total(caught_ivs["iv_hp"], caught_ivs["iv_atk"],
                           caught_ivs["iv_def"], caught_ivs["iv_spa"],
                           caught_ivs["iv_spdef"], caught_ivs["iv_spd"])
         iv_grade, _stars = config.get_iv_grade(iv_sum)
-        iv_tag = f" [{iv_grade}]"
+        # 성격 표시: [S] ⚪겁쟁이
+        _pers_parsed = _pfs(_personality_str)
+        if _pers_parsed:
+            _te = {"T1": "⚪", "T2": "🔵", "T3": "🟣", "T4": "🟡"}.get(_pers_parsed["tier"], "⚪")
+            iv_tag = f" [{iv_grade}] {_te}{_pers_parsed['name']}"
+        else:
+            iv_tag = f" [{iv_grade}]"
 
         rbadge = rarity_badge(rarity)
         tb = type_badge(pokemon_id)
@@ -399,8 +407,14 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
                 dm_ball = f"{ball_emoji('hyperball')} "
             else:
                 dm_ball = f"{ball_emoji('pokeball')} "
+            # 성격 표시
+            _pers_dm = ""
+            if _pers_parsed:
+                _te = {"T1": "⚪", "T2": "🔵", "T3": "🟣", "T4": "🟡"}.get(_pers_parsed["tier"], "⚪")
+                _pers_dm = f"{_te} 성격: {_pers_parsed['name']}\n"
             dm_text = (
                 f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
+                f"{_pers_dm}"
                 f"{iv_line}\n"
                 f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
                 f"{format_stats_line(stats_with_iv, stats_base, lang=_dm_lang)}\n\n"
@@ -464,10 +478,11 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         await spawn_queries.log_spawn(
             chat_id, pokemon_id, pokemon_name, pokemon_emoji,
             rarity, winner_id, winner_name, participants, is_shiny=is_shiny,
+            personality=_personality_str,
         )
 
         logger.info(
-            f"{winner_name} caught {pokemon_name} in chat {chat_id}"
+            f"{winner_name} caught {pokemon_name} ({_personality_str or 'no-pers'}) in chat {chat_id}"
         )
 
     except Exception as e:
@@ -488,7 +503,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
     # Find unresolved sessions with pokemon info
     sessions = await pool.fetch("""
         SELECT ss.id, ss.chat_id, ss.pokemon_id, pm.name_ko, pm.name_en, pm.emoji,
-               pm.rarity, pm.catch_rate, ss.is_shiny,
+               pm.rarity, pm.catch_rate, ss.is_shiny, ss.personality,
                CASE WHEN ss.spawned_at < NOW() - INTERVAL '5 minutes' THEN 1 ELSE 0 END as too_old
         FROM spawn_sessions ss
         JOIN pokemon_master pm ON ss.pokemon_id = pm.id
@@ -508,6 +523,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
         rarity = sess["rarity"]
         catch_rate = sess["catch_rate"]
         is_shiny = bool(sess.get("is_shiny"))
+        _sess_pers = sess.get("personality")  # personality string or None
 
         try:
             # Mark resolved
@@ -551,7 +567,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                 )
                 await spawn_queries.log_spawn(
                     chat_id, pokemon_id, pokemon_name, sess["emoji"],
-                    rarity, None, None, 0,
+                    rarity, None, None, 0, personality=_sess_pers,
                 )
                 continue
 
@@ -604,7 +620,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
                 )
                 await spawn_queries.log_spawn(
                     chat_id, pokemon_id, pokemon_name, sess["emoji"],
-                    rarity, None, None, participants,
+                    rarity, None, None, participants, personality=_sess_pers,
                 )
                 continue
 
@@ -632,6 +648,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             # Give pokemon (transaction)
             _inst_id, caught_ivs = await queries.catch_pokemon_transaction(
                 winner_id, pokemon_id, chat_id, is_shiny, session_id,
+                personality=_sess_pers,
             )
 
             # Build message
@@ -682,7 +699,7 @@ async def resolve_unresolved_sessions(bot) -> list[tuple[int, str]]:
             )
             await spawn_queries.log_spawn(
                 chat_id, pokemon_id, pokemon_name, sess["emoji"],
-                rarity, winner_id, winner_name, participants,
+                rarity, winner_id, winner_name, participants, personality=_sess_pers,
             )
 
             # Mission: catch (startup resolve - no context, use bot directly)

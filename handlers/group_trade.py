@@ -390,6 +390,7 @@ async def group_trade_callback_handler(update: Update, context: ContextTypes.DEF
         new_instance_id, _ivs = await queries.give_pokemon_to_user(
             user_id, trade["offer_pokemon_id"],
             is_shiny=is_shiny, ivs=original_ivs,
+            personality=offer_pokemon.get("personality"),
         )
 
         # Register in pokedex

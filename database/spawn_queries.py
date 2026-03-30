@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 async def create_spawn_session(
     chat_id: int, pokemon_id: int, expires_at, message_id: int | None = None,
     is_shiny: bool = False, is_newbie_spawn: bool = False,
-    pre_ivs: dict | None = None,
+    pre_ivs: dict | None = None, personality: str | None = None,
 ) -> int:
     async def _do():
         pool = await get_db()
@@ -27,9 +27,9 @@ async def create_spawn_session(
         import json as _json
         _ivs_json = _json.dumps(pre_ivs) if pre_ivs else None
         row = await pool.fetchrow(
-            """INSERT INTO spawn_sessions (chat_id, pokemon_id, expires_at, message_id, is_shiny, is_newbie_spawn, pre_ivs)
-               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id""",
-            chat_id, pokemon_id, exp, message_id, 1 if is_shiny else 0, 1 if is_newbie_spawn else 0, _ivs_json,
+            """INSERT INTO spawn_sessions (chat_id, pokemon_id, expires_at, message_id, is_shiny, is_newbie_spawn, pre_ivs, personality)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id""",
+            chat_id, pokemon_id, exp, message_id, 1 if is_shiny else 0, 1 if is_newbie_spawn else 0, _ivs_json, personality,
         )
         return row["id"]
     return await _retry(_do)
@@ -346,16 +346,16 @@ async def recharge_catch_limits():
 async def log_spawn(
     chat_id: int, pokemon_id: int, name: str, emoji: str,
     rarity: str, caught_by_id: int | None, caught_by_name: str | None,
-    participants: int, is_shiny: bool = False,
+    participants: int, is_shiny: bool = False, personality: str | None = None,
 ):
     pool = await get_db()
     await pool.execute(
         """INSERT INTO spawn_log
            (chat_id, pokemon_id, pokemon_name, pokemon_emoji, rarity,
-            caught_by_user_id, caught_by_name, participants, is_shiny)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
+            caught_by_user_id, caught_by_name, participants, is_shiny, personality)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)""",
         chat_id, pokemon_id, name, emoji, rarity,
-        caught_by_id, caught_by_name, participants, 1 if is_shiny else 0,
+        caught_by_id, caught_by_name, participants, 1 if is_shiny else 0, personality,
     )
 
 

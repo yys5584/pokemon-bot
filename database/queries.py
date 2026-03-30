@@ -392,30 +392,45 @@ async def get_all_pokemon() -> list[dict]:
 async def give_pokemon_to_user(
     user_id: int, pokemon_id: int, chat_id: int | None = None,
     is_shiny: bool = False, ivs: dict | None = None,
-    nurture_locked: bool = False,
+    nurture_locked: bool = False, personality: str | None = None,
 ) -> tuple[int, dict]:
     """Add a Pokemon to user's collection with IVs.
 
     If ivs dict provided, uses those IVs (for trades). Otherwise generates random IVs.
     nurture_locked: True면 친밀도 강화 불가 (진화 후 교환된 포켓몬)
+    personality: 성격 문자열 "T3:atk:사나움" (없으면 새로 생성)
     Returns (instance_id, iv_dict).
     iv_dict keys: iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd
     """
     if ivs is None:
-        from utils.battle_calc import generate_ivs
-        ivs = generate_ivs(is_shiny=is_shiny)
+        from utils.battle_calc import generate_personality, generate_ivs_with_personality, personality_to_str
+        if not personality:
+            _pers = generate_personality(is_shiny=is_shiny)
+            personality = personality_to_str(_pers)
+            ivs = generate_ivs_with_personality(_pers, is_shiny=is_shiny)
+        else:
+            from utils.battle_calc import personality_from_str
+            _pers = personality_from_str(personality)
+            if _pers:
+                ivs = generate_ivs_with_personality(_pers, is_shiny=is_shiny)
+            else:
+                from utils.battle_calc import generate_ivs
+                ivs = generate_ivs(is_shiny=is_shiny)
+    elif not personality:
+        # IVs provided but no personality (e.g., trade) - preserve as-is
+        pass
 
     pool = await get_db()
     row = await pool.fetchrow(
         """INSERT INTO user_pokemon
                (user_id, pokemon_id, caught_in_chat_id, is_shiny,
                 iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd,
-                nurture_locked)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id""",
+                nurture_locked, personality)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id""",
         user_id, pokemon_id, chat_id, 1 if is_shiny else 0,
         ivs["iv_hp"], ivs["iv_atk"], ivs["iv_def"],
         ivs["iv_spa"], ivs["iv_spdef"], ivs["iv_spd"],
-        nurture_locked,
+        nurture_locked, personality,
     )
     return row["id"], ivs
 
@@ -1053,18 +1068,23 @@ async def catch_pokemon_transaction(
     chat_id: int | None,
     is_shiny: bool,
     session_id: int,
+    personality: str | None = None,
 ) -> tuple[int, dict]:
     """Give pokemon + register pokedex + close session in a single transaction."""
     from utils.battle_calc import generate_ivs
     # 스폰 세션에 미리 생성된 IV가 있으면 사용, 없으면 새로 생성
     ivs = None
+    _pers = personality
     try:
         import json as _json
         _pool = await get_db()
-        _pre = await _pool.fetchval(
-            "SELECT pre_ivs FROM spawn_sessions WHERE id = $1", session_id)
-        if _pre:
-            ivs = _json.loads(_pre) if isinstance(_pre, str) else dict(_pre)
+        _row = await _pool.fetchrow(
+            "SELECT pre_ivs, personality FROM spawn_sessions WHERE id = $1", session_id)
+        if _row:
+            if _row["pre_ivs"]:
+                ivs = _json.loads(_row["pre_ivs"]) if isinstance(_row["pre_ivs"], str) else dict(_row["pre_ivs"])
+            if not _pers and _row.get("personality"):
+                _pers = _row["personality"]
     except Exception:
         pass
     if not ivs:
@@ -1075,11 +1095,11 @@ async def catch_pokemon_transaction(
             row = await conn.fetchrow(
                 """INSERT INTO user_pokemon
                        (user_id, pokemon_id, caught_in_chat_id, is_shiny,
-                        iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id""",
+                        iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd, personality)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id""",
                 user_id, pokemon_id, chat_id, 1 if is_shiny else 0,
                 ivs["iv_hp"], ivs["iv_atk"], ivs["iv_def"],
-                ivs["iv_spa"], ivs["iv_spdef"], ivs["iv_spd"],
+                ivs["iv_spa"], ivs["iv_spdef"], ivs["iv_spd"], _pers,
             )
             await conn.execute(
                 """INSERT INTO pokedex (user_id, pokemon_id, method)

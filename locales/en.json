@@ -1039,7 +1039,7 @@
   },
 
   "spawn_msg": {
-    "wild_appeared": "{icon} A wild{shiny} {tb} {name} appeared!{bonus}{weather}\nType 'c' to catch! ({window}s){newbie}",
+    "wild_appeared": "{icon} A wild{shiny} {personality}{tb} {name} appeared!{bonus}{weather}\nType 'c' to catch! ({window}s){newbie}",
     "newbie_tag": "\n🌱 This Pokemon is looking for a new trainer!\n⚠️ Master Ball/Great Ball have no effect",
     "escaped": "Shake shake... {icon}{shiny} {badge}{tb} {name} got away!",
     "catch_newbie": "🌱 New trainer {user} — {shiny}{badge}{tb} {name} {verb}{iv}",
