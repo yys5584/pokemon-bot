@@ -201,13 +201,18 @@ def personality_to_str(personality: dict) -> str:
 
 
 def personality_from_str(s: str | None) -> dict | None:
-    """DB 문자열 → 성격 dict. None이면 None."""
+    """DB 문자열 → 성격 dict. None이면 None.
+    이름은 config에서 최신 값 조회 (DB에 저장된 이름이 변경될 수 있으므로).
+    """
     if not s:
         return None
     parts = s.split(":", 2)
     if len(parts) != 3:
         return None
-    return {"tier": parts[0], "type": parts[1], "name": parts[2]}
+    tier, ptype = parts[0], parts[1]
+    # config에서 최신 이름 조회, 없으면 DB 저장값 사용
+    name = config.get_personality_name(tier, ptype) or parts[2]
+    return {"tier": tier, "type": ptype, "name": name}
 
 
 def iv_total(iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd) -> int:
