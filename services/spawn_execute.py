@@ -657,15 +657,21 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         _spawn_iv = _iv_total_fn(
             _pre_ivs["iv_hp"], _pre_ivs["iv_atk"], _pre_ivs["iv_def"],
             _pre_ivs["iv_spa"], _pre_ivs["iv_spdef"], _pre_ivs["iv_spd"])
-        try:
-            from utils.card_renderer import render_card_html_async
-            card_buf = await asyncio.wait_for(render_card_html_async(
-                pokemon["id"], f"야생의 {pokemon['name_ko']}", rarity,
-                is_shiny=is_shiny, iv_total=_spawn_iv, types=_types,
-                personality_str=_personality_str,
-            ), timeout=15)
-        except Exception as e:
-            logger.warning(f"Playwright render failed, falling back to PIL: {e}")
+        # 아케이드(30초 간격)에서는 PIL 강제 사용 (Playwright는 렌더링 시간 때문에 겹침)
+        use_playwright = not arcade
+        if use_playwright:
+            try:
+                from utils.card_renderer import render_card_html_async
+                card_buf = await asyncio.wait_for(render_card_html_async(
+                    pokemon["id"], f"야생의 {pokemon['name_ko']}", rarity,
+                    is_shiny=is_shiny, iv_total=_spawn_iv, types=_types,
+                    personality_str=_personality_str,
+                ), timeout=15)
+            except Exception as e:
+                logger.warning(f"Playwright render failed, falling back to PIL: {e}")
+                use_playwright = False
+
+        if not use_playwright:
             from functools import partial
             loop = asyncio.get_event_loop()
             card_buf = await loop.run_in_executor(
