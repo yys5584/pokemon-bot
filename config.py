@@ -2357,7 +2357,23 @@ QUIZ_MAX_WINNERS_PER_Q = 5       # 문제당 선착순 5명
 QUIZ_BETWEEN_QUESTIONS_DELAY = 3  # 문제 간 대기(초)
 
 # 보상 (문제당, 5문제 후 일괄 정산)
-QUIZ_REWARD_FIRST = {"item": "iv_reroll_one", "amount": 2}   # 1등 (최초 정답)
-QUIZ_REWARD_TOP5 = {"item": "iv_reroll_one", "amount": 1}    # 2~5등
-QUIZ_REWARD_OTHERS_BP = 500                                    # 6등+ 정답
-QUIZ_REWARD_PARTICIPATION_BP = 500                             # 참가 (0문제)
+# 1~5등: 랜덤 상자 + 500BP / 6~10등: 500BP / 11등+: 200BP
+QUIZ_REWARD_RANK1 = [
+    (0.50, "iv_reroll_one", 2, "IV선택리롤 ×2"),
+    (0.30, "shiny_egg", 1, "이로치알"),
+    (0.20, "iv_stone", 1, "IV스톤"),
+]
+QUIZ_REWARD_RANK2_3 = [
+    (0.50, "iv_reroll_one", 1, "IV선택리롤 ×1"),
+    (0.40, "iv_reroll_one", 2, "IV선택리롤 ×2"),
+    (0.10, "shiny_egg", 1, "이로치알"),
+]
+QUIZ_REWARD_RANK4_5 = [
+    (0.60, "iv_reroll_one", 1, "IV선택리롤 ×1"),
+    (0.30, "iv_reroll_all", 1, "IV전체리롤 ×1"),
+    (0.10, "shiny_spawn_ticket", 1, "이로치강스권"),
+]
+QUIZ_REWARD_TOP5_BP = 500         # 1~5등 추가 BP
+QUIZ_REWARD_RANK6_10_BP = 500     # 6~10등
+QUIZ_REWARD_RANK11_BP = 200       # 11등+
+QUIZ_REWARD_PARTICIPATION_BP = 200 # 참가 (0문제)
