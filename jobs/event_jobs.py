@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import random
 
@@ -54,14 +55,28 @@ async def _trigger_daily_quiz(context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = row["chat_id"]
 
-    # 퀴즈 시작
+    # 1. DM 알림 발송 (최근 3시간 활동 유저)
+    await _send_quiz_alerts(context, chat_id, invite_link)
+
+    # 2. 채팅방에 1분 뒤 시작 공지
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=(
+            "🧠 <b>오늘의 포켓몬은 뭘까요?</b>\n\n"
+            "잠시 후 퀴즈가 시작됩니다!\n"
+            f"💡 <code>ㄷ 포켓몬이름</code> 으로 정답 제출\n"
+            "⏰ <b>1분 뒤 시작!</b>"
+        ),
+        parse_mode="HTML",
+    )
+
+    # 3. 60초 대기
+    await asyncio.sleep(60)
+
+    # 4. 퀴즈 시작
     ok = await start_quiz(context, chat_id)
     if not ok:
         _log.warning(f"Failed to start quiz in chat_id={chat_id}")
-        return
-
-    # DM 알림 발송 (최근 3시간 활동 유저)
-    await _send_quiz_alerts(context, chat_id, invite_link)
 
 
 async def _send_quiz_alerts(context: ContextTypes.DEFAULT_TYPE, chat_id: int, invite_link: str):
