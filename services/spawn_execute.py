@@ -366,7 +366,7 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             _pers = _pfs(_pers_str)
             _pers_dm = ""
             if _pers:
-                _te = {"T1": "⚪", "T2": "🔵", "T3": "🟣", "T4": "🟡"}.get(_pers["tier"], "⚪")
+                _te = {"T1": "⚪", "T2": "🔵", "T3": "🟡", "T4": "🟢"}.get(_pers["tier"], "⚪")
                 _pers_dm = f"{_te} 성격: {_pers['name']}\n"
             dm_text = (
                 f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
@@ -643,7 +643,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         # 성격 태그 (티어 색상 이모지 + 이름)
         _pers_name = _personality["name"]
         _pers_tier = _personality["tier"]
-        _tier_emoji = {"T1": "⚪", "T2": "🔵", "T3": "🟣", "T4": "🟡"}.get(_pers_tier, "⚪")
+        _tier_emoji = {"T1": "⚪", "T2": "🔵", "T3": "🟡", "T4": "🟢"}.get(_pers_tier, "⚪")
         personality_tag = f"{_tier_emoji}<b>{_pers_name}</b> "
         caption = t(_lang, "spawn_msg.wild_appeared",
                      icon=icon_emoji('footsteps'), shiny=shiny_text, tb=tb,
@@ -662,6 +662,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             card_buf = await render_card_html_async(
                 pokemon["id"], f"야생의 {pokemon['name_ko']}", rarity,
                 is_shiny=is_shiny, iv_total=_spawn_iv, types=_types,
+                personality_str=_personality_str,
             )
         except Exception as e:
             logger.warning(f"Playwright render failed, falling back to PIL: {e}")

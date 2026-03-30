@@ -83,7 +83,8 @@ def _load_css() -> str:
 def _build_html(pokemon_id: int, name_ko: str, rarity: str,
                 is_shiny: bool, iv_total: int | None,
                 types: list[str] | None,
-                mega_key: str | None = None) -> str:
+                mega_key: str | None = None,
+                personality_str: str | None = None) -> str:
     """동적 파라미터로 카드 HTML 생성."""
     r = _RARITY_MAP.get(rarity, _RARITY_MAP["common"])
     root_url = ROOT.as_posix()
@@ -119,6 +120,14 @@ def _build_html(pokemon_id: int, name_ko: str, rarity: str,
 
     # SHINY 뱃지
     shiny_badge = '<span class="shiny-badge">SHINY</span>' if is_shiny else ""
+
+    # 성격 뱃지
+    pers_badge = ""
+    if personality_str:
+        from utils.battle_calc import personality_from_str
+        _p = personality_from_str(personality_str)
+        if _p:
+            pers_badge = f'<span class="pers-badge pers-{_p["tier"]}">{_p["name"]}</span>'
 
     # 스프라이트
     if mega_key:
@@ -172,6 +181,7 @@ def _build_html(pokemon_id: int, name_ko: str, rarity: str,
     html = html.replace("{{POKEMON_ID}}", f"{pokemon_id:03d}")
     html = html.replace("{{POKEMON_NAME}}", name_ko)
     html = html.replace("{{SHINY_BADGE}}", shiny_badge)
+    html = html.replace("{{PERSONALITY_BADGE}}", pers_badge)
     html = html.replace("{{TYPE_ICONS}}", type_icons)
     html = html.replace("{{BADGE_CLASS}}", r["badge_cls"])
     html = html.replace("{{BADGE_TEXT}}", r["badge_text"])
@@ -208,9 +218,10 @@ async def _get_browser_async():
 async def render_card_html_async(pokemon_id: int, name_ko: str, rarity: str,
                                  is_shiny: bool = False, mega_key: str | None = None,
                                  iv_total: int | None = None,
-                                 types: list[str] | None = None) -> io.BytesIO:
+                                 types: list[str] | None = None,
+                                 personality_str: str | None = None) -> io.BytesIO:
     """HTML 템플릿으로 카드 렌더링 (async) → JPEG BytesIO 반환."""
-    html = _build_html(pokemon_id, name_ko, rarity, is_shiny, iv_total, types, mega_key)
+    html = _build_html(pokemon_id, name_ko, rarity, is_shiny, iv_total, types, mega_key, personality_str)
 
     # 임시 HTML 파일 (동시 요청 충돌 방지: uuid)
     import uuid

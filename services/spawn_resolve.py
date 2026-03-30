@@ -299,7 +299,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         # 성격 표시: [S] ⚪겁쟁이
         _pers_parsed = _pfs(_personality_str)
         if _pers_parsed:
-            _te = {"T1": "⚪", "T2": "🔵", "T3": "🟣", "T4": "🟡"}.get(_pers_parsed["tier"], "⚪")
+            _te = {"T1": "⚪", "T2": "🔵", "T3": "🟡", "T4": "🟢"}.get(_pers_parsed["tier"], "⚪")
             iv_tag = f" [{iv_grade}] {_te}{_pers_parsed['name']}"
         else:
             iv_tag = f" [{iv_grade}]"
@@ -410,7 +410,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             # 성격 표시
             _pers_dm = ""
             if _pers_parsed:
-                _te = {"T1": "⚪", "T2": "🔵", "T3": "🟣", "T4": "🟡"}.get(_pers_parsed["tier"], "⚪")
+                _te = {"T1": "⚪", "T2": "🔵", "T3": "🟡", "T4": "🟢"}.get(_pers_parsed["tier"], "⚪")
                 _pers_dm = f"{_te} 성격: {_pers_parsed['name']}\n"
             dm_text = (
                 f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"

@@ -372,8 +372,8 @@ IV_CEILING_TOTAL = 186     # 성격 상한선 총합 (고정)
 PERSONALITY_TIERS = {
     "T1": {"prob": 0.45, "opt": 0.0,  "color": "gray",   "color_rgb": (107, 114, 128)},
     "T2": {"prob": 0.30, "opt": 0.33, "color": "blue",   "color_rgb": (59, 130, 246)},
-    "T3": {"prob": 0.15, "opt": 0.66, "color": "purple", "color_rgb": (168, 85, 247)},
-    "T4": {"prob": 0.10, "opt": 1.0,  "color": "gold",   "color_rgb": (234, 179, 8)},
+    "T3": {"prob": 0.15, "opt": 0.66, "color": "yellow", "color_rgb": (234, 179, 8)},
+    "T4": {"prob": 0.10, "opt": 1.0,  "color": "green",  "color_rgb": (34, 197, 94)},
 }
 
 PERSONALITY_TYPES = {
