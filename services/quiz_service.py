@@ -188,6 +188,7 @@ class QuizState:
     total_participants: set[int] = field(default_factory=set)
     question_started_at: float = 0.0
     is_accepting: bool = False
+    test_mode: bool = False
 
 
 # 채팅방별 활성 퀴즈 (메모리)
@@ -198,8 +199,8 @@ def get_active_quiz(chat_id: int) -> QuizState | None:
     return _active_quizzes.get(chat_id)
 
 
-async def start_quiz(context, chat_id: int) -> bool:
-    """퀴즈 시작. 성공하면 True."""
+async def start_quiz(context, chat_id: int, *, test_mode: bool = False) -> bool:
+    """퀴즈 시작. test_mode=True면 보상 없이 진행."""
     if chat_id in _active_quizzes:
         _log.warning(f"Quiz already active in {chat_id}")
         return False
@@ -215,6 +216,7 @@ async def start_quiz(context, chat_id: int) -> bool:
         event_id=event_id,
         chat_id=chat_id,
         questions=questions,
+        test_mode=test_mode,
     )
     _active_quizzes[chat_id] = state
 
@@ -404,14 +406,13 @@ async def _finalize_quiz(context, state: QuizState):
                 if a_uid == uid and a_rank > config.QUIZ_MAX_WINNERS_PER_Q:
                     bp_total += config.QUIZ_REWARD_OTHERS_BP
 
-        # 지급
-        if iv_total > 0:
-            await iq.add_user_item(uid, "iv_reroll_one", iv_total)
-        if bp_total > 0:
-            await queries.add_battle_points(uid, bp_total)
-
-        # 참가 보상 (전원)
-        await queries.add_battle_points(uid, config.QUIZ_REWARD_PARTICIPATION_BP)
+        # 지급 (test_mode면 스킵)
+        if not state.test_mode:
+            if iv_total > 0:
+                await iq.add_user_item(uid, "iv_reroll_one", iv_total)
+            if bp_total > 0:
+                await queries.add_battle_points(uid, bp_total)
+            await queries.add_battle_points(uid, config.QUIZ_REWARD_PARTICIPATION_BP)
 
         user = await queries.get_user(uid)
         name = user["display_name"] if user else str(uid)
@@ -424,13 +425,15 @@ async def _finalize_quiz(context, state: QuizState):
         reward_lines.append(f"  {name} — {correct}/{len(state.questions)} ({', '.join(parts)})")
 
     # 정답 0문제인 참가자에게도 참가 보상
-    for uid in all_participant_ids:
-        if uid not in rewarded_uids:
-            await queries.add_battle_points(uid, config.QUIZ_REWARD_PARTICIPATION_BP)
+    if not state.test_mode:
+        for uid in all_participant_ids:
+            if uid not in rewarded_uids:
+                await queries.add_battle_points(uid, config.QUIZ_REWARD_PARTICIPATION_BP)
 
     # 결과 메시지
     total_q = len(state.questions)
-    msg = f"🏆 <b>퀴즈 종료!</b> ({total_q}문제)\n\n"
+    test_label = " [테스트]" if state.test_mode else ""
+    msg = f"🏆 <b>퀴즈 종료!{test_label}</b> ({total_q}문제)\n\n"
 
     if reward_lines:
         msg += "\n".join(reward_lines[:15])

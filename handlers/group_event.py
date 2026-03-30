@@ -167,6 +167,6 @@ async def admin_force_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     chat_id = update.effective_chat.id
-    ok = await start_quiz(context, chat_id)
+    ok = await start_quiz(context, chat_id, test_mode=True)
     if not ok:
         await update.message.reply_text("퀴즈가 이미 진행 중입니다.")
