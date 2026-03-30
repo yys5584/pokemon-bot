@@ -9,32 +9,41 @@ load_dotenv()
 
 TITLE = "🆕 v2.6 업데이트 — 성격 시스템 + 퀴즈 이벤트"
 
-CONTENT = '''🎭 <b>성격 시스템</b>
-포켓몬마다 성격이 붙고, 성격이 좋을수록 배틀에서 강해집니다.
+CONTENT = '''같은 포켓몬이라도 개성이 달라야 재밌잖아요.
+이제 포켓몬마다 고유한 성격이 부여됩니다. 같은 리자몽이라도 『무쌍』이 붙으면 화력이 다릅니다.
+배틀, 던전, 랭전, 토너먼트 — 모든 전투에 성격 보너스가 적용됩니다.
 
-⚔️ <b>공격형</b> — 주력 공격 +8%
-소심 → ·난폭· → 「사나움」 → 『무쌍』
+🎭 <b>성격 시스템</b>
 
-🛡 <b>방어형</b> — HP+4% 방어+8% 특방+4%
-유리몸 → ·단단· → 「억센」 → 『철벽』
+<b style="color:#fca5a5;">⚔️ 공격형</b> — 주력 공격스탯 부스트 (공격 or 특공 중 높은 쪽)
+<span style="color:#888;">소심</span> → <span style="color:#93c5fd;">·난폭·</span> → <span style="color:#fde68a;">「사나움」</span> → <span style="color:#86efac;font-weight:800;">『무쌍』</span>
+<span style="color:#aaa;">주력 공격:</span> <span style="color:#888;">+0%</span> / <span style="color:#93c5fd;font-weight:800;">+3%</span> / <span style="color:#fde68a;font-weight:800;">+5%</span> / <span style="color:#86efac;font-weight:800;">+8%</span>
 
-⚡ <b>스피드형</b> — 스피드+10% 부공격+3%
-굼뜸 → ·재빠름· → 「질풍」 → 『신속』
+<b style="color:#93c5fd;">🛡️ 방어형</b> — 방어 & 특방 & HP 부스트
+<span style="color:#888;">유리몸</span> → <span style="color:#93c5fd;">·단단·</span> → <span style="color:#fde68a;">「억센」</span> → <span style="color:#86efac;font-weight:800;">『철벽』</span>
+<span style="color:#aaa;">방어·특방:</span> <span style="color:#888;">+0%</span> / <span style="color:#93c5fd;font-weight:800;">+3%</span> / <span style="color:#fde68a;font-weight:800;">+5%</span> / <span style="color:#86efac;font-weight:800;">+8%</span>
+<span style="color:#aaa;">HP:</span> <span style="color:#888;">+0%</span> / <span style="color:#93c5fd;font-weight:800;">+1.5%</span> / <span style="color:#fde68a;font-weight:800;">+2.5%</span> / <span style="color:#86efac;font-weight:800;">+4%</span>
 
-⚖ <b>밸런스형</b> — 전스탯 각+2.4%
-변덕 → ·냉철· → 「명석」 → 『완벽』
+<b style="color:#fde68a;">⚡ 스피드형</b> — 스피드 + 부공격 부스트
+<span style="color:#888;">굼뜸</span> → <span style="color:#93c5fd;">·재빠름·</span> → <span style="color:#fde68a;">「질풍」</span> → <span style="color:#86efac;font-weight:800;">『신속』</span>
+<span style="color:#aaa;">스피드:</span> <span style="color:#888;">+0%</span> / <span style="color:#93c5fd;font-weight:800;">+3.6%</span> / <span style="color:#fde68a;font-weight:800;">+6%</span> / <span style="color:#86efac;font-weight:800;">+9.6%</span>
+<span style="color:#aaa;">주력 공격:</span> <span style="color:#888;">+0%</span> / <span style="color:#93c5fd;font-weight:800;">+1.2%</span> / <span style="color:#fde68a;font-weight:800;">+2%</span> / <span style="color:#86efac;font-weight:800;">+3.2%</span>
 
-• 기존 포켓몬 전부 자동 부여
-• 이로치 2등급+ 보장
-• 합성 시 부모 성격 50% 유전
-• 배틀·던전·토너·랭전 전부 적용
-• 카드·내포켓몬·감정에서 확인
+<b style="color:#86efac;">⚖️ 밸런스형</b> — 전 스탯 균등 부스트
+<span style="color:#888;">변덕</span> → <span style="color:#93c5fd;">·냉철·</span> → <span style="color:#fde68a;">「명석」</span> → <span style="color:#86efac;font-weight:800;">『완벽』</span>
+<span style="color:#aaa;">전 스탯:</span> <span style="color:#888;">+0%</span> / <span style="color:#93c5fd;font-weight:800;">각+0.9%</span> / <span style="color:#fde68a;font-weight:800;">각+1.5%</span> / <span style="color:#86efac;font-weight:800;">각+2.4%</span>
+
+💡 <b>알아두면 좋은 것</b>
+• 기존 포켓몬 전부 성격 자동 부여 완료
+• <b>이로치</b>는 최소 2등급 이상 보장
+• <b>합성</b> 시 부모 성격을 50% 확률로 유전
+• 스폰 카드 · 내포켓몬 · 감정 · 팀 편집에서 확인 가능
 
 🧠 <b>매일 퀴즈 이벤트</b>
 매일 밤 20:30~21:00 포켓몬 퀴즈!
-• 채널장 구독권 유저 → DM에서 "채널등록"
+• <b>채널장 구독권</b> 유저 → DM에서 "채널등록"
 • 등록된 방 중 매일 랜덤 1곳 선정
-• 정답: ㄷ 포켓몬이름
+• 정답: <code>ㄷ 포켓몬이름</code>
 • 정답자에게 BP + 랜덤 상자 보상'''
 
 
