@@ -425,6 +425,15 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int, la
                 _type_info = config.PERSONALITY_TYPES.get(_pp["type"], {})
                 _bonus = _type_info.get("bonus", {})
                 _stat_names = {"hp":"HP","atk":"공격","def":"방어","spa":"특공","spdef":"특방","spd":"스피드"}
+                # 공격형/스피드형: 실제 적용되는 주력 스탯만 표시
+                if _pp["type"] in ("atk", "spd"):
+                    from utils.battle_calc import get_normalized_base_stats
+                    _bs = get_normalized_base_stats(p["pokemon_id"])
+                    _ba = (_bs or {}).get("base_atk", 0)
+                    _bsa = (_bs or {}).get("base_spa", 0)
+                    _dominant = "spa" if _bsa > _ba else "atk"
+                    _other = "atk" if _dominant == "spa" else "spa"
+                    _bonus = {k: v for k, v in _bonus.items() if k != _other}
                 _parts = []
                 for sk, w in _bonus.items():
                     pct = _tier_pct * w * 100
