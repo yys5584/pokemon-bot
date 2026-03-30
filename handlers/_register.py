@@ -21,7 +21,7 @@ from handlers.group import (
     love_easter_egg, love_hidden_handler,
     attendance_handler, daily_money_handler, ranking_handler,
     log_handler, dashboard_handler, room_info_handler,
-    my_pokemon_group_handler, on_chat_activity, close_message_callback,
+    my_pokemon_group_handler, group_mypoke_callback, on_chat_activity, close_message_callback,
     catch_keep_callback, catch_release_callback,
     shiny_ticket_spawn_handler, group_lang_handler,
     captcha_callback_handler,
@@ -317,6 +317,7 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler((group | dm) & filters.Regex(r"^대시보드$"), dashboard_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^방정보$"), room_info_handler))
     app.add_handler(MessageHandler(group & filters.Regex(r"^내포켓몬\s+\S+$"), my_pokemon_group_handler))
+    app.add_handler(CallbackQueryHandler(group_mypoke_callback, pattern=r"^gmypk_"))
 
     # Camp system v2 (Group)
     if HAS_CAMP:

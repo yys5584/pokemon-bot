@@ -976,6 +976,21 @@ async def _show_pokemon_detail(update: Update, user_id: int, name_query: str, la
     if pokemon["evolution_method"] == "trade":
         lines.append("⚠️ 교환으로만 진화 가능!")
 
+    # 추천 성격
+    if pbs:
+        _stats = pbs  # (hp, atk, def, spa, spdef, spd, types)
+        _atk, _spa, _spd = _stats[1], _stats[3], _stats[5]
+        _def_v, _spdef_v = _stats[2], _stats[4]
+        _best_type = "balance"
+        if _atk >= 120 or _spa >= 120:
+            _best_type = "atk"
+        elif _spd >= 110:
+            _best_type = "spd"
+        elif (_def_v + _spdef_v) >= 200:
+            _best_type = "def"
+        _type_names_ko = {"atk": "공격형 (무쌍)", "def": "방어형 (철벽)", "spd": "스피드형 (신속)", "balance": "밸런스형 (완벽)"}
+        lines.append(f"\n🎭 추천 성격: <b>{_type_names_ko[_best_type]}</b>")
+
     if tmi:
         lines.append(f"\n💡 {tmi}")
 

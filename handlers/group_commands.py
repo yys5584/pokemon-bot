@@ -224,8 +224,6 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     from utils.helpers import format_personality_iv_tag
 
-    PAGE_SIZE = 10  # mypoke 페이지 사이즈
-
     rarity_labels = {
         "ultra_legendary": t(lang, "rarity.ultra_legendary"),
         "legendary": t(lang, "rarity.legendary"),
@@ -248,10 +246,9 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
         team_tag = f" 🎯{t(lang, 'team.team_title', num=p['team_num'])}" if p.get("team_num") else ""
         rl = rarity_labels.get(p.get("rarity", ""), "")
         lines.append(f"{n+1}. {rb}{tb}{s} {poke_name(p, lang)} ({rl}){iv_tag}{team_tag}")
-        page = idx // PAGE_SIZE
         buttons.append([InlineKeyboardButton(
             f"{n+1}. {poke_name(p, lang)}{' ✨' if p.get('is_shiny') else ''}",
-            callback_data=f"mypoke_v_{user_id}_{idx}_{page}",
+            callback_data=f"gmypk_{user_id}_{idx}",
         )])
 
     if len(matches) > 15:
@@ -260,6 +257,91 @@ async def my_pokemon_group_handler(update: Update, context: ContextTypes.DEFAULT
     markup = InlineKeyboardMarkup(buttons) if buttons else None
     msg = await update.message.reply_text("\n".join(lines), reply_markup=markup, parse_mode="HTML")
     schedule_delete(msg, 60)
+
+
+# ── 그룹 내포켓몬 상세보기 콜백 ───────────────────────────────────
+
+async def group_mypoke_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle gmypk_{user_id}_{idx} — 그룹 내포켓몬 간단 상세보기."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    parts = query.data.split("_")
+    # gmypk_{user_id}_{idx}
+    user_id = int(parts[1])
+    idx = int(parts[2])
+
+    if query.from_user.id != user_id:
+        await query.answer("본인만 확인할 수 있어요.", show_alert=True)
+        return
+    await query.answer()
+
+    pokemon_list = await queries.get_user_pokemon_list(user_id)
+    if not pokemon_list or idx >= len(pokemon_list):
+        await query.edit_message_text("❌ 포켓몬 정보를 불러올 수 없습니다.")
+        return
+
+    p = pokemon_list[idx]
+    shiny_mark = "✨ " if p.get("is_shiny") else ""
+    rb = rarity_badge(p.get("rarity", "common"))
+    tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
+
+    # 타입명
+    from models.pokemon_base_stats import POKEMON_BASE_STATS
+    pbs = POKEMON_BASE_STATS.get(p["pokemon_id"])
+    type_names = ""
+    if pbs:
+        type_names = " / ".join(config.TYPE_NAME_KO.get(t, t) for t in pbs[-1])
+
+    # IV 정보
+    iv_line = ""
+    stats_line = ""
+    if p.get("iv_hp") is not None:
+        from utils.battle_calc import iv_total, calc_battle_stats, format_power, get_normalized_base_stats, EVO_STAGE_MAP, personality_from_str
+        from utils.helpers import format_personality_tag as _fpt
+        iv_hp, iv_atk, iv_def = p["iv_hp"], p["iv_atk"], p["iv_def"]
+        iv_spa, iv_spdef, iv_spd = p["iv_spa"], p["iv_spdef"], p["iv_spd"]
+        total_iv = iv_total(iv_hp, iv_atk, iv_def, iv_spa, iv_spdef, iv_spd)
+        grade, _ = config.get_iv_grade(total_iv)
+        pers_tag = _fpt(p.get("personality")).strip()
+        pers_label = f" {pers_tag}" if pers_tag else ""
+        iv_line = f"\nIV: {iv_hp}/{iv_atk}/{iv_def}/{iv_spa}/{iv_spdef}/{iv_spd} ({total_iv}/186) [{grade}]{pers_label}"
+
+        pid = p["pokemon_id"]
+        _base_stats = get_normalized_base_stats(pid)
+        evo_stage = 3 if _base_stats else EVO_STAGE_MAP.get(pid, 3)
+        _bkw = _base_stats or {}
+        stats = calc_battle_stats(
+            p["rarity"], p.get("stat_type", "balanced"), p["friendship"],
+            evo_stage=evo_stage,
+            iv_hp=iv_hp, iv_atk=iv_atk, iv_def=iv_def,
+            iv_spa=iv_spa, iv_spdef=iv_spdef, iv_spd=iv_spd,
+            **_bkw, personality_str=p.get("personality"),
+        )
+        base = calc_battle_stats(
+            p["rarity"], p.get("stat_type", "balanced"), p["friendship"],
+            evo_stage=evo_stage, **_bkw,
+        )
+        stats_line = f"\n⚡ 전투력: {format_power(stats, base)}"
+
+    # 친밀도
+    max_f = config.get_max_friendship(p)
+    team_tag = f"\n⚔ 팀{p.get('team_num') or 1} — {p['team_slot']}번 슬롯" if p.get("team_slot") is not None else ""
+
+    rarity_labels = {
+        "ultra_legendary": "초전설", "legendary": "전설",
+        "epic": "에픽", "rare": "레어", "common": "일반",
+    }
+
+    text = (
+        f"{shiny_mark}{rb}{tb} <b>{p['name_ko']}</b>\n"
+        f"등급: {rarity_labels.get(p.get('rarity',''), '')}  타입: {type_names}\n"
+        f"친밀도: {p['friendship']}/{max_f}"
+        f"{iv_line}{stats_line}{team_tag}"
+    )
+
+    await query.edit_message_text(text, parse_mode="HTML")
 
 
 # ── 이로치 강스권 (일반 유저용) ──────────────────────────────────
