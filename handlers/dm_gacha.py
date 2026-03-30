@@ -523,13 +523,19 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     elif data.startswith("pers_ft_"):
         # pers_ft_{rarity}_{ptype}_{page}
         parts = data.split("_")
-        rf = parts[2]
+        rf = parts[2] if len(parts) > 2 else "all"
         pt = parts[3] if len(parts) > 3 else "all"
-        pg = int(parts[4]) if len(parts) > 4 else 0
+        try:
+            pg = int(parts[4]) if len(parts) > 4 else 0
+        except ValueError:
+            pg = 0
         await _start_personality_change(query, user_id, pg, rf, pt)
     elif data.startswith("pers_pk_"):
         # pers_pk_{instance_id}
-        instance_id = int(data.split("_")[2])
+        try:
+            instance_id = int(data.split("_")[2])
+        except (ValueError, IndexError):
+            return
         await _execute_personality_change(query, user_id, instance_id)
         context.user_data.pop("mypoke_cache", None)
     elif data.startswith("pers_pg_"):
@@ -537,7 +543,10 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         parts = data.split("_")
         rf = parts[2] if len(parts) > 2 else "all"
         pt = parts[3] if len(parts) > 3 else "all"
-        pg = int(parts[4]) if len(parts) > 4 else 0
+        try:
+            pg = int(parts[4]) if len(parts) > 4 else 0
+        except ValueError:
+            pg = 0
         await _start_personality_change(query, user_id, pg, rf, pt)
     elif data == "item_use_iv_reroll_all":
         await _start_iv_reroll(query, user_id, "all")

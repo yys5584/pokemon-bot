@@ -267,18 +267,36 @@ async def group_mypoke_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if not query or not query.data:
         return
 
+    # 토너먼트 중 차단
+    if update.effective_chat and is_tournament_active(update.effective_chat.id):
+        await query.answer("대회 중에는 사용할 수 없습니다.", show_alert=True)
+        return
+
     parts = query.data.split("_")
-    # gmypk_{user_id}_{idx}
-    user_id = int(parts[1])
-    idx = int(parts[2])
+    if len(parts) < 3:
+        await query.answer()
+        return
+    try:
+        user_id = int(parts[1])
+        idx = int(parts[2])
+    except (ValueError, IndexError):
+        await query.answer()
+        return
 
     if query.from_user.id != user_id:
         await query.answer("본인만 확인할 수 있어요.", show_alert=True)
         return
     await query.answer()
 
-    pokemon_list = await queries.get_user_pokemon_list(user_id)
-    if not pokemon_list or idx >= len(pokemon_list):
+    # 캐싱 (DM과 동일 패턴)
+    cache_key = "mypoke_cache"
+    cache_uid_key = "mypoke_cache_uid"
+    if context.user_data.get(cache_uid_key) != user_id or cache_key not in context.user_data:
+        context.user_data[cache_key] = await queries.get_user_pokemon_list(user_id)
+        context.user_data[cache_uid_key] = user_id
+    pokemon_list = context.user_data[cache_key]
+
+    if not pokemon_list or not (0 <= idx < len(pokemon_list)):
         await query.edit_message_text("❌ 포켓몬 정보를 불러올 수 없습니다.")
         return
 
