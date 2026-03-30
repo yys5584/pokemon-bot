@@ -250,7 +250,7 @@ async def _send_question(context, state: QuizState):
         caption=(
             f"🧠 <b>Q{q_num}/{total}</b> — 이 포켓몬은 누~구일까요?\n"
             f"⏰ {config.QUIZ_TIME_PER_QUESTION}초! (선착순 {config.QUIZ_MAX_WINNERS_PER_Q}명)\n"
-            f"💡 <code>ㄱ 포켓몬이름</code> 으로 정답 제출!"
+            f"💡 <code>ㄷ 포켓몬이름</code> 으로 정답 제출!"
         ),
         parse_mode="HTML",
     )
@@ -273,9 +273,9 @@ async def handle_answer(context, chat_id: int, user_id: int, text: str, display_
     q = state.questions[state.current_q]
     q_num = state.current_q + 1
 
-    # 정답 체크: "ㄱ 포켓몬이름" 형식만 인정
+    # 정답 체크: "ㄷ 포켓몬이름" 형식만 인정 (ㄷ = 답)
     stripped = text.strip()
-    if not stripped.startswith("ㄱ ") and not stripped.startswith("ㄱ"):
+    if not stripped.startswith("ㄷ ") and not stripped.startswith("ㄷ"):
         return False
     answer = stripped[1:].strip()
     if answer != q["name_ko"]:
