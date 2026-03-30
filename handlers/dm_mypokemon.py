@@ -415,9 +415,30 @@ def _build_detail_view(user_id: int, pokemon_list: list, idx: int, page: int, la
             evo_stage=evo_stage,
             **(_base_stats or {}),
         )
+        # 성격 효과 설명
+        _pers_effect = ""
+        if p.get("personality"):
+            from utils.battle_calc import personality_from_str
+            _pp = personality_from_str(p["personality"])
+            if _pp and _pp["tier"] != "T1":
+                _tier_pct = config.PERSONALITY_TIER_BONUS.get(_pp["tier"], 0)
+                _type_info = config.PERSONALITY_TYPES.get(_pp["type"], {})
+                _bonus = _type_info.get("bonus", {})
+                _stat_names = {"hp":"HP","atk":"공격","def":"방어","spa":"특공","spdef":"특방","spd":"스피드"}
+                _parts = []
+                for sk, w in _bonus.items():
+                    pct = _tier_pct * w * 100
+                    if pct >= 1:
+                        _parts.append(f"{_stat_names.get(sk,sk)}+{pct:.0f}%")
+                    elif pct > 0:
+                        _parts.append(f"{_stat_names.get(sk,sk)}+{pct:.1f}%")
+                if _parts:
+                    _pers_effect = f"\n성격 효과: {', '.join(_parts)}"
+
         stats_line = (
             f"\n{icon_emoji('bolt')} 전투력: {format_power(stats, base)}"
             f"\n{format_stats_line(stats, base)}"
+            f"{_pers_effect}"
         )
 
     tb = type_badge(p["pokemon_id"], p.get("pokemon_type"))
