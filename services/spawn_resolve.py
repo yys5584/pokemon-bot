@@ -291,18 +291,13 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
         shiny_label = f"{shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label')}" if is_shiny else ""
 
         # IV grade + personality display
-        from utils.battle_calc import iv_total, personality_from_str as _pfs
+        from utils.battle_calc import iv_total
+        from utils.helpers import format_personality_iv_tag
         iv_sum = iv_total(caught_ivs["iv_hp"], caught_ivs["iv_atk"],
                           caught_ivs["iv_def"], caught_ivs["iv_spa"],
                           caught_ivs["iv_spdef"], caught_ivs["iv_spd"])
         iv_grade, _stars = config.get_iv_grade(iv_sum)
-        # 성격 표시: [S] ⚪겁쟁이
-        _pers_parsed = _pfs(_personality_str)
-        if _pers_parsed:
-            _te = {"T1": "⚪", "T2": "🔵", "T3": "🟡", "T4": "🟢"}.get(_pers_parsed["tier"], "⚪")
-            iv_tag = f" [{iv_grade}] {_te}{_pers_parsed['name']}"
-        else:
-            iv_tag = f" [{iv_grade}]"
+        iv_tag = format_personality_iv_tag(_personality_str, iv_grade)
 
         rbadge = rarity_badge(rarity)
         tb = type_badge(pokemon_id)
@@ -408,10 +403,8 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             else:
                 dm_ball = f"{ball_emoji('pokeball')} "
             # 성격 표시
-            _pers_dm = ""
-            if _pers_parsed:
-                _te = {"T1": "⚪", "T2": "🔵", "T3": "🟡", "T4": "🟢"}.get(_pers_parsed["tier"], "⚪")
-                _pers_dm = f"{_te} 성격: {_pers_parsed['name']}\n"
+            from utils.helpers import format_personality_tag as _fpt
+            _pers_dm = f"성격: {_fpt(_personality_str).strip()}\n" if _personality_str else ""
             dm_text = (
                 f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
                 f"{_pers_dm}"

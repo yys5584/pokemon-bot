@@ -362,12 +362,8 @@ async def _resolve_overlapping_spawn(context: ContextTypes.DEFAULT_TYPE, active:
             else:
                 dm_ball = f"{ball_emoji('pokeball')} "
             # 성격 표시
-            from utils.battle_calc import personality_from_str as _pfs
-            _pers = _pfs(_pers_str)
-            _pers_dm = ""
-            if _pers:
-                _te = {"T1": "⚪", "T2": "🔵", "T3": "🟡", "T4": "🟢"}.get(_pers["tier"], "⚪")
-                _pers_dm = f"{_te} 성격: {_pers['name']}\n"
+            from utils.helpers import format_personality_tag as _fpt
+            _pers_dm = f"성격: {_fpt(_pers_str).strip()}\n" if _pers_str else ""
             dm_text = (
                 f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
                 f"{_pers_dm}"
@@ -640,11 +636,9 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         _personality_str = personality_to_str(_personality)
         _pre_ivs = generate_ivs(is_shiny=is_shiny)
 
-        # 성격 태그 (티어 색상 이모지 + 이름)
-        _pers_name = _personality["name"]
-        _pers_tier = _personality["tier"]
-        _tier_emoji = {"T1": "⚪", "T2": "🔵", "T3": "🟡", "T4": "🟢"}.get(_pers_tier, "⚪")
-        personality_tag = f"{_tier_emoji}<b>{_pers_name}</b> "
+        # 성격 태그
+        from utils.helpers import format_personality_tag
+        personality_tag = format_personality_tag(_personality_str)
         caption = t(_lang, "spawn_msg.wild_appeared",
                      icon=icon_emoji('footsteps'), shiny=shiny_text, tb=tb,
                      name=poke_name(pokemon, _lang), bonus=bonus_text, weather=weather_tag,
@@ -660,7 +654,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         try:
             from utils.card_renderer import render_card_html_async
             card_buf = await asyncio.wait_for(render_card_html_async(
-                pokemon["id"], f"야생의 {pokemon['name_ko']}", rarity,
+                pokemon["id"], pokemon['name_ko'], rarity,
                 is_shiny=is_shiny, iv_total=_spawn_iv, types=_types,
                 personality_str=_personality_str,
             ), timeout=15)
@@ -669,7 +663,7 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
             from functools import partial
             loop = asyncio.get_event_loop()
             card_buf = await loop.run_in_executor(
-                None, partial(generate_card, pokemon["id"], f"야생의 {pokemon['name_ko']}",
+                None, partial(generate_card, pokemon["id"], pokemon['name_ko'],
                               rarity, pokemon["emoji"], is_shiny, types=_types, iv_total=_spawn_iv)
             )
 

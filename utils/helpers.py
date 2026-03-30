@@ -350,3 +350,49 @@ def iv_grade_tag(p: dict, show_total: bool = False) -> str:
     if show_total:
         return f" [{grade}]{total}"
     return f" [{grade}]"
+
+
+def format_personality_tag(personality_str: str | None) -> str:
+    """성격 문자열 → 텍스트 메시지용 태그 (HTML).
+
+    T1: ▫평정심
+    T2: <b>용감</b>
+    T3: <b>사나움</b>
+    T4: <b>『귀신』</b>
+    """
+    if not personality_str:
+        return ""
+    from utils.battle_calc import personality_from_str
+    p = personality_from_str(personality_str)
+    if not p:
+        return ""
+    name = p["name"]
+    tier = p["tier"]
+    if tier == "T1":
+        return f"▫{name} "
+    elif tier == "T2":
+        return f"<b>{name}</b> "
+    elif tier == "T3":
+        return f"<b>{name}</b> "
+    else:  # T4
+        return f"<b>『{name}』</b> "
+
+
+def format_personality_iv_tag(personality_str: str | None, iv_grade: str) -> str:
+    """포획 메시지용 성격+IV 태그. 예: [A] <b>사나움</b>"""
+    if not personality_str:
+        return f" [{iv_grade}]"
+    from utils.battle_calc import personality_from_str
+    p = personality_from_str(personality_str)
+    if not p:
+        return f" [{iv_grade}]"
+    name = p["name"]
+    tier = p["tier"]
+    if tier == "T1":
+        return f" [{iv_grade}] ▫{name}"
+    elif tier == "T2":
+        return f" [{iv_grade}] <b>{name}</b>"
+    elif tier == "T3":
+        return f" [{iv_grade}] <b>{name}</b>"
+    else:  # T4
+        return f" [{iv_grade}] <b>『{name}』</b>"
