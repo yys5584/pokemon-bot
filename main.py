@@ -103,6 +103,14 @@ async def post_init(application: Application):
             logger.warning(f"Phase 2 migrations skipped ({e.__class__.__name__}) — already applied in prod")
     logger.info(f"[{time.monotonic()-t0:.1f}s] Database ready.")
 
+    # Playwright 카드 렌더러 워밍업 (브라우저 + 페이지 풀 미리 생성)
+    try:
+        from utils.card_renderer import warmup_browser
+        await asyncio.wait_for(warmup_browser(), timeout=30)
+    except Exception as e:
+        logger.warning(f"Playwright warmup skipped: {e}")
+    logger.info(f"[{time.monotonic()-t0:.1f}s] Playwright ready.")
+
     # Phase 3: 독립 작업 병렬 (cleanup + missed_reset)
     # NOTE: resolve_unresolved_sessions는 bot HTTP가 초기화된 후 실행해야 하므로
     # job_queue.run_once로 지연 실행 (post_init 시점에선 bot HTTP 미초기화)

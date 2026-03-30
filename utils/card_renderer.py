@@ -1,11 +1,21 @@
 """HTML 템플릿 기반 카드 렌더링 — Playwright로 완전한 카드 생성.
 
 CSS 원본 그대로 사용하므로 폰트/색상/레이아웃이 100% 일치.
+
+최적화:
+  - 페이지 풀 재사용 (new_page 비용 제거)
+  - set_content로 파일 I/O 제거
+  - 스타트업 워밍업
+  - 동시성 세마포어
 """
 import io
+import asyncio
 import random
+import logging
 from pathlib import Path
 from functools import lru_cache
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent.parent
 TEMPLATE_PATH = ROOT / "assets" / "card_template.html"
@@ -69,7 +79,7 @@ _IV_GRADES = [
 
 @lru_cache(maxsize=1)
 def _load_css() -> str:
-    """test_card_spawn.html에서 <style> 블록 추출 + asset 경로를 절대 경로로 변환."""
+    """card_spawn_styles.html에서 <style> 블록 추출 + asset 경로를 절대 경로로 변환."""
     text = CSS_SOURCE.read_text(encoding="utf-8")
     start = text.index("<style>") + len("<style>")
     end = text.index("</style>")
@@ -78,6 +88,14 @@ def _load_css() -> str:
     css = css.replace('url("assets/', f'url("file:///{root_url}/assets/')
     css = css.replace("url('assets/", f"url('file:///{root_url}/assets/")
     return css
+
+
+@lru_cache(maxsize=1)
+def _load_template() -> str:
+    """HTML 템플릿 로드 + CSS 인라인 (캐시)."""
+    css = _load_css()
+    template = TEMPLATE_PATH.read_text(encoding="utf-8")
+    return template.replace("{{CSS}}", css)
 
 
 def _build_html(pokemon_id: int, name_ko: str, rarity: str,
@@ -171,10 +189,8 @@ def _build_html(pokemon_id: int, name_ko: str, rarity: str,
         parts.append(" / ".join(_TYPE_KO.get(t, t) for t in types))
     info_label = " · ".join(parts)
 
-    # HTML 조립
-    css = _load_css()
-    template = TEMPLATE_PATH.read_text(encoding="utf-8")
-    html = template.replace("{{CSS}}", css)
+    # HTML 조립 (캐시된 템플릿+CSS 사용)
+    html = _load_template()
     html = html.replace("{{WRAP_CLASS}}", wrap_cls)
     html = html.replace("{{CARD_BG}}", card_bg)
     html = html.replace("{{PLATE_CLASS}}", plate_cls)
@@ -200,65 +216,198 @@ def _build_html(pokemon_id: int, name_ko: str, rarity: str,
     return html
 
 
-# Playwright async 브라우저 싱글톤
-_browser = None
+# ── LRU 카드 캐시 ──────────────────────────────────────────────────────
+
+from collections import OrderedDict
+
+_card_cache: OrderedDict[tuple, bytes] = OrderedDict()
+CACHE_MAX = 300  # 최대 300장 (~15MB)
+_cache_hits = 0
+_cache_misses = 0
+
+
+def _cache_key(pokemon_id, is_shiny, personality_str, iv_total):
+    """캐시 키 생성. IV 등급 + 홀로 레벨로 버킷팅."""
+    iv_grade = "D"
+    if iv_total is not None:
+        for threshold, letter, _ in _IV_GRADES:
+            if iv_total >= threshold:
+                iv_grade = letter
+                break
+    # 홀로 이펙트 레벨 (등급과 분기점이 다름)
+    holo = "h" if iv_total and iv_total > 120 else ("l" if iv_total and iv_total > 60 else "n")
+    return (pokemon_id, bool(is_shiny), personality_str or "", iv_grade, holo)
+
+
+def _cache_get(key: tuple) -> bytes | None:
+    global _cache_hits
+    if key in _card_cache:
+        _card_cache.move_to_end(key)
+        _cache_hits += 1
+        return _card_cache[key]
+    return None
+
+
+def _cache_put(key: tuple, jpeg_bytes: bytes):
+    global _cache_misses
+    _cache_misses += 1
+    _card_cache[key] = jpeg_bytes
+    while len(_card_cache) > CACHE_MAX:
+        _card_cache.popitem(last=False)
+
+
+def get_cache_stats() -> dict:
+    """캐시 통계 (디버깅/모니터링용)."""
+    return {"size": len(_card_cache), "max": CACHE_MAX,
+            "hits": _cache_hits, "misses": _cache_misses,
+            "hit_rate": f"{_cache_hits/max(1,_cache_hits+_cache_misses)*100:.1f}%"}
+
+
+# ── Playwright 페이지 풀 ──────────────────────────────────────────────
+
 _playwright = None
+_browser = None
+_page_pool: asyncio.Queue | None = None  # 재사용 가능한 페이지 큐
+_render_sem: asyncio.Semaphore | None = None  # 동시 렌더링 제한
+
+POOL_SIZE = 3  # 동시 렌더링 가능 페이지 수
 
 
-async def _get_browser_async():
-    """Playwright async 브라우저 싱글톤."""
-    global _browser, _playwright
-    if _browser is None or not _browser.is_connected():
-        from playwright.async_api import async_playwright
-        _playwright = await async_playwright().start()
-        _browser = await _playwright.chromium.launch()
-    return _browser
+async def _ensure_browser():
+    """브라우저 + 페이지 풀 초기화 (한 번만)."""
+    global _playwright, _browser, _page_pool, _render_sem
 
+    if _browser is not None and _browser.is_connected():
+        return
+
+    from playwright.async_api import async_playwright
+    if _playwright:
+        try:
+            await _playwright.stop()
+        except Exception:
+            pass
+    _playwright = await async_playwright().start()
+    _browser = await _playwright.chromium.launch(
+        args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"],
+    )
+
+    # 페이지 풀 생성
+    _page_pool = asyncio.Queue()
+    _render_sem = asyncio.Semaphore(POOL_SIZE)
+    for _ in range(POOL_SIZE):
+        ctx = await _browser.new_context(viewport={"width": 940, "height": 520})
+        page = await ctx.new_page()
+        _page_pool.put_nowait(page)
+
+    logger.info(f"Playwright browser ready (pool={POOL_SIZE})")
+
+
+async def _get_page():
+    """풀에서 페이지 가져오기. 브라우저 미초기화 시 자동 초기화."""
+    await _ensure_browser()
+    return await _page_pool.get()
+
+
+def _return_page(page):
+    """페이지 풀에 반환."""
+    try:
+        _page_pool.put_nowait(page)
+    except Exception:
+        pass
+
+
+async def _reset_browser():
+    """브라우저 강제 리셋 (장애 시)."""
+    global _browser, _playwright, _page_pool
+    logger.warning("Playwright browser reset triggered")
+    try:
+        if _browser:
+            await _browser.close()
+    except Exception:
+        pass
+    _browser = None
+    if _page_pool:
+        # 풀 비우기
+        while not _page_pool.empty():
+            try:
+                _page_pool.get_nowait()
+            except Exception:
+                break
+        _page_pool = None
+
+
+async def warmup_browser():
+    """봇 스타트업 시 호출 — 브라우저 + 페이지 풀 미리 생성."""
+    try:
+        await _ensure_browser()
+        # 더미 렌더링으로 폰트/CSS 캐시 워밍업
+        page = await _get_page()
+        try:
+            dummy_html = _build_html(1, "워밍업", "common", False, 100, ["grass"])
+            await page.set_content(dummy_html)
+            await page.screenshot(clip={"x": 0, "y": 0, "width": 940, "height": 520})
+        finally:
+            _return_page(page)
+        logger.info("Playwright warmup complete")
+    except Exception as e:
+        logger.warning(f"Playwright warmup failed: {e}")
+
+
+# ── 메인 렌더링 함수 ──────────────────────────────────────────────────
 
 async def render_card_html_async(pokemon_id: int, name_ko: str, rarity: str,
                                  is_shiny: bool = False, mega_key: str | None = None,
                                  iv_total: int | None = None,
                                  types: list[str] | None = None,
                                  personality_str: str | None = None) -> io.BytesIO:
-    """HTML 템플릿으로 카드 렌더링 (async) → JPEG BytesIO 반환."""
+    """HTML 템플릿으로 카드 렌더링 (async) → JPEG BytesIO 반환.
+
+    최적화: LRU 캐시 → 페이지 풀 재사용 → set_content → 세마포어 동시성 제한.
+    """
+    # 1. LRU 캐시 체크
+    ck = _cache_key(pokemon_id, is_shiny, personality_str, iv_total)
+    cached = _cache_get(ck)
+    if cached:
+        buf = io.BytesIO(cached)
+        buf.name = "card.jpg"
+        return buf
+
     html = _build_html(pokemon_id, name_ko, rarity, is_shiny, iv_total, types, mega_key, personality_str)
 
-    # 임시 HTML 파일 (동시 요청 충돌 방지: uuid)
-    import uuid
-    tmp_path = ROOT / f"_tmp_card_{uuid.uuid4().hex[:8]}.html"
-    tmp_path.write_text(html, encoding="utf-8")
-
-    import asyncio as _aio
+    await _render_sem.acquire()
+    page = None
     try:
-        browser = await _get_browser_async()
-        page = await browser.new_page(viewport={"width": 940, "height": 520})
+        page = await asyncio.wait_for(_get_page(), timeout=5)
+        import uuid
+        tmp_path = ROOT / f"_tmp_card_{uuid.uuid4().hex[:8]}.html"
+        tmp_path.write_text(html, encoding="utf-8")
         try:
-            await _aio.wait_for(page.goto(f"file:///{tmp_path.as_posix()}"), timeout=8)
-            await page.wait_for_timeout(200)
-            png_bytes = await _aio.wait_for(
-                page.screenshot(clip={"x": 0, "y": 0, "width": 940, "height": 520}),
-                timeout=5,
+            await asyncio.wait_for(
+                page.goto(f"file:///{tmp_path.as_posix()}", wait_until="load"),
+                timeout=8,
             )
-        except (TimeoutError, _aio.TimeoutError):
-            # Playwright 행 시 브라우저 리셋
-            global _browser, _playwright
-            try:
-                await page.close()
-            except Exception:
-                pass
-            try:
-                await _browser.close()
-            except Exception:
-                pass
-            _browser = None
-            raise
         finally:
+            tmp_path.unlink(missing_ok=True)
+        # CSS 애니메이션 렌더링 대기 (최소한)
+        await page.wait_for_timeout(100)
+        png_bytes = await asyncio.wait_for(
+            page.screenshot(clip={"x": 0, "y": 0, "width": 940, "height": 520}),
+            timeout=5,
+        )
+    except Exception:
+        # 장애 시 페이지 폐기 + 브라우저 리셋
+        if page:
             try:
                 await page.close()
             except Exception:
                 pass
+            page = None  # 풀에 반환하지 않음
+        await _reset_browser()
+        raise
     finally:
-        tmp_path.unlink(missing_ok=True)
+        if page:
+            _return_page(page)
+        _render_sem.release()
 
     # PNG → JPEG 변환
     from PIL import Image
@@ -268,4 +417,8 @@ async def render_card_html_async(pokemon_id: int, name_ko: str, rarity: str,
     img.save(buf, format="JPEG", quality=88)
     buf.seek(0)
     buf.name = "card.jpg"
+
+    # 2. 캐시에 저장
+    _cache_put(ck, buf.getvalue())
+
     return buf
