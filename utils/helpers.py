@@ -369,13 +369,13 @@ def format_personality_tag(personality_str: str | None) -> str:
     name = p["name"]
     tier = p["tier"]
     if tier == "T1":
-        return f"▫{name} "
+        return f"{name} "
     elif tier == "T2":
-        return f"<b>{name}</b> "
+        return f"✦{name} "
     elif tier == "T3":
-        return f"<b>{name}</b> "
+        return f"✦{name}✦ "
     else:  # T4
-        return f"<b>『{name}』</b> "
+        return f"『{name}』 "
 
 
 def format_personality_iv_tag(personality_str: str | None, iv_grade: str) -> str:
@@ -389,10 +389,10 @@ def format_personality_iv_tag(personality_str: str | None, iv_grade: str) -> str
     name = p["name"]
     tier = p["tier"]
     if tier == "T1":
-        return f" [{iv_grade}] ▫{name}"
+        return f" [{iv_grade}] {name}"
     elif tier == "T2":
-        return f" [{iv_grade}] <b>{name}</b>"
+        return f" [{iv_grade}] ✦{name}"
     elif tier == "T3":
-        return f" [{iv_grade}] <b>{name}</b>"
+        return f" [{iv_grade}] ✦{name}✦"
     else:  # T4
-        return f" [{iv_grade}] <b>『{name}』</b>"
+        return f" [{iv_grade}] 『{name}』"
