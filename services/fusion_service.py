@@ -138,12 +138,20 @@ async def execute_fusion(
             lowest_key = min(forced_ivs, key=forced_ivs.get)
             forced_ivs[lowest_key] = min(31, forced_ivs[lowest_key] + 1)
 
-    # 합성 결과에도 성격 부여
-    from utils.battle_calc import generate_personality as _gen_pers, personality_to_str as _pers_str
-    _fusion_pers = _gen_pers(is_shiny=is_shiny)
+    # 합성 성격: 부모 중 50% 확률로 유전, 둘 다 없으면 랜덤
+    from utils.battle_calc import personality_to_str as _pers_str
+    _pers_a = pa.get("personality")
+    _pers_b = pb.get("personality")
+    if _pers_a and _pers_b:
+        _inherited = random.choice([_pers_a, _pers_b])
+    elif _pers_a or _pers_b:
+        _inherited = _pers_a or _pers_b
+    else:
+        from utils.battle_calc import generate_personality as _gen_pers
+        _inherited = _pers_str(_gen_pers(is_shiny=is_shiny))
     new_id, new_ivs = await queries.give_pokemon_to_user(
         user_id, pokemon_id, chat_id=None, is_shiny=is_shiny,
-        ivs=forced_ivs, personality=_pers_str(_fusion_pers),
+        ivs=forced_ivs, personality=_inherited,
     )
 
     result = await queries.get_user_pokemon_by_id(new_id)
