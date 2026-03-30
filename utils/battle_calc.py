@@ -295,14 +295,17 @@ def calc_battle_stats(
             if tier_pct > 0:
                 type_bonus = config.PERSONALITY_TYPES.get(_pers["type"], {}).get("bonus", {})
 
-                # 공격형: 종족값 기준 공격/특공 중 높은 쪽만 부스트
-                if _pers["type"] == "atk":
+                # 공격형/스피드형: 종족값 기준 공격/특공 중 높은 쪽만 부스트
+                if _pers["type"] in ("atk", "spd"):
                     _base_atk = base_atk or stats.get("atk", 0)
                     _base_spa = base_spa or stats.get("spa", 0)
-                    if _base_spa > _base_atk:
-                        type_bonus = {"spa": type_bonus.get("spa", 1.0)}
-                    else:
-                        type_bonus = {"atk": type_bonus.get("atk", 1.0)}
+                    _dominant = "spa" if _base_spa > _base_atk else "atk"
+                    _other = "atk" if _dominant == "spa" else "spa"
+                    # 공격 관련 키만 주력 1스탯으로 교체, 나머지(spd 등)는 유지
+                    if _other in type_bonus:
+                        dominant_weight = max(type_bonus.get("atk", 0), type_bonus.get("spa", 0))
+                        type_bonus = {k: v for k, v in type_bonus.items() if k not in ("atk", "spa")}
+                        type_bonus[_dominant] = dominant_weight
 
                 for stat_key, weight in type_bonus.items():
                     if stat_key in stats:
