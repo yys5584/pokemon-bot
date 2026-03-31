@@ -58,8 +58,12 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             session_id,
         )
 
-        # Get all catch attempts
-        attempts = await spawn_queries.get_session_attempts(session_id)
+        # Get all catch attempts + pokemon data + catch boost (병렬)
+        attempts, pokemon, catch_boost = await asyncio.gather(
+            spawn_queries.get_session_attempts(session_id),
+            queries.get_pokemon(pokemon_id),
+            get_catch_boost(),
+        )
 
         # Clean up tracking (but keep messages visible)
         _attempt_messages.pop(session_id, None)
@@ -83,10 +87,8 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # Get catch rate with event boost
-        pokemon = await queries.get_pokemon(pokemon_id)
+        # Catch rate
         base_rate = pokemon["catch_rate"] if pokemon else 0.5
-        catch_boost = await get_catch_boost()
         catch_rate = min(1.0, base_rate * catch_boost)
 
         # 🌱 뉴비 스폰: 도감 수 기준 우선순위

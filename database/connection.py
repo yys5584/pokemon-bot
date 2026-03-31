@@ -53,8 +53,8 @@ async def _create_pool() -> asyncpg.Pool:
             logger.info("DB connection test OK")
             pool = await asyncpg.create_pool(
                 dsn=dsn,
-                min_size=0,
-                max_size=int(os.getenv("DB_POOL_MAX", "5")),
+                min_size=2,
+                max_size=int(os.getenv("DB_POOL_MAX", "8")),
                 ssl=_make_ssl(),
                 statement_cache_size=0,  # Supabase uses PgBouncer (no prepared statements)
                 command_timeout=30,

@@ -270,7 +270,7 @@ _browser = None
 _page_pool: asyncio.Queue | None = None  # 재사용 가능한 페이지 큐
 _render_sem: asyncio.Semaphore | None = None  # 동시 렌더링 제한
 
-POOL_SIZE = 3  # 동시 렌더링 가능 페이지 수
+POOL_SIZE = 2  # 동시 렌더링 가능 페이지 수 (1GB VM 메모리 최적화)
 
 
 async def _ensure_browser():
