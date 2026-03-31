@@ -10,7 +10,7 @@ from telegram.ext import ContextTypes
 import config
 
 # 특수볼 보호: 세션이 너무 새로우면 이전 포켓몬 의도로 판단
-SPECIAL_BALL_MIN_AGE_SEC = 3.0
+SPECIAL_BALL_MIN_AGE_SEC = 1.0
 
 from database import queries, spawn_queries
 from database import battle_queries as bq
