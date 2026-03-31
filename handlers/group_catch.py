@@ -2,11 +2,15 @@
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
 import config
+
+# 특수볼 보호: 세션이 너무 새로우면 이전 포켓몬 의도로 판단
+SPECIAL_BALL_MIN_AGE_SEC = 3.0
 
 from database import queries, spawn_queries
 from database import battle_queries as bq
@@ -28,6 +32,19 @@ _captcha_violation_count: dict[int, int] = {}
 
 CAPTCHA_AUTO_BAN_THRESHOLD = 15  # 이 횟수 이상 누적 시 자동 24시간 정지
 CAPTCHA_AUTO_BAN_DURATION = 86400  # 24시간 (초)
+
+
+def _is_session_too_new(session: dict) -> bool:
+    """세션이 SPECIAL_BALL_MIN_AGE_SEC 미만이면 True.
+    유저가 이전 포켓몬에 던지려던 건데 세션이 바뀐 경우를 방지."""
+    spawned_at = session.get("spawned_at")
+    if not spawned_at:
+        return False
+    now = datetime.now(timezone.utc)
+    if spawned_at.tzinfo is None:
+        spawned_at = spawned_at.replace(tzinfo=timezone.utc)
+    age = (now - spawned_at).total_seconds()
+    return age < SPECIAL_BALL_MIN_AGE_SEC
 
 
 async def _check_captcha_violation(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -266,6 +283,14 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
             return
 
+        if _is_session_too_new(session):
+            resp = await update.message.reply_text(
+                f"{ball_emoji('masterball')} 이전 포켓몬은 이미 사라졌습니다! 마스터볼이 보호되었습니다.",
+                parse_mode="HTML",
+            )
+            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+            return
+
         lock_key = (session["id"], user_id)
         if lock_key in _catch_locks:
             return
@@ -359,6 +384,14 @@ async def priority_ball_handler(update: Update, context: ContextTypes.DEFAULT_TY
             return
 
         if session.get("is_newbie_spawn"):
+            return
+
+        if _is_session_too_new(session):
+            resp = await update.message.reply_text(
+                f"{ball_emoji('greatball')} 이전 포켓몬은 이미 사라졌습니다! 우선포획볼이 보호되었습니다.",
+                parse_mode="HTML",
+            )
+            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
             return
 
         lock_key = (session["id"], user_id)
@@ -472,6 +505,14 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if session.get("is_newbie_spawn"):
             resp = await update.message.reply_text(
                 t(lang, "group.newbie_no_special_ball", ball=t(lang, "catch.hyperball")),
+            )
+            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+            return
+
+        if _is_session_too_new(session):
+            resp = await update.message.reply_text(
+                f"{ball_emoji('hyperball')} 이전 포켓몬은 이미 사라졌습니다! 하이퍼볼이 보호되었습니다.",
+                parse_mode="HTML",
             )
             schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
             return
