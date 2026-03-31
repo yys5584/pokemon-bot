@@ -2394,6 +2394,8 @@ QUIZ_QUESTION_COUNT = 5
 QUIZ_TIME_PER_QUESTION = 30      # 초
 QUIZ_MAX_WINNERS_PER_Q = 5       # 문제당 선착순 5명
 QUIZ_BETWEEN_QUESTIONS_DELAY = 3  # 문제 간 대기(초)
+QUIZ_HINT_INTERVALS = [0, 10, 20]       # 힌트 타이밍(초): 줌인→중간→실루엣
+QUIZ_ZOOM_LEVELS = [0.3, 0.55, 1.0]     # 크롭 비율: 30%→55%→전체
 
 # 보상 (문제당, 5문제 후 일괄 정산)
 # 1~5등: 랜덤 상자 + 500BP / 6~10등: 500BP / 11등+: 200BP

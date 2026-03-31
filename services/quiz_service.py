@@ -140,6 +140,88 @@ def generate_silhouette_image(pokemon_id: int, question_num: int, total: int) ->
     return buf
 
 
+def _get_opaque_bbox(sprite: Image.Image) -> tuple[int, int, int, int]:
+    """불투명 픽셀(alpha>30) 영역의 바운딩 박스 반환."""
+    pixels = sprite.load()
+    min_x, min_y = sprite.width, sprite.height
+    max_x, max_y = 0, 0
+    for y in range(sprite.height):
+        for x in range(sprite.width):
+            if pixels[x, y][3] > 30:
+                min_x = min(min_x, x)
+                min_y = min(min_y, y)
+                max_x = max(max_x, x)
+                max_y = max(max_y, y)
+    return (min_x, min_y, max_x, max_y)
+
+
+def generate_zoom_hint_image(
+    pokemon_id: int, question_num: int, total: int, hint_level: int,
+) -> io.BytesIO:
+    """단계별 줌 힌트 이미지 생성.
+
+    hint_level: 1=줌인 크롭(컬러), 2=중간 크롭(컬러), 3=전체 실루엣.
+    """
+    if hint_level >= 3:
+        return generate_silhouette_image(pokemon_id, question_num, total)
+
+    zoom_ratio = config.QUIZ_ZOOM_LEVELS[hint_level - 1]  # 0.3 or 0.55
+    img = Image.new("RGBA", (IMG_WIDTH, IMG_HEIGHT), BG_COLOR + (255,))
+    draw = ImageDraw.Draw(img)
+
+    sprite_path = ASSETS_DIR / f"{pokemon_id}.png"
+    if sprite_path.exists():
+        sprite = Image.open(sprite_path).convert("RGBA")
+        max_size = 400
+        ratio = min(max_size / sprite.width, max_size / sprite.height)
+        new_size = (int(sprite.width * ratio), int(sprite.height * ratio))
+        sprite = sprite.resize(new_size, Image.LANCZOS)
+
+        bbox = _get_opaque_bbox(sprite)
+        bw = bbox[2] - bbox[0]
+        bh = bbox[3] - bbox[1]
+
+        if bw > 0 and bh > 0:
+            crop_w = max(int(bw * zoom_ratio), 40)
+            crop_h = max(int(bh * zoom_ratio), 40)
+
+            # pokemon_id 기반 시드 → 같은 포켓몬은 같은 크롭 위치
+            rng = random.Random(pokemon_id * 1000 + question_num)
+            off_x = rng.randint(bbox[0], max(bbox[0], bbox[2] - crop_w))
+            off_y = rng.randint(bbox[1], max(bbox[1], bbox[3] - crop_h))
+
+            cropped = sprite.crop((off_x, off_y, off_x + crop_w, off_y + crop_h))
+
+            # 화면에 꽉 차게 확대
+            scale = min(380 / max(cropped.width, 1), 380 / max(cropped.height, 1))
+            scaled_size = (int(cropped.width * scale), int(cropped.height * scale))
+            cropped = cropped.resize(scaled_size, Image.LANCZOS)
+
+            ox = (IMG_WIDTH - cropped.width) // 2
+            oy = (IMG_HEIGHT - cropped.height) // 2 + 20
+            img.paste(cropped, (ox, oy), cropped)
+
+    # 상단: "Q{n}/5"
+    font_q = _get_font(36, bold=True)
+    q_text = f"Q{question_num}/{total}"
+    bb = draw.textbbox((0, 0), q_text, font=font_q)
+    tw = bb[2] - bb[0]
+    draw.text(((IMG_WIDTH - tw) // 2, 15), q_text, fill=(88, 166, 255), font=font_q)
+
+    # 하단: 힌트 단계 표시
+    font_hint = _get_font(24, bold=True)
+    hint_labels = {1: "🔍 힌트 1/3", 2: "🔍 힌트 2/3"}
+    hint_text = hint_labels.get(hint_level, "")
+    bb2 = draw.textbbox((0, 0), hint_text, font=font_hint)
+    tw2 = bb2[2] - bb2[0]
+    draw.text(((IMG_WIDTH - tw2) // 2, IMG_HEIGHT - 55), hint_text, fill=(180, 180, 180), font=font_hint)
+
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="JPEG", quality=85)
+    buf.seek(0)
+    return buf
+
+
 def generate_reveal_image(pokemon_id: int, name_ko: str, question_num: int, total: int) -> io.BytesIO:
     """정답 공개 이미지 (컬러) → BytesIO (JPEG)."""
     img = Image.new("RGBA", (IMG_WIDTH, IMG_HEIGHT), BG_COLOR + (255,))
@@ -247,15 +329,15 @@ async def start_quiz(context, chat_id: int, *, test_mode: bool = False) -> bool:
 
 
 async def _send_question(context, state: QuizState):
-    """현재 문제 실루엣 이미지 전송 + 타이머."""
+    """현재 문제 줌 힌트 1단계 전송 + 단계별 힌트 태스크 + 타이머."""
     q = state.questions[state.current_q]
     q_num = state.current_q + 1
     total = len(state.questions)
 
-    # 실루엣 이미지 (blocking → executor)
+    # 힌트 1: 줌인 크롭 (blocking → executor)
     loop = asyncio.get_event_loop()
     buf = await loop.run_in_executor(
-        None, generate_silhouette_image, q["pokemon_id"], q_num, total,
+        None, generate_zoom_hint_image, q["pokemon_id"], q_num, total, 1,
     )
 
     state.answer_count = 0
@@ -276,6 +358,9 @@ async def _send_question(context, state: QuizState):
         parse_mode="HTML",
     )
 
+    # 단계별 힌트 백그라운드 태스크 (힌트 2, 3)
+    asyncio.create_task(_send_progressive_hints(context, state, q_num))
+
     # 타임아웃 스케줄
     context.job_queue.run_once(
         _question_timeout,
@@ -283,6 +368,37 @@ async def _send_question(context, state: QuizState):
         data={"chat_id": state.chat_id, "q_num": q_num, "event_id": state.event_id},
         name=f"quiz_timeout_{state.chat_id}_{q_num}",
     )
+
+
+async def _send_progressive_hints(context, state: QuizState, q_num: int):
+    """10초, 20초에 힌트 2, 3 이미지 전송."""
+    q = state.questions[q_num - 1]  # 0-indexed
+    total = len(state.questions)
+    intervals = config.QUIZ_HINT_INTERVALS  # [0, 10, 20]
+
+    for i in range(1, len(intervals)):
+        delay = intervals[i] - intervals[i - 1]
+        await asyncio.sleep(delay)
+
+        # 이미 다음 문제로 넘어갔거나 퀴즈 종료 시 중단
+        if state.current_q + 1 != q_num or not state.is_accepting:
+            return
+
+        hint_level = i + 1  # 2 or 3
+        try:
+            loop = asyncio.get_event_loop()
+            buf = await loop.run_in_executor(
+                None, generate_zoom_hint_image, q["pokemon_id"], q_num, total, hint_level,
+            )
+            hint_labels = {2: "🔍 힌트 2/3 — 좀 더 보여줄게요!", 3: "👀 힌트 3/3 — 실루엣 공개!"}
+            await context.bot.send_photo(
+                chat_id=state.chat_id,
+                photo=buf,
+                caption=hint_labels.get(hint_level, ""),
+                parse_mode="HTML",
+            )
+        except Exception as e:
+            _log.warning(f"Failed to send hint {hint_level} for Q{q_num}: {e}")
 
 
 async def handle_answer(context, chat_id: int, user_id: int, text: str, display_name: str) -> bool:

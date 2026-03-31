@@ -1,4 +1,4 @@
-"""매일 이벤트 스케줄러 — 20:30~21:00 KST 사이 랜덤 퀴즈 스폰."""
+"""매일 이벤트 스케줄러 — 20:45 KST 퀴즈 스폰."""
 
 from __future__ import annotations
 
@@ -17,14 +17,9 @@ _log = logging.getLogger(__name__)
 
 
 async def schedule_daily_quiz(context: ContextTypes.DEFAULT_TYPE):
-    """매일 20:30 KST에 호출 → 0~30분 랜덤 딜레이 후 퀴즈 트리거."""
-    delay_seconds = random.randint(0, 30) * 60  # 0~30분
-    _log.info(f"Daily quiz scheduled: delay={delay_seconds}s ({delay_seconds // 60}min)")
-    context.job_queue.run_once(
-        _trigger_daily_quiz,
-        when=delay_seconds,
-        name="daily_quiz_trigger",
-    )
+    """매일 20:45 KST에 호출 → 즉시 퀴즈 트리거."""
+    _log.info("Daily quiz triggered at 20:45 KST")
+    await _trigger_daily_quiz(context)
 
 
 async def _trigger_daily_quiz(context: ContextTypes.DEFAULT_TYPE):

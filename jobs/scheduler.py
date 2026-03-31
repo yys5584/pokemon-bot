@@ -285,10 +285,10 @@ def register_all_jobs(app):
         name="macro_monitor",
     )
 
-    # --- 매일 퀴즈 이벤트 (20:30 KST) ---
+    # --- 매일 퀴즈 이벤트 (20:45 KST) ---
     jq.run_daily(
         schedule_daily_quiz,
-        time=dt_time(20, 30, 0, tzinfo=_KST),
+        time=dt_time(20, 45, 0, tzinfo=_KST),
         name="daily_quiz",
     )
 

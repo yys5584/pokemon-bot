@@ -350,7 +350,7 @@ _PREMIUM_GUIDE_TEXT = (
     "━━━━━━━━━━━━━━━\n"
     "  채팅방에서 '채팅상점' 입력!\n"
     "  ⚡ 아케이드 속도 부스트 — 100 BP\n"
-    "    → 스폰 간격 -10초 (최소 20초)\n"
+    "    → 스폰 간격 60초 → 50초 (아케이드당 1회)\n"
     "  ⏰ 아케이드 시간 연장 — 100 BP\n"
     "    → +30분 연장 (중첩 가능)\n\n"
 
@@ -780,7 +780,7 @@ async def channel_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     text = (
         f"{_E_SHOP} <b>채널장 상점</b>\n\n"
         f"{_E_BOLT} <b>아케이드 속도 부스트</b> — {config.CHANNEL_SHOP_ARCADE_SPEED_COST} BP\n"
-        f"   현재 간격에서 -{config.ARCADE_SPEED_BOOST_REDUCTION}초 (최소 20초)\n\n"
+        f"   스폰 간격 {config.ARCADE_TICKET_SPAWN_INTERVAL}초 → {config.ARCADE_TICKET_SPAWN_INTERVAL - config.ARCADE_SPEED_BOOST_REDUCTION}초 (아케이드당 1회)\n\n"
         f"⏱️ <b>아케이드 시간 연장</b> — {config.CHANNEL_SHOP_ARCADE_EXTEND_COST} BP\n"
         f"   활성 아케이드 +{config.ARCADE_EXTEND_MINUTES}분 연장\n\n"
         f"{_E_COIN} 보유 BP: {bp:,}"
