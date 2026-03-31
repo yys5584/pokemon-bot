@@ -155,6 +155,13 @@ async def cleanup_expired_sessions() -> list[tuple[int, str]]:
 # ============================================================
 
 async def record_catch_attempt(session_id: int, user_id: int, used_master_ball: bool = False, used_hyper_ball: bool = False, used_priority_ball: bool = False):
+    if used_priority_ball:
+        import logging
+        logging.getLogger(__name__).info(
+            f"🎯 record_catch_attempt CALLED: session={session_id} user={user_id} "
+            f"master={used_master_ball} hyper={used_hyper_ball} priority={used_priority_ball} "
+            f"→ DB vals: $3={1 if used_master_ball else 0} $4={1 if used_hyper_ball else 0} $5={1 if used_priority_ball else 0}"
+        )
     async def _do():
         pool = await get_db()
         await pool.execute(

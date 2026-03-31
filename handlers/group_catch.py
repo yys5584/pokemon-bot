@@ -389,10 +389,19 @@ async def priority_ball_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
             used = await _iq.use_user_item(user_id, "priority_ball")
             if not used:
+                logger.warning(f"Priority ball use_item failed for user {user_id} (race condition?)")
                 return
 
             # record_catch_attempt를 먼저 실행 — 타임아웃 방지
+            logger.info(f"🎯 Recording priority ball catch: session={session['id']} user={user_id}")
             await spawn_queries.record_catch_attempt(session["id"], user_id, used_priority_ball=True)
+            # 검증: DB에 실제로 priority=1로 저장됐는지 확인
+            verify_row = await pool.fetchrow(
+                "SELECT used_priority_ball FROM catch_attempts WHERE session_id = $1 AND user_id = $2 ORDER BY id DESC LIMIT 1",
+                session["id"], user_id,
+            )
+            verified = verify_row["used_priority_ball"] if verify_row else "NO_ROW"
+            logger.info(f"🎯 Priority ball VERIFY: session={session['id']} user={user_id} db_value={verified}")
 
             from services.subscription_service import get_user_tier
             from services.ranked_service import current_season_id

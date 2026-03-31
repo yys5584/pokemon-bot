@@ -149,11 +149,13 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             priority_ball_users = set()
             for attempt in attempts:
                 pb = attempt.get("used_priority_ball")
+                logger.info(f"🎯 Attempt: user={attempt['user_id']} ({attempt['display_name']}) master={attempt.get('used_master_ball')} hyper={attempt.get('used_hyper_ball')} priority={pb}")
                 if pb:
                     priority_ball_users.add(attempt["user_id"])
-                    logger.info(f"🎯 Priority ball user: {attempt['user_id']} (val={pb}, type={type(pb).__name__})")
             if priority_ball_users:
-                logger.info(f"🎯 Priority ball users: {priority_ball_users}")
+                logger.info(f"🎯 Priority ball winners: {priority_ball_users}")
+            else:
+                logger.info(f"🎯 No priority ball users found (total attempts: {len(attempts)})")
 
             # Roll for each catcher (priority ball > master ball > hyper ball > newbie > regular)
             results = []

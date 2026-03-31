@@ -1,6 +1,6 @@
 """매일 이벤트 — 포켓몬 퀴즈 서비스.
 
-5문제 × 30초, 문제당 선착순 5명 IV선택리롤, 일괄 정산.
+5문제 × 30초, 누구나 정답 제출 가능, 등수별 차등 보상.
 """
 
 from __future__ import annotations
@@ -183,9 +183,12 @@ class QuizState:
     chat_id: int
     questions: list[dict]
     current_q: int = 0                          # 0-indexed
-    answers: dict[int, list[tuple]] = field(default_factory=dict)  # {q_num: [(user_id, rank)]}
+    # {q_num: [(user_id, display_name, rank)]}
+    answers: dict[int, list[tuple]] = field(default_factory=dict)
     answer_count: int = 0                       # 현재 문제 정답자 수
     total_participants: set[int] = field(default_factory=set)
+    # 오답만 제출한 유저도 참가자로 기록
+    attempted_participants: set[int] = field(default_factory=set)
     question_started_at: float = 0.0
     is_accepting: bool = False
     test_mode: bool = False
@@ -266,8 +269,9 @@ async def _send_question(context, state: QuizState):
         photo=buf,
         caption=(
             f"🧠 <b>Q{q_num}/{total}</b> — 이 포켓몬은 누~구일까요?\n"
-            f"⏰ {config.QUIZ_TIME_PER_QUESTION}초! (선착순 {config.QUIZ_MAX_WINNERS_PER_Q}명)\n"
-            f"💡 <code>ㄷ 포켓몬이름</code> 으로 정답 제출!"
+            f"⏰ {config.QUIZ_TIME_PER_QUESTION}초!\n"
+            f"💡 <code>ㄷ 포켓몬이름</code> 으로 정답 제출!\n"
+            f"🏆 빠를수록 좋은 보상! 누구나 참여 가능!"
         ),
         parse_mode="HTML",
     )
@@ -298,6 +302,9 @@ async def handle_answer(context, chat_id: int, user_id: int, text: str, display_
     if not answer:
         return False
 
+    # 정답 시도 = 참가자로 기록
+    state.attempted_participants.add(user_id)
+
     # 오답 쿨다운 체크 (3초)
     cooldown_key = (chat_id, user_id)
     now = time.time()
@@ -316,24 +323,22 @@ async def handle_answer(context, chat_id: int, user_id: int, text: str, display_
         return False
 
     # 이미 이 문제 맞춘 유저인지 확인
-    for uid, _ in state.answers.get(q_num, []):
+    for uid, _, _ in state.answers.get(q_num, []):
         if uid == user_id:
             return False
 
     state.answer_count += 1
     rank = state.answer_count
-    state.answers[q_num].append((user_id, rank))
+    state.answers[q_num].append((user_id, display_name, rank))
     state.total_participants.add(user_id)
 
     # DB 기록
     await eq.record_quiz_answer(state.event_id, user_id, q_num, rank)
 
-    # 응답 메시지 (채팅방에는 등수만, 상세 보상은 DM)
+    # 응답 메시지
     rank_emojis = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
     if rank <= 5:
         rank_emoji = rank_emojis[rank - 1]
-    elif rank <= 10:
-        rank_emoji = f"{rank}등"
     else:
         rank_emoji = f"{rank}등"
     await context.bot.send_message(
@@ -341,15 +346,6 @@ async def handle_answer(context, chat_id: int, user_id: int, text: str, display_
         text=f"✅ {rank_emoji} <b>{display_name}</b> 정답!",
         parse_mode="HTML",
     )
-
-    # 5명 마감 → 다음 문제
-    if rank >= config.QUIZ_MAX_WINNERS_PER_Q:
-        state.is_accepting = False
-        # 기존 타임아웃 취소
-        jobs = context.job_queue.get_jobs_by_name(f"quiz_timeout_{chat_id}_{q_num}")
-        for j in jobs:
-            j.schedule_removal()
-        await _end_question(context, state)
 
     return True
 
@@ -372,10 +368,11 @@ async def _question_timeout(context):
 
 async def _end_question(context, state: QuizState):
     """문제 종료 → 정답 공개 → 다음 문제 or 최종 정산."""
-    # 레이스컨디션 방지: timeout + 5th winner 동시 호출 시 한 번만 실행
+    # 레이스컨디션 방지
     if state._ending:
         return
     state._ending = True
+
     q = state.questions[state.current_q]
     q_num = state.current_q + 1
     total = len(state.questions)
@@ -405,99 +402,118 @@ async def _end_question(context, state: QuizState):
 
 
 async def _finalize_quiz(context, state: QuizState):
-    """최종 정산 — 보상 지급 + 결과 메시지."""
+    """최종 정산 — state.answers 기반으로 보상 계산 + 지급."""
     chat_id = state.chat_id
     event_id = state.event_id
+    total_q = len(state.questions)
 
     # 활성 상태 제거
     _active_quizzes.pop(chat_id, None)
     await eq.update_event_status(event_id, "ended")
 
-    # 결과 집계
-    results = await eq.get_event_results(event_id)
-    all_participant_ids = state.total_participants.copy()
-    rewarded_uids: set[int] = set()
-
-    # 보상 계산 + 지급
-    reward_lines = []
-    # {uid: {"items": [(name, amount)], "bp": int}}
+    # ── 유저별 보상 집계 (state.answers 기반) ──
+    # {uid: {"display_name": str, "correct": int, "ranks": {1: n, 2: n, ...}, "items": [...], "bp": int}}
     user_rewards: dict[int, dict] = {}
 
-    for r in results:
-        uid = r["user_id"]
-        rewarded_uids.add(uid)
-        user_rewards[uid] = {"items": [], "bp": 0, "correct": r["correct_count"]}
+    for q_num, ans_list in state.answers.items():
+        for uid, dname, rank in ans_list:
+            if uid not in user_rewards:
+                user_rewards[uid] = {
+                    "display_name": dname,
+                    "correct": 0,
+                    "ranks": {},
+                    "items": [],
+                    "bp": 0,
+                }
+            rew = user_rewards[uid]
+            rew["correct"] += 1
+            rew["ranks"][rank] = rew["ranks"].get(rank, 0) + 1
 
-        # 각 문제별 보상 계산
-        for q_num, ans_list in state.answers.items():
-            for a_uid, a_rank in ans_list:
-                if a_uid != uid:
-                    continue
-                if a_rank == 1:
-                    # 1등: 랜덤 상자 + 500BP
-                    item_name, amount, label = _roll_reward(config.QUIZ_REWARD_RANK1)
-                    user_rewards[uid]["items"].append((item_name, amount, label))
-                    user_rewards[uid]["bp"] += config.QUIZ_REWARD_TOP5_BP
-                elif a_rank <= 3:
-                    # 2~3등
-                    item_name, amount, label = _roll_reward(config.QUIZ_REWARD_RANK2_3)
-                    user_rewards[uid]["items"].append((item_name, amount, label))
-                    user_rewards[uid]["bp"] += config.QUIZ_REWARD_TOP5_BP
-                elif a_rank <= 5:
-                    # 4~5등
-                    item_name, amount, label = _roll_reward(config.QUIZ_REWARD_RANK4_5)
-                    user_rewards[uid]["items"].append((item_name, amount, label))
-                    user_rewards[uid]["bp"] += config.QUIZ_REWARD_TOP5_BP
-                elif a_rank <= 10:
-                    # 6~10등
-                    user_rewards[uid]["bp"] += config.QUIZ_REWARD_RANK6_10_BP
-                else:
-                    # 11등+
-                    user_rewards[uid]["bp"] += config.QUIZ_REWARD_RANK11_BP
+            # 등수별 보상 계산
+            if rank == 1:
+                item_name, amount, label = _roll_reward(config.QUIZ_REWARD_RANK1)
+                rew["items"].append((item_name, amount, label))
+                rew["bp"] += config.QUIZ_REWARD_TOP5_BP
+            elif rank <= 3:
+                item_name, amount, label = _roll_reward(config.QUIZ_REWARD_RANK2_3)
+                rew["items"].append((item_name, amount, label))
+                rew["bp"] += config.QUIZ_REWARD_TOP5_BP
+            elif rank <= 5:
+                item_name, amount, label = _roll_reward(config.QUIZ_REWARD_RANK4_5)
+                rew["items"].append((item_name, amount, label))
+                rew["bp"] += config.QUIZ_REWARD_TOP5_BP
+            elif rank <= 10:
+                rew["bp"] += config.QUIZ_REWARD_RANK6_10_BP
+            else:
+                rew["bp"] += config.QUIZ_REWARD_RANK11_BP
 
-    # 지급 (test_mode면 스킵)
+    # 오답만 제출/정답 0문제인 참가자 → 참가 보상
+    all_participants = state.total_participants | state.attempted_participants
+    for uid in all_participants:
+        if uid not in user_rewards:
+            user_rewards[uid] = {
+                "display_name": str(uid),
+                "correct": 0,
+                "ranks": {},
+                "items": [],
+                "bp": config.QUIZ_REWARD_PARTICIPATION_BP,
+            }
+
+    # 참가 보상: 정답 0문제 유저
     for uid, rew in user_rewards.items():
-        if not state.test_mode:
+        if rew["correct"] == 0:
+            rew["bp"] = config.QUIZ_REWARD_PARTICIPATION_BP
+
+    # ── 실제 지급 (test_mode면 스킵) ──
+    if not state.test_mode:
+        for uid, rew in user_rewards.items():
             # 아이템 지급
             item_totals: dict[str, int] = {}
             for item_name, amount, _ in rew["items"]:
                 item_totals[item_name] = item_totals.get(item_name, 0) + amount
-            for item_name, total in item_totals.items():
+            for item_name, total_amt in item_totals.items():
                 if item_name == "iv_stone":
-                    await iq.add_iv_stones(uid, total)
+                    await iq.add_iv_stones(uid, total_amt)
                 elif item_name == "shiny_spawn_ticket":
-                    await iq.add_shiny_spawn_ticket(uid, total)
+                    await iq.add_shiny_spawn_ticket(uid, total_amt)
                 else:
-                    await iq.add_user_item(uid, item_name, total)
+                    await iq.add_user_item(uid, item_name, total_amt)
             # BP 지급
             if rew["bp"] > 0:
                 await queries.add_battle_points(uid, rew["bp"])
 
-        user = await queries.get_user(uid)
-        name = user["display_name"] if user else str(uid)
-        correct = rew["correct"]
-        reward_lines.append(f"  {name} — {correct}/{len(state.questions)}")
+    # ── 결과 메시지 (채팅방) ──
+    # 정답 수 기준 내림차순 정렬
+    sorted_users = sorted(
+        user_rewards.items(),
+        key=lambda x: (-x[1]["correct"], min(x[1]["ranks"].keys()) if x[1]["ranks"] else 999),
+    )
 
-    # 정답 0문제인 참가자에게도 참가 보상
-    for uid in all_participant_ids:
-        if uid not in rewarded_uids:
-            if not state.test_mode:
-                await queries.add_battle_points(uid, config.QUIZ_REWARD_PARTICIPATION_BP)
-            user_rewards[uid] = {"items": [], "bp": config.QUIZ_REWARD_PARTICIPATION_BP, "correct": 0}
-
-    # 결과 메시지
-    total_q = len(state.questions)
     test_label = " [테스트]" if state.test_mode else ""
     msg = f"🏆 <b>퀴즈 종료!{test_label}</b> ({total_q}문제)\n\n"
 
-    if reward_lines:
-        msg += "\n".join(reward_lines[:15])
-        if len(reward_lines) > 15:
-            msg += f"\n  ... 외 {len(reward_lines) - 15}명"
-    else:
-        msg += "정답자 없음!"
+    if sorted_users:
+        for i, (uid, rew) in enumerate(sorted_users[:15]):
+            name = rew["display_name"]
+            correct = rew["correct"]
 
-    msg += f"\n\n👥 참가자 {len(all_participant_ids)}명 전원 참가보상 {config.QUIZ_REWARD_PARTICIPATION_BP:,} BP"
+            # 등수 요약: 🥇×2 🥈×1 형태
+            rank_parts = []
+            rank_icons = {1: "🥇", 2: "🥈", 3: "🥉"}
+            for r in sorted(rew["ranks"].keys()):
+                cnt = rew["ranks"][r]
+                icon = rank_icons.get(r, f"{r}등")
+                rank_parts.append(f"{icon}×{cnt}" if cnt > 1 else f"{icon}")
+
+            rank_str = " ".join(rank_parts) if rank_parts else ""
+            msg += f"  <b>{name}</b> — {correct}/{total_q} {rank_str}\n"
+
+        if len(sorted_users) > 15:
+            msg += f"  ... 외 {len(sorted_users) - 15}명\n"
+    else:
+        msg += "정답자 없음!\n"
+
+    msg += f"\n👥 참가자 {len(all_participants)}명 전원 참가보상 {config.QUIZ_REWARD_PARTICIPATION_BP:,} BP"
 
     await context.bot.send_message(
         chat_id=chat_id,
@@ -509,7 +525,7 @@ async def _finalize_quiz(context, state: QuizState):
     if not state.test_mode:
         asyncio.create_task(_send_reward_dms(context, state, user_rewards))
 
-    _log.info(f"Quiz finalized: event_id={event_id}, participants={len(all_participant_ids)}")
+    _log.info(f"Quiz finalized: event_id={event_id}, participants={len(all_participants)}")
 
 
 async def _send_reward_dms(context, state: QuizState, user_rewards: dict[int, dict]):
@@ -520,8 +536,21 @@ async def _send_reward_dms(context, state: QuizState, user_rewards: dict[int, di
         correct = rew["correct"]
         items = rew["items"]  # [(item_name, amount, label), ...]
         bp = rew["bp"]
+        ranks = rew["ranks"]
 
         lines = [f"🧠 <b>퀴즈 결과: {correct}/{total_q} 정답!</b>\n"]
+
+        # 등수별 횟수
+        if ranks:
+            rank_icons = {1: "🥇", 2: "🥈", 3: "🥉"}
+            rank_parts = []
+            for r in sorted(ranks.keys()):
+                cnt = ranks[r]
+                icon = rank_icons.get(r, f"{r}등")
+                rank_parts.append(f"{icon}×{cnt}" if cnt > 1 else f"{icon}")
+            lines.append("📊 " + " ".join(rank_parts))
+
+        lines.append("")
 
         if items:
             lines.append("🎁 <b>보상:</b>")
@@ -530,6 +559,9 @@ async def _send_reward_dms(context, state: QuizState, user_rewards: dict[int, di
 
         if bp > 0:
             lines.append(f"💰 {bp:,} BP")
+
+        if not items and bp == 0:
+            lines.append("다음에는 더 빨리 도전해보세요!")
 
         try:
             await context.bot.send_message(
