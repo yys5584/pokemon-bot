@@ -463,6 +463,11 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
     if is_tournament_active(chat_id) and not context.job.data.get("admin_force"):
         return
 
+    # Skip spawns while quiz is active in this chat
+    from services.quiz_service import get_active_quiz
+    if get_active_quiz(chat_id) and not context.job.data.get("admin_force"):
+        return
+
     try:
         # 1. Activity check (skip if force spawn or arcade)
         if not force and not arcade:

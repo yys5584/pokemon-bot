@@ -398,6 +398,13 @@ async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAU
 
     async with lock:
         from services.spawn_service import get_arcade_state, execute_spawn
+        from services.quiz_service import get_active_quiz
+
+        if get_active_quiz(chat_id):
+            resp = await update.message.reply_text("❓ 퀴즈 진행 중에는 이로치강스를 사용할 수 없습니다.")
+            schedule_delete(resp, config.AUTO_DEL_FORCE_SPAWN_RESP)
+            return
+
         is_permanent_arcade = chat_id in config.ARCADE_CHAT_IDS
         arcade_state = get_arcade_state(context.application, chat_id)
         if is_permanent_arcade or (arcade_state and arcade_state.get("active")):
