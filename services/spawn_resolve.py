@@ -329,17 +329,6 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             _shiny_verb = _hon_verb(t(_lang, "spawn_msg.shiny_verb"), _winner_tier, lang=_lang) if _winner_tier else t(_lang, "spawn_msg.shiny_verb")
             msg += f"\n\n{_se}{_se}{_se} {t(_lang, 'spawn_msg.shiny_announcement', verb=_shiny_verb)}"
 
-        # Track midnight catch for title
-        hour = config.get_kst_hour()
-        if 2 <= hour < 5:
-            await title_queries.increment_title_stat(winner_id, "midnight_catch_count")
-
-        # Track catch failures for title (batch)
-        if failed_ids:
-            await asyncio.gather(
-                *(title_queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
-            )
-
         # Catch BP reward (하루 포획 성공 100마리까지만, KST 자정 기준)
         from database.battle_queries import add_bp
         today_catches = await pool.fetchval(
@@ -358,129 +347,150 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             await queries.add_master_ball(winner_id)
             msg += f"\n\n{ball_emoji('masterball')} {t(_lang, 'spawn_msg.masterball_drop')}"
 
-        # Journey system check
-        from services.journey_service import check_journey
-        journey_msg = await check_journey(winner_id)
-        if journey_msg:
-            msg += f"\n\n{journey_msg}"
-
+        # ── 포획 메시지 전송 (여기까지만 유저가 기다림) ──
         catch_msg = await context.bot.send_message(
             chat_id=chat_id, text=msg, parse_mode="HTML",
             reply_markup=close_button(),
         )
         lock.release()  # 포획 메시지 전송 완료 → 다음 스폰 허용
 
-        # DM notification to catcher (with stats + power)
-        try:
-            from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, EVO_STAGE_MAP, get_normalized_base_stats
-            stat_type = pokemon.get("stat_type", "balanced") if pokemon else "balanced"
-
-            # Base stats (without IV)
-            norm = get_normalized_base_stats(pokemon_id)
-            evo_stage = 3 if norm else EVO_STAGE_MAP.get(pokemon_id, 3)
-            base_kwargs = norm or {}
-
-            stats_with_iv = calc_battle_stats(
-                rarity, stat_type, 0, evo_stage=evo_stage,
-                iv_hp=caught_ivs["iv_hp"], iv_atk=caught_ivs["iv_atk"],
-                iv_def=caught_ivs["iv_def"], iv_spa=caught_ivs["iv_spa"],
-                iv_spdef=caught_ivs["iv_spdef"], iv_spd=caught_ivs["iv_spd"],
-                **base_kwargs,
-            )
-            stats_base = calc_battle_stats(
-                rarity, stat_type, 0, evo_stage=evo_stage,
-                **base_kwargs,
-            )
-
-            _dm_lang = await get_user_lang(winner_id)
-            _dm_pname = poke_name(pokemon or _poke_mini, _dm_lang)
-            shiny_dm = f" {shiny_emoji()}{t(_dm_lang, 'spawn_msg.shiny_label').strip()}" if is_shiny else ""
-            iv_line = (f"IV: {caught_ivs['iv_hp']}/{caught_ivs['iv_atk']}/{caught_ivs['iv_def']}"
-                       f"/{caught_ivs['iv_spa']}/{caught_ivs['iv_spdef']}/{caught_ivs['iv_spd']}"
-                       f" ({iv_sum}/186)")
-            own_count = await queries.count_user_pokemon_species(winner_id, pokemon_id)
-            own_tag = t(_dm_lang, "spawn_msg.dm_owned_count", count=own_count) if own_count > 1 else t(_dm_lang, "spawn_msg.dm_owned_new")
-            if winner.get("used_master_ball"):
-                dm_ball = f"{ball_emoji('masterball')} "
-            elif winner.get("used_hyper_ball"):
-                dm_ball = f"{ball_emoji('hyperball')} "
-            else:
-                dm_ball = f"{ball_emoji('pokeball')} "
-            # 성격 표시
-            from utils.helpers import format_personality_tag as _fpt
-            _pers_dm = f"성격: {_fpt(_personality_str).strip()}\n" if _personality_str else ""
-            dm_text = (
-                f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
-                f"{_pers_dm}"
-                f"{iv_line}\n"
-                f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
-                f"{format_stats_line(stats_with_iv, stats_base, lang=_dm_lang)}\n\n"
-                f"{own_tag}"
-            )
-            catch_buttons = InlineKeyboardMarkup([[
-                InlineKeyboardButton(t(_dm_lang, "group.catch_keep_btn"), callback_data=f"catch_keep_{_inst_id}"),
-                InlineKeyboardButton(t(_dm_lang, "group.catch_release_btn"), callback_data=f"catch_release_{_inst_id}"),
-            ]])
-
+        # ── 이하 백그라운드 처리 (유저 응답에 영향 없음) ──
+        async def _post_catch_tasks():
             try:
-                dm_msg = await context.bot.send_message(
-                    chat_id=winner_id, text=dm_text,
-                    parse_mode="HTML", reply_markup=catch_buttons,
+                # Track midnight catch for title
+                hour = config.get_kst_hour()
+                if 2 <= hour < 5:
+                    await title_queries.increment_title_stat(winner_id, "midnight_catch_count")
+
+                # Track catch failures for title (batch)
+                if failed_ids:
+                    await asyncio.gather(
+                        *(title_queries.increment_title_stat(uid, "catch_fail_count") for uid in failed_ids)
+                    )
+
+                # Journey system check
+                from services.journey_service import check_journey
+                journey_msg = await check_journey(winner_id)
+                if journey_msg:
+                    try:
+                        await context.bot.send_message(
+                            chat_id=chat_id, text=journey_msg, parse_mode="HTML",
+                        )
+                    except Exception:
+                        pass
+
+                # DM notification to catcher (with stats + power)
+                try:
+                    from utils.battle_calc import calc_battle_stats, format_stats_line, format_power, EVO_STAGE_MAP, get_normalized_base_stats
+                    stat_type = pokemon.get("stat_type", "balanced") if pokemon else "balanced"
+
+                    norm = get_normalized_base_stats(pokemon_id)
+                    evo_stage = 3 if norm else EVO_STAGE_MAP.get(pokemon_id, 3)
+                    base_kwargs = norm or {}
+
+                    stats_with_iv = calc_battle_stats(
+                        rarity, stat_type, 0, evo_stage=evo_stage,
+                        iv_hp=caught_ivs["iv_hp"], iv_atk=caught_ivs["iv_atk"],
+                        iv_def=caught_ivs["iv_def"], iv_spa=caught_ivs["iv_spa"],
+                        iv_spdef=caught_ivs["iv_spdef"], iv_spd=caught_ivs["iv_spd"],
+                        **base_kwargs,
+                    )
+                    stats_base = calc_battle_stats(
+                        rarity, stat_type, 0, evo_stage=evo_stage,
+                        **base_kwargs,
+                    )
+
+                    _dm_lang = await get_user_lang(winner_id)
+                    _dm_pname = poke_name(pokemon or _poke_mini, _dm_lang)
+                    shiny_dm = f" {shiny_emoji()}{t(_dm_lang, 'spawn_msg.shiny_label').strip()}" if is_shiny else ""
+                    iv_line = (f"IV: {caught_ivs['iv_hp']}/{caught_ivs['iv_atk']}/{caught_ivs['iv_def']}"
+                               f"/{caught_ivs['iv_spa']}/{caught_ivs['iv_spdef']}/{caught_ivs['iv_spd']}"
+                               f" ({iv_sum}/186)")
+                    own_count = await queries.count_user_pokemon_species(winner_id, pokemon_id)
+                    own_tag = t(_dm_lang, "spawn_msg.dm_owned_count", count=own_count) if own_count > 1 else t(_dm_lang, "spawn_msg.dm_owned_new")
+                    if winner.get("used_master_ball"):
+                        dm_ball = f"{ball_emoji('masterball')} "
+                    elif winner.get("used_hyper_ball"):
+                        dm_ball = f"{ball_emoji('hyperball')} "
+                    else:
+                        dm_ball = f"{ball_emoji('pokeball')} "
+                    from utils.helpers import format_personality_tag as _fpt
+                    _pers_dm = f"성격: {_fpt(_personality_str).strip()}\n" if _personality_str else ""
+                    dm_text = (
+                        f"{dm_ball}{rbadge}{tb} {t(_dm_lang, 'spawn_msg.dm_caught', name=_dm_pname)}{shiny_dm} [{iv_grade}]\n"
+                        f"{_pers_dm}"
+                        f"{iv_line}\n"
+                        f"{icon_emoji('bolt')} {format_power(stats_with_iv, stats_base)}\n"
+                        f"{format_stats_line(stats_with_iv, stats_base, lang=_dm_lang)}\n\n"
+                        f"{own_tag}"
+                    )
+                    catch_buttons = InlineKeyboardMarkup([[
+                        InlineKeyboardButton(t(_dm_lang, "group.catch_keep_btn"), callback_data=f"catch_keep_{_inst_id}"),
+                        InlineKeyboardButton(t(_dm_lang, "group.catch_release_btn"), callback_data=f"catch_release_{_inst_id}"),
+                    ]])
+
+                    try:
+                        dm_msg = await context.bot.send_message(
+                            chat_id=winner_id, text=dm_text,
+                            parse_mode="HTML", reply_markup=catch_buttons,
+                        )
+                        logger.info(f"Catch DM sent to {winner_id} for {pokemon_name}")
+
+                        context.job_queue.run_once(
+                            _auto_keep_pokemon,
+                            when=300,
+                            data={
+                                "chat_id": winner_id,
+                                "message_id": dm_msg.message_id,
+                                "instance_id": _inst_id,
+                            },
+                        )
+                    except Exception as dm_err:
+                        logger.warning(f"Failed to send catch DM to {winner_id}: {dm_err}")
+                except Exception as e:
+                    logger.error(f"Catch DM construction failed for {winner_id}: {e}")
+
+                # Check and unlock titles
+                from utils.title_checker import check_and_unlock_titles
+                from utils.helpers import escape_html
+                new_titles = await check_and_unlock_titles(winner_id)
+                if new_titles:
+                    title_msgs = [
+                        f"🎉 <b>「{icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji} {tname}」</b> 칭호 해금!"
+                        for _, tname, temoji in new_titles
+                    ]
+                    safe_name = escape_html(winner_name)
+                    try:
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\nDM에서 '칭호'로 장착하세요!",
+                            parse_mode="HTML",
+                        )
+                    except Exception:
+                        pass
+
+                # Also check titles for failed catchers
+                if failed_ids:
+                    for uid in failed_ids:
+                        try:
+                            await check_and_unlock_titles(uid)
+                        except Exception:
+                            pass
+
+                # Log
+                await spawn_queries.log_spawn(
+                    chat_id, pokemon_id, pokemon_name, pokemon_emoji,
+                    rarity, winner_id, winner_name, participants, is_shiny=is_shiny,
+                    personality=_personality_str,
                 )
-                logger.info(f"Catch DM sent to {winner_id} for {pokemon_name}")
 
-                # 5분 후 자동 가방 넣기
-                context.job_queue.run_once(
-                    _auto_keep_pokemon,
-                    when=300,
-                    data={
-                        "chat_id": winner_id,
-                        "message_id": dm_msg.message_id,
-                        "instance_id": _inst_id,
-                    },
+                logger.info(
+                    f"{winner_name} caught {pokemon_name} ({_personality_str or 'no-pers'}) in chat {chat_id}"
                 )
-            except Exception as dm_err:
-                logger.warning(f"Failed to send catch DM to {winner_id}: {dm_err}")
-        except Exception as e:
-            logger.error(f"Catch DM construction failed for {winner_id}: {e}")
+            except Exception as e:
+                logger.error(f"Post-catch background task failed: {e}")
 
-        # Check and unlock titles
-        from utils.title_checker import check_and_unlock_titles
-        from utils.helpers import escape_html
-        new_titles = await check_and_unlock_titles(winner_id)
-        if new_titles:
-            title_msgs = [
-                f"🎉 <b>「{icon_emoji(temoji) if temoji in config.ICON_CUSTOM_EMOJI else temoji} {tname}」</b> 칭호 해금!"
-                for _, tname, temoji in new_titles
-            ]
-            safe_name = escape_html(winner_name)
-            title_msg = await context.bot.send_message(
-                chat_id=chat_id,
-                text=f"🏷️ {safe_name}의 새 칭호!\n" + "\n".join(title_msgs) + "\nDM에서 '칭호'로 장착하세요!",
-                parse_mode="HTML",
-            )
-            # title msg stays visible
-
-        # Also check titles for failed catchers (background, non-blocking)
-        async def _bg_check_failed():
-            try:
-                for uid in failed_ids:
-                    await check_and_unlock_titles(uid)
-            except Exception:
-                pass
-        if failed_ids:
-            asyncio.create_task(_bg_check_failed())
-
-        # Log
-        await spawn_queries.log_spawn(
-            chat_id, pokemon_id, pokemon_name, pokemon_emoji,
-            rarity, winner_id, winner_name, participants, is_shiny=is_shiny,
-            personality=_personality_str,
-        )
-
-        logger.info(
-            f"{winner_name} caught {pokemon_name} ({_personality_str or 'no-pers'}) in chat {chat_id}"
-        )
+        asyncio.create_task(_post_catch_tasks())
 
     except Exception as e:
         logger.error(f"Spawn resolution failed for session {session_id}: {e}")
