@@ -111,6 +111,11 @@ def _best_team_for_cost(
         slots_left = team_size - len(team) - 1
         min_needed = slots_left * 1  # 남은 슬롯은 최소 common(1)
 
+        # 초전설 1마리 제한
+        if p["rarity"] == "ultra_legendary":
+            if sum(1 for t in team if t["rarity"] == "ultra_legendary") >= 1:
+                continue
+
         if cost <= remaining - min_needed:
             team.append(p)
             remaining -= cost
