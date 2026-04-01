@@ -33,6 +33,7 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
     is_shiny = data.get("is_shiny", False)
     is_newbie_spawn = data.get("is_newbie_spawn", False)
     _personality_str = data.get("personality")  # "T3:atk:사나움" or None
+    _april_fools_name = data.get("april_fools_name", "")
     # Mini-dict for poke_name() until full pokemon dict is loaded
     _poke_mini = {"name_ko": pokemon_name, "name_en": pokemon_name_en}
 
@@ -322,6 +323,10 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             msg = t(_lang, "spawn_msg.catch_first", user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)
         else:
             msg = f"{be_pokeball} {t(_lang, 'spawn_msg.catch_normal', user=decorated, shiny=shiny_label, badge=rbadge, tb=tb, name=_pname, verb=_catch, iv=iv_tag)}"
+
+        # 만우절: "OO의 포켓몬을 빼앗았습니다!"
+        if _april_fools_name:
+            msg += f"\n{_april_fools_name}의 {_pname}을(를) 빼앗았습니다! 💔"
 
         # Shiny catch announcement
         if is_shiny:
