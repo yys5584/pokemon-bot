@@ -645,28 +645,10 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
         from utils.helpers import format_personality_tag
         personality_tag = format_personality_tag(_personality_str)
 
-        # 만우절 이벤트: "OO에게 사랑받는 포켓몬이 나타났다!"
-        _april_fools_prefix = ""
-        if config.is_april_fools():
-            try:
-                from database.connection import get_db
-                _af_pool = await get_db()
-                _af_row = await _af_pool.fetchrow(
-                    "SELECT display_name FROM users ORDER BY RANDOM() LIMIT 1"
-                )
-                if _af_row:
-                    _af_name = _af_row["display_name"]
-                    _april_fools_prefix = f"<b>{_af_name}</b>에게 사랑받는 "
-            except Exception:
-                pass
-
         caption = t(_lang, "spawn_msg.wild_appeared",
                      icon=icon_emoji('footsteps'), shiny=shiny_text, tb=tb,
                      name=poke_name(pokemon, _lang), bonus=bonus_text, weather=weather_tag,
                      window=window, newbie=newbie_tag, personality=personality_tag)
-
-        if _april_fools_prefix:
-            caption = caption.replace("야생의", _april_fools_prefix, 1)
 
         # Generate card image (Playwright async 렌더링)
         _types = pokemon.get("pokemon_type")
@@ -742,7 +724,6 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                 "is_shiny": is_shiny,
                 "is_newbie_spawn": is_newbie_spawn,
                 "personality": _personality_str,
-                "april_fools_name": _april_fools_prefix if config.is_april_fools() else "",
             },
             name=f"resolve_{session_id}",
         )

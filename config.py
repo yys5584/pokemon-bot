@@ -20,11 +20,6 @@ def get_kst_hour() -> int:
     """KST 기준 현재 시각 (0-23)."""
     return get_kst_now().hour
 
-def is_april_fools() -> bool:
-    """만우절 이벤트 활성 여부 (KST 기준 4월 1일)."""
-    now = get_kst_now()
-    return now.month == 4 and now.day == 1
-
 load_dotenv()
 
 # --- Admin ---
