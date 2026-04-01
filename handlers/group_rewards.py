@@ -13,7 +13,7 @@ from database import queries, spawn_queries, title_queries
 from database import battle_queries as bq
 from services.tournament_service import is_tournament_active
 from utils.helpers import ball_emoji, icon_emoji
-from handlers._common import _is_duplicate_message
+from handlers._common import _is_duplicate_message, acquire_user_lock, release_user_lock
 from utils.i18n import t, get_group_lang
 
 logger = logging.getLogger(__name__)
@@ -145,29 +145,34 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = update.effective_user.id
-    chat_id = update.effective_chat.id if update.effective_chat else None
-    lang = await get_group_lang(chat_id) if chat_id else "ko"
-    display_name = update.effective_user.first_name or t(lang, "common.trainer")
-    now = config.get_kst_now()
-
-    last_used = _love_hidden_cooldown.get(user_id)
-    if last_used and (now - last_used).total_seconds() < 30:
+    if not acquire_user_lock(user_id, "daily_reward"):
         return
-    _love_hidden_cooldown[user_id] = now
+    try:
+        chat_id = update.effective_chat.id if update.effective_chat else None
+        lang = await get_group_lang(chat_id) if chat_id else "ko"
+        display_name = update.effective_user.first_name or t(lang, "common.trainer")
+        now = config.get_kst_now()
 
-    await queries.ensure_user(user_id, display_name, update.effective_user.username)
+        last_used = _love_hidden_cooldown.get(user_id)
+        if last_used and (now - last_used).total_seconds() < 30:
+            return
+        _love_hidden_cooldown[user_id] = now
 
-    response = random.choice(_LOVE_RESPONSES)
+        await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
-    # Daily reward: first "문유 사랑해" of the day gives 1 hyperball
-    reward_msg = ""
-    already_claimed = await bq.get_bp_purchases_today(user_id, "love_hidden_reward")
-    if already_claimed == 0:
-        await bq.log_bp_purchase(user_id, "love_hidden_reward", 1)
-        await queries.add_hyper_ball(user_id, 1)
-        reward_msg = f"\n\n{ball_emoji('hyperball')} {t(lang, 'group.attendance_reward')}"
+        response = random.choice(_LOVE_RESPONSES)
 
-    await update.message.reply_text(f"문유: {response}{reward_msg}", parse_mode="HTML")
+        # Daily reward: first "문유 사랑해" of the day gives 1 hyperball
+        reward_msg = ""
+        already_claimed = await bq.get_bp_purchases_today(user_id, "love_hidden_reward")
+        if already_claimed == 0:
+            await bq.log_bp_purchase(user_id, "love_hidden_reward", 1)
+            await queries.add_hyper_ball(user_id, 1)
+            reward_msg = f"\n\n{ball_emoji('hyperball')} {t(lang, 'group.attendance_reward')}"
+
+        await update.message.reply_text(f"문유: {response}{reward_msg}", parse_mode="HTML")
+    finally:
+        release_user_lock(user_id, "daily_reward")
 
     # Title tracking in background
     async def _bg_title_check():
@@ -203,23 +208,28 @@ async def attendance_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     user_id = update.effective_user.id
-    chat_id = update.effective_chat.id if update.effective_chat else None
-    lang = await get_group_lang(chat_id) if chat_id else "ko"
-    display_name = update.effective_user.first_name or t(lang, "common.trainer")
-
-    await queries.ensure_user(user_id, display_name, update.effective_user.username)
-
-    already_claimed = await bq.get_bp_purchases_today(user_id, "love_hidden_reward")
-    if already_claimed > 0:
-        await update.message.reply_text(t(lang, "group.attendance_already"), parse_mode="HTML")
+    if not acquire_user_lock(user_id, "daily_reward"):
         return
+    try:
+        chat_id = update.effective_chat.id if update.effective_chat else None
+        lang = await get_group_lang(chat_id) if chat_id else "ko"
+        display_name = update.effective_user.first_name or t(lang, "common.trainer")
 
-    await bq.log_bp_purchase(user_id, "love_hidden_reward", 1)
-    await queries.add_hyper_ball(user_id, 1)
-    await update.message.reply_text(
-        f"{ball_emoji('hyperball')} {t(lang, 'group.attendance_done')}",
-        parse_mode="HTML",
-    )
+        await queries.ensure_user(user_id, display_name, update.effective_user.username)
+
+        already_claimed = await bq.get_bp_purchases_today(user_id, "love_hidden_reward")
+        if already_claimed > 0:
+            await update.message.reply_text(t(lang, "group.attendance_already"), parse_mode="HTML")
+            return
+
+        await bq.log_bp_purchase(user_id, "love_hidden_reward", 1)
+        await queries.add_hyper_ball(user_id, 1)
+        await update.message.reply_text(
+            f"{ball_emoji('hyperball')} {t(lang, 'group.attendance_done')}",
+            parse_mode="HTML",
+        )
+    finally:
+        release_user_lock(user_id, "daily_reward")
 
 
 async def daily_money_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -234,23 +244,28 @@ async def daily_money_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
-    lang = await get_group_lang(chat_id)
-    display_name = update.effective_user.first_name or t(lang, "common.trainer")
+    if not acquire_user_lock(user_id, "daily_money"):
+        return
+    try:
+        chat_id = update.effective_chat.id
+        lang = await get_group_lang(chat_id)
+        display_name = update.effective_user.first_name or t(lang, "common.trainer")
 
-    await queries.ensure_user(user_id, display_name, update.effective_user.username)
+        await queries.ensure_user(user_id, display_name, update.effective_user.username)
 
-    already = await bq.get_bp_purchases_today(user_id, "daily_money")
-    if already > 0:
+        already = await bq.get_bp_purchases_today(user_id, "daily_money")
+        if already > 0:
+            await update.message.reply_text(
+                f"{icon_emoji('coin')} {t(lang, 'group.daily_money_already')}",
+                parse_mode="HTML",
+            )
+            return
+
+        await bq.log_bp_purchase(user_id, "daily_money", 1)
+        await bq.add_bp(user_id, config.DAILY_CHECKIN_BP, "daily_checkin")
         await update.message.reply_text(
-            f"{icon_emoji('coin')} {t(lang, 'group.daily_money_already')}",
+            f"{icon_emoji('coin')} {t(lang, 'group.daily_money_done', bp=config.DAILY_CHECKIN_BP)}",
             parse_mode="HTML",
         )
-        return
-
-    await bq.log_bp_purchase(user_id, "daily_money", 1)
-    await bq.add_bp(user_id, config.DAILY_CHECKIN_BP, "daily_checkin")
-    await update.message.reply_text(
-        f"{icon_emoji('coin')} {t(lang, 'group.daily_money_done', bp=config.DAILY_CHECKIN_BP)}",
-        parse_mode="HTML",
-    )
+    finally:
+        release_user_lock(user_id, "daily_money")

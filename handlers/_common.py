@@ -46,3 +46,30 @@ def _is_duplicate_message(update, command: str, cooldown: float = 3.0) -> bool:
         return True
     _msg_dedup[key] = now
     return False
+
+
+# ── 유저별 명령어 실행 중 락 (race condition 방지) ──
+_user_locks: dict[str, float] = {}  # "user_id:category" -> timestamp
+
+
+def acquire_user_lock(user_id: int, category: str, timeout: float = 60.0) -> bool:
+    """유저가 해당 카테고리에서 이미 작업 중이면 False 반환.
+    Single-threaded asyncio → await 사이에 다른 태스크가 끼어드는 것 방지.
+    timeout 후 자동 해제 (핸들러 에러로 release 안 된 경우 대비)."""
+    key = f"{user_id}:{category}"
+    now = time.monotonic()
+    # 정리
+    if len(_user_locks) > 500:
+        stale = [k for k, v in _user_locks.items() if now - v > 120]
+        for k in stale:
+            del _user_locks[k]
+    locked_at = _user_locks.get(key)
+    if locked_at and (now - locked_at) < timeout:
+        return False  # 이미 실행 중
+    _user_locks[key] = now
+    return True
+
+
+def release_user_lock(user_id: int, category: str):
+    """작업 완료 후 락 해제."""
+    _user_locks.pop(f"{user_id}:{category}", None)

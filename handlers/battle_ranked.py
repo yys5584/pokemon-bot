@@ -15,7 +15,7 @@ import config
 
 from database import queries, title_queries
 from database import battle_queries as bq
-from handlers._common import _is_duplicate_callback, _is_duplicate_message
+from handlers._common import _is_duplicate_callback, _is_duplicate_message, acquire_user_lock, release_user_lock
 from utils.helpers import escape_html, icon_emoji, rarity_badge
 from utils.i18n import t, get_user_lang
 
@@ -37,8 +37,17 @@ async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     if _is_duplicate_message(update, "랭전", cooldown=5.0):
         return
 
-    chat_id = update.effective_chat.id
     challenger_id = update.effective_user.id
+    if not acquire_user_lock(challenger_id, "ranked"):
+        return  # 이미 랭전 진행 중
+    try:
+        await _ranked_challenge_inner(update, context, challenger_id)
+    finally:
+        release_user_lock(challenger_id, "ranked")
+
+
+async def _ranked_challenge_inner(update: Update, context: ContextTypes.DEFAULT_TYPE, challenger_id: int):
+    chat_id = update.effective_chat.id
     lang = await get_user_lang(challenger_id)
     challenger_name = update.effective_user.first_name or t(lang, "common.trainer")
 

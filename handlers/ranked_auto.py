@@ -10,7 +10,7 @@ import config
 from database import queries
 from database import battle_queries as bq
 from utils.helpers import escape_html, icon_emoji
-from handlers._common import _is_duplicate_message
+from handlers._common import _is_duplicate_message, acquire_user_lock, release_user_lock
 from utils.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,15 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user_id = update.effective_user.id
+    if not acquire_user_lock(user_id, "ranked"):
+        return  # 이미 랭전 진행 중
+    try:
+        await _auto_ranked_inner(update, context, user_id)
+    finally:
+        release_user_lock(user_id, "ranked")
+
+
+async def _auto_ranked_inner(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
     lang = await get_user_lang(user_id)
     display_name = update.effective_user.first_name or t(lang, "common.trainer")
     await queries.ensure_user(user_id, display_name, update.effective_user.username)
