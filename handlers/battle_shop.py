@@ -12,6 +12,7 @@ from database import battle_queries as bq
 from utils.battle_calc import calc_battle_stats, EVO_STAGE_MAP, get_normalized_base_stats
 from utils.helpers import escape_html, rarity_badge, type_badge, icon_emoji, ball_emoji
 from utils.i18n import t, get_user_lang, poke_name
+from handlers._common import _is_duplicate_message
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +149,8 @@ async def bp_shop_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def bp_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 구매/BP구매 command (DM). Purchase from BP shop."""
     if not update.effective_user:
+        return
+    if _is_duplicate_message(update, "bp구매", cooldown=3.0):
         return
 
     user_id = update.effective_user.id

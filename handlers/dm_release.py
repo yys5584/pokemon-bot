@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes
 from database import queries
 import config
 from utils.i18n import t, get_user_lang
+from handlers._common import _is_duplicate_message
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,8 @@ async def _get_candidates(user_id: int, filt: dict) -> list[dict]:
 async def release_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '방생' command in DM."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "방생", cooldown=3.0):
         return
     user_id = update.effective_user.id
     lang = await get_user_lang(user_id)

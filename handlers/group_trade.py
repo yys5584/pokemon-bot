@@ -15,6 +15,7 @@ from database import trade_queries as tq
 from database import battle_queries as bq
 from services.evolution_service import build_trade_evo_info
 from utils.helpers import update_title, iv_grade_tag as _iv_tag, type_badge
+from handlers._common import _is_duplicate_message
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,8 @@ async def group_trade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Handle '교환 [포켓몬이름]' as a reply in group chat."""
     msg = update.message
     if not msg or not update.effective_user:
+        return
+    if _is_duplicate_message(update, "교환", cooldown=3.0):
         return
 
     # Must be a reply — 답장이 아니면 무응답 (일반 대화 방해 방지)

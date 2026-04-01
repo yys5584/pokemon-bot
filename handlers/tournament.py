@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 import config
 from database import queries
+from handlers._common import _is_duplicate_message
 from services.tournament_service import register_player
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 async def tournament_join_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle 'ㄷ' command in arcade channel — register for tournament."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "ㄷ", cooldown=3.0):
         return
 
     chat_id = update.effective_chat.id

@@ -12,6 +12,7 @@ from services.event_service import get_friendship_boost
 from utils.helpers import hearts_display, icon_emoji, iv_grade_tag as _iv_grade_tag
 from utils.parse import parse_number, parse_name_arg, parse_select_index
 from utils.i18n import t, get_user_lang, poke_name
+from handlers._common import _is_duplicate_message
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,8 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '밥 [번호]' command."""
     if not update.effective_user or not update.message:
         return
+    if _is_duplicate_message(update, "밥", cooldown=3.0):
+        return
 
     user_id = update.effective_user.id
     lang = await get_user_lang(user_id)
@@ -220,6 +223,8 @@ async def feed_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '놀기 [번호]' command."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "놀기", cooldown=3.0):
         return
 
     user_id = update.effective_user.id

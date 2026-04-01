@@ -16,6 +16,7 @@ from utils.helpers import (
     ball_emoji, shiny_emoji, icon_emoji, rarity_badge, type_badge,
 )
 from utils.i18n import t, get_group_lang, poke_name
+from handlers._common import _is_duplicate_message
 
 logger = logging.getLogger(__name__)
 
@@ -370,6 +371,8 @@ _shiny_ticket_locks: dict[int, asyncio.Lock] = {}
 async def shiny_ticket_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '이로치강스' command — any user with a shiny spawn ticket can force-spawn a shiny."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "이로치강스", cooldown=3.0):
         return
 
     user_id = update.effective_user.id

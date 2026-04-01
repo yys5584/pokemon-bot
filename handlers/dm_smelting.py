@@ -13,6 +13,7 @@ from database import smelting_queries as sq
 from services import smelting_service
 from utils.helpers import rarity_badge, pokemon_iv_total, iv_grade
 from utils.i18n import get_user_lang
+from handlers._common import _is_duplicate_message
 
 logger = logging.getLogger(__name__)
 
@@ -460,6 +461,8 @@ async def _show_result(query, user_id: int, result: dict):
 async def smelting_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '제련' / '제련소' command in DM."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "제련소", cooldown=3.0):
         return
     user_id = update.effective_user.id
 

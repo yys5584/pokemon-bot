@@ -221,8 +221,10 @@ async def _do_set_slot(p: dict, user_id: int, team_num: int, slot: int, lang: st
     for t in team:
         if t["slot"] != slot:
             total_cost += config.RANKED_COST.get(t.get("rarity", ""), 0)
-    if total_cost > config.RANKED_COST_LIMIT:
-        return f"❌ 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n코스트 {config.RANKED_COST_LIMIT} 이하로 편성해주세요."
+    from services.ranked_service import get_current_cost_limit
+    _cost_limit = await get_current_cost_limit()
+    if total_cost > _cost_limit:
+        return f"❌ 팀 코스트 초과! ({total_cost}/{_cost_limit})\n코스트 {_cost_limit} 이하로 편성해주세요."
 
     # Save
     instance_ids = [slot_map[s] for s in sorted(slot_map.keys())]

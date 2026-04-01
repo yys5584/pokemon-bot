@@ -49,8 +49,9 @@ def _build_team_slots(user_id: int, draft: dict, team_num: int, lang: str = "ko"
             rarity = rarities.get(inst_id, "")
             total_cost += config.RANKED_COST.get(rarity, 0)
 
-    cost_warn = f" {t(lang, 'team.cost_exceeded_warn')}" if total_cost > config.RANKED_COST_LIMIT else ""
-    header = f"{icon_emoji('battle')} {t(lang, 'team.team_header', num=team_num, filled=filled, max=TEAM_MAX, cost=total_cost, limit=config.RANKED_COST_LIMIT)}{cost_warn}"
+    cost_limit = draft.get("cost_limit", config.RANKED_COST_LIMIT)
+    cost_warn = f" {t(lang, 'team.cost_exceeded_warn')}" if total_cost > cost_limit else ""
+    header = f"{icon_emoji('battle')} {t(lang, 'team.team_header', num=team_num, filled=filled, max=TEAM_MAX, cost=total_cost, limit=cost_limit)}{cost_warn}"
     if swap_mode:
         if swap_first is not None:
             first_name = names.get(current.get(swap_first), empty)
@@ -288,7 +289,7 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     active_mark = f" {icon_emoji('check')}" if team_num == active_num else ""
     slot_emojis = [icon_emoji(str(i)) for i in range(1, 7)]
-    lines = [f"{icon_emoji('battle')} {t(lang, 'team.team_header', num=team_num, filled=len(team), max=TEAM_MAX, cost=0, limit=config.RANKED_COST_LIMIT).split('💰')[0].strip()}{active_mark}\n"]
+    lines = [f"{icon_emoji('battle')} {t(lang, 'team.team_header', num=team_num, filled=len(team), max=TEAM_MAX, cost=0, limit=0).split('💰')[0].strip()}{active_mark}\n"]
 
     total_power = 0
     total_base_power = 0
@@ -331,10 +332,12 @@ async def team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     iv_diff = total_power - total_base_power
     total_tag = f"{total_power}(+{iv_diff})" if iv_diff > 0 else str(total_power)
     lines.append(f"\n{icon_emoji('bolt')} {t(lang, 'team.team_power_label', power=total_tag)}")
-    lines.append(f"💰 {t(lang, 'team.team_cost_label', cost=total_cost, limit=config.RANKED_COST_LIMIT)}")
+    from services.ranked_service import get_current_cost_limit
+    _cost_limit = await get_current_cost_limit()
+    lines.append(f"💰 {t(lang, 'team.team_cost_label', cost=total_cost, limit=_cost_limit)}")
 
-    if total_cost > config.RANKED_COST_LIMIT:
-        lines.append(f"\n{t(lang, 'team.cost_over_warning', cost=total_cost, limit=config.RANKED_COST_LIMIT)}")
+    if total_cost > _cost_limit:
+        lines.append(f"\n{t(lang, 'team.cost_over_warning', cost=total_cost, limit=_cost_limit)}")
 
     if team_num != active_num:
         lines.append(f"\n💡 {t(lang, 'team.team_use_hint', num=team_num)}")
@@ -468,9 +471,11 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return
 
-    # COST validation
+    # COST validation (시즌 룰 반영)
+    from services.ranked_service import get_current_cost_limit
+    cost_limit = await get_current_cost_limit()
     total_cost = sum(config.RANKED_COST.get(pokemon_list[n - 1].get("rarity", ""), 0) for n in nums)
-    if total_cost > config.RANKED_COST_LIMIT:
+    if total_cost > cost_limit:
         cost_lines = []
         for n in nums:
             p = pokemon_list[n - 1]
@@ -478,7 +483,7 @@ async def team_register_handler(update: Update, context: ContextTypes.DEFAULT_TY
             cost_lines.append(f"  {poke_name(p, lang)} 💰{c}")
         await context.bot.send_message(
             chat_id=user_id,
-            text=f"❌ {t(lang, 'team.cost_over_detail', cost=total_cost, limit=config.RANKED_COST_LIMIT, lines=chr(10).join(cost_lines))}",
+            text=f"❌ {t(lang, 'team.cost_over_detail', cost=total_cost, limit=cost_limit, lines=chr(10).join(cost_lines))}",
         )
         return
 
@@ -919,10 +924,12 @@ async def team_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 total_cost += config.RANKED_COST.get(rar, 0)
                 if rar == "ultra_legendary":
                     ultra_count += 1
-        if total_cost > config.RANKED_COST_LIMIT:
+        from services.ranked_service import get_current_cost_limit
+        _cost_limit = await get_current_cost_limit()
+        if total_cost > _cost_limit:
             try:
                 await query.edit_message_text(
-                    f"❌ {t(lang, 'team.cost_over_detail', cost=total_cost, limit=config.RANKED_COST_LIMIT, lines='')}",
+                    f"❌ {t(lang, 'team.cost_over_detail', cost=total_cost, limit=_cost_limit, lines='')}",
                     parse_mode="HTML",
                 )
             except Exception:

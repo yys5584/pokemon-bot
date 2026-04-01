@@ -15,7 +15,7 @@ import config
 
 from database import queries, title_queries
 from database import battle_queries as bq
-from handlers._common import _is_duplicate_callback
+from handlers._common import _is_duplicate_callback, _is_duplicate_message
 from utils.helpers import escape_html, icon_emoji, rarity_badge
 from utils.i18n import t, get_user_lang
 
@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 async def ranked_challenge_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '랭전' command (group → arena only). Ranked battle challenge."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "랭전", cooldown=5.0):
         return
 
     chat_id = update.effective_chat.id

@@ -21,3 +21,28 @@ def _is_duplicate_callback(query) -> bool:
         return True
     _callback_dedup[key] = now
     return False
+
+
+# ── 텍스트 메시지 명령어 중복 실행 방지 ──
+_msg_dedup: dict[str, float] = {}  # "user_id:command" -> timestamp
+
+
+def _is_duplicate_message(update, command: str, cooldown: float = 3.0) -> bool:
+    """Return True if the same user already triggered this command within cooldown seconds.
+    Prevents rapid-fire text command abuse (출석, !돈, 랭전, 포켓볼 충전 등).
+    Single-threaded asyncio → no race condition on dict access."""
+    if not update.effective_user:
+        return False
+    key = f"{update.effective_user.id}:{command}"
+    now = time.monotonic()
+    # 정리 (500개 넘으면)
+    if len(_msg_dedup) > 500:
+        cutoff = now - 10
+        stale = [k for k, v in _msg_dedup.items() if v < cutoff]
+        for k in stale:
+            del _msg_dedup[k]
+    last = _msg_dedup.get(key)
+    if last and (now - last) < cooldown:
+        return True
+    _msg_dedup[key] = now
+    return False

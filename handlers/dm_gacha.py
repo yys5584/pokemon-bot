@@ -15,6 +15,7 @@ from database import camp_queries as cq
 from database.battle_queries import get_bp
 from utils.helpers import icon_emoji
 from utils.i18n import t, get_user_lang, poke_name
+from handlers._common import _is_duplicate_message
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,8 @@ _ITEM_GUIDE = {
 async def gacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """'뽑기' 명령 — 가챠 메인 메뉴."""
     if not update.effective_user:
+        return
+    if _is_duplicate_message(update, "가챠", cooldown=3.0):
         return
     user_id = update.effective_user.id
     lang = await get_user_lang(user_id)

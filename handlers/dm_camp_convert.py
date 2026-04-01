@@ -15,6 +15,7 @@ from handlers.dm_camp_shared import (
     _is_duplicate_callback, _pokemon_name,
     CONVERT_PAGE_SIZE, DECOMPOSE_PAGE_SIZE,
 )
+from handlers._common import _is_duplicate_message
 
 
 _RARITY_FILTER_MAP = {
@@ -186,6 +187,10 @@ def _build_decompose_page(shinies: list, uid: int, crystals: dict, page: int = 0
 
 async def shiny_convert_handler(update, context):
     """DM '이로치전환' — 전환 가능 포켓몬 리스트."""
+    if not update.effective_user:
+        return
+    if _is_duplicate_message(update, "이로치전환", cooldown=3.0):
+        return
     user_id = update.effective_user.id
     user = await queries.get_user(user_id)
     if not user:
@@ -213,6 +218,10 @@ async def shiny_convert_handler(update, context):
 
 async def decompose_handler(update, context):
     """DM '분해' — 이로치 분해로 결정 획득."""
+    if not update.effective_user:
+        return
+    if _is_duplicate_message(update, "분해", cooldown=3.0):
+        return
     user_id = update.effective_user.id
     user = await queries.get_user(user_id)
     if not user:

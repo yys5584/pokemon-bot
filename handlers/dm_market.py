@@ -12,6 +12,7 @@ from services.market_service import create_listing, buy_listing, cancel_listing_
 from utils.helpers import iv_grade_tag as _iv_tag, iv_grade, type_badge
 from utils.battle_calc import iv_total, calc_battle_stats, format_power, EVO_STAGE_MAP, get_normalized_base_stats
 from utils.i18n import t, get_user_lang, poke_name
+from handlers._common import _is_duplicate_message
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +149,8 @@ async def market_register_handler(update: Update, context: ContextTypes.DEFAULT_
     """Handle '거래소 등록 [포켓몬이름] [가격]'."""
     if not update.effective_user or not update.message:
         return
+    if _is_duplicate_message(update, "거래소등록", cooldown=3.0):
+        return
     user_id = update.effective_user.id
     await queries.ensure_user(user_id, update.effective_user.first_name or "트레이너", update.effective_user.username)
 
@@ -252,6 +255,8 @@ async def market_cancel_handler(update: Update, context: ContextTypes.DEFAULT_TY
     """Handle '거래소 취소 [id]'."""
     if not update.effective_user or not update.message:
         return
+    if _is_duplicate_message(update, "거래소취소", cooldown=3.0):
+        return
     user_id = update.effective_user.id
     lang = await get_user_lang(user_id)
 
@@ -274,6 +279,8 @@ async def market_cancel_handler(update: Update, context: ContextTypes.DEFAULT_TY
 async def market_buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '거래소 구매 [id]'."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "거래소구매", cooldown=3.0):
         return
     user_id = update.effective_user.id
     await queries.ensure_user(user_id, update.effective_user.first_name or "트레이너", update.effective_user.username)

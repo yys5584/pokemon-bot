@@ -16,7 +16,7 @@ from telegram.ext import ContextTypes
 import config
 from database import queries
 from database import battle_queries as bq
-from handlers._common import _is_duplicate_callback
+from handlers._common import _is_duplicate_callback, _is_duplicate_message
 from utils.helpers import icon_emoji, rarity_badge
 from utils.i18n import t, get_user_lang
 
@@ -43,6 +43,8 @@ async def _get_yacha_pair_count_today(pool, user_a: int, user_b: int) -> int:
 async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '야차' command (group). 바로 상대에게 수락/거절 전송."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "야차", cooldown=5.0):
         return
 
     chat_id = update.effective_chat.id
@@ -96,10 +98,12 @@ async def yacha_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"❌ {t(lang, 'yacha.team_incomplete', count=len(c_team), required=config.RANKED_TEAM_SIZE)}"
         )
         return
+    from services.ranked_service import get_current_cost_limit
+    _cost_limit = await get_current_cost_limit()
     c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
-    if c_cost > config.RANKED_COST_LIMIT:
+    if c_cost > _cost_limit:
         await update.message.reply_text(
-            f"❌ {t(lang, 'yacha.cost_over', cost=c_cost, limit=config.RANKED_COST_LIMIT)}"
+            f"❌ {t(lang, 'yacha.cost_over', cost=c_cost, limit=_cost_limit)}"
         )
         return
 
@@ -235,11 +239,13 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
         except Exception:
             pass
         return
+    from services.ranked_service import get_current_cost_limit
+    _cost_limit = await get_current_cost_limit()
     d_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in d_team)
-    if d_cost > config.RANKED_COST_LIMIT:
+    if d_cost > _cost_limit:
         try:
             await query.edit_message_text(
-                f"❌ {t(lang, 'yacha.defender_cost_over', cost=d_cost, limit=config.RANKED_COST_LIMIT)}"
+                f"❌ {t(lang, 'yacha.defender_cost_over', cost=d_cost, limit=_cost_limit)}"
             )
         except Exception:
             pass
@@ -253,10 +259,10 @@ async def yacha_response_callback(update: Update, context: ContextTypes.DEFAULT_
             pass
         return
     c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
-    if c_cost > config.RANKED_COST_LIMIT:
+    if c_cost > _cost_limit:
         try:
             await query.edit_message_text(
-                f"❌ {t(lang, 'yacha.challenger_cost_over', cost=c_cost, limit=config.RANKED_COST_LIMIT)}"
+                f"❌ {t(lang, 'yacha.challenger_cost_over', cost=c_cost, limit=_cost_limit)}"
             )
         except Exception:
             pass

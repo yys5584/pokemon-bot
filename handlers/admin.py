@@ -11,6 +11,7 @@ import config
 from database import queries, spawn_queries
 from services.spawn_service import schedule_spawns_for_chat
 from utils.helpers import schedule_delete, icon_emoji, type_badge
+from handlers._common import _is_duplicate_message
 
 logger = logging.getLogger(__name__)
 
@@ -279,6 +280,8 @@ async def force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def ticket_force_spawn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '강스권' command in group — use a force spawn reset ticket to reset 50-count."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "강스권", cooldown=3.0):
         return
 
     user_id = update.effective_user.id

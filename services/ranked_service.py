@@ -92,6 +92,25 @@ async def ensure_current_season() -> dict:
     return season
 
 
+_cached_cost_limit: int | None = None
+_cached_cost_limit_season: str | None = None
+
+
+async def get_current_cost_limit() -> int:
+    """현재 시즌의 cost_limit 반환. 시즌 없으면 기본값. 결과 캐싱."""
+    global _cached_cost_limit, _cached_cost_limit_season
+    season = await ensure_current_season()
+    if not season:
+        return config.RANKED_COST_LIMIT
+    sid = season.get("season_id", "")
+    if _cached_cost_limit is not None and _cached_cost_limit_season == sid:
+        return _cached_cost_limit
+    rule_info = config.WEEKLY_RULES.get(season.get("weekly_rule", ""), {})
+    _cached_cost_limit = rule_info.get("cost_limit", config.RANKED_COST_LIMIT)
+    _cached_cost_limit_season = sid
+    return _cached_cost_limit
+
+
 async def _select_arenas() -> list[int]:
     """아레나 후보에서 1~2곳 랜덤 선정 — DM 자동매칭 전환으로 빈 배열 반환."""
     return []

@@ -8,6 +8,7 @@ from services.fusion_service import get_fusable_species, get_fusable_copies, exe
 from utils.helpers import rarity_badge
 import config
 from utils.i18n import t, get_user_lang, poke_name
+from handlers._common import _is_duplicate_message
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +178,8 @@ def _pokemon_summary(p: dict) -> str:
 async def fusion_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '합성' command in DM."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "합성", cooldown=3.0):
         return
     user_id = update.effective_user.id
 

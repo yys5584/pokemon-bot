@@ -13,6 +13,7 @@ from database import queries, spawn_queries, title_queries
 from database import battle_queries as bq
 from services.tournament_service import is_tournament_active
 from utils.helpers import ball_emoji, icon_emoji
+from handlers._common import _is_duplicate_message
 from utils.i18n import t, get_group_lang
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,8 @@ _love_cooldown = {}  # user_id -> last_used timestamp
 async def love_easter_egg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '포켓볼 충전' — grants +10 bonus catches for today."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "포켓볼충전", cooldown=5.0):
         return
     if update.effective_chat and is_tournament_active(update.effective_chat.id):
         return
@@ -136,6 +139,8 @@ async def love_hidden_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Hidden '문유 사랑해' — random flirty response + daily hyperball reward."""
     if not update.effective_user or not update.message:
         return
+    if _is_duplicate_message(update, "문유사랑해", cooldown=5.0):
+        return
     if update.effective_chat and is_tournament_active(update.effective_chat.id):
         return
 
@@ -192,6 +197,8 @@ async def attendance_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Handle '출석' command — daily hyperball reward (shared with 문유 사랑해)."""
     if not update.effective_user or not update.message:
         return
+    if _is_duplicate_message(update, "출석", cooldown=5.0):
+        return
     if update.effective_chat and is_tournament_active(update.effective_chat.id):
         return
 
@@ -218,6 +225,8 @@ async def attendance_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def daily_money_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '!돈' command — 일일 출석 BP 보상 (그룹 전용)."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "!돈", cooldown=5.0):
         return
     if not update.effective_chat or update.effective_chat.type == "private":
         return

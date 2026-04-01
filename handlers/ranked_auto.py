@@ -10,6 +10,7 @@ import config
 from database import queries
 from database import battle_queries as bq
 from utils.helpers import escape_html, icon_emoji
+from handlers._common import _is_duplicate_message
 from utils.i18n import t, get_user_lang
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,8 @@ logger = logging.getLogger(__name__)
 async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle '랭전' command (DM). Auto-match ranked battle."""
     if not update.effective_user or not update.message:
+        return
+    if _is_duplicate_message(update, "자동랭전", cooldown=5.0):
         return
 
     user_id = update.effective_user.id
@@ -65,9 +68,11 @@ async def auto_ranked_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         total_cost += cost
         if p["rarity"] == "ultra_legendary":
             ultra_count += 1
-    if total_cost > config.RANKED_COST_LIMIT:
+    from services.ranked_service import get_current_cost_limit
+    _cost_limit = await get_current_cost_limit()
+    if total_cost > _cost_limit:
         await update.message.reply_text(
-            f"❌ {t(lang, 'ranked.cost_over_msg', cost=total_cost, limit=config.RANKED_COST_LIMIT)}"
+            f"❌ {t(lang, 'ranked.cost_over_msg', cost=total_cost, limit=_cost_limit)}"
         )
         return
     if ultra_count > config.RANKED_ULTRA_MAX:

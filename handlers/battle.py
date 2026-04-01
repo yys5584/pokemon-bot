@@ -14,7 +14,7 @@ import config
 
 from database import queries, spawn_queries, title_queries
 from database import battle_queries as bq
-from handlers._common import _is_duplicate_callback
+from handlers._common import _is_duplicate_callback, _is_duplicate_message
 from utils.battle_calc import calc_battle_stats, format_stats_line, calc_power, format_power, EVO_STAGE_MAP, iv_total, get_normalized_base_stats
 from utils.helpers import escape_html, truncate_name, rarity_badge, type_badge, icon_emoji, ball_emoji, iv_grade_tag
 from utils.i18n import t, get_user_lang, poke_name
@@ -301,6 +301,8 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
     """Handle 배틀 command (group). Challenge another user."""
     if not update.effective_user or not update.message:
         return
+    if _is_duplicate_message(update, "배틀", cooldown=5.0):
+        return
 
     chat_id = update.effective_chat.id
 
@@ -382,10 +384,12 @@ async def battle_challenge_handler(update: Update, context: ContextTypes.DEFAULT
             parse_mode="HTML",
         )
         return
+    from services.ranked_service import get_current_cost_limit
+    _cost_limit = await get_current_cost_limit()
     c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
-    if c_cost > config.RANKED_COST_LIMIT:
+    if c_cost > _cost_limit:
         await update.message.reply_text(
-            f"❌ {t(lang, 'battle.team_cost_over', cost=c_cost, limit=config.RANKED_COST_LIMIT)}",
+            f"❌ {t(lang, 'battle.team_cost_over', cost=c_cost, limit=_cost_limit)}",
             parse_mode="HTML",
         )
         return
@@ -542,11 +546,13 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             except Exception:
                 pass
             return
+        from services.ranked_service import get_current_cost_limit
+        _cost_limit = await get_current_cost_limit()
         d_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in d_team)
-        if d_cost > config.RANKED_COST_LIMIT:
+        if d_cost > _cost_limit:
             try:
                 await query.edit_message_text(
-                    f"❌ {t(lang, 'battle.defender_cost_over', cost=d_cost, limit=config.RANKED_COST_LIMIT)}",
+                    f"❌ {t(lang, 'battle.defender_cost_over', cost=d_cost, limit=_cost_limit)}",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -570,10 +576,10 @@ async def battle_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 pass
             return
         c_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in c_team)
-        if c_cost > config.RANKED_COST_LIMIT:
+        if c_cost > _cost_limit:
             try:
                 await query.edit_message_text(
-                    f"❌ {t(lang, 'battle.challenger_cost_over', cost=c_cost, limit=config.RANKED_COST_LIMIT)}",
+                    f"❌ {t(lang, 'battle.challenger_cost_over', cost=c_cost, limit=_cost_limit)}",
                     parse_mode="HTML",
                 )
             except Exception:
