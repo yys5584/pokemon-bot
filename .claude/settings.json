@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "if": "Bash(git commit:*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd C:/Users/MU/Desktop/pokemon-bot && python -m pytest tests/ --tb=short -q 2>&1; if [ $? -ne 0 ]; then echo '{\"decision\":\"block\",\"reason\":\"테스트 실패! 커밋 전 테스트를 통과해야 합니다.\"}'; fi",
+            "timeout": 60,
+            "statusMessage": "커밋 전 테스트 실행 중..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; if echo \"$f\" | grep -qE '\\.py$'; then python -m py_compile \"$f\" 2>&1 || echo '{\"systemMessage\":\"⚠️ 문법 오류: '\"$f\"'\"}'; fi; } 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "Python 문법 체크..."
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; if echo \"$f\" | grep -qE '(handlers|services)/.*\\.py$'; then if grep -q 'tg-emoji' \"$f\" 2>/dev/null; then grep -n 'tg-emoji' \"$f\" | while read -r line; do linenum=$(echo \"$line\" | cut -d: -f1); if ! sed -n \"${linenum},$((linenum+5))p\" \"$f\" | grep -q 'parse_mode.*HTML'; then echo '{\"systemMessage\":\"⚠️ 커스텀 이모지 발견! parse_mode=HTML 확인 필요: '\"$f\"':'\"$linenum\"'\"}'; break; fi; done; fi; fi; } 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "커스텀 이모지 체크..."
+          }
+        ]
+      }
+    ]
+  }
+}

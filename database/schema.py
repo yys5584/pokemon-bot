@@ -1623,6 +1623,28 @@ async def create_tables():
     except Exception:
         pass
 
+    # ── 타로 리딩 시스템 (2026-04-01) ──
+    try:
+        await pool.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE", timeout=30)
+    except Exception:
+        pass
+
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS tarot_readings (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL REFERENCES users(user_id),
+            topic VARCHAR(20) NOT NULL,
+            spread_type VARCHAR(30) NOT NULL,
+            cards_json JSONB,
+            reading_date DATE NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    try:
+        await pool.execute("CREATE INDEX IF NOT EXISTS idx_tarot_readings_user_date ON tarot_readings(user_id, reading_date)")
+    except Exception:
+        pass
+
     # ── Weekly Boss 테이블 (2026-03-26) ──
     await pool.execute("""
         CREATE TABLE IF NOT EXISTS weekly_boss (
