@@ -135,6 +135,7 @@ async def api_iv_ranking(request):
         JOIN users u ON up.user_id = u.user_id
         JOIN pokemon_master pm ON up.pokemon_id = pm.id
         WHERE up.iv_hp IS NOT NULL AND up.is_active = 1
+          AND up.user_id < 9990000000
         ORDER BY iv_total DESC
         LIMIT 10
     """)
