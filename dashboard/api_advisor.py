@@ -21,7 +21,24 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 _RARITY_COST = {"common": 1, "rare": 2, "epic": 4, "legendary": 5, "ultra_legendary": 6}
-_COST_LIMIT = config.RANKED_COST_LIMIT
+_COST_LIMIT = config.RANKED_COST_LIMIT  # 동적 갱신됨 (refresh_cost_limit)
+
+
+async def refresh_cost_limit():
+    """현재 시즌 코스트 제한으로 _COST_LIMIT 갱신."""
+    global _COST_LIMIT
+    try:
+        from database import ranked_queries as rq
+        season = await rq.get_current_season()
+        if season:
+            rule_key = season.get("rule")
+            if rule_key:
+                rule = config.SEASON_RULES.get(rule_key, {})
+                _COST_LIMIT = rule.get("cost_limit", config.RANKED_COST_LIMIT)
+                return
+    except Exception:
+        pass
+    _COST_LIMIT = config.RANKED_COST_LIMIT
 
 
 def _validate_team(team: list[dict]) -> bool:
@@ -971,6 +988,7 @@ async def api_my_quota(request):
 async def api_my_team_recommend(request):
     """AI team recommendation for the logged-in user (costs 1 token)."""
     from dashboard.server import _get_session, _check_llm_limit, _record_llm_usage, pg_json_response
+    await refresh_cost_limit()  # 현재 시즌 코스트 반영
     sess = await _get_session(request)
     if not sess:
         return web.json_response({"error": "Unauthorized"}, status=401)
