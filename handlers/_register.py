@@ -78,6 +78,10 @@ from handlers.dm_fusion import fusion_handler, fusion_callback
 from handlers.dm_smelting import smelting_handler, smelting_callback
 from handlers.dm_dungeon import dungeon_handler, dungeon_callback
 from handlers.dm_boss import boss_handler, boss_callback
+from handlers.dm_fortune import (
+    tarot_handler, tarot_topic_callback, tarot_read_callback, tarot_again_callback,
+    tarot_birth_callback, tarot_birth_text_handler, tarot_skip_callback,
+)
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
     spawn_rate_handler, force_spawn_handler, force_spawn_reset_handler, ticket_force_spawn_handler,
@@ -226,6 +230,7 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(제련소?|smelting)$"), smelting_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🏰\s*)?(던전|dungeon|地牢)$"), dungeon_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(보스|boss)$"), boss_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🔮\s*)?(타로|tarot)$"), tarot_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(📋\s*|📌\s*)?(미션|mission|任务|任務)$"), mission_handler))
 
     # Subscription / Premium system (DM + Group)
@@ -486,6 +491,19 @@ def register_all_handlers(app):
     if HAS_CAMP:
         app.add_handler(CallbackQueryHandler(camp_callback_handler, pattern=r"^camp_"))
         app.add_handler(CallbackQueryHandler(camp_dm_callback_handler, pattern=r"^cdm_"))
+
+    # Tarot (타로) callbacks
+    app.add_handler(CallbackQueryHandler(tarot_birth_callback, pattern=r"^tarot_birth_"))
+    app.add_handler(CallbackQueryHandler(tarot_skip_callback, pattern=r"^tarot_skip_"))
+    app.add_handler(CallbackQueryHandler(tarot_topic_callback, pattern=r"^tarot_topic_"))
+    app.add_handler(CallbackQueryHandler(tarot_read_callback, pattern=r"^tarot_read_"))
+    app.add_handler(CallbackQueryHandler(tarot_again_callback, pattern=r"^tarot_again_"))
+
+    # Tarot 생년월일 텍스트 입력 (group=-2 — CS보다 먼저, 대기 상태가 아니면 무시)
+    app.add_handler(MessageHandler(
+        filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
+        tarot_birth_text_handler,
+    ), group=-2)
 
     # CS 문의 콜백
     app.add_handler(CallbackQueryHandler(cs_callback, pattern=r"^cs_"))

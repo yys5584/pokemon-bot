@@ -543,6 +543,9 @@ _SETTINGS_KEYBOARD = InlineKeyboardMarkup([
         InlineKeyboardButton("❓ 도움말", callback_data="settings_help"),
         InlineKeyboardButton("🌐 언어 변경", callback_data="settings_lang"),
     ],
+    [
+        InlineKeyboardButton("🎂 생년월일 설정", callback_data="settings_birth"),
+    ],
 ])
 
 
@@ -597,4 +600,65 @@ async def settings_callback_handler(update: Update, context: ContextTypes.DEFAUL
             msg,
             parse_mode="HTML",
             reply_markup=_LANG_SELECT_KEYBOARD,
+        )
+    elif data == "settings_birth":
+        user_id = update.effective_user.id
+        from handlers.dm_fortune import _get_birth_date, _parse_birth_date
+        from services.fortune_service import get_zodiac
+        birth_date = await _get_birth_date(user_id)
+        if birth_date:
+            zodiac = get_zodiac(birth_date)
+            current = f"{birth_date.isoformat()} ({zodiac})"
+        else:
+            current = "미등록"
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📝 변경하기", callback_data="settings_birth_edit")],
+            [InlineKeyboardButton("🗑 삭제하기", callback_data="settings_birth_delete")],
+            [InlineKeyboardButton("◀️ 돌아가기", callback_data="settings_birth_back")],
+        ])
+        await query.edit_message_text(
+            f"🎂 <b>생년월일 설정</b>\n"
+            f"━━━━━━━━━━━━━━━\n\n"
+            f"현재: <b>{current}</b>\n\n"
+            f"생년월일은 타로 리딩 시 별자리 분석에 사용됩니다.",
+            parse_mode="HTML",
+            reply_markup=buttons,
+        )
+    elif data == "settings_birth_edit":
+        context.user_data["tarot_birth_waiting"] = True
+        await query.edit_message_text(
+            "🎂 생년월일을 입력해주세요.\n\n"
+            "예시: <code>1995-03-15</code> 또는 <code>19950315</code>\n\n"
+            "<i>'취소'를 입력하면 돌아가요.</i>",
+            parse_mode="HTML",
+        )
+    elif data == "settings_birth_delete":
+        user_id = update.effective_user.id
+        try:
+            from database.connection import get_db
+            pool = await get_db()
+            await pool.execute(
+                "UPDATE users SET birth_date = NULL WHERE user_id = $1", user_id
+            )
+        except Exception as e:
+            logger.warning(f"Failed to delete birth_date: {e}")
+        await query.edit_message_text(
+            "✅ 생년월일이 삭제되었습니다.",
+            parse_mode="HTML",
+        )
+    elif data == "settings_birth_back":
+        # 설정 메뉴로 돌아가기
+        user_id = update.effective_user.id
+        lang = await get_user_lang(user_id)
+        current_label = LANG_LABELS.get(lang, LANG_LABELS["ko"])
+        msg = (
+            f"⚙️ <b>설정</b>\n"
+            f"━━━━━━━━━━━━━━━\n\n"
+            f"🌐 현재 언어: <b>{current_label}</b>\n"
+            f"{'⚠️ <i>현재 던전, 포획 등 일부 메뉴만 다국어 지원됩니다.</i>' if lang != 'ko' else ''}\n"
+        )
+        await query.edit_message_text(
+            msg,
+            parse_mode="HTML",
+            reply_markup=_SETTINGS_KEYBOARD,
         )
