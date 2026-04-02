@@ -211,13 +211,21 @@ async def log_ranked_battle(battle_record_id: int, season_id: str,
 # ─── Anti-Abuse ──────────────────────────────────────────
 
 async def get_ranked_battles_today(user_id: int, today) -> int:
-    """오늘 랭크전 횟수. today: KST date 객체."""
+    """오늘 랭크전 횟수 (본인이 시작한 것만). today: KST date 객체.
+
+    - 수동 랭전: challenge_id로 JOIN → challenger_id 체크
+    - 자동 랭전: challenge_id IS NULL → winner_id/loser_id로 체크
+    """
     pool = await get_db()
     row = await pool.fetchrow(
-        """SELECT COUNT(*) as cnt FROM battle_records
-           WHERE (winner_id = $1 OR loser_id = $1)
-             AND battle_type = 'ranked'
-             AND (created_at AT TIME ZONE 'Asia/Seoul')::date = $2""",
+        """SELECT COUNT(*) as cnt FROM battle_records br
+           LEFT JOIN battle_challenges bc ON br.challenge_id = bc.id
+           WHERE br.battle_type = 'ranked'
+             AND (br.created_at AT TIME ZONE 'Asia/Seoul')::date = $2
+             AND (
+               bc.challenger_id = $1
+               OR (br.challenge_id IS NULL AND (br.winner_id = $1 OR br.loser_id = $1))
+             )""",
         user_id, today)
     return row["cnt"] if row else 0
 
