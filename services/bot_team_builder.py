@@ -232,8 +232,12 @@ async def seed_bots_for_season(season_id: str, weekly_rule: str):
                 "DELETE FROM user_pokemon WHERE user_id = $1", user_id)
 
             # 4. 포켓몬 인스턴스 생성 + 팀 등록
+            from utils.battle_calc import generate_personality as _gp, personality_to_str as _pts
             instance_ids = []
             for p in team:
+                _bot_pers = p.get("personality")
+                if not _bot_pers:
+                    _bot_pers = _pts(_gp(is_shiny=bool(p["is_shiny"])))
                 inst_id = await pool.fetchval(
                     """INSERT INTO user_pokemon
                        (user_id, pokemon_id, is_shiny, iv_hp, iv_atk, iv_def,
@@ -243,7 +247,7 @@ async def seed_bots_for_season(season_id: str, weekly_rule: str):
                     user_id, p["pokemon_id"], p["is_shiny"],
                     p["iv_hp"], p["iv_atk"], p["iv_def"],
                     p["iv_spa"], p["iv_spdef"], p["iv_spd"],
-                    p.get("personality"))
+                    _bot_pers)
                 instance_ids.append(inst_id)
 
             for slot, inst_id in enumerate(instance_ids, 1):

@@ -1080,6 +1080,10 @@ async def catch_pokemon_transaction(
         pass
     if not ivs:
         ivs = generate_ivs(is_shiny=is_shiny)
+    # personality NULL 방어
+    if not _pers:
+        from utils.battle_calc import generate_personality, personality_to_str
+        _pers = personality_to_str(generate_personality(is_shiny=is_shiny))
     pool = await get_db()
     async with pool.acquire() as conn:
         async with conn.transaction():

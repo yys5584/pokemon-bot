@@ -385,6 +385,11 @@ async def complete_market_purchase(
             )
 
             # 7. Give pokemon to buyer (preserve IVs + shiny + personality)
+            # personality NULL 방어: 원본에 없으면 자동 생성
+            _pers = personality
+            if not _pers:
+                from utils.battle_calc import generate_personality, personality_to_str
+                _pers = personality_to_str(generate_personality(is_shiny=is_shiny))
             new_row = await conn.fetchrow(
                 """INSERT INTO user_pokemon
                        (user_id, pokemon_id, is_shiny,
@@ -393,7 +398,7 @@ async def complete_market_purchase(
                 buyer_id, pokemon_id, 1 if is_shiny else 0,
                 ivs.get("iv_hp"), ivs.get("iv_atk"), ivs.get("iv_def"),
                 ivs.get("iv_spa"), ivs.get("iv_spdef"), ivs.get("iv_spd"),
-                personality,
+                _pers,
             )
 
             # 8. Register in buyer's pokedex
