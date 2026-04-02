@@ -297,34 +297,32 @@ async def _do_reading(query, context, user_id: int, topic: str, spread_type: str
         reply_markup=buttons,
     )
 
-    # 메이저 아르카나 카드 이미지 전송
-    major_cards = [
-        c for c in reading["cards"]
-        if c.get("card_type") == "major" and c.get("card_number", -1) >= 0
-    ]
-    if major_cards:
-        try:
-            if len(major_cards) == 1:
-                img_path = _TAROT_IMG_DIR / f"{major_cards[0]['card_number']}.jpg"
-                if img_path.exists():
-                    with open(img_path, "rb") as f:
-                        await query.message.reply_photo(
-                            photo=f,
-                            caption=f"🔮 {major_cards[0]['card_name']}",
-                        )
+    # 카드 이미지 전송 (메이저 + 마이너 모두)
+    try:
+        media = []
+        for c in reading["cards"]:
+            # 메이저: {card_number}.jpg, 마이너: {card_name_short}.jpg
+            if c.get("card_type") == "major" and c.get("card_number", -1) >= 0:
+                img_path = _TAROT_IMG_DIR / f"{c['card_number']}.jpg"
+            elif c.get("card_name_short"):
+                img_path = _TAROT_IMG_DIR / f"{c['card_name_short']}.jpg"
             else:
-                media = []
-                for c in major_cards:
-                    img_path = _TAROT_IMG_DIR / f"{c['card_number']}.jpg"
-                    if img_path.exists():
-                        media.append(InputMediaPhoto(
-                            media=img_path.read_bytes(),
-                            caption=f"🔮 {c['card_name']}",
-                        ))
-                if media:
-                    await query.message.reply_media_group(media=media)
-        except Exception as e:
-            _log.warning(f"Failed to send tarot card images: {e}")
+                continue
+            if img_path.exists():
+                media.append(InputMediaPhoto(
+                    media=img_path.read_bytes(),
+                    caption=f"🔮 {c['card_name']}",
+                ))
+        if len(media) == 1:
+            with open(img_path, "rb") as f:
+                await query.message.reply_photo(
+                    photo=media[0].media,
+                    caption=media[0].caption,
+                )
+        elif media:
+            await query.message.reply_media_group(media=media)
+    except Exception as e:
+        _log.warning(f"Failed to send tarot card images: {e}")
 
 
 async def tarot_again_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):

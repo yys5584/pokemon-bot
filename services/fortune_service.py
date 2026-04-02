@@ -209,6 +209,7 @@ def generate_reading(
             "position_emoji": pos_emoji,
             "card_name": f"{name_ko}{pokemon_label}{dir_label}",
             "card_name_en": card["name"],
+            "card_name_short": card.get("name_short", ""),
             "pokemon_id": card.get("pokemon_id", 0),
             "reversed": card.get("reversed", False),
             "meaning": meaning,
