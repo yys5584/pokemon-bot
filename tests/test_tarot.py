@@ -155,6 +155,15 @@ class TestGenerateReading:
         assert reading["summary"]
         assert reading["date"]
 
+    def test_cards_have_type_and_number(self):
+        reading = generate_reading(topic="종합", spread_type="three_card", user_id=12345)
+        for c in reading["cards"]:
+            assert "card_type" in c
+            assert c["card_type"] in ("major", "minor")
+            assert "card_number" in c
+            if c["card_type"] == "major":
+                assert 0 <= c["card_number"] <= 21
+
     def test_investment_spread(self):
         reading = generate_reading(topic="투자", spread_type="investment", user_id=12345)
         assert len(reading["cards"]) == 4

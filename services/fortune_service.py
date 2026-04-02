@@ -212,6 +212,8 @@ def generate_reading(
             "pokemon_id": card.get("pokemon_id", 0),
             "reversed": card.get("reversed", False),
             "meaning": meaning,
+            "card_type": card.get("type", "minor"),
+            "card_number": card.get("value_int", -1),
         })
 
     # 별자리
