@@ -565,6 +565,10 @@ async def item_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             context.user_data.pop("mypoke_cache", None)  # 캐시 무효화
         else:
             await _show_stat_selection(query, user_id, instance_id)
+    elif data.startswith("ivr_stsel_"):
+        # 다른 스탯 선택 화면으로 (ivr_stsel_{instance_id})
+        instance_id = int(data.split("_")[2])
+        await _show_stat_selection(query, user_id, instance_id)
     elif data.startswith("ivr_st_"):
         # 스탯 선택 (iv reroll one)
         parts = data.split("_")  # ivr_st_{instance_id}_{stat_key}
@@ -698,6 +702,45 @@ async def _use_gacha_ticket_5(query, user_id: int):
                 pass
     finally:
         _gacha_lock.pop(user_id, None)
+
+
+# ─── IV 리롤 단축 명령 ──────────────────────────────────────
+
+async def reroll_shortcut_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """DM에서 '리롤' 입력 시 — 아이템 메뉴 스킵하고 바로 리롤 진입."""
+    user_id = update.effective_user.id
+    qty_all = await item_queries.get_user_item(user_id, "iv_reroll_all")
+    qty_one = await item_queries.get_user_item(user_id, "iv_reroll_one")
+
+    if qty_all <= 0 and qty_one <= 0:
+        await update.message.reply_text("❌ 리롤 아이템이 없습니다.\n뽑기(가챠)에서 획득할 수 있어요!")
+        return
+
+    if qty_all > 0 and qty_one > 0:
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"🔄 전체 리롤 ({qty_all}개)", callback_data="item_use_iv_reroll_all")],
+            [InlineKeyboardButton(f"🎯 선택 리롤 ({qty_one}개)", callback_data="item_use_iv_reroll_one")],
+        ])
+        await update.message.reply_text(
+            "🔄 <b>IV 리롤</b>\n\n어떤 리롤을 사용하시겠어요?",
+            parse_mode="HTML", reply_markup=buttons,
+        )
+    elif qty_all > 0:
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"🔄 전체 리롤 ({qty_all}개)", callback_data="item_use_iv_reroll_all")],
+        ])
+        await update.message.reply_text(
+            f"🔄 <b>IV 전체 리롤</b> (보유: {qty_all}개)\n\n아래 버튼을 눌러 시작하세요.",
+            parse_mode="HTML", reply_markup=buttons,
+        )
+    else:
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"🎯 선택 리롤 ({qty_one}개)", callback_data="item_use_iv_reroll_one")],
+        ])
+        await update.message.reply_text(
+            f"🎯 <b>IV 선택 리롤</b> (보유: {qty_one}개)\n\n아래 버튼을 눌러 시작하세요.",
+            parse_mode="HTML", reply_markup=buttons,
+        )
 
 
 PAGE_SIZE = 8
@@ -844,7 +887,18 @@ async def _execute_iv_reroll_all(query, user_id: int, instance_id: int):
     lines.append(f"")
     lines.append(f"  합계: {old_sum} → <b>{new_sum}</b> {arrow_total}")
 
-    await query.edit_message_text("\n".join(lines), parse_mode="HTML")
+    # 남은 아이템 수 표시 + 반복 버튼
+    remain = await item_queries.get_user_item(user_id, "iv_reroll_all")
+    buttons = []
+    if remain > 0:
+        lines.append(f"\n🔄 재설정권 남은 수: <b>{remain}개</b>")
+        buttons.append([InlineKeyboardButton("🔄 한 번 더 (같은 포켓몬)", callback_data=f"ivr_pk_all_{instance_id}")])
+        buttons.append([InlineKeyboardButton("📋 다른 포켓몬", callback_data="ivr_ft_all_all_0")])
+    else:
+        lines.append(f"\n⚠️ 재설정권을 모두 사용했습니다.")
+
+    await query.edit_message_text("\n".join(lines), parse_mode="HTML",
+                                  reply_markup=InlineKeyboardMarkup(buttons) if buttons else None)
 
 
 async def _show_stat_selection(query, user_id: int, instance_id: int):
@@ -914,6 +968,7 @@ async def _execute_iv_reroll_one(query, user_id: int, instance_id: int, stat_key
     arrow = "🔺" if diff > 0 else ("🔻" if diff < 0 else "➖")
     shiny = "✨" if is_shiny else ""
 
+    short_key = stat_key.replace("iv_", "")
     lines = [
         f"🎯 <b>IV 선택 리롤 완료!</b>",
         f"",
@@ -922,7 +977,19 @@ async def _execute_iv_reroll_one(query, user_id: int, instance_id: int, stat_key
         f"  {stat_name}: {old_val} → <b>{new_val}</b> {arrow}",
     ]
 
-    await query.edit_message_text("\n".join(lines), parse_mode="HTML")
+    # 남은 아이템 수 표시 + 반복 버튼
+    remain = await item_queries.get_user_item(user_id, "iv_reroll_one")
+    buttons = []
+    if remain > 0:
+        lines.append(f"\n🎯 선택 리롤 남은 수: <b>{remain}개</b>")
+        buttons.append([InlineKeyboardButton(f"🔄 한 번 더 ({stat_name})", callback_data=f"ivr_st_{instance_id}_{short_key}")])
+        buttons.append([InlineKeyboardButton("🎯 다른 스탯", callback_data=f"ivr_stsel_{instance_id}")])
+        buttons.append([InlineKeyboardButton("📋 다른 포켓몬", callback_data="ivr_ft_one_all_0")])
+    else:
+        lines.append(f"\n⚠️ 선택 리롤을 모두 사용했습니다.")
+
+    await query.edit_message_text("\n".join(lines), parse_mode="HTML",
+                                  reply_markup=InlineKeyboardMarkup(buttons) if buttons else None)
 
 
 # ─── IV 스톤 UI ──────────────────────────────────────────

@@ -98,7 +98,7 @@ from handlers.dm_subscription import (
     premium_hub_handler, premium_hub_callback_handler,
 )
 from handlers.tournament import tournament_join_handler
-from handlers.dm_gacha import gacha_handler, gacha_callback_handler, item_handler, item_callback_handler
+from handlers.dm_gacha import gacha_handler, gacha_callback_handler, item_handler, item_callback_handler, reroll_shortcut_handler
 from handlers.dm_cs import dm_cs_start, cs_callback, cs_text_input
 from handlers.group_event import (
     quiz_answer_handler,
@@ -278,6 +278,7 @@ def register_all_handlers(app):
     # 가챠 (뽑기) + 아이템
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🎰\s*)?(뽑기|가챠|gacha|扭蛋|轉蛋)$"), gacha_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🎒\s*)?(아이템|items?|道具)$"), item_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^리롤$"), reroll_shortcut_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^티어$"), tier_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^시즌$"), season_info_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^(시즌)?랭킹$"), ranked_ranking_handler))
