@@ -345,11 +345,14 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
     if not team:
         return False, "배틀팀이 없습니다! DM에서 '팀등록'으로 팀을 먼저 구성하세요."
 
+    # 코스트 제한: 시즌 룰 동적 반영
+    from services.ranked_service import get_current_cost_limit
+    cost_limit = await get_current_cost_limit()
     total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
-    if total_cost > config.RANKED_COST_LIMIT:
+    if total_cost > cost_limit:
         return False, (
-            f"불가: 팀 코스트 초과! ({total_cost}/{config.RANKED_COST_LIMIT})\n"
-            f"코스트 {config.RANKED_COST_LIMIT} 이하로 편성해주세요."
+            f"불가: 팀 코스트 초과! ({total_cost}/{cost_limit})\n"
+            f"코스트 {cost_limit} 이하로 편성해주세요."
         )
 
     # 시즌 룰 검증
@@ -394,6 +397,8 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
 
     removed = []
     cost_removed = []
+    from services.ranked_service import get_current_cost_limit
+    cost_limit = await get_current_cost_limit()
     for user_id, data in list(participants.items()):
         team = await bq.get_battle_team(user_id)
         if not team:
@@ -401,7 +406,7 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
             del participants[user_id]
         else:
             total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
-            if total_cost > config.RANKED_COST_LIMIT:
+            if total_cost > cost_limit:
                 cost_removed.append(f"{data['name']}({total_cost})")
                 del participants[user_id]
             else:
