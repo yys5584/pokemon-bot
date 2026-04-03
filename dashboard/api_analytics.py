@@ -401,7 +401,7 @@ async def api_admin_tarot_analytics(request):
 
     # 신규 유저 타로 전환율: 최근 30일 가입자 중 타로 사용자 비율
     recent_signups = await pool.fetchval(
-        "SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '30 days'"
+        "SELECT COUNT(*) FROM users WHERE registered_at >= NOW() - INTERVAL '30 days'"
     ) or 0
     recent_signups_tarot = await pool.fetchval("""
         SELECT COUNT(DISTINCT tr.user_id)
