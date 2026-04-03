@@ -171,7 +171,6 @@ TOPIC_EMOJIS = {
 # ── 시간 범위 ──
 
 TIME_RANGES = {
-    "오늘": {"label": "📅 오늘", "prompt_hint": "오늘 하루"},
     "이번 주": {"label": "📆 이번 주", "prompt_hint": "이번 한 주"},
     "이번 달": {"label": "🗓️ 이번 달", "prompt_hint": "이번 한 달"},
 }
@@ -323,10 +322,11 @@ _NARRATIVE_SYSTEM_PROMPT = """당신은 서양 타로 전문가입니다. 존댓
 1줄째: 이 카드가 상징하는 핵심 의미 한 줄 (카드 자체의 설명)
 2~3줄째: 질문자 상황에 맞춘 해석
 
-마지막에 [종합]으로 전체 흐름을 하나의 이야기로 엮어주세요 (5~8문장).
-종합은 각 카드가 왜 이 결론을 만드는지 근거를 들어 설명하세요.
-예: "과거의 A카드가 보여준 ~한 흐름이, 현재 B카드의 ~한 상황으로 이어졌고, 미래 C카드는 ~을 암시합니다. 따라서..."
-카드 이름을 직접 언급하며 연결고리를 보여주되, 개별 해석을 그대로 반복하지는 마세요.
+마지막에 [인사이트]로 세 카드를 관통하는 하나의 통찰을 1~2문장으로 전하세요.
+- 개별 카드 해석을 요약하거나 반복하지 마세요. 이미 다 읽었습니다.
+- 과거/현재/미래 언급 금지. 카드 이름 언급 금지.
+- 세 카드가 함께 가리키는 공통 테마나 흐름을 한 단어로 짚고, 그에 따른 구체적 행동 조언을 주세요.
+- 예: "지금 필요한 건 '기다림'입니다. 결과를 재촉하지 말고, 이번 주는 준비에 집중하세요."
 
 ## 금지
 - 카드명/방향 반복 금지 (이미 UI에 표시됨)
@@ -363,8 +363,9 @@ def _build_narrative_prompt(
     if zodiac:
         lines.append(f"별자리: {zodiac}")
 
-    lines.append(f"\n'{time_hint}' 관점에서 각 카드별 해석(2~3문장) + [종합](5~8문장)을 작성하세요.")
+    lines.append(f"\n'{time_hint}' 관점에서 각 카드별 해석(2~3문장) + [인사이트](1~2문장)를 작성하세요.")
     lines.append("질문자 상황에 맞춰 해석을 조정하세요. 레퍼런스를 그대로 쓰지 마세요.")
+    lines.append("[인사이트]는 카드 내용 요약이 아닙니다. 세 카드의 공통 테마를 한 단어로 짚고 행동 조언만 쓰세요.")
     return "\n".join(lines)
 
 
@@ -504,13 +505,14 @@ def _parse_ai_card_meanings(ai_text: str, positions: list[str]) -> tuple[dict[st
                 current_lines.append("")
             continue
 
-        # [포지션명] 또는 [종합] 감지
+        # [포지션명] 또는 [인사이트] 감지
         matched = False
-        if stripped.startswith("[종합]"):
+        if stripped.startswith("[인사이트]") or stripped.startswith("[종합]"):
             if current_key:
                 card_meanings[current_key] = "\n".join(current_lines).strip()
             current_key = "_summary_"
-            current_lines = [stripped[4:].strip()]
+            tag_len = 5 if stripped.startswith("[인사이트]") else 4
+            current_lines = [stripped[tag_len:].strip()]
             matched = True
         else:
             for pos in positions:

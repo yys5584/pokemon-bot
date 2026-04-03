@@ -812,7 +812,6 @@ class TestTimeRange:
     """시간 범위 관련 테스트."""
 
     def test_time_ranges_defined(self):
-        assert "오늘" in TIME_RANGES
         assert "이번 주" in TIME_RANGES
         assert "이번 달" in TIME_RANGES
 
@@ -823,8 +822,8 @@ class TestTimeRange:
 
     async def test_reading_has_time_range(self):
         reading = await generate_reading(topic="종합", spread_type="three_card",
-                                         user_id=1, time_range="오늘")
-        assert reading["time_range"] == "오늘"
+                                         user_id=1, time_range="이번 주")
+        assert reading["time_range"] == "이번 주"
 
     async def test_reading_default_time_range(self):
         reading = await generate_reading(topic="종합", spread_type="three_card", user_id=1)
