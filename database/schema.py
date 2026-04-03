@@ -1628,6 +1628,10 @@ async def create_tables():
         await pool.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE", timeout=30)
     except Exception:
         pass
+    try:
+        await pool.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(1)", timeout=30)
+    except Exception:
+        pass
 
     await pool.execute("""
         CREATE TABLE IF NOT EXISTS tarot_readings (
@@ -1644,6 +1648,13 @@ async def create_tables():
         await pool.execute("CREATE INDEX IF NOT EXISTS idx_tarot_readings_user_date ON tarot_readings(user_id, reading_date)")
     except Exception:
         pass
+
+    # 타로 리딩 컨텍스트 컬럼 추가 (2026-04-03)
+    for col, dtype in [("gender", "VARCHAR(1)"), ("situation", "VARCHAR(60)"), ("time_range", "VARCHAR(20)")]:
+        try:
+            await pool.execute(f"ALTER TABLE tarot_readings ADD COLUMN IF NOT EXISTS {col} {dtype}", timeout=30)
+        except Exception:
+            pass
 
     # ── Tarot AI Cache 테이블 (2026-04-03) ──
     await pool.execute("""

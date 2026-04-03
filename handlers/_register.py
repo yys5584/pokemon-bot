@@ -79,9 +79,11 @@ from handlers.dm_smelting import smelting_handler, smelting_callback
 from handlers.dm_dungeon import dungeon_handler, dungeon_callback
 from handlers.dm_boss import boss_handler, boss_callback
 from handlers.dm_fortune import (
-    tarot_handler, tarot_topic_callback, tarot_read_callback, tarot_again_callback,
-    tarot_birth_callback, tarot_birth_text_handler, tarot_skip_callback,
-    tarot_time_callback, tarot_pick_callback, tarot_share_handler,
+    tarot_handler, tarot_topic_callback, tarot_gender_callback,
+    tarot_ctx_callback, tarot_sub_callback,
+    tarot_read_callback, tarot_again_callback, tarot_birth_callback,
+    tarot_birth_text_handler, tarot_skip_callback, tarot_time_callback,
+    tarot_pick_callback, tarot_share_handler,
 )
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
@@ -502,6 +504,9 @@ def register_all_handlers(app):
     app.add_handler(CallbackQueryHandler(tarot_skip_callback, pattern=r"^tarot_skip_"))
     app.add_handler(CallbackQueryHandler(tarot_time_callback, pattern=r"^tarot_time_"))
     app.add_handler(CallbackQueryHandler(tarot_topic_callback, pattern=r"^tarot_topic_"))
+    app.add_handler(CallbackQueryHandler(tarot_gender_callback, pattern=r"^tarot_gender_"))
+    app.add_handler(CallbackQueryHandler(tarot_ctx_callback, pattern=r"^tarot_ctx_"))
+    app.add_handler(CallbackQueryHandler(tarot_sub_callback, pattern=r"^tarot_sub_"))
     app.add_handler(CallbackQueryHandler(tarot_read_callback, pattern=r"^tarot_read_"))
     app.add_handler(CallbackQueryHandler(tarot_pick_callback, pattern=r"^tarot_pick_"))
     app.add_handler(CallbackQueryHandler(tarot_again_callback, pattern=r"^tarot_again_"))

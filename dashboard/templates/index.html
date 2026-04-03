@@ -420,6 +420,7 @@
         .adm-cat-btn.active-db{background:rgba(0,212,255,.08);color:#00d4ff;border-color:rgba(0,212,255,.3);box-shadow:0 0 20px rgba(0,212,255,.12),inset 0 0 20px rgba(0,212,255,.04)}
         .adm-cat-btn.active-kpi{background:rgba(168,85,247,.08);color:#a855f7;border-color:rgba(168,85,247,.3);box-shadow:0 0 20px rgba(168,85,247,.12),inset 0 0 20px rgba(168,85,247,.04)}
         .adm-cat-btn.active-battle{background:rgba(255,140,0,.08);color:#ff8c00;border-color:rgba(255,140,0,.3);box-shadow:0 0 20px rgba(255,140,0,.12),inset 0 0 20px rgba(255,140,0,.04)}
+        .adm-cat-btn.active-tarot{background:rgba(255,0,110,.08);color:#ff006e;border-color:rgba(255,0,110,.3);box-shadow:0 0 20px rgba(255,0,110,.12),inset 0 0 20px rgba(255,0,110,.04)}
         .bf-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 0}
         .bf-label{color:rgba(255,255,255,.45);font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
         .bf-select{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e0e0e0;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;outline:none;transition:border-color .2s}
@@ -3437,6 +3438,7 @@
                 <div class="adm-cat-btn" onclick="admCatSwitch('db')" id="admCatBtn-db">🗄️ DB</div>
                 <div class="adm-cat-btn" onclick="admCatSwitch('kpi')" id="admCatBtn-kpi">📈 KPI</div>
                 <div class="adm-cat-btn" onclick="admCatSwitch('battle')" id="admCatBtn-battle">⚔️ 배틀</div>
+                <div class="adm-cat-btn" onclick="admCatSwitch('tarot')" id="admCatBtn-tarot">🔮 타로</div>
             </div>
 
             <!-- Category: Manage -->
@@ -3607,6 +3609,81 @@
                     <div id="battlePokemonTable" style="overflow-x:auto"></div>
                 </div>
             </div><!-- /admCat-battle -->
+
+            <!-- Category: Tarot KPI -->
+            <div id="admCat-tarot" style="display:none">
+            <div style="margin-bottom:14px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+                    <span class="neon-dot neon-dot-pink"></span>
+                    <span style="font-size:14px;font-weight:700;color:#e0e0e0">🔮 타로 리테일 KPI</span>
+                    <span style="font-size:10px;color:rgba(255,255,255,.25);margin-left:auto" id="tarotLastUpdate"></span>
+                </div>
+                <!-- KPI 카드 -->
+                <div id="admTarotCards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"></div>
+                <!-- 신규 전환 바 -->
+                <div id="tarotConversionBar" style="margin-bottom:14px"></div>
+                <!-- Row 1: 일별 추이 + 유저 유형 -->
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 일별 리딩 추이 <span style="font-size:10px;color:rgba(255,255,255,.2)">14일</span></div>
+                        <div style="height:200px"><canvas id="tarotChartDaily"></canvas></div>
+                    </div>
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 유저 유형</div>
+                        <div style="height:200px;position:relative"><canvas id="tarotChartUserType"></canvas><div class="donut-center" id="tarotUserTypeCenter"></div></div>
+                    </div>
+                </div>
+                <!-- Row 2: 성별 + 연령대 -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 성별 분포</div>
+                        <div style="height:180px"><canvas id="tarotChartGender"></canvas></div>
+                    </div>
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 연령대 분포</div>
+                        <div style="height:180px"><canvas id="tarotChartAge"></canvas></div>
+                    </div>
+                </div>
+                <!-- Row 3: 주제별 + 리텐션 -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 주제별 인기도</div>
+                        <div style="height:180px"><canvas id="tarotChartTopic"></canvas></div>
+                    </div>
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 리텐션 (이용 빈도)</div>
+                        <div style="height:180px;position:relative"><canvas id="tarotChartRetention"></canvas><div class="donut-center" id="tarotRetentionCenter"></div></div>
+                    </div>
+                </div>
+                <!-- Row 4: 시간대별 + 신규/기존 -->
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 시간대별 이용 <span style="font-size:10px;color:rgba(255,255,255,.2)">KST 24h</span></div>
+                        <div style="height:180px"><canvas id="tarotChartHour"></canvas></div>
+                    </div>
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 신규 vs 기존</div>
+                        <div style="height:180px;position:relative"><canvas id="tarotChartNewOld"></canvas><div class="donut-center" id="tarotNewOldCenter"></div></div>
+                    </div>
+                </div>
+                <!-- Row 5: 연령×성별 크로스 + 인기 상황 -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 연령×성별 크로스</div>
+                        <div style="height:200px"><canvas id="tarotChartAgeSex"></canvas></div>
+                    </div>
+                    <div class="chart-panel">
+                        <div class="chart-title"><span>━━</span> 인기 상황 (세부질문)</div>
+                        <div style="height:200px"><canvas id="tarotChartSituation"></canvas></div>
+                    </div>
+                </div>
+                <!-- Row 6: 유저 상세 테이블 -->
+                <div class="chart-panel" style="margin-bottom:12px">
+                    <div class="chart-title"><span>━━</span> 타로 유저 상세 <span style="font-size:10px;color:rgba(255,255,255,.2)">TOP 50</span></div>
+                    <div id="tarotUserTable" style="overflow-x:auto;max-height:400px;overflow-y:auto"></div>
+                </div>
+            </div>
+            </div><!-- /admCat-tarot -->
 
         </div>
 
@@ -3788,7 +3865,7 @@ function updateQuotaBadge(remaining,bonus){
 
 // --- Tab Navigation with URL routing ---
 const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",market:"/market",tier:"/tier",typechart:"/types",guide:"/guide",camp:"/camp",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",cs:"/cs",admin:"/admin"};
-const ADMIN_CATS=["manage","db","kpi","battle"];
+const ADMIN_CATS=["manage","db","kpi","battle","tarot"];
 function switchGuide(id){document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));document.getElementById('guide-'+id).classList.add('active');document.querySelector('.guide-tab[data-guide="'+id+'"]').classList.add('active');if(id==='typechart'){const src=document.getElementById('typeChartGrid');const dst=document.getElementById('typeChartGuide');if(src&&dst&&src.innerHTML&&!src.innerHTML.includes('로딩')){dst.innerHTML=src.innerHTML}else{loadTypeChart().then(()=>{const s2=document.getElementById('typeChartGrid');if(s2)dst.innerHTML=s2.innerHTML})}}}
 const PATH_PAGES=Object.fromEntries(Object.entries(PAGE_PATHS).map(([k,v])=>[v,k]));
 let currentPage="home";
@@ -3894,7 +3971,7 @@ window.addEventListener("popstate",(e)=>{
     const boardMatch=path.match(/^\/board\/(notice|community)$/);
     if(boardMatch){navigateTo("board",false);const el=document.querySelector(`.board-side-item[data-board="${boardMatch[1]}"],.board-side-sub[data-board="${boardMatch[1]}"]`);if(el)boardSideNav(el,false);return}
     // Admin sub-path fallback
-    const adminMatch=path.match(/^\/admin\/(manage|db|kpi|battle)$/);
+    const adminMatch=path.match(/^\/admin\/(manage|db|kpi|battle|tarot)$/);
     if(adminMatch){navigateTo("admin",false);admCatSwitch(adminMatch[1],false);return}
     const page=st?.page||PATH_PAGES[path]||"home";
     navigateTo(page,false);
@@ -5569,7 +5646,7 @@ async function adminFulfillOrder(orderKey){
 
 // --- Admin Category Tabs ---
 function admCatSwitch(cat,pushState=true){
-    ["manage","db","kpi","battle"].forEach(c=>{
+    ["manage","db","kpi","battle","tarot"].forEach(c=>{
         const el=document.getElementById("admCat-"+c);
         const btn=document.getElementById("admCatBtn-"+c);
         if(el)el.style.display=c===cat?"":"none";
@@ -5579,6 +5656,7 @@ function admCatSwitch(cat,pushState=true){
     if(cat==="db")admDbTab(_admDbCur||"overview");
     if(cat==="kpi")admKpiLoad();
     if(cat==="battle")admBattleLoad();
+    if(cat==="tarot")admTarotLoad();
 }
 
 // --- KPI Dashboard (Dark Neon) ---
@@ -5697,6 +5775,212 @@ async function admKpiLoad(){
         const dc=document.getElementById("kpiDonutCenter");
         if(dc)dc.innerHTML=`<div class="donut-val">${t.pageviews}</div><div class="donut-label">Total Views</div>`;
     }
+}
+
+// --- Tarot Analytics Dashboard ---
+let _tarotCharts={};
+async function admTarotLoad(){
+    const cards=document.getElementById("admTarotCards");
+    cards.innerHTML='<div class="loading" style="grid-column:1/-1">로딩 중...</div>';
+    const d=await fetchJSON("/api/admin/tarot-analytics");
+    if(!d){cards.innerHTML='<p class="empty-msg" style="grid-column:1/-1">로드 실패</p>';return}
+    const t=d.today;
+    const convRate=d.conversion.recent_signups>0?Math.round(100*d.conversion.tarot_users/d.conversion.recent_signups):0;
+    // KPI Cards
+    cards.innerHTML=`
+        <div class="kpi-card kpi-pink">
+            <div class="kpi-label">오늘 리딩</div>
+            <div class="kpi-value">${t.readings.toLocaleString()}</div>
+            <div class="kpi-sub">${t.users}명 이용</div>
+        </div>
+        <div class="kpi-card kpi-purple">
+            <div class="kpi-label">이번 주</div>
+            <div class="kpi-value">${t.week_readings.toLocaleString()}</div>
+            <div class="kpi-sub">${t.week_users}명 이용</div>
+        </div>
+        <div class="kpi-card kpi-blue">
+            <div class="kpi-label">전체 누적</div>
+            <div class="kpi-value">${t.total_readings.toLocaleString()}</div>
+            <div class="kpi-sub">${t.total_users}명</div>
+        </div>
+        <div class="kpi-card kpi-green">
+            <div class="kpi-label">신규 전환율</div>
+            <div class="kpi-value">${convRate}<span style="font-size:14px;opacity:.6">%</span></div>
+            <div class="kpi-sub">30일 가입자 중</div>
+        </div>`;
+    // Conversion detail bar
+    const cvBar=document.getElementById("tarotConversionBar");
+    if(cvBar)cvBar.innerHTML=`<div style="padding:6px 12px;background:rgba(255,255,255,.04);border-radius:6px;font-size:11px;color:rgba(255,255,255,.5);display:flex;gap:16px;align-items:center"><span style="color:#ff006e">🔮 전환</span><span>30일 가입자 <b style="color:#ff006e">${d.conversion.recent_signups}</b>명</span><span>타로 이용 <b style="color:#ff006e">${d.conversion.tarot_users}</b>명</span><span>전환율 <b style="color:#ff006e">${convRate}%</b></span></div>`;
+    // Timestamp
+    const upd=document.getElementById("tarotLastUpdate");
+    if(upd)upd.textContent="Updated "+new Date().toLocaleTimeString("ko-KR");
+    // Destroy old charts
+    Object.values(_tarotCharts).forEach(c=>{try{c.destroy()}catch(e){}});
+    _tarotCharts={};
+    const chartFont={family:"'Pretendard',-apple-system,sans-serif",size:11};
+    const gridColor="rgba(255,255,255,.06)";
+    const tickColor="rgba(255,255,255,.3)";
+    const defaultOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickColor,font:chartFont,boxWidth:10,padding:12}}},animation:{duration:800}};
+    const noLegend={...defaultOpts,plugins:{...defaultOpts.plugins,legend:{display:false}}};
+
+    // 1. Daily trend — area chart
+    const dailyCtx=document.getElementById("tarotChartDaily");
+    if(dailyCtx&&d.daily.length){
+        const dCtx=dailyCtx.getContext("2d");
+        const g1=dCtx.createLinearGradient(0,0,0,220);g1.addColorStop(0,"rgba(255,0,110,.35)");g1.addColorStop(1,"rgba(255,0,110,.02)");
+        const g2=dCtx.createLinearGradient(0,0,0,220);g2.addColorStop(0,"rgba(168,85,247,.25)");g2.addColorStop(1,"rgba(168,85,247,.02)");
+        _tarotCharts.daily=new Chart(dailyCtx,{type:"line",data:{
+            labels:d.daily.map(r=>{const dt=new Date(r.date);return(dt.getMonth()+1)+"/"+dt.getDate()}),
+            datasets:[
+                {label:"리딩 수",data:d.daily.map(r=>r.readings),borderColor:_NEON.pink,backgroundColor:g1,fill:true,tension:.4,pointRadius:4,pointBackgroundColor:_NEON.pink,pointBorderColor:"#0a0a14",pointBorderWidth:2,borderWidth:2},
+                {label:"유저 수",data:d.daily.map(r=>r.users),borderColor:_NEON.purple,backgroundColor:g2,fill:true,tension:.4,pointRadius:4,pointBackgroundColor:_NEON.purple,pointBorderColor:"#0a0a14",pointBorderWidth:2,borderWidth:2},
+            ]
+        },options:{...defaultOpts,scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},x:{grid:{color:"rgba(255,255,255,.03)"},ticks:{color:tickColor,font:chartFont}}}}});
+    }
+
+    // 2. User type donut
+    const utCtx=document.getElementById("tarotChartUserType");
+    if(utCtx&&d.user_types.length){
+        const utColors=[_NEON.pink,_NEON.cyan,_NEON.green,_NEON.yellow];
+        const utTotal=d.user_types.reduce((s,r)=>s+r.users,0);
+        _tarotCharts.userType=new Chart(utCtx,{type:"doughnut",data:{
+            labels:d.user_types.map(r=>r.type),
+            datasets:[{data:d.user_types.map(r=>r.users),backgroundColor:utColors.slice(0,d.user_types.length),borderColor:"#0a0a14",borderWidth:2}]
+        },options:{...defaultOpts,cutout:"65%",plugins:{...defaultOpts.plugins,legend:{position:"bottom",labels:{color:tickColor,font:chartFont,boxWidth:10,padding:8}}}}});
+        const utCenter=document.getElementById("tarotUserTypeCenter");
+        if(utCenter)utCenter.innerHTML=`<div style="font-size:20px;font-weight:700;color:#e0e0e0">${utTotal}</div><div style="font-size:10px;color:rgba(255,255,255,.4)">명</div>`;
+    }
+
+    // 3. Gender bar
+    const gCtx=document.getElementById("tarotChartGender");
+    if(gCtx&&d.by_gender.length){
+        const gColors={"남성":_NEON.blue,"여성":_NEON.pink,"미등록":"rgba(255,255,255,.2)"};
+        _tarotCharts.gender=new Chart(gCtx,{type:"bar",data:{
+            labels:d.by_gender.map(r=>r.gender),
+            datasets:[
+                {label:"유저 수",data:d.by_gender.map(r=>r.users),backgroundColor:d.by_gender.map(r=>(gColors[r.gender]||_NEON.cyan)+"88"),borderColor:d.by_gender.map(r=>gColors[r.gender]||_NEON.cyan),borderWidth:1,borderRadius:4},
+                {label:"리딩 수",data:d.by_gender.map(r=>r.readings),backgroundColor:d.by_gender.map(r=>(gColors[r.gender]||_NEON.cyan)+"44"),borderColor:d.by_gender.map(r=>(gColors[r.gender]||_NEON.cyan)+"88"),borderWidth:1,borderRadius:4},
+            ]
+        },options:{...defaultOpts,scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},x:{grid:{display:false},ticks:{color:tickColor,font:chartFont}}}}});
+    }
+
+    // 4. Age bar
+    const aCtx=document.getElementById("tarotChartAge");
+    if(aCtx&&d.by_age.length){
+        const ageColors=[_NEON.green,_NEON.cyan,_NEON.purple,_NEON.pink,_NEON.orange,_NEON.yellow];
+        _tarotCharts.age=new Chart(aCtx,{type:"bar",data:{
+            labels:d.by_age.map(r=>r.age),
+            datasets:[
+                {label:"유저 수",data:d.by_age.map(r=>r.users),backgroundColor:d.by_age.map((_,i)=>ageColors[i%ageColors.length]+"88"),borderColor:d.by_age.map((_,i)=>ageColors[i%ageColors.length]),borderWidth:1,borderRadius:4},
+                {label:"리딩 수",data:d.by_age.map(r=>r.readings),backgroundColor:d.by_age.map((_,i)=>ageColors[i%ageColors.length]+"44"),borderColor:d.by_age.map((_,i)=>ageColors[i%ageColors.length]+"88"),borderWidth:1,borderRadius:4},
+            ]
+        },options:{...defaultOpts,scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},x:{grid:{display:false},ticks:{color:tickColor,font:chartFont}}}}});
+    }
+
+    // 5. Topic horizontal bar
+    const tpCtx=document.getElementById("tarotChartTopic");
+    if(tpCtx&&d.by_topic.length){
+        const tpColors=[_NEON.pink,_NEON.blue,_NEON.yellow,_NEON.green,_NEON.purple,_NEON.orange];
+        _tarotCharts.topic=new Chart(tpCtx,{type:"bar",data:{
+            labels:d.by_topic.map(r=>r.topic),
+            datasets:[{label:"리딩 수",data:d.by_topic.map(r=>r.readings),backgroundColor:d.by_topic.map((_,i)=>tpColors[i%tpColors.length]+"88"),borderColor:d.by_topic.map((_,i)=>tpColors[i%tpColors.length]),borderWidth:1,borderRadius:4,borderSkipped:false}]
+        },options:{...noLegend,indexAxis:"y",scales:{x:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},y:{grid:{display:false},ticks:{color:"rgba(255,255,255,.5)",font:{...chartFont,size:12}}}}}});
+    }
+
+    // 6. Retention donut
+    const retCtx=document.getElementById("tarotChartRetention");
+    if(retCtx&&d.retention.length){
+        const retColors=[_NEON.red,_NEON.orange,_NEON.cyan,_NEON.green];
+        const retTotal=d.retention.reduce((s,r)=>s+r.users,0);
+        _tarotCharts.retention=new Chart(retCtx,{type:"doughnut",data:{
+            labels:d.retention.map(r=>r.freq),
+            datasets:[{data:d.retention.map(r=>r.users),backgroundColor:retColors.slice(0,d.retention.length),borderColor:"#0a0a14",borderWidth:2}]
+        },options:{...defaultOpts,cutout:"65%",plugins:{...defaultOpts.plugins,legend:{position:"bottom",labels:{color:tickColor,font:chartFont,boxWidth:10,padding:8}}}}});
+        const retCenter=document.getElementById("tarotRetentionCenter");
+        if(retCenter)retCenter.innerHTML=`<div style="font-size:20px;font-weight:700;color:#e0e0e0">${retTotal}</div><div style="font-size:10px;color:rgba(255,255,255,.4)">명</div>`;
+    }
+
+    // 7. Hourly bar
+    const hCtx=document.getElementById("tarotChartHour");
+    if(hCtx){
+        const hData=Array(24).fill(0);
+        (d.by_hour||[]).forEach(r=>{hData[r.hour]=r.readings});
+        const hc=hCtx.getContext("2d");
+        const hGrad=hc.createLinearGradient(0,0,0,180);hGrad.addColorStop(0,_NEON.pink+"CC");hGrad.addColorStop(1,_NEON.purple+"44");
+        _tarotCharts.hour=new Chart(hCtx,{type:"bar",data:{
+            labels:Array.from({length:24},(_,i)=>i+"시"),
+            datasets:[{label:"리딩",data:hData,backgroundColor:hGrad,borderColor:_NEON.pink+"66",borderWidth:1,borderRadius:3}]
+        },options:{...noLegend,scales:{y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},x:{grid:{display:false},ticks:{color:tickColor,font:{...chartFont,size:9}}}}}});
+    }
+
+    // 8. New vs Existing donut
+    const neCtx=document.getElementById("tarotChartNewOld");
+    if(neCtx&&d.new_vs_existing.length){
+        const neColors=[_NEON.green,_NEON.orange];
+        const neTotal=d.new_vs_existing.reduce((s,r)=>s+r.users,0);
+        _tarotCharts.newOld=new Chart(neCtx,{type:"doughnut",data:{
+            labels:d.new_vs_existing.map(r=>r.type),
+            datasets:[{data:d.new_vs_existing.map(r=>r.users),backgroundColor:neColors,borderColor:"#0a0a14",borderWidth:2}]
+        },options:{...defaultOpts,cutout:"65%",plugins:{...defaultOpts.plugins,legend:{position:"bottom",labels:{color:tickColor,font:chartFont,boxWidth:10,padding:8}}}}});
+        const neCenter=document.getElementById("tarotNewOldCenter");
+        if(neCenter)neCenter.innerHTML=`<div style="font-size:20px;font-weight:700;color:#e0e0e0">${neTotal}</div><div style="font-size:10px;color:rgba(255,255,255,.4)">명</div>`;
+    }
+
+    // 9. Age×Gender stacked bar
+    const agCtx=document.getElementById("tarotChartAgeSex");
+    if(agCtx&&d.age_gender.length){
+        const ageLabels=[...new Set(d.age_gender.map(r=>r.age))];
+        const genders=[...new Set(d.age_gender.map(r=>r.gender))];
+        const agMap={};d.age_gender.forEach(r=>{agMap[r.age+"_"+r.gender]=r.users});
+        const agColors={"남성":_NEON.blue,"여성":_NEON.pink,"미등록":"rgba(255,255,255,.2)"};
+        _tarotCharts.ageSex=new Chart(agCtx,{type:"bar",data:{
+            labels:ageLabels,
+            datasets:genders.map(g=>({label:g,data:ageLabels.map(a=>agMap[a+"_"+g]||0),backgroundColor:(agColors[g]||_NEON.cyan)+"88",borderColor:agColors[g]||_NEON.cyan,borderWidth:1,borderRadius:4}))
+        },options:{...defaultOpts,scales:{y:{beginAtZero:true,stacked:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},x:{stacked:true,grid:{display:false},ticks:{color:tickColor,font:chartFont}}}}});
+    }
+
+    // 10. Situation horizontal bar
+    const siCtx=document.getElementById("tarotChartSituation");
+    if(siCtx&&d.by_situation.length){
+        const siColors=[_NEON.pink,_NEON.purple,_NEON.cyan,_NEON.green,_NEON.orange,_NEON.yellow,_NEON.blue,_NEON.red];
+        _tarotCharts.situation=new Chart(siCtx,{type:"bar",data:{
+            labels:d.by_situation.map(r=>r.topic+": "+r.situation),
+            datasets:[{label:"리딩 수",data:d.by_situation.map(r=>r.readings),backgroundColor:d.by_situation.map((_,i)=>siColors[i%siColors.length]+"88"),borderColor:d.by_situation.map((_,i)=>siColors[i%siColors.length]),borderWidth:1,borderRadius:4,borderSkipped:false}]
+        },options:{...noLegend,indexAxis:"y",scales:{x:{beginAtZero:true,grid:{color:gridColor},ticks:{color:tickColor,font:chartFont}},y:{grid:{display:false},ticks:{color:"rgba(255,255,255,.5)",font:{...chartFont,size:10}}}}}});
+    }
+
+    // 11. User engagement table
+    const tbl=document.getElementById("tarotUserTable");
+    if(tbl&&d.user_engagement.length){
+        let html=`<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)">
+            <th style="padding:6px 8px;text-align:left;color:rgba(255,255,255,.4);font-weight:600">유저</th>
+            <th style="padding:6px 4px;text-align:center;color:rgba(255,255,255,.4)">성별</th>
+            <th style="padding:6px 4px;text-align:center;color:rgba(255,255,255,.4)">연령</th>
+            <th style="padding:6px 4px;text-align:center;color:rgba(255,255,255,.4)">🔮타로</th>
+            <th style="padding:6px 4px;text-align:center;color:rgba(255,255,255,.4)">🎣포획</th>
+            <th style="padding:6px 4px;text-align:center;color:rgba(255,255,255,.4)">⚔️배틀</th>
+            <th style="padding:6px 4px;text-align:center;color:rgba(255,255,255,.4)">🔄교환</th>
+            <th style="padding:6px 4px;text-align:center;color:rgba(255,255,255,.4)">유형</th>
+            <th style="padding:6px 4px;text-align:center;color:rgba(255,255,255,.4)">가입일</th>
+        </tr></thead><tbody>`;
+        d.user_engagement.forEach(r=>{
+            const gIcon=r.gender==="M"?"🙋‍♂️":r.gender==="F"?"🙋‍♀️":"—";
+            const uType=r.battles>=50||r.catches>=100?"<span style='color:#00ff88'>허슬러</span>":(r.battles===0&&r.catches<=5?"<span style='color:#ff006e'>타로전용</span>":"<span style='color:#00d4ff'>라이트</span>");
+            html+=`<tr style="border-bottom:1px solid rgba(255,255,255,.04)">
+                <td style="padding:5px 8px;color:#e0e0e0;white-space:nowrap">${r.username||r.user_id}</td>
+                <td style="padding:5px 4px;text-align:center">${gIcon}</td>
+                <td style="padding:5px 4px;text-align:center;color:rgba(255,255,255,.5)">${r.age}</td>
+                <td style="padding:5px 4px;text-align:center;color:${_NEON.pink};font-weight:600">${r.tarot}</td>
+                <td style="padding:5px 4px;text-align:center;color:rgba(255,255,255,.5)">${r.catches.toLocaleString()}</td>
+                <td style="padding:5px 4px;text-align:center;color:rgba(255,255,255,.5)">${r.battles.toLocaleString()}</td>
+                <td style="padding:5px 4px;text-align:center;color:rgba(255,255,255,.5)">${r.trades.toLocaleString()}</td>
+                <td style="padding:5px 4px;text-align:center">${uType}</td>
+                <td style="padding:5px 4px;text-align:center;color:rgba(255,255,255,.3);font-size:10px">${r.joined}</td>
+            </tr>`;
+        });
+        html+="</tbody></table>";
+        tbl.innerHTML=html;
+    }else if(tbl){tbl.innerHTML='<p class="empty-msg">데이터 없음</p>'}
 }
 
 // --- Battle Analytics Dashboard ---
@@ -6330,7 +6614,7 @@ async function admOptoutRemove(uid){
 async function loadAdmin(){
     await Promise.all([adminLoadUsers(),adminLoadOrders()]);
     // If we're already on a sub-route (e.g. /admin/battle), don't override
-    const adminMatch=location.pathname.match(/^\/admin\/(manage|db|kpi|battle)$/);
+    const adminMatch=location.pathname.match(/^\/admin\/(manage|db|kpi|battle|tarot)$/);
     if(!adminMatch) admCatSwitch("manage",false);
 }
 
@@ -7143,7 +7427,7 @@ function _escHtml(s) {
         if(el) boardSideNav(el,false);
     }
     // Admin deep-link: sub-tab (/admin/battle, /admin/kpi, etc.)
-    else if(/^\/admin\/(manage|db|kpi|battle)$/.test(path)){
+    else if(/^\/admin\/(manage|db|kpi|battle|tarot)$/.test(path)){
         const cat=path.split("/")[2];
         navigateTo("admin",false);
         history.replaceState({page:"admin",adminCat:cat},"",path);

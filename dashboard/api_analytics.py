@@ -346,9 +346,247 @@ async def api_admin_battle_analytics(request):
     })
 
 
+async def api_admin_tarot_analytics(request):
+    """Admin: tarot reading analytics — 리테일 KPI."""
+    from dashboard.api_admin import _admin_check
+    if not await _admin_check(request):
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    pool = await queries.get_db()
+
+    # ── 1. Overall KPI ──
+    total_readings = await pool.fetchval("SELECT COUNT(*) FROM tarot_readings") or 0
+    total_users = await pool.fetchval("SELECT COUNT(DISTINCT user_id) FROM tarot_readings") or 0
+    today_readings = await pool.fetchval(
+        "SELECT COUNT(*) FROM tarot_readings WHERE reading_date = (NOW() AT TIME ZONE 'Asia/Seoul')::date"
+    ) or 0
+    today_users = await pool.fetchval(
+        "SELECT COUNT(DISTINCT user_id) FROM tarot_readings WHERE reading_date = (NOW() AT TIME ZONE 'Asia/Seoul')::date"
+    ) or 0
+    week_readings = await pool.fetchval(
+        "SELECT COUNT(*) FROM tarot_readings WHERE reading_date >= (NOW() AT TIME ZONE 'Asia/Seoul')::date - INTERVAL '6 days'"
+    ) or 0
+    week_users = await pool.fetchval(
+        "SELECT COUNT(DISTINCT user_id) FROM tarot_readings WHERE reading_date >= (NOW() AT TIME ZONE 'Asia/Seoul')::date - INTERVAL '6 days'"
+    ) or 0
+
+    # ── 2. 일별 추이 (14일) ──
+    daily = await pool.fetch("""
+        SELECT d::date AS day,
+               COALESCE(r.cnt, 0) AS readings,
+               COALESCE(r.users, 0) AS users
+        FROM generate_series(
+            (NOW() AT TIME ZONE 'Asia/Seoul')::date - INTERVAL '13 days',
+            (NOW() AT TIME ZONE 'Asia/Seoul')::date, '1 day'
+        ) d
+        LEFT JOIN (
+            SELECT reading_date AS day, COUNT(*) AS cnt, COUNT(DISTINCT user_id) AS users
+            FROM tarot_readings
+            WHERE reading_date >= (NOW() AT TIME ZONE 'Asia/Seoul')::date - INTERVAL '13 days'
+            GROUP BY reading_date
+        ) r ON r.day = d::date
+        ORDER BY d
+    """)
+
+    # ── 3. 신규 vs 기존 유저 ──
+    # 신규: 가입 7일 이내에 타로를 쓴 유저
+    new_vs_existing = await pool.fetch("""
+        SELECT
+            CASE WHEN tr.reading_date - u.created_at::date <= 7 THEN '신규' ELSE '기존' END AS user_type,
+            COUNT(DISTINCT tr.user_id) AS users,
+            COUNT(*) AS readings
+        FROM tarot_readings tr
+        JOIN users u ON tr.user_id = u.user_id
+        GROUP BY user_type
+    """)
+
+    # 신규 유저 타로 전환율: 최근 30일 가입자 중 타로 사용자 비율
+    recent_signups = await pool.fetchval(
+        "SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '30 days'"
+    ) or 0
+    recent_signups_tarot = await pool.fetchval("""
+        SELECT COUNT(DISTINCT tr.user_id)
+        FROM tarot_readings tr
+        JOIN users u ON tr.user_id = u.user_id
+        WHERE u.created_at >= NOW() - INTERVAL '30 days'
+    """) or 0
+
+    # ── 4. 성별 분포 ──
+    by_gender = await pool.fetch("""
+        SELECT COALESCE(tr.gender, u.gender, '미등록') AS gender,
+               COUNT(DISTINCT tr.user_id) AS users,
+               COUNT(*) AS readings
+        FROM tarot_readings tr
+        LEFT JOIN users u ON tr.user_id = u.user_id
+        GROUP BY gender
+        ORDER BY readings DESC
+    """)
+
+    # ── 5. 연령별 분포 (birth_date 기반) ──
+    by_age = await pool.fetch("""
+        SELECT
+            CASE
+                WHEN u.birth_date IS NULL THEN '미등록'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 20 THEN '10대'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 30 THEN '20대'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 40 THEN '30대'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 50 THEN '40대'
+                ELSE '50대+'
+            END AS age_group,
+            COUNT(DISTINCT tr.user_id) AS users,
+            COUNT(*) AS readings
+        FROM tarot_readings tr
+        LEFT JOIN users u ON tr.user_id = u.user_id
+        GROUP BY age_group
+        ORDER BY age_group
+    """)
+
+    # ── 6. 주제별 인기도 ──
+    by_topic = await pool.fetch("""
+        SELECT topic, COUNT(*) AS readings, COUNT(DISTINCT user_id) AS users
+        FROM tarot_readings
+        GROUP BY topic
+        ORDER BY readings DESC
+    """)
+
+    # ── 7. 상황별 인기도 (situation) ──
+    by_situation = await pool.fetch("""
+        SELECT topic, situation, COUNT(*) AS readings
+        FROM tarot_readings
+        WHERE situation IS NOT NULL AND situation != ''
+        GROUP BY topic, situation
+        ORDER BY readings DESC
+        LIMIT 20
+    """)
+
+    # ── 8. 연령×성별 크로스 ──
+    age_gender_cross = await pool.fetch("""
+        SELECT
+            CASE
+                WHEN u.birth_date IS NULL THEN '미등록'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 20 THEN '10대'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 30 THEN '20대'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 40 THEN '30대'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 50 THEN '40대'
+                ELSE '50대+'
+            END AS age_group,
+            COALESCE(u.gender, '미등록') AS gender,
+            COUNT(DISTINCT tr.user_id) AS users,
+            COUNT(*) AS readings
+        FROM tarot_readings tr
+        LEFT JOIN users u ON tr.user_id = u.user_id
+        GROUP BY age_group, gender
+        ORDER BY age_group, gender
+    """)
+
+    # ── 9. 유저 타입 분석: 타로만 vs 게임도 ──
+    # 타로 유저의 게임 활동 (배틀, 포획, 거래 등)
+    user_engagement = await pool.fetch("""
+        WITH tarot_users AS (
+            SELECT DISTINCT user_id FROM tarot_readings
+        )
+        SELECT
+            tu.user_id,
+            u.username,
+            COALESCE(u.gender, '?') AS gender,
+            CASE
+                WHEN u.birth_date IS NULL THEN '?'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 20 THEN '10대'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 30 THEN '20대'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 40 THEN '30대'
+                WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 50 THEN '40대'
+                ELSE '50대+'
+            END AS age_group,
+            (SELECT COUNT(*) FROM tarot_readings tr2 WHERE tr2.user_id = tu.user_id) AS tarot_count,
+            COALESCE(u.total_catches, 0) AS catches,
+            COALESCE(u.battle_count, 0) AS battles,
+            COALESCE(u.trade_count, 0) AS trades,
+            u.created_at::date AS joined
+        FROM tarot_users tu
+        JOIN users u ON tu.user_id = u.user_id
+        ORDER BY tarot_count DESC
+        LIMIT 50
+    """)
+
+    # ── 10. 유저 유형 분류 집계 ──
+    user_types = await pool.fetch("""
+        WITH tarot_users AS (
+            SELECT DISTINCT user_id FROM tarot_readings
+        ),
+        classified AS (
+            SELECT
+                tu.user_id,
+                CASE
+                    WHEN COALESCE(u.battle_count, 0) = 0 AND COALESCE(u.total_catches, 0) <= 5 THEN '타로 전용'
+                    WHEN COALESCE(u.battle_count, 0) >= 50 OR COALESCE(u.total_catches, 0) >= 100 THEN '허슬러'
+                    ELSE '라이트 게이머'
+                END AS user_type
+            FROM tarot_users tu
+            JOIN users u ON tu.user_id = u.user_id
+        )
+        SELECT user_type, COUNT(*) AS users
+        FROM classified
+        GROUP BY user_type
+        ORDER BY users DESC
+    """)
+
+    # ── 11. 시간대별 (KST) ──
+    by_hour = await pool.fetch("""
+        SELECT EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Seoul')::int AS hour,
+               COUNT(*) AS readings
+        FROM tarot_readings
+        GROUP BY hour
+        ORDER BY hour
+    """)
+
+    # ── 12. 리텐션: 1회 vs 재방문 ──
+    retention = await pool.fetch("""
+        SELECT
+            CASE
+                WHEN cnt = 1 THEN '1회'
+                WHEN cnt BETWEEN 2 AND 3 THEN '2~3회'
+                WHEN cnt BETWEEN 4 AND 7 THEN '4~7회'
+                ELSE '8회+'
+            END AS freq,
+            COUNT(*) AS users
+        FROM (
+            SELECT user_id, COUNT(*) AS cnt
+            FROM tarot_readings
+            GROUP BY user_id
+        ) sub
+        GROUP BY freq
+        ORDER BY MIN(cnt)
+    """)
+
+    return web.json_response({
+        "today": {
+            "readings": today_readings, "users": today_users,
+            "week_readings": week_readings, "week_users": week_users,
+            "total_readings": total_readings, "total_users": total_users,
+        },
+        "daily": [{"date": str(r["day"]), "readings": r["readings"], "users": r["users"]} for r in daily],
+        "new_vs_existing": [{"type": r["user_type"], "users": r["users"], "readings": r["readings"]} for r in new_vs_existing],
+        "conversion": {"recent_signups": recent_signups, "tarot_users": recent_signups_tarot},
+        "by_gender": [{"gender": {"M": "남성", "F": "여성"}.get(r["gender"], r["gender"]), "users": r["users"], "readings": r["readings"]} for r in by_gender],
+        "by_age": [{"age": r["age_group"], "users": r["users"], "readings": r["readings"]} for r in by_age],
+        "by_topic": [{"topic": r["topic"], "readings": r["readings"], "users": r["users"]} for r in by_topic],
+        "by_situation": [{"topic": r["topic"], "situation": r["situation"], "readings": r["readings"]} for r in by_situation],
+        "age_gender": [{"age": r["age_group"], "gender": {"M": "남성", "F": "여성"}.get(r["gender"], r["gender"]), "users": r["users"], "readings": r["readings"]} for r in age_gender_cross],
+        "user_engagement": [
+            {"user_id": r["user_id"], "username": r["username"], "gender": r["gender"],
+             "age": r["age_group"], "tarot": r["tarot_count"], "catches": r["catches"],
+             "battles": r["battles"], "trades": r["trades"], "joined": str(r["joined"])}
+            for r in user_engagement
+        ],
+        "user_types": [{"type": r["user_type"], "users": r["users"]} for r in user_types],
+        "by_hour": [{"hour": r["hour"], "readings": r["readings"]} for r in by_hour],
+        "retention": [{"freq": r["freq"], "users": r["users"]} for r in retention],
+    })
+
+
 def setup_routes(app):
     """Register analytics routes."""
     app.router.add_post("/api/analytics/pageview", api_analytics_pageview)
     app.router.add_post("/api/analytics/session", api_analytics_session)
     app.router.add_get("/api/admin/kpi", api_admin_kpi)
     app.router.add_get("/api/admin/battle-analytics", api_admin_battle_analytics)
+    app.router.add_get("/api/admin/tarot-analytics", api_admin_tarot_analytics)

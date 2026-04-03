@@ -644,6 +644,77 @@ async def mock_analytics_session(request):
     return web.json_response({"ok": True})
 
 
+async def mock_admin_tarot_analytics(request):
+    """Return mock tarot KPI data for preview."""
+    import datetime, math
+    today = datetime.date.today()
+    daily = []
+    for i in range(13, -1, -1):
+        d = today - datetime.timedelta(days=i)
+        daily.append({
+            "date": d.isoformat(),
+            "readings": 8 + int(12 * abs(math.sin(i * 0.5))),
+            "users": 5 + int(8 * abs(math.sin(i * 0.5))),
+        })
+    return web.json_response({
+        "today": {"readings": 15, "users": 12, "week_readings": 87, "week_users": 34, "total_readings": 342, "total_users": 89},
+        "daily": daily,
+        "new_vs_existing": [{"type": "신규", "users": 28, "readings": 45}, {"type": "기존", "users": 61, "readings": 297}],
+        "conversion": {"recent_signups": 156, "tarot_users": 28},
+        "by_gender": [{"gender": "여성", "users": 52, "readings": 210}, {"gender": "남성", "users": 31, "readings": 108}, {"gender": "미등록", "users": 6, "readings": 24}],
+        "by_age": [
+            {"age": "10대", "users": 8, "readings": 22},
+            {"age": "20대", "users": 35, "readings": 148},
+            {"age": "30대", "users": 28, "readings": 112},
+            {"age": "40대", "users": 12, "readings": 38},
+            {"age": "미등록", "users": 6, "readings": 22},
+        ],
+        "by_topic": [
+            {"topic": "연애", "readings": 142, "users": 58},
+            {"topic": "직장", "readings": 68, "users": 35},
+            {"topic": "재물", "readings": 52, "users": 28},
+            {"topic": "종합", "readings": 38, "users": 22},
+            {"topic": "인간관계", "readings": 28, "users": 18},
+            {"topic": "투자", "readings": 14, "users": 10},
+        ],
+        "by_situation": [
+            {"topic": "연애", "situation": "짝사랑,상대마음", "readings": 42},
+            {"topic": "연애", "situation": "솔로,새만남", "readings": 28},
+            {"topic": "연애", "situation": "연애중,관계미래", "readings": 25},
+            {"topic": "직장", "situation": "재직중,이직고민", "readings": 22},
+            {"topic": "연애", "situation": "이별,재회", "readings": 18},
+            {"topic": "직장", "situation": "구직중,취업시기", "readings": 15},
+            {"topic": "재물", "situation": "수입", "readings": 14},
+            {"topic": "연애", "situation": "기혼,부부미래", "readings": 12},
+            {"topic": "인간관계", "situation": "직장,갈등", "readings": 10},
+            {"topic": "종합", "situation": "미래", "readings": 8},
+        ],
+        "age_gender": [
+            {"age": "10대", "gender": "여성", "users": 5, "readings": 15},
+            {"age": "10대", "gender": "남성", "users": 3, "readings": 7},
+            {"age": "20대", "gender": "여성", "users": 22, "readings": 95},
+            {"age": "20대", "gender": "남성", "users": 13, "readings": 53},
+            {"age": "30대", "gender": "여성", "users": 18, "readings": 72},
+            {"age": "30대", "gender": "남성", "users": 10, "readings": 40},
+            {"age": "40대", "gender": "여성", "users": 7, "readings": 28},
+            {"age": "40대", "gender": "남성", "users": 5, "readings": 10},
+        ],
+        "user_engagement": [
+            {"user_id": 100001, "username": "타로덕후", "gender": "F", "age": "20대", "tarot": 18, "catches": 2, "battles": 0, "trades": 0, "joined": "2026-03-28"},
+            {"user_id": 100002, "username": "포켓몬마스터", "gender": "M", "age": "30대", "tarot": 14, "catches": 856, "battles": 234, "trades": 45, "joined": "2026-01-15"},
+            {"user_id": 100003, "username": "별자리좋아", "gender": "F", "age": "20대", "tarot": 12, "catches": 15, "battles": 3, "trades": 1, "joined": "2026-03-20"},
+            {"user_id": 100004, "username": "카드리더", "gender": "F", "age": "30대", "tarot": 11, "catches": 0, "battles": 0, "trades": 0, "joined": "2026-04-01"},
+            {"user_id": 100005, "username": "허슬러킹", "gender": "M", "age": "20대", "tarot": 9, "catches": 1200, "battles": 567, "trades": 89, "joined": "2025-12-01"},
+            {"user_id": 100006, "username": "뉴비트레이너", "gender": "F", "age": "10대", "tarot": 7, "catches": 23, "battles": 5, "trades": 2, "joined": "2026-03-30"},
+            {"user_id": 100007, "username": "직장인타로", "gender": "M", "age": "40대", "tarot": 6, "catches": 45, "battles": 12, "trades": 3, "joined": "2026-02-10"},
+            {"user_id": 100008, "username": "솔로탈출기원", "gender": "F", "age": "20대", "tarot": 5, "catches": 0, "battles": 0, "trades": 0, "joined": "2026-04-02"},
+        ],
+        "user_types": [{"type": "라이트 게이머", "users": 38}, {"type": "타로 전용", "users": 32}, {"type": "허슬러", "users": 19}],
+        "by_hour": [{"hour": h, "readings": max(1, int(15 * (1 + math.sin((h - 22) * 3.14159 / 12))))} for h in range(24)],
+        "retention": [{"freq": "1회", "users": 42}, {"freq": "2~3회", "users": 25}, {"freq": "4~7회", "users": 14}, {"freq": "8회+", "users": 8}],
+    })
+
+
 async def mock_admin_kpi(request):
     """Return mock KPI data for preview."""
     import datetime
@@ -1148,6 +1219,7 @@ def create_preview_app():
     app.router.add_post("/api/analytics/pageview", mock_analytics_pageview)
     app.router.add_post("/api/analytics/session", mock_analytics_session)
     app.router.add_get("/api/admin/kpi", mock_admin_kpi)
+    app.router.add_get("/api/admin/tarot-analytics", mock_admin_tarot_analytics)
     app.router.add_get("/api/admin/battle-analytics", mock_admin_battle_analytics)
     # Catch-all for API routes
     for api_path in [
