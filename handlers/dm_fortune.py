@@ -243,18 +243,6 @@ async def tarot_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """DM에서 '타로' 입력 시 — 생년월일 없으면 입력 유도, 있으면 주제 선택."""
     user_id = update.effective_user.id
 
-    # 하루 1회 제한 체크
-    today = __import__("config").get_kst_now().date()
-    last_reading = context.user_data.get("last_tarot_date")
-    if last_reading == today.isoformat():
-        await update.message.reply_text(
-            "🔮 오늘은 이미 리딩을 받았어요.\n"
-            "...카드는 하루에 한 번만 답해줘요.\n"
-            "내일 다시 와줄래요? 기다리고 있을게.",
-            parse_mode="HTML",
-        )
-        return
-
     # 생년월일 확인
     birth_date = await _get_birth_date(user_id)
 
