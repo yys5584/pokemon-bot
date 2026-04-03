@@ -1029,11 +1029,6 @@ async def horoscope_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         _horoscope_dm_daily.clear()
         _horoscope_dm_daily[today_str] = set()
 
-    already_done = user.id in _horoscope_dm_daily[today_str]
-    if already_done:
-        await msg.reply_text("🌟 오늘 운세는 이미 확인했어요! 내일 다시 오세요.")
-        return
-
     birth_date = await _get_birth_date(user.id)
     if not birth_date:
         await msg.reply_text(
@@ -1055,10 +1050,11 @@ async def horoscope_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     display_name = user.first_name or "트레이너"
     text = format_horoscope_dm(data, display_name)
 
-    # 성격변경권 1개 지급 (일일 1회)
-    from database import item_queries
-    await item_queries.add_user_item(user.id, "personality_ticket", 1)
-    text += "\n\n🎭 <i>성격변경권 1개를 받았어요!</i>"
+    # 첫 운세 시 성격변경권 1개 지급
+    if user.id not in _horoscope_dm_daily[today_str]:
+        from database import item_queries
+        await item_queries.add_user_item(user.id, "personality_ticket", 1)
+        text += "\n\n🎭 <i>성격변경권 1개를 받았어요!</i>"
+        _horoscope_dm_daily[today_str].add(user.id)
 
-    _horoscope_dm_daily[today_str].add(user.id)
     await msg.reply_text(text, parse_mode="HTML")

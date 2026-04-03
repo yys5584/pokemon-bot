@@ -397,13 +397,10 @@ async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     today_str = str(config.get_kst_now().date())
 
-    # 일일 1회 제한
+    # 일일 보상 추적
     if today_str not in _horoscope_daily_limit:
         _horoscope_daily_limit.clear()
         _horoscope_daily_limit[today_str] = set()
-    if user.id in _horoscope_daily_limit[today_str]:
-        await msg.reply_text("🌟 오늘 운세는 이미 확인했어요! 내일 다시 오세요.", quote=True)
-        return
 
     # 생년월일 확인
     from handlers.dm_fortune import _get_birth_date
@@ -425,10 +422,12 @@ async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     display_name = user.first_name or "트레이너"
     text = format_horoscope_group(data, display_name)
 
-    # 성격변경권 1개 지급 (일일 1회)
-    from database import item_queries
-    await item_queries.add_user_item(user.id, "personality_ticket", 1)
-    text += "\n\n🎭 <i>성격변경권 1개를 받았어요!</i>"
+    # 첫 운세 시 성격변경권 1개 지급
+    first_today = user.id not in _horoscope_daily_limit[today_str]
+    if first_today:
+        from database import item_queries
+        await item_queries.add_user_item(user.id, "personality_ticket", 1)
+        text += "\n\n🎭 <i>성격변경권 1개를 받았어요!</i>"
 
     _horoscope_daily_limit[today_str].add(user.id)
     await msg.reply_text(text, parse_mode="HTML", quote=True)
