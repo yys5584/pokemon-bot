@@ -411,8 +411,8 @@ async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     birth_date = await _get_birth_date(user.id)
     if not birth_date:
         await msg.reply_text(
-            "🌟 운세를 보려면 생년월일 등록이 필요해요!\n"
-            "📩 DM에서 <b>타로</b>를 입력하면 등록할 수 있어요.",
+            "🌟 운세를 보려면 생년월일이 필요해요!\n"
+            "📩 DM에서 생년월일을 등록해주세요.",
             parse_mode="HTML",
         )
         return
