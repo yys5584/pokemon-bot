@@ -3674,75 +3674,69 @@
 
             <!-- Category: Tarot KPI -->
             <div id="admCat-tarot" style="display:none">
-            <div style="margin-bottom:14px">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <div style="margin-bottom:10px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
                     <span class="neon-dot neon-dot-pink"></span>
                     <span style="font-size:14px;font-weight:700;color:#e0e0e0">🔮 타로 리테일 KPI</span>
                     <span style="font-size:10px;color:rgba(255,255,255,.25);margin-left:auto" id="tarotLastUpdate"></span>
                 </div>
                 <!-- KPI 카드 -->
-                <div id="admTarotCards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"></div>
+                <div id="admTarotCards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px"></div>
                 <!-- 신규 전환 바 -->
-                <div id="tarotConversionBar" style="margin-bottom:14px"></div>
-                <!-- Row 1: 일별 추이 + 유저 유형 -->
-                <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
-                    <div class="chart-panel">
-                        <div class="chart-title"><span>━━</span> 일별 리딩 추이 <span style="font-size:10px;color:rgba(255,255,255,.2)">14일</span></div>
-                        <div style="height:200px"><canvas id="tarotChartDaily"></canvas></div>
+                <div id="tarotConversionBar" style="margin-bottom:10px"></div>
+                <!-- Row 1: 일별 추이 + 유저 유형 + 신규/기존 -->
+                <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:8px">
+                    <div class="chart-panel" style="padding:8px 10px">
+                        <div class="chart-title"><span>━━</span> 일별 추이 <span style="font-size:10px;color:rgba(255,255,255,.2)">14일</span></div>
+                        <div style="height:140px"><canvas id="tarotChartDaily"></canvas></div>
                     </div>
-                    <div class="chart-panel">
+                    <div class="chart-panel" style="padding:8px 10px">
                         <div class="chart-title"><span>━━</span> 유저 유형</div>
-                        <div style="height:200px;position:relative"><canvas id="tarotChartUserType"></canvas><div class="donut-center" id="tarotUserTypeCenter"></div></div>
+                        <div style="height:140px;position:relative"><canvas id="tarotChartUserType"></canvas><div class="donut-center" id="tarotUserTypeCenter"></div></div>
                     </div>
-                </div>
-                <!-- Row 2: 성별 + 연령대 -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-                    <div class="chart-panel">
-                        <div class="chart-title"><span>━━</span> 성별 분포</div>
-                        <div style="height:180px"><canvas id="tarotChartGender"></canvas></div>
-                    </div>
-                    <div class="chart-panel">
-                        <div class="chart-title"><span>━━</span> 연령대 분포</div>
-                        <div style="height:180px"><canvas id="tarotChartAge"></canvas></div>
-                    </div>
-                </div>
-                <!-- Row 3: 주제별 + 리텐션 -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-                    <div class="chart-panel">
-                        <div class="chart-title"><span>━━</span> 주제별 인기도</div>
-                        <div style="height:180px"><canvas id="tarotChartTopic"></canvas></div>
-                    </div>
-                    <div class="chart-panel">
-                        <div class="chart-title"><span>━━</span> 리텐션 (이용 빈도)</div>
-                        <div style="height:180px;position:relative"><canvas id="tarotChartRetention"></canvas><div class="donut-center" id="tarotRetentionCenter"></div></div>
-                    </div>
-                </div>
-                <!-- Row 4: 시간대별 + 신규/기존 -->
-                <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
-                    <div class="chart-panel">
-                        <div class="chart-title"><span>━━</span> 시간대별 이용 <span style="font-size:10px;color:rgba(255,255,255,.2)">KST 24h</span></div>
-                        <div style="height:180px"><canvas id="tarotChartHour"></canvas></div>
-                    </div>
-                    <div class="chart-panel">
+                    <div class="chart-panel" style="padding:8px 10px">
                         <div class="chart-title"><span>━━</span> 신규 vs 기존</div>
-                        <div style="height:180px;position:relative"><canvas id="tarotChartNewOld"></canvas><div class="donut-center" id="tarotNewOldCenter"></div></div>
+                        <div style="height:140px;position:relative"><canvas id="tarotChartNewOld"></canvas><div class="donut-center" id="tarotNewOldCenter"></div></div>
                     </div>
                 </div>
-                <!-- Row 5: 연령×성별 크로스 + 인기 상황 -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-                    <div class="chart-panel">
-                        <div class="chart-title"><span>━━</span> 연령×성별 크로스</div>
-                        <div style="height:200px"><canvas id="tarotChartAgeSex"></canvas></div>
+                <!-- Row 2: 성별 + 연령대 + 주제별 + 리텐션 -->
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+                    <div class="chart-panel" style="padding:8px 10px">
+                        <div class="chart-title"><span>━━</span> 성별</div>
+                        <div style="height:120px"><canvas id="tarotChartGender"></canvas></div>
                     </div>
-                    <div class="chart-panel">
-                        <div class="chart-title"><span>━━</span> 인기 상황 (세부질문)</div>
-                        <div style="height:200px"><canvas id="tarotChartSituation"></canvas></div>
+                    <div class="chart-panel" style="padding:8px 10px">
+                        <div class="chart-title"><span>━━</span> 연령대</div>
+                        <div style="height:120px"><canvas id="tarotChartAge"></canvas></div>
+                    </div>
+                    <div class="chart-panel" style="padding:8px 10px">
+                        <div class="chart-title"><span>━━</span> 주제별</div>
+                        <div style="height:120px"><canvas id="tarotChartTopic"></canvas></div>
+                    </div>
+                    <div class="chart-panel" style="padding:8px 10px">
+                        <div class="chart-title"><span>━━</span> 리텐션</div>
+                        <div style="height:120px;position:relative"><canvas id="tarotChartRetention"></canvas><div class="donut-center" id="tarotRetentionCenter"></div></div>
                     </div>
                 </div>
-                <!-- Row 6: 유저 상세 테이블 -->
-                <div class="chart-panel" style="margin-bottom:12px">
-                    <div class="chart-title"><span>━━</span> 타로 유저 상세 <span style="font-size:10px;color:rgba(255,255,255,.2)">TOP 50</span></div>
-                    <div id="tarotUserTable" style="overflow-x:auto;max-height:400px;overflow-y:auto"></div>
+                <!-- Row 3: 시간대별 + 연령×성별 + 상황 -->
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+                    <div class="chart-panel" style="padding:8px 10px">
+                        <div class="chart-title"><span>━━</span> 시간대별 <span style="font-size:10px;color:rgba(255,255,255,.2)">KST</span></div>
+                        <div style="height:130px"><canvas id="tarotChartHour"></canvas></div>
+                    </div>
+                    <div class="chart-panel" style="padding:8px 10px">
+                        <div class="chart-title"><span>━━</span> 연령×성별</div>
+                        <div style="height:130px"><canvas id="tarotChartAgeSex"></canvas></div>
+                    </div>
+                    <div class="chart-panel" style="padding:8px 10px">
+                        <div class="chart-title"><span>━━</span> 인기 상황</div>
+                        <div style="height:130px"><canvas id="tarotChartSituation"></canvas></div>
+                    </div>
+                </div>
+                <!-- Row 4: 유저 테이블 -->
+                <div class="chart-panel" style="padding:8px 10px">
+                    <div class="chart-title"><span>━━</span> 유저 상세 <span style="font-size:10px;color:rgba(255,255,255,.2)">TOP 50</span></div>
+                    <div id="tarotUserTable" style="overflow-x:auto;max-height:280px;overflow-y:auto"></div>
                 </div>
             </div>
             </div><!-- /admCat-tarot -->
