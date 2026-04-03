@@ -19,18 +19,30 @@ _log = logging.getLogger(__name__)
 # ── 별자리 데이터 ──
 
 ZODIAC_SIGNS = [
-    {"name": "양자리", "symbol": "♈", "en": "Aries", "start": (3, 21), "end": (4, 19), "element": "불"},
-    {"name": "황소자리", "symbol": "♉", "en": "Taurus", "start": (4, 20), "end": (5, 20), "element": "땅"},
-    {"name": "쌍둥이자리", "symbol": "♊", "en": "Gemini", "start": (5, 21), "end": (6, 21), "element": "바람"},
-    {"name": "게자리", "symbol": "♋", "en": "Cancer", "start": (6, 22), "end": (7, 22), "element": "물"},
-    {"name": "사자자리", "symbol": "♌", "en": "Leo", "start": (7, 23), "end": (8, 22), "element": "불"},
-    {"name": "처녀자리", "symbol": "♍", "en": "Virgo", "start": (8, 23), "end": (9, 22), "element": "땅"},
-    {"name": "천칭자리", "symbol": "♎", "en": "Libra", "start": (9, 23), "end": (10, 23), "element": "바람"},
-    {"name": "전갈자리", "symbol": "♏", "en": "Scorpio", "start": (10, 24), "end": (11, 22), "element": "물"},
-    {"name": "사수자리", "symbol": "♐", "en": "Sagittarius", "start": (11, 23), "end": (12, 21), "element": "불"},
-    {"name": "염소자리", "symbol": "♑", "en": "Capricorn", "start": (12, 22), "end": (1, 19), "element": "땅"},
-    {"name": "물병자리", "symbol": "♒", "en": "Aquarius", "start": (1, 20), "end": (2, 18), "element": "바람"},
-    {"name": "물고기자리", "symbol": "♓", "en": "Pisces", "start": (2, 19), "end": (3, 20), "element": "물"},
+    {"name": "양자리", "symbol": "♈", "en": "Aries", "start": (3, 21), "end": (4, 19), "element": "불",
+     "ruler": "화성", "mode": "활동궁", "trait": "충동적, 리더십, 에너지 과잉, 경쟁심", "body": "머리/얼굴"},
+    {"name": "황소자리", "symbol": "♉", "en": "Taurus", "start": (4, 20), "end": (5, 20), "element": "땅",
+     "ruler": "금성", "mode": "고정궁", "trait": "안정 추구, 소유욕, 감각적 쾌락, 완고함", "body": "목/어깨"},
+    {"name": "쌍둥이자리", "symbol": "♊", "en": "Gemini", "start": (5, 21), "end": (6, 21), "element": "바람",
+     "ruler": "수성", "mode": "변통궁", "trait": "호기심, 소통, 변덕, 멀티태스킹", "body": "팔/폐"},
+    {"name": "게자리", "symbol": "♋", "en": "Cancer", "start": (6, 22), "end": (7, 22), "element": "물",
+     "ruler": "달", "mode": "활동궁", "trait": "모성, 감정 기복, 방어적, 가정 중심", "body": "위/가슴"},
+    {"name": "사자자리", "symbol": "♌", "en": "Leo", "start": (7, 23), "end": (8, 22), "element": "불",
+     "ruler": "태양", "mode": "고정궁", "trait": "자존심, 관대함, 주목받고 싶음, 창의력", "body": "심장/등"},
+    {"name": "처녀자리", "symbol": "♍", "en": "Virgo", "start": (8, 23), "end": (9, 22), "element": "땅",
+     "ruler": "수성", "mode": "변통궁", "trait": "분석력, 완벽주의, 건강 민감, 비판적", "body": "소화기관"},
+    {"name": "천칭자리", "symbol": "♎", "en": "Libra", "start": (9, 23), "end": (10, 23), "element": "바람",
+     "ruler": "금성", "mode": "활동궁", "trait": "조화, 우유부단, 미적 감각, 관계 지향", "body": "신장/허리"},
+    {"name": "전갈자리", "symbol": "♏", "en": "Scorpio", "start": (10, 24), "end": (11, 22), "element": "물",
+     "ruler": "명왕성/화성", "mode": "고정궁", "trait": "집요함, 비밀주의, 통찰력, 질투", "body": "생식기"},
+    {"name": "사수자리", "symbol": "♐", "en": "Sagittarius", "start": (11, 23), "end": (12, 21), "element": "불",
+     "ruler": "목성", "mode": "변통궁", "trait": "자유, 낙관, 솔직함, 무책임", "body": "허벅지/간"},
+    {"name": "염소자리", "symbol": "♑", "en": "Capricorn", "start": (12, 22), "end": (1, 19), "element": "땅",
+     "ruler": "토성", "mode": "활동궁", "trait": "야망, 인내, 현실주의, 감정 억제", "body": "무릎/뼈"},
+    {"name": "물병자리", "symbol": "♒", "en": "Aquarius", "start": (1, 20), "end": (2, 18), "element": "바람",
+     "ruler": "천왕성/토성", "mode": "고정궁", "trait": "독립, 혁신, 반항, 박애주의", "body": "종아리/순환계"},
+    {"name": "물고기자리", "symbol": "♓", "en": "Pisces", "start": (2, 19), "end": (3, 20), "element": "물",
+     "ruler": "해왕성/목성", "mode": "변통궁", "trait": "직감, 공감, 현실도피, 예술적", "body": "발/림프"},
 ]
 
 # 별자리 원소 → 포켓몬 타입 매핑
@@ -189,26 +201,25 @@ def _build_transit_text(transits: dict) -> str:
     return "\n".join(lines)
 
 
-_HOROSCOPE_SYSTEM_PROMPT = """서양 점성술 전문가. 행성 트랜짓 데이터 기반 운세 해석.
-구체적이고 날카롭게, 긍정일변도 금지. 마크다운 금지.
-반드시 아래 7줄 형식으로만 출력. 각 줄을 빠짐없이 채울 것. 빈 줄 금지.
+_HOROSCOPE_SYSTEM_PROMPT = """당신은 20년 경력 서양 점성술사입니다.
+행성 트랜짓 + 별자리 고유 특성을 교차 분석해 해석합니다.
 
+## 해석 원칙
+1. 지배 행성의 현재 위치가 핵심. 지배 행성이 어떤 별자리에 있고 어떤 어스펙트를 형성하는지가 그 날의 운세를 결정합니다.
+2. 같은 날이라도 별자리마다 운세가 완전히 달라야 합니다. 양자리(화성 지배)와 천칭자리(금성 지배)가 같은 해석이면 틀린 것입니다.
+3. 별자리의 mode(활동궁/고정궁/변통궁)와 trait를 반영하세요.
+4. 건강 항목은 해당 별자리의 취약 부위(body)를 참고하세요.
+5. 긍정일변도 금지. ★1~2개도 과감하게 주세요.
+6. "~할 수 있습니다" 같은 애매한 표현 금지. 단정적으로 쓰세요.
+
+## 출력 형식 (정확히 7줄, 빈 줄 금지)
 종합: ★~★★★★★ + 한줄 요약 15자
-한줄: 오늘의 핵심 메시지 15자 이내
+한줄: 핵심 메시지 15자 이내
 연애: 구체적 연애운 20자 이내
 직장: 구체적 직장운 20자 이내
 재운: 구체적 재물운 20자 이내
-건강: 구체적 건강운 20자 이내
-조언: 오늘의 행동 조언 25자 이내
-
-예시 (복사 금지, 형식만 참고):
-종합: ★★★★ 소통이 활발한 하루
-한줄: 대화가 기회를 만듭니다
-연애: 솔직한 감정 표현이 좋은 반응을 얻음
-직장: 협업 프로젝트에서 주도권 잡기 좋은 날
-재운: 소액 투자나 저축 시작에 적합
-건강: 목과 어깨 스트레칭 필요
-조언: 망설이던 연락을 오늘 해보세요"""
+건강: 구체적 건강 조언 20자 이내
+조언: 행동 조언 25자 이내"""
 
 
 async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) -> str | None:
@@ -218,14 +229,20 @@ async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) 
         return None
 
     transit_text = _build_transit_text(transits)
+    ruler = sign.get("ruler", "")
+    mode = sign.get("mode", "")
+    trait = sign.get("trait", "")
+    body = sign.get("body", "")
     user_prompt = f"""오늘 날짜: {target_date}
 별자리: {sign['name']} ({sign['symbol']}, {sign['en']})
-원소: {sign['element']}
+원소: {sign['element']} | 지배행성: {ruler} | 모드: {mode}
+성격 키워드: {trait}
+취약 부위: {body}
 
 {transit_text}
 
-위 행성 배치를 기반으로 {sign['name']}의 오늘 운세를 해석해주세요.
-어스펙트 중 이 별자리에 직접 영향을 주는 것을 중심으로 해석하세요."""
+{sign['name']}의 지배행성 {ruler}의 현재 위치와 어스펙트를 중심으로 해석하세요.
+{sign['name']}의 고유 특성({trait})이 오늘 행성 배치와 어떻게 상호작용하는지 구체적으로 설명하세요."""
 
     payload = {
         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
