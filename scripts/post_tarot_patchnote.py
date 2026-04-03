@@ -31,12 +31,12 @@ def _build_card_grid():
     # Major Arcana
     major = sorted([c for c in ALL_CARDS if c["type"] == "major"], key=lambda c: c["value_int"])
     lines.append('<h3 style="margin:24px 0 12px">✨ 메이저 아르카나 (22장)</h3>')
-    lines.append('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px">')
+    lines.append('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;align-items:end">')
     for c in major:
         pokemon = c.get("pokemon", "")
         lines.append(
             f'<div style="text-align:center">'
-            f'<img src="{_card_image(c)}" style="width:100%;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3)" loading="lazy"/>'
+            f'<img src="{_card_image(c)}" style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3)" loading="lazy"/>'
             f'<div style="font-size:11px;margin-top:4px;color:#e0e0e0">{c["name_ko"]}</div>'
             f'<div style="font-size:10px;color:#888">{pokemon}</div>'
             f'</div>'
@@ -52,12 +52,12 @@ def _build_card_grid():
         )
         suit_label = SUIT_KO.get(suit_key, suit_key)
         lines.append(f'<h3 style="margin:24px 0 12px">{suit_label} ({len(suit_cards)}장)</h3>')
-        lines.append('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px">')
+        lines.append('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;align-items:end">')
         for c in suit_cards:
             pokemon = c.get("pokemon", "")
             lines.append(
                 f'<div style="text-align:center">'
-                f'<img src="{_card_image(c)}" style="width:100%;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3)" loading="lazy"/>'
+                f'<img src="{_card_image(c)}" style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.3)" loading="lazy"/>'
                 f'<div style="font-size:11px;margin-top:4px;color:#e0e0e0">{c["name_ko"]}</div>'
                 f'<div style="font-size:10px;color:#888">{pokemon}</div>'
                 f'</div>'
