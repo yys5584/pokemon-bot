@@ -483,6 +483,10 @@ def create_app() -> web.Application:
     sprite_dir = Path(__file__).resolve().parent.parent / "assets" / "pokemon"
     if sprite_dir.exists():
         app.router.add_static("/sprites", sprite_dir, show_index=False)
+    # Tarot card images
+    tarot_dir = Path(__file__).resolve().parent.parent / "assets" / "tarot"
+    if tarot_dir.exists():
+        app.router.add_static("/tarot-assets", tarot_dir, show_index=False)
     # Camp assets (map images etc.)
     camp_dir = Path(__file__).resolve().parent.parent / "assets" / "camp"
     if camp_dir.exists():
