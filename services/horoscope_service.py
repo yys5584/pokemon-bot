@@ -227,7 +227,7 @@ async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) 
             "topP": 0.9,
         },
     }
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     headers = {"x-goog-api-key": api_key, "Content-Type": "application/json"}
 
     try:
