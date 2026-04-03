@@ -33,7 +33,7 @@ async def refresh_cost_limit():
         if season:
             rule_key = season.get("weekly_rule")
             if rule_key:
-                rule = config.SEASON_RULES.get(rule_key, {})
+                rule = config.WEEKLY_RULES.get(rule_key, {})
                 _COST_LIMIT = rule.get("cost_limit", config.RANKED_COST_LIMIT)
                 return
     except Exception:
