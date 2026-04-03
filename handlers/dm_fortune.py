@@ -857,10 +857,15 @@ async def tarot_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         card = reading["cards"][page_idx]
         card_img_path = _find_card_image(card)
 
-        reveal_text = (
-            f"{card['position_emoji']} <b>[{card['position']}]</b> {card['card_name']}\n\n"
-            f"  {card['meaning']}"
-        )
+        # 카드 설명(첫 줄)과 해석(나머지) 분리
+        meaning_lines = card['meaning'].strip().split('\n', 1)
+        card_desc = meaning_lines[0].strip()
+        card_interp = meaning_lines[1].strip() if len(meaning_lines) > 1 else ""
+
+        reveal_text = f"{card['position_emoji']} <b>[{card['position']}]</b> {card['card_name']}\n\n"
+        reveal_text += f"<blockquote>{card_desc}</blockquote>\n"
+        if card_interp:
+            reveal_text += f"{card_interp}"
 
         next_idx = page_idx + 1
         if next_idx < need_count:
