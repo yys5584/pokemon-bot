@@ -1,15 +1,19 @@
-"""포켓몬 타로 리딩 서비스 — 창백피카츄의 타로.
+"""포켓몬 타로 리딩 서비스 — 신비로운 피카의 타로.
 
-78장 카드 데이터 + 스프레드 엔진 + 해석 조합.
+78장 카드 데이터 + 스프레드 엔진 + 해석 조합 + AI 서사 생성.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import os
 import random
 from datetime import date, datetime
 from pathlib import Path
+
+import aiohttp
 
 import config
 
@@ -45,9 +49,9 @@ ZODIAC_SIGNS = [
     ("♋ 게자리", (6, 22), (7, 22)),
     ("♌ 사자자리", (7, 23), (8, 22)),
     ("♍ 처녀자리", (8, 23), (9, 22)),
-    ("♎ 천칭자리", (9, 23), (10, 23)),
-    ("♏ 전갈자리", (10, 24), (11, 22)),
-    ("♐ 궁수자리", (11, 23), (12, 21)),
+    ("♎ 천칭자리", (9, 23), (10, 22)),
+    ("♏ 전갈자리", (10, 23), (11, 21)),
+    ("♐ 궁수자리", (11, 22), (12, 21)),
     ("♑ 염소자리", (12, 22), (1, 19)),
 ]
 
@@ -164,22 +168,34 @@ TOPIC_EMOJIS = {
     "종합": "🌟",
 }
 
+# ── 시간 범위 ──
 
-def generate_reading(
+TIME_RANGES = {
+    "오늘": {"label": "📅 오늘", "prompt_hint": "오늘 하루"},
+    "이번 주": {"label": "📆 이번 주", "prompt_hint": "이번 한 주"},
+    "이번 달": {"label": "🗓️ 이번 달", "prompt_hint": "이번 한 달"},
+}
+DEFAULT_TIME_RANGE = "이번 주"
+
+
+async def generate_reading(
     topic: str = "종합",
     spread_type: str = "three_card",
     birth_date: date | None = None,
     user_id: int | None = None,
+    time_range: str = "이번 주",
 ) -> dict:
-    """타로 리딩 생성 — 카드 뽑기 + 해석 조합.
+    """타로 리딩 생성 — 카드 뽑기 + 해석 조합 + AI 서사.
 
     Returns:
         {
             "spread": spread_info,
             "topic": topic,
+            "time_range": str,
             "cards": [{"card": ..., "position": ..., "meaning": ...}, ...],
             "zodiac": str | None,
             "summary": str,
+            "ai_narrative": str | None,
         }
     """
     spread = get_spread(spread_type)
@@ -220,22 +236,33 @@ def generate_reading(
     # 별자리
     zodiac = get_zodiac(birth_date) if birth_date else None
 
-    # 종합 요약 (창백피카츄 톤)
+    # 시간 범위 검증
+    if time_range not in TIME_RANGES:
+        time_range = DEFAULT_TIME_RANGE
+
+    # AI 서사 생성 (캐시 우선, 실패 시 정적 폴백)
+    ai_narrative = await get_ai_narrative(
+        reading_cards, topic, spread_type, spread["name"], zodiac, time_range,
+    )
+
+    # 정적 폴백 요약
     summary = _generate_summary(reading_cards, topic, zodiac)
 
     return {
         "spread": spread,
         "topic": topic,
         "topic_emoji": TOPIC_EMOJIS.get(topic, "🔮"),
+        "time_range": time_range,
         "cards": reading_cards,
         "zodiac": zodiac,
         "summary": summary,
+        "ai_narrative": ai_narrative,
         "date": today.isoformat(),
     }
 
 
 def _generate_summary(cards: list[dict], topic: str, zodiac: str | None) -> str:
-    """3장 카드를 종합한 요약 멘트 (창백피카츄 톤)."""
+    """3장 카드를 종합한 요약 멘트 (신비로운 피카 톤)."""
     # 정방향 카드 수로 전체 분위기 결정
     positive_count = sum(1 for c in cards if not c["reversed"])
     total = len(cards)
@@ -266,6 +293,168 @@ def _generate_summary(cards: list[dict], topic: str, zodiac: str | None) -> str:
     return f"{mood}{zodiac_line}\n\n💫 {advice}"
 
 
+# ── AI 서사 생성 (Gemini Flash) ──
+
+_NARRATIVE_SYSTEM_PROMPT = """당신은 '신비로운 피카' — 포켓몬 세계의 신비로운 타로 리더입니다.
+
+## 말투 규칙
+- "...아," "...후후," "...어쩐지" 같은 여운 있는 시작
+- 존댓말, 부드럽고 다정하지만 약간 쓸쓸한 톤
+- 짧은 문장 위주, 시적이고 감성적
+- 이모지 사용하지 않음 (텔레그램 메시지 포맷에서 별도 처리)
+
+## 역할
+아래 제공되는 "카드별 해석문"을 레퍼런스로 사용하여, 카드들의 서사를 하나로 연결하세요.
+
+## 필수 구조
+1. **카드 흐름 서사** (3~5줄): 각 카드가 어떻게 연결되는지 이야기로 엮기. 포지션(과거/현재/미래 등)의 맥락을 살려서.
+2. **카드 간 관계** (1~2줄): 카드들이 만나서 만드는 특별한 의미
+3. **별자리 메시지** (별자리 있을 때만, 1~2줄): 별자리 특성과 카드의 연결
+4. **오늘의 한 걸음** (1줄): 구체적이고 실행 가능한 행동 제안 하나
+
+## 금지
+- 카드의 원래 해석문에 없는 의미를 새로 만들지 마세요
+- 점술적 예언("반드시 ~할 것입니다")은 피하세요
+- 5문장 이상의 긴 문단은 피하세요
+- HTML 태그를 사용하지 마세요"""
+
+
+def _build_narrative_prompt(
+    cards: list[dict], topic: str, spread_name: str,
+    zodiac: str | None, time_range: str = "이번 주",
+) -> str:
+    """AI에게 보낼 유저 프롬프트 구성."""
+    time_hint = TIME_RANGES.get(time_range, {}).get("prompt_hint", time_range)
+    lines = [f"주제: {topic} | 스프레드: {spread_name} | 기간: {time_hint}\n"]
+
+    for c in cards:
+        direction = "역방향 🔄" if c["reversed"] else "정방향"
+        lines.append(f"[{c['position']}] {c['card_name']} ({direction})")
+        lines.append(f"해석: {c['meaning']}")
+        lines.append("")
+
+    if zodiac:
+        lines.append(f"별자리: {zodiac}")
+
+    lines.append(f"\n위 카드들의 해석문을 참고하여, '{time_hint}' 관점에서 하나의 종합 서사를 만들어주세요.")
+    return "\n".join(lines)
+
+
+def _make_cache_key(
+    cards: list[dict], topic: str, spread_type: str,
+    zodiac: str | None, time_range: str = "이번 주",
+) -> str:
+    """카드 조합 + 주제 + 별자리 + 시간범위로 캐시 키 생성."""
+    card_parts = []
+    for c in cards:
+        name = c.get("card_name_en", c.get("card_name", ""))
+        direction = "rev" if c["reversed"] else "up"
+        card_parts.append(f"{name}:{direction}")
+    raw = f"{','.join(card_parts)}|{topic}|{spread_type}|{zodiac or 'none'}|{time_range}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+
+async def get_ai_narrative(
+    cards: list[dict],
+    topic: str,
+    spread_type: str,
+    spread_name: str,
+    zodiac: str | None,
+    time_range: str = "이번 주",
+) -> str | None:
+    """AI 서사 생성 (캐시 우선, 미스 시 Gemini Flash 호출).
+
+    Returns:
+        AI 서사 텍스트 또는 None (실패/비활성 시).
+    """
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    if not api_key:
+        return None
+
+    cache_key = _make_cache_key(cards, topic, spread_type, zodiac, time_range)
+
+    # 1. DB 캐시 조회
+    try:
+        from database.connection import get_db
+        pool = await get_db()
+        row = await pool.fetchrow(
+            "SELECT ai_narrative FROM tarot_ai_cache WHERE cache_key = $1",
+            cache_key,
+        )
+        if row:
+            _log.info(f"Tarot AI cache HIT: {cache_key[:8]}...")
+            return row["ai_narrative"]
+    except Exception as e:
+        _log.warning(f"Tarot AI cache lookup failed: {e}")
+
+    # 2. Gemini Flash 호출
+    user_prompt = _build_narrative_prompt(cards, topic, spread_name, zodiac, time_range)
+
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+        "systemInstruction": {"parts": [{"text": _NARRATIVE_SYSTEM_PROMPT}]},
+        "generationConfig": {
+            "temperature": 0.8,
+            "maxOutputTokens": 1024,
+            "topP": 0.9,
+        },
+    }
+
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    headers = {"x-goog-api-key": api_key, "Content-Type": "application/json"}
+
+    narrative = None
+    for attempt in range(2):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    url, json=payload, headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                ) as resp:
+                    if resp.status == 429:
+                        _log.warning("Tarot AI: Gemini 429, skipping")
+                        return None
+                    if resp.status != 200:
+                        _log.warning(f"Tarot AI: Gemini {resp.status}")
+                        return None
+
+                    data = await resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        text_parts = [p["text"] for p in parts if "text" in p]
+                        narrative = "\n".join(text_parts).strip()
+                    break
+        except Exception as e:
+            _log.warning(f"Tarot AI call failed (attempt {attempt+1}): {e}")
+            if attempt == 0:
+                continue
+            return None
+
+    if not narrative:
+        return None
+
+    # 3. DB 캐시 저장
+    cards_summary = ", ".join(
+        f"{c['card_name']}({'역' if c['reversed'] else '정'})"
+        for c in cards
+    )
+    try:
+        from database.connection import get_db
+        pool = await get_db()
+        await pool.execute(
+            """INSERT INTO tarot_ai_cache (cache_key, topic, spread_type, cards_summary, ai_narrative, zodiac)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (cache_key) DO NOTHING""",
+            cache_key, topic, spread_type, cards_summary, narrative, zodiac,
+        )
+        _log.info(f"Tarot AI cache STORE: {cache_key[:8]}...")
+    except Exception as e:
+        _log.warning(f"Tarot AI cache store failed: {e}")
+
+    return narrative
+
+
 # ── 메시지 포맷 ──
 
 def format_reading_message(reading: dict) -> str:
@@ -273,10 +462,12 @@ def format_reading_message(reading: dict) -> str:
     topic_emoji = reading["topic_emoji"]
     topic = reading["topic"]
     spread_name = reading["spread"]["name"]
+    time_range = reading.get("time_range", "이번 주")
+    time_label = TIME_RANGES.get(time_range, {}).get("label", f"📆 {time_range}")
 
     lines = [
-        f"🔮 <b>창백피카츄의 타로 리딩</b>",
-        f"{topic_emoji} 주제: <b>{topic}</b> | {spread_name}",
+        f"🔮 <b>신비로운 피카의 타로 리딩</b>",
+        f"{topic_emoji} <b>{topic}</b> | {spread_name} | {time_label}",
         "",
         "...카드를 넘기고 있어요...",
         "",
@@ -288,10 +479,17 @@ def format_reading_message(reading: dict) -> str:
         lines.append("")
 
     lines.append(f"━━━━━━━━━━━━━━")
-    lines.append(reading["summary"])
 
-    if reading.get("zodiac"):
-        lines.append(f"\n{reading['zodiac']}")
+    # AI 서사가 있으면 풍부한 종합 해석, 없으면 정적 폴백
+    ai_narrative = reading.get("ai_narrative")
+    if ai_narrative:
+        lines.append("")
+        lines.append(f"🌙 <b>종합 해석</b>")
+        lines.append("")
+        lines.append(ai_narrative)
+    else:
+        # 정적 summary에 이미 zodiac_line 포함되어 있음 — 중복 추가하지 않음
+        lines.append(reading["summary"])
 
     lines.append(f"\n<i>⚠️ 재미용 리딩이며 실제 조언이 아닙니다</i>")
 

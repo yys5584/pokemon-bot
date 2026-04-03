@@ -1,4 +1,4 @@
-"""DM 타로 리딩 핸들러 — 창백피카츄의 타로."""
+"""DM 타로 리딩 핸들러 — 신비로운 피카의 타로."""
 
 from __future__ import annotations
 
@@ -12,17 +12,17 @@ from telegram.ext import ContextTypes
 from database import queries
 from services.fortune_service import (
     generate_reading, format_reading_message,
-    get_zodiac, SPREADS, TOPIC_EMOJIS,
+    get_zodiac, SPREADS, TOPIC_EMOJIS, TIME_RANGES, DEFAULT_TIME_RANGE,
 )
 
 _log = logging.getLogger(__name__)
 _TAROT_IMG_DIR = Path(__file__).parent.parent / "assets" / "tarot"
 
 
-# ── 주제 선택 키보드 ──
+# ── 주제 + 시간범위 통합 키보드 ──
 
-def _topic_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
+def _topic_keyboard(user_id: int, selected_time: str = DEFAULT_TIME_RANGE) -> InlineKeyboardMarkup:
+    rows = [
         [
             InlineKeyboardButton("💕 연애", callback_data=f"tarot_topic_{user_id}_연애"),
             InlineKeyboardButton("💼 직장", callback_data=f"tarot_topic_{user_id}_직장"),
@@ -35,7 +35,16 @@ def _topic_keyboard(user_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton("🤝 인간관계", callback_data=f"tarot_topic_{user_id}_인간관계"),
             InlineKeyboardButton("🌟 종합", callback_data=f"tarot_topic_{user_id}_종합"),
         ],
-    ])
+        # 시간 범위 선택 (현재 선택된 건 ✓ 표시)
+        [
+            InlineKeyboardButton(
+                f"{'✓ ' if k == selected_time else ''}{v['label']}",
+                callback_data=f"tarot_time_{user_id}_{k}",
+            )
+            for k, v in TIME_RANGES.items()
+        ],
+    ]
+    return InlineKeyboardMarkup(rows)
 
 
 # ── DM: "타로" 명령 ──
@@ -66,7 +75,7 @@ async def tarot_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("⏭️ 건너뛰기", callback_data=f"tarot_skip_{user_id}")],
         ])
         await update.message.reply_text(
-            "🔮 <b>창백피카츄의 타로</b>\n\n"
+            "🔮 <b>신비로운 피카의 타로</b>\n\n"
             "...어서 와요. 처음이네요.\n"
             "생년월일을 알려주면 별자리도 함께 봐줄 수 있어요.\n\n"
             "<i>한 번 등록하면 다음부터는 묻지 않아요.</i>",
@@ -79,17 +88,19 @@ async def tarot_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _show_topic_menu(update.message, user_id)
 
 
-async def _show_topic_menu(target, user_id: int):
+async def _show_topic_menu(target, user_id: int, selected_time: str = DEFAULT_TIME_RANGE):
     """주제 선택 메뉴 전송. target = message or query."""
     text = (
-        "🔮 <b>창백피카츄의 타로</b>\n\n"
+        "🔮 <b>신비로운 피카의 타로</b>\n\n"
         "...어서 와요. 기다리고 있었어요.\n"
-        "오늘은 어떤 이야기가 듣고 싶나요?\n"
+        "주제를 고르면 카드를 펼쳐볼게요.\n"
+        "아래에서 기간도 바꿀 수 있어요.\n"
     )
+    kb = _topic_keyboard(user_id, selected_time)
     if hasattr(target, "edit_message_text"):
-        await target.edit_message_text(text, parse_mode="HTML", reply_markup=_topic_keyboard(user_id))
+        await target.edit_message_text(text, parse_mode="HTML", reply_markup=kb)
     else:
-        await target.reply_text(text, parse_mode="HTML", reply_markup=_topic_keyboard(user_id))
+        await target.reply_text(text, parse_mode="HTML", reply_markup=kb)
 
 
 # ── 생년월일 입력 콜백 ──
@@ -186,6 +197,29 @@ async def tarot_skip_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     await _show_topic_menu(query, user_id)
 
 
+# ── 시간 범위 변경 콜백 ──
+
+async def tarot_time_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """시간 범위 버튼 클릭 → 선택 상태만 업데이트."""
+    query = update.callback_query
+
+    data = query.data  # tarot_time_{user_id}_{time_range}
+    parts = data.split("_", 3)
+    if len(parts) < 4:
+        return
+
+    user_id = int(parts[2])
+    time_range = parts[3]
+
+    if query.from_user.id != user_id:
+        await query.answer("다른 사람의 타로예요!", show_alert=True)
+        return
+
+    context.user_data["tarot_time_range"] = time_range
+    await query.answer(f"{TIME_RANGES[time_range]['label']} 선택됨")
+    await _show_topic_menu(query, user_id, selected_time=time_range)
+
+
 # ── 주제 선택 콜백 ──
 
 async def tarot_topic_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -205,6 +239,8 @@ async def tarot_topic_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.answer("다른 사람의 타로예요!", show_alert=True)
         return
 
+    time_range = context.user_data.get("tarot_time_range", DEFAULT_TIME_RANGE)
+
     # 투자/연애는 스프레드 선택, 나머지는 바로 쓰리카드
     if topic == "투자":
         buttons = [
@@ -217,7 +253,7 @@ async def tarot_topic_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             [InlineKeyboardButton("💕 연애 스프레드 (5장)", callback_data=f"tarot_read_{user_id}_{topic}_love")],
         ]
     else:
-        await _do_reading(query, context, user_id, topic, "three_card")
+        await _do_reading(query, context, user_id, topic, "three_card", time_range)
         return
 
     await query.edit_message_text(
@@ -246,27 +282,31 @@ async def tarot_read_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.answer("다른 사람의 타로예요!", show_alert=True)
         return
 
-    await _do_reading(query, context, user_id, topic, spread_type)
+    time_range = context.user_data.get("tarot_time_range", DEFAULT_TIME_RANGE)
+    await _do_reading(query, context, user_id, topic, spread_type, time_range)
 
 
-async def _do_reading(query, context, user_id: int, topic: str, spread_type: str):
+async def _do_reading(query, context, user_id: int, topic: str, spread_type: str,
+                      time_range: str = DEFAULT_TIME_RANGE):
     """실제 리딩 수행 + 메시지 전송."""
     birth_date = await _get_birth_date(user_id)
 
-    # 리딩 생성
-    reading = generate_reading(
+    # 리딩 생성 (AI 서사 포함)
+    reading = await generate_reading(
         topic=topic,
         spread_type=spread_type,
         birth_date=birth_date,
         user_id=user_id,
+        time_range=time_range,
     )
 
     # 메시지 포맷
     msg = format_reading_message(reading)
 
-    # 오늘 리딩 기록
+    # 오늘 리딩 기록 + 공유용 저장
     today = __import__("config").get_kst_now().date()
     context.user_data["last_tarot_date"] = today.isoformat()
+    context.user_data["last_tarot_reading"] = reading
 
     # DB에 리딩 기록 (통계용)
     try:
@@ -329,6 +369,67 @@ async def tarot_again_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     """다시 보기 — 하루 1회 이미 사용했으면 안내."""
     query = update.callback_query
     await query.answer("오늘은 이미 리딩을 받았어요 🔮", show_alert=True)
+
+
+# ── 그룹 공유 ──
+
+def _format_share_message(reading: dict, display_name: str) -> str:
+    """그룹 공유용 축약 메시지 — 카드 목록 + AI 서사(있으면)."""
+    topic_emoji = reading["topic_emoji"]
+    topic = reading["topic"]
+    time_range = reading.get("time_range", "이번 주")
+    time_label = TIME_RANGES.get(time_range, {}).get("label", f"📆 {time_range}")
+
+    lines = [
+        f"🔮 <b>{display_name}</b>님의 타로 리딩",
+        f"{topic_emoji} <b>{topic}</b> | {time_label}",
+        "",
+    ]
+
+    for c in reading["cards"]:
+        lines.append(f"{c['position_emoji']} <b>[{c['position']}]</b> {c['card_name']}")
+
+    lines.append("")
+    lines.append("━━━━━━━━━━━━━━")
+
+    ai_narrative = reading.get("ai_narrative")
+    if ai_narrative:
+        lines.append("")
+        lines.append(f"🌙 <b>종합 해석</b>")
+        lines.append("")
+        lines.append(ai_narrative)
+    else:
+        lines.append(reading.get("summary", ""))
+
+    lines.append(f"\n<i>🔮 DM에서 '타로'를 입력해 나만의 리딩을 받아보세요!</i>")
+    return "\n".join(lines)
+
+
+async def tarot_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """그룹 채팅에서 '타로공유' → 오늘 받은 리딩 공유."""
+    reading = context.user_data.get("last_tarot_reading")
+
+    if not reading:
+        await update.message.reply_text(
+            "🔮 아직 오늘 받은 리딩이 없어요.\n"
+            "DM에서 '타로'를 입력해 먼저 리딩을 받아보세요!",
+        )
+        return
+
+    # 오늘 리딩인지 확인
+    today = __import__("config").get_kst_now().date()
+    if reading.get("date") != today.isoformat():
+        await update.message.reply_text(
+            "🔮 오늘 받은 리딩이 없어요.\n"
+            "DM에서 '타로'를 입력해 새 리딩을 받아보세요!",
+        )
+        return
+
+    user = update.effective_user
+    display_name = user.first_name or user.username or "트레이너"
+    msg = _format_share_message(reading, display_name)
+
+    await update.message.reply_text(msg, parse_mode="HTML")
 
 
 # ── 헬퍼 ──

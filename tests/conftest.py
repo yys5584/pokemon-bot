@@ -13,6 +13,15 @@ def patch_env(monkeypatch):
     monkeypatch.setenv("ADMIN_IDS", "12345")
 
 
+# ── 1b. AI 서사 mock (DB/API 호출 방지) ──
+@pytest.fixture(autouse=True)
+def mock_ai_narrative(monkeypatch):
+    """get_ai_narrative를 항상 None으로 — DB/Gemini 없이 테스트."""
+    async def _noop(*args, **kwargs):
+        return None
+    monkeypatch.setattr("services.fortune_service.get_ai_narrative", _noop)
+
+
 # ── 2. DB pool mock ──
 @pytest.fixture
 def mock_pool():

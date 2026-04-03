@@ -81,6 +81,7 @@ from handlers.dm_boss import boss_handler, boss_callback
 from handlers.dm_fortune import (
     tarot_handler, tarot_topic_callback, tarot_read_callback, tarot_again_callback,
     tarot_birth_callback, tarot_birth_text_handler, tarot_skip_callback,
+    tarot_time_callback, tarot_share_handler,
 )
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
@@ -306,6 +307,9 @@ def register_all_handlers(app):
     # Group trade (reply with '교환')
     app.add_handler(MessageHandler(group & filters.Regex(r"^교환\s+.+$"), group_trade_handler))
 
+    # Group tarot share (타로공유)
+    app.add_handler(MessageHandler(group & filters.Regex(r"^타로공유$"), tarot_share_handler))
+
     # Pokeball recharge
     app.add_handler(MessageHandler(group & filters.Regex(r"^포켓볼\s*충전$"), love_easter_egg))
 
@@ -496,6 +500,7 @@ def register_all_handlers(app):
     # Tarot (타로) callbacks
     app.add_handler(CallbackQueryHandler(tarot_birth_callback, pattern=r"^tarot_birth_"))
     app.add_handler(CallbackQueryHandler(tarot_skip_callback, pattern=r"^tarot_skip_"))
+    app.add_handler(CallbackQueryHandler(tarot_time_callback, pattern=r"^tarot_time_"))
     app.add_handler(CallbackQueryHandler(tarot_topic_callback, pattern=r"^tarot_topic_"))
     app.add_handler(CallbackQueryHandler(tarot_read_callback, pattern=r"^tarot_read_"))
     app.add_handler(CallbackQueryHandler(tarot_again_callback, pattern=r"^tarot_again_"))

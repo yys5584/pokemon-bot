@@ -1645,6 +1645,24 @@ async def create_tables():
     except Exception:
         pass
 
+    # ── Tarot AI Cache 테이블 (2026-04-03) ──
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS tarot_ai_cache (
+            id SERIAL PRIMARY KEY,
+            cache_key TEXT UNIQUE NOT NULL,
+            topic VARCHAR(20) NOT NULL,
+            spread_type VARCHAR(30) NOT NULL,
+            cards_summary TEXT NOT NULL,
+            ai_narrative TEXT NOT NULL,
+            zodiac VARCHAR(20),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    try:
+        await pool.execute("CREATE INDEX IF NOT EXISTS idx_tarot_ai_cache_key ON tarot_ai_cache(cache_key)")
+    except Exception:
+        pass
+
     # ── Weekly Boss 테이블 (2026-03-26) ──
     await pool.execute("""
         CREATE TABLE IF NOT EXISTS weekly_boss (
