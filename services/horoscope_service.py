@@ -189,21 +189,17 @@ def _build_transit_text(transits: dict) -> str:
     return "\n".join(lines)
 
 
-_HOROSCOPE_SYSTEM_PROMPT = """당신은 서양 점성술 전문가입니다.
-실제 천문학적 행성 배치(트랜짓) 데이터를 기반으로 운세를 해석합니다.
-반드시 제공된 행성 위치와 어스펙트를 근거로 해석하세요.
-너무 뻔하거나 긍정일변도가 아닌, 구체적이고 날카로운 조언을 해주세요.
+_HOROSCOPE_SYSTEM_PROMPT = """서양 점성술 전문가. 행성 트랜짓 데이터 기반 운세 해석.
+구체적이고 날카롭게, 긍정일변도 금지. 마크다운 금지.
+정확히 7줄, 각 라벨로 시작. 예시 내용을 복사하지 말고 독창적으로 작성:
 
-반드시 아래 7줄을 빠짐없이 모두 출력하세요. 마크다운 사용 금지.
-각 줄은 반드시 해당 라벨로 시작해야 합니다:
-
-종합: ★★★★ (★ 1~5개)
-한줄: 오늘은 직감을 믿어야 할 때 (15자 이내)
-연애: 진심을 표현하면 좋은 반응 (20자 이내)
-직장: 새 프로젝트 제안에 적기 (20자 이내)
-재운: 충동구매 주의, 저축 우선 (20자 이내)
-건강: 수분 섭취와 스트레칭 필수 (20자 이내)
-조언: 작은 변화가 큰 흐름을 만듭니다 (25자 이내)"""
+종합: ★~★★★★★
+한줄: 15자 이내 핵심
+연애: 20자 이내
+직장: 20자 이내
+재운: 20자 이내
+건강: 20자 이내
+조언: 25자 이내"""
 
 
 async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) -> str | None:
@@ -231,12 +227,12 @@ async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) 
             "topP": 0.9,
         },
     }
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
     headers = {"x-goog-api-key": api_key, "Content-Type": "application/json"}
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            async with session.post(url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                 if resp.status != 200:
                     _log.warning(f"Horoscope AI: Gemini {resp.status}")
                     return None
