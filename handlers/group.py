@@ -385,8 +385,6 @@ async def captcha_callback_handler(update: Update, context: ContextTypes.DEFAULT
 
 # ── 데일리 운세 (그룹) ──
 
-_horoscope_daily_limit: dict[str, set] = {}  # "YYYY-MM-DD" -> set of user_ids
-
 
 async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """그룹 '운세' 명령 → 데일리 별자리 운세."""
@@ -394,13 +392,6 @@ async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not msg or not user:
         return
-
-    today_str = str(config.get_kst_now().date())
-
-    # 일일 보상 추적
-    if today_str not in _horoscope_daily_limit:
-        _horoscope_daily_limit.clear()
-        _horoscope_daily_limit[today_str] = set()
 
     # 생년월일 확인
     from handlers.dm_fortune import _get_birth_date
@@ -422,12 +413,12 @@ async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     display_name = user.first_name or "트레이너"
     text = format_horoscope_group(data, display_name)
 
-    # 첫 운세 시 성격변경권 1개 지급
-    first_today = user.id not in _horoscope_daily_limit[today_str]
-    if first_today:
+    # 첫 운세 시 성격변경권 1개 지급 (DB 기반 중복 방지)
+    from handlers.dm_fortune import _check_horoscope_rewarded_today, _mark_horoscope_rewarded
+    already_rewarded = await _check_horoscope_rewarded_today(user.id)
+    if not already_rewarded:
         from database import item_queries
         await item_queries.add_user_item(user.id, "personality_ticket", 1)
+        await _mark_horoscope_rewarded(user.id)
         text += "\n\n🎭 <i>성격변경권 1개를 받았어요!</i>"
-
-    _horoscope_daily_limit[today_str].add(user.id)
     await msg.reply_text(text, parse_mode="HTML", quote=True)

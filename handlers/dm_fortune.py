@@ -1090,19 +1090,12 @@ def _parse_birth_date(text: str) -> date | None:
 
 # ── DM 운세 핸들러 ──
 
-_horoscope_dm_daily: dict[str, set] = {}  # {date_str: set(user_ids)}
-
 async def horoscope_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """DM '운세' 명령 → 상세 별자리 운세."""
     msg = update.effective_message
     user = update.effective_user
     if not msg or not user:
         return
-
-    today_str = str(__import__("config").get_kst_now().date())
-    if today_str not in _horoscope_dm_daily:
-        _horoscope_dm_daily.clear()
-        _horoscope_dm_daily[today_str] = set()
 
     birth_date = await _get_birth_date(user.id)
     if not birth_date:
@@ -1125,11 +1118,43 @@ async def horoscope_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     display_name = user.first_name or "트레이너"
     text = format_horoscope_dm(data, display_name)
 
-    # 첫 운세 시 성격변경권 1개 지급
-    if user.id not in _horoscope_dm_daily[today_str]:
+    # 첫 운세 시 성격변경권 1개 지급 (DB 기반 중복 방지)
+    already_rewarded = await _check_horoscope_rewarded_today(user.id)
+    if not already_rewarded:
         from database import item_queries
         await item_queries.add_user_item(user.id, "personality_ticket", 1)
+        await _mark_horoscope_rewarded(user.id)
         text += "\n\n🎭 <i>성격변경권 1개를 받았어요!</i>"
-        _horoscope_dm_daily[today_str].add(user.id)
 
     await msg.reply_text(text, parse_mode="HTML")
+
+
+async def _check_horoscope_rewarded_today(user_id: int) -> bool:
+    """오늘 운세 성격변경권을 이미 받았는지 DB 확인."""
+    try:
+        from database.connection import get_db
+        pool = await get_db()
+        row = await pool.fetchval(
+            """SELECT 1 FROM horoscope_rewards
+               WHERE user_id = $1
+               AND reward_date = (NOW() AT TIME ZONE 'Asia/Seoul')::date""",
+            user_id,
+        )
+        return row is not None
+    except Exception:
+        return False
+
+
+async def _mark_horoscope_rewarded(user_id: int):
+    """오늘 운세 보상 지급 기록."""
+    try:
+        from database.connection import get_db
+        pool = await get_db()
+        await pool.execute(
+            """INSERT INTO horoscope_rewards (user_id, reward_date)
+               VALUES ($1, (NOW() AT TIME ZONE 'Asia/Seoul')::date)
+               ON CONFLICT DO NOTHING""",
+            user_id,
+        )
+    except Exception as e:
+        _log.warning(f"Failed to mark horoscope reward: {e}")

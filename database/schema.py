@@ -1656,6 +1656,16 @@ async def create_tables():
         except Exception:
             pass
 
+    # ── 운세 보상 기록 테이블 (2026-04-03) ──
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS horoscope_rewards (
+            user_id BIGINT NOT NULL REFERENCES users(user_id),
+            reward_date DATE NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (user_id, reward_date)
+        )
+    """)
+
     # ── Tarot AI Cache 테이블 (2026-04-03) ──
     await pool.execute("""
         CREATE TABLE IF NOT EXISTS tarot_ai_cache (
