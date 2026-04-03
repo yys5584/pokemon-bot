@@ -244,23 +244,61 @@ async def tarot_topic_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.answer("다른 사람의 타로예요!", show_alert=True)
         return
 
-    # 공통 스프레드
-    buttons = [
-        [InlineKeyboardButton("🎴 원카드 (핵심 한 장)", callback_data=f"tarot_read_{user_id}_{topic}_one_card")],
-        [InlineKeyboardButton("🃏 쓰리카드 (과거/현재/미래)", callback_data=f"tarot_read_{user_id}_{topic}_three_card")],
-    ]
-    # 주제별 전용 스프레드
-    if topic == "투자":
-        buttons.append([InlineKeyboardButton("📊 투자 스프레드 (4장)", callback_data=f"tarot_read_{user_id}_{topic}_investment")])
-    elif topic == "연애":
-        buttons.append([InlineKeyboardButton("💕 연애 스프레드 (5장)", callback_data=f"tarot_read_{user_id}_{topic}_love")])
+    # 쓰리카드 고정 — 바로 리딩 시작
+    time_range = context.user_data.get("tarot_time_range", DEFAULT_TIME_RANGE)
+    spread_type = "three_card"
 
-    await query.edit_message_text(
-        f"🔮 {TOPIC_EMOJIS.get(topic, '🔮')} <b>{topic}</b> 리딩\n\n"
-        "...카드를 몇 장 펼쳐볼까요?\n",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(buttons),
+    # 리딩을 미리 생성
+    birth_date = await _get_birth_date(user_id)
+    reading = await generate_reading(
+        topic=topic,
+        spread_type=spread_type,
+        birth_date=birth_date,
+        user_id=user_id,
+        time_range=time_range,
     )
+
+    spread = SPREADS[spread_type]
+    context.user_data["tarot_session"] = {
+        "reading": reading,
+        "need_count": spread["count"],
+        "picked_count": 0,
+    }
+
+    # 집중 메시지
+    await query.edit_message_text(
+        "🔮\n\n"
+        "...잠시 눈을 감고,\n"
+        "마음속 질문에 집중하세요.\n\n"
+        f"<i>{TOPIC_EMOJIS.get(topic, '🔮')} {topic} — {TIME_RANGES.get(time_range, {}).get('label', time_range)}</i>",
+        parse_mode="HTML",
+    )
+
+    await asyncio.sleep(2)
+
+    # 첫 번째 카드 뽑기
+    first_card = reading["cards"][0]
+    pick_text = (
+        f"🔮 <b>{first_card['position_emoji']} {first_card['position']}</b> 카드를 뽑아주세요.\n\n"
+        f"<i>(1/{spread['count']})</i>"
+    )
+    kb = InlineKeyboardMarkup([[
+        InlineKeyboardButton(f"{_CARD_BACK} 카드 뽑기", callback_data=f"tarot_pick_{user_id}"),
+    ]])
+
+    if _CARD_SELECT_IMG.exists():
+        await query.message.reply_photo(
+            photo=_CARD_SELECT_IMG.read_bytes(),
+            caption=pick_text,
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+    else:
+        await query.message.reply_text(
+            pick_text,
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
 
 
 # ── 스프레드 선택 → 집중 + 순차 카드 뽑기 ──
