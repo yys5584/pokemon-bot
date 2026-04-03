@@ -23,6 +23,15 @@ _TAROT_IMG_DIR = Path(__file__).parent.parent / "assets" / "tarot"
 
 def _topic_keyboard(user_id: int, selected_time: str = DEFAULT_TIME_RANGE) -> InlineKeyboardMarkup:
     rows = [
+        # 기간 선택 (먼저)
+        [
+            InlineKeyboardButton(
+                f"{'✓ ' if k == selected_time else ''}{v['label']}",
+                callback_data=f"tarot_time_{user_id}_{k}",
+            )
+            for k, v in TIME_RANGES.items()
+        ],
+        # 주제 선택
         [
             InlineKeyboardButton("💕 연애", callback_data=f"tarot_topic_{user_id}_연애"),
             InlineKeyboardButton("💼 직장", callback_data=f"tarot_topic_{user_id}_직장"),
@@ -34,14 +43,6 @@ def _topic_keyboard(user_id: int, selected_time: str = DEFAULT_TIME_RANGE) -> In
         [
             InlineKeyboardButton("🤝 인간관계", callback_data=f"tarot_topic_{user_id}_인간관계"),
             InlineKeyboardButton("🌟 종합", callback_data=f"tarot_topic_{user_id}_종합"),
-        ],
-        # 시간 범위 선택 (현재 선택된 건 ✓ 표시)
-        [
-            InlineKeyboardButton(
-                f"{'✓ ' if k == selected_time else ''}{v['label']}",
-                callback_data=f"tarot_time_{user_id}_{k}",
-            )
-            for k, v in TIME_RANGES.items()
         ],
     ]
     return InlineKeyboardMarkup(rows)
@@ -93,8 +94,7 @@ async def _show_topic_menu(target, user_id: int, selected_time: str = DEFAULT_TI
     text = (
         "🔮 <b>신비로운 피카의 타로</b>\n\n"
         "...어서 와요. 기다리고 있었어요.\n"
-        "주제를 고르면 카드를 펼쳐볼게요.\n"
-        "아래에서 기간도 바꿀 수 있어요.\n"
+        "아래에서 기간을 고르고, 관심 주제를 선택해줘요.\n"
     )
     kb = _topic_keyboard(user_id, selected_time)
     if hasattr(target, "edit_message_text"):
