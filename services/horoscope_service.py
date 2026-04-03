@@ -193,15 +193,17 @@ _HOROSCOPE_SYSTEM_PROMPT = """당신은 서양 점성술 전문가입니다.
 실제 천문학적 행성 배치(트랜짓) 데이터를 기반으로 운세를 해석합니다.
 반드시 제공된 행성 위치와 어스펙트를 근거로 해석하세요.
 너무 뻔하거나 긍정일변도가 아닌, 구체적이고 날카로운 조언을 해주세요.
-응답은 반드시 아래 형식을 정확히 따르세요 (마크다운 사용 금지):
 
-종합: ★ 1~5개
-한줄: (15자 이내 핵심 메시지)
-연애: (20자 이내)
-직장: (20자 이내)
-재운: (20자 이내)
-건강: (20자 이내)
-조언: (25자 이내, 오늘 하루 행동 지침)"""
+반드시 아래 7줄을 빠짐없이 모두 출력하세요. 마크다운 사용 금지.
+각 줄은 반드시 해당 라벨로 시작해야 합니다:
+
+종합: ★★★★ (★ 1~5개)
+한줄: 오늘은 직감을 믿어야 할 때 (15자 이내)
+연애: 진심을 표현하면 좋은 반응 (20자 이내)
+직장: 새 프로젝트 제안에 적기 (20자 이내)
+재운: 충동구매 주의, 저축 우선 (20자 이내)
+건강: 수분 섭취와 스트레칭 필수 (20자 이내)
+조언: 작은 변화가 큰 흐름을 만듭니다 (25자 이내)"""
 
 
 async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) -> str | None:
@@ -225,7 +227,7 @@ async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) 
         "systemInstruction": {"parts": [{"text": _HOROSCOPE_SYSTEM_PROMPT}]},
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 512,
+            "maxOutputTokens": 1024,
             "topP": 0.9,
         },
     }
