@@ -381,3 +381,49 @@ async def captcha_callback_handler(update: Update, context: ContextTypes.DEFAULT
         # 1시간 잠금
         from services.abuse_service import _apply_catch_lock
         _apply_catch_lock(user_id)
+
+
+# ── 데일리 운세 (그룹) ──
+
+_horoscope_daily_limit: dict[str, set] = {}  # "YYYY-MM-DD" -> set of user_ids
+
+
+async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """그룹 '운세' 명령 → 데일리 별자리 운세."""
+    msg = update.effective_message
+    user = update.effective_user
+    if not msg or not user:
+        return
+
+    today_str = str(config.get_kst_now().date())
+
+    # 일일 1회 제한
+    if today_str not in _horoscope_daily_limit:
+        _horoscope_daily_limit.clear()
+        _horoscope_daily_limit[today_str] = set()
+    if user.id in _horoscope_daily_limit[today_str]:
+        await msg.reply_text("🌟 오늘 운세는 이미 확인했어요! 내일 다시 오세요.", quote=True)
+        return
+
+    # 생년월일 확인
+    from handlers.dm_fortune import _get_birth_date
+    birth_date = await _get_birth_date(user.id)
+    if not birth_date:
+        await msg.reply_text(
+            "🌟 운세를 보려면 생년월일 등록이 필요해요!\n"
+            "📩 DM에서 <b>/타로</b> 를 입력하면 등록할 수 있어요.",
+            parse_mode="HTML", quote=True,
+        )
+        return
+
+    from services.horoscope_service import get_daily_horoscope, format_horoscope_group
+    data = await get_daily_horoscope(birth_date, user.first_name)
+    if not data:
+        await msg.reply_text("운세 생성에 실패했어요. 잠시 후 다시 시도해주세요.", quote=True)
+        return
+
+    display_name = await get_decorated_name(user.id, user.first_name)
+    text = format_horoscope_group(data, display_name)
+
+    _horoscope_daily_limit[today_str].add(user.id)
+    await msg.reply_text(text, parse_mode="HTML", quote=True)

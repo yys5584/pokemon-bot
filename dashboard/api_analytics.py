@@ -583,10 +583,178 @@ async def api_admin_tarot_analytics(request):
     })
 
 
+async def api_admin_overview(request):
+    """Admin: unified overview dashboard — North Star + Tier 1~3."""
+    from dashboard.api_admin import _admin_check
+    if not await _admin_check(request):
+        return web.json_response({"error": "Unauthorized"}, status=403)
+    pool = await queries.get_db()
+
+    import asyncio
+    from datetime import timedelta
+    today_ts = config.get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_date = today_ts.date()
+    one_hour_ago = config.get_kst_now() - timedelta(hours=1)
+
+    # ── Parallel fetch: 오늘 실시간 + 히스토리 ──
+    (
+        dau_row, new_row, active_1h_row, total_users_row,
+        spawn_row, battle_row, ranked_row,
+        trade_row, tarot_row, camp_row,
+        sub_active_row, sub_revenue_row,
+        web_visitors_row,
+        bp_earned_row, bp_spent_row,
+        history_rows,
+    ) = await asyncio.gather(
+        # DAU
+        pool.fetchrow("""SELECT COUNT(DISTINCT user_id) as cnt FROM (
+            SELECT user_id FROM catch_attempts WHERE attempted_at >= $1
+            UNION SELECT user_id FROM bp_log WHERE source = 'daily_checkin' AND created_at >= $1
+        ) _""", today_ts),
+        # 신규
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM users WHERE registered_at >= $1", today_ts),
+        # 1시간 활성
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM users WHERE last_active_at >= $1", one_hour_ago),
+        # 전체 유저
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM users"),
+        # 포획
+        pool.fetchrow("""SELECT COUNT(*) as spawns, COUNT(caught_by_user_id) as catches,
+            COUNT(*) FILTER (WHERE is_shiny = 1) as shiny FROM spawn_log WHERE spawned_at >= $1""", today_ts),
+        # 배틀
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM battle_records WHERE created_at >= $1", today_ts),
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM battle_records WHERE created_at >= $1 AND battle_type = 'ranked'", today_ts),
+        # 거래
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM trades WHERE status = 'accepted' AND resolved_at >= $1", today_ts),
+        # 타로
+        pool.fetchrow("SELECT COUNT(*) as cnt, COUNT(DISTINCT user_id) as users FROM tarot_readings WHERE reading_date = $1", today_date),
+        # 캠프
+        pool.fetchrow("SELECT COUNT(DISTINCT user_id) as cnt FROM camp_placements WHERE placed_at >= $1", today_ts),
+        # 구독
+        pool.fetchrow("SELECT COUNT(*) as cnt FROM subscriptions WHERE is_active = 1"),
+        pool.fetchrow("SELECT COALESCE(SUM(amount_usd), 0) as total FROM subscription_payments WHERE status = 'confirmed' AND confirmed_at >= $1", today_ts),
+        # 웹 방문자
+        pool.fetchrow("SELECT COUNT(DISTINCT COALESCE(user_id, -1*id)) as cnt FROM web_analytics WHERE event_type='pageview' AND created_at >= CURRENT_DATE"),
+        # BP 유입/소각
+        pool.fetchrow("SELECT COALESCE(SUM(amount), 0) as total FROM bp_log WHERE amount > 0 AND created_at >= $1", today_ts),
+        pool.fetchrow("SELECT COALESCE(SUM(ABS(amount)), 0) as total FROM bp_log WHERE amount < 0 AND created_at >= $1", today_ts),
+        # 14일 히스토리 (kpi_daily_snapshots)
+        pool.fetch("""
+            SELECT date, dau, new_users, spawns, catches, battles, ranked_battles,
+                   COALESCE(d1_retention, 0) as d1_ret, COALESCE(d7_retention, 0) as d7_ret,
+                   bp_earned, COALESCE(bp_total_spent, 0) as bp_spent
+            FROM kpi_daily_snapshots
+            WHERE date >= $1 ORDER BY date
+        """, today_date - timedelta(days=13)),
+    )
+
+    dau = dau_row["cnt"] if dau_row else 0
+    new_users = new_row["cnt"] if new_row else 0
+    spawns = spawn_row["spawns"] if spawn_row else 0
+    catches = spawn_row["catches"] if spawn_row else 0
+    shiny = spawn_row["shiny"] if spawn_row else 0
+    battles = battle_row["cnt"] if battle_row else 0
+    ranked = ranked_row["cnt"] if ranked_row else 0
+    trades = trade_row["cnt"] if trade_row else 0
+    tarot_readings = tarot_row["cnt"] if tarot_row else 0
+    tarot_users = tarot_row["users"] if tarot_row else 0
+    camp_users = camp_row["cnt"] if camp_row else 0
+    sub_active = sub_active_row["cnt"] if sub_active_row else 0
+    sub_revenue = float(sub_revenue_row["total"]) if sub_revenue_row else 0
+    web_visitors = web_visitors_row["cnt"] if web_visitors_row else 0
+    bp_earned = int(bp_earned_row["total"]) if bp_earned_row else 0
+    bp_spent = int(bp_spent_row["total"]) if bp_spent_row else 0
+
+    # 리텐션: 어제 스냅샷에서
+    yesterday = today_date - timedelta(days=1)
+    ret_row = await pool.fetchrow(
+        "SELECT COALESCE(d1_retention, 0) as d1, COALESCE(d7_retention, 0) as d7 FROM kpi_daily_snapshots WHERE date = $1",
+        yesterday,
+    )
+    d1_ret = round(float(ret_row["d1"]) * 100, 1) if ret_row and ret_row["d1"] else 0
+    d7_ret = round(float(ret_row["d7"]) * 100, 1) if ret_row and ret_row["d7"] else 0
+
+    # 기능별 참여율 (오늘 DAU 대비)
+    # 포획 유저, 배틀 유저, 거래 유저, 타로 유저, 캠프 유저
+    catch_users = await pool.fetchval(
+        "SELECT COUNT(DISTINCT user_id) FROM catch_attempts WHERE attempted_at >= $1", today_ts
+    ) or 0
+    battle_users = await pool.fetchval("""
+        SELECT COUNT(DISTINCT uid) FROM (
+            SELECT winner_id as uid FROM battle_records WHERE created_at >= $1
+            UNION SELECT loser_id as uid FROM battle_records WHERE created_at >= $1
+        ) _""", today_ts) or 0
+    trade_users = await pool.fetchval("""
+        SELECT COUNT(DISTINCT uid) FROM (
+            SELECT from_user_id as uid FROM trades WHERE status='accepted' AND resolved_at >= $1
+            UNION SELECT to_user_id as uid FROM trades WHERE status='accepted' AND resolved_at >= $1
+        ) _""", today_ts) or 0
+
+    safe_dau = max(dau, 1)
+    adoption = [
+        {"feature": "포획", "users": catch_users, "pct": round(100 * catch_users / safe_dau, 1)},
+        {"feature": "배틀", "users": battle_users, "pct": round(100 * battle_users / safe_dau, 1)},
+        {"feature": "거래", "users": trade_users, "pct": round(100 * trade_users / safe_dau, 1)},
+        {"feature": "타로", "users": tarot_users, "pct": round(100 * tarot_users / safe_dau, 1)},
+        {"feature": "캠프", "users": camp_users, "pct": round(100 * camp_users / safe_dau, 1)},
+    ]
+    adoption.sort(key=lambda x: x["pct"], reverse=True)
+
+    # 히스토리 포맷
+    history = [
+        {
+            "date": str(r["date"]),
+            "dau": r["dau"], "new_users": r["new_users"],
+            "spawns": r["spawns"], "catches": r["catches"],
+            "battles": r["battles"], "ranked": r["ranked_battles"],
+            "d1_ret": round(float(r["d1_ret"]) * 100, 1) if r["d1_ret"] else 0,
+            "d7_ret": round(float(r["d7_ret"]) * 100, 1) if r["d7_ret"] else 0,
+            "bp_earned": r["bp_earned"] or 0, "bp_spent": r["bp_spent"] or 0,
+        }
+        for r in history_rows
+    ]
+
+    # 어제 대비 변화율
+    yesterday_snap = next((h for h in history if h["date"] == str(yesterday)), None)
+    def delta(cur, prev_key):
+        if not yesterday_snap or not yesterday_snap.get(prev_key):
+            return None
+        prev = yesterday_snap[prev_key]
+        if prev == 0:
+            return None
+        return round((cur - prev) / prev * 100, 1)
+
+    return web.json_response({
+        "today": {
+            "dau": dau, "dau_delta": delta(dau, "dau"),
+            "new_users": new_users,
+            "active_1h": active_1h_row["cnt"] if active_1h_row else 0,
+            "total_users": total_users_row["cnt"] if total_users_row else 0,
+            "d1_retention": d1_ret, "d7_retention": d7_ret,
+            "web_visitors": web_visitors,
+            "sub_active": sub_active, "sub_revenue": sub_revenue,
+        },
+        "engagement": {
+            "spawns": spawns, "catches": catches, "shiny": shiny,
+            "catch_rate": round(catches / max(spawns, 1) * 100, 1),
+            "battles": battles, "ranked": ranked,
+            "trades": trades,
+            "tarot": tarot_readings, "tarot_users": tarot_users,
+            "camp_users": camp_users,
+        },
+        "economy": {
+            "bp_earned": bp_earned, "bp_spent": bp_spent,
+            "bp_net": bp_earned - bp_spent,
+        },
+        "adoption": adoption,
+        "history": history,
+    })
+
+
 def setup_routes(app):
     """Register analytics routes."""
     app.router.add_post("/api/analytics/pageview", api_analytics_pageview)
     app.router.add_post("/api/analytics/session", api_analytics_session)
+    app.router.add_get("/api/admin/overview", api_admin_overview)
     app.router.add_get("/api/admin/kpi", api_admin_kpi)
     app.router.add_get("/api/admin/battle-analytics", api_admin_battle_analytics)
     app.router.add_get("/api/admin/tarot-analytics", api_admin_tarot_analytics)

@@ -1011,3 +1011,36 @@ def _parse_birth_date(text: str) -> date | None:
             return None
 
     return None
+
+
+# ── DM 운세 핸들러 ──
+
+async def horoscope_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """DM '운세' 명령 → 상세 별자리 운세."""
+    msg = update.effective_message
+    user = update.effective_user
+    if not msg or not user:
+        return
+
+    birth_date = await _get_birth_date(user.id)
+    if not birth_date:
+        await msg.reply_text(
+            "🌟 운세를 보려면 생년월일 등록이 필요해요!\n"
+            "<b>/타로</b> 를 입력하면 등록할 수 있어요.",
+            parse_mode="HTML",
+        )
+        return
+
+    from services.horoscope_service import get_daily_horoscope, format_horoscope_dm
+    from utils.helpers import get_decorated_name
+
+    await msg.reply_text("🔮 별자리 운세를 계산하고 있어요...")
+
+    data = await get_daily_horoscope(birth_date, user.first_name)
+    if not data:
+        await msg.reply_text("운세 생성에 실패했어요. 잠시 후 다시 시도해주세요.")
+        return
+
+    display_name = await get_decorated_name(user.id, user.first_name)
+    text = format_horoscope_dm(data, display_name)
+    await msg.reply_text(text, parse_mode="HTML")

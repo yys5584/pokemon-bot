@@ -25,6 +25,7 @@ from handlers.group import (
     catch_keep_callback, catch_release_callback,
     shiny_ticket_spawn_handler, group_lang_handler,
     captcha_callback_handler,
+    horoscope_handler,
 )
 from handlers.dm_pokedex import (
     pokedex_handler, pokedex_callback,
@@ -84,6 +85,7 @@ from handlers.dm_fortune import (
     tarot_read_callback, tarot_again_callback, tarot_birth_callback,
     tarot_birth_text_handler, tarot_skip_callback, tarot_time_callback,
     tarot_pick_callback, tarot_share_handler,
+    horoscope_dm_handler,
 )
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
 from handlers.admin import (
@@ -234,6 +236,7 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🏰\s*)?(던전|dungeon|地牢)$"), dungeon_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(보스|boss)$"), boss_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(🔮\s*)?(타로|tarot)$"), tarot_handler))
+    app.add_handler(MessageHandler(dm & filters.Regex(r"^운세$"), horoscope_dm_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"(?i)^(📋\s*|📌\s*)?(미션|mission|任务|任務)$"), mission_handler))
 
     # Subscription / Premium system (DM + Group)
@@ -311,6 +314,9 @@ def register_all_handlers(app):
 
     # Group tarot share (타로공유)
     app.add_handler(MessageHandler(group & filters.Regex(r"^타로공유$"), tarot_share_handler))
+
+    # Group horoscope (운세)
+    app.add_handler(MessageHandler(group & filters.Regex(r"^운세$"), horoscope_handler))
 
     # Pokeball recharge
     app.add_handler(MessageHandler(group & filters.Regex(r"^포켓볼\s*충전$"), love_easter_egg))
