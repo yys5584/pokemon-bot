@@ -425,5 +425,10 @@ async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     display_name = user.first_name or "트레이너"
     text = format_horoscope_group(data, display_name)
 
+    # 성격변경권 1개 지급 (일일 1회)
+    from database import item_queries
+    await item_queries.add_user_item(user.id, "personality_ticket", 1)
+    text += "\n\n🎭 <i>성격변경권 1개를 받았어요!</i>"
+
     _horoscope_daily_limit[today_str].add(user.id)
     await msg.reply_text(text, parse_mode="HTML", quote=True)

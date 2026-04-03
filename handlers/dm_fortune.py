@@ -1015,11 +1015,23 @@ def _parse_birth_date(text: str) -> date | None:
 
 # ── DM 운세 핸들러 ──
 
+_horoscope_dm_daily: dict[str, set] = {}  # {date_str: set(user_ids)}
+
 async def horoscope_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """DM '운세' 명령 → 상세 별자리 운세."""
     msg = update.effective_message
     user = update.effective_user
     if not msg or not user:
+        return
+
+    today_str = str(__import__("config").get_kst_now().date())
+    if today_str not in _horoscope_dm_daily:
+        _horoscope_dm_daily.clear()
+        _horoscope_dm_daily[today_str] = set()
+
+    already_done = user.id in _horoscope_dm_daily[today_str]
+    if already_done:
+        await msg.reply_text("🌟 오늘 운세는 이미 확인했어요! 내일 다시 오세요.")
         return
 
     birth_date = await _get_birth_date(user.id)
@@ -1042,4 +1054,11 @@ async def horoscope_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     display_name = user.first_name or "트레이너"
     text = format_horoscope_dm(data, display_name)
+
+    # 성격변경권 1개 지급 (일일 1회)
+    from database import item_queries
+    await item_queries.add_user_item(user.id, "personality_ticket", 1)
+    text += "\n\n🎭 <i>성격변경권 1개를 받았어요!</i>"
+
+    _horoscope_dm_daily[today_str].add(user.id)
     await msg.reply_text(text, parse_mode="HTML")
