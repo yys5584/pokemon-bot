@@ -497,7 +497,7 @@ async def api_admin_tarot_analytics(request):
                 ELSE '50대+'
             END AS age_group,
             (SELECT COUNT(*) FROM tarot_readings tr2 WHERE tr2.user_id = tu.user_id) AS tarot_count,
-            (SELECT COUNT(*) FROM catch_attempts ca WHERE ca.user_id = tu.user_id AND ca.caught = true) AS catches,
+            (SELECT COUNT(*) FROM user_pokemon up WHERE up.user_id = tu.user_id) AS catches,
             COALESCE(u.battle_wins, 0) + COALESCE(u.battle_losses, 0) AS battles,
             0 AS trades,
             u.registered_at::date AS joined
@@ -517,9 +517,9 @@ async def api_admin_tarot_analytics(request):
                 tu.user_id,
                 CASE
                     WHEN (COALESCE(u.battle_wins, 0) + COALESCE(u.battle_losses, 0)) = 0
-                         AND (SELECT COUNT(*) FROM catch_attempts ca WHERE ca.user_id = tu.user_id AND ca.caught = true) <= 5 THEN '타로 전용'
+                         AND (SELECT COUNT(*) FROM user_pokemon up WHERE up.user_id = tu.user_id) <= 5 THEN '타로 전용'
                     WHEN (COALESCE(u.battle_wins, 0) + COALESCE(u.battle_losses, 0)) >= 50
-                         OR (SELECT COUNT(*) FROM catch_attempts ca WHERE ca.user_id = tu.user_id AND ca.caught = true) >= 100 THEN '허슬러'
+                         OR (SELECT COUNT(*) FROM user_pokemon up WHERE up.user_id = tu.user_id) >= 100 THEN '허슬러'
                     ELSE '라이트 게이머'
                 END AS user_type
             FROM tarot_users tu
