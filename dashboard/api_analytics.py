@@ -391,7 +391,7 @@ async def api_admin_tarot_analytics(request):
     # 신규: 가입 7일 이내에 타로를 쓴 유저
     new_vs_existing = await pool.fetch("""
         SELECT
-            CASE WHEN tr.reading_date - u.created_at::date <= 7 THEN '신규' ELSE '기존' END AS user_type,
+            CASE WHEN tr.reading_date - u.registered_at::date <= 7 THEN '신규' ELSE '기존' END AS user_type,
             COUNT(DISTINCT tr.user_id) AS users,
             COUNT(*) AS readings
         FROM tarot_readings tr
@@ -407,7 +407,7 @@ async def api_admin_tarot_analytics(request):
         SELECT COUNT(DISTINCT tr.user_id)
         FROM tarot_readings tr
         JOIN users u ON tr.user_id = u.user_id
-        WHERE u.created_at >= NOW() - INTERVAL '30 days'
+        WHERE u.registered_at >= NOW() - INTERVAL '30 days'
     """) or 0
 
     # ── 4. 성별 분포 ──
@@ -500,7 +500,7 @@ async def api_admin_tarot_analytics(request):
             COALESCE(u.total_catches, 0) AS catches,
             COALESCE(u.battle_count, 0) AS battles,
             COALESCE(u.trade_count, 0) AS trades,
-            u.created_at::date AS joined
+            u.registered_at::date AS joined
         FROM tarot_users tu
         JOIN users u ON tu.user_id = u.user_id
         ORDER BY tarot_count DESC
