@@ -257,7 +257,8 @@ async def tarot_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🔮 <b>신비로운 피카의 타로</b>\n\n"
             "...어서 와요. 처음이네요.\n"
             "생년월일을 알려주면 별자리도 함께 봐줄 수 있어요.\n\n"
-            "<i>한 번 등록하면 다음부터는 묻지 않아요.</i>",
+            "<i>별자리 운세 계산에만 사용되며, 외부에 제공되지 않습니다.\n"
+            "한 번 등록하면 다음부터는 묻지 않아요.</i>",
             parse_mode="HTML",
             reply_markup=buttons,
         )
