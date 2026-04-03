@@ -1032,7 +1032,6 @@ async def horoscope_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     from services.horoscope_service import get_daily_horoscope, format_horoscope_dm
-    from utils.helpers import get_decorated_name
 
     await msg.reply_text("🔮 별자리 운세를 계산하고 있어요...")
 
@@ -1041,6 +1040,6 @@ async def horoscope_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await msg.reply_text("운세 생성에 실패했어요. 잠시 후 다시 시도해주세요.")
         return
 
-    display_name = await get_decorated_name(user.id, user.first_name)
+    display_name = user.first_name or "트레이너"
     text = format_horoscope_dm(data, display_name)
     await msg.reply_text(text, parse_mode="HTML")

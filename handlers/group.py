@@ -422,7 +422,7 @@ async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("운세 생성에 실패했어요. 잠시 후 다시 시도해주세요.", quote=True)
         return
 
-    display_name = await get_decorated_name(user.id, user.first_name)
+    display_name = user.first_name or "트레이너"
     text = format_horoscope_group(data, display_name)
 
     _horoscope_daily_limit[today_str].add(user.id)
