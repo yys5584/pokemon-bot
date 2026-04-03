@@ -505,11 +505,11 @@ def register_all_handlers(app):
     app.add_handler(CallbackQueryHandler(tarot_read_callback, pattern=r"^tarot_read_"))
     app.add_handler(CallbackQueryHandler(tarot_again_callback, pattern=r"^tarot_again_"))
 
-    # Tarot 생년월일 텍스트 입력 (group=-2 — CS보다 먼저, 대기 상태가 아니면 무시)
+    # Tarot 생년월일 텍스트 입력 (group=-4 — 캠프(-2)/CS(-3)와 분리, 대기 상태가 아니면 무시)
     app.add_handler(MessageHandler(
         filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
         tarot_birth_text_handler,
-    ), group=-2)
+    ), group=-4)
 
     # CS 문의 콜백
     app.add_handler(CallbackQueryHandler(cs_callback, pattern=r"^cs_"))
