@@ -412,12 +412,12 @@ async def api_admin_tarot_analytics(request):
 
     # ── 4. 성별 분포 ──
     by_gender = await pool.fetch("""
-        SELECT COALESCE(tr.gender, u.gender, '미등록') AS gender,
+        SELECT COALESCE(tr.gender, u.gender, '미등록') AS g,
                COUNT(DISTINCT tr.user_id) AS users,
                COUNT(*) AS readings
         FROM tarot_readings tr
         LEFT JOIN users u ON tr.user_id = u.user_id
-        GROUP BY gender
+        GROUP BY 1
         ORDER BY readings DESC
     """)
 
@@ -474,8 +474,8 @@ async def api_admin_tarot_analytics(request):
             COUNT(*) AS readings
         FROM tarot_readings tr
         LEFT JOIN users u ON tr.user_id = u.user_id
-        GROUP BY age_group, gender
-        ORDER BY age_group, gender
+        GROUP BY 1, 2
+        ORDER BY 1, 2
     """)
 
     # ── 9. 유저 타입 분석: 타로만 vs 게임도 ──
@@ -566,7 +566,7 @@ async def api_admin_tarot_analytics(request):
         "daily": [{"date": str(r["day"]), "readings": r["readings"], "users": r["users"]} for r in daily],
         "new_vs_existing": [{"type": r["user_type"], "users": r["users"], "readings": r["readings"]} for r in new_vs_existing],
         "conversion": {"recent_signups": recent_signups, "tarot_users": recent_signups_tarot},
-        "by_gender": [{"gender": {"M": "남성", "F": "여성"}.get(r["gender"], r["gender"]), "users": r["users"], "readings": r["readings"]} for r in by_gender],
+        "by_gender": [{"gender": {"M": "남성", "F": "여성"}.get(r["g"], r["g"]), "users": r["users"], "readings": r["readings"]} for r in by_gender],
         "by_age": [{"age": r["age_group"], "users": r["users"], "readings": r["readings"]} for r in by_age],
         "by_topic": [{"topic": r["topic"], "readings": r["readings"], "users": r["users"]} for r in by_topic],
         "by_situation": [{"topic": r["topic"], "situation": r["situation"], "readings": r["readings"]} for r in by_situation],
