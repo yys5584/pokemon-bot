@@ -386,7 +386,7 @@ async def captcha_callback_handler(update: Update, context: ContextTypes.DEFAULT
 # ── 데일리 운세 (그룹) ──
 
 _horoscope_cooldown: dict[int, float] = {}  # user_id -> timestamp
-HOROSCOPE_COOLDOWN_SEC = 180  # 3분
+HOROSCOPE_COOLDOWN_SEC = 60  # 1분
 
 
 async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
