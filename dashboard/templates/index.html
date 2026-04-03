@@ -3475,11 +3475,11 @@
                     <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 등급별 승률</div><div style="height:120px"><canvas id="ovChartRarity"></canvas></div></div>
                     <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 타로 주제별</div><div style="height:120px"><canvas id="ovChartTopic"></canvas></div></div>
                     <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 페이지별 조회</div><div style="height:120px"><canvas id="ovChartPage"></canvas></div></div>
-                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 리텐션 · BP</div><div style="height:120px"><canvas id="ovChartRetention"></canvas></div></div>
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 타로 일별 추이</div><div style="height:120px"><canvas id="ovChartRetention"></canvas></div></div>
                 </div>
                 <!-- Row 4: Adoption + 타로전환 -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 기능 참여율 (DAU 대비)</div><div id="ovAdoption" style="padding:4px 0"></div></div>
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 채널별 포획 활성도</div><div id="ovAdoption" style="padding:4px 0"></div></div>
                     <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 타로 전환 · 배틀 크리율</div><div id="ovMiniStats" style="padding:4px 0"></div></div>
                 </div>
                 <!-- Row 5: TOP 테이블 2개 -->
@@ -5706,63 +5706,66 @@ function admCatSwitch(cat,pushState=true){
 let _ovCharts={};
 const _ADOPT_COLORS=["#3b82f6","#00ff88","#a855f7","#ff8c00","#ff006e","#fbbf24"];
 async function admOverviewLoad(){
-    // 5개 API 병렬 호출
-    const [ov,db,kpi,bt,tr]=await Promise.all([
-        fetchJSON("/api/admin/overview"),
+    // 기존 API 5개 병렬 호출 (새 API 없이 기존 것만)
+    const [dkpi,db,wkpi,bt,tr]=await Promise.all([
+        fetchJSON("/api/dashboard-kpi"),
         fetchJSON("/api/admin/db/overview"),
-        fetchJSON("/api/admin/battle-analytics"),
         fetchJSON("/api/admin/kpi"),
+        fetchJSON("/api/admin/battle-analytics"),
         fetchJSON("/api/admin/tarot-analytics"),
     ]);
     document.getElementById("ovLastUpdate").textContent="Updated "+new Date().toLocaleTimeString("ko");
     // === Row 1: 카드 18개 (6열×3행) ===
-    const t=ov?.today||{},eng=ov?.engagement||{},eco=ov?.economy||{};
-    const _d=(v,u)=>v!=null?`<span style="color:${v>=0?"#00ff88":"#ef4444"};font-size:9px;font-weight:700">${v>0?"+":""}${v}%</span>`:"";
+    const dau=dkpi?.dau||0,active1h=dkpi?.active_1h||0,newToday=dkpi?.new_today||0;
+    const ret=dkpi?.retention||{},eco=dkpi?.economy||{};
     const cards=[
         // Row 1: 유저
-        {l:"DAU",v:t.dau,c:"#3b82f6",x:_d(t.dau_delta)},
-        {l:"실시간 (1H)",v:t.active_1h,c:"#00ff88"},
-        {l:"오늘 신규",v:t.new_users,c:"#a855f7"},
-        {l:"총 유저",v:t.total_users||db?.total_users,c:"rgba(255,255,255,.5)"},
-        {l:"D1 리텐션",v:t.d1_retention+"%",c:"#fbbf24"},
-        {l:"D7 리텐션",v:t.d7_retention+"%",c:"#ff8c00"},
+        {l:"DAU",v:dau,c:"#3b82f6"},
+        {l:"실시간 (1H)",v:active1h,c:"#00ff88"},
+        {l:"오늘 신규",v:newToday,c:"#a855f7"},
+        {l:"총 유저",v:db?.total_users,c:"rgba(255,255,255,.5)"},
+        {l:"D1 리텐션",v:ret.rate!=null?ret.rate+"%":"-",c:"#fbbf24",s:ret.retained!=null?`${ret.retained}/${ret.total_new}`:""},
+        {l:"총 포켓몬",v:db?.total_pokemon,c:"#00d4ff"},
         // Row 2: 게임 활동
-        {l:"오늘 스폰",v:db?.spawns_today||eng.spawns,c:"#00d4ff"},
-        {l:"오늘 포획",v:db?.caught_today||eng.catches,c:"#00ff88",s:eng.catch_rate?eng.catch_rate+"%":""},
-        {l:"이로치 포획",v:db?.shiny_caught||eng.shiny,c:"#fbbf24",s:db?.shiny_spawned?"스폰 "+db.shiny_spawned:""},
-        {l:"오늘 배틀",v:bt?.summary?.today_battles||eng.battles,c:"#ff8c00",s:eng.ranked?"랭크 "+eng.ranked:""},
-        {l:"오늘 거래",v:eng.trades,c:"#a855f7"},
-        {l:"타로 리딩",v:tr?.today?.readings||eng.tarot,c:"#ff006e",s:tr?.today?.users?tr.today.users+"명":""},
-        // Row 3: 경제 + 인프라
-        {l:"BP 유입",v:eco.bp_earned,c:"#00ff88"},
-        {l:"BP 소각",v:eco.bp_spent,c:"#ef4444"},
-        {l:"BP 순",v:eco.bp_net,c:eco.bp_net>=0?"#00ff88":"#ef4444"},
-        {l:"마스터볼",v:db?.total_masterballs,c:"#a855f7"},
-        {l:"하이퍼볼",v:db?.total_hyperballs,c:"#3b82f6"},
-        {l:"웹 방문자",v:bt_kpi_v(kpi),c:"#00d4ff",s:bt_kpi_pv(kpi)},
+        {l:"오늘 스폰",v:db?.spawns_today,c:"#00d4ff"},
+        {l:"오늘 포획",v:db?.caught_today,c:"#00ff88",s:db?.catch_rate_today?db.catch_rate_today+"%":""},
+        {l:"이로치",v:db?.shiny_caught,c:"#fbbf24",s:db?.shiny_spawned?"스폰 "+db.shiny_spawned:""},
+        {l:"오늘 배틀",v:bt?.summary?.today_battles,c:"#ff8c00",s:bt?.summary?.total_battles?"총 "+bt.summary.total_battles.toLocaleString():""},
+        {l:"타로 리딩",v:tr?.today?.readings,c:"#ff006e",s:tr?.today?.users?tr.today.users+"명":""},
+        {l:"웹 방문자",v:wkpi?.today?.visitors,c:"#3b82f6",s:wkpi?.today?.pageviews?"PV "+wkpi.today.pageviews.toLocaleString():""},
+        // Row 3: 경제
+        {l:"마스터볼",v:eco.master_balls_circulation!=null?eco.master_balls_circulation:db?.total_masterballs,c:"#a855f7",s:eco.master_balls_avg!=null?"인당 "+eco.master_balls_avg:""},
+        {l:"하이퍼볼",v:eco.hyper_balls_circulation!=null?eco.hyper_balls_circulation:db?.total_hyperballs,c:"#3b82f6",s:eco.hyper_balls_avg!=null?"인당 "+eco.hyper_balls_avg:""},
+        {l:"BP 유통",v:eco.bp_circulation,c:"#00ff88",s:eco.bp_avg!=null?"인당 "+eco.bp_avg.toLocaleString():""},
+        {l:"BP 소각",v:eco.bp_spent_total,c:"#ef4444"},
+        {l:"이로치 (전체)",v:db?.total_shiny,c:"#C62828"},
+        {l:"체류시간",v:wkpi?.today?.avg_duration?Math.round(wkpi.today.avg_duration/60)+"분":"-",c:"#a855f7",s:wkpi?.today?.avg_duration?wkpi.today.avg_duration+"초":""},
     ];
     document.getElementById("ovCards").innerHTML=cards.map(c=>{
         const val=typeof c.v==="number"?c.v.toLocaleString():(c.v||"-");
         return `<div class="ov-card"><div class="ov-card-label">${c.l}</div><div class="ov-card-val" style="color:${c.c}">${val}</div><div class="ov-card-sub">${c.x||""}${c.s?`<span style="color:rgba(255,255,255,.3)">${c.s}</span>`:""}</div></div>`;
     }).join("");
     // === Row 2: 차트 3개 ===
-    const hist=ov?.history||[];
-    const hLbl=hist.map(h=>h.date.slice(5));
-    // 웹 방문자 히스토리 (kpi.daily)
-    const kpiDaily=kpi?.daily||[];
+    // DAU 히스토리 (dashboard-kpi)
+    const dauHist=dkpi?.dau_history||[];
+    const dLbl=dauHist.map(h=>(h.day||h.date||"").slice(5));
+    // 웹 방문자 히스토리 (admin/kpi)
+    const kpiDaily=wkpi?.daily||[];
     const kpiMap=Object.fromEntries(kpiDaily.map(d=>[d.date.slice(5),d.visitors]));
-    _ovMakeChart("ovChartDau","line",hLbl,[
-        {label:"DAU",data:hist.map(h=>h.dau),borderColor:"#3b82f6",backgroundColor:"rgba(59,130,246,.08)",fill:true,tension:.3},
-        {label:"신규",data:hist.map(h=>h.new_users),borderColor:"#a855f7",tension:.3},
-        {label:"웹",data:hLbl.map(l=>kpiMap[l]||0),borderColor:"#00d4ff",borderDash:[4,3],tension:.3},
+    _ovMakeChart("ovChartDau","line",dLbl,[
+        {label:"DAU",data:dauHist.map(h=>h.dau),borderColor:"#3b82f6",backgroundColor:"rgba(59,130,246,.08)",fill:true,tension:.3},
+        {label:"웹",data:dLbl.map(l=>kpiMap[l]||0),borderColor:"#00d4ff",borderDash:[4,3],tension:.3},
     ]);
-    _ovMakeChart("ovChartActivity","bar",hLbl,[
-        {label:"포획",data:hist.map(h=>h.catches),backgroundColor:"rgba(0,255,136,.45)"},
-        {label:"배틀",data:hist.map(h=>h.battles),backgroundColor:"rgba(255,140,0,.45)"},
-        {label:"랭크",data:hist.map(h=>h.ranked),backgroundColor:"rgba(168,85,247,.45)"},
+    // 배틀 일별 (battle-analytics)
+    const btDaily=bt?.daily_battles||[];
+    const btLbl=btDaily.map(d=>d.date.slice(5));
+    _ovMakeChart("ovChartActivity","bar",btLbl,[
+        {label:"전체",data:btDaily.map(d=>d.total),backgroundColor:"rgba(255,140,0,.45)"},
+        {label:"랭크",data:btDaily.map(d=>d.ranked),backgroundColor:"rgba(168,85,247,.45)"},
+        {label:"일반",data:btDaily.map(d=>d.normal),backgroundColor:"rgba(0,255,136,.25)"},
     ]);
-    // 시간대별 접속 (kpi.by_hour)
-    const byHour=kpi?.by_hour||[];
+    // 시간대별 접속 (admin/kpi)
+    const byHour=wkpi?.by_hour||[];
     const hourLabels=Array.from({length:24},(_,i)=>i+"시");
     const hourData=Array(24).fill(0);
     byHour.forEach(h=>{if(h.hour>=0&&h.hour<24)hourData[h.hour]=h.views});
@@ -5783,29 +5786,38 @@ async function admOverviewLoad(){
         {label:"리딩",data:topics.map(t=>t.readings),backgroundColor:topics.map((_,i)=>_ADOPT_COLORS[i%6]+"99")}
     ],{indexAxis:"y",plugins:{legend:{display:false}}});
     // 페이지별 조회
-    const byPage=kpi?.by_page||[];
+    const byPage=wkpi?.by_page||[];
     _ovMakeChart("ovChartPage","bar",byPage.map(p=>_PAGE_LABELS[p.page]||p.page),[
         {label:"조회",data:byPage.map(p=>p.views),backgroundColor:byPage.map((_,i)=>`hsla(${i*40},70%,60%,.5)`)}
     ],{indexAxis:"y",plugins:{legend:{display:false}}});
-    // 리텐션 + BP
-    _ovMakeChart("ovChartRetention","line",hLbl,[
-        {label:"D1%",data:hist.map(h=>h.d1_ret),borderColor:"#00ff88",tension:.3},
-        {label:"D7%",data:hist.map(h=>h.d7_ret),borderColor:"#ff8c00",tension:.3},
-    ],{scales:{y:{min:0,max:100,ticks:{callback:v=>v+"%",color:"rgba(255,255,255,.3)",font:{size:8}},grid:{color:"rgba(255,255,255,.04)"}}}});
+    // 타로 일별 추이
+    const trDaily=tr?.daily||[];
+    const trLbl=trDaily.map(d=>d.date.slice(5));
+    _ovMakeChart("ovChartRetention","bar",trLbl,[
+        {label:"리딩",data:trDaily.map(d=>d.readings),backgroundColor:"rgba(255,0,110,.4)"},
+        {label:"유저",data:trDaily.map(d=>d.users),backgroundColor:"rgba(168,85,247,.4)"},
+    ]);
     // === Row 4: Adoption + 미니 통계 ===
-    const adopt=ov?.adoption||[];
-    document.getElementById("ovAdoption").innerHTML=adopt.map((a,i)=>`<div class="ov-adopt-bar"><div class="ov-adopt-label">${a.feature}</div><div class="ov-adopt-track"><div class="ov-adopt-fill" style="width:${Math.min(a.pct,100)}%;background:${_ADOPT_COLORS[i%6]}"></div></div><div class="ov-adopt-pct">${a.pct}%</div></div>`).join("");
+    // 채널별 활성도 (top_channels)
+    const channels=dkpi?.top_channels||[];
+    if(channels.length){
+        document.getElementById("ovAdoption").innerHTML=channels.map((ch,i)=>{
+            const pct=ch.today_spawns?Math.round(ch.today_catches/ch.today_spawns*100):0;
+            return `<div class="ov-adopt-bar"><div class="ov-adopt-label" style="min-width:80px;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ch.chat_title}</div><div class="ov-adopt-track"><div class="ov-adopt-fill" style="width:${Math.min(pct,100)}%;background:${_ADOPT_COLORS[i%6]}"></div></div><div class="ov-adopt-pct">${ch.today_catches}/${ch.today_spawns}</div></div>`;
+        }).join("");
+    } else {
+        document.getElementById("ovAdoption").innerHTML='<div style="color:rgba(255,255,255,.3);padding:8px;text-align:center;font-size:11px">채널 데이터 없음</div>';
+    }
     // 미니 통계
     const conv=tr?.conversion||{};
     const crit=bt?.crit_skill_rates||{};
-    const sub=t;
     const miniStats=[
         {l:"타로 전환율",v:conv.recent_signups?Math.round(100*(conv.tarot_users||0)/conv.recent_signups)+"%":"-",s:`30일 가입 ${conv.recent_signups||0}명 → 타로 ${conv.tarot_users||0}명`},
         {l:"배틀 크리율",v:crit.actual_crit_rate!=null?crit.actual_crit_rate+"%":"-",s:`기대 ${crit.expected_crit_rate||10}% · ${(crit.total_turns||0).toLocaleString()} 턴`},
         {l:"평균 라운드",v:bt?.summary?.avg_rounds||"-",s:`총 ${(bt?.summary?.total_battles||0).toLocaleString()} 배틀`},
         {l:"타로 주간",v:(tr?.today?.week_readings||0).toLocaleString(),s:`${tr?.today?.week_users||0}명 이용`},
-        {l:"구독자",v:(sub.sub_active||0).toLocaleString(),s:sub.sub_revenue?"$"+sub.sub_revenue.toFixed(1)+" 오늘":""},
-        {l:"총 포켓몬",v:(db?.total_pokemon||0).toLocaleString(),s:`이로치 ${(db?.total_shiny||0).toLocaleString()}`},
+        {l:"타로 누적",v:(tr?.today?.total_readings||0).toLocaleString(),s:`${tr?.today?.total_users||0}명`},
+        {l:"총 스폰",v:(db?.total_spawns||0).toLocaleString(),s:`포획률 ${db?.catch_rate_today||0}%`},
     ];
     document.getElementById("ovMiniStats").innerHTML='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">'+miniStats.map(m=>`<div style="padding:6px 8px;background:rgba(255,255,255,.03);border-radius:6px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;text-transform:uppercase;margin-bottom:3px">${m.l}</div><div style="font-size:16px;font-weight:800;color:#e0e0e0">${m.v}</div><div style="font-size:9px;color:rgba(255,255,255,.25)">${m.s}</div></div>`).join("")+'</div>';
     // === Row 5: TOP 테이블 ===
@@ -5821,8 +5833,6 @@ async function admOverviewLoad(){
         return `<tr><td>${u.username}</td><td>${gIcon}</td><td>${u.age||"-"}</td><td>${u.tarot}</td><td>${u.catches}</td><td>${u.battles}</td><td>${uType}</td></tr>`;
     }).join("")}</tbody></table>`:"<div style='color:rgba(255,255,255,.3);padding:10px;text-align:center'>데이터 없음</div>";
 }
-function bt_kpi_v(k){return k?.today?.visitors||0}
-function bt_kpi_pv(k){return k?.today?.pageviews?"PV "+k.today.pageviews.toLocaleString():""}
 function _ovMakeChart(id,type,labels,datasets,extraOpts){
     if(_ovCharts[id]){_ovCharts[id].destroy()}
     const ctx=document.getElementById(id);
