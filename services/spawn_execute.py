@@ -548,18 +548,24 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
                     _level_rarity_boosts = _li["rarity_boosts"]
         except Exception:
             pass
+        # 이벤트 모드: 세대 제한
+        _event_max = config.EVENT_MAX_POKEMON_ID if chat_id in config.EVENT_CHAT_IDS else None
+
         # 관리자 포켓몬 ID 지정
         force_pokemon_id = context.job.data.get("force_pokemon_id")
         if force_pokemon_id:
             pokemon = await queries.get_pokemon(force_pokemon_id)
+            # 이벤트 채팅방에서 세대 초과 포켓몬이면 랜덤 폴백
+            if pokemon and _event_max and pokemon["id"] > _event_max:
+                pokemon = None
             if pokemon:
                 rarity = pokemon.get("rarity", "common")
             else:
                 rarity = await roll_rarity(midnight_bonus=midnight, rarity_boosts=_level_rarity_boosts)
-                pokemon = await pick_random_pokemon(rarity)
+                pokemon = await pick_random_pokemon(rarity, max_pokemon_id=_event_max)
         else:
             rarity = await roll_rarity(midnight_bonus=midnight, rarity_boosts=_level_rarity_boosts)
-            pokemon = await pick_random_pokemon(rarity)
+            pokemon = await pick_random_pokemon(rarity, max_pokemon_id=_event_max)
 
         # 4.5 뉴비 스폰 판정 (관리자 아케이드 전용, 10% 확률) — shiny 판정 전에 결정
         is_newbie_spawn = (chat_id in config.ARCADE_CHAT_IDS) and random.random() < config.NEWBIE_SPAWN_CHANCE

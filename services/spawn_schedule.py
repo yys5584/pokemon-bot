@@ -43,12 +43,20 @@ def is_midnight_bonus() -> bool:
     return config.MIDNIGHT_BONUS_START <= hour < config.MIDNIGHT_BONUS_END
 
 
-async def pick_random_pokemon(rarity: str) -> dict:
+async def pick_random_pokemon(rarity: str, *, max_pokemon_id: int | None = None) -> dict:
     """Pick a random Pokemon of the given rarity.
-    Pokemon with active pokemon_boost events get weighted higher."""
+    Pokemon with active pokemon_boost events get weighted higher.
+    max_pokemon_id: 이벤트 모드 — 이 ID 이하만 후보에 포함."""
     candidates = await queries.get_pokemon_by_rarity(rarity)
     if not candidates:
         candidates = await queries.get_pokemon_by_rarity("common")
+
+    # 이벤트 모드: 세대 필터
+    if max_pokemon_id is not None:
+        candidates = [c for c in candidates if c["id"] <= max_pokemon_id]
+        if not candidates:
+            candidates = await queries.get_pokemon_by_rarity("common")
+            candidates = [c for c in candidates if c["id"] <= max_pokemon_id]
 
     # Get ALL pokemon boosts in one call (instead of N separate DB queries)
     from services.event_service import get_all_pokemon_boosts

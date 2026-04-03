@@ -1,5 +1,6 @@
 """Admin management handlers: 아케이드, 대회, 통계, 채널목록, 어뷰징, KPI."""
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -284,6 +285,29 @@ async def mock_tournament_run_handler(update: Update, context: ContextTypes.DEFA
         return
     from services.tournament_service import start_tournament
     await update.message.reply_text("⚔️ 모의대회 진행 시작!")
+    await start_tournament(context)
+
+
+async def event_tournament_reg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 이벤트대회 — 랜덤 1마리 이벤트 토너먼트 등록 시작."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    import config
+    chat_id = update.effective_chat.id
+    config.EVENT_CHAT_IDS.add(chat_id)
+    config.TOURNAMENT_CHAT_ID = chat_id
+    from services.tournament_service import start_registration
+    await start_registration(context, mock=True, random_1v1=True)
+
+
+async def event_tournament_run_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command: 이벤트진행 — 이벤트 토너먼트 즉시 실행."""
+    if not update.effective_user or not is_admin(update.effective_user.id):
+        return
+    from services.tournament_service import snapshot_teams, start_tournament
+    await update.message.reply_text("⚔️ 이벤트 대회 진행!")
+    await snapshot_teams(context)
+    await asyncio.sleep(3)
     await start_tournament(context)
 
 

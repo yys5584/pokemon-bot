@@ -95,6 +95,7 @@ from handlers.admin import (
     stats_handler, channel_list_handler, grant_masterball_handler, grant_bp_handler, grant_subscription_handler,
     arcade_handler, tournament_chat_handler, force_tournament_reg_handler, force_tournament_run_handler,
     mock_tournament_reg_handler, mock_tournament_run_handler, resume_tournament_handler, co_champion_handler,
+    event_tournament_reg_handler, event_tournament_run_handler,
     manual_subscription_handler, report_handler,
 )
 from handlers.dm_subscription import (
@@ -304,6 +305,8 @@ def register_all_handlers(app):
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회진행$"), force_tournament_run_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^모의대회$"), mock_tournament_reg_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^모의진행$"), mock_tournament_run_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^이벤트대회$"), event_tournament_reg_handler))
+    app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^이벤트진행$"), event_tournament_run_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^대회재개$"), resume_tournament_handler))
     app.add_handler(MessageHandler((dm | group) & filters.Regex(r"^공동우승$"), co_champion_handler))
     app.add_handler(MessageHandler(dm & filters.Regex(r"^구독승인\s+.+$"), manual_subscription_handler))

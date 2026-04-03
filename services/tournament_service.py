@@ -59,6 +59,7 @@ _tournament_state = {
     "participants": {},       # {user_id: {"name": str, "team": list[dict]}}
     "chat_id": None,
     "mock": False,            # 모의대회: 보상 없음
+    "random_1v1": False,      # 이벤트 모드: 랜덤 1마리 토너먼트
 }
 
 
@@ -187,6 +188,7 @@ def _reset_state():
     _tournament_state["participants"] = {}
     _tournament_state["chat_id"] = None
     _tournament_state["mock"] = False
+    _tournament_state["random_1v1"] = False
 
 
 def is_tournament_active(chat_id: int) -> bool:
@@ -201,10 +203,11 @@ def is_tournament_active(chat_id: int) -> bool:
 
 # ── Registration ────────────────────────────────────────────────
 
-async def start_registration(context: ContextTypes.DEFAULT_TYPE, *, mock: bool = False):
+async def start_registration(context: ContextTypes.DEFAULT_TYPE, *, mock: bool = False, random_1v1: bool = False):
     """JobQueue callback — 21:00 KST: stop spawns, open registration.
 
     mock=True: 모의대회 (보상 없음, DM 브로드캐스트 없음).
+    random_1v1=True: 이벤트 모드 (랜덤 1마리, 팀 불필요).
     """
     chat_id = config.TOURNAMENT_CHAT_ID
     if not chat_id:
@@ -216,6 +219,7 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE, *, mock: bool =
     _tournament_state["registering"] = True
     _tournament_state["chat_id"] = chat_id
     _tournament_state["mock"] = mock
+    _tournament_state["random_1v1"] = random_1v1
 
     # Cancel all spawn jobs for this chat (normal + arcade)
     chat_str = str(chat_id)
@@ -234,7 +238,20 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE, *, mock: bool =
     _guide = icon_emoji("bookmark")
     _se = shiny_emoji()
 
-    if mock:
+    if mock and random_1v1:
+        await _safe_send(context.bot, chat_id,
+            text=(
+                f"{_bt} 이벤트 토너먼트!\n"
+                "━━━━━━━━━━━━━━━\n\n"
+                f"{_guide} 참가 방법: ㄷ 입력\n"
+                f"{_entry} 포켓몬 1마리 이상 보유 시 참가 가능!\n\n"
+                "방식: 보유 포켓몬 중 랜덤 1마리로 1:1 대결\n"
+                "운명의 포켓몬은 대회 시작 시 공개됩니다!\n\n"
+                "스폰은 대회 종료 후 재개됩니다."
+            ),
+            parse_mode="HTML",
+        )
+    elif mock:
         await _safe_send(context.bot, chat_id,
             text=(
                 f"{_bt} 모의 토너먼트!\n"
@@ -340,6 +357,24 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
     if user_id in _tournament_state["participants"]:
         return False, "이미 등록되었습니다!"
 
+    # ── 이벤트 모드: 배틀팀 불필요, 포켓몬 1마리 이상만 ──
+    if _tournament_state.get("random_1v1"):
+        all_pokemon = await bq.get_user_pokemon_for_battle(user_id)
+        if not all_pokemon:
+            return False, "포켓몬이 없습니다! 먼저 포켓몬을 포획하세요."
+
+        _tournament_state["participants"][user_id] = {
+            "name": display_name,
+            "team": None,
+        }
+        await _save_registration_db(user_id, display_name)
+        count = len(_tournament_state["participants"])
+        return True, (
+            f"{icon_emoji('check')} {display_name} 참가 등록!\n"
+            f"현재 참가자: {count}명\n"
+            f"랜덤 포켓몬 1마리로 대결합니다!"
+        )
+
     # Check battle team exists + cost validation + season rule
     team = await bq.get_battle_team(user_id)
     if not team:
@@ -397,30 +432,57 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
 
     removed = []
     cost_removed = []
-    from services.ranked_service import get_current_cost_limit
-    cost_limit = await get_current_cost_limit()
-    for user_id, data in list(participants.items()):
-        team = await bq.get_battle_team(user_id)
-        if not team:
-            removed.append(data["name"])
-            del participants[user_id]
-        else:
-            total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
-            if total_cost > cost_limit:
-                cost_removed.append(f"{data['name']}({total_cost})")
+
+    if _tournament_state.get("random_1v1"):
+        # 이벤트 모드: 보유 포켓몬 중 랜덤 1마리 선발
+        import random as _rng
+        for user_id, data in list(participants.items()):
+            all_pokemon = await bq.get_user_pokemon_for_battle(user_id)
+            if not all_pokemon:
+                removed.append(data["name"])
                 del participants[user_id]
             else:
-                data["team"] = team
+                picked = _rng.choice(all_pokemon)
+                data["team"] = [picked]
+    else:
+        from services.ranked_service import get_current_cost_limit
+        cost_limit = await get_current_cost_limit()
+        for user_id, data in list(participants.items()):
+            team = await bq.get_battle_team(user_id)
+            if not team:
+                removed.append(data["name"])
+                del participants[user_id]
+            else:
+                total_cost = sum(config.RANKED_COST.get(p.get("rarity", ""), 0) for p in team)
+                if total_cost > cost_limit:
+                    cost_removed.append(f"{data['name']}({total_cost})")
+                    del participants[user_id]
+                else:
+                    data["team"] = team
 
     # Close registration after snapshot
     _tournament_state["registering"] = False
 
     _bt2 = icon_emoji("battle")
-    lines = [
-        f"{_bt2} 배틀팀 확정! ({len(participants)}명)",
-        "━━━━━━━━━━━━━━━",
-        "대회 접수가 마감되었습니다.",
-    ]
+
+    if _tournament_state.get("random_1v1"):
+        # 이벤트 모드: 각 참가자에게 뽑힌 포켓몬 공개
+        lines = [
+            f"{_bt2} 운명의 포켓몬 공개! ({len(participants)}명)",
+            "━━━━━━━━━━━━━━━",
+        ]
+        for uid, data in participants.items():
+            pkmn = data["team"][0] if data.get("team") else {}
+            emoji = pkmn.get("emoji", "")
+            name = pkmn.get("name_ko", "???")
+            rarity = pkmn.get("rarity", "")
+            lines.append(f"  {data['name']} → {emoji} {name} ({rarity})")
+    else:
+        lines = [
+            f"{_bt2} 배틀팀 확정! ({len(participants)}명)",
+            "━━━━━━━━━━━━━━━",
+            "대회 접수가 마감되었습니다.",
+        ]
     if removed:
         lines.append(f"\n주의: 팀 미등록으로 제외: {', '.join(removed)}")
     if cost_removed:
@@ -457,15 +519,24 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     # Fallback: if snapshot_teams didn't run (e.g. bot restart), snapshot now
     for user_id, data in list(participants.items()):
         if data.get("team") is None:
-            team = await bq.get_battle_team(user_id)
-            if not team:
-                del participants[user_id]
+            if _tournament_state.get("random_1v1"):
+                import random as _rng
+                all_pokemon = await bq.get_user_pokemon_for_battle(user_id)
+                if not all_pokemon:
+                    del participants[user_id]
+                else:
+                    data["team"] = [_rng.choice(all_pokemon)]
             else:
-                data["team"] = team
+                team = await bq.get_battle_team(user_id)
+                if not team:
+                    del participants[user_id]
+                else:
+                    data["team"] = team
 
     count = len(participants)
 
-    if count < config.TOURNAMENT_MIN_PLAYERS:
+    min_players = 2 if _tournament_state.get("random_1v1") else config.TOURNAMENT_MIN_PLAYERS
+    if count < min_players:
         await _safe_send(context.bot, chat_id,
             text=(
                 f"취소: 참가자 부족으로 대회가 취소되었습니다.\n"
@@ -647,6 +718,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                         is_final=is_final,
                         is_semi=is_semi,
                         is_quarter=is_quarter,
+                        is_event_1v1=bool(_tournament_state.get("random_1v1")),
                         match_label=match_label,
                     )
                     winners.append((winner_id, winner_data))
@@ -675,7 +747,72 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                 # Tournament complete — give prizes (skip for mock)
                 if winners:
                     winner_uid, winner_d = winners[0]
-                    if _tournament_state.get("mock"):
+                    if _tournament_state.get("mock") and _tournament_state.get("random_1v1"):
+                        # ── 이벤트 모드: 전체 순위 발표 + 전원 DM ──
+                        total = len(_tournament_state["participants"])
+                        placements = {winner_uid: 1}
+                        rank = 2
+                        for rs in sorted(set(eliminated.values())):
+                            users_at = [u for u, r in eliminated.items() if r == rs]
+                            for u in users_at:
+                                placements[u] = rank
+                            rank += len(users_at)
+                        for uid in _tournament_state["participants"]:
+                            if uid not in placements:
+                                placements[uid] = rank
+                                rank += 1
+
+                        # 그룹 채팅 순위표
+                        rank_lines = []
+                        for uid, r in sorted(placements.items(), key=lambda x: x[1]):
+                            pdata = _tournament_state["participants"].get(uid)
+                            pname = pdata["name"] if pdata else "?"
+                            team = pdata.get("team", []) if pdata else []
+                            pkmn_name = team[0].get("name_ko", "?") if team else "?"
+                            medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(r, f"{r}등")
+                            rank_lines.append(f"  {medal} {pname} ({pkmn_name})")
+
+                        await _safe_send(context.bot, chat_id,
+                            text=(
+                                f"{icon_emoji('champion_first')} 이벤트 토너먼트 결과!\n"
+                                "━━━━━━━━━━━━━━━\n\n"
+                                + "\n".join(rank_lines)
+                            ),
+                            parse_mode="HTML",
+                        )
+
+                        # 전원 DM
+                        for uid, r in placements.items():
+                            pdata = _tournament_state["participants"].get(uid)
+                            pname = pdata["name"] if pdata else "트레이너"
+                            team = pdata.get("team", []) if pdata else []
+                            pkmn_name = team[0].get("name_ko", "???") if team else "???"
+                            pkmn_emoji = team[0].get("emoji", "") if team else ""
+
+                            if r == 1:
+                                result_text = f"{icon_emoji('champion_first')} 축하합니다! 우승!"
+                            elif r == 2:
+                                result_text = "준우승! 아깝다!"
+                            elif r <= 4:
+                                result_text = "4강 진출! 멋져요!"
+                            else:
+                                result_text = "참가해 주셔서 감사합니다!"
+
+                            dm_text = (
+                                f"{icon_emoji('battle')} 이벤트 토너먼트 결과\n"
+                                "━━━━━━━━━━━━━━━\n\n"
+                                f"나의 포켓몬: {pkmn_emoji} {pkmn_name}\n"
+                                f"최종 순위: {r}/{total}등\n\n"
+                                f"{result_text}"
+                            )
+                            try:
+                                await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
+                            except Exception:
+                                logger.warning(f"Failed to DM event participant {uid}")
+                            if r % 25 == 0:
+                                await asyncio.sleep(1)
+
+                    elif _tournament_state.get("mock"):
                         await _safe_send(context.bot, chat_id,
                             text=f"{icon_emoji('champion_first')} 모의대회 우승: {winner_d['name']}!\n주의: 모의대회이므로 보상 없음",
                             parse_mode="HTML",
@@ -839,6 +976,7 @@ async def resume_tournament_from_semi(context: ContextTypes.DEFAULT_TYPE):
                 context, chat_id,
                 uid1, data1, uid2, data2,
                 is_final=False, is_semi=True, is_quarter=False,
+                is_event_1v1=bool(_tournament_state.get("random_1v1")),
                 match_label=match_label,
             )
             winners.append((winner_id, winner_data))
@@ -864,6 +1002,7 @@ async def resume_tournament_from_semi(context: ContextTypes.DEFAULT_TYPE):
             context, chat_id,
             f_p1[0], f_p1[1], f_p2[0], f_p2[1],
             is_final=True, is_semi=False, is_quarter=False,
+            is_event_1v1=bool(_tournament_state.get("random_1v1")),
         )
         await asyncio.sleep(3)
 

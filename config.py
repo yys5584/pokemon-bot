@@ -97,6 +97,10 @@ SPAWN_MAX_DAILY = 12               # Absolute max spawns per day per chat (regar
 ARCADE_CHAT_IDS: set[int] = set()  # 채팅방 등록 후 chat_id 추가
 # --- Tournament (아케이드와 독립) ---
 TOURNAMENT_CHAT_ID: int | None = None  # DB에서 로드
+
+# --- Event Mode (AI Masters 등 오프라인 이벤트) ---
+EVENT_CHAT_IDS: set[int] = set()   # 런타임에 관리자 명령으로 추가
+EVENT_MAX_POKEMON_ID: int = 151    # 이벤트 채팅방 스폰 포켓몬 ID 상한 (1세대)
 ARCADE_SPAWN_INTERVAL = 30         # 초 (관리자 등록 아케이드)
 ARCADE_TICKET_SPAWN_INTERVAL = 60  # 초 (티켓 아케이드)
 ARCADE_SPAWN_WINDOW = 25           # 초 (포획 제한시간, 겹침 방지)

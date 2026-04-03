@@ -382,6 +382,7 @@ async def _run_match(
     is_final: bool = False,
     is_semi: bool = False,
     is_quarter: bool = False,
+    is_event_1v1: bool = False,
     match_label: str = "",
 ) -> tuple[int, dict]:
     """Run a single match between two players.
@@ -889,6 +890,153 @@ async def _run_match(
         if mvp_line:
             win_text += f"\n{mvp_line}"
         await _safe_send(context.bot, chat_id, text=win_text, parse_mode="HTML")
+
+    elif is_event_1v1:
+        # ── 이벤트 1v1: 초보자 친화 상세 중계 ──
+        import random as _evt_rng
+        p1_name = p1_data['name']
+        p2_name = p2_data['name']
+        battle_icon = icon_emoji("battle")
+
+        # 타입 상성 해설 준비
+        _type_comments = {
+            2.0: ["효과가 굉장했다!", "상성이 좋다!", "타입 상성 대박!"],
+            1.5: ["효과가 좋은 편!", "상성이 유리!"],
+            0.5: ["효과가 별로...", "상성이 불리하다!"],
+            0.25: ["거의 안 통한다...", "최악의 상성!"],
+        }
+
+        for td in result["turn_data"]:
+            if td["type"] == "matchup":
+                c_sh = f"{shiny_emoji()}" if td.get("c_shiny") else ""
+                d_sh = f"{shiny_emoji()}" if td.get("d_shiny") else ""
+                c_rar = td.get("c_rarity", "common")
+                d_rar = td.get("d_rarity", "common")
+
+                matchup_text = (
+                    f"{battle_icon} {match_label}\n"
+                    f"━━━━━━━━━━━━━━━\n\n"
+                    f"{C} {p1_name}의 포켓몬\n"
+                    f"  {td['c_tb']}{c_sh} <b>{td['c_name']}</b> ({c_rar})\n\n"
+                    f" vs\n\n"
+                    f"{D} {p2_name}의 포켓몬\n"
+                    f"  {td['d_tb']}{d_sh} <b>{td['d_name']}</b> ({d_rar})\n\n"
+                    f"HP: {td['c_name']} {td['c_hp']}  /  {td['d_name']} {td['d_hp']}"
+                )
+                await _safe_send(context.bot, chat_id, text=matchup_text, parse_mode="HTML")
+                await asyncio.sleep(4)
+
+                # 개시 멘트
+                openers = [
+                    f"문박사: {td['c_name']}과 {td['d_name']}의 대결이 시작됩니다!",
+                    f"문박사: 자, 어떤 포켓몬이 살아남을까요?",
+                    f"문박사: 운명의 1:1! 시작합니다!",
+                ]
+                await _safe_send(context.bot, chat_id, text=_evt_rng.choice(openers), parse_mode="HTML")
+                await asyncio.sleep(2)
+
+            elif td["type"] == "turn":
+                if td["first_is_challenger"]:
+                    first_mark, second_mark = C, D
+                    first_name, first_dmg, first_crit, first_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
+                    second_name, second_dmg, second_crit, second_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
+                    first_target_hp, first_target_max = td["d_hp"], td["d_max_hp"]
+                    second_target_hp, second_target_max = td["c_hp"], td["c_max_hp"]
+                    first_target_mark, second_target_mark = D, C
+                    first_target_name, second_target_name = td["d_name"], td["c_name"]
+                    first_type_mult = td.get("c_type_mult", 1.0)
+                    second_type_mult = td.get("d_type_mult", 1.0)
+                else:
+                    first_mark, second_mark = D, C
+                    first_name, first_dmg, first_crit, first_eff = td["d_name"], td["d_dmg"], td["d_crit"], td["d_eff"]
+                    second_name, second_dmg, second_crit, second_eff = td["c_name"], td["c_dmg"], td["c_crit"], td["c_eff"]
+                    first_target_hp, first_target_max = td["c_hp"], td["c_max_hp"]
+                    second_target_hp, second_target_max = td["d_hp"], td["d_max_hp"]
+                    first_target_mark, second_target_mark = C, D
+                    first_target_name, second_target_name = td["c_name"], td["d_name"]
+                    first_type_mult = td.get("d_type_mult", 1.0)
+                    second_type_mult = td.get("c_type_mult", 1.0)
+
+                # 1st attack
+                crit1 = " 💥크리티컬!" if first_crit else ""
+                skill1 = f" {first_eff}" if first_eff else " 공격"
+                bar1 = _hp_bar(first_target_hp, first_target_max)
+                line1 = (
+                    f"{td['turn_num']}턴 ─ {first_mark}{first_name}{skill1}!{crit1}\n"
+                    f"  {first_target_mark}{first_target_name} {bar1} {first_target_hp}/{first_target_max} (-{first_dmg})"
+                )
+
+                # 2nd attack
+                line2 = ""
+                if second_dmg > 0:
+                    crit2 = " 💥크리티컬!" if second_crit else ""
+                    skill2 = f" {second_eff}" if second_eff else " 반격"
+                    bar2 = _hp_bar(second_target_hp, second_target_max)
+                    line2 = (
+                        f"{second_mark}{second_name}{skill2}!{crit2}\n"
+                        f"  {second_target_mark}{second_target_name} {bar2} {second_target_hp}/{second_target_max} (-{second_dmg})"
+                    )
+
+                turn_text = line1
+                if line2:
+                    turn_text += f"\n{line2}"
+                await _safe_send(context.bot, chat_id, text=turn_text, parse_mode="HTML")
+                await asyncio.sleep(3)
+
+                # 상성/크리티컬 해설 (가끔)
+                commentary = None
+                if first_type_mult and first_type_mult != 1.0 and first_type_mult in _type_comments:
+                    commentary = f"문박사: {_evt_rng.choice(_type_comments[first_type_mult])}"
+                elif first_crit and second_crit:
+                    commentary = "문박사: 양쪽 다 크리티컬! 대단한 공방이다!"
+                elif first_crit:
+                    commentary = f"문박사: {first_name}의 크리티컬! 아프겠다!"
+                elif second_crit:
+                    commentary = f"문박사: {second_name}의 역크리티컬!"
+
+                # HP가 위험할 때 해설
+                c_pct = td["c_hp"] / td["c_max_hp"] if td["c_max_hp"] else 0
+                d_pct = td["d_hp"] / td["d_max_hp"] if td["d_max_hp"] else 0
+                if not commentary and (c_pct < 0.2 or d_pct < 0.2) and c_pct > 0 and d_pct > 0:
+                    low_name = td["c_name"] if c_pct < d_pct else td["d_name"]
+                    commentary = _evt_rng.choice([
+                        f"문박사: {low_name} 위험하다! 버틸 수 있을까?",
+                        f"문박사: {low_name} HP가 바닥이다!",
+                        f"문박사: 아슬아슬한 승부!",
+                    ])
+
+                if commentary:
+                    await _safe_send(context.bot, chat_id, text=commentary, parse_mode="HTML")
+                    await asyncio.sleep(2)
+
+            elif td["type"] == "ko":
+                m = _mark(td["side"])
+                dead = td["dead_name"]
+                ko_comments = [
+                    f"문박사: {dead} 쓰러졌습니다! 승부 결정!",
+                    f"문박사: {dead}가 버티지 못했다!",
+                    f"문박사: 여기서 끝! {dead} 전투불능!",
+                ]
+                await _safe_send(context.bot, chat_id,
+                    text=f"{SKULL} {m}{dead} 쓰러짐!\n\n{_evt_rng.choice(ko_comments)}",
+                    parse_mode="HTML",
+                )
+                await asyncio.sleep(3)
+
+        # 승리 확정
+        _champ = icon_emoji("champion_first")
+        winner_name = winner_data['name']
+        loser_name = p2_data['name'] if winner_id == p1_id else p1_data['name']
+        win_comments = [
+            f"문박사: {winner_name} 트레이너의 승리입니다!",
+            f"문박사: {winner_name}! 다음 라운드로!",
+            f"문박사: {loser_name} 아쉽지만, 좋은 승부였습니다!",
+        ]
+        await _safe_send(context.bot, chat_id,
+            text=f"{_champ} <b>{winner_name} 승리!</b>\n{_evt_rng.choice(win_comments)}",
+            parse_mode="HTML",
+        )
+        await asyncio.sleep(2)
 
     else:
         # ── Lower rounds: one-line summary (match_label + result combined) ──

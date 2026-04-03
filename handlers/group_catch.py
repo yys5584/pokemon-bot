@@ -170,7 +170,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 from database import title_queries
                 tut_step = await queries.get_tutorial_step(user_id)
-                if tut_step == 0:
+                if tut_step == 0 and chat_id not in config.EVENT_CHAT_IDS:
                     await queries.update_tutorial_step(user_id, 1)
                     from handlers.tutorial import send_tutorial_step
                     asyncio.create_task(send_tutorial_step(context, user_id, 1))
