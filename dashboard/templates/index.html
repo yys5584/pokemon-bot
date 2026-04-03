@@ -423,23 +423,17 @@
         .adm-cat-btn.active-tarot{background:rgba(255,0,110,.08);color:#ff006e;border-color:rgba(255,0,110,.3);box-shadow:0 0 20px rgba(255,0,110,.12),inset 0 0 20px rgba(255,0,110,.04)}
         .adm-cat-btn.active-overview{background:rgba(59,130,246,.08);color:#3b82f6;border-color:rgba(59,130,246,.3);box-shadow:0 0 20px rgba(59,130,246,.12),inset 0 0 20px rgba(59,130,246,.04)}
         /* Overview dashboard */
-        .ov-north{display:flex;align-items:center;gap:16px;padding:20px 0 14px;flex-wrap:wrap}
-        .ov-north-num{font-size:42px;font-weight:900;color:#3b82f6;line-height:1;font-variant-numeric:tabular-nums}
-        .ov-north-label{font-size:12px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.5px}
-        .ov-north-delta{font-size:13px;font-weight:700;margin-left:8px}
-        .ov-north-delta.up{color:#00ff88}.ov-north-delta.down{color:#ef4444}
-        .ov-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
-        .ov-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px;transition:all .2s}
+        .ov-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 10px;transition:all .2s}
         .ov-card:hover{border-color:rgba(59,130,246,.25);background:rgba(59,130,246,.04)}
-        .ov-card-label{font-size:10px;color:rgba(255,255,255,.35);font-weight:600;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px}
-        .ov-card-val{font-size:22px;font-weight:800;color:#e0e0e0;font-variant-numeric:tabular-nums}
-        .ov-card-sub{font-size:10px;color:rgba(255,255,255,.25);margin-top:4px}
+        .ov-card-label{font-size:9px;color:rgba(255,255,255,.35);font-weight:600;letter-spacing:.3px;text-transform:uppercase;margin-bottom:3px}
+        .ov-card-val{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
+        .ov-card-sub{font-size:9px;color:rgba(255,255,255,.25);margin-top:2px;min-height:12px}
         .ov-adopt-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
         .ov-adopt-label{min-width:40px;color:rgba(255,255,255,.5);font-weight:600;text-align:right}
         .ov-adopt-track{flex:1;height:20px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;position:relative}
         .ov-adopt-fill{height:100%;border-radius:4px;transition:width .6s cubic-bezier(.4,0,.2,1)}
         .ov-adopt-pct{min-width:45px;color:rgba(255,255,255,.6);font-weight:700;font-variant-numeric:tabular-nums}
-        @media(max-width:768px){.ov-grid{grid-template-columns:repeat(2,1fr)}.ov-north-num{font-size:32px}}
+        @media(max-width:768px){#ovCards{grid-template-columns:repeat(3,1fr)!important}}
         .bf-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 0}
         .bf-label{color:rgba(255,255,255,.45);font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
         .bf-select{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e0e0e0;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;outline:none;transition:border-color .2s}
@@ -3463,44 +3457,36 @@
 
             <!-- Category: Overview -->
             <div id="admCat-overview" style="display:none">
-            <div style="margin-bottom:14px">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
                     <span class="neon-dot" style="background:#3b82f6;box-shadow:0 0 8px #3b82f6"></span>
-                    <span style="font-size:14px;font-weight:700;color:#e0e0e0">📊 Today at a Glance</span>
+                    <span style="font-size:14px;font-weight:700;color:#e0e0e0">📊 Overview</span>
                     <span style="font-size:10px;color:rgba(255,255,255,.25);margin-left:auto" id="ovLastUpdate"></span>
                 </div>
-                <!-- North Star: DAU -->
-                <div class="ov-north">
-                    <div>
-                        <div class="ov-north-label">TODAY DAU</div>
-                        <div style="display:flex;align-items:baseline;gap:6px">
-                            <div class="ov-north-num" id="ovDau">-</div>
-                            <span class="ov-north-delta" id="ovDauDelta"></span>
-                        </div>
-                    </div>
-                    <div style="margin-left:auto;display:flex;gap:20px;align-items:center">
-                        <div style="text-align:center"><div class="ov-north-label">1H ACTIVE</div><div style="font-size:20px;font-weight:800;color:#00ff88" id="ovActive1h">-</div></div>
-                        <div style="text-align:center"><div class="ov-north-label">NEW TODAY</div><div style="font-size:20px;font-weight:800;color:#a855f7" id="ovNewUsers">-</div></div>
-                        <div style="text-align:center"><div class="ov-north-label">TOTAL</div><div style="font-size:20px;font-weight:800;color:rgba(255,255,255,.5)" id="ovTotalUsers">-</div></div>
-                    </div>
+                <!-- Row 1: 핵심 숫자 카드 4×3 = 12개 -->
+                <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:8px" id="ovCards"></div>
+                <!-- Row 2: 차트 3개 (DAU추이 | 포획+배틀 | 시간대별접속) -->
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> DAU · 신규 · 웹방문 <span style="font-size:9px;color:rgba(255,255,255,.2)">14일</span></div><div style="height:140px"><canvas id="ovChartDau"></canvas></div></div>
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 포획 · 배틀 · 거래 <span style="font-size:9px;color:rgba(255,255,255,.2)">14일</span></div><div style="height:140px"><canvas id="ovChartActivity"></canvas></div></div>
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 시간대별 접속 <span style="font-size:9px;color:rgba(255,255,255,.2)">KST</span></div><div style="height:140px"><canvas id="ovChartHour"></canvas></div></div>
                 </div>
-                <!-- Tier 1: Engagement Cards -->
-                <div class="ov-grid" id="ovEngCards"></div>
-                <!-- Feature Adoption -->
-                <div class="chart-panel" style="margin-bottom:14px">
-                    <div class="chart-title"><span>━━</span> Feature Adoption (% of DAU)</div>
-                    <div id="ovAdoption" style="padding:8px 0"></div>
+                <!-- Row 3: 미니 차트 4개 -->
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 등급별 승률</div><div style="height:120px"><canvas id="ovChartRarity"></canvas></div></div>
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 타로 주제별</div><div style="height:120px"><canvas id="ovChartTopic"></canvas></div></div>
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 페이지별 조회</div><div style="height:120px"><canvas id="ovChartPage"></canvas></div></div>
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 리텐션 · BP</div><div style="height:120px"><canvas id="ovChartRetention"></canvas></div></div>
                 </div>
-                <!-- Charts Row -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-                    <div class="chart-panel"><div class="chart-title"><span>━━</span> 14일 DAU 추이</div><div style="height:200px"><canvas id="ovChartDau"></canvas></div></div>
-                    <div class="chart-panel"><div class="chart-title"><span>━━</span> 14일 포획 / 배틀</div><div style="height:200px"><canvas id="ovChartActivity"></canvas></div></div>
+                <!-- Row 4: Adoption + 타로전환 -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 기능 참여율 (DAU 대비)</div><div id="ovAdoption" style="padding:4px 0"></div></div>
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 타로 전환 · 배틀 크리율</div><div id="ovMiniStats" style="padding:4px 0"></div></div>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-                    <div class="chart-panel"><div class="chart-title"><span>━━</span> 리텐션 추이</div><div style="height:200px"><canvas id="ovChartRetention"></canvas></div></div>
-                    <div class="chart-panel"><div class="chart-title"><span>━━</span> BP 이코노미</div><div style="height:200px"><canvas id="ovChartEconomy"></canvas></div></div>
+                <!-- Row 5: TOP 테이블 2개 -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 포켓몬 사용률 TOP 10</div><div id="ovPokemonTable" style="overflow-x:auto;max-height:220px;overflow-y:auto"></div></div>
+                    <div class="chart-panel" style="padding:8px 10px"><div class="chart-title"><span>━━</span> 타로 유저 TOP 10</div><div id="ovTarotTable" style="overflow-x:auto;max-height:220px;overflow-y:auto"></div></div>
                 </div>
-            </div>
             </div><!-- /admCat-overview -->
 
             <!-- Category: Manage -->
@@ -5718,62 +5704,132 @@ function admCatSwitch(cat,pushState=true){
 
 // --- Overview Dashboard ---
 let _ovCharts={};
-const _ADOPT_COLORS=["#3b82f6","#00ff88","#a855f7","#ff8c00","#ff006e"];
+const _ADOPT_COLORS=["#3b82f6","#00ff88","#a855f7","#ff8c00","#ff006e","#fbbf24"];
 async function admOverviewLoad(){
-    const d=await fetchJSON("/api/admin/overview");
-    if(!d||d.error)return;
-    const t=d.today,eng=d.engagement,eco=d.economy;
-    // North Star
-    document.getElementById("ovDau").textContent=t.dau.toLocaleString();
-    const dd=document.getElementById("ovDauDelta");
-    if(t.dau_delta!=null){dd.textContent=(t.dau_delta>0?"+":"")+t.dau_delta+"%";dd.className="ov-north-delta "+(t.dau_delta>=0?"up":"down")}else{dd.textContent=""}
-    document.getElementById("ovActive1h").textContent=t.active_1h.toLocaleString();
-    document.getElementById("ovNewUsers").textContent=t.new_users.toLocaleString();
-    document.getElementById("ovTotalUsers").textContent=t.total_users.toLocaleString();
+    // 5개 API 병렬 호출
+    const [ov,db,kpi,bt,tr]=await Promise.all([
+        fetchJSON("/api/admin/overview"),
+        fetchJSON("/api/admin/db/overview"),
+        fetchJSON("/api/admin/battle-analytics"),
+        fetchJSON("/api/admin/kpi"),
+        fetchJSON("/api/admin/tarot-analytics"),
+    ]);
     document.getElementById("ovLastUpdate").textContent="Updated "+new Date().toLocaleTimeString("ko");
-    // Engagement cards
+    // === Row 1: 카드 18개 (6열×3행) ===
+    const t=ov?.today||{},eng=ov?.engagement||{},eco=ov?.economy||{};
+    const _d=(v,u)=>v!=null?`<span style="color:${v>=0?"#00ff88":"#ef4444"};font-size:9px;font-weight:700">${v>0?"+":""}${v}%</span>`:"";
     const cards=[
-        {l:"포획",v:eng.catches,s:`${eng.spawns.toLocaleString()} 스폰 · ${eng.catch_rate}%`},
-        {l:"이로치",v:eng.shiny,s:"오늘 등장"},
-        {l:"배틀",v:eng.battles,s:`랭크 ${eng.ranked}`},
-        {l:"거래",v:eng.trades,s:"체결"},
-        {l:"타로",v:eng.tarot,s:`${eng.tarot_users}명 이용`},
-        {l:"캠프",v:eng.camp_users,s:"배치 유저"},
-        {l:"D1 RET",v:t.d1_retention+"%",s:"어제 기준"},
-        {l:"구독",v:t.sub_active,s:t.sub_revenue?"$"+t.sub_revenue.toFixed(1):""},
+        // Row 1: 유저
+        {l:"DAU",v:t.dau,c:"#3b82f6",x:_d(t.dau_delta)},
+        {l:"실시간 (1H)",v:t.active_1h,c:"#00ff88"},
+        {l:"오늘 신규",v:t.new_users,c:"#a855f7"},
+        {l:"총 유저",v:t.total_users||db?.total_users,c:"rgba(255,255,255,.5)"},
+        {l:"D1 리텐션",v:t.d1_retention+"%",c:"#fbbf24"},
+        {l:"D7 리텐션",v:t.d7_retention+"%",c:"#ff8c00"},
+        // Row 2: 게임 활동
+        {l:"오늘 스폰",v:db?.spawns_today||eng.spawns,c:"#00d4ff"},
+        {l:"오늘 포획",v:db?.caught_today||eng.catches,c:"#00ff88",s:eng.catch_rate?eng.catch_rate+"%":""},
+        {l:"이로치 포획",v:db?.shiny_caught||eng.shiny,c:"#fbbf24",s:db?.shiny_spawned?"스폰 "+db.shiny_spawned:""},
+        {l:"오늘 배틀",v:bt?.summary?.today_battles||eng.battles,c:"#ff8c00",s:eng.ranked?"랭크 "+eng.ranked:""},
+        {l:"오늘 거래",v:eng.trades,c:"#a855f7"},
+        {l:"타로 리딩",v:tr?.today?.readings||eng.tarot,c:"#ff006e",s:tr?.today?.users?tr.today.users+"명":""},
+        // Row 3: 경제 + 인프라
+        {l:"BP 유입",v:eco.bp_earned,c:"#00ff88"},
+        {l:"BP 소각",v:eco.bp_spent,c:"#ef4444"},
+        {l:"BP 순",v:eco.bp_net,c:eco.bp_net>=0?"#00ff88":"#ef4444"},
+        {l:"마스터볼",v:db?.total_masterballs,c:"#a855f7"},
+        {l:"하이퍼볼",v:db?.total_hyperballs,c:"#3b82f6"},
+        {l:"웹 방문자",v:bt_kpi_v(kpi),c:"#00d4ff",s:bt_kpi_pv(kpi)},
     ];
-    document.getElementById("ovEngCards").innerHTML=cards.map(c=>`<div class="ov-card"><div class="ov-card-label">${c.l}</div><div class="ov-card-val">${typeof c.v==="number"?c.v.toLocaleString():c.v}</div><div class="ov-card-sub">${c.s}</div></div>`).join("");
-    // Feature adoption
-    const adopt=d.adoption||[];
-    document.getElementById("ovAdoption").innerHTML=adopt.map((a,i)=>`<div class="ov-adopt-bar"><div class="ov-adopt-label">${a.feature}</div><div class="ov-adopt-track"><div class="ov-adopt-fill" style="width:${Math.min(a.pct,100)}%;background:${_ADOPT_COLORS[i%5]}"></div></div><div class="ov-adopt-pct">${a.pct}%</div></div>`).join("");
-    // Charts
-    const hist=d.history||[];
-    const labels=hist.map(h=>h.date.slice(5));
-    _ovMakeChart("ovChartDau","line",labels,[
-        {label:"DAU",data:hist.map(h=>h.dau),borderColor:"#3b82f6",backgroundColor:"rgba(59,130,246,.1)",fill:true,tension:.3},
-        {label:"신규",data:hist.map(h=>h.new_users),borderColor:"#a855f7",backgroundColor:"rgba(168,85,247,.1)",fill:true,tension:.3},
+    document.getElementById("ovCards").innerHTML=cards.map(c=>{
+        const val=typeof c.v==="number"?c.v.toLocaleString():(c.v||"-");
+        return `<div class="ov-card"><div class="ov-card-label">${c.l}</div><div class="ov-card-val" style="color:${c.c}">${val}</div><div class="ov-card-sub">${c.x||""}${c.s?`<span style="color:rgba(255,255,255,.3)">${c.s}</span>`:""}</div></div>`;
+    }).join("");
+    // === Row 2: 차트 3개 ===
+    const hist=ov?.history||[];
+    const hLbl=hist.map(h=>h.date.slice(5));
+    // 웹 방문자 히스토리 (kpi.daily)
+    const kpiDaily=kpi?.daily||[];
+    const kpiMap=Object.fromEntries(kpiDaily.map(d=>[d.date.slice(5),d.visitors]));
+    _ovMakeChart("ovChartDau","line",hLbl,[
+        {label:"DAU",data:hist.map(h=>h.dau),borderColor:"#3b82f6",backgroundColor:"rgba(59,130,246,.08)",fill:true,tension:.3},
+        {label:"신규",data:hist.map(h=>h.new_users),borderColor:"#a855f7",tension:.3},
+        {label:"웹",data:hLbl.map(l=>kpiMap[l]||0),borderColor:"#00d4ff",borderDash:[4,3],tension:.3},
     ]);
-    _ovMakeChart("ovChartActivity","bar",labels,[
-        {label:"포획",data:hist.map(h=>h.catches),backgroundColor:"rgba(0,255,136,.5)"},
-        {label:"배틀",data:hist.map(h=>h.battles),backgroundColor:"rgba(255,140,0,.5)"},
-        {label:"랭크",data:hist.map(h=>h.ranked),backgroundColor:"rgba(168,85,247,.5)"},
+    _ovMakeChart("ovChartActivity","bar",hLbl,[
+        {label:"포획",data:hist.map(h=>h.catches),backgroundColor:"rgba(0,255,136,.45)"},
+        {label:"배틀",data:hist.map(h=>h.battles),backgroundColor:"rgba(255,140,0,.45)"},
+        {label:"랭크",data:hist.map(h=>h.ranked),backgroundColor:"rgba(168,85,247,.45)"},
     ]);
-    _ovMakeChart("ovChartRetention","line",labels,[
-        {label:"D1",data:hist.map(h=>h.d1_ret),borderColor:"#00ff88",tension:.3},
-        {label:"D7",data:hist.map(h=>h.d7_ret),borderColor:"#ff8c00",tension:.3},
-    ],{scales:{y:{min:0,max:100,ticks:{callback:v=>v+"%"}}}});
-    _ovMakeChart("ovChartEconomy","bar",labels,[
-        {label:"BP 유입",data:hist.map(h=>h.bp_earned),backgroundColor:"rgba(0,255,136,.4)"},
-        {label:"BP 소각",data:hist.map(h=>h.bp_spent),backgroundColor:"rgba(239,68,68,.4)"},
-    ]);
+    // 시간대별 접속 (kpi.by_hour)
+    const byHour=kpi?.by_hour||[];
+    const hourLabels=Array.from({length:24},(_,i)=>i+"시");
+    const hourData=Array(24).fill(0);
+    byHour.forEach(h=>{if(h.hour>=0&&h.hour<24)hourData[h.hour]=h.views});
+    _ovMakeChart("ovChartHour","bar",hourLabels,[
+        {label:"접속",data:hourData,backgroundColor:hourData.map((_,i)=>`hsla(${180+i*4},80%,60%,.5)`)}
+    ],{plugins:{legend:{display:false}}});
+    // === Row 3: 미니 차트 4개 ===
+    // 등급별 승률
+    const rarS=bt?.rarity_stats||[];
+    const rarLbl={"common":"커먼","rare":"레어","epic":"에픽","legendary":"전설","ultra_legendary":"초전설"};
+    _ovMakeChart("ovChartRarity","bar",rarS.map(r=>rarLbl[r.rarity]||r.rarity),[
+        {label:"사용",data:rarS.map(r=>r.uses),backgroundColor:"rgba(59,130,246,.5)",yAxisID:"y"},
+        {label:"승률%",data:rarS.map(r=>r.win_rate),borderColor:"#ff006e",type:"line",yAxisID:"y1",tension:.3,pointRadius:3},
+    ],{scales:{y:{position:"left",ticks:{color:"rgba(255,255,255,.3)",font:{size:8}},grid:{color:"rgba(255,255,255,.04)"}},y1:{position:"right",min:0,max:100,ticks:{callback:v=>v+"%",color:"rgba(255,255,255,.3)",font:{size:8}},grid:{drawOnChartArea:false}}}});
+    // 타로 주제별
+    const topics=tr?.by_topic||[];
+    _ovMakeChart("ovChartTopic","bar",topics.map(t=>t.topic),[
+        {label:"리딩",data:topics.map(t=>t.readings),backgroundColor:topics.map((_,i)=>_ADOPT_COLORS[i%6]+"99")}
+    ],{indexAxis:"y",plugins:{legend:{display:false}}});
+    // 페이지별 조회
+    const byPage=kpi?.by_page||[];
+    _ovMakeChart("ovChartPage","bar",byPage.map(p=>_PAGE_LABELS[p.page]||p.page),[
+        {label:"조회",data:byPage.map(p=>p.views),backgroundColor:byPage.map((_,i)=>`hsla(${i*40},70%,60%,.5)`)}
+    ],{indexAxis:"y",plugins:{legend:{display:false}}});
+    // 리텐션 + BP
+    _ovMakeChart("ovChartRetention","line",hLbl,[
+        {label:"D1%",data:hist.map(h=>h.d1_ret),borderColor:"#00ff88",tension:.3},
+        {label:"D7%",data:hist.map(h=>h.d7_ret),borderColor:"#ff8c00",tension:.3},
+    ],{scales:{y:{min:0,max:100,ticks:{callback:v=>v+"%",color:"rgba(255,255,255,.3)",font:{size:8}},grid:{color:"rgba(255,255,255,.04)"}}}});
+    // === Row 4: Adoption + 미니 통계 ===
+    const adopt=ov?.adoption||[];
+    document.getElementById("ovAdoption").innerHTML=adopt.map((a,i)=>`<div class="ov-adopt-bar"><div class="ov-adopt-label">${a.feature}</div><div class="ov-adopt-track"><div class="ov-adopt-fill" style="width:${Math.min(a.pct,100)}%;background:${_ADOPT_COLORS[i%6]}"></div></div><div class="ov-adopt-pct">${a.pct}%</div></div>`).join("");
+    // 미니 통계
+    const conv=tr?.conversion||{};
+    const crit=bt?.crit_skill_rates||{};
+    const sub=t;
+    const miniStats=[
+        {l:"타로 전환율",v:conv.recent_signups?Math.round(100*(conv.tarot_users||0)/conv.recent_signups)+"%":"-",s:`30일 가입 ${conv.recent_signups||0}명 → 타로 ${conv.tarot_users||0}명`},
+        {l:"배틀 크리율",v:crit.actual_crit_rate!=null?crit.actual_crit_rate+"%":"-",s:`기대 ${crit.expected_crit_rate||10}% · ${(crit.total_turns||0).toLocaleString()} 턴`},
+        {l:"평균 라운드",v:bt?.summary?.avg_rounds||"-",s:`총 ${(bt?.summary?.total_battles||0).toLocaleString()} 배틀`},
+        {l:"타로 주간",v:(tr?.today?.week_readings||0).toLocaleString(),s:`${tr?.today?.week_users||0}명 이용`},
+        {l:"구독자",v:(sub.sub_active||0).toLocaleString(),s:sub.sub_revenue?"$"+sub.sub_revenue.toFixed(1)+" 오늘":""},
+        {l:"총 포켓몬",v:(db?.total_pokemon||0).toLocaleString(),s:`이로치 ${(db?.total_shiny||0).toLocaleString()}`},
+    ];
+    document.getElementById("ovMiniStats").innerHTML='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">'+miniStats.map(m=>`<div style="padding:6px 8px;background:rgba(255,255,255,.03);border-radius:6px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;text-transform:uppercase;margin-bottom:3px">${m.l}</div><div style="font-size:16px;font-weight:800;color:#e0e0e0">${m.v}</div><div style="font-size:9px;color:rgba(255,255,255,.25)">${m.s}</div></div>`).join("")+'</div>';
+    // === Row 5: TOP 테이블 ===
+    const pkRank=(bt?.pokemon_ranking||[]).slice(0,10);
+    document.getElementById("ovPokemonTable").innerHTML=pkRank.length?`<table class="bt-table"><thead><tr><th>#</th><th>포켓몬</th><th>등급</th><th>사용</th><th>승률</th><th>평균딜</th></tr></thead><tbody>${pkRank.map((p,i)=>{
+        const rb={"common":"커먼","rare":"레어","epic":"에픽","legendary":"전설","ultra_legendary":"초전설"}[p.rarity]||p.rarity;
+        return `<tr><td>${i+1}</td><td>${p.name_ko}</td><td>${rb}</td><td>${p.uses}</td><td>${p.win_rate}%</td><td>${p.avg_damage}</td></tr>`;
+    }).join("")}</tbody></table>`:"<div style='color:rgba(255,255,255,.3);padding:10px;text-align:center'>데이터 없음</div>";
+    const trUsers=(tr?.user_engagement||[]).slice(0,10);
+    document.getElementById("ovTarotTable").innerHTML=trUsers.length?`<table class="bt-table"><thead><tr><th>유저</th><th>성별</th><th>연령</th><th>🔮</th><th>🎣</th><th>⚔️</th><th>유형</th></tr></thead><tbody>${trUsers.map(u=>{
+        const gIcon=u.gender==="F"?"🙋‍♀️":u.gender==="M"?"🙋‍♂️":"❓";
+        const uType=u.battles>100?"허슬러":u.tarot>u.catches?"타로전용":u.catches>100?"포획러":"라이트";
+        return `<tr><td>${u.username}</td><td>${gIcon}</td><td>${u.age||"-"}</td><td>${u.tarot}</td><td>${u.catches}</td><td>${u.battles}</td><td>${uType}</td></tr>`;
+    }).join("")}</tbody></table>`:"<div style='color:rgba(255,255,255,.3);padding:10px;text-align:center'>데이터 없음</div>";
 }
+function bt_kpi_v(k){return k?.today?.visitors||0}
+function bt_kpi_pv(k){return k?.today?.pageviews?"PV "+k.today.pageviews.toLocaleString():""}
 function _ovMakeChart(id,type,labels,datasets,extraOpts){
     if(_ovCharts[id]){_ovCharts[id].destroy()}
     const ctx=document.getElementById(id);
     if(!ctx)return;
-    const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:"top",labels:{color:"rgba(255,255,255,.5)",font:{size:10},boxWidth:10,padding:8}}},scales:{x:{ticks:{color:"rgba(255,255,255,.3)",font:{size:9}},grid:{color:"rgba(255,255,255,.04)"}},y:{ticks:{color:"rgba(255,255,255,.3)",font:{size:9}},grid:{color:"rgba(255,255,255,.06)"}}}};
-    const opts=extraOpts?{...base,scales:{...base.scales,...(extraOpts.scales||{})}}:base;
-    datasets.forEach(ds=>{ds.borderWidth=ds.borderWidth||2;ds.pointRadius=ds.pointRadius||0});
+    const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:"top",labels:{color:"rgba(255,255,255,.5)",font:{size:9},boxWidth:8,padding:6}}},scales:{x:{ticks:{color:"rgba(255,255,255,.3)",font:{size:8},maxRotation:0},grid:{color:"rgba(255,255,255,.04)"}},y:{ticks:{color:"rgba(255,255,255,.3)",font:{size:8}},grid:{color:"rgba(255,255,255,.06)"}}}};
+    const opts=extraOpts?{...base,...extraOpts,plugins:{...base.plugins,...(extraOpts.plugins||{})},scales:{...base.scales,...(extraOpts.scales||{})}}:base;
+    datasets.forEach(ds=>{ds.borderWidth=ds.borderWidth||2;ds.pointRadius=ds.pointRadius??0});
     _ovCharts[id]=new Chart(ctx,{type,data:{labels,datasets},options:opts});
 }
 
