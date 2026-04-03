@@ -718,7 +718,6 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
                         is_final=is_final,
                         is_semi=is_semi,
                         is_quarter=is_quarter,
-                        is_event_1v1=bool(_tournament_state.get("random_1v1")),
                         match_label=match_label,
                     )
                     winners.append((winner_id, winner_data))
@@ -976,7 +975,6 @@ async def resume_tournament_from_semi(context: ContextTypes.DEFAULT_TYPE):
                 context, chat_id,
                 uid1, data1, uid2, data2,
                 is_final=False, is_semi=True, is_quarter=False,
-                is_event_1v1=bool(_tournament_state.get("random_1v1")),
                 match_label=match_label,
             )
             winners.append((winner_id, winner_data))
@@ -1002,7 +1000,6 @@ async def resume_tournament_from_semi(context: ContextTypes.DEFAULT_TYPE):
             context, chat_id,
             f_p1[0], f_p1[1], f_p2[0], f_p2[1],
             is_final=True, is_semi=False, is_quarter=False,
-            is_event_1v1=bool(_tournament_state.get("random_1v1")),
         )
         await asyncio.sleep(3)
 
