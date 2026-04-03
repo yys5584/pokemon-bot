@@ -25,7 +25,7 @@ _CARD_BACK = "🂠"
 _CARD_PICKED = "✦"
 
 # 펼쳐놓을 엎어진 카드 수
-_FACEDOWN_COUNT = 7
+_FACEDOWN_COUNT = 18
 
 # ── 주제별 상황 질문 (1단계) ──
 
@@ -683,14 +683,18 @@ async def _start_card_picking(query, context, user_id: int, topic: str, spread_t
 
 
 def _build_facedown_keyboard(user_id: int, picked: list[int]) -> InlineKeyboardMarkup:
-    """엎어진 카드 7장 버튼. 이미 뽑은 건 ✦ 표시."""
-    row = []
-    for i in range(_FACEDOWN_COUNT):
-        if i in picked:
-            row.append(InlineKeyboardButton(_CARD_PICKED, callback_data=f"tarot_pick_{user_id}_x"))
-        else:
-            row.append(InlineKeyboardButton(_CARD_BACK, callback_data=f"tarot_pick_{user_id}_{i}"))
-    return InlineKeyboardMarkup([row])
+    """엎어진 카드 18장 버튼 (3줄×6). 이미 뽑은 건 ✦ 표시."""
+    rows = []
+    per_row = 6
+    for r in range(0, _FACEDOWN_COUNT, per_row):
+        row = []
+        for i in range(r, min(r + per_row, _FACEDOWN_COUNT)):
+            if i in picked:
+                row.append(InlineKeyboardButton(_CARD_PICKED, callback_data=f"tarot_pick_{user_id}_x"))
+            else:
+                row.append(InlineKeyboardButton(_CARD_BACK, callback_data=f"tarot_pick_{user_id}_{i}"))
+        rows.append(row)
+    return InlineKeyboardMarkup(rows)
 
 
 # ── 카드 선택 콜백 ──
