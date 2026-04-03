@@ -480,38 +480,24 @@ async def get_ai_narrative(
 # ── 메시지 포맷 ──
 
 def format_reading_message(reading: dict) -> str:
-    """리딩 결과를 텔레그램 메시지로 포맷."""
+    """종합 해석 메시지 포맷 (카드별 해석은 페이지에서 이미 표시됨)."""
     topic_emoji = reading["topic_emoji"]
     topic = reading["topic"]
-    spread_name = reading["spread"]["name"]
     time_range = reading.get("time_range", "이번 주")
     time_label = TIME_RANGES.get(time_range, {}).get("label", f"📆 {time_range}")
 
     lines = [
-        f"🔮 <b>신비로운 피카의 타로 리딩</b>",
-        f"{topic_emoji} <b>{topic}</b> | {spread_name} | {time_label}",
-        "",
-        "...카드를 넘기고 있어요...",
+        f"🌙 <b>종합 해석</b>",
+        f"{topic_emoji} {topic} | {time_label}",
         "",
     ]
-
-    for c in reading["cards"]:
-        lines.append(f"{c['position_emoji']} <b>[{c['position']}]</b> {c['card_name']}")
-        lines.append(f"  {c['meaning']}")
-        lines.append("")
-
-    lines.append(f"━━━━━━━━━━━━━━")
 
     # AI 서사가 있으면 풍부한 종합 해석, 없으면 정적 폴백
     ai_narrative = reading.get("ai_narrative")
     if ai_narrative:
-        lines.append("")
-        lines.append(f"🌙 <b>종합 해석</b>")
-        lines.append("")
         lines.append(ai_narrative)
     else:
-        # 정적 summary에 이미 zodiac_line 포함되어 있음 — 중복 추가하지 않음
-        lines.append(reading["summary"])
+        lines.append(reading.get("summary", ""))
 
     lines.append(f"\n<i>⚠️ 재미용 리딩이며 실제 조언이 아닙니다</i>")
 

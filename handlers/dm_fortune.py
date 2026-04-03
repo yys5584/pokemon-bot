@@ -696,7 +696,7 @@ def _build_facedown_keyboard(user_id: int, picked: list[int]) -> InlineKeyboardM
 # ── 카드 선택 콜백 ──
 
 async def tarot_pick_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """유저가 엎어진 카드 탭 → 한 장 공개 → 다음 선택 or 종합 리딩."""
+    """유저가 엎어진 카드 탭 → 카드명 공개 → 3장 다 뽑으면 리딩 시작."""
     query = update.callback_query
 
     data = query.data  # tarot_pick_{user_id}_{card_idx}
@@ -744,77 +744,147 @@ async def tarot_pick_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     # 현재 공개할 카드 정보
     card = reading["cards"][picked_count]
 
-    # 카드 이미지 찾기
-    card_img_path = _find_card_image(card)
-
-    # 공개 텍스트
-    reveal_text = (
-        f"{card['position_emoji']} <b>[{card['position']}]</b> {card['card_name']}\n\n"
-        f"  {card['meaning']}"
-    )
-
     await query.answer(f"{card['position_emoji']} {card['card_name']}")
 
     if pick_num < need_count:
-        # 아직 더 뽑아야 함 — 카드 공개 + 다음 선택
+        # 아직 더 뽑아야 함 — 카드명만 공개 + 다음 선택
         next_card = reading["cards"][pick_num]
-        next_text = (
-            f"\n\n━━━━━━━━━━━━━━\n\n"
+
+        # 지금까지 뽑은 카드 목록
+        picked_lines = []
+        for i in range(pick_num):
+            c = reading["cards"][i]
+            picked_lines.append(f"  {c['position_emoji']} {c['card_name']}")
+
+        summary_text = (
+            "🃏 <b>뽑은 카드</b>\n"
+            + "\n".join(picked_lines)
+            + f"\n\n━━━━━━━━━━━━━━\n\n"
             f"🔮 <b>{next_card['position_emoji']} {next_card['position']}</b> 카드를 골라주세요.\n\n"
             f"<i>({pick_num + 1}/{need_count})</i>"
         )
         kb = _build_facedown_keyboard(user_id, picked_indices)
 
-        if card_img_path:
-            try:
-                await query.edit_message_reply_markup(reply_markup=None)
-            except Exception:
-                pass
-            await query.message.reply_photo(
-                photo=card_img_path.read_bytes(),
-                caption=reveal_text + next_text,
+        try:
+            await query.edit_message_caption(
+                caption=summary_text,
                 parse_mode="HTML",
                 reply_markup=kb,
             )
-        else:
+        except Exception:
             try:
-                await query.edit_message_caption(
-                    caption=reveal_text + next_text,
+                await query.edit_message_text(
+                    summary_text,
                     parse_mode="HTML",
                     reply_markup=kb,
                 )
             except Exception:
-                try:
-                    await query.edit_message_text(
-                        reveal_text + next_text,
-                        parse_mode="HTML",
-                        reply_markup=kb,
-                    )
-                except Exception:
-                    pass
+                pass
     else:
-        # 마지막 카드 — 공개 후 종합 리딩
+        # 3장 다 뽑음 — 전체 카드 목록 + "리딩 시작" 버튼
+        picked_lines = []
+        for c in reading["cards"]:
+            picked_lines.append(f"  {c['position_emoji']} {c['card_name']}")
+
+        complete_text = (
+            "🃏 <b>카드가 모두 나왔어요!</b>\n\n"
+            + "\n".join(picked_lines)
+            + "\n\n...자, 과거부터 한 장씩 볼게요."
+        )
+
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton(
+                f"{reading['cards'][0]['position_emoji']} 과거 카드 보기",
+                callback_data=f"tarot_page_{user_id}_0",
+            )
+        ]])
+
         try:
-            await query.edit_message_reply_markup(reply_markup=None)
+            await query.edit_message_caption(
+                caption=complete_text,
+                parse_mode="HTML",
+                reply_markup=kb,
+            )
         except Exception:
-            pass
+            try:
+                await query.edit_message_text(
+                    complete_text,
+                    parse_mode="HTML",
+                    reply_markup=kb,
+                )
+            except Exception:
+                pass
+
+
+async def tarot_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """카드 한 장씩 보기: 과거(0) → 현재(1) → 미래(2) → 종합."""
+    query = update.callback_query
+
+    data = query.data  # tarot_page_{user_id}_{page_idx}
+    parts = data.split("_")
+    if len(parts) < 4:
+        return
+
+    user_id = int(parts[2])
+    page_idx = int(parts[3])
+
+    if query.from_user.id != user_id:
+        await query.answer("다른 사람의 타로예요!", show_alert=True)
+        return
+
+    session = context.user_data.get("tarot_session")
+    if not session:
+        await query.answer("세션이 만료되었어요. '타로'를 다시 입력해주세요.", show_alert=True)
+        return
+
+    reading = session["reading"]
+    need_count = session["need_count"]
+
+    await query.answer()
+
+    # 이전 메시지 버튼 제거
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    if page_idx < need_count:
+        # 카드 해석 페이지
+        card = reading["cards"][page_idx]
+        card_img_path = _find_card_image(card)
+
+        reveal_text = (
+            f"{card['position_emoji']} <b>[{card['position']}]</b> {card['card_name']}\n\n"
+            f"  {card['meaning']}"
+        )
+
+        next_idx = page_idx + 1
+        if next_idx < need_count:
+            next_card = reading["cards"][next_idx]
+            btn_label = f"{next_card['position_emoji']} {next_card['position']} 카드 보기"
+        else:
+            btn_label = "🌙 종합 해석 보기"
+
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton(btn_label, callback_data=f"tarot_page_{user_id}_{next_idx}")
+        ]])
 
         if card_img_path:
             await query.message.reply_photo(
                 photo=card_img_path.read_bytes(),
                 caption=reveal_text,
                 parse_mode="HTML",
+                reply_markup=kb,
             )
         else:
             await query.message.reply_text(
                 reveal_text,
                 parse_mode="HTML",
+                reply_markup=kb,
             )
-
-        await asyncio.sleep(1.5)
+    else:
+        # 종합 해석 페이지
         await _send_reading_result(query, context, user_id, reading)
-
-        # 세션 정리
         context.user_data.pop("tarot_session", None)
 
 
@@ -877,9 +947,11 @@ async def _send_reading_result(query, context, user_id: int, reading: dict):
 
 
 async def tarot_again_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """다시 보기 — 하루 1회 이미 사용했으면 안내."""
+    """다시 보기 — 주제 선택으로 돌아가기."""
     query = update.callback_query
-    await query.answer("오늘은 이미 리딩을 받았어요 🔮", show_alert=True)
+    await query.answer()
+    # 주제 선택 화면으로
+    await tarot_handler(update, context)
 
 
 # ── 그룹 공유 ──

@@ -216,14 +216,12 @@ class TestFormatReadingMessage:
     async def test_contains_header(self):
         reading = await generate_reading(topic="종합", spread_type="three_card", user_id=1)
         msg = format_reading_message(reading)
-        assert "신비로운 피카의 타로" in msg
-        assert "종합" in msg
+        assert "종합 해석" in msg
 
-    async def test_contains_cards(self):
+    async def test_contains_summary(self):
         reading = await generate_reading(topic="재물", spread_type="three_card", user_id=1)
         msg = format_reading_message(reading)
-        for c in reading["cards"]:
-            assert c["position"] in msg
+        assert "종합 해석" in msg
 
     async def test_contains_disclaimer(self):
         reading = await generate_reading(topic="종합", spread_type="three_card", user_id=1)
@@ -603,34 +601,14 @@ class TestFormatReadingMessageExtended:
         assert "</b>" in msg
         assert "<i>" in msg
 
-    async def test_all_positions_in_message(self):
-        """모든 포지션 이름이 메시지에 포함."""
-        for spread_type, spread in SPREADS.items():
-            reading = await generate_reading(topic="종합", spread_type=spread_type, user_id=1)
-            msg = format_reading_message(reading)
-            for pos in spread["positions"]:
-                assert pos in msg, f"Position '{pos}' not in message for spread '{spread_type}'"
-
     async def test_all_spreads_format_ok(self):
-        """모든 스프레드 타입으로 포맷 가능."""
+        """모든 스프레드 타입으로 종합 해석 포맷 가능."""
         for spread_type in SPREADS:
             reading = await generate_reading(topic="종합", spread_type=spread_type, user_id=1)
             msg = format_reading_message(reading)
-            assert len(msg) > 50
-            assert "신비로운 피카의 타로" in msg
+            assert len(msg) > 30
+            assert "종합 해석" in msg
             assert "재미용" in msg
-
-    async def test_reversed_card_marker_in_message(self):
-        """역방향 카드가 있으면 메시지에 🔄 마커가 포함."""
-        for seed_offset in range(100):
-            reading = await generate_reading(topic="종합", spread_type="three_card",
-                                             user_id=10000 + seed_offset)
-            has_rev = any(c["reversed"] for c in reading["cards"])
-            if has_rev:
-                msg = format_reading_message(reading)
-                assert "🔄" in msg, "Reversed card should show 🔄 in message"
-                return
-        assert True
 
 
 # ── 9. get_zodiac 경계값 테스트 ──

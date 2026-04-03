@@ -84,7 +84,7 @@ from handlers.dm_fortune import (
     tarot_ctx_callback, tarot_sub_callback,
     tarot_read_callback, tarot_again_callback, tarot_birth_callback,
     tarot_birth_text_handler, tarot_skip_callback, tarot_time_callback,
-    tarot_pick_callback, tarot_share_handler,
+    tarot_pick_callback, tarot_page_callback, tarot_share_handler,
     horoscope_dm_handler,
 )
 from handlers.tutorial import tutorial_callback, tutorial_dm_handler, tutorial_dm_catch
@@ -515,6 +515,7 @@ def register_all_handlers(app):
     app.add_handler(CallbackQueryHandler(tarot_sub_callback, pattern=r"^tarot_sub_"))
     app.add_handler(CallbackQueryHandler(tarot_read_callback, pattern=r"^tarot_read_"))
     app.add_handler(CallbackQueryHandler(tarot_pick_callback, pattern=r"^tarot_pick_"))
+    app.add_handler(CallbackQueryHandler(tarot_page_callback, pattern=r"^tarot_page_"))
     app.add_handler(CallbackQueryHandler(tarot_again_callback, pattern=r"^tarot_again_"))
 
     # Tarot 생년월일 텍스트 입력 (group=-4 — 캠프(-2)/CS(-3)와 분리, 대기 상태가 아니면 무시)
