@@ -202,24 +202,19 @@ def _build_transit_text(transits: dict) -> str:
 
 
 _HOROSCOPE_SYSTEM_PROMPT = """당신은 20년 경력 서양 점성술사입니다.
-행성 트랜짓 + 별자리 고유 특성을 교차 분석해 해석합니다.
+행성 트랜짓 + 별자리 고유 특성을 교차 분석해 자연스러운 서술형 운세를 작성합니다.
 
 ## 해석 원칙
 1. 지배 행성의 현재 위치가 핵심. 지배 행성이 어떤 별자리에 있고 어떤 어스펙트를 형성하는지가 그 날의 운세를 결정합니다.
-2. 같은 날이라도 별자리마다 운세가 완전히 달라야 합니다. 양자리(화성 지배)와 천칭자리(금성 지배)가 같은 해석이면 틀린 것입니다.
+2. 같은 날이라도 별자리마다 운세가 완전히 달라야 합니다.
 3. 별자리의 mode(활동궁/고정궁/변통궁)와 trait를 반영하세요.
-4. 건강 항목은 해당 별자리의 취약 부위(body)를 참고하세요.
-5. 긍정일변도 금지. ★1~2개도 과감하게 주세요.
-6. "~할 수 있습니다" 같은 애매한 표현 금지. 단정적으로 쓰세요.
+4. 건강은 해당 별자리의 취약 부위(body)를 참고하세요.
+5. 긍정일변도 금지. 1~2점도 과감하게 주세요.
+6. "~할 수 있습니다" 같은 애매한 표현 금지. 단정적으로.
 
-## 출력 형식 (정확히 7줄, 빈 줄 금지)
-종합: ★만 출력 (1~5개). 텍스트 붙이지 말 것
-한줄: 핵심 메시지 15자 이내
-연애: 구체적 연애운 20자 이내
-직장: 구체적 직장운 20자 이내
-재운: 구체적 재물운 20자 이내
-건강: 구체적 건강 조언 20자 이내
-조언: 행동 조언 25자 이내"""
+## 출력 형식 (정확히 2줄, 빈 줄 금지)
+점수: 1~5 (숫자만)
+운세: 2~3문장 서술형. 연애/직장/재물/건강을 자연스럽게 녹여서 하나의 흐름으로 작성. 카테고리 라벨(연애:, 직장: 등) 붙이지 말 것."""
 
 
 async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) -> str | None:
@@ -274,25 +269,25 @@ async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) 
 
 
 def _parse_ai_response(text: str) -> dict:
-    """AI 응답 파싱."""
-    result = {"stars": "★★★", "summary": "", "love": "", "work": "", "money": "", "health": "", "advice": ""}
+    """AI 응답 파싱 — 서술형."""
+    score = 3
+    narrative = ""
     for line in text.split("\n"):
         line = line.strip()
-        if line.startswith("종합:"):
-            result["stars"] = line.split(":", 1)[1].strip()
-        elif line.startswith("한줄:"):
-            result["summary"] = line.split(":", 1)[1].strip()
-        elif line.startswith("연애:"):
-            result["love"] = line.split(":", 1)[1].strip()
-        elif line.startswith("직장:"):
-            result["work"] = line.split(":", 1)[1].strip()
-        elif line.startswith("재운:"):
-            result["money"] = line.split(":", 1)[1].strip()
-        elif line.startswith("건강:"):
-            result["health"] = line.split(":", 1)[1].strip()
-        elif line.startswith("조언:"):
-            result["advice"] = line.split(":", 1)[1].strip()
-    return result
+        if not line:
+            continue
+        if line.startswith("점수:"):
+            try:
+                score = max(1, min(5, int(line.split(":", 1)[1].strip())))
+            except (ValueError, IndexError):
+                score = 3
+        elif line.startswith("운세:"):
+            narrative = line.split(":", 1)[1].strip()
+        elif not narrative and not line.startswith("점수"):
+            # 라벨 없이 바로 서술이 온 경우
+            narrative = line
+    stars = "★" * score + "☆" * (5 - score)
+    return {"stars": stars, "narrative": narrative}
 
 
 async def get_daily_horoscope(birth_date: date, user_name: str = "") -> dict | None:
@@ -319,13 +314,8 @@ async def get_daily_horoscope(birth_date: date, user_name: str = "") -> dict | N
     ai_text = await _generate_horoscope_ai(sign, transits, today)
     ai_failed = ai_text is None
     horoscope = _parse_ai_response(ai_text) if ai_text else {
-        "stars": "★★★",
-        "summary": "행성이 조용한 하루",
-        "love": "평온한 관계 유지",
-        "work": "꾸준함이 빛나는 날",
-        "money": "무리한 지출 자제",
-        "health": "가벼운 산책 추천",
-        "advice": "오늘은 자신에게 집중하세요",
+        "stars": "★★★☆☆",
+        "narrative": "행성이 조용한 하루입니다. 큰 변화 없이 안정적으로 흘러가니 무리하지 말고 자신에게 집중하세요.",
     }
 
     # 행운의 포켓몬
@@ -355,13 +345,8 @@ def format_horoscope_group(data: dict, user_name: str) -> str:
     lines = [
         f"🌟 <b>{user_name}</b>의 오늘 운세 ({sign['symbol']} {sign['name']})",
         "",
-        f"💫 {h['stars']}",
-        f"✨ {h['summary']}",
-        f"❤️ {h['love']}",
-        f"💼 {h['work']}",
-        f"💰 {h['money']}",
-        f"🏥 {h['health']}",
-        f"📌 {h['advice']}",
+        f"{h['stars']}",
+        f"{h['narrative']}",
         "",
         f"🍀 행운의 포켓몬: {lp['emoji']} <b>{lp['name']}</b> {rarity_emoji}",
     ]
@@ -387,19 +372,11 @@ def format_horoscope_dm(data: dict, user_name: str) -> str:
         f"🌟 <b>{user_name}</b>의 오늘 운세",
         f"{sign['symbol']} <b>{sign['name']}</b> ({sign['en']})",
         "",
-        f"💫 {h['stars']}",
-        f"✨ {h['summary']}",
-        "",
-        f"❤️ 연애  {h['love']}",
-        f"💼 직장  {h['work']}",
-        f"💰 재운  {h['money']}",
-        f"🏥 건강  {h['health']}",
-        f"📌 조언  {h['advice']}",
+        f"{h['stars']}",
+        f"{h['narrative']}",
         "",
         f"🍀 행운의 포켓몬: {lp['emoji']} <b>{lp['name']}</b> {rarity_emoji}",
         "",
         f"<i>━ {planet_summary}</i>",
-        "",
-        "🔮 더 자세한 리딩 → /타로",
     ]
     return "\n".join(lines)
