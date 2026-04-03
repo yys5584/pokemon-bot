@@ -191,15 +191,24 @@ def _build_transit_text(transits: dict) -> str:
 
 _HOROSCOPE_SYSTEM_PROMPT = """서양 점성술 전문가. 행성 트랜짓 데이터 기반 운세 해석.
 구체적이고 날카롭게, 긍정일변도 금지. 마크다운 금지.
-정확히 7줄, 각 라벨로 시작. 예시 내용을 복사하지 말고 독창적으로 작성:
+반드시 아래 7줄 형식으로만 출력. 각 줄을 빠짐없이 채울 것. 빈 줄 금지.
 
-종합: ★~★★★★★
-한줄: 15자 이내 핵심
-연애: 20자 이내
-직장: 20자 이내
-재운: 20자 이내
-건강: 20자 이내
-조언: 25자 이내"""
+종합: ★~★★★★★ + 한줄 요약 15자
+한줄: 오늘의 핵심 메시지 15자 이내
+연애: 구체적 연애운 20자 이내
+직장: 구체적 직장운 20자 이내
+재운: 구체적 재물운 20자 이내
+건강: 구체적 건강운 20자 이내
+조언: 오늘의 행동 조언 25자 이내
+
+예시 (복사 금지, 형식만 참고):
+종합: ★★★★ 소통이 활발한 하루
+한줄: 대화가 기회를 만듭니다
+연애: 솔직한 감정 표현이 좋은 반응을 얻음
+직장: 협업 프로젝트에서 주도권 잡기 좋은 날
+재운: 소액 투자나 저축 시작에 적합
+건강: 목과 어깨 스트레칭 필요
+조언: 망설이던 연락을 오늘 해보세요"""
 
 
 async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) -> str | None:
@@ -225,6 +234,7 @@ async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) 
             "temperature": 0.7,
             "maxOutputTokens": 1024,
             "topP": 0.9,
+            "thinkingConfig": {"thinkingBudget": 0},
         },
     }
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
