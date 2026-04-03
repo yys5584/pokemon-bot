@@ -644,6 +644,46 @@ async def mock_analytics_session(request):
     return web.json_response({"ok": True})
 
 
+async def mock_admin_overview(request):
+    """Return mock overview data for preview."""
+    import datetime, random
+    today = datetime.date.today()
+    history = []
+    for i in range(13, -1, -1):
+        d = today - datetime.timedelta(days=i)
+        dau = random.randint(25, 55)
+        history.append({
+            "date": str(d), "dau": dau, "new_users": random.randint(1, 5),
+            "spawns": random.randint(200, 500), "catches": random.randint(80, 200),
+            "battles": random.randint(30, 100), "ranked": random.randint(10, 40),
+            "d1_ret": round(random.uniform(20, 50), 1),
+            "d7_ret": round(random.uniform(8, 25), 1),
+            "bp_earned": random.randint(5000, 15000),
+            "bp_spent": random.randint(3000, 12000),
+        })
+    return web.json_response({
+        "today": {
+            "dau": 42, "dau_delta": 12.5, "new_users": 3, "active_1h": 18,
+            "total_users": 158, "d1_retention": 35.2, "d7_retention": 14.8,
+            "web_visitors": 25, "sub_active": 12, "sub_revenue": 46.8,
+        },
+        "engagement": {
+            "spawns": 312, "catches": 145, "shiny": 2, "catch_rate": 46.5,
+            "battles": 67, "ranked": 23, "trades": 8,
+            "tarot": 15, "tarot_users": 9, "camp_users": 14,
+        },
+        "economy": {"bp_earned": 12400, "bp_spent": 8900, "bp_net": 3500},
+        "adoption": [
+            {"feature": "포획", "users": 38, "pct": 90.5},
+            {"feature": "배틀", "users": 22, "pct": 52.4},
+            {"feature": "캠프", "users": 14, "pct": 33.3},
+            {"feature": "타로", "users": 9, "pct": 21.4},
+            {"feature": "거래", "users": 8, "pct": 19.0},
+        ],
+        "history": history,
+    })
+
+
 async def mock_admin_tarot_analytics(request):
     """Return mock tarot KPI data for preview."""
     import datetime, math
@@ -1219,6 +1259,7 @@ def create_preview_app():
     app.router.add_post("/api/analytics/pageview", mock_analytics_pageview)
     app.router.add_post("/api/analytics/session", mock_analytics_session)
     app.router.add_get("/api/admin/kpi", mock_admin_kpi)
+    app.router.add_get("/api/admin/overview", mock_admin_overview)
     app.router.add_get("/api/admin/tarot-analytics", mock_admin_tarot_analytics)
     app.router.add_get("/api/admin/battle-analytics", mock_admin_battle_analytics)
     # Catch-all for API routes

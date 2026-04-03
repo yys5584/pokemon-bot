@@ -421,6 +421,25 @@
         .adm-cat-btn.active-kpi{background:rgba(168,85,247,.08);color:#a855f7;border-color:rgba(168,85,247,.3);box-shadow:0 0 20px rgba(168,85,247,.12),inset 0 0 20px rgba(168,85,247,.04)}
         .adm-cat-btn.active-battle{background:rgba(255,140,0,.08);color:#ff8c00;border-color:rgba(255,140,0,.3);box-shadow:0 0 20px rgba(255,140,0,.12),inset 0 0 20px rgba(255,140,0,.04)}
         .adm-cat-btn.active-tarot{background:rgba(255,0,110,.08);color:#ff006e;border-color:rgba(255,0,110,.3);box-shadow:0 0 20px rgba(255,0,110,.12),inset 0 0 20px rgba(255,0,110,.04)}
+        .adm-cat-btn.active-overview{background:rgba(59,130,246,.08);color:#3b82f6;border-color:rgba(59,130,246,.3);box-shadow:0 0 20px rgba(59,130,246,.12),inset 0 0 20px rgba(59,130,246,.04)}
+        /* Overview dashboard */
+        .ov-north{display:flex;align-items:center;gap:16px;padding:20px 0 14px;flex-wrap:wrap}
+        .ov-north-num{font-size:42px;font-weight:900;color:#3b82f6;line-height:1;font-variant-numeric:tabular-nums}
+        .ov-north-label{font-size:12px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.5px}
+        .ov-north-delta{font-size:13px;font-weight:700;margin-left:8px}
+        .ov-north-delta.up{color:#00ff88}.ov-north-delta.down{color:#ef4444}
+        .ov-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+        .ov-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px;transition:all .2s}
+        .ov-card:hover{border-color:rgba(59,130,246,.25);background:rgba(59,130,246,.04)}
+        .ov-card-label{font-size:10px;color:rgba(255,255,255,.35);font-weight:600;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px}
+        .ov-card-val{font-size:22px;font-weight:800;color:#e0e0e0;font-variant-numeric:tabular-nums}
+        .ov-card-sub{font-size:10px;color:rgba(255,255,255,.25);margin-top:4px}
+        .ov-adopt-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
+        .ov-adopt-label{min-width:40px;color:rgba(255,255,255,.5);font-weight:600;text-align:right}
+        .ov-adopt-track{flex:1;height:20px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;position:relative}
+        .ov-adopt-fill{height:100%;border-radius:4px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+        .ov-adopt-pct{min-width:45px;color:rgba(255,255,255,.6);font-weight:700;font-variant-numeric:tabular-nums}
+        @media(max-width:768px){.ov-grid{grid-template-columns:repeat(2,1fr)}.ov-north-num{font-size:32px}}
         .bf-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 0}
         .bf-label{color:rgba(255,255,255,.45);font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
         .bf-select{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e0e0e0;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;outline:none;transition:border-color .2s}
@@ -3434,12 +3453,55 @@
             <div class="adm-title">🔧 관리자 패널 <span class="adm-title-glow"><span class="neon-dot neon-dot-green"></span>SYSTEM ONLINE</span></div>
             <!-- Admin Category Tabs -->
             <div class="adm-cat-bar">
-                <div class="adm-cat-btn active-manage" onclick="admCatSwitch('manage')" id="admCatBtn-manage">⚡ 관리</div>
+                <div class="adm-cat-btn active-overview" onclick="admCatSwitch('overview')" id="admCatBtn-overview">📊 Overview</div>
+                <div class="adm-cat-btn" onclick="admCatSwitch('manage')" id="admCatBtn-manage">⚡ 관리</div>
                 <div class="adm-cat-btn" onclick="admCatSwitch('db')" id="admCatBtn-db">🗄️ DB</div>
                 <div class="adm-cat-btn" onclick="admCatSwitch('kpi')" id="admCatBtn-kpi">📈 KPI</div>
                 <div class="adm-cat-btn" onclick="admCatSwitch('battle')" id="admCatBtn-battle">⚔️ 배틀</div>
                 <div class="adm-cat-btn" onclick="admCatSwitch('tarot')" id="admCatBtn-tarot">🔮 타로</div>
             </div>
+
+            <!-- Category: Overview -->
+            <div id="admCat-overview" style="display:none">
+            <div style="margin-bottom:14px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                    <span class="neon-dot" style="background:#3b82f6;box-shadow:0 0 8px #3b82f6"></span>
+                    <span style="font-size:14px;font-weight:700;color:#e0e0e0">📊 Today at a Glance</span>
+                    <span style="font-size:10px;color:rgba(255,255,255,.25);margin-left:auto" id="ovLastUpdate"></span>
+                </div>
+                <!-- North Star: DAU -->
+                <div class="ov-north">
+                    <div>
+                        <div class="ov-north-label">TODAY DAU</div>
+                        <div style="display:flex;align-items:baseline;gap:6px">
+                            <div class="ov-north-num" id="ovDau">-</div>
+                            <span class="ov-north-delta" id="ovDauDelta"></span>
+                        </div>
+                    </div>
+                    <div style="margin-left:auto;display:flex;gap:20px;align-items:center">
+                        <div style="text-align:center"><div class="ov-north-label">1H ACTIVE</div><div style="font-size:20px;font-weight:800;color:#00ff88" id="ovActive1h">-</div></div>
+                        <div style="text-align:center"><div class="ov-north-label">NEW TODAY</div><div style="font-size:20px;font-weight:800;color:#a855f7" id="ovNewUsers">-</div></div>
+                        <div style="text-align:center"><div class="ov-north-label">TOTAL</div><div style="font-size:20px;font-weight:800;color:rgba(255,255,255,.5)" id="ovTotalUsers">-</div></div>
+                    </div>
+                </div>
+                <!-- Tier 1: Engagement Cards -->
+                <div class="ov-grid" id="ovEngCards"></div>
+                <!-- Feature Adoption -->
+                <div class="chart-panel" style="margin-bottom:14px">
+                    <div class="chart-title"><span>━━</span> Feature Adoption (% of DAU)</div>
+                    <div id="ovAdoption" style="padding:8px 0"></div>
+                </div>
+                <!-- Charts Row -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+                    <div class="chart-panel"><div class="chart-title"><span>━━</span> 14일 DAU 추이</div><div style="height:200px"><canvas id="ovChartDau"></canvas></div></div>
+                    <div class="chart-panel"><div class="chart-title"><span>━━</span> 14일 포획 / 배틀</div><div style="height:200px"><canvas id="ovChartActivity"></canvas></div></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+                    <div class="chart-panel"><div class="chart-title"><span>━━</span> 리텐션 추이</div><div style="height:200px"><canvas id="ovChartRetention"></canvas></div></div>
+                    <div class="chart-panel"><div class="chart-title"><span>━━</span> BP 이코노미</div><div style="height:200px"><canvas id="ovChartEconomy"></canvas></div></div>
+                </div>
+            </div>
+            </div><!-- /admCat-overview -->
 
             <!-- Category: Manage -->
             <div id="admCat-manage">
@@ -3865,7 +3927,7 @@ function updateQuotaBadge(remaining,bonus){
 
 // --- Tab Navigation with URL routing ---
 const PAGE_PATHS={home:"/",channels:"/channels",board:"/board",battlerank:"/battle",market:"/market",tier:"/tier",typechart:"/types",guide:"/guide",camp:"/camp",stats:"/stats",mypokemon:"/mypokemon",simulator:"/ai",cs:"/cs",admin:"/admin"};
-const ADMIN_CATS=["manage","db","kpi","battle","tarot"];
+const ADMIN_CATS=["overview","manage","db","kpi","battle","tarot"];
 function switchGuide(id){document.querySelectorAll('.guide-section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));document.getElementById('guide-'+id).classList.add('active');document.querySelector('.guide-tab[data-guide="'+id+'"]').classList.add('active');if(id==='typechart'){const src=document.getElementById('typeChartGrid');const dst=document.getElementById('typeChartGuide');if(src&&dst&&src.innerHTML&&!src.innerHTML.includes('로딩')){dst.innerHTML=src.innerHTML}else{loadTypeChart().then(()=>{const s2=document.getElementById('typeChartGrid');if(s2)dst.innerHTML=s2.innerHTML})}}}
 const PATH_PAGES=Object.fromEntries(Object.entries(PAGE_PATHS).map(([k,v])=>[v,k]));
 let currentPage="home";
@@ -3971,7 +4033,7 @@ window.addEventListener("popstate",(e)=>{
     const boardMatch=path.match(/^\/board\/(notice|community)$/);
     if(boardMatch){navigateTo("board",false);const el=document.querySelector(`.board-side-item[data-board="${boardMatch[1]}"],.board-side-sub[data-board="${boardMatch[1]}"]`);if(el)boardSideNav(el,false);return}
     // Admin sub-path fallback
-    const adminMatch=path.match(/^\/admin\/(manage|db|kpi|battle|tarot)$/);
+    const adminMatch=path.match(/^\/admin\/(overview|manage|db|kpi|battle|tarot)$/);
     if(adminMatch){navigateTo("admin",false);admCatSwitch(adminMatch[1],false);return}
     const page=st?.page||PATH_PAGES[path]||"home";
     navigateTo(page,false);
@@ -5646,17 +5708,79 @@ async function adminFulfillOrder(orderKey){
 
 // --- Admin Category Tabs ---
 function admCatSwitch(cat,pushState=true){
-    ["manage","db","kpi","battle","tarot"].forEach(c=>{
+    ["overview","manage","db","kpi","battle","tarot"].forEach(c=>{
         const el=document.getElementById("admCat-"+c);
         const btn=document.getElementById("admCatBtn-"+c);
         if(el)el.style.display=c===cat?"":"none";
         if(btn){btn.className="adm-cat-btn"+(c===cat?" active-"+c:"")}
     });
     if(pushState) history.pushState({page:"admin",adminCat:cat},"","/admin/"+cat);
+    if(cat==="overview")admOverviewLoad();
     if(cat==="db")admDbTab(_admDbCur||"overview");
     if(cat==="kpi")admKpiLoad();
     if(cat==="battle")admBattleLoad();
     if(cat==="tarot")admTarotLoad();
+}
+
+// --- Overview Dashboard ---
+let _ovCharts={};
+const _ADOPT_COLORS=["#3b82f6","#00ff88","#a855f7","#ff8c00","#ff006e"];
+async function admOverviewLoad(){
+    const d=await fetchJSON("/api/admin/overview");
+    if(!d||d.error)return;
+    const t=d.today,eng=d.engagement,eco=d.economy;
+    // North Star
+    document.getElementById("ovDau").textContent=t.dau.toLocaleString();
+    const dd=document.getElementById("ovDauDelta");
+    if(t.dau_delta!=null){dd.textContent=(t.dau_delta>0?"+":"")+t.dau_delta+"%";dd.className="ov-north-delta "+(t.dau_delta>=0?"up":"down")}else{dd.textContent=""}
+    document.getElementById("ovActive1h").textContent=t.active_1h.toLocaleString();
+    document.getElementById("ovNewUsers").textContent=t.new_users.toLocaleString();
+    document.getElementById("ovTotalUsers").textContent=t.total_users.toLocaleString();
+    document.getElementById("ovLastUpdate").textContent="Updated "+new Date().toLocaleTimeString("ko");
+    // Engagement cards
+    const cards=[
+        {l:"포획",v:eng.catches,s:`${eng.spawns.toLocaleString()} 스폰 · ${eng.catch_rate}%`},
+        {l:"이로치",v:eng.shiny,s:"오늘 등장"},
+        {l:"배틀",v:eng.battles,s:`랭크 ${eng.ranked}`},
+        {l:"거래",v:eng.trades,s:"체결"},
+        {l:"타로",v:eng.tarot,s:`${eng.tarot_users}명 이용`},
+        {l:"캠프",v:eng.camp_users,s:"배치 유저"},
+        {l:"D1 RET",v:t.d1_retention+"%",s:"어제 기준"},
+        {l:"구독",v:t.sub_active,s:t.sub_revenue?"$"+t.sub_revenue.toFixed(1):""},
+    ];
+    document.getElementById("ovEngCards").innerHTML=cards.map(c=>`<div class="ov-card"><div class="ov-card-label">${c.l}</div><div class="ov-card-val">${typeof c.v==="number"?c.v.toLocaleString():c.v}</div><div class="ov-card-sub">${c.s}</div></div>`).join("");
+    // Feature adoption
+    const adopt=d.adoption||[];
+    document.getElementById("ovAdoption").innerHTML=adopt.map((a,i)=>`<div class="ov-adopt-bar"><div class="ov-adopt-label">${a.feature}</div><div class="ov-adopt-track"><div class="ov-adopt-fill" style="width:${Math.min(a.pct,100)}%;background:${_ADOPT_COLORS[i%5]}"></div></div><div class="ov-adopt-pct">${a.pct}%</div></div>`).join("");
+    // Charts
+    const hist=d.history||[];
+    const labels=hist.map(h=>h.date.slice(5));
+    _ovMakeChart("ovChartDau","line",labels,[
+        {label:"DAU",data:hist.map(h=>h.dau),borderColor:"#3b82f6",backgroundColor:"rgba(59,130,246,.1)",fill:true,tension:.3},
+        {label:"신규",data:hist.map(h=>h.new_users),borderColor:"#a855f7",backgroundColor:"rgba(168,85,247,.1)",fill:true,tension:.3},
+    ]);
+    _ovMakeChart("ovChartActivity","bar",labels,[
+        {label:"포획",data:hist.map(h=>h.catches),backgroundColor:"rgba(0,255,136,.5)"},
+        {label:"배틀",data:hist.map(h=>h.battles),backgroundColor:"rgba(255,140,0,.5)"},
+        {label:"랭크",data:hist.map(h=>h.ranked),backgroundColor:"rgba(168,85,247,.5)"},
+    ]);
+    _ovMakeChart("ovChartRetention","line",labels,[
+        {label:"D1",data:hist.map(h=>h.d1_ret),borderColor:"#00ff88",tension:.3},
+        {label:"D7",data:hist.map(h=>h.d7_ret),borderColor:"#ff8c00",tension:.3},
+    ],{scales:{y:{min:0,max:100,ticks:{callback:v=>v+"%"}}}});
+    _ovMakeChart("ovChartEconomy","bar",labels,[
+        {label:"BP 유입",data:hist.map(h=>h.bp_earned),backgroundColor:"rgba(0,255,136,.4)"},
+        {label:"BP 소각",data:hist.map(h=>h.bp_spent),backgroundColor:"rgba(239,68,68,.4)"},
+    ]);
+}
+function _ovMakeChart(id,type,labels,datasets,extraOpts){
+    if(_ovCharts[id]){_ovCharts[id].destroy()}
+    const ctx=document.getElementById(id);
+    if(!ctx)return;
+    const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:"top",labels:{color:"rgba(255,255,255,.5)",font:{size:10},boxWidth:10,padding:8}}},scales:{x:{ticks:{color:"rgba(255,255,255,.3)",font:{size:9}},grid:{color:"rgba(255,255,255,.04)"}},y:{ticks:{color:"rgba(255,255,255,.3)",font:{size:9}},grid:{color:"rgba(255,255,255,.06)"}}}};
+    const opts=extraOpts?{...base,scales:{...base.scales,...(extraOpts.scales||{})}}:base;
+    datasets.forEach(ds=>{ds.borderWidth=ds.borderWidth||2;ds.pointRadius=ds.pointRadius||0});
+    _ovCharts[id]=new Chart(ctx,{type,data:{labels,datasets},options:opts});
 }
 
 // --- KPI Dashboard (Dark Neon) ---
@@ -6614,8 +6738,8 @@ async function admOptoutRemove(uid){
 async function loadAdmin(){
     await Promise.all([adminLoadUsers(),adminLoadOrders()]);
     // If we're already on a sub-route (e.g. /admin/battle), don't override
-    const adminMatch=location.pathname.match(/^\/admin\/(manage|db|kpi|battle|tarot)$/);
-    if(!adminMatch) admCatSwitch("manage",false);
+    const adminMatch=location.pathname.match(/^\/admin\/(overview|manage|db|kpi|battle|tarot)$/);
+    if(!adminMatch) admCatSwitch("overview",false);
 }
 
 
@@ -7427,7 +7551,7 @@ function _escHtml(s) {
         if(el) boardSideNav(el,false);
     }
     // Admin deep-link: sub-tab (/admin/battle, /admin/kpi, etc.)
-    else if(/^\/admin\/(manage|db|kpi|battle|tarot)$/.test(path)){
+    else if(/^\/admin\/(overview|manage|db|kpi|battle|tarot)$/.test(path)){
         const cat=path.split("/")[2];
         navigateTo("admin",false);
         history.replaceState({page:"admin",adminCat:cat},"",path);
