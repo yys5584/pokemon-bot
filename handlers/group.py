@@ -385,6 +385,9 @@ async def captcha_callback_handler(update: Update, context: ContextTypes.DEFAULT
 
 # ── 데일리 운세 (그룹) ──
 
+_horoscope_cooldown: dict[int, float] = {}  # user_id -> timestamp
+HOROSCOPE_COOLDOWN_SEC = 180  # 3분
+
 
 async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """그룹 '운세' 명령 → 데일리 별자리 운세."""
@@ -393,14 +396,24 @@ async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not msg or not user:
         return
 
+    # 3분 쿨다운
+    import time
+    now = time.time()
+    last = _horoscope_cooldown.get(user.id, 0)
+    if now - last < HOROSCOPE_COOLDOWN_SEC:
+        remaining = int(HOROSCOPE_COOLDOWN_SEC - (now - last))
+        await msg.reply_text(f"⏳ {remaining}초 후에 다시 시도해주세요.")
+        return
+    _horoscope_cooldown[user.id] = now
+
     # 생년월일 확인
     from handlers.dm_fortune import _get_birth_date
     birth_date = await _get_birth_date(user.id)
     if not birth_date:
         await msg.reply_text(
             "🌟 운세를 보려면 생년월일 등록이 필요해요!\n"
-            "📩 DM에서 <b>/타로</b> 를 입력하면 등록할 수 있어요.",
-            parse_mode="HTML", quote=True,
+            "📩 DM에서 <b>타로</b>를 입력하면 등록할 수 있어요.",
+            parse_mode="HTML",
         )
         return
 
