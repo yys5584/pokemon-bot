@@ -69,6 +69,15 @@ def get_zodiac(birth_date: date) -> str:
     return "♑ 염소자리"
 
 
+def _get_card_by_short(name_short: str) -> dict | None:
+    """name_short로 카드 데이터 조회."""
+    cards = _load_cards()
+    for c in cards:
+        if c.get("name_short") == name_short:
+            return c
+    return None
+
+
 # ── 카드 뽑기 ──
 
 def draw_cards(count: int = 3, seed: int | None = None) -> list[dict]:
@@ -303,59 +312,51 @@ async def enrich_reading_with_ai(
 
 
 def _generate_summary(cards: list[dict], topic: str, zodiac: str | None) -> str:
-    """3장 카드를 종합한 요약 멘트 (신비로운 피카 톤)."""
-    # 정방향 카드 수로 전체 분위기 결정
+    """카드 조합 기반 요약 멘트 (AI 폴백용)."""
     positive_count = sum(1 for c in cards if not c["reversed"])
     total = len(cards)
 
     if positive_count == total:
-        mood = "...후후, 아주 좋은 기운이 가득해요."
+        mood = "카드들이 같은 방향을 가리키고 있습니다. 흐름을 타세요."
     elif positive_count >= total / 2:
-        mood = "...전체적으로 좋은 흐름이에요. 다만, 조심할 부분도 있어요."
+        mood = "전반적으로 순항이지만, 역방향 카드가 짚는 지점을 놓치지 마세요."
     elif positive_count > 0:
-        mood = "...쉽지 않은 시기지만, 빛이 보여요."
+        mood = "도전적인 배치입니다. 정방향 카드가 돌파구를 가리키고 있어요."
     else:
-        mood = "...많이 힘든 시기네요. 하지만 괜찮아요, 이것도 지나가요."
+        mood = "직면해야 할 것들이 있습니다. 회피보다 직시가 답인 시기예요."
 
-    zodiac_line = f"\n{zodiac}의 당신에게 보내는 메시지예요." if zodiac else ""
+    zodiac_line = f"\n{zodiac}의 에너지가 이 리딩에 영향을 주고 있습니다." if zodiac else ""
 
-    advice_pool = [
-        "오늘 하루, 자신에게 조금 더 다정해지세요.",
-        "작은 것부터 시작해봐요. 그게 가장 큰 용기예요.",
-        "당신은 생각보다 강한 사람이에요.",
-        "쉬어가도 괜찮아요. 멈추는 것도 전진이에요.",
-        "마음이 가는 대로 따라가봐요. 그게 답이에요.",
-        "오늘은 좋아하는 걸 하나만 해보세요.",
-    ]
-
-    rng = random.Random(hash((config.get_kst_today(), topic)))
-    advice = rng.choice(advice_pool)
-
-    return f"{mood}{zodiac_line}\n\n💫 {advice}"
+    return f"{mood}{zodiac_line}"
 
 
 # ── AI 서사 생성 (Gemini Flash) ──
 
 _NARRATIVE_SYSTEM_PROMPT = """당신은 서양 타로 전문가입니다. 존댓말, 담백하고 명확한 톤.
 
+## 역할: 다듬기 (Refiner)
+아래 "기본 해석"은 이미 카드 고유 상징과 전통에 기반한 고품질 텍스트입니다.
+당신의 역할은 이 해석을 **질문자의 구체적 상황에 맞춰 미세 조정**하는 것입니다.
+
+핵심 원칙:
+- 기본 해석의 핵심 메시지와 카드 상징을 유지하세요.
+- 질문자 상황(성별, 별자리, 구체적 상황)에 맞춰 예시나 표현을 조정하세요.
+- 기본 해석을 그대로 복사하지는 마세요. 같은 뼈대에 질문자 맞춤 살을 붙이세요.
+- 기본 해석에 없는 새로운 상징이나 의미를 추가하지 마세요.
+
 ## 시제 규칙 (반드시 준수)
 - 과거 포지션 → 과거형 ("~했습니다", "~였습니다")
 - 현재 포지션 → 현재형 ("~하고 있습니다", "~입니다")
 - 미래 포지션 → 미래형 ("~할 것입니다", "~될 수 있습니다")
 
-## 역할
-아래 "카드별 레퍼런스"를 참고하되, 질문자의 상황에 맞게 해석을 재구성하세요.
-레퍼런스를 그대로 복사하지 마세요. 질문자 상황이 핵심입니다.
-
 ## 출력 형식 (정확히 따를 것)
 각 카드를 [포지션명] 라벨로 시작. 카드명을 반복하지 마세요.
-1줄째: 이 카드가 상징하는 핵심 의미 한 줄 (카드 자체의 설명)
-2~3줄째: 질문자 상황에 맞춘 해석
+2~3문장: 기본 해석의 핵심을 질문자 상황에 맞게 다듬은 해석
 
-마지막에 [인사이트]로 세 카드를 관통하는 하나의 통찰을 1~2문장으로 전하세요.
+마지막에 [인사이트]로 카드들을 관통하는 하나의 통찰을 1~2문장으로 전하세요.
 - 개별 카드 해석을 요약하거나 반복하지 마세요. 이미 다 읽었습니다.
-- 과거/현재/미래 언급 금지. 카드 이름 언급 금지.
-- 세 카드가 함께 가리키는 공통 테마나 흐름을 한 단어로 짚고, 그에 따른 구체적 행동 조언을 주세요.
+- 카드 이름 언급 금지.
+- 카드들이 함께 가리키는 공통 테마를 한 단어로 짚고, 구체적 행동 조언을 주세요.
 - 예: "지금 필요한 건 '기다림'입니다. 결과를 재촉하지 말고, 이번 주는 준비에 집중하세요."
 
 ## 금지
@@ -364,7 +365,7 @@ _NARRATIVE_SYSTEM_PROMPT = """당신은 서양 타로 전문가입니다. 존댓
 - 이모지, HTML, 마크다운 금지
 - 바넘효과성 문장 금지 ("마음이 힘들었을 거예요", "지친 시간이 있었겠네요" 등 누구에게나 맞는 말)
 - 점술적 예언("반드시 ~할 것입니다") 금지
-- 카드 원래 의미에서 벗어난 해석 금지"""
+- 기본 해석의 카드 상징에서 벗어난 해석 금지"""
 
 
 def _build_narrative_prompt(
@@ -387,15 +388,28 @@ def _build_narrative_prompt(
     for c in cards:
         direction = "역방향" if c["reversed"] else "정방향"
         lines.append(f"[{c['position']}] {c['card_name']} ({direction})")
-        lines.append(f"레퍼런스: {c['meaning']}")
+        # 카드 메타데이터 (있으면 전달)
+        card_short = c.get("card_name_short", "")
+        card_data = _get_card_by_short(card_short) if card_short else None
+        if card_data:
+            archetype = card_data.get("archetype", "")
+            keywords = card_data.get("core_keywords") or card_data.get("shadow_keywords") or []
+            if c["reversed"]:
+                keywords = card_data.get("shadow_keywords") or keywords
+            if archetype:
+                lines.append(f"원형: {archetype}")
+            if keywords:
+                lines.append(f"키워드: {', '.join(keywords)}")
+        lines.append(f"기본 해석: {c['meaning']}")
         lines.append("")
 
     if zodiac:
         lines.append(f"별자리: {zodiac}")
 
-    lines.append(f"\n'{time_hint}' 관점에서 각 카드별 해석(2~3문장) + [인사이트](1~2문장)를 작성하세요.")
-    lines.append("질문자 상황에 맞춰 해석을 조정하세요. 레퍼런스를 그대로 쓰지 마세요.")
-    lines.append("[인사이트]는 카드 내용 요약이 아닙니다. 세 카드의 공통 테마를 한 단어로 짚고 행동 조언만 쓰세요.")
+    lines.append(f"\n'{time_hint}' 관점에서 각 카드의 기본 해석을 질문자 상황에 맞게 다듬어주세요 (카드당 2~3문장).")
+    lines.append("마지막에 [인사이트](1~2문장)를 추가하세요.")
+    lines.append("기본 해석의 핵심 메시지와 카드 상징을 유지하되, 질문자 상황에 맞게 표현을 조정하세요.")
+    lines.append("[인사이트]는 카드 내용 요약이 아닙니다. 카드들의 공통 테마를 한 단어로 짚고 행동 조언만 쓰세요.")
     return "\n".join(lines)
 
 
@@ -456,7 +470,7 @@ async def get_ai_narrative(
         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
         "systemInstruction": {"parts": [{"text": _NARRATIVE_SYSTEM_PROMPT}]},
         "generationConfig": {
-            "temperature": 0.8,
+            "temperature": 0.6,
             "maxOutputTokens": 2048,
             "topP": 0.9,
         },
