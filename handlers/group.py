@@ -407,7 +407,7 @@ async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from services.horoscope_service import get_daily_horoscope, format_horoscope_group
     data = await get_daily_horoscope(birth_date, user.first_name)
     if not data:
-        await msg.reply_text("운세 생성에 실패했어요. 잠시 후 다시 시도해주세요.", quote=True)
+        await msg.reply_text("운세 생성에 실패했어요. 잠시 후 다시 시도해주세요.")
         return
 
     display_name = user.first_name or "트레이너"
@@ -421,4 +421,4 @@ async def horoscope_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await item_queries.add_user_item(user.id, "personality_ticket", 1)
         await _mark_horoscope_rewarded(user.id)
         text += "\n\n🎭 <i>성격변경권 1개를 받았어요!</i>"
-    await msg.reply_text(text, parse_mode="HTML", quote=True)
+    await msg.reply_text(text, parse_mode="HTML")
