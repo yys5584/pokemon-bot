@@ -1,14 +1,16 @@
 """
 데일리 별자리 운세 서비스.
 
-swisseph로 실제 행성 위치 계산 → Gemini AI 해석 생성.
+swisseph로 실제 행성 위치 계산 → 해석 DB 조합 → Gemini AI 다듬기.
 별자리별 하루 1회 캐싱, 행운의 포켓몬 포함.
 """
 
 import hashlib
+import json
 import logging
 import os
 from datetime import date, datetime
+from pathlib import Path
 
 import aiohttp
 
@@ -70,6 +72,101 @@ _PLANET_NAMES = {
 _ASPECTS = {
     "합(☌)": 0, "육합(⚹)": 60, "사각(□)": 90, "삼합(△)": 120, "대립(☍)": 180,
 }
+
+# ── 해석 DB ──
+_interpretation_db: dict | None = None
+
+def _load_interpretation_db() -> dict:
+    """해석 DB JSON 로드 (최초 1회)."""
+    global _interpretation_db
+    if _interpretation_db is not None:
+        return _interpretation_db
+    db_path = Path(__file__).parent.parent / "data" / "horoscope_interpretations.json"
+    try:
+        with open(db_path, "r", encoding="utf-8") as f:
+            _interpretation_db = json.load(f)
+        _log.info(f"Horoscope DB loaded: {len(_interpretation_db.get('transits', {}))} planets, "
+                  f"{len(_interpretation_db.get('aspects', {}))} aspect pairs")
+    except Exception as e:
+        _log.warning(f"Horoscope DB load failed: {e}")
+        _interpretation_db = {"transits": {}, "aspects": {}}
+    return _interpretation_db
+
+
+# 행성 영문키 매핑 (swisseph pid → DB key)
+_PLANET_DB_KEYS = {0: "sun", 1: "moon", 2: "mercury", 3: "venus", 4: "mars", 5: "jupiter", 6: "saturn"}
+# 별자리 한→영 매핑
+_SIGN_EN_MAP = {
+    "양자리": "aries", "황소자리": "taurus", "쌍둥이자리": "gemini", "게자리": "cancer",
+    "사자자리": "leo", "처녀자리": "virgo", "천칭자리": "libra", "전갈자리": "scorpio",
+    "사수자리": "sagittarius", "염소자리": "capricorn", "물병자리": "aquarius", "물고기자리": "pisces",
+}
+
+
+def _build_interpretation_context(sign: dict, transits: dict) -> str:
+    """오늘 트랜짓 기반으로 DB 해석을 조합."""
+    db = _load_interpretation_db()
+    transit_db = db.get("transits", {})
+    aspect_db = db.get("aspects", {})
+
+    lines = []
+
+    # 1) 유저 별자리의 지배행성 해석을 최우선
+    ruler_name = sign.get("ruler", "")
+    sign_name = sign.get("name", "")
+
+    # 2) 각 행성의 현재 별자리 해석
+    for p in transits["planets"]:
+        planet_ko = p["name"]
+        planet_sign_ko = p["sign"]
+        # pid → db key
+        planet_key = None
+        for pid, key in _PLANET_DB_KEYS.items():
+            if _PLANET_NAMES[pid][0] == planet_ko:
+                planet_key = key
+                break
+        if not planet_key:
+            continue
+        sign_key = _SIGN_EN_MAP.get(planet_sign_ko, "")
+        if not sign_key:
+            continue
+
+        planet_data = transit_db.get(planet_key, {}).get(sign_key)
+        if planet_data:
+            is_ruler = planet_ko in ruler_name
+            prefix = f"★ [지배행성] {planet_ko}→{planet_sign_ko}" if is_ruler else f"{planet_ko}→{planet_sign_ko}"
+            lines.append(f"{prefix}: {planet_data['interpretation']}")
+            if planet_data.get("shadow"):
+                lines.append(f"  그림자: {planet_data['shadow']}")
+            if planet_data.get("advice"):
+                lines.append(f"  조언: {planet_data['advice']}")
+
+    # 3) 어스펙트 해석
+    for asp_text in transits.get("aspects", [])[:6]:
+        # "태양합(☌)달" 형식에서 행성쌍 추출
+        for asp_name in _ASPECTS:
+            if asp_name in asp_text:
+                parts = asp_text.split(asp_name)
+                if len(parts) == 2:
+                    p1_ko, p2_ko = parts[0], parts[1]
+                    p1_key = next((k for pid, k in _PLANET_DB_KEYS.items() if _PLANET_NAMES[pid][0] == p1_ko), None)
+                    p2_key = next((k for pid, k in _PLANET_DB_KEYS.items() if _PLANET_NAMES[pid][0] == p2_ko), None)
+                    if p1_key and p2_key:
+                        pair_key = f"{p1_key}_{p2_key}"
+                        alt_key = f"{p2_key}_{p1_key}"
+                        # 어스펙트 타입 매핑
+                        asp_type_map = {"합(☌)": "conjunction", "육합(⚹)": "sextile", "사각(□)": "square",
+                                        "삼합(△)": "trine", "대립(☍)": "opposition"}
+                        asp_type = asp_type_map.get(asp_name, "")
+                        if asp_type:
+                            asp_data = aspect_db.get(pair_key, aspect_db.get(alt_key, {}))
+                            interp = asp_data.get(asp_type, "")
+                            if interp:
+                                lines.append(f"[어스펙트] {asp_text}: {interp}")
+                break
+
+    return "\n".join(lines) if lines else ""
+
 
 # ── 캐시 ──
 _daily_cache: dict[str, dict] = {}  # key: "YYYY-MM-DD:sign_name"
@@ -202,15 +299,19 @@ def _build_transit_text(transits: dict) -> str:
 
 
 _HOROSCOPE_SYSTEM_PROMPT = """당신은 20년 경력 서양 점성술사입니다.
-행성 트랜짓 + 별자리 고유 특성을 교차 분석해 자연스러운 서술형 운세를 작성합니다.
+아래 제공되는 전문 해석 자료를 바탕으로, 오늘 이 별자리에 해당하는 자연스러운 운세를 작성합니다.
+
+## 역할
+- 전문 해석 자료(행성 트랜짓 해석, 어스펙트 해석)가 제공됩니다.
+- 이 자료들을 종합하여 오늘의 운세를 자연스러운 2~3문장으로 다듬어 주세요.
+- ★ 표시된 지배행성 해석이 가장 중요합니다.
 
 ## 해석 원칙
-1. 지배 행성의 현재 위치가 핵심. 지배 행성이 어떤 별자리에 있고 어떤 어스펙트를 형성하는지가 그 날의 운세를 결정합니다.
-2. 같은 날이라도 별자리마다 운세가 완전히 달라야 합니다.
-3. 별자리의 mode(활동궁/고정궁/변통궁)와 trait를 반영하세요.
-4. 건강은 해당 별자리의 취약 부위(body)를 참고하세요.
-5. 긍정일변도 금지. 1~2점도 과감하게 주세요.
-6. "~할 수 있습니다" 같은 애매한 표현 금지. 단정적으로.
+1. 지배 행성의 현재 위치와 어스펙트가 오늘 운세의 핵심입니다.
+2. 제공된 해석 자료의 내용을 충실히 반영하되, 자연스러운 하나의 이야기로 엮으세요.
+3. 긍정일변도 금지. 해석 자료에 부정적 내용이 있으면 반드시 반영하세요.
+4. "~할 수 있습니다" 같은 애매한 표현 금지. 단정적으로.
+5. 점수는 해석 자료의 톤(positive/negative/mixed)과 그림자 비중을 고려하여 1~5점.
 
 ## 출력 형식 (정확히 2줄, 빈 줄 금지)
 점수: 1~5 (숫자만)
@@ -224,10 +325,12 @@ async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) 
         return None
 
     transit_text = _build_transit_text(transits)
+    interpretation_context = _build_interpretation_context(sign, transits)
     ruler = sign.get("ruler", "")
     mode = sign.get("mode", "")
     trait = sign.get("trait", "")
     body = sign.get("body", "")
+
     user_prompt = f"""오늘 날짜: {target_date}
 별자리: {sign['name']} ({sign['symbol']}, {sign['en']})
 원소: {sign['element']} | 지배행성: {ruler} | 모드: {mode}
@@ -236,8 +339,11 @@ async def _generate_horoscope_ai(sign: dict, transits: dict, target_date: date) 
 
 {transit_text}
 
-{sign['name']}의 지배행성 {ruler}의 현재 위치와 어스펙트를 중심으로 해석하세요.
-{sign['name']}의 고유 특성({trait})이 오늘 행성 배치와 어떻게 상호작용하는지 구체적으로 설명하세요."""
+## 전문 해석 자료 (이 내용을 바탕으로 운세를 작성하세요)
+{interpretation_context}
+
+위 해석 자료를 종합하여, {sign['name']}의 오늘 운세를 자연스러운 2~3문장으로 작성하세요.
+지배행성 {ruler}의 해석이 가장 중요합니다."""
 
     payload = {
         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
