@@ -31,7 +31,7 @@ async def refresh_cost_limit():
         from database import ranked_queries as rq
         season = await rq.get_current_season()
         if season:
-            rule_key = season.get("rule")
+            rule_key = season.get("weekly_rule")
             if rule_key:
                 rule = config.SEASON_RULES.get(rule_key, {})
                 _COST_LIMIT = rule.get("cost_limit", config.RANKED_COST_LIMIT)
