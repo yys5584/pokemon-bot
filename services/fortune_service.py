@@ -199,6 +199,19 @@ async def generate_reading(
             "ai_narrative": str | None,
         }
     """
+    reading = generate_reading_cards(topic, spread_type, birth_date, user_id, time_range)
+    await enrich_reading_with_ai(reading, situation=situation, gender=gender)
+    return reading
+
+
+def generate_reading_cards(
+    topic: str = "종합",
+    spread_type: str = "three_card",
+    birth_date: date | None = None,
+    user_id: int | None = None,
+    time_range: str = "이번 주",
+) -> dict:
+    """카드 뽑기 + 정적 해석만 (AI 없이 즉시 반환)."""
     spread = get_spread(spread_type)
 
     # 시드: user_id + 날짜 기반 (같은 날 같은 유저는 같은 결과)
@@ -241,23 +254,7 @@ async def generate_reading(
     if time_range not in TIME_RANGES:
         time_range = DEFAULT_TIME_RANGE
 
-    # AI 해석 생성 (카드별 + 종합)
-    ai_narrative = await get_ai_narrative(
-        reading_cards, topic, spread_type, spread["name"], zodiac, time_range,
-        situation=situation, gender=gender,
-    )
-
-    # AI 응답에서 카드별 해석 분리 → 카드 meaning 교체
-    ai_summary = ""
-    if ai_narrative:
-        positions = [c["position"] for c in reading_cards]
-        card_meanings, ai_summary = _parse_ai_card_meanings(ai_narrative, positions)
-        for c in reading_cards:
-            if c["position"] in card_meanings:
-                c["meaning"] = card_meanings[c["position"]]
-
-    # 정적 폴백 요약
-    summary = ai_summary or _generate_summary(reading_cards, topic, zodiac)
+    summary = _generate_summary(reading_cards, topic, zodiac)
 
     return {
         "spread": spread,
@@ -267,9 +264,42 @@ async def generate_reading(
         "cards": reading_cards,
         "zodiac": zodiac,
         "summary": summary,
-        "ai_narrative": ai_summary or ai_narrative,
+        "ai_narrative": None,
         "date": today.isoformat(),
     }
+
+
+async def enrich_reading_with_ai(
+    reading: dict,
+    situation: str | None = None,
+    gender: str | None = None,
+) -> None:
+    """기존 reading에 AI 해석을 추가 (in-place 업데이트)."""
+    cards = reading["cards"]
+    topic = reading["topic"]
+    spread = reading["spread"]
+    zodiac = reading.get("zodiac")
+    time_range = reading.get("time_range", DEFAULT_TIME_RANGE)
+    spread_type = spread.get("type", "three_card")
+
+    ai_narrative = await get_ai_narrative(
+        cards, topic, spread_type, spread["name"], zodiac, time_range,
+        situation=situation, gender=gender,
+    )
+
+    ai_summary = ""
+    if ai_narrative:
+        positions = [c["position"] for c in cards]
+        card_meanings, ai_summary = _parse_ai_card_meanings(ai_narrative, positions)
+        for c in cards:
+            if c["position"] in card_meanings:
+                c["meaning"] = card_meanings[c["position"]]
+
+    if ai_summary:
+        reading["summary"] = ai_summary
+        reading["ai_narrative"] = ai_summary
+    elif ai_narrative:
+        reading["ai_narrative"] = ai_narrative
 
 
 def _generate_summary(cards: list[dict], topic: str, zodiac: str | None) -> str:
@@ -511,7 +541,7 @@ def _parse_ai_card_meanings(ai_text: str, positions: list[str]) -> tuple[dict[st
             if current_key:
                 card_meanings[current_key] = "\n".join(current_lines).strip()
             current_key = "_summary_"
-            tag_len = 5 if stripped.startswith("[인사이트]") else 4
+            tag_len = len("[인사이트]") if stripped.startswith("[인사이트]") else len("[종합]")
             current_lines = [stripped[tag_len:].strip()]
             matched = True
         else:

@@ -12,7 +12,8 @@ from telegram.ext import ContextTypes
 
 from database import queries
 from services.fortune_service import (
-    generate_reading, format_reading_message,
+    generate_reading, generate_reading_cards, enrich_reading_with_ai,
+    format_reading_message,
     get_zodiac, SPREADS, TOPIC_EMOJIS, TIME_RANGES, DEFAULT_TIME_RANGE,
 )
 
@@ -626,18 +627,14 @@ async def _start_card_picking(query, context, user_id: int, topic: str, spread_t
     spread = SPREADS.get(spread_type, SPREADS["three_card"])
     need_count = spread["count"]
 
-    # 리딩을 미리 생성 (결과는 이미 정해짐, 카드 선택은 의식)
+    # 카드만 즉시 뽑기 (AI 해석은 나중에)
     birth_date = await _get_birth_date(user_id)
-    gender = await _get_gender(user_id)
-    tarot_context = context.user_data.get("tarot_context")
-    reading = await generate_reading(
+    reading = generate_reading_cards(
         topic=topic,
         spread_type=spread_type,
         birth_date=birth_date,
         user_id=user_id,
         time_range=time_range,
-        situation=tarot_context,
-        gender=gender,
     )
 
     # user_data에 진행 상태 저장
@@ -892,7 +889,11 @@ async def tarot_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 reply_markup=kb,
             )
     else:
-        # 종합 해석 페이지
+        # 종합 해석 페이지 — AI 해석 생성 후 전송
+        if not reading.get("ai_narrative"):
+            gender = await _get_gender(user_id)
+            tarot_context = context.user_data.get("tarot_context")
+            await enrich_reading_with_ai(reading, situation=tarot_context, gender=gender)
         await _send_reading_result(query, context, user_id, reading)
         context.user_data.pop("tarot_session", None)
 
@@ -959,8 +960,13 @@ async def tarot_again_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     """다시 보기 — 주제 선택으로 돌아가기."""
     query = update.callback_query
     await query.answer()
-    # 주제 선택 화면으로
-    await tarot_handler(update, context)
+    user_id = update.effective_user.id
+    # 이전 세션 정리
+    context.user_data.pop("tarot_session", None)
+    context.user_data.pop("tarot_context", None)
+    context.user_data.pop("tarot_time_range", None)
+    # 주제 선택 화면으로 (콜백이므로 query 사용)
+    await _show_topic_menu(query, user_id)
 
 
 # ── 그룹 공유 ──
