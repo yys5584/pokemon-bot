@@ -1116,6 +1116,19 @@ async def horoscope_dm_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await msg.reply_text("운세 생성에 실패했어요. 잠시 후 다시 시도해주세요.")
         return
 
+    if data.get("ai_failed"):
+        await msg.reply_text("⚠️ 운세 AI가 일시적으로 응답하지 않아요. 잠시 후 다시 시도해주세요.")
+        try:
+            import config
+            for aid in config.ADMIN_IDS:
+                await context.bot.send_message(
+                    chat_id=aid,
+                    text=f"⚠️ 운세 AI 실패 — Gemini 응답 없음\n유저: {user.first_name}({user.id})",
+                )
+        except Exception:
+            pass
+        return
+
     display_name = user.first_name or "트레이너"
     text = format_horoscope_dm(data, display_name)
 

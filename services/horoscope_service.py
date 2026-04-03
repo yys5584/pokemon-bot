@@ -300,6 +300,7 @@ async def get_daily_horoscope(birth_date: date, user_name: str = "") -> dict | N
 
     # AI 운세 생성
     ai_text = await _generate_horoscope_ai(sign, transits, today)
+    ai_failed = ai_text is None
     horoscope = _parse_ai_response(ai_text) if ai_text else {
         "stars": "★★★",
         "summary": "행성이 조용한 하루",
@@ -319,8 +320,10 @@ async def get_daily_horoscope(birth_date: date, user_name: str = "") -> dict | N
         "lucky_pokemon": lucky_pokemon,
         "transits": transits,
         "date": str(today),
+        "ai_failed": ai_failed,
     }
-    _daily_cache[cache_key] = result
+    if not ai_failed:
+        _daily_cache[cache_key] = result
     return result
 
 
