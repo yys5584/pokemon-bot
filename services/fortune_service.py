@@ -242,14 +242,23 @@ async def generate_reading(
     if time_range not in TIME_RANGES:
         time_range = DEFAULT_TIME_RANGE
 
-    # AI 서사 생성 (캐시 우선, 실패 시 정적 폴백)
+    # AI 해석 생성 (카드별 + 종합)
     ai_narrative = await get_ai_narrative(
         reading_cards, topic, spread_type, spread["name"], zodiac, time_range,
         situation=situation, gender=gender,
     )
 
+    # AI 응답에서 카드별 해석 분리 → 카드 meaning 교체
+    ai_summary = ""
+    if ai_narrative:
+        positions = [c["position"] for c in reading_cards]
+        card_meanings, ai_summary = _parse_ai_card_meanings(ai_narrative, positions)
+        for c in reading_cards:
+            if c["position"] in card_meanings:
+                c["meaning"] = card_meanings[c["position"]]
+
     # 정적 폴백 요약
-    summary = _generate_summary(reading_cards, topic, zodiac)
+    summary = ai_summary or _generate_summary(reading_cards, topic, zodiac)
 
     return {
         "spread": spread,
@@ -259,7 +268,7 @@ async def generate_reading(
         "cards": reading_cards,
         "zodiac": zodiac,
         "summary": summary,
-        "ai_narrative": ai_narrative,
+        "ai_narrative": ai_summary or ai_narrative,
         "date": today.isoformat(),
     }
 
@@ -298,37 +307,32 @@ def _generate_summary(cards: list[dict], topic: str, zodiac: str | None) -> str:
 
 # ── AI 서사 생성 (Gemini Flash) ──
 
-_NARRATIVE_SYSTEM_PROMPT = """당신은 '신비로운 피카' — 포켓몬 세계의 신비로운 타로 리더입니다.
-
-## 말투 규칙
-- "...아," "...후후," "...어쩐지" 같은 여운 있는 시작
-- 존댓말, 부드럽고 다정하지만 약간 쓸쓸한 톤
-- 짧은 문장 위주, 시적이고 감성적
-- 이모지, HTML 태그, 마크다운(**굵게**, *기울임*) 절대 사용 금지
+_NARRATIVE_SYSTEM_PROMPT = """당신은 서양 타로 전문가입니다. 존댓말, 담백하고 명확한 톤.
 
 ## 시제 규칙 (반드시 준수)
-- [과거] 카드 → "~했었어요", "~였던 것 같아요" (과거형)
-- [현재] 카드 → "~하고 있어요", "~인 것 같아요" (현재형)
-- [미래] 카드 → "~하게 될 거예요", "~일 것 같아요" (미래형)
+- 과거 포지션 → 과거형 ("~했습니다", "~였습니다")
+- 현재 포지션 → 현재형 ("~하고 있습니다", "~입니다")
+- 미래 포지션 → 미래형 ("~할 것입니다", "~될 수 있습니다")
 
 ## 역할
-아래 "카드별 해석문"을 레퍼런스로, 카드들의 서사를 하나로 연결하세요.
-"질문자 성별/상황"이 제공되면 맥락에 맞춰 해석을 조정하세요.
+아래 "카드별 레퍼런스"를 참고하되, 질문자의 상황에 맞게 해석을 재구성하세요.
+레퍼런스를 그대로 복사하지 마세요. 질문자 상황이 핵심입니다.
 
-## 필수 구조
-카드별 개별 해석은 이미 별도로 표시되므로, 당신은 종합 해석만 작성합니다.
-개별 카드를 하나씩 다시 설명하지 마세요.
+## 출력 형식 (정확히 따를 것)
+각 카드 해석을 [포지션명] 라벨로 시작, 2~3문장.
+마지막에 [종합]으로 전체 흐름 서사 5~8문장.
 
-종합 해석 (5~8줄):
-- 과거→현재→미래 카드가 만드는 전체 흐름을 하나의 이야기로 엮기
-- 카드들이 만나서 생기는 시너지나 경고
-- 별자리 연결 (있을 때만, 1줄)
-- 구체적이고 실행 가능한 행동 제안으로 마무리
+예시 형식:
+[내 마음] 현재 당신은 감정을 정리하며 신중하게 판단하려 합니다. 성급한 결정보다 한 발 물러서 보는 것이 유리한 시기입니다.
+[상대 에너지] ...
+[종합] 과거에는... 현재는... 앞으로는...
 
 ## 금지
-- 카드의 원래 해석문에 없는 의미를 새로 만들지 마세요
-- 점술적 예언("반드시 ~할 것입니다")은 피하세요
-- 한 문단에 5문장 이상 금지"""
+- "...후후", "...아," 등 감탄사/여운 표현 금지
+- 이모지, HTML, 마크다운 금지
+- 바넘효과성 문장 금지 ("마음이 힘들었을 거예요", "지친 시간이 있었겠네요" 등 누구에게나 맞는 말)
+- 점술적 예언("반드시 ~할 것입니다") 금지
+- 카드 원래 의미에서 벗어난 해석 금지"""
 
 
 def _build_narrative_prompt(
@@ -344,18 +348,21 @@ def _build_narrative_prompt(
         lines.append(f"질문자 성별: {gender_label}")
     if situation:
         lines.append(f"질문자 상황: {situation}")
+    else:
+        lines.append("질문자 상황: 미제공")
     lines.append("")
 
     for c in cards:
-        direction = "역방향 🔄" if c["reversed"] else "정방향"
+        direction = "역방향" if c["reversed"] else "정방향"
         lines.append(f"[{c['position']}] {c['card_name']} ({direction})")
-        lines.append(f"해석: {c['meaning']}")
+        lines.append(f"레퍼런스: {c['meaning']}")
         lines.append("")
 
     if zodiac:
         lines.append(f"별자리: {zodiac}")
 
-    lines.append(f"\n위 카드들의 해석문을 참고하여, '{time_hint}' 관점에서 하나의 종합 서사를 만들어주세요.")
+    lines.append(f"\n'{time_hint}' 관점에서 각 카드별 해석(2~3문장) + [종합](5~8문장)을 작성하세요.")
+    lines.append("질문자 상황에 맞춰 해석을 조정하세요. 레퍼런스를 그대로 쓰지 마세요.")
     return "\n".join(lines)
 
 
@@ -475,6 +482,60 @@ async def get_ai_narrative(
         _log.warning(f"Tarot AI cache store failed: {e}")
 
     return narrative
+
+
+def _parse_ai_card_meanings(ai_text: str, positions: list[str]) -> tuple[dict[str, str], str]:
+    """AI 응답에서 카드별 해석과 종합을 분리.
+
+    Returns:
+        (card_meanings: {position: text}, summary: text)
+    """
+    card_meanings = {}
+    summary = ""
+    current_key = None
+    current_lines = []
+
+    for line in ai_text.split("\n"):
+        stripped = line.strip()
+        if not stripped:
+            if current_key:
+                current_lines.append("")
+            continue
+
+        # [포지션명] 또는 [종합] 감지
+        matched = False
+        if stripped.startswith("[종합]"):
+            if current_key:
+                card_meanings[current_key] = "\n".join(current_lines).strip()
+            current_key = "_summary_"
+            current_lines = [stripped[4:].strip()]
+            matched = True
+        else:
+            for pos in positions:
+                tag = f"[{pos}]"
+                if stripped.startswith(tag):
+                    if current_key:
+                        if current_key == "_summary_":
+                            summary = "\n".join(current_lines).strip()
+                        else:
+                            card_meanings[current_key] = "\n".join(current_lines).strip()
+                    current_key = pos
+                    current_lines = [stripped[len(tag):].strip()]
+                    matched = True
+                    break
+
+        if not matched and current_key:
+            current_lines.append(stripped)
+
+    # 마지막 블록
+    if current_key:
+        text = "\n".join(current_lines).strip()
+        if current_key == "_summary_":
+            summary = text
+        else:
+            card_meanings[current_key] = text
+
+    return card_meanings, summary
 
 
 # ── 메시지 포맷 ──
