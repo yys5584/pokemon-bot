@@ -148,7 +148,7 @@ async def arcade_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             room = await queries.get_chat_room(chat_id)
             member_count = room["member_count"] if room else 0
-            if member_count < config.SPAWN_MIN_MEMBERS:
+            if member_count < config.SPAWN_MIN_MEMBERS and chat_id not in config.EVENT_CHAT_IDS and not is_admin(user_id):
                 await update.message.reply_text(
                     f"🚫 멤버가 {config.SPAWN_MIN_MEMBERS}명 이상인 방에서만 아케이드를 사용할 수 있습니다. (현재 {member_count}명)"
                 )
