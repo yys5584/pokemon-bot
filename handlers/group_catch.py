@@ -16,7 +16,7 @@ from database import queries, spawn_queries
 from database import battle_queries as bq
 from services.catch_service import can_attempt_catch, record_attempt
 from services.spawn_service import track_attempt_message
-from services.tournament_service import is_tournament_active
+from services.tournament_service import is_tournament_active, _tournament_state
 from utils.helpers import get_decorated_name, schedule_delete, ball_emoji
 from utils.honorific import format_actor
 from utils.i18n import t, get_group_lang, get_user_lang
@@ -142,7 +142,7 @@ async def catch_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
         return
 
-    if is_tournament_active(chat_id):
+    if is_tournament_active(chat_id) and not _tournament_state.get("random_1v1"):
         return
 
     # 포획 잠금 체크
@@ -254,7 +254,7 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
         return
 
-    if is_tournament_active(chat_id):
+    if is_tournament_active(chat_id) and not _tournament_state.get("random_1v1"):
         return
 
     # 포획 잠금 체크
@@ -365,7 +365,7 @@ async def priority_ball_handler(update: Update, context: ContextTypes.DEFAULT_TY
         schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
         return
 
-    if is_tournament_active(chat_id):
+    if is_tournament_active(chat_id) and not _tournament_state.get("random_1v1"):
         return
 
     from services.abuse_service import is_catch_locked_async
@@ -484,7 +484,7 @@ async def hyper_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
         return
 
-    if is_tournament_active(chat_id):
+    if is_tournament_active(chat_id) and not _tournament_state.get("random_1v1"):
         return
 
     # 포획 잠금 체크
