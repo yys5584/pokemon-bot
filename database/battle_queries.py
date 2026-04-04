@@ -472,6 +472,24 @@ async def get_user_pokemon_for_battle(user_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+async def get_user_pokemon_caught_in_chat(user_id: int, chat_id: int) -> list[dict]:
+    """Get user's active pokemon caught in a specific chat (for event mode)."""
+    pool = await get_db()
+    rows = await pool.fetch(
+        """SELECT up.id as instance_id, up.pokemon_id,
+                  up.friendship, up.iv_hp, up.iv_atk, up.iv_def,
+                  up.iv_spa, up.iv_spdef, up.iv_spd,
+                  pm.name_ko, pm.emoji, pm.rarity,
+                  pm.pokemon_type, pm.stat_type
+           FROM user_pokemon up
+           JOIN pokemon_master pm ON up.pokemon_id = pm.id
+           WHERE up.user_id = $1 AND up.caught_in_chat_id = $2 AND up.is_active = 1
+           ORDER BY up.id""",
+        user_id, chat_id,
+    )
+    return [dict(r) for r in rows]
+
+
 # ============================================================
 # BP Purchase Log (persistent daily limit)
 # ============================================================

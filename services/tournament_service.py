@@ -357,11 +357,12 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
     if user_id in _tournament_state["participants"]:
         return False, "이미 등록되었습니다!"
 
-    # ── 이벤트 모드: 배틀팀 불필요, 포켓몬 1마리 이상만 ──
+    # ── 이벤트 모드: 이 채팅방에서 잡은 포켓몬 1마리 이상만 ──
     if _tournament_state.get("random_1v1"):
-        all_pokemon = await bq.get_user_pokemon_for_battle(user_id)
+        event_chat = _tournament_state["chat_id"]
+        all_pokemon = await bq.get_user_pokemon_caught_in_chat(user_id, event_chat)
         if not all_pokemon:
-            return False, "포켓몬이 없습니다! 먼저 포켓몬을 포획하세요."
+            return False, "이 채팅방에서 잡은 포켓몬이 없습니다! 먼저 ㅊ로 포획하세요."
 
         # 마스터볼 지급
         mb_count = config.EVENT_STARTER_MASTERBALLS
@@ -440,10 +441,11 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
     cost_removed = []
 
     if _tournament_state.get("random_1v1"):
-        # 이벤트 모드: 보유 포켓몬 중 랜덤 1마리 선발
+        # 이벤트 모드: 이 채팅방에서 잡은 포켓몬 중 랜덤 1마리 선발
         import random as _rng
+        event_chat = _tournament_state["chat_id"]
         for user_id, data in list(participants.items()):
-            all_pokemon = await bq.get_user_pokemon_for_battle(user_id)
+            all_pokemon = await bq.get_user_pokemon_caught_in_chat(user_id, event_chat)
             if not all_pokemon:
                 removed.append(data["name"])
                 del participants[user_id]
@@ -571,7 +573,7 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
         if data.get("team") is None:
             if _tournament_state.get("random_1v1"):
                 import random as _rng
-                all_pokemon = await bq.get_user_pokemon_for_battle(user_id)
+                all_pokemon = await bq.get_user_pokemon_caught_in_chat(user_id, chat_id)
                 if not all_pokemon:
                     del participants[user_id]
                 else:

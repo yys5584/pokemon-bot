@@ -143,7 +143,7 @@ class TestTournamentRandom1v1:
         with patch("services.tournament_service.bq") as mock_bq, \
              patch("services.tournament_service.queries") as mock_q, \
              patch("services.tournament_service._save_registration_db", new_callable=AsyncMock):
-            mock_bq.get_user_pokemon_for_battle = AsyncMock(return_value=mock_pokemon)
+            mock_bq.get_user_pokemon_caught_in_chat = AsyncMock(return_value=mock_pokemon)
             mock_q.add_master_ball = AsyncMock()
 
             success, msg = await register_player(12345, "테스터")
@@ -160,11 +160,11 @@ class TestTournamentRandom1v1:
         _tournament_state["random_1v1"] = True
 
         with patch("services.tournament_service.bq") as mock_bq:
-            mock_bq.get_user_pokemon_for_battle = AsyncMock(return_value=[])
+            mock_bq.get_user_pokemon_caught_in_chat = AsyncMock(return_value=[])
 
             success, msg = await register_player(12345, "테스터")
             assert success is False
-            assert "포켓몬이 없습니다" in msg
+            assert "포켓몬이 없습니다" in msg or "잡은 포켓몬이 없습니다" in msg
 
     @pytest.mark.asyncio
     async def test_snapshot_random_1v1_picks_one(self):
@@ -187,7 +187,7 @@ class TestTournamentRandom1v1:
             {"instance_id": 3, "pokemon_id": 150, "name_ko": "뮤츠", "rarity": "legendary"},
         ]
 
-        async def mock_get_pokemon(uid):
+        async def mock_get_pokemon(uid, chat_id):
             return user_a_pokemon if uid == 111 else user_b_pokemon
 
         mock_context = MagicMock()
@@ -195,7 +195,7 @@ class TestTournamentRandom1v1:
 
         with patch("services.tournament_service.bq") as mock_bq, \
              patch("services.tournament_service._safe_send", new_callable=AsyncMock):
-            mock_bq.get_user_pokemon_for_battle = AsyncMock(side_effect=mock_get_pokemon)
+            mock_bq.get_user_pokemon_caught_in_chat = AsyncMock(side_effect=mock_get_pokemon)
 
             await snapshot_teams(mock_context)
 
@@ -228,7 +228,7 @@ class TestTournamentRandom1v1:
 
         with patch("services.tournament_service.bq") as mock_bq, \
              patch("services.tournament_service._safe_send", new_callable=AsyncMock):
-            mock_bq.get_user_pokemon_for_battle = AsyncMock(return_value=[])
+            mock_bq.get_user_pokemon_caught_in_chat = AsyncMock(return_value=[])
 
             await snapshot_teams(mock_context)
 
