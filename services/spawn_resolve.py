@@ -215,10 +215,15 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # ── 이벤트 모드: 랜덤 5명 포획 ──
+        # ── 이벤트 모드: 랜덤 5명 포획 (확률 무관, 전원 당첨 후 셔플) ──
         if chat_id in config.EVENT_CHAT_IDS:
-            random.shuffle(winners)
-            event_winners = winners[:config.EVENT_CATCH_LIMIT]
+            # 이벤트 모드: 시도한 전원을 후보로 (확률 실패 무시)
+            all_participants = [
+                {"user_id": a["user_id"], "display_name": a["display_name"], "username": a["username"]}
+                for a in attempts
+            ]
+            random.shuffle(all_participants)
+            event_winners = all_participants[:config.EVENT_CATCH_LIMIT]
 
             for ew in event_winners:
                 try:
