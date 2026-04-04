@@ -8,7 +8,7 @@ import logging
 import random
 from dataclasses import dataclass, field
 
-from utils.helpers import icon_emoji
+from utils.helpers import icon_emoji, type_badge
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +179,8 @@ async def run_battle_royale(context, chat_id: int, participants: dict) -> dict[i
     # 참가자 목록 (최대 30명까지만, 넘으면 요약)
     show_list = contestants[:30]
     for c in show_list:
-        intro_lines.append(f"  {c.pokemon_emoji} {c.pokemon_name} ({c.user_name})")
+        tb = type_badge(c.pokemon_id)
+        intro_lines.append(f"  {tb}{c.pokemon_emoji} {c.pokemon_name} ({c.user_name})")
     if len(contestants) > 30:
         intro_lines.append(f"  ...외 {len(contestants) - 30}마리")
     intro_lines.append(f"\n전원 HP {contestants[0].max_hp}로 시작!")
@@ -222,7 +223,7 @@ async def run_battle_royale(context, chat_id: int, participants: dict) -> dict[i
         if newly_dead:
             for c in newly_dead:
                 await _safe_send(context.bot, chat_id,
-                    text=f"{skull} {c.user_name}({c.pokemon_name}) 탈락!",
+                    text=f"{skull} {type_badge(c.pokemon_id)}{c.user_name}({c.pokemon_name}) 탈락!",
                     parse_mode="HTML",
                 )
                 await asyncio.sleep(1)
@@ -236,7 +237,7 @@ async def run_battle_royale(context, chat_id: int, participants: dict) -> dict[i
         if disaster.immune_types:
             immune = [c for c in alive_list if c.pokemon_type in disaster.immune_types]
             if immune and len(immune) <= 8:
-                immune_names = [f"{c.pokemon_name}" for c in immune]
+                immune_names = [f"{type_badge(c.pokemon_id)}{c.pokemon_name}" for c in immune]
                 survive_lines.append(f"면역: {', '.join(immune_names)}")
 
         await _safe_send(context.bot, chat_id, text="\n".join(survive_lines), parse_mode="HTML")
@@ -263,7 +264,7 @@ async def run_battle_royale(context, chat_id: int, participants: dict) -> dict[i
             text=(
                 f"================\n\n"
                 f"{champ} 최후의 생존자!\n\n"
-                f"  {winner.pokemon_emoji} <b>{winner.pokemon_name}</b>\n"
+                f"  {type_badge(winner.pokemon_id)}{winner.pokemon_emoji} <b>{winner.pokemon_name}</b>\n"
                 f"  트레이너: <b>{winner.user_name}</b>\n"
                 f"  남은 HP: {winner.hp}/{winner.max_hp}\n\n"
                 f"  {total}마리 중 끝까지 살아남았다!\n\n"
