@@ -443,8 +443,10 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
     cost_removed = []
 
     if _tournament_state.get("random_1v1"):
-        # 이벤트 모드: 이 채팅방에서 잡은 포켓몬 중 랜덤 1마리 선발 (종 중복 방지)
+        # 이벤트 모드: 이 채팅방에서 잡은 포켓몬 중 랜덤 1마리 선발
+        # 높은 등급 우선 가중치 + 종 중복 방지
         import random as _rng
+        _RARITY_WEIGHT = {"legendary": 10, "epic": 5, "rare": 3, "common": 1}
         event_chat = _tournament_state["chat_id"]
         used_species: set[int] = set()  # 이미 선발된 pokemon_id
         for user_id, data in list(participants.items()):
@@ -456,7 +458,8 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
                 # 아직 안 뽑힌 종 우선
                 unique_pool = [p for p in all_pokemon if p.get("pokemon_id", p.get("id")) not in used_species]
                 pool = unique_pool if unique_pool else all_pokemon
-                picked = _rng.choice(pool)
+                weights = [_RARITY_WEIGHT.get(p.get("rarity", "common"), 1) for p in pool]
+                picked = _rng.choices(pool, weights=weights, k=1)[0]
                 used_species.add(picked.get("pokemon_id", picked.get("id")))
                 data["team"] = [picked]
     else:
