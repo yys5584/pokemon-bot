@@ -168,23 +168,61 @@ _SIGN_EN_MAP = {
 }
 
 
+# 원소 궁합 매트릭스 (유저 별자리 원소 × 행성이 위치한 별자리 원소)
+_ELEMENT_COMPAT = {
+    ("불", "불"): "에너지 폭발, 과열 주의",
+    ("불", "땅"): "열정에 현실적 기반, 실행력 강화",
+    ("불", "바람"): "아이디어가 불꽃처럼 번짐, 과장 주의",
+    ("불", "물"): "감정과 충동의 충돌, 내면 갈등",
+    ("땅", "불"): "안정 위에 활력, 새 도전에 유리",
+    ("땅", "땅"): "견고한 기반, 정체와 고집 주의",
+    ("땅", "바람"): "실용과 이론의 접점, 유연함 필요",
+    ("땅", "물"): "비옥한 토양, 성장과 양육의 시기",
+    ("바람", "불"): "지적 자극이 행동으로, 산만함 주의",
+    ("바람", "땅"): "아이디어를 현실화, 답답함 가능",
+    ("바람", "바람"): "소통과 확산, 깊이 부족 주의",
+    ("바람", "물"): "직관과 논리의 융합, 감정 혼란",
+    ("물", "불"): "감정이 행동을 촉발, 충동적 결정 주의",
+    ("물", "땅"): "감정에 안정감, 치유와 회복",
+    ("물", "바람"): "감정을 언어화, 지적 거리감 주의",
+    ("물", "물"): "감정의 심화, 현실 도피 주의",
+}
+
+# 행성이 위치한 황도 별자리 → 원소 매핑
+_SIGN_ELEMENT = {
+    "양자리": "불", "사자자리": "불", "사수자리": "불",
+    "황소자리": "땅", "처녀자리": "땅", "염소자리": "땅",
+    "쌍둥이자리": "바람", "천칭자리": "바람", "물병자리": "바람",
+    "게자리": "물", "전갈자리": "물", "물고기자리": "물",
+}
+
+
 def _build_interpretation_context(sign: dict, transits: dict) -> str:
-    """오늘 트랜짓 기반으로 DB 해석을 조합."""
+    """오늘 트랜짓 기반으로 DB 해석을 조합.
+
+    별자리별 차별화 전략:
+    - 지배행성: 전문 해석 전체 (interpretation + shadow + advice)
+    - 비지배행성: keyword + tone 한줄 + 원소 궁합만 (긴 해석문 제거)
+    - 어스펙트: 지배행성이 포함된 것만
+    """
     db = _load_interpretation_db()
     transit_db = db.get("transits", {})
     aspect_db = db.get("aspects", {})
 
     lines = []
-
-    # 1) 유저 별자리의 지배행성 해석을 최우선
     ruler_name = sign.get("ruler", "")
-    sign_name = sign.get("name", "")
+    user_element = sign.get("element", "")
 
-    # 2) 각 행성의 현재 별자리 해석
+    # 지배행성의 DB 키 찾기
+    ruler_db_keys = set()
+    for pid, key in _PLANET_DB_KEYS.items():
+        if _PLANET_NAMES[pid][0] in ruler_name:
+            ruler_db_keys.add(key)
+
+    # 각 행성 처리
     for p in transits["planets"]:
         planet_ko = p["name"]
         planet_sign_ko = p["sign"]
-        # pid → db key
         planet_key = None
         for pid, key in _PLANET_DB_KEYS.items():
             if _PLANET_NAMES[pid][0] == planet_ko:
@@ -197,37 +235,57 @@ def _build_interpretation_context(sign: dict, transits: dict) -> str:
             continue
 
         planet_data = transit_db.get(planet_key, {}).get(sign_key)
-        if planet_data:
-            is_ruler = planet_ko in ruler_name
-            prefix = f"★ [지배행성] {planet_ko}→{planet_sign_ko}" if is_ruler else f"{planet_ko}→{planet_sign_ko}"
-            lines.append(f"{prefix}: {planet_data['interpretation']}")
+        if not planet_data:
+            continue
+
+        is_ruler = planet_key in ruler_db_keys
+        planet_element = _SIGN_ELEMENT.get(planet_sign_ko, "")
+        compat = _ELEMENT_COMPAT.get((user_element, planet_element), "")
+
+        if is_ruler:
+            # ★ 지배행성: 전문 해석 전체
+            phase = _get_degree_phase(p["degree"])
+            lines.append(f"★ [지배행성] {planet_ko}→{planet_sign_ko} ({phase['label']}·{phase['nuance']})")
+            lines.append(f"  해석: {planet_data['interpretation']}")
             if planet_data.get("shadow"):
                 lines.append(f"  그림자: {planet_data['shadow']}")
             if planet_data.get("advice"):
                 lines.append(f"  조언: {planet_data['advice']}")
+            if compat:
+                lines.append(f"  원소 궁합({user_element}×{planet_element}): {compat}")
+        else:
+            # 비지배행성: keyword + tone + 원소궁합 한줄만
+            keyword = planet_data.get("keyword", "")
+            tone = planet_data.get("tone", "neutral")
+            tone_label = {"positive": "긍정", "negative": "부정", "mixed": "혼합", "neutral": "중립"}.get(tone, tone)
+            summary = f"{planet_ko}→{planet_sign_ko}: [{keyword}] ({tone_label})"
+            if compat:
+                summary += f" — {compat}"
+            lines.append(summary)
 
-    # 3) 어스펙트 해석
-    for asp_text in transits.get("aspects", [])[:6]:
-        # "태양합(☌)달" 형식에서 행성쌍 추출
+    # 어스펙트: 지배행성이 포함된 것만
+    asp_type_map = {"합(☌)": "conjunction", "육합(⚹)": "sextile", "사각(□)": "square",
+                    "삼합(△)": "trine", "대립(☍)": "opposition"}
+    for asp_text in transits.get("aspects", [])[:8]:
         for asp_name in _ASPECTS:
             if asp_name in asp_text:
                 parts = asp_text.split(asp_name)
                 if len(parts) == 2:
                     p1_ko, p2_ko = parts[0], parts[1]
+                    # 지배행성이 포함된 어스펙트만
+                    if not (p1_ko in ruler_name or p2_ko in ruler_name):
+                        break
                     p1_key = next((k for pid, k in _PLANET_DB_KEYS.items() if _PLANET_NAMES[pid][0] == p1_ko), None)
                     p2_key = next((k for pid, k in _PLANET_DB_KEYS.items() if _PLANET_NAMES[pid][0] == p2_ko), None)
                     if p1_key and p2_key:
                         pair_key = f"{p1_key}_{p2_key}"
                         alt_key = f"{p2_key}_{p1_key}"
-                        # 어스펙트 타입 매핑
-                        asp_type_map = {"합(☌)": "conjunction", "육합(⚹)": "sextile", "사각(□)": "square",
-                                        "삼합(△)": "trine", "대립(☍)": "opposition"}
                         asp_type = asp_type_map.get(asp_name, "")
                         if asp_type:
                             asp_data = aspect_db.get(pair_key, aspect_db.get(alt_key, {}))
                             interp = asp_data.get(asp_type, "")
                             if interp:
-                                lines.append(f"[어스펙트] {asp_text}: {interp}")
+                                lines.append(f"[어스펙트·지배행성] {asp_text}: {interp}")
                 break
 
     return "\n".join(lines) if lines else ""
