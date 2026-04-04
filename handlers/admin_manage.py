@@ -304,6 +304,14 @@ async def event_tournament_run_handler(update: Update, context: ContextTypes.DEF
     """Admin command: 이벤트진행 — 이벤트 토너먼트 즉시 실행."""
     if not update.effective_user or not is_admin(update.effective_user.id):
         return
+    # 스폰 job 중지 (대회 진행 중에는 스폰 불필요)
+    chat_id = update.effective_chat.id
+    chat_str = str(chat_id)
+    for job in context.job_queue.jobs():
+        if job.name and chat_str in job.name and (
+            job.name.startswith("spawn_") or job.name.startswith("arcade_")
+        ):
+            job.schedule_removal()
     from services.tournament_service import snapshot_teams, start_tournament
     await update.message.reply_text("⚔️ 이벤트 대회 진행!")
     await snapshot_teams(context)
