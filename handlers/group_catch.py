@@ -254,6 +254,15 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
         return
 
+    # 이벤트 채팅방: 마스터볼 사용 불가
+    if chat_id in config.EVENT_CHAT_IDS:
+        resp = await update.message.reply_text(
+            f"{ball_emoji('masterball')} 이벤트 채팅방에서는 마스터볼을 사용할 수 없습니다!",
+            parse_mode="HTML",
+        )
+        schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+        return
+
     if is_tournament_active(chat_id) and not _tournament_state.get("random_1v1"):
         return
 
