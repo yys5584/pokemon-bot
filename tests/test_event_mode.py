@@ -141,8 +141,10 @@ class TestTournamentRandom1v1:
         mock_pokemon = [{"instance_id": 1, "pokemon_id": 25, "name_ko": "피카츄"}]
 
         with patch("services.tournament_service.bq") as mock_bq, \
+             patch("services.tournament_service.queries") as mock_q, \
              patch("services.tournament_service._save_registration_db", new_callable=AsyncMock):
             mock_bq.get_user_pokemon_for_battle = AsyncMock(return_value=mock_pokemon)
+            mock_q.add_master_ball = AsyncMock()
 
             success, msg = await register_player(12345, "테스터")
             assert success is True

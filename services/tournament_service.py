@@ -363,15 +363,21 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
         if not all_pokemon:
             return False, "포켓몬이 없습니다! 먼저 포켓몬을 포획하세요."
 
+        # 마스터볼 지급
+        mb_count = config.EVENT_STARTER_MASTERBALLS
+        if mb_count > 0:
+            await queries.add_master_ball(user_id, mb_count)
+
         _tournament_state["participants"][user_id] = {
             "name": display_name,
             "team": None,
         }
         await _save_registration_db(user_id, display_name)
         count = len(_tournament_state["participants"])
+        mb_msg = f"\n{ball_emoji('masterball')} 마스터볼 {mb_count}개 지급!" if mb_count > 0 else ""
         return True, (
             f"{icon_emoji('check')} {display_name} 참가 등록!\n"
-            f"현재 참가자: {count}명\n"
+            f"현재 참가자: {count}명{mb_msg}\n"
             f"랜덤 포켓몬 1마리로 대결합니다!"
         )
 
@@ -530,37 +536,27 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
         from services.battle_royale import run_battle_royale
         placements = await run_battle_royale(context, chat_id, participants)
 
-        # 전원 DM
+        # 전체 순위표 (채팅방에 표시, DM 없음)
         total = len(participants)
-        for uid, rank in placements.items():
-            pdata = participants.get(uid)
-            if not pdata:
-                continue
-            pname = pdata["name"]
-            team = pdata.get("team", [])
-            pkmn_name = team[0].get("name_ko", "???") if team else "???"
-            pkmn_emoji = team[0].get("emoji", "") if team else ""
+        if placements:
+            rank_lines = [
+                f"{icon_emoji('battle')} 전체 순위",
+                "━━━━━━━━━━━━━━━",
+            ]
+            for uid, rank in sorted(placements.items(), key=lambda x: x[1]):
+                pdata = participants.get(uid)
+                if not pdata:
+                    continue
+                pname = pdata["name"]
+                team = pdata.get("team", [])
+                pkmn_name = team[0].get("name_ko", "???") if team else "???"
+                medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(rank, f"{rank}등")
+                rank_lines.append(f"  {medal} {pname} ({pkmn_name})")
 
-            if rank == 1:
-                result_text = f"{icon_emoji('champion_first')} 축하합니다! 최후의 생존자!"
-            elif rank <= 3:
-                result_text = "거의 끝까지 버텼습니다!"
-            elif rank <= total // 2:
-                result_text = "중반까지 선전했습니다!"
-            else:
-                result_text = "참가해 주셔서 감사합니다!"
-
-            dm_text = (
-                f"{icon_emoji('battle')} 배틀로얄 결과\n"
-                "━━━━━━━━━━━━━━━\n\n"
-                f"나의 포켓몬: {pkmn_emoji} {pkmn_name}\n"
-                f"최종 순위: {rank}/{total}등\n\n"
-                f"{result_text}"
+            await _safe_send(context.bot, chat_id,
+                text="\n".join(rank_lines),
+                parse_mode="HTML",
             )
-            try:
-                await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
-            except Exception:
-                logger.warning(f"Failed to DM event participant {uid}")
 
         _reset_state()
         await _clear_registrations_db()

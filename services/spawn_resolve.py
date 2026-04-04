@@ -215,9 +215,9 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # ── 이벤트 모드: 선착순 5명 포획 ──
+        # ── 이벤트 모드: 랜덤 5명 포획 ──
         if chat_id in config.EVENT_CHAT_IDS:
-            winners.sort(key=lambda x: x["roll"])
+            random.shuffle(winners)
             event_winners = winners[:config.EVENT_CATCH_LIMIT]
 
             for ew in event_winners:
