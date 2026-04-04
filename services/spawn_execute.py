@@ -458,10 +458,11 @@ async def execute_spawn(context: ContextTypes.DEFAULT_TYPE):
     job_name = getattr(context.job, "name", None) or ""
     arcade = chat_id in config.ARCADE_CHAT_IDS or job_name.startswith(f"arcade_{chat_id}")
 
-    # Skip spawns in tournament chat while tournament is active
-    from services.tournament_service import is_tournament_active
+    # Skip spawns in tournament chat while tournament is active (이벤트 모드 제외)
+    from services.tournament_service import is_tournament_active, _tournament_state
     if is_tournament_active(chat_id) and not context.job.data.get("admin_force"):
-        return
+        if not _tournament_state.get("random_1v1"):
+            return
 
     # Skip spawns while quiz is active in this chat
     from services.quiz_service import get_active_quiz
