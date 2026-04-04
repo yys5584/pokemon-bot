@@ -33,6 +33,9 @@ _captcha_violation_count: dict[int, int] = {}
 CAPTCHA_AUTO_BAN_THRESHOLD = 15  # 이 횟수 이상 누적 시 자동 24시간 정지
 CAPTCHA_AUTO_BAN_DURATION = 86400  # 24시간 (초)
 
+# 이벤트 채팅방 마스터볼 사용 횟수 {user_id: count}
+_event_masterball_count: dict[int, int] = {}
+
 
 def _is_session_too_new(session: dict) -> bool:
     """세션이 SPECIAL_BALL_MIN_AGE_SEC 미만이면 True.
@@ -254,14 +257,16 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         schedule_delete(update.message, config.AUTO_DEL_CATCH_CMD)
         return
 
-    # 이벤트 채팅방: 마스터볼 사용 불가
+    # 이벤트 채팅방: 마스터볼 1인당 2회 제한
     if chat_id in config.EVENT_CHAT_IDS:
-        resp = await update.message.reply_text(
-            f"{ball_emoji('masterball')} 이벤트 채팅방에서는 마스터볼을 사용할 수 없습니다!",
-            parse_mode="HTML",
-        )
-        schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
-        return
+        used = _event_masterball_count.get(user_id, 0)
+        if used >= config.EVENT_STARTER_MASTERBALLS:
+            resp = await update.message.reply_text(
+                f"{ball_emoji('masterball')} 이벤트 마스터볼을 모두 사용했습니다! ({config.EVENT_STARTER_MASTERBALLS}회 제한)",
+                parse_mode="HTML",
+            )
+            schedule_delete(resp, config.AUTO_DEL_CATCH_ATTEMPT)
+            return
 
     if is_tournament_active(chat_id) and not _tournament_state.get("random_1v1"):
         return
@@ -325,6 +330,10 @@ async def master_ball_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             remaining = await queries.use_master_ball(user_id)
             if remaining is None:
                 return
+
+            # 이벤트 채팅방: 마스터볼 사용 카운트 증가
+            if chat_id in config.EVENT_CHAT_IDS:
+                _event_masterball_count[user_id] = _event_masterball_count.get(user_id, 0) + 1
 
             from services.subscription_service import get_user_tier
             from services.ranked_service import current_season_id
