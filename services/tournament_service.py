@@ -222,12 +222,14 @@ async def start_registration(context: ContextTypes.DEFAULT_TYPE, *, mock: bool =
     _tournament_state["random_1v1"] = random_1v1
 
     # Cancel all spawn jobs for this chat (normal + arcade)
-    chat_str = str(chat_id)
-    for job in context.job_queue.jobs():
-        if job.name and chat_str in job.name and (
-            job.name.startswith("spawn_") or job.name.startswith("arcade_")
-        ):
-            job.schedule_removal()
+    # 이벤트 모드(random_1v1)에서는 스폰 유지 — 포획하면서 대회 진행
+    if not random_1v1:
+        chat_str = str(chat_id)
+        for job in context.job_queue.jobs():
+            if job.name and chat_str in job.name and (
+                job.name.startswith("spawn_") or job.name.startswith("arcade_")
+            ):
+                job.schedule_removal()
 
     _bt = icon_emoji("battle")
     _champ = icon_emoji("champion_first")
