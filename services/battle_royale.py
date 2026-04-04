@@ -210,40 +210,42 @@ async def run_battle_royale(context, chat_id: int, participants: dict) -> dict[i
         alive_list, newly_dead = apply_disaster(contestants, disaster, round_num)
         alive_after = len(alive_list)
 
-        # ── 라운드 메시지 ──
-        lines = [
-            f"{disaster.emoji} {round_num}라운드 — {disaster.name}!",
-            f"{disaster.flavor}, 나머지 {'+' if disaster.damage < 0 else '-'}{abs(disaster.damage)}HP!",
-            "━━━━━━━━━━━━━━━",
-        ]
+        # ── 재해 발표 ──
+        header = (
+            f"{disaster.emoji} {round_num}라운드 — {disaster.name}!\n"
+            f"{disaster.flavor}, 나머지 {'+' if disaster.damage < 0 else '-'}{abs(disaster.damage)}HP!"
+        )
+        await _safe_send(context.bot, chat_id, text=header, parse_mode="HTML")
+        await asyncio.sleep(2)
 
+        # ── 탈락자 한 명씩 표시 ──
         if newly_dead:
-            dead_names = [f"{c.user_name}({c.pokemon_name})" for c in newly_dead]
-            if len(dead_names) <= 5:
-                lines.append(f"{skull} {', '.join(dead_names)} 탈락!")
-            else:
-                lines.append(f"{skull} {', '.join(dead_names[:3])} 외 {len(dead_names)-3}마리 탈락!")
+            for c in newly_dead:
+                await _safe_send(context.bot, chat_id,
+                    text=f"{skull} {c.user_name}({c.pokemon_name}) 탈락!",
+                    parse_mode="HTML",
+                )
+                await asyncio.sleep(1)
         elif disaster.damage < 0:
-            lines.append("전원 체력 회복!")
+            await _safe_send(context.bot, chat_id, text="전원 체력 회복!", parse_mode="HTML")
         else:
-            lines.append("이번엔 탈락자 없음!")
+            await _safe_send(context.bot, chat_id, text="이번엔 탈락자 없음!", parse_mode="HTML")
 
-        # 면역 포켓몬 표시 (있으면)
+        # ── 생존 현황 ──
+        survive_lines = [f"생존: {alive_after}/{total}마리"]
         if disaster.immune_types:
             immune = [c for c in alive_list if c.pokemon_type in disaster.immune_types]
             if immune and len(immune) <= 8:
                 immune_names = [f"{c.pokemon_name}" for c in immune]
-                lines.append(f"면역: {', '.join(immune_names)}")
+                survive_lines.append(f"면역: {', '.join(immune_names)}")
 
-        lines.append(f"\n생존: {alive_after}/{total}마리")
-
-        await _safe_send(context.bot, chat_id, text="\n".join(lines), parse_mode="HTML")
+        await _safe_send(context.bot, chat_id, text="\n".join(survive_lines), parse_mode="HTML")
 
         # 딜레이
         if alive_after <= 5:
-            await asyncio.sleep(5)  # 마지막은 긴장감
-        else:
             await asyncio.sleep(4)
+        else:
+            await asyncio.sleep(3)
 
         # 가끔 문박사 멘트
         if round_num % 3 == 0 and alive_after > 1:
