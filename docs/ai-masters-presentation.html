@@ -107,6 +107,9 @@
   /* Step label */
   .step{display:inline-block;padding:4px 14px;border:1.5px solid var(--navy);border-radius:100px;font-size:0.65rem;font-weight:600;color:var(--navy);margin-bottom:0.8rem;letter-spacing:1.5px;text-transform:uppercase;}
 
+  /* Images */
+  .slide-img{border-radius:10px;border:1px solid var(--line);object-fit:cover;box-shadow:0 2px 12px rgba(0,0,0,0.06);}
+
   .center{text-align:center;}
 
   #hint{position:fixed;bottom:2rem;left:3rem;font-size:0.65rem;color:var(--text-muted);opacity:0.3;z-index:100;}
@@ -147,9 +150,8 @@
       <h4>3월 — Claude Code 전환</h4>
       <p>"뭘 만들 수 있나" → "내가 뭘 아는가". 자기 이해 중심으로 바뀜.</p>
     </div>
-    <div class="card" style="border:2px solid var(--navy);">
-      <h4>핵심 깨달음</h4>
-      <p>내가 아는 것을 구체화시키는 도구. 이게 AI의 핵심.</p>
+    <div style="display:flex;align-items:center;justify-content:center;">
+      <img src="images/물어보기.jpg" alt="깃허브 물어보기" class="slide-img" style="height:280px;">
     </div>
   </div>
 </div>
@@ -198,10 +200,8 @@
       <p style="font-family:'DM Serif Display',serif;font-size:2rem;color:var(--navy);margin:0.5rem 0;">~2시간</p>
       <p class="body">채팅 활성화 보조 수단. 하루 4~5번 포켓몬이 나옴.</p>
     </div>
-    <div class="card" style="text-align:center;">
-      <p class="dim">시작은 게임이 아니었다</p>
-      <p style="font-family:'DM Serif Display',serif;font-size:2rem;color:var(--navy);margin:0.5rem 0;">"ㅊ"</p>
-      <p class="body">"어 포켓몬 나왔다!" 한마디 하게 만드는 정도.</p>
+    <div style="display:flex;align-items:center;justify-content:center;">
+      <img src="images/2시간만에 개발.jpg" alt="첫 출시" class="slide-img" style="height:320px;">
     </div>
   </div>
 </div>
@@ -298,6 +298,15 @@
   <p class="quote" style="margin-top:2rem;">코드가 아니라 도메인이 만든 설계.</p>
 </div>
 
+<!-- ═══ SLIDE 9-1: 패치 증거 ═══ -->
+<div class="slide center">
+  <div class="sec-header" style="justify-content:center;border:none;"><span class="sec-title">DB 터지자마자 쏟아낸 패치</span></div>
+  <div style="display:flex;gap:2rem;align-items:flex-start;justify-content:center;">
+    <img src="images/patch-roadmap.jpg" alt="패치 로드맵" class="slide-img" style="height:420px;">
+    <img src="images/반응보고빠꾸.jpg" alt="초기 기획" class="slide-img" style="height:420px;">
+  </div>
+</div>
+
 <!-- ═══ SLIDE 10: 그런데 지금은 ═══ -->
 <div class="slide center">
   <p style="font-size:1.5rem;font-weight:900;color:var(--navy);margin-bottom:1.5rem;letter-spacing:-0.5px;">그런데 지금은</p>
@@ -376,13 +385,23 @@
     <div class="stat"><div class="stat-value">₩0</div><div class="stat-label">마케팅비</div></div>
     <div class="stat"><div class="stat-value">~2시간</div><div class="stat-label">아이디어→라이브</div></div>
   </div>
+
+</div>
+
+<!-- ═══ SLIDE: 만든 것들 ═══ -->
+<div class="slide center">
+  <div class="sec-header" style="justify-content:center;border:none;"><span class="sec-title">이걸 만들었습니다</span></div>
+  <div style="display:flex;gap:2rem;align-items:flex-start;justify-content:center;">
+    <img src="images/homepage.jpg" alt="대시보드" class="slide-img" style="height:400px;">
+    <img src="images/관리자패널.jpg" alt="관리자 패널" class="slide-img" style="height:400px;">
+  </div>
 </div>
 
 <!-- ═══ SLIDE 16: 아웃트로 (NAVY) ═══ -->
 <div class="slide dark center">
   <p class="quote" style="color:var(--white);font-size:2.2rem;">나는 뭘 잘하는가.<br>뭘 만들고 싶은가.<br>남들과 다른 내 관점은 뭔가.</p>
   <p style="font-size:1.15rem;color:rgba(255,255,255,0.6);margin-top:2.5rem;">이 질문에 답할 수 있다면,<br>AI는 그걸 현실로 만들어줍니다.</p>
-  <p style="margin-top:3rem;font-size:0.9rem;color:rgba(255,255,255,0.4);font-family:'DM Serif Display',serif;letter-spacing:1px;">문유 · 웹3 게임 전략기획 · t.me/myu_moonyu</p>
+  <p style="margin-top:3rem;font-size:0.9rem;color:rgba(255,255,255,0.4);font-family:'Playfair Display',serif;letter-spacing:1px;">문유 · 웹3 게임 전략기획 · t.me/myu_moonyu</p>
 </div>
 
 <script>
