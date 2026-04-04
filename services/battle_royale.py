@@ -180,7 +180,7 @@ async def run_battle_royale(context, chat_id: int, participants: dict) -> dict[i
     show_list = contestants[:30]
     for c in show_list:
         tb = type_badge(c.pokemon_id)
-        intro_lines.append(f"  {tb}{c.pokemon_emoji} {c.pokemon_name} ({c.user_name})")
+        intro_lines.append(f"  {tb} {c.pokemon_name} ({c.user_name})")
     if len(contestants) > 30:
         intro_lines.append(f"  ...외 {len(contestants) - 30}마리")
     intro_lines.append(f"\n전원 HP {contestants[0].max_hp}로 시작!")
@@ -264,7 +264,7 @@ async def run_battle_royale(context, chat_id: int, participants: dict) -> dict[i
             text=(
                 f"================\n\n"
                 f"{champ} 최후의 생존자!\n\n"
-                f"  {type_badge(winner.pokemon_id)}{winner.pokemon_emoji} <b>{winner.pokemon_name}</b>\n"
+                f"  {type_badge(winner.pokemon_id)} <b>{winner.pokemon_name}</b>\n"
                 f"  트레이너: <b>{winner.user_name}</b>\n"
                 f"  남은 HP: {winner.hp}/{winner.max_hp}\n\n"
                 f"  {total}마리 중 끝까지 살아남았다!\n\n"
