@@ -215,6 +215,42 @@ async def resolve_spawn(context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
+        # ── 이벤트 모드: 선착순 5명 포획 ──
+        if chat_id in config.EVENT_CHAT_IDS:
+            winners.sort(key=lambda x: x["roll"])
+            event_winners = winners[:config.EVENT_CATCH_LIMIT]
+
+            for ew in event_winners:
+                try:
+                    _ew_inst, _ew_ivs = await queries.catch_pokemon_transaction(
+                        ew["user_id"], pokemon_id, chat_id, is_shiny, session_id,
+                        personality=_personality_str,
+                    )
+                except Exception:
+                    logger.error(f"Event catch failed for {ew['user_id']}")
+                    continue
+
+            # 안내 메시지
+            _lang = await get_group_lang(chat_id)
+            rbadge = rarity_badge(rarity)
+            tb = type_badge(pokemon_id)
+            shiny_label = f"{shiny_emoji()}{t(_lang, 'spawn_msg.shiny_label')}" if is_shiny else ""
+            catchers = ", ".join(ew["display_name"] for ew in event_winners)
+            be_pokeball = ball_emoji("pokeball")
+            msg = (
+                f"{be_pokeball} {shiny_label}{rbadge}{tb}<b>{pokemon_name}</b>\n"
+                f"{catchers} 포획!"
+            )
+            await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML")
+            lock.release()
+            await spawn_queries.close_spawn_session(session_id)
+            await spawn_queries.log_spawn(
+                chat_id, pokemon_id, pokemon_name, pokemon_emoji,
+                rarity, event_winners[0]["user_id"], event_winners[0]["display_name"],
+                participants, is_shiny=is_shiny, personality=_personality_str,
+            )
+            return
+
         # Pick winner
         if is_newbie_spawn:
             # 뉴비 스폰: 이미 (tier, roll) 기준 정렬됨
