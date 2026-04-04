@@ -443,16 +443,21 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
     cost_removed = []
 
     if _tournament_state.get("random_1v1"):
-        # 이벤트 모드: 이 채팅방에서 잡은 포켓몬 중 랜덤 1마리 선발
+        # 이벤트 모드: 이 채팅방에서 잡은 포켓몬 중 랜덤 1마리 선발 (종 중복 방지)
         import random as _rng
         event_chat = _tournament_state["chat_id"]
+        used_species: set[int] = set()  # 이미 선발된 pokemon_id
         for user_id, data in list(participants.items()):
             all_pokemon = await bq.get_user_pokemon_caught_in_chat(user_id, event_chat)
             if not all_pokemon:
                 removed.append(data["name"])
                 del participants[user_id]
             else:
-                picked = _rng.choice(all_pokemon)
+                # 아직 안 뽑힌 종 우선
+                unique_pool = [p for p in all_pokemon if p.get("pokemon_id", p.get("id")) not in used_species]
+                pool = unique_pool if unique_pool else all_pokemon
+                picked = _rng.choice(pool)
+                used_species.add(picked.get("pokemon_id", picked.get("id")))
                 data["team"] = [picked]
     else:
         from services.ranked_service import get_current_cost_limit
