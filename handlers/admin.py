@@ -39,6 +39,7 @@ from handlers.admin_manage import (  # noqa: F401
     resume_tournament_handler, co_champion_handler,
     abuse_list_handler, abuse_detail_handler, abuse_reset_handler,
     report_handler,
+    event_tournament_reg_handler, event_tournament_run_handler,
 )
 
 
