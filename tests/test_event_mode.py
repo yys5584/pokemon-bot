@@ -233,40 +233,67 @@ class TestTournamentRandom1v1:
             assert 111 not in _tournament_state["participants"]
 
 
-# ── 5. Event Placement Calculation ──────────────────────────────
+# ── 5. Battle Royale ─────────────────────────────────────────────
 
-class TestEventPlacement:
-    """Test placement ranking from eliminated dict."""
+class TestBattleRoyale:
+    """Test battle royale core logic."""
 
-    def test_placement_order(self):
-        """eliminated dict에서 순위가 올바르게 계산되는지."""
-        winner_id = 1
-        eliminated = {
-            2: 2,   # 결승 탈락 = 2등
-            3: 4,   # 4강 탈락 = 3~4등
-            4: 4,   # 4강 탈락 = 3~4등
-            5: 8,   # 8강 탈락
-            6: 8,
-            7: 8,
-            8: 8,
+    def test_build_contestants(self):
+        from services.battle_royale import build_contestants
+        participants = {
+            111: {"name": "유저A", "team": [{"pokemon_id": 25, "name_ko": "피카츄", "emoji": "⚡", "pokemon_type": "electric", "rarity": "common"}]},
+            222: {"name": "유저B", "team": [{"pokemon_id": 6, "name_ko": "리자몽", "emoji": "🔥", "pokemon_type": "fire", "rarity": "epic"}]},
         }
-        all_participants = {1, 2, 3, 4, 5, 6, 7, 8}
+        result = build_contestants(participants)
+        assert len(result) == 2
+        assert result[0].hp == 100
+        assert result[0].pokemon_type in ("electric", "fire")
 
-        # Build placements (same logic as implementation)
-        placements = {winner_id: 1}
-        rank = 2
-        for round_size in sorted(set(eliminated.values())):
-            users = [uid for uid, rs in eliminated.items() if rs == round_size]
-            for uid in users:
-                placements[uid] = rank
-            rank += len(users)
-        for uid in all_participants:
-            if uid not in placements:
-                placements[uid] = rank
-                rank += 1
+    def test_disaster_immunity(self):
+        from services.battle_royale import Contestant, DISASTERS, apply_disaster
+        # 해일: 물타입 면역
+        tsunami = [d for d in DISASTERS if d.name == "해일"][0]
+        contestants = [
+            Contestant(1, "A", 25, "피카츄", "⚡", "electric", "common"),
+            Contestant(2, "B", 7, "꼬부기", "💧", "water", "common"),
+        ]
+        alive, dead = apply_disaster(contestants, tsunami, 1)
+        # 꼬부기(물) = 면역, 피카츄 = 데미지
+        assert contestants[1].hp == 100  # 물타입 면역
+        assert contestants[0].hp < 100   # 전기타입 데미지
 
-        assert placements[1] == 1   # 우승
-        assert placements[2] == 2   # 결승 탈락
-        assert placements[3] in {3, 4}  # 4강 탈락 (공동)
-        assert placements[4] in {3, 4}
-        assert placements[5] in {4, 5, 6, 7}  # 8강 탈락
+    def test_disaster_kills(self):
+        from services.battle_royale import Contestant, DISASTERS, apply_disaster
+        tsunami = [d for d in DISASTERS if d.name == "해일"][0]
+        # 이미 HP 낮은 포켓몬
+        contestants = [
+            Contestant(1, "A", 25, "피카츄", "⚡", "electric", "common", hp=10),
+        ]
+        alive, dead = apply_disaster(contestants, tsunami, 1)
+        assert len(dead) == 1
+        assert dead[0].user_id == 1
+        assert not contestants[0].alive
+
+    def test_compute_placements(self):
+        from services.battle_royale import Contestant, compute_placements
+        contestants = [
+            Contestant(1, "A", 25, "피카", "⚡", "electric", "c", alive=True),
+            Contestant(2, "B", 6, "리자", "🔥", "fire", "c", alive=False, death_round=5),
+            Contestant(3, "C", 7, "꼬부", "💧", "water", "c", alive=False, death_round=3),
+            Contestant(4, "D", 1, "이상", "🌿", "grass", "c", alive=False, death_round=3),
+        ]
+        placements = compute_placements(contestants)
+        assert placements[1] == 1  # 생존 = 1등
+        assert placements[2] == 2  # 라운드5 탈락 = 2등
+        assert placements[3] == 3  # 라운드3 동시 탈락 = 공동 3등
+        assert placements[4] == 3  # 공동 3등
+
+    def test_healing_restores_hp(self):
+        from services.battle_royale import Contestant, HEALING_WIND, apply_disaster
+        contestants = [
+            Contestant(1, "A", 25, "피카", "⚡", "electric", "c", hp=50),
+        ]
+        alive, dead = apply_disaster(contestants, HEALING_WIND, 1)
+        assert contestants[0].hp > 50  # 회복
+        assert contestants[0].hp <= 100  # max_hp 초과 안 함
+        assert len(dead) == 0

@@ -513,6 +513,60 @@ async def start_tournament(context: ContextTypes.DEFAULT_TYPE):
     _tournament_state["registering"] = False
     _tournament_state["running"] = True
 
+    # ── 이벤트 모드: 배틀로얄 ──
+    if _tournament_state.get("random_1v1"):
+        participants = _tournament_state["participants"]
+        count = len(participants)
+        min_players = 2
+        if count < min_players:
+            await _safe_send(context.bot, chat_id,
+                text=f"취소: 참가자 부족 ({count}명 / 최소 {min_players}명)",
+            )
+            _reset_state()
+            await _clear_registrations_db()
+            await _resume_spawns(context, chat_id)
+            return
+
+        from services.battle_royale import run_battle_royale
+        placements = await run_battle_royale(context, chat_id, participants)
+
+        # 전원 DM
+        total = len(participants)
+        for uid, rank in placements.items():
+            pdata = participants.get(uid)
+            if not pdata:
+                continue
+            pname = pdata["name"]
+            team = pdata.get("team", [])
+            pkmn_name = team[0].get("name_ko", "???") if team else "???"
+            pkmn_emoji = team[0].get("emoji", "") if team else ""
+
+            if rank == 1:
+                result_text = f"{icon_emoji('champion_first')} 축하합니다! 최후의 생존자!"
+            elif rank <= 3:
+                result_text = "거의 끝까지 버텼습니다!"
+            elif rank <= total // 2:
+                result_text = "중반까지 선전했습니다!"
+            else:
+                result_text = "참가해 주셔서 감사합니다!"
+
+            dm_text = (
+                f"{icon_emoji('battle')} 배틀로얄 결과\n"
+                "━━━━━━━━━━━━━━━\n\n"
+                f"나의 포켓몬: {pkmn_emoji} {pkmn_name}\n"
+                f"최종 순위: {rank}/{total}등\n\n"
+                f"{result_text}"
+            )
+            try:
+                await context.bot.send_message(chat_id=uid, text=dm_text, parse_mode="HTML")
+            except Exception:
+                logger.warning(f"Failed to DM event participant {uid}")
+
+        _reset_state()
+        await _clear_registrations_db()
+        await _resume_spawns(context, chat_id)
+        return
+
     participants = _tournament_state["participants"]
     _bracket_icon = icon_emoji("bookmark")
 
