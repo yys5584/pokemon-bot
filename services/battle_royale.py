@@ -103,6 +103,9 @@ def pick_disaster(round_num: int, total_rounds_est: int, alive_count: int) -> Di
 
 def apply_disaster(contestants: list[Contestant], disaster: Disaster, round_num: int) -> tuple[list[Contestant], list[Contestant]]:
     """재해 적용. (생존자, 이번 라운드 탈락자) 반환."""
+    alive_before = [c for c in contestants if c.alive]
+    alive_count = len(alive_before)
+
     newly_dead = []
     for c in contestants:
         if not c.alive:
@@ -121,6 +124,17 @@ def apply_disaster(contestants: list[Contestant], disaster: Disaster, round_num:
             c.alive = False
             c.death_round = round_num
             newly_dead.append(c)
+
+    # 10명 이하: 한 라운드에 1명만 탈락 (순위 명확화)
+    if alive_count <= 10 and len(newly_dead) > 1:
+        # HP가 가장 낮은(= 가장 먼저 죽을) 1명만 탈락, 나머지 부활
+        newly_dead.sort(key=lambda c: c.hp)  # 모두 0이므로 원래 데미지 기준 정렬 위해 variance 사용
+        survivor_revive = newly_dead[1:]  # 1명 빼고 나머지
+        for c in survivor_revive:
+            c.alive = True
+            c.hp = 1  # 간신히 생존
+            c.death_round = 0
+        newly_dead = newly_dead[:1]
 
     alive = [c for c in contestants if c.alive]
     return alive, newly_dead

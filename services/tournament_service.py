@@ -359,29 +359,48 @@ async def register_player(user_id: int, display_name: str) -> tuple[bool, str]:
     if user_id in _tournament_state["participants"]:
         return False, "이미 등록되었습니다!"
 
-    # ── 이벤트 모드: 이 채팅방에서 잡은 포켓몬 1마리 이상만 ──
+    # ── 이벤트 모드: 이 채팅방에서 잡은 포켓몬 중 즉시 선발 ──
     if _tournament_state.get("random_1v1"):
+        import random as _rng
         event_chat = _tournament_state["chat_id"]
         all_pokemon = await bq.get_user_pokemon_caught_in_chat(user_id, event_chat)
         if not all_pokemon:
             return False, "이 채팅방에서 잡은 포켓몬이 없습니다! 먼저 ㅊ로 포획하세요."
+
+        # 이미 선발된 종 제외 + 높은 등급 가중치
+        _RARITY_WEIGHT = {"legendary": 10, "epic": 5, "rare": 3, "common": 1}
+        used_species: set[int] = set()
+        for p_data in _tournament_state["participants"].values():
+            if p_data.get("team"):
+                used_species.add(p_data["team"][0].get("pokemon_id", p_data["team"][0].get("id")))
+        unique_pool = [p for p in all_pokemon if p.get("pokemon_id", p.get("id")) not in used_species]
+        pool = unique_pool if unique_pool else all_pokemon
+        weights = [_RARITY_WEIGHT.get(p.get("rarity", "common"), 1) for p in pool]
+        picked = _rng.choices(pool, weights=weights, k=1)[0]
 
         # 마스터볼 지급
         mb_count = config.EVENT_STARTER_MASTERBALLS
         if mb_count > 0:
             await queries.add_master_ball(user_id, mb_count)
 
+        pkmn_name = picked.get("name_ko", "???")
+        pkmn_emoji = picked.get("emoji", "")
+        pkmn_rarity = picked.get("rarity", "")
+        from utils.helpers import type_badge as _tb, rarity_badge as _rb
+        tb = _tb(picked.get("pokemon_id", picked.get("id", 0)))
+        rb = _rb(pkmn_rarity)
+
         _tournament_state["participants"][user_id] = {
             "name": display_name,
-            "team": None,
+            "team": [picked],
         }
         await _save_registration_db(user_id, display_name)
         count = len(_tournament_state["participants"])
         mb_msg = f"\n{ball_emoji('masterball')} 마스터볼 {mb_count}개 지급!" if mb_count > 0 else ""
         return True, (
             f"{icon_emoji('check')} {display_name} 참가 등록!\n"
-            f"현재 참가자: {count}명{mb_msg}\n"
-            f"랜덤 포켓몬 1마리로 대결합니다!"
+            f"현재 참가자: {count}명{mb_msg}\n\n"
+            f"선발 포켓몬: {tb}{rb} <b>{pkmn_name}</b>"
         )
 
     # Check battle team exists + cost validation + season rule
@@ -443,25 +462,11 @@ async def snapshot_teams(context: ContextTypes.DEFAULT_TYPE):
     cost_removed = []
 
     if _tournament_state.get("random_1v1"):
-        # 이벤트 모드: 이 채팅방에서 잡은 포켓몬 중 랜덤 1마리 선발
-        # 높은 등급 우선 가중치 + 종 중복 방지
-        import random as _rng
-        _RARITY_WEIGHT = {"legendary": 10, "epic": 5, "rare": 3, "common": 1}
-        event_chat = _tournament_state["chat_id"]
-        used_species: set[int] = set()  # 이미 선발된 pokemon_id
+        # 이벤트 모드: 등록 시 이미 선발됨 — 팀 없는 참가자만 제거
         for user_id, data in list(participants.items()):
-            all_pokemon = await bq.get_user_pokemon_caught_in_chat(user_id, event_chat)
-            if not all_pokemon:
+            if not data.get("team"):
                 removed.append(data["name"])
                 del participants[user_id]
-            else:
-                # 아직 안 뽑힌 종 우선
-                unique_pool = [p for p in all_pokemon if p.get("pokemon_id", p.get("id")) not in used_species]
-                pool = unique_pool if unique_pool else all_pokemon
-                weights = [_RARITY_WEIGHT.get(p.get("rarity", "common"), 1) for p in pool]
-                picked = _rng.choices(pool, weights=weights, k=1)[0]
-                used_species.add(picked.get("pokemon_id", picked.get("id")))
-                data["team"] = [picked]
     else:
         from services.ranked_service import get_current_cost_limit
         cost_limit = await get_current_cost_limit()
