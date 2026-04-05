@@ -90,3 +90,13 @@ def sample_pokemon():
         "iv_hp": 20, "iv_atk": 25, "iv_def": 15,
         "iv_spa": 28, "iv_spdef": 18, "iv_spd": 22,
     }
+
+
+# ── 5. 시나리오 테스트용 서비스 상태 리셋 ──
+@pytest.fixture
+def reset_services():
+    """모든 서비스 글로벌 상태를 초기화 (시나리오 테스트 전후)."""
+    from tests.scenario_helpers import reset_all_service_state
+    reset_all_service_state()
+    yield
+    reset_all_service_state()
